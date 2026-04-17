@@ -41,6 +41,8 @@
 					/><path d="M16 3.13a4 4 0 0 1 0 7.75" />
 				{:else if tab.icon === 'training'}
 					<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+				{:else if tab.icon === 'critical-tasks'}
+					<path d="M9 11l2 2 4-4" /><path d="M9 17l2 2 4-4" /><path d="M5 4h14v17H5z" /><path d="M8 4V2h8v2" />
 				{:else if tab.icon === 'onboarding'}
 					<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect
 						x="8"
@@ -56,7 +58,12 @@
 					/>
 				{/if}
 			</svg>
-			<span class="tab-label">{tab.compactLabel ?? tab.label}</span>
+			<span class="tab-copy">
+				<span class="tab-label">{tab.compactLabel ?? tab.label}</span>
+				{#if tab.badgeLabel}
+					<span class="tab-badge">{tab.badgeLabel}</span>
+				{/if}
+			</span>
 		</a>
 	{/each}
 </nav>
@@ -109,6 +116,33 @@
 			text-transform: uppercase;
 			letter-spacing: 0.12em;
 			line-height: 1;
+		}
+
+		.tab-copy {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+			min-width: 0;
+		}
+
+		.tab-badge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 14px;
+			padding: 1px 4px;
+			border: 1px solid rgba(var(--amber-rgb), 0.28);
+			border-radius: 4px;
+			background: rgba(var(--amber-rgb), 0.14);
+			color: var(--color-chrome-active);
+			font-family: var(--font-mono);
+			font-size: 8px;
+			font-weight: var(--font-weight-semibold);
+			letter-spacing: 0.08em;
+			line-height: 1;
+			text-transform: uppercase;
+			white-space: nowrap;
 		}
 
 		.tab::before {

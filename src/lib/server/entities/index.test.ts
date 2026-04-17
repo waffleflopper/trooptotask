@@ -21,6 +21,8 @@ describe('entities barrel export', () => {
 		expect(entities.CounselingRecordEntity).toBeDefined();
 		expect(entities.DevelopmentGoalEntity).toBeDefined();
 		expect(entities.TrainingViewEntity).toBeDefined();
+		expect(entities.IctTaskEntity).toBeDefined();
+		expect(entities.PersonnelIctCompletionEntity).toBeDefined();
 	});
 
 	it('each entity has fromDb, fromDbArray, and repo', () => {
@@ -42,7 +44,9 @@ describe('entities barrel export', () => {
 			entities.PersonnelOnboardingEntity,
 			entities.CounselingRecordEntity,
 			entities.DevelopmentGoalEntity,
-			entities.TrainingViewEntity
+			entities.TrainingViewEntity,
+			entities.IctTaskEntity,
+			entities.PersonnelIctCompletionEntity
 		];
 
 		for (const entity of allEntities) {

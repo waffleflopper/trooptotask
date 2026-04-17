@@ -3,6 +3,7 @@
 
 	interface Props {
 		title: string;
+		titleBadge?: string;
 		variant?: 'default' | 'compact';
 		sticky?: boolean;
 		breadcrumbs?: { label: string; href?: string }[];
@@ -11,11 +12,20 @@
 		useBelow?: boolean;
 	}
 
-	let { title, variant, sticky, breadcrumbs, subtitle, useLeading = false, useBelow = false }: Props = $props();
+	let {
+		title,
+		titleBadge,
+		variant,
+		sticky,
+		breadcrumbs,
+		subtitle,
+		useLeading = false,
+		useBelow = false
+	}: Props = $props();
 </script>
 
 {#if useLeading && useBelow}
-	<PageToolbar {title} {variant} {sticky} {breadcrumbs} {subtitle}>
+	<PageToolbar {title} {titleBadge} {variant} {sticky} {breadcrumbs} {subtitle}>
 		{#snippet leading()}
 			<div data-testid="custom-leading">Custom Leading</div>
 		{/snippet}
@@ -24,17 +34,17 @@
 		{/snippet}
 	</PageToolbar>
 {:else if useLeading}
-	<PageToolbar {title} {variant} {sticky} {breadcrumbs} {subtitle}>
+	<PageToolbar {title} {titleBadge} {variant} {sticky} {breadcrumbs} {subtitle}>
 		{#snippet leading()}
 			<div data-testid="custom-leading">Custom Leading</div>
 		{/snippet}
 	</PageToolbar>
 {:else if useBelow}
-	<PageToolbar {title} {variant} {sticky} {breadcrumbs} {subtitle}>
+	<PageToolbar {title} {titleBadge} {variant} {sticky} {breadcrumbs} {subtitle}>
 		{#snippet below()}
 			<div data-testid="custom-below">Filter Bar</div>
 		{/snippet}
 	</PageToolbar>
 {:else}
-	<PageToolbar {title} {variant} {sticky} {breadcrumbs} {subtitle} />
+	<PageToolbar {title} {titleBadge} {variant} {sticky} {breadcrumbs} {subtitle} />
 {/if}

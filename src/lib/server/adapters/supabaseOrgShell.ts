@@ -41,6 +41,8 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import { IctTaskEntity } from '$lib/server/entities/ictTask';
+import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -48,6 +50,8 @@ import type { PersonnelTraining, TrainingType, TrainingView } from '$features/tr
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
 import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
+import type { CriticalTasksBootstrap } from '../core/useCases/criticalTasksQuery';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 
@@ -596,6 +600,115 @@ export function createSupabaseTrainingWorkspacePort(
 			}
 
 			return getTrainingData(true) as Promise<DeferredData<T>>;
+		}
+	};
+}
+
+export function createSupabaseCriticalTasksWorkspacePort(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string
+): StreamableOrgWorkspacePort {
+	function getCriticalTasksData(): Promise<CriticalTasksBootstrap>;
+	function getCriticalTasksData(defer: true): Promise<DeferredData<CriticalTasksBootstrap>>;
+	function getCriticalTasksData(
+		defer: boolean = false
+	): Promise<CriticalTasksBootstrap> | Promise<DeferredData<CriticalTasksBootstrap>> {
+		const fn = async (ctx: UseCaseContext) => {
+			const loadCriticalTasksItems = <T>(
+				label: string,
+				load: Promise<Record<string, unknown>[]>,
+				mapRows: (rows: Record<string, unknown>[]) => T
+			): Promise<T> =>
+				load.then(mapRows).catch((error) => {
+					console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
+						orgId,
+						error
+					});
+					throw error;
+				});
+
+			const personnel = loadCriticalTasksItems(
+				'personnel',
+				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+					select: PersonnelEntity.select,
+					isNull: { archived_at: true },
+					orderBy: [{ column: 'last_name', ascending: true }]
+				}),
+				(rows) => PersonnelEntity.fromDbArray(rows) as Personnel[]
+			);
+			const groups = loadCriticalTasksItems(
+				'groups',
+				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				(rows) => GroupEntity.fromDbArray(rows) as Group[]
+			);
+			const ictTasks = loadCriticalTasksItems(
+				'ICT tasks',
+				ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
+					isNull: { archived_at: true },
+					orderBy: [
+						{ column: 'sort_order', ascending: true },
+						{ column: 'task_code', ascending: true }
+					]
+				}),
+				(rows) => IctTaskEntity.fromDbArray(rows) as IctTask[]
+			);
+			const personnelIctCompletions = Promise.all([personnel, ictTasks])
+				.then(([loadedPersonnel, loadedTasks]) =>
+					ctx.criticalTasksReadModel.findLatestCompletions(orgId, {
+						personnelIds: loadedPersonnel.map((person) => person.id),
+						taskIds: loadedTasks.map((task) => task.id)
+					})
+				)
+				.then((rows) => PersonnelIctCompletionEntity.fromDbArray(rows) as PersonnelIctCompletion[])
+				.catch((error) => {
+					console.error('[critical-tasks-workspace] Failed to load personnel ICT completions', {
+						orgId,
+						error
+					});
+					throw error;
+				});
+
+			return {
+				personnel,
+				groups,
+				ictTasks,
+				personnelIctCompletions
+			};
+		};
+
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'training',
+				defer: true,
+				fn
+			});
+		}
+
+		return loadWithContext(locals, cookies, orgId, {
+			permission: 'training',
+			fn
+		});
+	}
+
+	return {
+		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
+			if (workspace !== 'critical-tasks') {
+				throw new Error(`createSupabaseCriticalTasksWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			const data = await getCriticalTasksData();
+
+			return data as T;
+		},
+		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
+			if (workspace !== 'critical-tasks') {
+				throw new Error(`createSupabaseCriticalTasksWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			return getCriticalTasksData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

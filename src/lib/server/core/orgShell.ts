@@ -17,6 +17,7 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 // ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ export interface OrgShellData {
 // Workspace types
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' | 'onboarding';
+export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding';
 
 /**
  * Serializable description of how each client store should be hydrated.
@@ -117,6 +118,8 @@ export interface HydrationPlan {
 	trainingTypes?: HydrationTarget;
 	trainingViews?: HydrationTarget;
 	personnelTrainings?: HydrationTarget<PersonnelTraining>;
+	ictTasks?: HydrationTarget<IctTask>;
+	personnelIctCompletions?: HydrationTarget<PersonnelIctCompletion>;
 	pinnedGroups?: HydrationTarget<string>;
 	ratingSchemeEntries?: HydrationTarget<RatingSchemeEntry>;
 	onboardingTemplates?: OnboardingTemplatesHydrationTarget;

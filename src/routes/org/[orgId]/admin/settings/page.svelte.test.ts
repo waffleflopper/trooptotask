@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 vi.mock('$app/stores', () => ({
 	page: {
@@ -31,6 +32,7 @@ describe('admin settings page', () => {
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
 	it('shows the loss warning control and saves the warning window through the settings endpoint', async () => {
@@ -38,7 +40,11 @@ describe('admin settings page', () => {
 			props: {
 				data: {
 					retentionMonths: 36,
-					lossWarningWindowDays: 180
+					lossWarningWindowDays: 180,
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
 				} as never
 			}
 		});
@@ -49,13 +55,13 @@ describe('admin settings page', () => {
 		expect((warningInput as HTMLInputElement).value).toBe('180');
 
 		await fireEvent.input(warningInput, { target: { value: '90' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Warning Window' }));
 
 		await waitFor(() => {
 			expect(global.fetch).toHaveBeenCalledWith('/org/org-1/api/organization/settings', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ archiveRetentionMonths: 36, lossWarningWindowDays: 90 })
+				body: JSON.stringify({ lossWarningWindowDays: 90 })
 			});
 		});
 	});
@@ -65,7 +71,11 @@ describe('admin settings page', () => {
 			props: {
 				data: {
 					retentionMonths: 36,
-					lossWarningWindowDays: 180
+					lossWarningWindowDays: 180,
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
 				} as never
 			}
 		});
@@ -75,6 +85,47 @@ describe('admin settings page', () => {
 
 		expect(screen.getByText('Must be between 1 and 365 days.')).toBeTruthy();
 		expect(screen.queryByText('Must be between 1 and 120 months.')).toBeNull();
-		expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Save Warning Window' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('renders the Critical Tasks settings section and saves organization defaults through the existing endpoint', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => undefined);
+
+		render(Page, {
+			props: {
+				data: {
+					retentionMonths: 36,
+					lossWarningWindowDays: 180,
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Critical Tasks' })).toBeTruthy();
+		expect((screen.getByLabelText('Default expiration (months)') as HTMLInputElement).value).toBe('12');
+		expect((screen.getByLabelText('Expiring soon window (days)') as HTMLInputElement).value).toBe('60');
+
+		await fireEvent.input(screen.getByLabelText('Default expiration (months)'), {
+			target: { value: '18' }
+		});
+		await fireEvent.input(screen.getByLabelText('Expiring soon window (days)'), {
+			target: { value: '45' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Critical Tasks' }));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledWith('/org/org-1/api/organization/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					criticalTasksDefaultExpirationMonths: 18,
+					criticalTasksExpiringSoonWarningDays: 45
+				})
+			});
+			expect(successToast).toHaveBeenCalledWith('Settings saved');
+		});
 	});
 });

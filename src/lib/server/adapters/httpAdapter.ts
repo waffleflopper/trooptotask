@@ -36,6 +36,7 @@ import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
+import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -92,6 +93,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
+	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		ctx: {
@@ -104,6 +106,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			notifications,
 			billing,
 			storage: createSupabaseStorageAdapter(supabase),
+			criticalTasksReadModel,
 			rawStore: store
 		},
 		supabase,
@@ -155,6 +158,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
+	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		store: scopedStore,
@@ -166,6 +170,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		notifications,
 		billing,
 		storage,
+		criticalTasksReadModel,
 		rawStore: store
 	};
 }
@@ -204,6 +209,7 @@ export async function buildLayoutContextFromMembership(
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
+	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		store: scopedStore,
@@ -215,6 +221,7 @@ export async function buildLayoutContextFromMembership(
 		notifications,
 		billing,
 		storage,
+		criticalTasksReadModel,
 		rawStore: store
 	};
 }
@@ -509,6 +516,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		requireFullEditor: entity.requireFullEditor,
+		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
 	};

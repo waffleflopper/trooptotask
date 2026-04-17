@@ -30,6 +30,9 @@ const dashboard: IctReportDashboard = {
 	tasksBelowThreshold: {
 		thresholdPercent: 70,
 		rows: []
+	},
+	atRiskSoldiers: {
+		rows: []
 	}
 };
 

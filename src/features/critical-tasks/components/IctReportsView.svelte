@@ -8,6 +8,7 @@
 	import type { Personnel } from '$lib/types';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
 	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
 
@@ -182,6 +183,7 @@
 		<EmptyState message="No critical tasks configured yet." />
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
+		<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
 		<IctTasksBelowThresholdTable
 			rows={dashboard.tasksBelowThreshold.rows}
 			thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}

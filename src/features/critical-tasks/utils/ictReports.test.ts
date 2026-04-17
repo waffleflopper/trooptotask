@@ -288,6 +288,163 @@ describe('ictReports', () => {
 		});
 	});
 
+	it('includes at-risk Soldier rows sorted worst-first for the shared dashboard payload', () => {
+		const staleZero: Personnel = {
+			...infantry,
+			id: 'person-stale-zero',
+			firstName: 'Ryan',
+			lastName: 'Stale',
+			groupId: 'group-alpha',
+			groupName: 'Alpha'
+		};
+		const noUpdate: Personnel = {
+			...infantry,
+			id: 'person-no-update',
+			firstName: 'Nora',
+			lastName: 'NoUpdate',
+			groupId: 'group-alpha',
+			groupName: 'Alpha'
+		};
+		const staleTie: Personnel = {
+			...medic,
+			id: 'person-stale-tie',
+			firstName: 'Sam',
+			lastName: 'StaleTie'
+		};
+		const recentTie: Personnel = {
+			...medic,
+			id: 'person-recent-tie',
+			firstName: 'Reese',
+			lastName: 'RecentTie'
+		};
+		const lowerExpiringTie: Personnel = {
+			...medic,
+			id: 'person-lower-expiring',
+			firstName: 'Lee',
+			lastName: 'LowerExpiring'
+		};
+		const expiringTask: IctTask = {
+			...commonTask,
+			id: 'task-expiring',
+			taskCode: '081-000-1001',
+			title: 'Expiring task'
+		};
+		const currentTask: IctTask = {
+			...commonTask,
+			id: 'task-current',
+			taskCode: '081-000-1002',
+			title: 'Current task'
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [staleZero, noUpdate, staleTie, recentTie, lowerExpiringTie],
+			tasks: [expiringTask, currentTask],
+			completions: [
+				completion({
+					id: 'completion-stale-zero',
+					personnelId: staleZero.id,
+					ictTaskId: currentTask.id,
+					completedAt: '2024-01-01',
+					createdAt: '2024-02-01T00:00:00Z'
+				}),
+				completion({
+					id: 'completion-stale-tie',
+					personnelId: staleTie.id,
+					ictTaskId: expiringTask.id,
+					completedAt: '2025-04-20',
+					createdAt: '2026-03-01T00:00:00Z'
+				}),
+				completion({
+					id: 'completion-recent-tie',
+					personnelId: recentTie.id,
+					ictTaskId: expiringTask.id,
+					completedAt: '2025-04-20',
+					createdAt: '2026-03-20T00:00:00Z'
+				}),
+				completion({
+					id: 'completion-lower-expiring',
+					personnelId: lowerExpiringTie.id,
+					ictTaskId: currentTask.id,
+					completedAt: '2026-02-10',
+					createdAt: '2026-02-10T00:00:00Z'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-01'
+		});
+
+		expect(dashboard.atRiskSoldiers.rows).toEqual([
+			{
+				personnelId: 'person-stale-zero',
+				soldierName: 'Stale, Ryan',
+				mos: '11B',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 0,
+				applicableCount: 2,
+				readyCount: 0,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: 790,
+				lastIctUpdateAt: '2024-02-01T00:00:00Z'
+			},
+			{
+				personnelId: 'person-no-update',
+				soldierName: 'NoUpdate, Nora',
+				mos: '11B',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 0,
+				applicableCount: 2,
+				readyCount: 0,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: null,
+				lastIctUpdateAt: null
+			},
+			{
+				personnelId: 'person-stale-tie',
+				soldierName: 'StaleTie, Sam',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 50,
+				applicableCount: 2,
+				readyCount: 1,
+				tasksExpiringSoonCount: 1,
+				daysSinceLastIctUpdate: 31,
+				lastIctUpdateAt: '2026-03-01T00:00:00Z'
+			},
+			{
+				personnelId: 'person-recent-tie',
+				soldierName: 'RecentTie, Reese',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 50,
+				applicableCount: 2,
+				readyCount: 1,
+				tasksExpiringSoonCount: 1,
+				daysSinceLastIctUpdate: 12,
+				lastIctUpdateAt: '2026-03-20T00:00:00Z'
+			},
+			{
+				personnelId: 'person-lower-expiring',
+				soldierName: 'LowerExpiring, Lee',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 50,
+				applicableCount: 2,
+				readyCount: 1,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: 50,
+				lastIctUpdateAt: '2026-02-10T00:00:00Z'
+			}
+		]);
+	});
+
 	it('computes readiness from applicable tasks only, counting current and expiring-soon tasks as ready', () => {
 		const summary = buildIctReportSummary({
 			personnel: [medic, infantry],

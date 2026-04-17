@@ -89,6 +89,23 @@ const initialDashboard: IctReportDashboard = {
 				completeCount: 1
 			}
 		]
+	},
+	atRiskSoldiers: {
+		rows: [
+			{
+				personnelId: infantry.id,
+				soldierName: 'Jones, Alex',
+				mos: '11B',
+				rank: 'SGT',
+				groupName: 'Bravo',
+				readinessPercent: 50,
+				applicableCount: 2,
+				readyCount: 1,
+				tasksExpiringSoonCount: 1,
+				daysSinceLastIctUpdate: 42,
+				lastIctUpdateAt: '2026-02-01T00:00:00Z'
+			}
+		]
 	}
 };
 
@@ -118,6 +135,23 @@ const filteredDashboard: IctReportDashboard = {
 	tasksBelowThreshold: {
 		thresholdPercent: 70,
 		rows: []
+	},
+	atRiskSoldiers: {
+		rows: [
+			{
+				personnelId: medic.id,
+				soldierName: 'Smith, Jane',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 100,
+				applicableCount: 2,
+				readyCount: 2,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: 5,
+				lastIctUpdateAt: '2026-03-10T00:00:00Z'
+			}
+		]
 	}
 };
 
@@ -160,6 +194,8 @@ describe('IctReportsView', () => {
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
+		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 
@@ -183,8 +219,9 @@ describe('IctReportsView', () => {
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
 				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
-			expect(screen.getByText('100%')).toBeTruthy();
+			expect(within(kpiStrip).getByText('100%')).toBeTruthy();
 			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});
 	});
 

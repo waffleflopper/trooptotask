@@ -64,6 +64,28 @@ export interface IctAtRiskSoldierRow {
 	lastIctUpdateAt: string | null;
 }
 
+export interface IctReadinessTrendMonth {
+	month: string;
+	label: string;
+	overallReadinessPercent: number;
+	overallReadyCount: number;
+	overallApplicableCount: number;
+	mosReadiness: IctReadinessTrendMosSnapshot[];
+}
+
+export interface IctReadinessTrendMosSnapshot {
+	mos: string;
+	personnelCount: number;
+	readinessPercent: number;
+	readyCount: number;
+	applicableCount: number;
+}
+
+export interface IctReadinessTrend {
+	comparisonMos: string[];
+	months: IctReadinessTrendMonth[];
+}
+
 export interface IctReportSummary {
 	overallReadinessPercent: number;
 	readinessByMos: IctMosReadinessSummary[];
@@ -102,6 +124,7 @@ export interface IctReportDashboard {
 	atRiskSoldiers: {
 		rows: IctAtRiskSoldierRow[];
 	};
+	readinessTrend: IctReadinessTrend;
 }
 
 interface ReadinessSnapshot {
@@ -118,6 +141,12 @@ interface TaskReadinessSummary {
 	task: IctTask;
 	applicableCount: number;
 	readyCount: number;
+}
+
+interface ReadinessCounts {
+	percent: number;
+	readyCount: number;
+	applicableCount: number;
 }
 
 function completionKey(personnelId: string, ictTaskId: string): string {
@@ -150,6 +179,24 @@ function addDays(date: Date, days: number): Date {
 	return next;
 }
 
+function addMonths(date: Date, months: number): Date {
+	const next = new Date(date);
+	next.setMonth(next.getMonth() + months, 1);
+	return next;
+}
+
+function endOfMonth(date: Date): Date {
+	return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function formatMonthKey(date: Date): string {
+	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthLabel(date: Date): string {
+	return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
+
 function daysBetweenDates(start: Date, end: Date): number {
 	const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()) / MS_PER_DAY;
 	const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) / MS_PER_DAY;
@@ -164,10 +211,31 @@ function soldierName(person: Personnel): string {
 	return `${person.lastName}, ${person.firstName}`;
 }
 
+function normalizeMosName(mos: string): string {
+	return mos.trim() || 'Unknown';
+}
+
 function normalizeReportMosFilter(mos: string | string[] | undefined): string[] {
 	if (!mos) return [];
 	const values = Array.isArray(mos) ? mos : mos.split(',');
 	return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function selectTopMosByHeadcount(personnel: Personnel[], limit = 4): { mos: string; personnelCount: number }[] {
+	const headcounts = new Map<string, number>();
+	for (const person of personnel) {
+		if (person.archivedAt) {
+			continue;
+		}
+
+		const mos = normalizeMosName(person.mos);
+		headcounts.set(mos, (headcounts.get(mos) ?? 0) + 1);
+	}
+
+	return [...headcounts.entries()]
+		.map(([mos, personnelCount]) => ({ mos, personnelCount }))
+		.sort((left, right) => right.personnelCount - left.personnelCount || left.mos.localeCompare(right.mos))
+		.slice(0, limit);
 }
 
 function buildLatestCompletionLookup(
@@ -401,6 +469,113 @@ function countExpiringSoon(input: {
 	};
 }
 
+function buildReadinessCounts(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+	comparisonMos?: { mos: string; personnelCount: number }[];
+}): { overall: ReadinessCounts; mosReadiness: IctReadinessTrendMosSnapshot[] } {
+	const latestCompletions = buildLatestCompletionLookup(input.completions, input.asOf);
+	const comparisonMos = input.comparisonMos ?? [];
+	const comparisonMosSet = new Set(comparisonMos.map(({ mos }) => mos));
+	const mosCounts = new Map<string, { readyCount: number; applicableCount: number }>(
+		comparisonMos.map(({ mos }) => [mos, { readyCount: 0, applicableCount: 0 }])
+	);
+	let readyCount = 0;
+	let applicableCount = 0;
+
+	for (const person of input.personnel) {
+		if (person.archivedAt) {
+			continue;
+		}
+
+		const mos = normalizeMosName(person.mos);
+		const selectedMosCounts = comparisonMosSet.has(mos) ? mosCounts.get(mos) : undefined;
+		for (const task of input.activeTasks) {
+			if (!isIctTaskApplicableToMos(task, person.mos)) {
+				continue;
+			}
+
+			applicableCount += 1;
+			if (selectedMosCounts) {
+				selectedMosCounts.applicableCount += 1;
+			}
+
+			const completion = latestCompletions.get(completionKey(person.id, task.id));
+			const status = getIctStatus(completion?.completedAt ?? null, task, input.settings, input.asOf).status;
+			if (status === 'current' || status === 'expiring-soon') {
+				readyCount += 1;
+				if (selectedMosCounts) {
+					selectedMosCounts.readyCount += 1;
+				}
+			}
+		}
+	}
+
+	return {
+		overall: {
+			percent: computeReadinessPercent(readyCount, applicableCount),
+			readyCount,
+			applicableCount
+		},
+		mosReadiness: comparisonMos.map(({ mos, personnelCount }) => {
+			const counts = mosCounts.get(mos) ?? { readyCount: 0, applicableCount: 0 };
+			return {
+				mos,
+				personnelCount,
+				readinessPercent: computeReadinessPercent(counts.readyCount, counts.applicableCount),
+				readyCount: counts.readyCount,
+				applicableCount: counts.applicableCount
+			};
+		})
+	};
+}
+
+function buildReadinessTrend(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): IctReadinessTrend {
+	const asOfDate = resolveAsOfDate(input.asOf);
+	const currentMonthStart = new Date(asOfDate.getFullYear(), asOfDate.getMonth(), 1);
+	const comparisonMos = selectTopMosByHeadcount(input.personnel);
+	const months = Array.from({ length: 12 }, (_, index) => addMonths(currentMonthStart, index - 11)).map(
+		(monthStart) => {
+			const snapshotDate =
+				monthStart.getFullYear() === currentMonthStart.getFullYear() &&
+				monthStart.getMonth() === currentMonthStart.getMonth()
+					? asOfDate
+					: endOfMonth(monthStart);
+			const snapshot = buildReadinessCounts({
+				personnel: input.personnel,
+				activeTasks: input.activeTasks,
+				completions: input.completions,
+				settings: input.settings,
+				asOf: snapshotDate,
+				comparisonMos
+			});
+
+			return {
+				month: formatMonthKey(monthStart),
+				label: formatMonthLabel(monthStart),
+				overallReadinessPercent: snapshot.overall.percent,
+				overallReadyCount: snapshot.overall.readyCount,
+				overallApplicableCount: snapshot.overall.applicableCount,
+				mosReadiness: snapshot.mosReadiness
+			};
+		}
+	);
+
+	return {
+		comparisonMos: comparisonMos.map(({ mos }) => mos),
+		months
+	};
+}
+
 function buildCompletionTrend(
 	personnel: Personnel[],
 	tasks: IctTask[],
@@ -505,7 +680,14 @@ export function buildIctReportDashboard({
 		},
 		atRiskSoldiers: {
 			rows: currentSnapshot.atRiskSoldierRows
-		}
+		},
+		readinessTrend: buildReadinessTrend({
+			personnel,
+			activeTasks,
+			completions,
+			settings,
+			asOf: currentAsOfDate
+		})
 	};
 }
 

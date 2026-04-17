@@ -16,6 +16,10 @@ describe('critical tasks reports page server load', () => {
 			},
 			atRiskSoldiers: {
 				rows: []
+			},
+			readinessTrend: {
+				comparisonMos: [],
+				months: []
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

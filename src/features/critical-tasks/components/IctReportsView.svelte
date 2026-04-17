@@ -10,6 +10,7 @@
 	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
+	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
 	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
 
 	interface Props {
@@ -183,12 +184,15 @@
 		<EmptyState message="No critical tasks configured yet." />
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
+		<div class="report-visual-grid">
+			<IctReadinessTrendChart trend={dashboard.readinessTrend} loading={dashboardLoading} />
+			<IctTasksBelowThresholdTable
+				rows={dashboard.tasksBelowThreshold.rows}
+				thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
+				loading={dashboardLoading}
+			/>
+		</div>
 		<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
-		<IctTasksBelowThresholdTable
-			rows={dashboard.tasksBelowThreshold.rows}
-			thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
-			loading={dashboardLoading}
-		/>
 	{/if}
 </div>
 
@@ -198,6 +202,13 @@
 		flex-direction: column;
 		gap: var(--sp-4);
 		padding: var(--sp-3);
+	}
+
+	.report-visual-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: var(--sp-4);
+		align-items: start;
 	}
 
 	.report-filters,
@@ -247,6 +258,12 @@
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 		color: var(--text-secondary);
+	}
+
+	@media (max-width: 1024px) {
+		.report-visual-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (max-width: 640px) {

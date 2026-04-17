@@ -5,7 +5,7 @@ import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import type { IctReadinessTrend, IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
@@ -52,6 +52,30 @@ const commonTask: IctTask = {
 	title: 'Open airway',
 	mos: []
 };
+
+function readinessTrend(percent: number, mos = '11B'): IctReadinessTrend {
+	return {
+		comparisonMos: [mos],
+		months: [
+			{
+				month: '2026-03',
+				label: 'Mar 2026',
+				overallReadinessPercent: percent - 10,
+				overallReadyCount: 1,
+				overallApplicableCount: 2,
+				mosReadiness: [{ mos, personnelCount: 1, readinessPercent: percent - 10, readyCount: 1, applicableCount: 2 }]
+			},
+			{
+				month: '2026-04',
+				label: 'Apr 2026',
+				overallReadinessPercent: percent,
+				overallReadyCount: 2,
+				overallApplicableCount: 2,
+				mosReadiness: [{ mos, personnelCount: 1, readinessPercent: percent, readyCount: 2, applicableCount: 2 }]
+			}
+		]
+	};
+}
 
 const initialDashboard: IctReportDashboard = {
 	kpis: {
@@ -106,7 +130,8 @@ const initialDashboard: IctReportDashboard = {
 				lastIctUpdateAt: '2026-02-01T00:00:00Z'
 			}
 		]
-	}
+	},
+	readinessTrend: readinessTrend(67)
 };
 
 const filteredDashboard: IctReportDashboard = {
@@ -152,11 +177,25 @@ const filteredDashboard: IctReportDashboard = {
 				lastIctUpdateAt: '2026-03-10T00:00:00Z'
 			}
 		]
-	}
+	},
+	readinessTrend: readinessTrend(100, '68W')
 };
 
 describe('IctReportsView', () => {
 	beforeEach(() => {
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+			x: 0,
+			y: 0,
+			width: 720,
+			height: 320,
+			top: 0,
+			right: 720,
+			bottom: 320,
+			left: 0,
+			toJSON: () => ({})
+		} as DOMRect);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(720);
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(360);
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => ({
@@ -185,8 +224,8 @@ describe('IctReportsView', () => {
 
 		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
 		expect(screen.getByText('Beta')).toBeTruthy();
-		expect(screen.getByText('67%')).toBeTruthy();
 		const kpiStrip = screen.getByRole('region', { name: 'Action KPIs' });
+		expect(within(kpiStrip).getByText('67%')).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤30d' })).toBeTruthy();
@@ -196,6 +235,9 @@ describe('IctReportsView', () => {
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
 		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers' });
 		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
+		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
+		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 
@@ -220,6 +262,7 @@ describe('IctReportsView', () => {
 				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
 			expect(within(kpiStrip).getByText('100%')).toBeTruthy();
+			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
 			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});

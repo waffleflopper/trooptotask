@@ -33,6 +33,10 @@ const dashboard: IctReportDashboard = {
 	},
 	atRiskSoldiers: {
 		rows: []
+	},
+	readinessTrend: {
+		comparisonMos: [],
+		months: []
 	}
 };
 

@@ -7,6 +7,7 @@ import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type {
 	IctExpirationCliff,
+	IctReadinessDistribution,
 	IctReadinessMatrix,
 	IctReadinessTrend,
 	IctReportDashboard
@@ -160,6 +161,34 @@ function readinessMatrix(percent: number, mos = '11B'): IctReadinessMatrix {
 	};
 }
 
+const distributionBins = [
+	{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
+	{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
+	{ key: '40-60', label: '40-60%', minPercent: 40, maxPercent: 60 },
+	{ key: '60-80', label: '60-80%', minPercent: 60, maxPercent: 80 },
+	{ key: '80-100', label: '80-100%', minPercent: 80, maxPercent: 100 }
+];
+
+function readinessDistribution(defaultMos = '11B', mosValues = [defaultMos]): IctReadinessDistribution {
+	const countsByMos: Record<string, number[]> = {
+		'11B': [1, 0, 0, 1, 1],
+		'68W': [0, 1, 0, 0, 1]
+	};
+
+	return {
+		bins: distributionBins,
+		defaultMos,
+		series: mosValues.map((mos) => {
+			const counts = countsByMos[mos] ?? [0, 0, 0, 0, 0];
+			return {
+				mos,
+				personnelCount: counts.reduce((total, count) => total + count, 0),
+				bins: distributionBins.map((bin, index) => ({ ...bin, soldierCount: counts[index] ?? 0 }))
+			};
+		})
+	};
+}
+
 const initialDashboard: IctReportDashboard = {
 	kpis: {
 		overallReadiness: {
@@ -176,7 +205,7 @@ const initialDashboard: IctReportDashboard = {
 		tasksExpiringSoon: {
 			count: 1,
 			affectedSoldiers: 1,
-			windowDays: 30
+			windowDays: 45
 		},
 		tasksBelowThreshold: {
 			count: 1,
@@ -216,7 +245,8 @@ const initialDashboard: IctReportDashboard = {
 	},
 	readinessTrend: readinessTrend(67),
 	expirationCliff: expirationCliff(58),
-	readinessMatrix: readinessMatrix(67)
+	readinessMatrix: readinessMatrix(67),
+	readinessDistribution: readinessDistribution('11B', ['11B', '68W'])
 };
 
 const filteredDashboard: IctReportDashboard = {
@@ -235,7 +265,7 @@ const filteredDashboard: IctReportDashboard = {
 		tasksExpiringSoon: {
 			count: 0,
 			affectedSoldiers: 0,
-			windowDays: 30
+			windowDays: 60
 		},
 		tasksBelowThreshold: {
 			count: 0,
@@ -265,7 +295,8 @@ const filteredDashboard: IctReportDashboard = {
 	},
 	readinessTrend: readinessTrend(100, '68W'),
 	expirationCliff: expirationCliff(100, '68W'),
-	readinessMatrix: readinessMatrix(100, '68W')
+	readinessMatrix: readinessMatrix(100, '68W'),
+	readinessDistribution: readinessDistribution('68W', ['68W', '11B'])
 };
 
 describe('IctReportsView', () => {
@@ -317,7 +348,7 @@ describe('IctReportsView', () => {
 			within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
 		).toBe('67%');
 		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
-		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤30d' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤45d' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
@@ -345,6 +376,14 @@ describe('IctReportsView', () => {
 		expect(
 			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
+		const distributionSection = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
+		expect(
+			within(distributionSection).getByRole('img', { name: 'Individual readiness distribution histogram' })
+		).toBeTruthy();
+		expect(
+			within(distributionSection).getByRole('table', { name: 'Individual readiness distribution data' })
+		).toBeTruthy();
+		expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 		expect(screen.queryByText('Action KPIs')).toBeNull();
@@ -372,13 +411,18 @@ describe('IctReportsView', () => {
 			expect(
 				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
 			).toBe('100%');
+			expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤60d' })).toBeTruthy();
 			expect(
 				within(readinessMatrixSection).getByLabelText('68W Medical readiness: 100%, 100 of 100 current')
 			).toBeTruthy();
 			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
 			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
+			expect(within(distributionSection).getByText('Overlaying selected MOS filters.')).toBeTruthy();
+			expect(within(distributionSection).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
+			expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
 			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();
 			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
+			expect(within(atRiskSection).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});
 	});

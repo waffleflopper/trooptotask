@@ -4,6 +4,7 @@
 
 	interface Props {
 		rows: IctAtRiskSoldierRow[];
+		expiringSoonWindowDays: number;
 		loading?: boolean;
 	}
 
@@ -12,11 +13,13 @@
 	type SortKey = 'soldier' | 'mos' | 'readiness' | 'expiring' | 'lastUpdate';
 	type SortDirection = 'asc' | 'desc';
 
-	let { rows, loading = false }: Props = $props();
+	let { rows, expiringSoonWindowDays, loading = false }: Props = $props();
 	let expanded = $state(false);
 	let sortKey = $state<SortKey | null>(null);
 	let sortDirection = $state<SortDirection>('asc');
 
+	const expiringSoonColumnLabel = $derived(`Exp ≤${expiringSoonWindowDays}d`);
+	const expiringSoonSortLabel = $derived(`Sort by Tasks Expiring ≤${expiringSoonWindowDays}d`);
 	const hasOverflow = $derived(rows.length > VISIBLE_ROW_LIMIT);
 	const sortedRows = $derived.by(() => {
 		const activeSortKey = sortKey;
@@ -145,10 +148,10 @@
 							<button
 								class="sort-button numeric"
 								type="button"
-								aria-label="Sort by Tasks Expiring ≤30d"
+								aria-label={expiringSoonSortLabel}
 								onclick={() => sortBy('expiring', 'desc')}
 							>
-								Exp ≤30d
+								{expiringSoonColumnLabel}
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('lastUpdate')}>

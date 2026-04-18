@@ -12,6 +12,7 @@
 	const soldiersBelow70 = $derived(dashboard.kpis.soldiersBelow70);
 	const tasksExpiringSoon = $derived(dashboard.kpis.tasksExpiringSoon);
 	const tasksBelowThreshold = $derived(dashboard.kpis.tasksBelowThreshold);
+	const tasksExpiringSoonLabel = $derived(`Tasks Expiring ≤${tasksExpiringSoon.windowDays}d`);
 
 	function formatDelta(delta: number): string {
 		if (delta > 0) return `▲ ${delta}% vs 30 days ago`;
@@ -84,8 +85,8 @@
 			</p>
 		</article>
 
-		<article class="kpi-card kpi-card--warn" aria-label="Tasks Expiring ≤30d">
-			<p class="kpi-label">Tasks Expiring ≤30d</p>
+		<article class="kpi-card kpi-card--warn" aria-label={tasksExpiringSoonLabel}>
+			<p class="kpi-label">{tasksExpiringSoonLabel}</p>
 			<p class="kpi-value warning">{tasksExpiringSoon.count}</p>
 			<p class="kpi-subtitle">
 				across {tasksExpiringSoon.affectedSoldiers}

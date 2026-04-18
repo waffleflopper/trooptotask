@@ -11,6 +11,7 @@
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
+	import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
 	import IctReadinessMatrixTable from './IctReadinessMatrixTable.svelte';
 	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
 	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
@@ -205,8 +206,17 @@
 				currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
 				loading={dashboardLoading}
 			/>
-			<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
+			<IctAtRiskSoldiersTable
+				rows={dashboard.atRiskSoldiers.rows}
+				expiringSoonWindowDays={dashboard.kpis.tasksExpiringSoon.windowDays}
+				loading={dashboardLoading}
+			/>
 		</div>
+		<IctReadinessDistributionHistogram
+			distribution={dashboard.readinessDistribution}
+			selectedPageMos={filterMosValues}
+			loading={dashboardLoading}
+		/>
 	{/if}
 </div>
 

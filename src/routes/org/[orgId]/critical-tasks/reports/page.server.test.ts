@@ -7,7 +7,7 @@ describe('critical tasks reports page server load', () => {
 			kpis: {
 				overallReadiness: { percent: 67, deltaPercent: 4, readyCount: 2, applicableCount: 3 },
 				soldiersBelow70: { count: 1, totalAssigned: 2, thresholdPercent: 70 },
-				tasksExpiringSoon: { count: 1, affectedSoldiers: 1, windowDays: 30 },
+				tasksExpiringSoon: { count: 1, affectedSoldiers: 1, windowDays: 60 },
 				tasksBelowThreshold: { count: 1, thresholdPercent: 70 }
 			},
 			tasksBelowThreshold: {
@@ -36,6 +36,11 @@ describe('critical tasks reports page server load', () => {
 				hasCategorizedTasks: false,
 				categories: [],
 				rows: []
+			},
+			readinessDistribution: {
+				bins: [],
+				defaultMos: null,
+				series: []
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

@@ -206,6 +206,7 @@ export async function generateCriticalTasksReportCsv(
 ): Promise<string> {
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
 	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
+	const expiringSoonWindowLabel = `<=${tasksExpiringSoon.windowDays}d`;
 	const lines = ['Section,Metric,Value,Subtitle'];
 	for (const row of dashboard.atRiskSoldiers.rows) {
 		lines.push(
@@ -213,7 +214,7 @@ export async function generateCriticalTasksReportCsv(
 				'At-Risk Soldiers',
 				row.soldierName,
 				`${row.readinessPercent}%`,
-				`${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring <=30d; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
+				`${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring ${expiringSoonWindowLabel}; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
 			]
 				.map(escapeCsv)
 				.join(',')
@@ -232,7 +233,7 @@ export async function generateCriticalTasksReportCsv(
 	lines.push(
 		[
 			'Summary',
-			'Tasks Expiring <=30d',
+			`Tasks Expiring ${expiringSoonWindowLabel}`,
 			String(tasksExpiringSoon.count),
 			`${tasksExpiringSoon.affectedSoldiers} Soldiers affected`
 		]

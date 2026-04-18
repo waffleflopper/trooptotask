@@ -189,7 +189,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 		expect(result).toContain('Section,Metric,Value,Subtitle');
 		expect(result).toContain('Summary,Overall Readiness,100%');
-		expect(result).toContain('Summary,Soldiers Below 70%,0,1 assigned');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 applicable Soldier');
 		expect(result).toContain('Summary,Tasks Expiring <=60d,0,0 Soldiers affected');
 		expect(result).not.toContain('11B');
 		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
@@ -286,7 +286,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		});
 
 		expect(result).toContain('Summary,Overall Readiness,100%');
-		expect(result).toContain('Summary,Soldiers Below 70%,0,1 assigned');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 applicable Soldier');
 		expect(result).not.toContain('11B');
 	});
 

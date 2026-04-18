@@ -112,7 +112,7 @@ describe('ictReports', () => {
 		});
 		expect(dashboard.kpis.soldiersBelow70).toEqual({
 			count: 1,
-			totalAssigned: 3,
+			totalApplicable: 3,
 			thresholdPercent: 70
 		});
 		expect(dashboard.kpis.tasksExpiringSoon).toEqual({
@@ -511,6 +511,7 @@ describe('ictReports', () => {
 		});
 
 		expect(dashboard.atRiskSoldiers.rows.map((row) => row.personnelId)).toEqual([medic.id]);
+		expect(dashboard.kpis.soldiersBelow70.totalApplicable).toBe(1);
 		expect(dashboard.readinessDistribution.defaultMos).toBe('68W');
 		expect(
 			dashboard.readinessDistribution.series.map(({ mos, personnelCount, bins }) => ({

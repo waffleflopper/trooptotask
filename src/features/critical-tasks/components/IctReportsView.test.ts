@@ -199,7 +199,7 @@ const initialDashboard: IctReportDashboard = {
 		},
 		soldiersBelow70: {
 			count: 1,
-			totalAssigned: 2,
+			totalApplicable: 2,
 			thresholdPercent: 70
 		},
 		tasksExpiringSoon: {
@@ -259,7 +259,7 @@ const filteredDashboard: IctReportDashboard = {
 		},
 		soldiersBelow70: {
 			count: 0,
-			totalAssigned: 1,
+			totalApplicable: 1,
 			thresholdPercent: 70
 		},
 		tasksExpiringSoon: {

@@ -192,7 +192,7 @@ export interface IctReportDashboard {
 		};
 		soldiersBelow70: {
 			count: number;
-			totalAssigned: number;
+			totalApplicable: number;
 			thresholdPercent: number;
 		};
 		tasksExpiringSoon: {
@@ -1041,7 +1041,7 @@ export function buildIctReportDashboard({
 			},
 			soldiersBelow70: {
 				count: currentSnapshot.soldiersBelowThresholdCount,
-				totalAssigned: personnel.filter((person) => !person.archivedAt).length,
+				totalApplicable: currentSnapshot.atRiskSoldierRows.length,
 				thresholdPercent: READINESS_THRESHOLD_PERCENT
 			},
 			tasksExpiringSoon: {

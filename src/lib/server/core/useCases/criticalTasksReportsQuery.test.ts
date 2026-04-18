@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCriticalTasksReportDashboard, fetchCriticalTasksReportSummary } from './criticalTasksReportsQuery';
+import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import {
+	fetchCriticalTasksReportDashboard,
+	fetchCriticalTasksReportSummary,
+	formatCriticalTasksReportCsv
+} from './criticalTasksReportsQuery';
 
 describe('fetchCriticalTasksReportSummary', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
@@ -108,7 +113,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 		});
 		expect(dashboard.kpis.soldiersBelow70).toMatchObject({
 			count: 1,
-			totalAssigned: 2
+			totalApplicable: 2
 		});
 		expect(dashboard.tasksBelowThreshold.rows).toEqual([
 			{
@@ -455,5 +460,72 @@ describe('fetchCriticalTasksReportSummary', () => {
 			readyCount: 0,
 			applicableCount: 1
 		});
+	});
+});
+
+describe('formatCriticalTasksReportCsv', () => {
+	it('labels below-threshold Soldiers with the dashboard threshold and applicable population', () => {
+		const dashboard: IctReportDashboard = {
+			kpis: {
+				overallReadiness: {
+					percent: 68,
+					deltaPercent: -3,
+					readyCount: 17,
+					applicableCount: 25
+				},
+				soldiersBelow70: {
+					count: 2,
+					totalApplicable: 3,
+					thresholdPercent: 65
+				},
+				tasksExpiringSoon: {
+					count: 0,
+					affectedSoldiers: 0,
+					windowDays: 45
+				},
+				tasksBelowThreshold: {
+					count: 0,
+					thresholdPercent: 70
+				}
+			},
+			tasksBelowThreshold: {
+				thresholdPercent: 70,
+				rows: []
+			},
+			atRiskSoldiers: {
+				rows: []
+			},
+			readinessTrend: {
+				comparisonMos: [],
+				months: []
+			},
+			expirationCliff: {
+				mosSeries: [],
+				months: [],
+				projectedReadinessAtMonth6: {
+					month: '2026-09',
+					label: 'Sep 2026',
+					readinessPercent: 68,
+					readyCount: 17,
+					applicableCount: 25
+				}
+			},
+			readinessMatrix: {
+				hasCategorizedTasks: false,
+				categories: [],
+				rows: []
+			},
+			readinessDistribution: {
+				bins: [],
+				defaultMos: null,
+				series: []
+			}
+		};
+
+		const csv = formatCriticalTasksReportCsv(dashboard);
+
+		expect(csv).toContain('Summary,Soldiers Below 65%,2,3 applicable Soldiers');
+		expect(csv).not.toContain('Soldiers Below 70%');
+		expect(csv).not.toContain('assigned');
 	});
 });

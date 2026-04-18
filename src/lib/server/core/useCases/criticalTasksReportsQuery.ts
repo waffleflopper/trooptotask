@@ -81,6 +81,10 @@ function formatDaysSinceLastIctUpdate(days: number | null): string {
 	return `${days} days since update`;
 }
 
+function formatApplicableSoldiers(count: number): string {
+	return `${count} applicable ${count === 1 ? 'Soldier' : 'Soldiers'}`;
+}
+
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
 	const [personnelRows, groupRows, taskRows, settingsRow] = await Promise.all([
@@ -200,11 +204,7 @@ export async function fetchCriticalTasksReportSummary(
 	});
 }
 
-export async function generateCriticalTasksReportCsv(
-	ctx: QueryPorts,
-	input: CriticalTasksReportInput = {}
-): Promise<string> {
-	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
+export function formatCriticalTasksReportCsv(dashboard: IctReportDashboard): string {
 	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
 	const expiringSoonWindowLabel = `<=${tasksExpiringSoon.windowDays}d`;
 	const lines = ['Section,Metric,Value,Subtitle'];
@@ -226,7 +226,12 @@ export async function generateCriticalTasksReportCsv(
 			.join(',')
 	);
 	lines.push(
-		['Summary', 'Soldiers Below 70%', String(soldiersBelow70.count), `${soldiersBelow70.totalAssigned} assigned`]
+		[
+			'Summary',
+			`Soldiers Below ${soldiersBelow70.thresholdPercent}%`,
+			String(soldiersBelow70.count),
+			formatApplicableSoldiers(soldiersBelow70.totalApplicable)
+		]
 			.map(escapeCsv)
 			.join(',')
 	);
@@ -264,6 +269,14 @@ export async function generateCriticalTasksReportCsv(
 	}
 
 	return lines.join('\n');
+}
+
+export async function generateCriticalTasksReportCsv(
+	ctx: QueryPorts,
+	input: CriticalTasksReportInput = {}
+): Promise<string> {
+	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
+	return formatCriticalTasksReportCsv(dashboard);
 }
 
 export async function generateCriticalTasksMatrixCsv(

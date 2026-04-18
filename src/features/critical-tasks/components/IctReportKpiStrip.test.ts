@@ -14,7 +14,7 @@ const dashboard: IctReportDashboard = {
 		},
 		soldiersBelow70: {
 			count: 1,
-			totalAssigned: 3,
+			totalApplicable: 3,
 			thresholdPercent: 65
 		},
 		tasksExpiringSoon: {
@@ -79,7 +79,7 @@ describe('IctReportKpiStrip', () => {
 		expect(within(overall).getByText('▲ 25% vs 30 days ago')).toBeTruthy();
 		expect(within(soldiers).getByText('Soldiers Below 65%')).toBeTruthy();
 		expect(within(soldiers).getByText('1')).toBeTruthy();
-		expect(within(soldiers).getByText('of 3 assigned · 33%')).toBeTruthy();
+		expect(within(soldiers).getByText('of 3 applicable soldiers · 33%')).toBeTruthy();
 		expect(within(expiring).getByText('2')).toBeTruthy();
 		expect(within(expiring).getByText('across 2 soldiers')).toBeTruthy();
 		expect(within(threshold).getByText('1')).toBeTruthy();

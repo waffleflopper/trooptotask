@@ -333,19 +333,21 @@
 		</div>
 	{/if}
 
-	<div class="projection-banner" aria-label="Projected unit readiness without retraining">
-		<p>
-			<span>Projected unit readiness without retraining:</span>
-			<strong>
-				{cliff.projectedReadinessAtMonth6.readinessPercent}% by {formatProjectionMonth(
-					cliff.projectedReadinessAtMonth6.label
-				)}
-			</strong>
-			{#if projectionChangeText}
-				<span>- {projectionChangeText}.</span>
-			{/if}
-		</p>
-	</div>
+	{#if hasExpirations}
+		<div class="projection-banner" aria-label="Projected unit readiness without retraining">
+			<p>
+				<span>Projected unit readiness without retraining:</span>
+				<strong>
+					{cliff.projectedReadinessAtMonth6.readinessPercent}% by {formatProjectionMonth(
+						cliff.projectedReadinessAtMonth6.label
+					)}
+				</strong>
+				{#if projectionChangeText}
+					<span>- {projectionChangeText}.</span>
+				{/if}
+			</p>
+		</div>
+	{/if}
 
 	<div class="fallback-table-scroll screen-reader-table">
 		<table aria-label="6-month expiration cliff data">

@@ -8,7 +8,7 @@
 		loading?: boolean;
 	}
 
-	const VISIBLE_ROW_LIMIT = 10;
+	const VISIBLE_ROW_LIMIT = 6;
 	type SortKey = 'task' | 'percent' | 'gap';
 	type SortDirection = 'asc' | 'desc';
 
@@ -291,7 +291,7 @@
 		display: block;
 		margin-top: var(--sp-1);
 		font-family: var(--font-body);
-		font-size: var(--text-base);
+		font-size: var(--text-sm);
 		color: var(--text-primary);
 	}
 

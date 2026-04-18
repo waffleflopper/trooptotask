@@ -27,7 +27,7 @@ describe('IctTasksBelowThresholdTable', () => {
 		cleanup();
 	});
 
-	it('defaults to the top 10 rows and exposes an accessible expand/collapse control', async () => {
+	it('defaults to the top 6 rows and exposes an accessible expand/collapse control', async () => {
 		render(IctTasksBelowThresholdTable, {
 			props: {
 				rows: Array.from({ length: 12 }, (_, index) => row(index + 1)),
@@ -40,8 +40,8 @@ describe('IctTasksBelowThresholdTable', () => {
 		expect(within(region).getByRole('button', { name: 'Sort by % Complete' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by Soldier Gap' })).toBeTruthy();
 		expect(within(region).getByText('081-000-0001')).toBeTruthy();
-		expect(within(region).getByText('Task 10')).toBeTruthy();
-		expect(within(region).queryByText('Task 11')).toBeNull();
+		expect(within(region).getByText('Task 6')).toBeTruthy();
+		expect(within(region).queryByText('Task 7')).toBeNull();
 
 		const expandButton = within(region).getByRole('button', { name: 'Show all 12 tasks below threshold' });
 		expect(expandButton.getAttribute('aria-expanded')).toBe('false');
@@ -49,10 +49,11 @@ describe('IctTasksBelowThresholdTable', () => {
 
 		expect(within(region).getByText('Task 11')).toBeTruthy();
 		expect(within(region).getByText('Task 12')).toBeTruthy();
-		const collapseButton = within(region).getByRole('button', { name: 'Show top 10 tasks below threshold' });
+		const collapseButton = within(region).getByRole('button', { name: 'Show top 6 tasks below threshold' });
 		expect(collapseButton.getAttribute('aria-expanded')).toBe('true');
 		await fireEvent.click(collapseButton);
 
+		expect(within(region).queryByText('Task 7')).toBeNull();
 		expect(within(region).queryByText('Task 11')).toBeNull();
 	});
 

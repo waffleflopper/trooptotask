@@ -80,7 +80,7 @@ describe('IctAtRiskSoldiersTable', () => {
 			}
 		});
 
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
 		expect(within(region).getByText('Soldier, 01')).toBeTruthy();
 		expect(within(region).getByText('Soldier, 10')).toBeTruthy();
 		expect(within(region).queryByText('Soldier, 11')).toBeNull();
@@ -101,12 +101,12 @@ describe('IctAtRiskSoldiersTable', () => {
 	it('renders the at-risk call list with no-update labels and sortable operational columns', async () => {
 		render(IctAtRiskSoldiersTable, { props: { rows } });
 
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
 		expect(within(region).getByRole('button', { name: 'Sort by Soldier' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by % Complete' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤30d' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' })).toBeTruthy();
-		expect(within(region).getByText('No ICT update')).toBeTruthy();
+		expect(within(region).getByText('No update')).toBeTruthy();
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
 
 		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Soldier' }));
@@ -122,7 +122,7 @@ describe('IctAtRiskSoldiersTable', () => {
 	it('explains when no Soldiers match the active filters', () => {
 		render(IctAtRiskSoldiersTable, { props: { rows: [] } });
 
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
 		expect(within(region).getByText('No Soldiers match the active filters.')).toBeTruthy();
 		expect(within(region).queryByRole('table')).toBeNull();
 	});

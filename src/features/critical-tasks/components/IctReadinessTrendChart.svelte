@@ -98,7 +98,7 @@
 	}
 
 	function formatMonthShort(value: Date): string {
-		return value.toLocaleString('en-US', { month: 'short' });
+		return value.toLocaleString('en-US', { month: 'short' }).toUpperCase();
 	}
 
 	function formatLayerChartMonth(value: unknown): string {
@@ -170,6 +170,23 @@
 		return Number.isFinite(numericValue) ? numericValue : 0;
 	}
 
+	function scaledTooltipCoordinate(scale: unknown, value: unknown): number {
+		if (typeof scale !== 'function') return numericTooltipCoordinate(value);
+		return numericTooltipCoordinate((scale as (input: unknown) => unknown)(value));
+	}
+
+	function tooltipBoundary(
+		size: unknown,
+		padding: { top?: number; right?: number; bottom?: number; left?: number } | undefined,
+		axis: 'x' | 'y'
+	): number {
+		const numericSize = numericTooltipCoordinate(size);
+		if (!padding) return numericSize;
+		return axis === 'x'
+			? numericSize + (padding.left ?? 0) + (padding.right ?? 0)
+			: numericSize + (padding.top ?? 0) + (padding.bottom ?? 0);
+	}
+
 	function tooltipLeft(value: unknown, containerWidth: number): number {
 		const x = numericTooltipCoordinate(value);
 		const min = TOOLTIP_WIDTH_PX / 2 + TOOLTIP_MARGIN_PX;
@@ -186,6 +203,20 @@
 
 	function tooltipPlacement(value: unknown): 'above' | 'below' {
 		return numericTooltipCoordinate(value) < 120 ? 'below' : 'above';
+	}
+
+	function unitDatumForTooltip(tooltipDatum: TrendDatum): TrendDatum {
+		const unitSeries = chartSeries[0];
+		return unitSeries ? (relatedTrendDatum(unitSeries, tooltipDatum) ?? tooltipDatum) : tooltipDatum;
+	}
+
+	function trendTooltipX(tooltipDatum: TrendDatum, xScale: unknown, padding: { left?: number } | undefined): number {
+		return (padding?.left ?? 0) + scaledTooltipCoordinate(xScale, tooltipDatum.date);
+	}
+
+	function trendTooltipY(tooltipDatum: TrendDatum, yScale: unknown, padding: { top?: number } | undefined): number {
+		const unitDatum = unitDatumForTooltip(tooltipDatum);
+		return (padding?.top ?? 0) + scaledTooltipCoordinate(yScale, unitDatum.value);
 	}
 
 	function toDatum(
@@ -240,7 +271,7 @@
 				value: 'value',
 				props: {
 					class: convention.className,
-					strokeWidth: 2
+					strokeWidth: 1.5
 				},
 				patternLabel: convention.patternLabel
 			});
@@ -258,14 +289,17 @@
 >
 	<div class="trend-card-header">
 		<div>
-			<h2 id={TITLE_ID}>Readiness Trend - 12 Months</h2>
+			<h2 id={TITLE_ID}>Readiness Trend — 12 Months</h2>
 			<p id={DESCRIPTION_ID} class="screen-reader-text">
 				Unit readiness over time with top MOS comparisons by filtered headcount.
 			</p>
 		</div>
-		{#if loading}
-			<span class="chart-status">Updating</span>
-		{/if}
+		<div class="trend-card-meta">
+			<span class="chart-kicker">% current</span>
+			{#if loading}
+				<span class="chart-status">Updating</span>
+			{/if}
+		</div>
 	</div>
 
 	{#if !hasTrendData}
@@ -302,7 +336,7 @@
 					legend={false}
 					points={false}
 					tooltip={{ mode: 'bisect-x', findTooltipData: 'closest', hideDelay: 40 }}
-					padding={{ top: 16, right: 30, bottom: 76, left: 110 }}
+					padding={{ top: 16, right: 24, bottom: 44, left: 58 }}
 					props={{
 						svg: {
 							class: 'trend-layer-svg',
@@ -318,10 +352,10 @@
 							format: formatLayerChartMonth,
 							tickLength: 0,
 							tickLabelProps: {
-								rotate: -45,
-								textAnchor: 'end',
+								rotate: 0,
+								textAnchor: 'middle',
 								verticalAnchor: 'middle',
-								dx: -8,
+								dx: 0,
 								dy: 18,
 								fill: 'var(--text-secondary)',
 								stroke: 'none',
@@ -380,15 +414,17 @@
 							/>
 						{/each}
 					</svelte:fragment>
-					<svelte:fragment slot="tooltip" let:tooltip let:containerWidth let:containerHeight>
+					<svelte:fragment slot="tooltip" let:tooltip let:width let:height let:padding let:xScale let:yScale>
 						{#if tooltip?.data}
 							{@const tooltipDatum = tooltipTrendDatum(tooltip.data)}
 							{#if tooltipDatum}
+								{@const anchorX = trendTooltipX(tooltipDatum, xScale, padding)}
+								{@const anchorY = trendTooltipY(tooltipDatum, yScale, padding)}
 								<div
 									class="trend-tooltip-root"
-									data-placement={tooltipPlacement(tooltip.y)}
-									style:left={`${tooltipLeft(tooltip.x, containerWidth)}px`}
-									style:top={`${tooltipTop(tooltip.y, containerHeight)}px`}
+									data-placement={tooltipPlacement(anchorY)}
+									style:left={`${tooltipLeft(anchorX, tooltipBoundary(width, padding, 'x'))}px`}
+									style:top={`${tooltipTop(anchorY, tooltipBoundary(height, padding, 'y'))}px`}
 								>
 									<div class="trend-tooltip" role="status" aria-live="polite">
 										<div class="trend-tooltip-header">{tooltipMonthLabel(tooltipDatum)}</div>
@@ -433,7 +469,7 @@
 								y1="4"
 								y2="4"
 								stroke={series.color}
-								stroke-width="2.5"
+								stroke-width={series.props.strokeWidth}
 								vector-effect="non-scaling-stroke"
 							/>
 						</svg>
@@ -475,21 +511,21 @@
 
 <style>
 	.trend-card {
-		--trend-unit: #1f9970;
-		--trend-1: var(--amber-dark);
-		--trend-2: #6255c7;
-		--trend-3: #9a3f28;
-		--trend-4: var(--info);
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 42%, transparent);
+		--trend-unit: var(--text-primary);
+		--trend-1: var(--amber);
+		--trend-2: #993c1d;
+		--trend-3: var(--success);
+		--trend-4: #534ab7;
+		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
 
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
+		gap: var(--sp-5);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6) var(--sp-4);
+		padding: var(--sp-5) var(--sp-6);
 	}
 
 	.trend-card-header {
@@ -497,27 +533,36 @@
 		align-items: baseline;
 		justify-content: space-between;
 		gap: var(--sp-3);
-		border-bottom: 0.5px solid var(--border-default);
-		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
+		padding-bottom: 14px;
 	}
 
 	.trend-card h2 {
 		margin: 0;
 		font-family: var(--font-display);
-		font-size: var(--text-3xl);
+		font-size: 1.25rem;
 		font-weight: var(--font-weight-semibold);
 		line-height: 1;
-		letter-spacing: 0;
+		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--text-primary);
 	}
 
+	.trend-card-meta {
+		display: inline-flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.chart-kicker,
 	.chart-status,
 	.scale-note {
 		margin: 0;
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0;
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
@@ -531,7 +576,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--sp-2) var(--sp-4);
-		margin: 0;
+		margin: var(--sp-3) 0 0;
 		padding: 0;
 		list-style: none;
 	}
@@ -539,17 +584,18 @@
 	.chart-legend li {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 6px;
 		font-family: var(--font-mono);
-		font-size: var(--text-base);
-		letter-spacing: 0;
-		color: var(--text-primary);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.legend-line {
 		display: block;
 		flex: 0 0 auto;
-		width: 1.875rem;
+		width: 1.125rem;
 		height: 0.5rem;
 		overflow: visible;
 	}
@@ -636,13 +682,13 @@
 
 	.trend-layer-chart {
 		--trend-chart-padding-top: 16px;
-		--trend-chart-padding-right: 30px;
-		--trend-chart-padding-bottom: 76px;
-		--trend-chart-padding-left: 110px;
+		--trend-chart-padding-right: 24px;
+		--trend-chart-padding-bottom: 44px;
+		--trend-chart-padding-left: 58px;
 
 		position: relative;
-		height: 23rem;
-		min-height: 18rem;
+		height: 16.25rem;
+		min-height: 15rem;
 	}
 
 	.trend-y-axis {
@@ -683,11 +729,11 @@
 	.trend-y-axis-label {
 		position: absolute;
 		top: 50%;
-		right: 12px;
+		right: 8px;
 		transform: translateY(-50%);
-		font-family: var(--font-body);
-		font-size: 17px;
-		letter-spacing: 0;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
 		color: var(--text-secondary);
 		white-space: nowrap;
 	}
@@ -717,11 +763,12 @@
 	}
 
 	.trend-layer-chart :global(.chart-axis-label) {
-		font-family: var(--font-body);
-		font-size: 17px;
-		letter-spacing: 0;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
 		fill: var(--text-secondary);
 		opacity: 1;
+		text-transform: uppercase;
 	}
 
 	.trend-layer-chart :global(.chart-axis-label-y) {
@@ -761,6 +808,12 @@
 		vector-effect: non-scaling-stroke;
 		filter: drop-shadow(0 1px 2px rgba(14, 14, 13, 0.16));
 		pointer-events: none;
+	}
+
+	.trend-layer-chart :global(.tooltip-rects rect),
+	.trend-layer-chart :global(.fill-transparent) {
+		fill: transparent;
+		stroke: none;
 	}
 
 	.trend-layer-chart :global(.TooltipContext) {
@@ -878,9 +931,10 @@
 	}
 
 	:root[data-theme='dark'] .trend-card {
-		--trend-unit: #60c89f;
-		--trend-2: #b8b0ff;
-		--trend-3: #ed9d80;
+		--trend-unit: var(--text-primary);
+		--trend-2: #ed9d80;
+		--trend-3: #9cc87b;
+		--trend-4: #b8b0ff;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -896,20 +950,25 @@
 			padding: var(--sp-4);
 		}
 
+		.trend-card-header {
+			align-items: start;
+			flex-direction: column;
+		}
+
 		.trend-card h2 {
-			font-size: var(--text-2xl);
+			font-size: 1.125rem;
 		}
 
 		.trend-layer-chart {
-			height: 20rem;
+			height: 15.5rem;
 		}
 
 		.trend-layer-chart :global(.chart-axis-label) {
-			font-size: 15px;
+			font-size: 0.5625rem;
 		}
 
 		.chart-legend li {
-			font-size: var(--text-sm);
+			font-size: 0.5625rem;
 		}
 	}
 </style>

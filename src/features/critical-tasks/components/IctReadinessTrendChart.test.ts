@@ -76,7 +76,7 @@ describe('IctReadinessTrendChart', () => {
 	it('renders an accessible readiness trend region with a text fallback table', () => {
 		render(IctReadinessTrendChart, { props: { trend: readinessTrend } });
 
-		const region = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
 		expect(
 			within(region).getByText('Unit readiness over time with top MOS comparisons by filtered headcount.')
 		).toBeTruthy();
@@ -115,7 +115,7 @@ describe('IctReadinessTrendChart', () => {
 	it('shows a tooltip and highlighted points when hovering the chart', async () => {
 		render(IctReadinessTrendChart, { props: { trend: readinessTrend } });
 
-		const region = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
 		const hoverLayer = region.querySelector('.TooltipContext');
 		expect(hoverLayer).toBeTruthy();
 
@@ -136,6 +136,7 @@ describe('IctReadinessTrendChart', () => {
 		expect(tooltip?.textContent).toContain('2/2 current');
 		expect(tooltip?.querySelectorAll('.trend-tooltip-row')).toHaveLength(3);
 		expect(tooltip?.querySelectorAll('.contents')).toHaveLength(0);
+		expect(region.querySelector('.trend-tooltip-root')?.getAttribute('style')).not.toContain('NaN');
 		expect(region.querySelectorAll('circle.trend-hover-point').length).toBeGreaterThan(0);
 	});
 
@@ -158,7 +159,7 @@ describe('IctReadinessTrendChart', () => {
 			}
 		});
 
-		const region = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
 		expect(within(region).getByText('No readiness trend data is available for the active filters.')).toBeTruthy();
 		expect(within(region).queryByRole('img', { name: '12-month readiness trend chart' })).toBeNull();
 	});

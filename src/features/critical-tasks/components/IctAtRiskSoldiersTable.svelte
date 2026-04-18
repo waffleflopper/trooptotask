@@ -8,7 +8,8 @@
 	}
 
 	const VISIBLE_ROW_LIMIT = 10;
-	type SortKey = 'soldier' | 'rank' | 'mos' | 'group' | 'readiness' | 'expiring' | 'lastUpdate';
+	type ReadinessTone = 'red' | 'amber' | 'green';
+	type SortKey = 'soldier' | 'mos' | 'readiness' | 'expiring' | 'lastUpdate';
 	type SortDirection = 'asc' | 'desc';
 
 	let { rows, loading = false }: Props = $props();
@@ -54,9 +55,7 @@
 		direction: SortDirection
 	): number {
 		if (key === 'soldier') return compareText(left.soldierName, right.soldierName, direction);
-		if (key === 'rank') return compareText(left.rank, right.rank, direction) || compareIdentity(left, right);
 		if (key === 'mos') return compareText(left.mos, right.mos, direction) || compareIdentity(left, right);
-		if (key === 'group') return compareText(left.groupName, right.groupName, direction) || compareIdentity(left, right);
 		if (key === 'readiness') {
 			const result = left.readinessPercent - right.readinessPercent;
 			return (direction === 'asc' ? result : -result) || compareIdentity(left, right);
@@ -86,18 +85,23 @@
 	}
 
 	function formatDaysSinceUpdate(days: number | null): string {
-		if (days === null) return 'No ICT update';
-		if (days === 1) return '1 day';
-		return `${days} days`;
+		if (days === null) return 'No update';
+		return `${days}d`;
+	}
+
+	function readinessTone(percent: number): ReadinessTone {
+		if (percent < 55) return 'red';
+		if (percent < 70) return 'amber';
+		return 'green';
 	}
 </script>
 
 <section class="at-risk-section" aria-labelledby="at-risk-soldiers-title" aria-busy={loading ? 'true' : 'false'}>
 	<div class="section-header">
 		<div>
-			<h2 id="at-risk-soldiers-title">At-Risk Soldiers</h2>
-			<p>Worst-first call list for follow-up</p>
+			<h2 id="at-risk-soldiers-title">At-Risk Soldiers — Call List</h2>
 		</div>
+		<span class="section-meta">Sorted worst first</span>
 		{#if loading}
 			<span class="section-status">Updating</span>
 		{/if}
@@ -127,21 +131,6 @@
 								>MOS</button
 							>
 						</th>
-						<th scope="col" aria-sort={ariaSortFor('rank')}>
-							<button class="sort-button" type="button" aria-label="Sort by Rank" onclick={() => sortBy('rank', 'asc')}
-								>Rank</button
-							>
-						</th>
-						<th scope="col" aria-sort={ariaSortFor('group')}>
-							<button
-								class="sort-button"
-								type="button"
-								aria-label="Sort by Group"
-								onclick={() => sortBy('group', 'asc')}
-							>
-								Group
-							</button>
-						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('readiness')}>
 							<button
 								class="sort-button numeric"
@@ -149,7 +138,7 @@
 								aria-label="Sort by % Complete"
 								onclick={() => sortBy('readiness', 'asc')}
 							>
-								% Complete
+								%
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('expiring')}>
@@ -159,7 +148,7 @@
 								aria-label="Sort by Tasks Expiring ≤30d"
 								onclick={() => sortBy('expiring', 'desc')}
 							>
-								Tasks Expiring ≤30d
+								Exp ≤30d
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('lastUpdate')}>
@@ -169,19 +158,18 @@
 								aria-label="Sort by Days Since Last ICT Update"
 								onclick={() => sortBy('lastUpdate', 'desc')}
 							>
-								Days Since Last ICT Update
+								Last Update
 							</button>
 						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each visibleRows as row (row.personnelId)}
+						{@const tone = readinessTone(row.readinessPercent)}
 						<tr>
 							<th scope="row" class="soldier-cell">{row.soldierName}</th>
-							<td>{row.mos}</td>
-							<td>{row.rank}</td>
-							<td>{row.groupName}</td>
-							<td class="numeric">{row.readinessPercent}%</td>
+							<td><span class="mos-tag">{row.mos}</span></td>
+							<td class={`numeric readiness-val ${tone}`}>{row.readinessPercent}%</td>
 							<td class="numeric">{row.tasksExpiringSoonCount}</td>
 							<td class="numeric">{formatDaysSinceUpdate(row.daysSinceLastIctUpdate)}</td>
 						</tr>
@@ -209,12 +197,12 @@
 	.at-risk-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: var(--sp-5);
 		width: 100%;
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6) var(--sp-4);
+		padding: var(--sp-5) var(--sp-6);
 	}
 
 	.section-header {
@@ -222,26 +210,27 @@
 		align-items: baseline;
 		justify-content: space-between;
 		gap: var(--sp-3);
-		border-bottom: 0.5px solid var(--border-default);
-		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
+		padding-bottom: 14px;
 	}
 
 	.section-header h2 {
 		margin: 0;
 		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
+		font-size: 1.25rem;
+		font-weight: var(--font-weight-semibold);
+		line-height: 1;
+		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--text-primary);
 	}
 
-	.section-header p,
+	.section-meta,
 	.section-status {
-		margin: var(--sp-1) 0 0;
+		margin: 0;
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
@@ -257,31 +246,32 @@
 
 	table {
 		width: 100%;
-		min-width: 54rem;
+		min-width: 35rem;
 		border-collapse: collapse;
 	}
 
 	th,
 	td {
-		padding: var(--sp-3) var(--sp-4);
-		border-bottom: 0.5px solid var(--border-default);
+		padding: 10px var(--sp-2) 10px 0;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
 		text-align: left;
 		vertical-align: top;
 	}
 
 	thead th {
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
+		font-size: 0.625rem;
+		font-weight: var(--font-weight-regular);
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-bottom-color: color-mix(in srgb, var(--border-default) 92%, var(--text-primary) 8%);
+		background: transparent;
 	}
 
 	tbody th,
 	tbody td {
-		font-family: var(--font-mono);
+		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-primary);
 	}
@@ -291,14 +281,42 @@
 		border-bottom: 0;
 	}
 
+	tbody tr:hover th,
+	tbody tr:hover td {
+		background: var(--surface-subtle);
+	}
+
 	.soldier-cell {
 		font-family: var(--font-body);
 		font-weight: var(--font-weight-normal);
 	}
 
+	.mos-tag,
+	.numeric {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.04em;
+	}
+
 	.numeric {
 		text-align: right;
 		white-space: nowrap;
+	}
+
+	.readiness-val.red {
+		color: var(--danger);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.readiness-val.amber {
+		color: var(--amber-dark);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.readiness-val.green {
+		color: var(--success);
+		font-weight: var(--font-weight-medium);
 	}
 
 	.sort-button {

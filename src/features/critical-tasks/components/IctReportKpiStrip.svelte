@@ -14,9 +14,9 @@
 	const tasksBelowThreshold = $derived(dashboard.kpis.tasksBelowThreshold);
 
 	function formatDelta(delta: number): string {
-		if (delta > 0) return `+${delta} pts vs 30d`;
-		if (delta < 0) return `${delta} pts vs 30d`;
-		return '0 pts vs 30d';
+		if (delta > 0) return `▲ ${delta}% vs 30 days ago`;
+		if (delta < 0) return `▼ ${Math.abs(delta)}% vs 30 days ago`;
+		return '0% vs 30 days ago';
 	}
 
 	function deltaTone(delta: number): 'good' | 'bad' | 'neutral' {
@@ -30,18 +30,29 @@
 		if (percent >= 70) return 'warning';
 		return 'bad';
 	}
+
+	function assignedShare(count: number, total: number): number {
+		if (total <= 0) return 0;
+		return Math.round((count / total) * 100);
+	}
+
+	function pluralizeSoldier(count: number): string {
+		return count === 1 ? 'soldier' : 'soldiers';
+	}
 </script>
 
-<section class="kpi-strip" aria-labelledby="critical-task-report-kpis-title" aria-busy={loading ? 'true' : 'false'}>
-	<div class="section-header">
-		<h2 id="critical-task-report-kpis-title">Action KPIs</h2>
-		{#if loading}
-			<span class="section-status">Updating</span>
-		{/if}
-	</div>
-
+<section class="kpi-strip" aria-label="Critical task report metrics" aria-busy={loading ? 'true' : 'false'}>
+	{#if loading}
+		<span class="section-status" role="status">Updating</span>
+	{/if}
 	<div class="kpi-grid">
-		<article class="kpi-card" aria-label="Overall Readiness">
+		<article
+			class="kpi-card"
+			class:kpi-card--good={readinessTone(overall.percent) === 'good'}
+			class:kpi-card--warn={readinessTone(overall.percent) === 'warning'}
+			class:kpi-card--alert={readinessTone(overall.percent) === 'bad'}
+			aria-label="Overall Readiness"
+		>
 			<p class="kpi-label">Overall Readiness</p>
 			<p
 				class:good={readinessTone(overall.percent) === 'good'}
@@ -49,7 +60,7 @@
 				class:bad={readinessTone(overall.percent) === 'bad'}
 				class="kpi-value"
 			>
-				{overall.percent}%
+				{overall.percent}<span class="kpi-unit">%</span>
 			</p>
 			<p class="kpi-subtitle">
 				<span
@@ -62,55 +73,48 @@
 			</p>
 		</article>
 
-		<article class="kpi-card" aria-label="Soldiers Below 70%">
+		<article class="kpi-card kpi-card--alert" aria-label="Soldiers Below 70%">
 			<p class="kpi-label">Soldiers Below 70%</p>
 			<p class="kpi-value bad">{soldiersBelow70.count}</p>
-			<p class="kpi-subtitle">{soldiersBelow70.totalAssigned} assigned</p>
+			<p class="kpi-subtitle">
+				of {soldiersBelow70.totalAssigned} assigned · {assignedShare(
+					soldiersBelow70.count,
+					soldiersBelow70.totalAssigned
+				)}%
+			</p>
 		</article>
 
-		<article class="kpi-card" aria-label="Tasks Expiring ≤30d">
+		<article class="kpi-card kpi-card--warn" aria-label="Tasks Expiring ≤30d">
 			<p class="kpi-label">Tasks Expiring ≤30d</p>
 			<p class="kpi-value warning">{tasksExpiringSoon.count}</p>
-			<p class="kpi-subtitle">{tasksExpiringSoon.affectedSoldiers} Soldiers affected</p>
+			<p class="kpi-subtitle">
+				across {tasksExpiringSoon.affectedSoldiers}
+				{pluralizeSoldier(tasksExpiringSoon.affectedSoldiers)}
+			</p>
 		</article>
 
-		<article class="kpi-card" aria-label="Tasks Below Threshold">
+		<article class="kpi-card kpi-card--alert" aria-label="Tasks Below Threshold">
 			<p class="kpi-label">Tasks Below Threshold</p>
 			<p class="kpi-value bad">{tasksBelowThreshold.count}</p>
-			<p class="kpi-subtitle">Below {tasksBelowThreshold.thresholdPercent}% unit completion</p>
+			<p class="kpi-subtitle">&lt;{tasksBelowThreshold.thresholdPercent}% unit completion</p>
 		</article>
 	</div>
 </section>
 
 <style>
 	.kpi-strip {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.section-header {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		border-bottom: 0.5px solid var(--border-default);
-		padding-bottom: var(--sp-2);
-	}
-
-	.section-header h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-primary);
 	}
 
 	.section-status {
+		position: absolute;
+		top: calc(var(--sp-3) * -1);
+		right: 0;
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--amber-dark);
 	}
@@ -118,15 +122,39 @@
 	.kpi-grid {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: var(--sp-2);
+		gap: var(--sp-3);
 	}
 
 	.kpi-card {
-		min-height: 8.5rem;
-		padding: var(--sp-4);
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
+		position: relative;
+		min-height: 7.5rem;
+		overflow: hidden;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
+		padding: 18px var(--sp-5);
+	}
+
+	.kpi-card::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 3px;
+		background: color-mix(in srgb, var(--text-secondary) 28%, transparent);
+	}
+
+	.kpi-card--alert::before {
+		background: var(--danger);
+	}
+
+	.kpi-card--warn::before {
+		background: var(--amber);
+	}
+
+	.kpi-card--good::before {
+		background: var(--success);
 	}
 
 	.kpi-label,
@@ -137,25 +165,31 @@
 
 	.kpi-label {
 		margin: 0;
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-size: 0.625rem;
+		font-weight: var(--font-weight-regular);
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
 
 	.kpi-value {
-		margin: var(--sp-3) 0 var(--sp-1);
+		margin: 10px 0;
 		font-family: var(--font-display);
-		font-size: var(--text-4xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.9;
+		font-size: 3rem;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.01em;
+		line-height: 0.95;
 		color: var(--text-primary);
+	}
+
+	.kpi-unit {
+		font-size: 0.58em;
 	}
 
 	.kpi-subtitle {
 		margin: 0;
-		font-size: var(--text-xs);
+		font-size: 0.6875rem;
+		letter-spacing: 0.03em;
 		color: var(--text-secondary);
 	}
 

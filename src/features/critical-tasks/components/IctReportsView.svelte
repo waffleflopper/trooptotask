@@ -122,6 +122,7 @@
 <div class="reports-page-shell">
 	<div class="report-filters">
 		<div class="filter-row">
+			<span class="filter-label">Filter</span>
 			<div class="filter-select">
 				<SearchSelect
 					options={groupOptions}
@@ -129,6 +130,7 @@
 					placeholder="All Groups"
 					ariaLabel="Filter by group"
 					disabled={loading}
+					compact
 					onchange={(value) => (filterGroupId = value)}
 				/>
 			</div>
@@ -140,6 +142,7 @@
 					placeholder="All Ranks"
 					ariaLabel="Filter by rank"
 					disabled={loading}
+					compact
 					onchange={(value) => (filterRank = value)}
 				/>
 			</div>
@@ -162,6 +165,7 @@
 					placeholder="All Roles"
 					ariaLabel="Filter by role"
 					disabled={loading}
+					compact
 					onchange={(value) => (filterRole = value)}
 				/>
 			</div>
@@ -194,7 +198,11 @@
 			/>
 		</div>
 		<div class="report-followup-grid">
-			<IctExpirationCliffChart cliff={dashboard.expirationCliff} loading={dashboardLoading} />
+			<IctExpirationCliffChart
+				cliff={dashboard.expirationCliff}
+				currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
+				loading={dashboardLoading}
+			/>
 			<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
 		</div>
 	{/if}
@@ -204,8 +212,8 @@
 	.reports-page-shell {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-3);
+		gap: var(--sp-5);
+		padding: var(--sp-4);
 	}
 
 	.report-visual-grid {
@@ -217,41 +225,121 @@
 
 	.report-followup-grid {
 		display: grid;
-		grid-template-columns: minmax(20rem, 0.85fr) minmax(0, 1.15fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: var(--sp-4);
 		align-items: start;
 	}
 
 	.report-filters,
 	.report-state {
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 	}
 
 	.report-filters {
-		padding: var(--sp-4);
+		background: var(--surface-subtle);
+		padding: 14px 18px;
 	}
 
 	.filter-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: end;
+		gap: 10px;
+		align-items: center;
+	}
+
+	.filter-label {
+		margin-right: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.filter-select {
-		flex: 0 1 12rem;
-		width: 12rem;
-		min-width: 9rem;
-		max-width: 12rem;
+		flex: 0 1 8.75rem;
+		width: 8.75rem;
+		min-width: 8.75rem;
+		max-width: 10.5rem;
 	}
 
 	.filter-multi {
-		flex: 0 1 12rem;
-		width: 12rem;
-		min-width: 9rem;
-		max-width: 12rem;
+		flex: 0 1 17.5rem;
+		width: 17.5rem;
+		min-width: 17.5rem;
+		max-width: 20rem;
+	}
+
+	.report-filters :global(.input-wrapper),
+	.report-filters :global(.mts-control) {
+		min-height: 34px;
+		border-color: color-mix(in srgb, var(--border-default) 82%, var(--text-primary) 18%);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		box-shadow: none;
+	}
+
+	.report-filters :global(.display-btn),
+	.report-filters :global(.search-input),
+	.report-filters :global(.mts-input) {
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+	}
+
+	.report-filters :global(.display-btn) {
+		min-height: 32px;
+		padding: 7px 28px 7px 12px;
+	}
+
+	.report-filters :global(.display-icon) {
+		width: 12px;
+		height: 12px;
+	}
+
+	.report-filters :global(.mts-control) {
+		padding: 5px 8px;
+	}
+
+	.filter-multi :global(.mts-control) {
+		height: 34px;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: thin;
+	}
+
+	.filter-multi :global(.mts-control::-webkit-scrollbar) {
+		height: 4px;
+	}
+
+	.filter-multi :global(.mts-control::-webkit-scrollbar-thumb) {
+		background: color-mix(in srgb, var(--text-tertiary) 42%, transparent);
+		border-radius: var(--radius-sm);
+	}
+
+	.report-filters :global(.mts-tag) {
+		flex: 0 0 auto;
+		max-width: 5.5rem;
+		padding: 2px 4px 2px 6px;
+		font-size: 0.625rem;
+	}
+
+	.filter-multi :global(.mts-input) {
+		flex: 0 0 4rem;
+		min-width: 4rem;
+	}
+
+	.filter-multi :global(.mts-input:placeholder-shown) {
+		flex-basis: 100%;
+	}
+
+	.report-filters :global(.btn) {
+		min-height: 34px;
+		border-radius: var(--radius-sm);
+		padding: 7px 12px;
+		font-size: var(--text-sm);
 	}
 
 	.report-error {
@@ -260,6 +348,7 @@
 	}
 
 	.report-state {
+		background: var(--surface-panel);
 		min-height: 8.5rem;
 		display: grid;
 		place-items: center;
@@ -283,13 +372,19 @@
 			padding: var(--sp-2);
 		}
 
+		.filter-label {
+			flex: 1 0 100%;
+		}
+
 		.filter-select {
 			width: 100%;
+			min-width: 0;
 			max-width: none;
 		}
 
 		.filter-multi {
 			width: 100%;
+			min-width: 0;
 			max-width: none;
 		}
 	}

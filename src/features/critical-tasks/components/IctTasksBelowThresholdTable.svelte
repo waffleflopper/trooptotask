@@ -9,6 +9,7 @@
 	}
 
 	const VISIBLE_ROW_LIMIT = 6;
+	type ReadinessTone = 'red' | 'amber' | 'green';
 	type SortKey = 'task' | 'percent' | 'gap';
 	type SortDirection = 'asc' | 'desc';
 
@@ -33,7 +34,13 @@
 	}
 
 	function formatSoldierGap(count: number): string {
-		return `${count} ${count === 1 ? 'Soldier' : 'Soldiers'}`;
+		return String(count);
+	}
+
+	function readinessTone(percent: number): ReadinessTone {
+		if (percent < 55) return 'red';
+		if (percent < thresholdPercent) return 'amber';
+		return 'green';
 	}
 
 	function compareIdentity(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {
@@ -87,8 +94,8 @@
 	<div class="section-header">
 		<div>
 			<h2 id="tasks-below-threshold-title">Tasks Below Unit Threshold</h2>
-			<p>Below {thresholdPercent}% unit completion</p>
 		</div>
+		<span class="section-meta">&lt;{thresholdPercent}% complete</span>
 		{#if loading}
 			<span class="section-status">Updating</span>
 		{/if}
@@ -110,7 +117,7 @@
 								aria-label="Sort by Task ID + Name"
 								onclick={() => sortBy('task', 'asc')}
 							>
-								Task ID + Name
+								Task
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('percent')}>
@@ -120,7 +127,7 @@
 								aria-label="Sort by % Complete"
 								onclick={() => sortBy('percent', 'asc')}
 							>
-								% Complete
+								Complete
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('gap')}>
@@ -130,20 +137,23 @@
 								aria-label="Sort by Soldier Gap"
 								onclick={() => sortBy('gap', 'desc')}
 							>
-								Soldier Gap
+								Gap
 							</button>
 						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each visibleRows as row (row.taskId)}
+						{@const tone = readinessTone(row.percentComplete)}
 						<tr>
 							<th scope="row" class="task-cell">
 								<span class="task-code">{row.taskCode}</span>
 								<span class="task-name">{row.taskName}</span>
 							</th>
-							<td class="numeric percent-cell">{row.percentComplete}%</td>
-							<td class="numeric gap-cell">{formatSoldierGap(row.soldierGapCount)}</td>
+							<td class={`numeric percent-cell readiness-val ${tone}`}>{row.percentComplete}%</td>
+							<td class="numeric gap-cell">
+								<span class={`pill pill-${tone}`}>{formatSoldierGap(row.soldierGapCount)}</span>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -169,12 +179,12 @@
 	.below-threshold-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: var(--sp-5);
 		width: 100%;
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6) var(--sp-4);
+		padding: var(--sp-5) var(--sp-6);
 	}
 
 	.section-header {
@@ -182,26 +192,27 @@
 		align-items: baseline;
 		justify-content: space-between;
 		gap: var(--sp-3);
-		border-bottom: 0.5px solid var(--border-default);
-		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
+		padding-bottom: 14px;
 	}
 
 	.section-header h2 {
 		margin: 0;
 		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
+		font-size: 1.25rem;
+		font-weight: var(--font-weight-semibold);
+		line-height: 1;
+		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--text-primary);
 	}
 
-	.section-header p,
+	.section-meta,
 	.section-status {
-		margin: var(--sp-1) 0 0;
+		margin: 0;
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
@@ -218,25 +229,26 @@
 	table {
 		width: 100%;
 		border-collapse: collapse;
-		min-width: 36rem;
+		min-width: 30rem;
 	}
 
 	th,
 	td {
-		padding: var(--sp-3) var(--sp-4);
-		border-bottom: 0.5px solid var(--border-default);
+		padding: 10px var(--sp-2) 10px 0;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
 		text-align: left;
 		vertical-align: top;
 	}
 
 	thead th {
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
+		font-size: 0.625rem;
+		font-weight: var(--font-weight-regular);
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-bottom-color: color-mix(in srgb, var(--border-default) 92%, var(--text-primary) 8%);
+		background: transparent;
 	}
 
 	.sort-button {
@@ -270,6 +282,11 @@
 		border-bottom: 0;
 	}
 
+	tbody tr:hover th,
+	tbody tr:hover td {
+		background: var(--surface-subtle);
+	}
+
 	.task-cell {
 		font-weight: var(--font-weight-normal);
 	}
@@ -281,30 +298,75 @@
 
 	.task-code {
 		display: block;
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
+		margin-bottom: 2px;
+		font-size: 0.6875rem;
+		font-weight: var(--font-weight-regular);
+		letter-spacing: 0.02em;
 		color: var(--text-secondary);
 	}
 
 	.task-name {
 		display: block;
-		margin-top: var(--sp-1);
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-primary);
 	}
 
 	.numeric {
-		width: 10rem;
+		width: 6rem;
 		text-align: right;
 		white-space: nowrap;
 	}
 
 	.percent-cell,
 	.gap-cell {
-		font-size: var(--text-sm);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
 		color: var(--text-primary);
+	}
+
+	.readiness-val.red {
+		color: var(--danger);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.readiness-val.amber {
+		color: var(--amber-dark);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.readiness-val.green {
+		color: var(--success);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.pill {
+		display: inline-block;
+		min-width: 2.25rem;
+		border-radius: var(--radius-sm);
+		padding: 3px 9px;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		line-height: 1.2;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.pill-red {
+		background: var(--danger-bg);
+		color: var(--danger);
+	}
+
+	.pill-amber {
+		background: var(--amber-light);
+		color: var(--amber-dark);
+	}
+
+	.pill-green {
+		background: var(--success-bg);
+		color: var(--success);
 	}
 
 	.empty-state {

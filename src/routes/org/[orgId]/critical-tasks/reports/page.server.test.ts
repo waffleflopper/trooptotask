@@ -31,6 +31,11 @@ describe('critical tasks reports page server load', () => {
 					readyCount: 2,
 					applicableCount: 3
 				}
+			},
+			readinessMatrix: {
+				hasCategorizedTasks: false,
+				categories: [],
+				rows: []
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

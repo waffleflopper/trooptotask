@@ -48,6 +48,11 @@ const dashboard: IctReportDashboard = {
 			readyCount: 3,
 			applicableCount: 4
 		}
+	},
+	readinessMatrix: {
+		hasCategorizedTasks: false,
+		categories: [],
+		rows: []
 	}
 };
 

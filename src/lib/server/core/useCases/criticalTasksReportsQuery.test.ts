@@ -61,6 +61,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 				task_code: '081-833-0010',
 				title: 'Open airway',
 				description: null,
+				category: 'Medical',
 				mos: [],
 				expiration_months: 12,
 				sort_order: 0,
@@ -118,6 +119,31 @@ describe('fetchCriticalTasksReportSummary', () => {
 				soldierGapCount: 1,
 				applicableCount: 2,
 				completeCount: 1
+			}
+		]);
+		expect(dashboard.readinessMatrix.categories.map(({ label }) => label)).toEqual(['Medical']);
+		expect(
+			dashboard.readinessMatrix.rows.map((row) => ({
+				mos: row.mos,
+				personnelCount: row.personnelCount,
+				averageReadinessPercent: row.averageReadinessPercent,
+				averageReadyCount: row.averageReadyCount,
+				averageApplicableCount: row.averageApplicableCount
+			}))
+		).toEqual([
+			{
+				mos: '11B',
+				personnelCount: 1,
+				averageReadinessPercent: 0,
+				averageReadyCount: 0,
+				averageApplicableCount: 1
+			},
+			{
+				mos: '68W',
+				personnelCount: 1,
+				averageReadinessPercent: 100,
+				averageReadyCount: 1,
+				averageApplicableCount: 1
 			}
 		]);
 		expect(dashboard.atRiskSoldiers.rows).toEqual([

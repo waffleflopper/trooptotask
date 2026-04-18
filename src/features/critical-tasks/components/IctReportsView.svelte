@@ -11,6 +11,7 @@
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
+	import IctReadinessMatrixTable from './IctReadinessMatrixTable.svelte';
 	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
 	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
 
@@ -189,6 +190,7 @@
 		<EmptyState message="No critical tasks configured yet." />
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
+		<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} />
 		<div class="report-visual-grid">
 			<IctReadinessTrendChart trend={dashboard.readinessTrend} loading={dashboardLoading} />
 			<IctTasksBelowThresholdTable

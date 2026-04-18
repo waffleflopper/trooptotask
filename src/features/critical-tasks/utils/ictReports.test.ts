@@ -126,6 +126,154 @@ describe('ictReports', () => {
 		});
 	});
 
+	it('builds a MOS by task-category readiness matrix from persisted task categories', () => {
+		const rifleReady: Personnel = {
+			...infantry,
+			id: 'person-rifle-ready',
+			lastName: 'Able'
+		};
+		const rifleGap: Personnel = {
+			...infantry,
+			id: 'person-rifle-gap',
+			lastName: 'Baker'
+		};
+		const weaponsTask: IctTask = {
+			...commonTask,
+			id: 'task-weapons',
+			taskCode: '071-326-5703',
+			title: 'Engage targets',
+			category: 'Weapons',
+			mos: ['11B'],
+			sortOrder: 0
+		};
+		const medicalTask: IctTask = {
+			...medicTask,
+			id: 'task-medical',
+			taskCode: '081-68W-1001',
+			title: 'Treat hemorrhage',
+			category: 'Medical',
+			mos: ['68W'],
+			sortOrder: 1
+		};
+		const uncategorizedTask: IctTask = {
+			...commonTask,
+			id: 'task-uncategorized',
+			taskCode: '999-000-0001',
+			title: 'Account for equipment',
+			category: '   ',
+			sortOrder: 2
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [rifleReady, rifleGap, medic],
+			tasks: [weaponsTask, medicalTask, uncategorizedTask],
+			completions: [
+				completion({
+					id: 'completion-rifle-weapons',
+					personnelId: rifleReady.id,
+					ictTaskId: weaponsTask.id,
+					completedAt: '2026-03-01'
+				}),
+				completion({
+					id: 'completion-medic-medical',
+					personnelId: medic.id,
+					ictTaskId: medicalTask.id,
+					completedAt: '2026-03-01'
+				}),
+				completion({
+					id: 'completion-medic-uncategorized',
+					personnelId: medic.id,
+					ictTaskId: uncategorizedTask.id,
+					completedAt: '2026-03-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.readinessMatrix.hasCategorizedTasks).toBe(true);
+		expect(
+			dashboard.readinessMatrix.categories.map(({ label, isUncategorized }) => ({ label, isUncategorized }))
+		).toEqual([
+			{ label: 'Weapons', isUncategorized: false },
+			{ label: 'Medical', isUncategorized: false },
+			{ label: 'Uncategorized', isUncategorized: true }
+		]);
+		expect(dashboard.readinessMatrix.rows).toEqual([
+			{
+				mos: '11B',
+				personnelCount: 2,
+				averageReadinessPercent: 25,
+				averageReadyCount: 1,
+				averageApplicableCount: 4,
+				averageTier: 'danger',
+				cells: [
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Weapons',
+						readinessPercent: 50,
+						readyCount: 1,
+						applicableCount: 2,
+						tier: 'danger'
+					},
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Medical',
+						readinessPercent: null,
+						readyCount: 0,
+						applicableCount: 0,
+						tier: 'not-applicable'
+					},
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Uncategorized',
+						readinessPercent: 0,
+						readyCount: 0,
+						applicableCount: 2,
+						tier: 'danger'
+					}
+				]
+			},
+			{
+				mos: '68W',
+				personnelCount: 1,
+				averageReadinessPercent: 100,
+				averageReadyCount: 2,
+				averageApplicableCount: 2,
+				averageTier: 'good',
+				cells: [
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Weapons',
+						readinessPercent: null,
+						readyCount: 0,
+						applicableCount: 0,
+						tier: 'not-applicable'
+					},
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Medical',
+						readinessPercent: 100,
+						readyCount: 1,
+						applicableCount: 1,
+						tier: 'good'
+					},
+					{
+						categoryKey: expect.any(String),
+						categoryLabel: 'Uncategorized',
+						readinessPercent: 100,
+						readyCount: 1,
+						applicableCount: 1,
+						tier: 'good'
+					}
+				]
+			}
+		]);
+	});
+
 	it('exposes 12 monthly readiness snapshots for the filtered report population', () => {
 		const dashboard = buildIctReportDashboard({
 			personnel: [medic, infantry],

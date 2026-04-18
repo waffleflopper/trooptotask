@@ -94,7 +94,7 @@ describe('ictReports', () => {
 					id: 'completion-expiring-common',
 					personnelId: infantryReady.id,
 					ictTaskId: commonTask.id,
-					completedAt: '2025-03-01'
+					completedAt: '2025-03-25'
 				})
 			],
 			settings: {
@@ -118,7 +118,7 @@ describe('ictReports', () => {
 		expect(dashboard.kpis.tasksExpiringSoon).toEqual({
 			count: 1,
 			affectedSoldiers: 1,
-			windowDays: 30
+			windowDays: 60
 		});
 		expect(dashboard.kpis.tasksBelowThreshold).toEqual({
 			count: 1,
@@ -371,6 +371,80 @@ describe('ictReports', () => {
 			{ mos: '25B', personnelCount: 2, readinessPercent: 50, readyCount: 1, applicableCount: 2 },
 			{ mos: '68W', personnelCount: 2, readinessPercent: 100, readyCount: 2, applicableCount: 2 },
 			{ mos: '12N', personnelCount: 1, readinessPercent: 0, readyCount: 0, applicableCount: 1 }
+		]);
+	});
+
+	it('exposes fixed-bin individual readiness distributions by filtered MOS headcount', () => {
+		const taskAlpha: IctTask = {
+			...commonTask,
+			id: 'task-alpha',
+			taskCode: '081-000-0101',
+			title: 'Stabilize casualty'
+		};
+		const taskBravo: IctTask = {
+			...commonTask,
+			id: 'task-bravo',
+			taskCode: '081-000-0102',
+			title: 'Move casualty'
+		};
+		const taskCharlie: IctTask = {
+			...commonTask,
+			id: 'task-charlie',
+			taskCode: '081-000-0103',
+			title: 'Report casualty'
+		};
+		const people: Personnel[] = [
+			{ ...infantry, id: '11b-ready', lastName: 'Able', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '11b-partial', lastName: 'Baker', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '11b-gap', lastName: 'Charlie', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...medic, id: '68w-ready', lastName: 'Delta', mos: '68W', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...medic, id: '68w-partial', lastName: 'Echo', mos: '68W', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '25u-partial', lastName: 'Foxtrot', mos: '25U', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '12n-filtered-out', mos: '12N', groupId: 'group-bravo', groupName: 'Bravo' }
+		];
+		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' });
+
+		const dashboard = buildIctReportDashboard({
+			personnel: filteredPersonnel,
+			tasks: [taskAlpha, taskBravo, taskCharlie],
+			completions: [
+				completion({ id: '11b-ready-alpha', personnelId: '11b-ready', ictTaskId: taskAlpha.id }),
+				completion({ id: '11b-ready-bravo', personnelId: '11b-ready', ictTaskId: taskBravo.id }),
+				completion({ id: '11b-ready-charlie', personnelId: '11b-ready', ictTaskId: taskCharlie.id }),
+				completion({ id: '11b-partial-alpha', personnelId: '11b-partial', ictTaskId: taskAlpha.id }),
+				completion({ id: '11b-partial-bravo', personnelId: '11b-partial', ictTaskId: taskBravo.id }),
+				completion({ id: '68w-ready-alpha', personnelId: '68w-ready', ictTaskId: taskAlpha.id }),
+				completion({ id: '68w-ready-bravo', personnelId: '68w-ready', ictTaskId: taskBravo.id }),
+				completion({ id: '68w-ready-charlie', personnelId: '68w-ready', ictTaskId: taskCharlie.id }),
+				completion({ id: '68w-partial-alpha', personnelId: '68w-partial', ictTaskId: taskAlpha.id }),
+				completion({ id: '25u-partial-alpha', personnelId: '25u-partial', ictTaskId: taskAlpha.id }),
+				completion({ id: '25u-partial-bravo', personnelId: '25u-partial', ictTaskId: taskBravo.id })
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.readinessDistribution.defaultMos).toBe('11B');
+		expect(dashboard.readinessDistribution.bins).toEqual([
+			{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
+			{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
+			{ key: '40-60', label: '40-60%', minPercent: 40, maxPercent: 60 },
+			{ key: '60-80', label: '60-80%', minPercent: 60, maxPercent: 80 },
+			{ key: '80-100', label: '80-100%', minPercent: 80, maxPercent: 100 }
+		]);
+		expect(
+			dashboard.readinessDistribution.series.map(({ mos, personnelCount, bins }) => ({
+				mos,
+				personnelCount,
+				counts: bins.map((bin) => bin.soldierCount)
+			}))
+		).toEqual([
+			{ mos: '11B', personnelCount: 3, counts: [1, 0, 0, 1, 1] },
+			{ mos: '68W', personnelCount: 2, counts: [0, 1, 0, 0, 1] },
+			{ mos: '25U', personnelCount: 1, counts: [0, 0, 0, 1, 0] }
 		]);
 	});
 

@@ -20,7 +20,7 @@ const dashboard: IctReportDashboard = {
 		tasksExpiringSoon: {
 			count: 2,
 			affectedSoldiers: 2,
-			windowDays: 30
+			windowDays: 60
 		},
 		tasksBelowThreshold: {
 			count: 1,
@@ -53,6 +53,11 @@ const dashboard: IctReportDashboard = {
 		hasCategorizedTasks: false,
 		categories: [],
 		rows: []
+	},
+	readinessDistribution: {
+		bins: [],
+		defaultMos: null,
+		series: []
 	}
 };
 
@@ -67,7 +72,7 @@ describe('IctReportKpiStrip', () => {
 		const strip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		const overall = within(strip).getByRole('article', { name: 'Overall Readiness' });
 		const soldiers = within(strip).getByRole('article', { name: 'Soldiers Below 70%' });
-		const expiring = within(strip).getByRole('article', { name: 'Tasks Expiring ≤30d' });
+		const expiring = within(strip).getByRole('article', { name: 'Tasks Expiring ≤60d' });
 		const threshold = within(strip).getByRole('article', { name: 'Tasks Below Threshold' });
 
 		expect(overall.querySelector('.kpi-value')?.textContent).toBe('75%');

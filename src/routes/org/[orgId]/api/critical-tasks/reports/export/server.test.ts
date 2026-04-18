@@ -67,7 +67,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		const lines = result.split('\n');
 
 		expect(lines[0]).toBe('Section,Metric,Value,Subtitle');
-		expect(lines[1]).toBe('At-Risk Soldiers,"NoUpdate, Nora",0%,SPC 11B; Alpha; 0 expiring <=30d; No ICT update');
+		expect(lines[1]).toBe('At-Risk Soldiers,"NoUpdate, Nora",0%,SPC 11B; Alpha; 0 expiring <=60d; No ICT update');
 		expect(lines[2]).toContain('Summary,Overall Readiness,0%');
 		expect(result).not.toContain('Outside, Olivia');
 		expect(result).not.toContain('Bravo');
@@ -190,7 +190,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		expect(result).toContain('Section,Metric,Value,Subtitle');
 		expect(result).toContain('Summary,Overall Readiness,100%');
 		expect(result).toContain('Summary,Soldiers Below 70%,0,1 assigned');
-		expect(result).toContain('Summary,Tasks Expiring <=30d,0,0 Soldiers affected');
+		expect(result).toContain('Summary,Tasks Expiring <=60d,0,0 Soldiers affected');
 		expect(result).not.toContain('11B');
 		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
 		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="critical-task-report-/);

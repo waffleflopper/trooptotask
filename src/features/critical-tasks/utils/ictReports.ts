@@ -4,15 +4,21 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import { calculateIctExpirationDate, getIctStatus } from './ictStatus';
+import { calculateIctExpirationDate, getIctStatus, normalizeCriticalTasksSettings } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 const READINESS_THRESHOLD_PERCENT = 70;
-const EXPIRING_SOON_WINDOW_DAYS = 30;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const UNCATEGORIZED_TASK_CATEGORY_KEY = '__uncategorized__';
 const UNCATEGORIZED_TASK_CATEGORY_LABEL = 'Uncategorized';
+const READINESS_DISTRIBUTION_BINS: IctReadinessDistributionBinDefinition[] = [
+	{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
+	{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
+	{ key: '40-60', label: '40-60%', minPercent: 40, maxPercent: 60 },
+	{ key: '60-80', label: '60-80%', minPercent: 60, maxPercent: 80 },
+	{ key: '80-100', label: '80-100%', minPercent: 80, maxPercent: 100 }
+];
 
 export interface IctReportFilters {
 	groupId?: string;
@@ -145,6 +151,29 @@ export interface IctReadinessMatrix {
 	hasCategorizedTasks: boolean;
 }
 
+export interface IctReadinessDistributionBinDefinition {
+	key: string;
+	label: string;
+	minPercent: number;
+	maxPercent: number;
+}
+
+export interface IctReadinessDistributionBin extends IctReadinessDistributionBinDefinition {
+	soldierCount: number;
+}
+
+export interface IctReadinessDistributionSeries {
+	mos: string;
+	personnelCount: number;
+	bins: IctReadinessDistributionBin[];
+}
+
+export interface IctReadinessDistribution {
+	bins: IctReadinessDistributionBinDefinition[];
+	defaultMos: string | null;
+	series: IctReadinessDistributionSeries[];
+}
+
 export interface IctReportSummary {
 	overallReadinessPercent: number;
 	readinessByMos: IctMosReadinessSummary[];
@@ -186,6 +215,7 @@ export interface IctReportDashboard {
 	readinessTrend: IctReadinessTrend;
 	expirationCliff: IctExpirationCliff;
 	readinessMatrix: IctReadinessMatrix;
+	readinessDistribution: IctReadinessDistribution;
 }
 
 interface ReadinessSnapshot {
@@ -433,7 +463,8 @@ function buildReadinessSnapshot(input: {
 	const lastIctUpdates = buildLastIctUpdateLookup(input);
 	const asOfDate = resolveAsOfDate(input.asOf);
 	const asOfText = formatDate(asOfDate);
-	const expiringSoonWindowEndText = formatDate(addDays(asOfDate, EXPIRING_SOON_WINDOW_DAYS));
+	const expiringSoonWindowDays = normalizeCriticalTasksSettings(input.settings).expiringSoonWarningDays;
+	const expiringSoonWindowEndText = formatDate(addDays(asOfDate, expiringSoonWindowDays));
 	const taskSummaries = new Map<string, TaskReadinessSummary>();
 	const atRiskSoldierRows: IctAtRiskSoldierRow[] = [];
 	let applicableCount = 0;
@@ -536,7 +567,8 @@ function countExpiringSoon(input: {
 }): { count: number; affectedSoldiers: number } {
 	const asOfDate = resolveAsOfDate(input.asOf);
 	const asOfText = formatDate(asOfDate);
-	const windowEndText = formatDate(addDays(asOfDate, EXPIRING_SOON_WINDOW_DAYS));
+	const windowDays = normalizeCriticalTasksSettings(input.settings).expiringSoonWarningDays;
+	const windowEndText = formatDate(addDays(asOfDate, windowDays));
 	const affectedSoldierIds = new Set<string>();
 	let count = 0;
 
@@ -724,6 +756,54 @@ function buildReadinessMatrix(input: {
 		rows,
 		hasCategorizedTasks
 	};
+}
+
+function buildReadinessDistribution(rows: IctAtRiskSoldierRow[]): IctReadinessDistribution {
+	const rowsByMos = new Map<string, IctAtRiskSoldierRow[]>();
+	for (const row of rows) {
+		const mos = normalizeMosName(row.mos);
+		const mosRows = rowsByMos.get(mos) ?? [];
+		mosRows.push(row);
+		rowsByMos.set(mos, mosRows);
+	}
+
+	const series = [...rowsByMos.entries()]
+		.map(([mos, mosRows]) => {
+			const countsByBin = new Map(READINESS_DISTRIBUTION_BINS.map((bin) => [bin.key, 0]));
+			for (const row of mosRows) {
+				const bin = readinessDistributionBinForPercent(row.readinessPercent);
+				countsByBin.set(bin.key, (countsByBin.get(bin.key) ?? 0) + 1);
+			}
+
+			return {
+				mos,
+				personnelCount: mosRows.length,
+				bins: READINESS_DISTRIBUTION_BINS.map((bin) => ({
+					...bin,
+					soldierCount: countsByBin.get(bin.key) ?? 0
+				}))
+			};
+		})
+		.sort((left, right) => right.personnelCount - left.personnelCount || left.mos.localeCompare(right.mos));
+
+	return {
+		bins: READINESS_DISTRIBUTION_BINS.map((bin) => ({ ...bin })),
+		defaultMos: series[0]?.mos ?? null,
+		series
+	};
+}
+
+function readinessDistributionBinForPercent(percent: number): IctReadinessDistributionBinDefinition {
+	const clampedPercent = Math.min(Math.max(percent, 0), 100);
+	const lastBin = READINESS_DISTRIBUTION_BINS[READINESS_DISTRIBUTION_BINS.length - 1];
+	for (const bin of READINESS_DISTRIBUTION_BINS) {
+		const isLastBin = bin.key === lastBin.key;
+		if (clampedPercent >= bin.minPercent && (clampedPercent < bin.maxPercent || isLastBin)) {
+			return bin;
+		}
+	}
+
+	return lastBin;
 }
 
 function buildReadinessTrend(input: {
@@ -932,6 +1012,7 @@ export function buildIctReportDashboard({
 		settings,
 		asOf: currentAsOfDate
 	});
+	const expiringSoonWindowDays = normalizeCriticalTasksSettings(settings).expiringSoonWarningDays;
 
 	return {
 		kpis: {
@@ -948,7 +1029,7 @@ export function buildIctReportDashboard({
 			},
 			tasksExpiringSoon: {
 				...expiringSoon,
-				windowDays: EXPIRING_SOON_WINDOW_DAYS
+				windowDays: expiringSoonWindowDays
 			},
 			tasksBelowThreshold: {
 				count: currentSnapshot.tasksBelowThresholdRows.length,
@@ -982,7 +1063,8 @@ export function buildIctReportDashboard({
 			latestCompletions: currentSnapshot.latestCompletions,
 			settings,
 			asOf: currentAsOfDate
-		})
+		}),
+		readinessDistribution: buildReadinessDistribution(currentSnapshot.atRiskSoldierRows)
 	};
 }
 

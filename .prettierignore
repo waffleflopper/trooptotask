@@ -9,6 +9,7 @@ dist/
 
 # Supabase
 supabase/.temp/
+supabase/seed.sql
 
 # Generated
 .vercel/

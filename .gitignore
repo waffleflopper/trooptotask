@@ -27,8 +27,7 @@ npm-debug.log*
 # Vercel
 .vercel
 
-# Supabase seed data
-supabase/seed.sql
+# Supabase generated remote dumps
 supabase/seed_remote.sql
 supabase/schema_remote.sql
 supabase/schema_remote_live.sql

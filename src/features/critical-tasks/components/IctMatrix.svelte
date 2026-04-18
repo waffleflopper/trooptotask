@@ -212,7 +212,10 @@
 					<th scope="col" class="person-header">Soldier</th>
 					{#each matrix.tasks as task (task.id)}
 						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}" title={task.title}>
-							<span class="task-code">{task.taskCode}</span>
+							<span class="task-header-labels" aria-hidden="true">
+								<span class="task-code">{task.taskCode}</span>
+								<span class="task-title-short">{task.title}</span>
+							</span>
 						</th>
 					{/each}
 				</tr>
@@ -540,20 +543,43 @@
 		background: var(--matrix-paper-2);
 	}
 
-	.task-code {
-		display: block;
+	.task-header-labels {
+		display: grid;
+		grid-template-rows: auto auto;
+		gap: 4px;
 		position: absolute;
 		bottom: 10px;
-		left: 50%;
-		transform: translateX(-50%) rotate(-90deg);
+		left: 1.95rem;
+		width: 6.65rem;
+		transform: rotate(-90deg);
 		transform-origin: left bottom;
+		pointer-events: none;
+	}
+
+	.task-code,
+	.task-title-short {
+		display: block;
+		min-width: 0;
 		white-space: nowrap;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		line-height: 1;
+	}
+
+	.task-code {
 		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: 0.625rem;
 		font-weight: var(--font-weight-regular);
 		letter-spacing: 0.04em;
+	}
+
+	.task-title-short {
+		color: var(--text-tertiary);
+		font-family: var(--font-body);
+		font-size: 0.5625rem;
+		font-weight: var(--font-weight-regular);
+		letter-spacing: 0;
 	}
 
 	.group-row th {
@@ -740,6 +766,16 @@
 
 		.task-header {
 			height: 7.5rem;
+		}
+
+		.task-header-labels {
+			left: 1.78rem;
+			width: 5.6rem;
+			gap: 3px;
+		}
+
+		.task-title-short {
+			font-size: 0.5rem;
 		}
 
 		.legend-item--na {

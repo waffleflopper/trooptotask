@@ -2,10 +2,7 @@
 	import { BarChart } from 'layerchart';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { REPORT_CHART_SERIES } from '$lib/components/charts/reportChartConventions';
-	import type {
-		IctReadinessDistribution,
-		IctReadinessDistributionSeries
-	} from '$features/critical-tasks/utils/ictReports';
+	import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {
 		distribution: IctReadinessDistribution;
@@ -66,8 +63,7 @@
 					stroke: convention.color,
 					strokeWidth: 2,
 					radius: 0
-				},
-				patternLabel: convention.patternLabel
+				}
 			};
 		})
 	);
@@ -106,7 +102,7 @@
 		return count === 1 ? 'Soldier' : 'Soldiers';
 	}
 
-	function selectedSeriesCount(series: IctReadinessDistributionSeries): string {
+	function selectedSeriesCount(series: { personnelCount: number }): string {
 		return `${series.personnelCount} ${pluralizeSoldier(series.personnelCount)}`;
 	}
 </script>
@@ -230,7 +226,7 @@
 
 			<ul class="chart-legend" aria-label="Readiness distribution MOS series">
 				{#each chartSeries as series (series.key)}
-					<li aria-label={`${series.label}, ${series.patternLabel}, ${series.personnelCount} Soldiers`}>
+					<li aria-label={`${series.label}, ${selectedSeriesCount(series)}`}>
 						<svg class="legend-bar" viewBox="0 0 24 12" aria-hidden="true">
 							<rect
 								class={series.props.class}
@@ -244,7 +240,7 @@
 							/>
 						</svg>
 						<span class="legend-label">{series.label}</span>
-						<span class="legend-pattern">{series.patternLabel}</span>
+						<span class="legend-count">{selectedSeriesCount(series)}</span>
 					</li>
 				{/each}
 			</ul>
@@ -487,7 +483,7 @@
 		fill-opacity: 0.56;
 	}
 
-	.legend-pattern {
+	.legend-count {
 		color: color-mix(in srgb, var(--text-secondary) 80%, transparent);
 	}
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -15,38 +14,20 @@
 	const loading = $derived(
 		!storesHydratedForOrg || personnelStore.loading || groupsStore.loading || ictTasksStore.loading
 	);
+	const reportPersonnel = $derived(storesHydratedForOrg ? personnelStore.items : []);
+	const reportGroups = $derived(storesHydratedForOrg ? groupsStore.items : []);
+	const reportTasks = $derived(storesHydratedForOrg ? ictTasksStore.items : []);
 </script>
 
 <svelte:head>
 	<title>Critical Task Reports - Troop to Task</title>
 </svelte:head>
 
-{#if loading}
-	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-		<Spinner color="currentColor" />
-		<p>Loading critical task reports...</p>
-	</section>
-{:else}
-	<IctReportsView
-		orgId={org.orgId}
-		personnel={personnelStore.items}
-		groups={groupsStore.items}
-		tasks={ictTasksStore.items}
-		initialSummary={data.initialSummary}
-	/>
-{/if}
-
-<style>
-	.route-loading {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: center;
-		padding: var(--sp-6);
-		color: var(--text-secondary);
-	}
-
-	.route-loading p {
-		margin: 0;
-	}
-</style>
+<IctReportsView
+	orgId={org.orgId}
+	personnel={reportPersonnel}
+	groups={reportGroups}
+	tasks={reportTasks}
+	initialDashboard={data.initialDashboard}
+	{loading}
+/>

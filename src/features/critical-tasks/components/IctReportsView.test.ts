@@ -5,7 +5,13 @@ import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
+import type {
+	IctExpirationCliff,
+	IctReadinessDistribution,
+	IctReadinessMatrix,
+	IctReadinessTrend,
+	IctReportDashboard
+} from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
@@ -53,35 +59,266 @@ const commonTask: IctTask = {
 	mos: []
 };
 
-const initialSummary: IctReportSummary = {
-	overallReadinessPercent: 67,
-	readinessByMos: [
-		{ mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
-		{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }
-	],
-	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	worstPerformingMos: { mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
-	completionTrend: [
-		{ month: '2025-11', completions: 1 },
-		{ month: '2026-01', completions: 2 }
-	]
+function readinessTrend(percent: number, mos = '11B'): IctReadinessTrend {
+	return {
+		comparisonMos: [mos],
+		months: [
+			{
+				month: '2026-03',
+				label: 'Mar 2026',
+				overallReadinessPercent: percent - 10,
+				overallReadyCount: 1,
+				overallApplicableCount: 2,
+				mosReadiness: [{ mos, personnelCount: 1, readinessPercent: percent - 10, readyCount: 1, applicableCount: 2 }]
+			},
+			{
+				month: '2026-04',
+				label: 'Apr 2026',
+				overallReadinessPercent: percent,
+				overallReadyCount: 2,
+				overallApplicableCount: 2,
+				mosReadiness: [{ mos, personnelCount: 1, readinessPercent: percent, readyCount: 2, applicableCount: 2 }]
+			}
+		]
+	};
+}
+
+function expirationCliff(percent: number, mos = '11B'): IctExpirationCliff {
+	return {
+		mosSeries: [mos],
+		months: [
+			{
+				month: '2026-04',
+				label: 'Apr 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-05',
+				label: 'May 2026',
+				totalExpiringCount: 1,
+				mosSegments: [{ mos, expiringCount: 1 }]
+			},
+			{
+				month: '2026-06',
+				label: 'Jun 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-07',
+				label: 'Jul 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-08',
+				label: 'Aug 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-09',
+				label: 'Sep 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			}
+		],
+		projectedReadinessAtMonth6: {
+			month: '2026-09',
+			label: 'Sep 2026',
+			readinessPercent: percent,
+			readyCount: percent,
+			applicableCount: 100
+		}
+	};
+}
+
+function readinessMatrix(percent: number, mos = '11B'): IctReadinessMatrix {
+	return {
+		hasCategorizedTasks: true,
+		categories: [{ key: 'category:medical', label: 'Medical', isUncategorized: false }],
+		rows: [
+			{
+				mos,
+				personnelCount: 1,
+				averageReadinessPercent: percent,
+				averageReadyCount: percent,
+				averageApplicableCount: 100,
+				averageTier: percent >= 90 ? 'good' : percent >= 70 ? 'caution' : percent >= 60 ? 'warn' : 'danger',
+				cells: [
+					{
+						categoryKey: 'category:medical',
+						categoryLabel: 'Medical',
+						readinessPercent: percent,
+						readyCount: percent,
+						applicableCount: 100,
+						tier: percent >= 90 ? 'good' : percent >= 70 ? 'caution' : percent >= 60 ? 'warn' : 'danger'
+					}
+				]
+			}
+		]
+	};
+}
+
+const distributionBins = [
+	{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
+	{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
+	{ key: '40-60', label: '40-60%', minPercent: 40, maxPercent: 60 },
+	{ key: '60-80', label: '60-80%', minPercent: 60, maxPercent: 80 },
+	{ key: '80-100', label: '80-100%', minPercent: 80, maxPercent: 100 }
+];
+
+function readinessDistribution(defaultMos = '11B', mosValues = [defaultMos]): IctReadinessDistribution {
+	const countsByMos: Record<string, number[]> = {
+		'11B': [1, 0, 0, 1, 1],
+		'68W': [0, 1, 0, 0, 1]
+	};
+
+	return {
+		bins: distributionBins,
+		defaultMos,
+		series: mosValues.map((mos) => {
+			const counts = countsByMos[mos] ?? [0, 0, 0, 0, 0];
+			return {
+				mos,
+				personnelCount: counts.reduce((total, count) => total + count, 0),
+				bins: distributionBins.map((bin, index) => ({ ...bin, soldierCount: counts[index] ?? 0 }))
+			};
+		})
+	};
+}
+
+const initialDashboard: IctReportDashboard = {
+	kpis: {
+		overallReadiness: {
+			percent: 67,
+			deltaPercent: -4,
+			readyCount: 2,
+			applicableCount: 3
+		},
+		soldiersBelow70: {
+			count: 1,
+			totalApplicable: 2,
+			thresholdPercent: 70
+		},
+		tasksExpiringSoon: {
+			count: 1,
+			affectedSoldiers: 1,
+			windowDays: 45
+		},
+		tasksBelowThreshold: {
+			count: 1,
+			thresholdPercent: 70
+		}
+	},
+	tasksBelowThreshold: {
+		thresholdPercent: 70,
+		rows: [
+			{
+				taskId: 'task-common',
+				taskCode: '081-833-0010',
+				taskName: 'Open airway',
+				percentComplete: 50,
+				soldierGapCount: 1,
+				applicableCount: 2,
+				completeCount: 1
+			}
+		]
+	},
+	atRiskSoldiers: {
+		rows: [
+			{
+				personnelId: infantry.id,
+				soldierName: 'Jones, Alex',
+				mos: '11B',
+				rank: 'SGT',
+				groupName: 'Bravo',
+				readinessPercent: 50,
+				applicableCount: 2,
+				readyCount: 1,
+				tasksExpiringSoonCount: 1,
+				daysSinceLastIctUpdate: 42,
+				lastIctUpdateAt: '2026-02-01T00:00:00Z'
+			}
+		]
+	},
+	readinessTrend: readinessTrend(67),
+	expirationCliff: expirationCliff(58),
+	readinessMatrix: readinessMatrix(67),
+	readinessDistribution: readinessDistribution('11B', ['11B', '68W'])
 };
 
-const filteredSummary: IctReportSummary = {
-	overallReadinessPercent: 100,
-	readinessByMos: [{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }],
-	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	worstPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	completionTrend: [{ month: '2026-01', completions: 1 }]
+const filteredDashboard: IctReportDashboard = {
+	kpis: {
+		overallReadiness: {
+			percent: 100,
+			deltaPercent: 12,
+			readyCount: 2,
+			applicableCount: 2
+		},
+		soldiersBelow70: {
+			count: 0,
+			totalApplicable: 1,
+			thresholdPercent: 70
+		},
+		tasksExpiringSoon: {
+			count: 0,
+			affectedSoldiers: 0,
+			windowDays: 60
+		},
+		tasksBelowThreshold: {
+			count: 0,
+			thresholdPercent: 70
+		}
+	},
+	tasksBelowThreshold: {
+		thresholdPercent: 70,
+		rows: []
+	},
+	atRiskSoldiers: {
+		rows: [
+			{
+				personnelId: medic.id,
+				soldierName: 'Smith, Jane',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 100,
+				applicableCount: 2,
+				readyCount: 2,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: 5,
+				lastIctUpdateAt: '2026-03-10T00:00:00Z'
+			}
+		]
+	},
+	readinessTrend: readinessTrend(100, '68W'),
+	expirationCliff: expirationCliff(100, '68W'),
+	readinessMatrix: readinessMatrix(100, '68W'),
+	readinessDistribution: readinessDistribution('68W', ['68W', '11B'])
 };
 
 describe('IctReportsView', () => {
 	beforeEach(() => {
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+			x: 0,
+			y: 0,
+			width: 720,
+			height: 320,
+			top: 0,
+			right: 720,
+			bottom: 320,
+			left: 0,
+			toJSON: () => ({})
+		} as DOMRect);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(720);
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(360);
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => ({
 				ok: true,
-				json: async () => filteredSummary
+				json: async () => filteredDashboard
 			}))
 		);
 	});
@@ -92,46 +329,172 @@ describe('IctReportsView', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders report summaries and updates the export context when filters change', async () => {
+	it('renders KPI cards and updates the shared report context when filters change', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
 				personnel: [medic, infantry],
 				groups: [alpha, bravo],
 				tasks: [medicTask, commonTask],
-				initialSummary
+				initialDashboard
 			}
 		});
 
 		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
 		expect(screen.getByText('Beta')).toBeTruthy();
-		expect(screen.getByText('67%')).toBeTruthy();
-		const bestCard = screen.getByText('Best Performing MOS').closest('section');
-		const worstCard = screen.getByText('Worst Performing MOS').closest('section');
-		const trendPanel = screen.getByText('Completion Trend').closest('section');
-		expect(bestCard).toBeTruthy();
-		expect(worstCard).toBeTruthy();
-		expect(trendPanel).toBeTruthy();
-		expect(within(bestCard!).getByText('68W')).toBeTruthy();
-		expect(within(worstCard!).getByText('11B')).toBeTruthy();
-		expect(within(trendPanel!).getByText('2026-01')).toBeTruthy();
+		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
+		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
+		expect(
+			within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
+		).toBe('67%');
+		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤45d' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
+		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
+		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
+		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
+		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
+		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
+		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
+		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix — MOS × Task Category' });
+		expect(
+			within(readinessMatrixSection).getByRole('table', { name: 'MOS by task category readiness matrix' })
+		).toBeTruthy();
+		expect(within(readinessMatrixSection).getByLabelText('11B Medical readiness: 67%, 67 of 100 current')).toBeTruthy();
+		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
+		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
+		expect(
+			Boolean(readinessMatrixSection.compareDocumentPosition(readinessTrendSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+		).toBe(true);
+		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
+		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
+		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
+		expect(within(expirationCliffSection).getByText('58% by SEP 2026')).toBeTruthy();
+		expect(within(expirationCliffSection).getByText('- a 9-point drop from current.')).toBeTruthy();
+		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
+		expect(expirationCliffSection.parentElement?.classList.contains('report-followup-grid')).toBe(true);
+		expect(
+			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+		).toBe(true);
+		const distributionSection = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
+		expect(
+			within(distributionSection).getByRole('img', { name: 'Individual readiness distribution histogram' })
+		).toBeTruthy();
+		expect(
+			within(distributionSection).getByRole('table', { name: 'Individual readiness distribution data' })
+		).toBeTruthy();
+		expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
+		expect(screen.queryByText('Completion Trend')).toBeNull();
+		expect(screen.queryByText('Readiness by MOS')).toBeNull();
+		expect(screen.queryByText('Action KPIs')).toBeNull();
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
 
-		const groupFilter = screen.getByLabelText('Filter by group') as HTMLSelectElement;
-		groupFilter.value = alpha.id;
-		await fireEvent.change(groupFilter);
+		const mosFilter = screen.getByRole('combobox', { name: 'Filter by MOS' });
+		await fireEvent.focus(mosFilter);
+		const mosList = screen.getByRole('listbox', { name: 'Filter by MOS' });
+		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '68W' }));
+		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '11B' }));
+
+		expect(screen.getByRole('button', { name: 'Remove 68W' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove 11B' })).toBeTruthy();
 
 		await waitFor(() => {
 			expect(fetch).toHaveBeenCalledWith(
-				`/org/org-1/api/critical-tasks/reports/summary?groupId=${alpha.id}`,
+				'/org/org-1/api/critical-tasks/reports/summary?mos=11B&mos=68W',
 				expect.objectContaining({ signal: expect.any(AbortSignal) })
 			);
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				`/org/org-1/api/critical-tasks/reports/export?groupId=${alpha.id}`
+				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
-			expect(screen.getByText('100%')).toBeTruthy();
+			expect(
+				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
+			).toBe('100%');
+			expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤60d' })).toBeTruthy();
+			expect(
+				within(readinessMatrixSection).getByLabelText('68W Medical readiness: 100%, 100 of 100 current')
+			).toBeTruthy();
+			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
+			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
+			expect(within(distributionSection).getByText('Overlaying selected MOS filters.')).toBeTruthy();
+			expect(within(distributionSection).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
+			expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
+			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();
+			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
+			expect(within(atRiskSection).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+		});
+	});
+
+	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic],
+				groups: [alpha],
+				tasks: [],
+				initialDashboard
+			}
+		});
+
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back' })).toBeTruthy();
+		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
+		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
+		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
+	});
+
+	it('shows the empty report state when only archived critical tasks remain', () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic],
+				groups: [alpha],
+				tasks: [{ ...medicTask, archivedAt: '2026-04-01T00:00:00Z' }],
+				initialDashboard
+			}
+		});
+
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
+	});
+
+	it('uses searchable single-select controls for group, rank, and role filters', async () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic, infantry],
+				groups: [alpha, bravo],
+				tasks: [medicTask, commonTask],
+				initialDashboard
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by group' }));
+		const groupFilter = screen.getByRole('combobox', { name: 'Filter by group' });
+		await fireEvent.input(groupFilter, { target: { value: 'Bra' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Bravo' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by rank' }));
+		const rankFilter = screen.getByRole('combobox', { name: 'Filter by rank' });
+		await fireEvent.input(rankFilter, { target: { value: 'SG' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by role' }));
+		const roleFilter = screen.getByRole('combobox', { name: 'Filter by role' });
+		await fireEvent.input(roleFilter, { target: { value: 'Rifle' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Rifleman' }));
+
+		await waitFor(() => {
+			expect(fetch).toHaveBeenCalledWith(
+				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-bravo&role=Rifleman&rank=SGT',
+				expect.objectContaining({ signal: expect.any(AbortSignal) })
+			);
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/reports/export?groupId=group-bravo&role=Rifleman&rank=SGT'
+			);
 		});
 	});
 });

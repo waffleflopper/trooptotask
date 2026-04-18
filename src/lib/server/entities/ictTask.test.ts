@@ -11,6 +11,7 @@ describe('IctTaskEntity', () => {
 			task_code: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
 			description: 'CLS task',
+			category: 'Casualty Care',
 			mos: ['68W', '18D'],
 			expiration_months: 12,
 			sort_order: 4,
@@ -23,6 +24,7 @@ describe('IctTaskEntity', () => {
 			taskCode: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
 			description: 'CLS task',
+			category: 'Casualty Care',
 			mos: ['68W', '18D'],
 			expirationMonths: 12,
 			sortOrder: 4,
@@ -57,6 +59,7 @@ describe('IctTaskEntity', () => {
 				taskCode: '181-105-1001',
 				title: 'Perform tactical combat casualty care',
 				description: 'Aid under fire',
+				category: 'Casualty Care',
 				mos: ['68W'],
 				sortOrder: 2
 			},
@@ -68,6 +71,7 @@ describe('IctTaskEntity', () => {
 			task_code: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
 			description: 'Aid under fire',
+			category: 'Casualty Care',
 			mos: ['68W'],
 			expiration_months: null,
 			sort_order: 2,
@@ -86,6 +90,7 @@ describe('IctTaskEntity', () => {
 
 		expect(result).toMatchObject({
 			description: null,
+			category: null,
 			mos: [],
 			expiration_months: null,
 			sort_order: 0,
@@ -98,6 +103,7 @@ describe('IctTaskEntity', () => {
 			id: 'task-1',
 			title: 'Updated task',
 			description: 'Updated description',
+			category: 'Casualty Care',
 			expirationMonths: 24,
 			sortOrder: 8,
 			archivedAt: '2026-04-02T12:00:00Z',
@@ -107,6 +113,7 @@ describe('IctTaskEntity', () => {
 		expect(result).toEqual({
 			title: 'Updated task',
 			description: 'Updated description',
+			category: 'Casualty Care',
 			expiration_months: 24,
 			sort_order: 8,
 			archived_at: '2026-04-02T12:00:00Z'
@@ -137,10 +144,13 @@ describe('IctTaskEntity', () => {
 			taskCode: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
 			description: 'Aid under fire',
+			category: 'Casualty Care',
 			mos: ['68W'],
 			expirationMonths: 12,
 			sortOrder: 0
 		})) as IctTask;
+
+		expect(created.category).toBe('Casualty Care');
 
 		await handleUseCaseRequest(handlers._configs.PUT!, ctx, {
 			id: created.id,

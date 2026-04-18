@@ -107,12 +107,19 @@ describe('IctMatrix', () => {
 		});
 
 		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
-		expect(screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeTruthy();
+		const tcccHeader = screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ });
+		expect(tcccHeader).toBeTruthy();
+		expect(within(tcccHeader).getByText('TCCC')).toBeTruthy();
 		const personLink = screen.getByRole('link', { name: /Smith, Jane/ });
 		expect(personLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/smith');
 		expect(personLink.textContent).toContain('SGT');
 		expect(personLink.textContent).toContain('Smith, Jane');
 		expect(personLink.textContent).toContain('68W');
+		expect(screen.getByLabelText('Smith, Jane readiness 50%')).toBeTruthy();
+		expect(screen.getByText(/Alpha/)).toBeTruthy();
+		expect(screen.getByText('1 personnel (50% Readiness)')).toBeTruthy();
+		expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
+		expect(screen.getByText('Not Required for MOS')).toBeTruthy();
 
 		const currentCell = screen.getByRole('button', {
 			name: /Smith 181-105-1001: current. TCCC: current. Completed 2026-04-01. Expires 2027-04-01./

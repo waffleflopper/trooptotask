@@ -47,6 +47,7 @@
 	let formTaskCode = $state('');
 	let formTitle = $state('');
 	let formDescription = $state('');
+	let formCategory = $state('');
 	let formMos = $state('');
 	let formExpirationMonths = $state('');
 	let formSortOrder = $state('0');
@@ -97,17 +98,23 @@
 		}
 	});
 
-	function matchesTaskSearch(task: Pick<IctTask, 'taskCode' | 'title'>, query: string): boolean {
+	function matchesTaskSearch(task: Pick<IctTask, 'taskCode' | 'title' | 'category'>, query: string): boolean {
 		const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 		if (terms.length === 0) return true;
 
-		const searchable = `${task.taskCode} ${task.title}`.toLowerCase();
+		const searchable = `${task.taskCode} ${task.title} ${task.category ?? ''}`.toLowerCase();
 		return terms.every((term) => searchable.includes(term));
 	}
 
 	function matchesSelectedMos(task: Pick<IctTask, 'mos'>): boolean {
 		if (!selectedMos) return true;
 		return isIctTaskApplicableToMos(task, selectedMos);
+	}
+
+	function formatTaskListMeta(task: Pick<IctTask, 'category' | 'mos'>): string {
+		const mosLabel = formatMosApplicability(task.mos);
+		const category = task.category?.trim();
+		return category ? `${category} / ${mosLabel}` : mosLabel;
 	}
 
 	function clearTaskFilters() {
@@ -129,6 +136,7 @@
 		formTaskCode = task?.taskCode ?? '';
 		formTitle = task?.title ?? '';
 		formDescription = task?.description ?? '';
+		formCategory = task?.category ?? '';
 		formMos = task ? task.mos.join(', ') : '';
 		formExpirationMonths = task?.expirationMonths == null ? '' : String(task.expirationMonths);
 		formSortOrder = String(task?.sortOrder ?? nextSortOrder());
@@ -183,6 +191,10 @@
 		return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 	}
 
+	function normalizeOptionalText(value: string): string | null {
+		return value.trim() || null;
+	}
+
 	function handleExpirationInput(event: Event) {
 		formExpirationMonths = (event.currentTarget as HTMLInputElement).value;
 	}
@@ -200,7 +212,8 @@
 			const payload = {
 				taskCode: formTaskCode.trim().toUpperCase(),
 				title: formTitle.trim(),
-				description: formDescription.trim() || null,
+				description: normalizeOptionalText(formDescription),
+				category: normalizeOptionalText(formCategory),
 				mos: parseMosApplicabilityInput(formMos),
 				expirationMonths: parsePositiveInteger(formExpirationMonths),
 				sortOrder: parseSortOrder(formSortOrder),
@@ -405,7 +418,7 @@
 							>
 								<span class="task-code">{task.taskCode}</span>
 								<span class="task-title">{task.title}</span>
-								<span class="task-meta">{formatMosApplicability(task.mos)}</span>
+								<span class="task-meta">{formatTaskListMeta(task)}</span>
 							</button>
 							{#if canReorderTasks}
 								<div class="task-reorder" aria-label="Reorder {task.taskCode}">
@@ -456,6 +469,18 @@
 								bind:value={formDescription}
 								placeholder="Optional task context"
 							></textarea>
+						</div>
+
+						<div class="form-field full">
+							<label class="form-label" for="ict-task-category">Category</label>
+							<input
+								class="input"
+								id="ict-task-category"
+								type="text"
+								bind:value={formCategory}
+								placeholder="Optional local task category"
+							/>
+							<p class="field-hint">Free text for your unit terminology, such as Casualty Care or Crew Drills.</p>
 						</div>
 
 						<div class="form-field full">
@@ -525,6 +550,10 @@
 					{/if}
 
 					<dl class="detail-fields">
+						<div>
+							<dt>Category</dt>
+							<dd>{selectedTask.category ?? 'Not set'}</dd>
+						</div>
 						<div>
 							<dt>MOS applicability</dt>
 							<dd>{formatMosApplicability(selectedTask.mos)}</dd>

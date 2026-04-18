@@ -1,7 +1,7 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import MultiTagSelect from './MultiTagSelect.svelte';
-	import type { TagOption } from './MultiTagSelect.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
 	import type { DutyTemplateSlotBlockingMode } from '../duty-roster.types';
 	import type {
 		EditableBaseline,

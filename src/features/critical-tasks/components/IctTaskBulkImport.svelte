@@ -163,7 +163,7 @@
 			</div>
 			<div class="summary-meta">
 				<span>Required: Task Code, Title</span>
-				<span>Optional: Description, MOS, Expiration Months, Sort Order</span>
+				<span>Optional: Description, Category, MOS, Expiration Months, Sort Order</span>
 			</div>
 		</div>
 

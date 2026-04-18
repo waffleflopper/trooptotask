@@ -12,8 +12,10 @@ import {
 	matchesCriticalTasksPersonnelSearch
 } from '$features/critical-tasks/utils/criticalTasksMatrix';
 import {
+	buildIctReportDashboard,
 	buildIctReportSummary,
 	filterIctReportPersonnel,
+	type IctReportDashboard,
 	type IctReportFilters,
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
@@ -67,6 +69,22 @@ function renderCell(completion: PersonnelIctCompletion | undefined, status: stri
 	}
 }
 
+function formatDelta(delta: number): string {
+	if (delta > 0) return `+${delta} pts vs 30d`;
+	if (delta < 0) return `${delta} pts vs 30d`;
+	return '0 pts vs 30d';
+}
+
+function formatDaysSinceLastIctUpdate(days: number | null): string {
+	if (days === null) return 'No ICT update';
+	if (days === 1) return '1 day since update';
+	return `${days} days since update`;
+}
+
+function formatApplicableSoldiers(count: number): string {
+	return `${count} applicable ${count === 1 ? 'Soldier' : 'Soldiers'}`;
+}
+
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
 	const [personnelRows, groupRows, taskRows, settingsRow] = await Promise.all([
@@ -116,6 +134,51 @@ async function loadLatestCompletions(
 	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
 }
 
+async function loadReportCompletions(
+	ctx: QueryPorts,
+	personnelIds: string[],
+	taskIds: string[]
+): Promise<PersonnelIctCompletion[]> {
+	if (personnelIds.length === 0 || taskIds.length === 0) {
+		return [];
+	}
+
+	const completionRows = await ctx.store.findMany<Record<string, unknown>>(
+		'personnel_ict_completions',
+		ctx.auth.orgId,
+		undefined,
+		{
+			inFilters: {
+				personnel_id: personnelIds,
+				ict_task_id: taskIds
+			}
+		}
+	);
+
+	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
+}
+
+export async function fetchCriticalTasksReportDashboard(
+	ctx: QueryPorts,
+	input: CriticalTasksReportInput = {}
+): Promise<IctReportDashboard> {
+	const source = await loadCriticalTasksReportSource(ctx);
+	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const completions = await loadReportCompletions(
+		ctx,
+		filteredPersonnel.map((person) => person.id),
+		source.tasks.map((task) => task.id)
+	);
+
+	return buildIctReportDashboard({
+		personnel: filteredPersonnel,
+		tasks: source.tasks,
+		completions,
+		settings: source.settings,
+		asOf: input.asOf
+	});
+}
+
 export async function fetchCriticalTasksReportSummary(
 	ctx: QueryPorts,
 	input: CriticalTasksReportInput = {}
@@ -141,31 +204,79 @@ export async function fetchCriticalTasksReportSummary(
 	});
 }
 
+export function formatCriticalTasksReportCsv(dashboard: IctReportDashboard): string {
+	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
+	const expiringSoonWindowLabel = `<=${tasksExpiringSoon.windowDays}d`;
+	const lines = ['Section,Metric,Value,Subtitle'];
+	for (const row of dashboard.atRiskSoldiers.rows) {
+		lines.push(
+			[
+				'At-Risk Soldiers',
+				row.soldierName,
+				`${row.readinessPercent}%`,
+				`${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring ${expiringSoonWindowLabel}; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
+	for (const row of dashboard.tasksBelowThreshold.rows) {
+		lines.push(
+			[
+				'Tasks Below Unit Threshold',
+				`${row.taskCode} ${row.taskName}`,
+				`${row.percentComplete}%`,
+				`${row.soldierGapCount} Soldiers need it`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
+	lines.push(
+		['Summary', 'Overall Readiness', `${overallReadiness.percent}%`, formatDelta(overallReadiness.deltaPercent)]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			`Soldiers Below ${soldiersBelow70.thresholdPercent}%`,
+			String(soldiersBelow70.count),
+			formatApplicableSoldiers(soldiersBelow70.totalApplicable)
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			`Tasks Expiring ${expiringSoonWindowLabel}`,
+			String(tasksExpiringSoon.count),
+			`${tasksExpiringSoon.affectedSoldiers} Soldiers affected`
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			'Tasks Below Threshold',
+			String(tasksBelowThreshold.count),
+			`Below ${tasksBelowThreshold.thresholdPercent}% unit completion`
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+
+	return lines.join('\n');
+}
+
 export async function generateCriticalTasksReportCsv(
 	ctx: QueryPorts,
 	input: CriticalTasksReportInput = {}
 ): Promise<string> {
-	const summary = await fetchCriticalTasksReportSummary(ctx, input);
-	const lines = ['Section,Label,Value,Auxiliary 1,Auxiliary 2'];
-	lines.push(`Summary,Overall Readiness,${summary.overallReadinessPercent}%,,`);
-	for (const row of summary.readinessByMos) {
-		lines.push(`MOS,${escapeCsv(row.mos)},${row.readinessPercent}%,${row.applicableCount},${row.readyCount}`);
-	}
-	if (summary.bestPerformingMos) {
-		lines.push(
-			`Best MOS,${escapeCsv(summary.bestPerformingMos.mos)},${summary.bestPerformingMos.readinessPercent}%,${summary.bestPerformingMos.applicableCount},${summary.bestPerformingMos.readyCount}`
-		);
-	}
-	if (summary.worstPerformingMos) {
-		lines.push(
-			`Worst MOS,${escapeCsv(summary.worstPerformingMos.mos)},${summary.worstPerformingMos.readinessPercent}%,${summary.worstPerformingMos.applicableCount},${summary.worstPerformingMos.readyCount}`
-		);
-	}
-	for (const point of summary.completionTrend) {
-		lines.push(`Trend,${point.month},${point.completions},,`);
-	}
-
-	return lines.join('\n');
+	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
+	return formatCriticalTasksReportCsv(dashboard);
 }
 
 export async function generateCriticalTasksMatrixCsv(

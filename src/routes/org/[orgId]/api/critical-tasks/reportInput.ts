@@ -13,13 +13,30 @@ function optionalParam(value: string | null): string | undefined {
 	return value || undefined;
 }
 
+function normalizeMosValues(values: string | string[] | undefined): string[] | undefined {
+	if (!values) return undefined;
+	const rawValues = Array.isArray(values) ? values : [values];
+	const normalized = [
+		...new Set(
+			rawValues
+				.flatMap((value) => value.split(','))
+				.map((value) => value.trim())
+				.filter(Boolean)
+		)
+	];
+	return normalized.length > 0 ? normalized : undefined;
+}
+
 function parseBooleanParam(value: string | null): boolean {
 	return value === 'true' || value === '1';
 }
 
 export const criticalTasksReportInput = z.object({
 	groupId: z.string().optional(),
-	mos: z.string().optional(),
+	mos: z
+		.union([z.string(), z.array(z.string())])
+		.optional()
+		.transform(normalizeMosValues),
 	role: z.string().optional(),
 	rank: z.string().optional()
 });
@@ -37,7 +54,7 @@ export type CriticalTasksMatrixExportRouteInput = z.infer<typeof criticalTasksMa
 export function parseCriticalTasksReportInput(url: URL): CriticalTasksReportRouteInput {
 	return {
 		groupId: optionalParam(url.searchParams.get('groupId')),
-		mos: optionalParam(url.searchParams.get('mos')),
+		mos: normalizeMosValues(url.searchParams.getAll('mos')),
 		role: optionalParam(url.searchParams.get('role')),
 		rank: optionalParam(url.searchParams.get('rank'))
 	};

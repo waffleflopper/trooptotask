@@ -57,6 +57,12 @@ export const ICT_TASK_IMPORT_COLUMNS: ColumnDef[] = [
 		aliases: ['description', 'desc', 'task description', 'task_description']
 	},
 	{
+		key: 'category',
+		label: 'Category',
+		required: false,
+		aliases: ['category', 'task category', 'task_category', 'domain', 'task domain', 'task_domain']
+	},
+	{
 		key: 'mos',
 		label: 'MOS',
 		required: false,
@@ -104,6 +110,10 @@ function parseSortOrder(value: string, fallback: number): number {
 
 function normalizeTaskCode(value: string): string {
 	return value.trim().toUpperCase();
+}
+
+function normalizeOptionalText(value: string): string | null {
+	return value.trim() || null;
 }
 
 function parseMosImportValue(value: string): { value: string[]; errors: string[] } {
@@ -219,8 +229,11 @@ export function reviewMappedIctTaskImportRows(
 				taskCode,
 				title,
 				description: mappedFields.has('description')
-					? (values.description ?? '').trim() || null
+					? normalizeOptionalText(values.description ?? '')
 					: (existingTask?.description ?? null),
+				category: mappedFields.has('category')
+					? normalizeOptionalText(values.category ?? '')
+					: (existingTask?.category ?? null),
 				mos: mappedFields.has('mos') ? mos.value : (existingTask?.mos ?? []),
 				expirationMonths: mappedFields.has('expirationMonths')
 					? expirationMonths.value

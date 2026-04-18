@@ -1,8 +1,0 @@
-{
-	"repo": "waffleflopper/trooptotask",
-	"issues": [581, 582, 583],
-	"widget": {
-		"placement": "aboveEditor",
-		"windowSize": 5
-	}
-}

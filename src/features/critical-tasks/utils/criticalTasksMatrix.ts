@@ -24,12 +24,18 @@ export interface CriticalTasksMatrixRow {
 	person: Personnel;
 	cells: CriticalTasksMatrixCell[];
 	hasGap: boolean;
+	readinessPercent: number;
+	readyCount: number;
+	applicableCount: number;
 }
 
 export interface CriticalTasksMatrixGroup {
 	key: string;
 	label: string;
 	rows: CriticalTasksMatrixRow[];
+	readinessPercent: number;
+	readyCount: number;
+	applicableCount: number;
 }
 
 export interface CriticalTasksMatrix {
@@ -109,6 +115,10 @@ function comparePersonnelAlphabetically(a: Personnel, b: Personnel): number {
 	return a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName);
 }
 
+function readinessPercent(readyCount: number, applicableCount: number): number {
+	return applicableCount === 0 ? 0 : Math.round((readyCount / applicableCount) * 100);
+}
+
 function normalizeSearchTerm(value: string): string {
 	return value.trim().toLowerCase();
 }
@@ -161,12 +171,20 @@ export function buildCriticalTasksMatrix({
 	const allGroups = sortedGroups
 		.map((group) => {
 			const rows = group.personnel.map((person) => {
+				let readyCount = 0;
+				let applicableCount = 0;
 				const cells = activeTasks.map((task) => {
 					const applicable = isIctTaskApplicableToMos(task, person.mos);
 					const completion = applicable ? latestCompletions.get(completionKey(person.id, task.id)) : undefined;
 					const statusInfo = getIctStatus(completion?.completedAt ?? null, task, settings, asOf);
 					const isGap = applicable && (statusInfo.status === 'expired' || statusInfo.status === 'not-recorded');
 					const detailLabel = buildDetailLabel(task, completion, statusInfo);
+					if (applicable) {
+						applicableCount += 1;
+						if (statusInfo.status === 'current' || statusInfo.status === 'expiring-soon') {
+							readyCount += 1;
+						}
+					}
 
 					return {
 						task,
@@ -182,14 +200,22 @@ export function buildCriticalTasksMatrix({
 				return {
 					person,
 					cells,
-					hasGap
+					hasGap,
+					readinessPercent: readinessPercent(readyCount, applicableCount),
+					readyCount,
+					applicableCount
 				};
 			});
+			const groupReadyCount = rows.reduce((total, row) => total + row.readyCount, 0);
+			const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
 
 			return {
 				key: group.group,
 				label: group.group,
-				rows
+				rows,
+				readinessPercent: readinessPercent(groupReadyCount, groupApplicableCount),
+				readyCount: groupReadyCount,
+				applicableCount: groupApplicableCount
 			};
 		})
 		.filter((group) => group.rows.length > 0);
@@ -212,15 +238,23 @@ export function buildCriticalTasksMatrix({
 		}
 
 		const gapGroups = allGroups
-			.map((group) => ({
-				...group,
-				rows: group.rows
+			.map((group) => {
+				const rows = group.rows
 					.filter((row) => row.hasGap)
 					.map((row) => ({
 						...row,
 						cells: row.cells.filter((cell) => gapTaskIds.has(cell.task.id))
-					}))
-			}))
+					}));
+				const groupReadyCount = rows.reduce((total, row) => total + row.readyCount, 0);
+				const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
+				return {
+					...group,
+					rows,
+					readinessPercent: readinessPercent(groupReadyCount, groupApplicableCount),
+					readyCount: groupReadyCount,
+					applicableCount: groupApplicableCount
+				};
+			})
 			.filter((group) => group.rows.length > 0);
 		const gapRows = gapGroups.flatMap((group) => group.rows);
 

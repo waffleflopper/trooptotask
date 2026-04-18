@@ -141,7 +141,7 @@ describe('critical tasks page', () => {
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 	});
 
-	it('renders the Critical Tasks shell while workspace data is still streaming', () => {
+	it('renders the Training Matrix shell while workspace data is still streaming', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -158,9 +158,9 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		expect(screen.getByText('Critical Tasks')).toBeTruthy();
-		expect(screen.getByText('Beta')).toBeTruthy();
-		expect(screen.getByText('ICTL readiness')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Training Matrix' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Critical Tasks' }).getAttribute('href')).toBe('/org/org-1/critical-tasks');
+		expect(screen.getByText('Matrix')).toBeTruthy();
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
 	});
 
@@ -182,10 +182,9 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
-
-		const reportsLink = screen.getByRole('menuitem', { name: 'Reports' });
+		const reportsLink = screen.getByRole('link', { name: 'Reports' });
 		expect(reportsLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/reports');
+		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
 		const libraryLink = screen.getByRole('menuitem', { name: 'Task Library' });
 		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
 	});
@@ -398,10 +397,10 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
-		expect(screen.getByRole('menuitem', { name: 'Reports' }).getAttribute('href')).toBe(
+		expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
 			'/org/org-1/critical-tasks/reports'
 		);
+		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
 		expect(screen.queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
 	});
 
@@ -458,6 +457,12 @@ describe('critical tasks page', () => {
 		const matrixPanel = screen.getByTestId('critical-tasks-matrix-panel');
 		expect(matrixPanel).toBeTruthy();
 		expect(within(matrixPanel).getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
+		const totals = screen.getByLabelText('Critical Tasks matrix totals');
+		expect(within(totals).getByText('Personnel')).toBeTruthy();
+		expect(within(totals).getByText('Active Tasks')).toBeTruthy();
+		expect(within(totals).getByText('Validations')).toBeTruthy();
+		expect(within(totals).getByText('Unit Readiness')).toBeTruthy();
+		expect(within(totals).getByText('75%')).toBeTruthy();
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('Jones, Jane')).toBeTruthy();
 
@@ -750,7 +755,7 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Record Training' }));
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 

@@ -100,10 +100,10 @@ describe('IctReadinessDistributionHistogram', () => {
 		expect(within(region).queryByRole('combobox', { name: 'Histogram MOS' })).toBeNull();
 		expect(within(region).getByText('Overlaying selected MOS filters.')).toBeTruthy();
 		const legend = within(region).getByRole('list', { name: 'Readiness distribution MOS series' });
-		expect(within(legend).getByText('11B')).toBeTruthy();
-		expect(within(legend).getByText('solid line')).toBeTruthy();
-		expect(within(legend).getByText('68W')).toBeTruthy();
-		expect(within(legend).getByText('short dash line')).toBeTruthy();
+		expect(within(legend).getByRole('listitem', { name: '11B, 3 Soldiers' })).toBeTruthy();
+		expect(within(legend).getByRole('listitem', { name: '68W, 2 Soldiers' })).toBeTruthy();
+		expect(within(legend).queryByText('solid line')).toBeNull();
+		expect(within(legend).queryByText('short dash line')).toBeNull();
 
 		const table = within(region).getByRole('table', { name: 'Individual readiness distribution data' });
 		expect(within(table).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();

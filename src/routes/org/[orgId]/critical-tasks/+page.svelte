@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { SvelteMap, SvelteURLSearchParams } from 'svelte/reactivity';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -12,8 +12,8 @@
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
-	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
-	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
+	import { getIctStatus, normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+	import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 	import type { Personnel } from '$lib/types';
 
@@ -29,15 +29,9 @@
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
 	let showCompletionImportModal = $state(false);
+	const reportsHref = $derived(`/org/${orgId}/critical-tasks/reports`);
 	const overflowItems = $derived.by(() => {
-		const items = permissions.canViewTraining
-			? [
-					{
-						label: 'Reports',
-						href: `/org/${orgId}/critical-tasks/reports`
-					}
-				]
-			: [];
+		const items = [];
 
 		if (org.isPrivileged) {
 			items.push({
@@ -79,6 +73,39 @@
 	const groupScopedPersonnel = $derived(
 		selectedGroupId ? filteredPersonnel.filter((person) => person.groupId === selectedGroupId) : filteredPersonnel
 	);
+	const latestCompletionByCell = $derived.by(() => {
+		const lookup = new SvelteMap<string, PersonnelIctCompletion>();
+		for (const completion of personnelIctCompletionsStore.items) {
+			const key = `${completion.personnelId}:${completion.ictTaskId}`;
+			const existing = lookup.get(key);
+			const completionIsNewer =
+				!existing ||
+				completion.completedAt.localeCompare(existing.completedAt) > 0 ||
+				(completion.completedAt === existing.completedAt && completion.createdAt.localeCompare(existing.createdAt) > 0);
+			if (completionIsNewer) {
+				lookup.set(key, completion);
+			}
+		}
+		return lookup;
+	});
+	const unitReadinessPercent = $derived.by(() => {
+		let readyCount = 0;
+		let applicableCount = 0;
+		for (const person of groupScopedPersonnel) {
+			for (const task of activeTasks) {
+				if (!isIctTaskApplicableToMos(task, person.mos)) {
+					continue;
+				}
+				applicableCount += 1;
+				const completion = latestCompletionByCell.get(`${person.id}:${task.id}`);
+				const status = getIctStatus(completion?.completedAt ?? null, task, criticalTasksSettings).status;
+				if (status === 'current' || status === 'expiring-soon') {
+					readyCount += 1;
+				}
+			}
+		}
+		return applicableCount === 0 ? 0 : Math.round((readyCount / applicableCount) * 100);
+	});
 
 	interface ActiveCompletionCell {
 		person: Personnel;
@@ -183,7 +210,14 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Critical Tasks" titleBadge="Beta" subtitle="ICTL readiness" {overflowItems}>
+	<PageToolbar
+		title="Training Matrix"
+		breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Matrix' }]}
+		{overflowItems}
+	>
+		{#if permissions.canViewTraining}
+			<a class="btn btn-secondary" href={reportsHref}>Reports</a>
+		{/if}
 		<a class="btn btn-secondary" href={matrixExportHref}>Export CSV</a>
 		{#if canInputTask}
 			<button
@@ -195,7 +229,7 @@
 				Import Completions
 			</button>
 			<button class="btn btn-primary" type="button" onclick={handleToolbarTaskInput} disabled={!canOpenTaskInput}>
-				Input Task
+				Record Training
 			</button>
 		{/if}
 	</PageToolbar>
@@ -256,7 +290,7 @@
 								</label>
 
 								<div class="view-toggle">
-									<span class="view-label">View:</span>
+									<span class="view-label">View</span>
 									<div class="view-toggle-controls" role="group" aria-label="Critical Tasks matrix view mode">
 										<button
 											class="view-btn"
@@ -281,34 +315,26 @@
 							</div>
 						</div>
 
-						<div class="controls-footer">
-							<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
-								{#if personnelSearch.trim() || selectedGroupId}
-									<div class="stat-item">
-										<span class="stat-value">{groupScopedPersonnel.length}</span>
-										<span class="stat-label">matching personnel</span>
-									</div>
-								{:else}
-									<div class="stat-item">
-										<span class="stat-value">{activePersonnel.length}</span>
-										<span class="stat-label">personnel</span>
-									</div>
-								{/if}
-								{#if groupScopedPersonnel.length !== activePersonnel.length}
-									<div class="stat-item">
-										<span class="stat-value">{activePersonnel.length}</span>
-										<span class="stat-label">total</span>
-									</div>
-								{/if}
+						<div class="matrix-statsbar" aria-label="Critical Tasks matrix totals">
+							<div class="matrix-counts">
+								<div class="stat-item">
+									<span class="stat-value">{groupScopedPersonnel.length}</span>
+									<span class="stat-label">Personnel</span>
+								</div>
 								<div class="stat-item">
 									<span class="stat-value">{activeTasks.length}</span>
-									<span class="stat-label">active tasks</span>
+									<span class="stat-label">Active Tasks</span>
 								</div>
 								<div class="stat-item">
 									<span class="stat-value">{personnelIctCompletionsStore.items.length}</span>
-									<span class="stat-label">validations</span>
+									<span class="stat-label">Validations</span>
+								</div>
+								<div class="stat-item stat-item--readiness">
+									<span class="stat-value">{unitReadinessPercent}%</span>
+									<span class="stat-label">Unit Readiness</span>
 								</div>
 							</div>
+							<div class="statsbar-right">{orgName}</div>
 						</div>
 					</div>
 
@@ -380,7 +406,7 @@
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
-		padding: var(--sp-6);
+		padding: 28px;
 	}
 
 	.workspace-state,
@@ -395,7 +421,7 @@
 		flex-direction: column;
 		height: 100%;
 		flex: 1;
-		gap: var(--sp-4);
+		gap: 18px;
 		min-height: 0;
 	}
 
@@ -428,8 +454,8 @@
 	.matrix-controls {
 		display: flex;
 		flex-direction: column;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
+		border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
 		overflow: hidden;
 	}
@@ -440,7 +466,7 @@
 		flex-wrap: wrap;
 		align-items: flex-end;
 		gap: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
+		padding: var(--sp-4) var(--sp-5);
 	}
 
 	.matrix-filter-controls {
@@ -449,21 +475,45 @@
 		align-items: flex-end;
 		gap: var(--sp-4);
 		min-width: 0;
+		flex: 1 1 32rem;
 	}
 
 	.filter-field {
 		display: flex;
 		min-width: 12rem;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 6px;
+	}
+
+	.filter-field:first-child {
+		flex: 1 1 22rem;
+	}
+
+	.filter-field:nth-child(2) {
+		flex: 0 0 13.75rem;
 	}
 
 	.filter-field label {
 		color: var(--text-tertiary);
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		font-size: 0.625rem;
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
+	}
+
+	.filter-field :global(.input) {
+		min-height: 2.25rem;
+		border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+	}
+
+	.filter-field :global(.input::placeholder) {
+		color: var(--text-tertiary);
+		font-style: italic;
 	}
 
 	/* Display options: view toggle + gaps checkbox, pushed right */
@@ -477,14 +527,15 @@
 
 	.view-toggle {
 		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 6px;
 	}
 
 	.view-label {
 		color: var(--text-tertiary);
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		font-size: 0.625rem;
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 		white-space: nowrap;
@@ -493,24 +544,27 @@
 	.view-toggle-controls {
 		display: inline-flex;
 		align-items: stretch;
+		border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
 	}
 
 	.view-toggle-controls .view-btn + .view-btn {
-		margin-left: -1px;
+		border-left: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
 	}
 
 	.view-btn {
 		appearance: none;
-		min-height: 32px;
-		padding: 0 12px;
-		font-family: var(--font-mono);
+		min-height: 2.125rem;
+		padding: 0 14px;
+		font-family: var(--font-display);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		border: var(--border-thin);
+		border: 0;
 		background: var(--surface-panel);
-		color: var(--text-secondary);
+		color: var(--text-primary);
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
@@ -519,11 +573,11 @@
 	}
 
 	.view-btn:first-of-type {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+		border-radius: 0;
 	}
 
 	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		border-radius: 0;
 	}
 
 	.view-btn:hover {
@@ -532,9 +586,8 @@
 	}
 
 	.view-btn.active {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber);
-		color: var(--amber-dark);
+		background: var(--amber);
+		color: var(--accent-contrast);
 	}
 
 	.gap-toggle {
@@ -545,8 +598,8 @@
 		cursor: pointer;
 		color: var(--text-secondary);
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		white-space: nowrap;
 	}
@@ -558,12 +611,13 @@
 		accent-color: var(--amber);
 	}
 
-	/* ── Stats footer strip ─────────────────────────────────── */
-
-	.controls-footer {
-		border-top: 1px solid var(--ink-15);
+	.matrix-statsbar {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-5);
+		border-top: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
 		background: var(--surface-subtle);
-		padding: var(--sp-2) var(--sp-4);
+		padding: 14px var(--sp-5);
 	}
 
 	.matrix-counts {
@@ -577,7 +631,7 @@
 		display: flex;
 		align-items: baseline;
 		gap: var(--sp-1);
-		padding: 0 var(--sp-3);
+		padding: 0 14px;
 	}
 
 	.stat-item:first-child {
@@ -585,23 +639,37 @@
 	}
 
 	.stat-item + .stat-item {
-		border-left: 1px solid var(--ink-15);
+		border-left: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
 	}
 
 	.stat-value {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
 		font-weight: var(--font-weight-semibold);
 		color: var(--text-primary);
-		letter-spacing: 0;
+		letter-spacing: 0.02em;
 	}
 
 	.stat-label {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		color: var(--text-tertiary);
-		letter-spacing: var(--letter-spacing-mono);
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
+	}
+
+	.stat-item--readiness .stat-value {
+		color: var(--amber);
+	}
+
+	.statsbar-right {
+		margin-left: auto;
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	/* ── Responsive ─────────────────────────────────────────── */
@@ -642,8 +710,15 @@
 			white-space: normal;
 		}
 
-		.controls-footer {
+		.matrix-statsbar {
 			overflow-x: auto;
+			align-items: flex-start;
+			flex-direction: column;
+			gap: var(--sp-3);
+		}
+
+		.statsbar-right {
+			margin-left: 0;
 		}
 	}
 </style>

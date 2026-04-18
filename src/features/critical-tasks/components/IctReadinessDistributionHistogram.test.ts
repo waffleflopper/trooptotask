@@ -74,6 +74,7 @@ describe('IctReadinessDistributionHistogram', () => {
 		render(IctReadinessDistributionHistogram, { props: { distribution: readinessDistribution } });
 
 		const region = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
+		expect(region.getAttribute('data-report-chart-section')).toBe('true');
 		expect(within(region).getByText('Soldiers grouped by individual readiness percentage.')).toBeTruthy();
 		expect(within(region).getByRole('img', { name: 'Individual readiness distribution histogram' })).toBeTruthy();
 		expect(within(region).getByTestId('layerchart-readiness-distribution')).toBeTruthy();

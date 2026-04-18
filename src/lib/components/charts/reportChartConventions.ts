@@ -39,3 +39,22 @@ export function readinessTrendDomain(values: number[]): [number, number] | null 
 
 	return Math.min(...values) < 50 ? [0, 100] : [50, 100];
 }
+
+export interface ReportCountTickOptions {
+	denseMax?: number;
+	tickCount?: number;
+}
+
+export function buildReportCountTicks(maxValue: number, options: ReportCountTickOptions = {}): number[] {
+	const denseMax = options.denseMax ?? 5;
+	const tickCount = options.tickCount ?? 5;
+	const normalizedMax = Math.max(0, Math.round(maxValue));
+
+	if (normalizedMax <= denseMax) {
+		return Array.from({ length: normalizedMax + 1 }, (_, index) => index);
+	}
+
+	const step = Math.ceil(normalizedMax / Math.max(1, tickCount - 1));
+	const ticks = Array.from({ length: tickCount }, (_, index) => index * step);
+	return ticks.at(-1) === normalizedMax ? ticks : [...ticks.filter((tick) => tick < normalizedMax), normalizedMax];
+}

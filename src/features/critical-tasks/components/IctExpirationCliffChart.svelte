@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { BarChart } from 'layerchart';
+	import { buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
+	import ReportChartSection from '$lib/components/charts/ReportChartSection.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { IctExpirationCliff } from '$features/critical-tasks/utils/ictReports';
 
@@ -57,7 +59,7 @@
 		}))
 	);
 	const yMax = $derived(Math.max(1, ...cliff.months.map((month) => month.totalExpiringCount)));
-	const yTicks = $derived.by(() => buildCountTicks(yMax));
+	const yTicks = $derived.by(() => buildReportCountTicks(yMax, { denseMax: 5 }));
 	const chartSeries = $derived.by(() =>
 		cliff.mosSeries.map((mos, index) => {
 			const color = EXPIRATION_SERIES_COLORS[index % EXPIRATION_SERIES_COLORS.length];
@@ -76,16 +78,6 @@
 			};
 		})
 	);
-
-	function buildCountTicks(maxValue: number): number[] {
-		if (maxValue <= 5) {
-			return Array.from({ length: maxValue + 1 }, (_, index) => index);
-		}
-
-		const step = Math.ceil(maxValue / 4);
-		const ticks = Array.from({ length: 5 }, (_, index) => index * step);
-		return ticks.at(-1) === maxValue ? ticks : [...ticks.filter((tick) => tick < maxValue), maxValue];
-	}
 
 	function formatCount(value: unknown): string {
 		return String(Math.round(Number(value)));
@@ -187,27 +179,15 @@
 	}
 </script>
 
-<section
-	class="cliff-card"
-	aria-labelledby={TITLE_ID}
-	aria-describedby={DESCRIPTION_ID}
-	aria-busy={loading ? 'true' : 'false'}
+<ReportChartSection
+	sectionClass="cliff-card"
+	title="Expiration Cliff — Next 6 Months"
+	titleId={TITLE_ID}
+	description="Task completion expirations over the next six calendar months, stacked by MOS."
+	descriptionId={DESCRIPTION_ID}
+	kicker="Tasks lapsing by month"
+	{loading}
 >
-	<div class="cliff-card-header">
-		<div>
-			<h2 id={TITLE_ID}>Expiration Cliff — Next 6 Months</h2>
-			<p id={DESCRIPTION_ID} class="screen-reader-text">
-				Task completion expirations over the next six calendar months, stacked by MOS.
-			</p>
-		</div>
-		<div class="cliff-card-meta">
-			<span class="chart-kicker">Tasks lapsing by month</span>
-			{#if loading}
-				<span class="chart-status">Updating</span>
-			{/if}
-		</div>
-	</div>
-
 	{#if !hasExpirations}
 		<div class="empty-chart">
 			<EmptyState message="No task completions expire in the next 6 months for the active filters." variant="simple" />
@@ -375,60 +355,9 @@
 			</tbody>
 		</table>
 	</div>
-</section>
+</ReportChartSection>
 
 <style>
-	.cliff-card {
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
-
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6);
-	}
-
-	.cliff-card-header {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
-		padding-bottom: 14px;
-	}
-
-	.cliff-card h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: var(--font-weight-semibold);
-		line-height: 1;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.cliff-card-meta {
-		display: inline-flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.chart-kicker,
-	.chart-status {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
 	.chart-canvas {
 		margin-top: 0;
 	}
@@ -723,7 +652,6 @@
 		white-space: nowrap;
 	}
 
-	.screen-reader-text,
 	.screen-reader-table {
 		position: absolute;
 		width: 1px;
@@ -737,19 +665,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.cliff-card {
-			padding: var(--sp-4);
-		}
-
-		.cliff-card-header {
-			align-items: start;
-			flex-direction: column;
-		}
-
-		.cliff-card h2 {
-			font-size: 1.125rem;
-		}
-
 		.expiration-layer-chart {
 			height: 15.5rem;
 		}

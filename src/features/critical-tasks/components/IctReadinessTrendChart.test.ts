@@ -77,6 +77,7 @@ describe('IctReadinessTrendChart', () => {
 		render(IctReadinessTrendChart, { props: { trend: readinessTrend } });
 
 		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
+		expect(region.getAttribute('data-report-chart-section')).toBe('true');
 		expect(
 			within(region).getByText('Unit readiness over time with top MOS comparisons by filtered headcount.')
 		).toBeTruthy();
@@ -90,8 +91,10 @@ describe('IctReadinessTrendChart', () => {
 		expect(yAxis).toBeTruthy();
 		expect(yAxis?.getAttribute('aria-hidden')).toBe('true');
 		expect(yAxis?.querySelector('.trend-y-axis-rule')).toBeTruthy();
-		expect(yAxis?.textContent).toContain('50%');
-		expect(yAxis?.textContent).toContain('100%');
+		const yAxisLabels = [...(yAxis?.querySelectorAll('.trend-y-axis-label') ?? [])].map((label) => label.textContent);
+		expect(yAxisLabels).toContain('50%');
+		expect(yAxisLabels).toContain('100%');
+		expect(yAxisLabels).not.toContain('0%');
 
 		const paths = region.querySelectorAll('path.trend-line');
 		expect(paths).toHaveLength(3);
@@ -162,5 +165,46 @@ describe('IctReadinessTrendChart', () => {
 		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
 		expect(within(region).getByText('No readiness trend data is available for the active filters.')).toBeTruthy();
 		expect(within(region).queryByRole('img', { name: '12-month readiness trend chart' })).toBeNull();
+	});
+
+	it('expands the readiness axis to 0-100 when visible readiness falls below 50%', () => {
+		render(IctReadinessTrendChart, {
+			props: {
+				trend: {
+					comparisonMos: ['11B'],
+					months: [
+						{
+							month: '2026-03',
+							label: 'Mar 2026',
+							overallReadinessPercent: 64,
+							overallReadyCount: 16,
+							overallApplicableCount: 25,
+							mosReadiness: [
+								{ mos: '11B', personnelCount: 10, readinessPercent: 48, readyCount: 12, applicableCount: 25 }
+							]
+						},
+						{
+							month: '2026-04',
+							label: 'Apr 2026',
+							overallReadinessPercent: 70,
+							overallReadyCount: 21,
+							overallApplicableCount: 30,
+							mosReadiness: [
+								{ mos: '11B', personnelCount: 10, readinessPercent: 52, readyCount: 13, applicableCount: 25 }
+							]
+						}
+					]
+				}
+			}
+		});
+
+		const region = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
+		const yAxis = region.querySelector('.trend-y-axis');
+		const yAxisLabels = [...(yAxis?.querySelectorAll('.trend-y-axis-label') ?? [])].map((label) => label.textContent);
+		expect(yAxisLabels).toContain('0%');
+		expect(yAxisLabels).toContain('100%');
+		expect(
+			within(region).getByText('Readiness fell below 50%, so this chart uses the full 0-100% scale.')
+		).toBeTruthy();
 	});
 });

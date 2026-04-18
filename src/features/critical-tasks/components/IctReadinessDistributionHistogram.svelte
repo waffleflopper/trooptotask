@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { BarChart } from 'layerchart';
+	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
+	import ReportChartSection from '$lib/components/charts/ReportChartSection.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { REPORT_CHART_SERIES } from '$lib/components/charts/reportChartConventions';
 	import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {
@@ -47,7 +48,7 @@
 		}))
 	);
 	const yMax = $derived(Math.max(1, ...activeSeries.flatMap((series) => series.bins.map((bin) => bin.soldierCount))));
-	const yTicks = $derived.by(() => buildCountTicks(yMax));
+	const yTicks = $derived.by(() => buildReportCountTicks(yMax, { denseMax: 4 }));
 	const chartSeries = $derived.by(() =>
 		activeSeries.map((series, index) => {
 			const convention = REPORT_CHART_SERIES[index % REPORT_CHART_SERIES.length];
@@ -84,16 +85,6 @@
 		}
 	});
 
-	function buildCountTicks(maxValue: number): number[] {
-		if (maxValue <= 4) {
-			return Array.from({ length: maxValue + 1 }, (_, index) => index);
-		}
-
-		const step = Math.ceil(maxValue / 4);
-		const ticks = Array.from({ length: 5 }, (_, index) => index * step);
-		return ticks.at(-1) === maxValue ? ticks : [...ticks.filter((tick) => tick < maxValue), maxValue];
-	}
-
 	function formatCount(value: unknown): string {
 		return String(Math.round(Number(value)));
 	}
@@ -107,27 +98,15 @@
 	}
 </script>
 
-<section
-	class="distribution-card"
-	aria-labelledby={TITLE_ID}
-	aria-describedby={DESCRIPTION_ID}
-	aria-busy={loading ? 'true' : 'false'}
+<ReportChartSection
+	sectionClass="distribution-card"
+	title="Distribution — Individual Readiness by MOS"
+	titleId={TITLE_ID}
+	description="Soldiers grouped by individual readiness percentage for the selected MOS context."
+	descriptionId={DESCRIPTION_ID}
+	kicker="Soldiers by readiness band"
+	{loading}
 >
-	<div class="distribution-card-header">
-		<div>
-			<h2 id={TITLE_ID}>Distribution — Individual Readiness by MOS</h2>
-			<p id={DESCRIPTION_ID} class="screen-reader-text">
-				Soldiers grouped by individual readiness percentage for the selected MOS context.
-			</p>
-		</div>
-		<div class="distribution-card-meta">
-			<span class="chart-kicker">Soldiers by readiness band</span>
-			{#if loading}
-				<span class="chart-status">Updating</span>
-			{/if}
-		</div>
-	</div>
-
 	<div class="distribution-toolbar">
 		<p>Soldiers grouped by individual readiness percentage.</p>
 		{#if overlayMode}
@@ -271,57 +250,9 @@
 			</table>
 		</div>
 	{/if}
-</section>
+</ReportChartSection>
 
 <style>
-	.distribution-card {
-		--trend-unit: var(--text-primary);
-		--trend-1: var(--amber);
-		--trend-2: #993c1d;
-		--trend-3: var(--success);
-		--trend-4: #534ab7;
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
-
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6);
-	}
-
-	.distribution-card-header {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
-		padding-bottom: 14px;
-	}
-
-	.distribution-card h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: var(--font-weight-semibold);
-		line-height: 1;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.distribution-card-meta {
-		display: inline-flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.chart-kicker,
-	.chart-status,
 	.overlay-note {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -555,7 +486,6 @@
 		white-space: nowrap;
 	}
 
-	.screen-reader-text,
 	.screen-reader-table {
 		position: absolute;
 		width: 1px;
@@ -568,19 +498,7 @@
 		border: 0;
 	}
 
-	:root[data-theme='dark'] .distribution-card {
-		--trend-unit: var(--text-primary);
-		--trend-2: #ed9d80;
-		--trend-3: #9cc87b;
-		--trend-4: #b8b0ff;
-	}
-
 	@media (max-width: 720px) {
-		.distribution-card {
-			padding: var(--sp-4);
-		}
-
-		.distribution-card-header,
 		.distribution-toolbar {
 			align-items: flex-start;
 			flex-direction: column;

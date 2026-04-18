@@ -116,6 +116,7 @@ describe('IctExpirationCliffChart', () => {
 		render(IctExpirationCliffChart, { props: { cliff: expirationCliff, currentReadinessPercent: 67 } });
 
 		const region = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
+		expect(region.getAttribute('data-report-chart-section')).toBe('true');
 		expect(within(region).getByText('Tasks lapsing by month')).toBeTruthy();
 		expect(within(region).getByText('Projected unit readiness without retraining:')).toBeTruthy();
 		expect(within(region).getByText('20% by SEP 2026')).toBeTruthy();

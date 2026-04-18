@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Highlight, LineChart } from 'layerchart';
 	import { REPORT_CHART_SERIES, readinessTrendDomain } from '$lib/components/charts/reportChartConventions';
+	import ReportChartSection from '$lib/components/charts/ReportChartSection.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type {
 		IctReadinessTrend,
@@ -281,27 +282,15 @@
 	}
 </script>
 
-<section
-	class="trend-card"
-	aria-labelledby={TITLE_ID}
-	aria-describedby={DESCRIPTION_ID}
-	aria-busy={loading ? 'true' : 'false'}
+<ReportChartSection
+	sectionClass="trend-card"
+	title="Readiness Trend — 12 Months"
+	titleId={TITLE_ID}
+	description="Unit readiness over time with top MOS comparisons by filtered headcount."
+	descriptionId={DESCRIPTION_ID}
+	kicker="% current"
+	{loading}
 >
-	<div class="trend-card-header">
-		<div>
-			<h2 id={TITLE_ID}>Readiness Trend — 12 Months</h2>
-			<p id={DESCRIPTION_ID} class="screen-reader-text">
-				Unit readiness over time with top MOS comparisons by filtered headcount.
-			</p>
-		</div>
-		<div class="trend-card-meta">
-			<span class="chart-kicker">% current</span>
-			{#if loading}
-				<span class="chart-status">Updating</span>
-			{/if}
-		</div>
-	</div>
-
 	{#if !hasTrendData}
 		<div class="empty-chart">
 			<EmptyState message="No readiness trend data is available for the active filters." variant="simple" />
@@ -507,57 +496,9 @@
 			</table>
 		</div>
 	{/if}
-</section>
+</ReportChartSection>
 
 <style>
-	.trend-card {
-		--trend-unit: var(--text-primary);
-		--trend-1: var(--amber);
-		--trend-2: #993c1d;
-		--trend-3: var(--success);
-		--trend-4: #534ab7;
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
-
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6);
-	}
-
-	.trend-card-header {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
-		padding-bottom: 14px;
-	}
-
-	.trend-card h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: var(--font-weight-semibold);
-		line-height: 1;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.trend-card-meta {
-		display: inline-flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.chart-kicker,
-	.chart-status,
 	.scale-note {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -647,7 +588,6 @@
 		white-space: nowrap;
 	}
 
-	.screen-reader-text,
 	.screen-reader-table {
 		position: absolute;
 		width: 1px;
@@ -930,13 +870,6 @@
 		white-space: nowrap;
 	}
 
-	:root[data-theme='dark'] .trend-card {
-		--trend-unit: var(--text-primary);
-		--trend-2: #ed9d80;
-		--trend-3: #9cc87b;
-		--trend-4: #b8b0ff;
-	}
-
 	@media (prefers-reduced-motion: reduce) {
 		.trend-layer-chart :global(.trend-line),
 		.trend-layer-chart :global(.trend-hover-line),
@@ -946,19 +879,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.trend-card {
-			padding: var(--sp-4);
-		}
-
-		.trend-card-header {
-			align-items: start;
-			flex-direction: column;
-		}
-
-		.trend-card h2 {
-			font-size: 1.125rem;
-		}
-
 		.trend-layer-chart {
 			height: 15.5rem;
 		}

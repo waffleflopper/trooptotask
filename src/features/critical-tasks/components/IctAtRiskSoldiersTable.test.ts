@@ -65,7 +65,7 @@ function row(index: number): IctAtRiskSoldierRow {
 function soldierNames(region: HTMLElement): string[] {
 	return within(region)
 		.getAllByRole('rowheader')
-		.map((header) => header.textContent?.trim() ?? '');
+		.map((header) => header.querySelector('.soldier-name')?.textContent?.trim() ?? header.textContent?.trim() ?? '');
 }
 
 describe('IctAtRiskSoldiersTable', () => {
@@ -109,6 +109,15 @@ describe('IctAtRiskSoldiersTable', () => {
 		expect(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' })).toBeTruthy();
 		expect(within(region).getByText('Sorted worst first')).toBeTruthy();
 		expect(within(region).getByText('No update')).toBeTruthy();
+		const staleRow = within(region)
+			.getByRole('rowheader', { name: /Stale, Ryan/ })
+			.closest('tr');
+		expect(staleRow).toBeTruthy();
+		expect(within(staleRow as HTMLTableRowElement).getByText('SGT')).toBeTruthy();
+		expect(within(staleRow as HTMLTableRowElement).getByText('Alpha')).toBeTruthy();
+		expect(within(staleRow as HTMLTableRowElement).getByText('11B')).toBeTruthy();
+		expect(within(staleRow as HTMLTableRowElement).getByText('0%')).toBeTruthy();
+		expect(within(staleRow as HTMLTableRowElement).getByText('790d')).toBeTruthy();
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
 
 		const soldierSort = within(region).getByRole('button', { name: 'Sort by Soldier' });

@@ -8,7 +8,7 @@
 		loading?: boolean;
 	}
 
-	const VISIBLE_ROW_LIMIT = 6;
+	const VISIBLE_ROW_LIMIT = 10;
 	type ReadinessTone = 'red' | 'amber' | 'green';
 	type SortKey = 'task' | 'percent' | 'gap';
 	type SortDirection = 'asc' | 'desc';
@@ -234,7 +234,7 @@
 
 	th,
 	td {
-		padding: 10px var(--sp-2) 10px 0;
+		padding: 7px var(--sp-2) 7px 0;
 		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
 		text-align: left;
 		vertical-align: top;
@@ -298,7 +298,7 @@
 
 	.task-code {
 		display: block;
-		margin-bottom: 2px;
+		margin-bottom: 1px;
 		font-size: 0.6875rem;
 		font-weight: var(--font-weight-regular);
 		letter-spacing: 0.02em;
@@ -308,7 +308,8 @@
 	.task-name {
 		display: block;
 		font-family: var(--font-body);
-		font-size: var(--text-sm);
+		font-size: 0.8125rem;
+		line-height: 1.22;
 		color: var(--text-primary);
 	}
 
@@ -344,7 +345,7 @@
 		display: inline-block;
 		min-width: 2.25rem;
 		border-radius: var(--radius-sm);
-		padding: 3px 9px;
+		padding: 2px 8px;
 		font-family: var(--font-mono);
 		font-size: 0.625rem;
 		font-weight: var(--font-weight-medium);

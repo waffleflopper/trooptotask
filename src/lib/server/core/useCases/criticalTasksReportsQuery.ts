@@ -220,6 +220,18 @@ export function formatCriticalTasksReportCsv(dashboard: IctReportDashboard): str
 				.join(',')
 		);
 	}
+	for (const row of dashboard.tasksBelowThreshold.rows) {
+		lines.push(
+			[
+				'Tasks Below Unit Threshold',
+				`${row.taskCode} ${row.taskName}`,
+				`${row.percentComplete}%`,
+				`${row.soldierGapCount} Soldiers need it`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
 	lines.push(
 		['Summary', 'Overall Readiness', `${overallReadiness.percent}%`, formatDelta(overallReadiness.deltaPercent)]
 			.map(escapeCsv)
@@ -255,18 +267,6 @@ export function formatCriticalTasksReportCsv(dashboard: IctReportDashboard): str
 			.map(escapeCsv)
 			.join(',')
 	);
-	for (const row of dashboard.tasksBelowThreshold.rows) {
-		lines.push(
-			[
-				'Tasks Below Unit Threshold',
-				`${row.taskCode} ${row.taskName}`,
-				`${row.percentComplete}%`,
-				`${row.soldierGapCount} Soldiers need it`
-			]
-				.map(escapeCsv)
-				.join(',')
-		);
-	}
 
 	return lines.join('\n');
 }

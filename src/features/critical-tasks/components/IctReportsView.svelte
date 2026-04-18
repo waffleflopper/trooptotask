@@ -2,38 +2,55 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
-	import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
+	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
+	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
+	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
+	import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
+	import IctReadinessMatrixTable from './IctReadinessMatrixTable.svelte';
+	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
+	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
 
 	interface Props {
 		orgId: string;
 		personnel: Personnel[];
 		groups: Group[];
 		tasks: IctTask[];
-		initialSummary: IctReportSummary;
+		initialDashboard: IctReportDashboard;
+		loading?: boolean;
 	}
 
-	let { orgId, personnel, groups, tasks, initialSummary }: Props = $props();
+	let { orgId, personnel, groups, tasks, initialDashboard, loading = false }: Props = $props();
 
 	let filterGroupId = $state('');
-	let filterMos = $state('');
+	let filterMosValues = $state<string[]>([]);
 	let filterRole = $state('');
 	let filterRank = $state('');
-	let fetchedSummary = $state<IctReportSummary | null>(null);
-	let summaryLoading = $state(false);
-	let summaryError = $state<string | null>(null);
-	const summary = $derived(fetchedSummary ?? initialSummary);
+	let fetchedDashboard = $state<IctReportDashboard | null>(null);
+	let dashboardLoading = $state(false);
+	let dashboardError = $state<string | null>(null);
+	const dashboard = $derived(fetchedDashboard ?? initialDashboard);
 
 	const availableMos = $derived([...new Set(personnel.map((person) => person.mos).filter(Boolean))].sort());
+	const availableMosOptions = $derived(availableMos.map((mos) => ({ value: mos, label: mos })));
 	const availableRoles = $derived([...new Set(personnel.map((person) => person.clinicRole).filter(Boolean))].sort());
 	const availableRanks = $derived([...new Set(personnel.map((person) => person.rank).filter(Boolean))].sort());
-	const hasActiveFilters = $derived(!!filterGroupId || !!filterMos || !!filterRole || !!filterRank);
+	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
+	const rankOptions = $derived(availableRanks.map((rank) => ({ value: rank, label: rank })));
+	const roleOptions = $derived(availableRoles.map((role) => ({ value: role, label: role })));
+	const hasActiveTasks = $derived(tasks.some((task) => !task.archivedAt));
+	const hasActiveFilters = $derived(!!filterGroupId || filterMosValues.length > 0 || !!filterRole || !!filterRank);
 	const reportQuery = $derived.by(() => {
 		const params = new SvelteURLSearchParams();
 		if (filterGroupId) params.set('groupId', filterGroupId);
-		if (filterMos) params.set('mos', filterMos);
+		for (const mos of [...filterMosValues].sort()) {
+			params.append('mos', mos);
+		}
 		if (filterRole) params.set('role', filterRole);
 		if (filterRank) params.set('rank', filterRank);
 		return params.toString();
@@ -47,23 +64,9 @@
 		return `/org/${orgId}/api/critical-tasks/reports/summary${query ? `?${query}` : ''}`;
 	});
 
-	function monthLabel(month: string): string {
-		return month;
-	}
-
-	function getReadinessColor(percent: number): string {
-		if (percent >= 80) return 'var(--success)';
-		if (percent >= 60) return 'var(--amber)';
-		return 'var(--danger)';
-	}
-
-	function getSelectValue(event: Event): string {
-		return (event.target as HTMLSelectElement).value;
-	}
-
 	function clearFilters() {
 		filterGroupId = '';
-		filterMos = '';
+		filterMosValues = [];
 		filterRole = '';
 		filterRank = '';
 	}
@@ -71,36 +74,36 @@
 	$effect(() => {
 		const href = summaryHref;
 		if (href === `/org/${orgId}/api/critical-tasks/reports/summary`) {
-			fetchedSummary = null;
-			summaryLoading = false;
-			summaryError = null;
+			fetchedDashboard = null;
+			dashboardLoading = false;
+			dashboardError = null;
 			return;
 		}
 
 		const controller = new AbortController();
-		summaryLoading = true;
-		summaryError = null;
+		dashboardLoading = true;
+		dashboardError = null;
 
 		void fetch(href, { signal: controller.signal })
 			.then(async (response) => {
 				if (!response.ok) {
 					throw new Error('Failed to update critical task reports');
 				}
-				return (await response.json()) as IctReportSummary;
+				return (await response.json()) as IctReportDashboard;
 			})
-			.then((nextSummary) => {
+			.then((nextDashboard) => {
 				if (!controller.signal.aborted) {
-					fetchedSummary = nextSummary;
+					fetchedDashboard = nextDashboard;
 				}
 			})
 			.catch((error) => {
 				if (!controller.signal.aborted) {
-					summaryError = error instanceof Error ? error.message : 'Failed to update critical task reports';
+					dashboardError = error instanceof Error ? error.message : 'Failed to update critical task reports';
 				}
 			})
 			.finally(() => {
 				if (!controller.signal.aborted) {
-					summaryLoading = false;
+					dashboardLoading = false;
 				}
 			});
 
@@ -119,185 +122,237 @@
 	<a class="btn btn-secondary btn-sm" href={`/org/${orgId}/critical-tasks`}>Back</a>
 </PageToolbar>
 
-{#if tasks.length === 0}
-	<EmptyState message="No critical tasks configured yet." />
-{:else}
-	<div class="reports-page-shell">
-		<div class="report-filters">
-			<div class="filter-row">
-				<select
-					class="input filter-select"
+<div class="reports-page-shell">
+	<div class="report-filters">
+		<div class="filter-row">
+			<span class="filter-label">Filter</span>
+			<div class="filter-select">
+				<SearchSelect
+					options={groupOptions}
 					value={filterGroupId}
-					aria-label="Filter by group"
-					onchange={(event) => (filterGroupId = getSelectValue(event))}
-				>
-					<option value="">All Groups</option>
-					{#each groups as group (group.id)}
-						<option value={group.id}>{group.name}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					value={filterRank}
-					aria-label="Filter by rank"
-					onchange={(event) => (filterRank = getSelectValue(event))}
-				>
-					<option value="">All Ranks</option>
-					{#each availableRanks as rank (rank)}
-						<option value={rank}>{rank}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					value={filterMos}
-					aria-label="Filter by MOS"
-					onchange={(event) => (filterMos = getSelectValue(event))}
-				>
-					<option value="">All MOS</option>
-					{#each availableMos as mos (mos)}
-						<option value={mos}>{mos}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					value={filterRole}
-					aria-label="Filter by role"
-					onchange={(event) => (filterRole = getSelectValue(event))}
-				>
-					<option value="">All Roles</option>
-					{#each availableRoles as role (role)}
-						<option value={role}>{role}</option>
-					{/each}
-				</select>
-
-				{#if hasActiveFilters}
-					<button class="btn btn-secondary btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
-				{/if}
+					placeholder="All Groups"
+					ariaLabel="Filter by group"
+					disabled={loading}
+					compact
+					onchange={(value) => (filterGroupId = value)}
+				/>
 			</div>
-			{#if summaryError}
-				<p class="report-error" role="status">{summaryError}</p>
+
+			<div class="filter-select">
+				<SearchSelect
+					options={rankOptions}
+					value={filterRank}
+					placeholder="All Ranks"
+					ariaLabel="Filter by rank"
+					disabled={loading}
+					compact
+					onchange={(value) => (filterRank = value)}
+				/>
+			</div>
+
+			<div class="filter-multi">
+				<MultiTagSelect
+					options={availableMosOptions}
+					value={filterMosValues}
+					placeholder="All MOS"
+					ariaLabel="Filter by MOS"
+					disabled={loading}
+					onChange={(values) => (filterMosValues = values)}
+				/>
+			</div>
+
+			<div class="filter-select">
+				<SearchSelect
+					options={roleOptions}
+					value={filterRole}
+					placeholder="All Roles"
+					ariaLabel="Filter by role"
+					disabled={loading}
+					compact
+					onchange={(value) => (filterRole = value)}
+				/>
+			</div>
+
+			{#if hasActiveFilters}
+				<button class="btn btn-secondary btn-sm" type="button" disabled={loading} onclick={clearFilters}
+					>Clear filters</button
+				>
 			{/if}
 		</div>
-
-		<div class="dashboard-grid">
-			<section class="report-card report-card-highlight">
-				<p class="card-label">Overall Readiness</p>
-				<p class="readiness-value" style={`color: ${getReadinessColor(summary.overallReadinessPercent)}`}>
-					{summary.overallReadinessPercent}%
-				</p>
-			</section>
-
-			<section class="report-card">
-				<p class="card-label">Best Performing MOS</p>
-				{#if summary.bestPerformingMos}
-					<p class="mos-name">{summary.bestPerformingMos.mos}</p>
-					<p class="metric-copy">{summary.bestPerformingMos.readinessPercent}% readiness</p>
-				{:else}
-					<p class="metric-copy">No applicable tasks</p>
-				{/if}
-			</section>
-
-			<section class="report-card">
-				<p class="card-label">Worst Performing MOS</p>
-				{#if summary.worstPerformingMos}
-					<p class="mos-name">{summary.worstPerformingMos.mos}</p>
-					<p class="metric-copy">{summary.worstPerformingMos.readinessPercent}% readiness</p>
-				{:else}
-					<p class="metric-copy">No applicable tasks</p>
-				{/if}
-			</section>
-		</div>
-
-		<div class="reports-grid">
-			<section class="report-panel">
-				<div class="panel-header">
-					<h2>Readiness by MOS</h2>
-					{#if summaryLoading}
-						<span class="panel-status">Updating...</span>
-					{/if}
-				</div>
-				{#if summary.readinessByMos.length === 0}
-					<p class="empty-copy">No applicable task data for the current filters.</p>
-				{:else}
-					<ul class="report-list">
-						{#each summary.readinessByMos as row (row.mos)}
-							<li class="report-list-item">
-								<div>
-									<p class="mos-name">{row.mos}</p>
-									<p class="metric-copy">{row.readyCount} of {row.applicableCount} ready</p>
-								</div>
-								<div class="bar-row">
-									<div class="bar-track">
-										<div
-											class="bar-fill"
-											style={`width: ${row.readinessPercent}%; background-color: ${getReadinessColor(row.readinessPercent)}`}
-										></div>
-									</div>
-									<span class="bar-value">{row.readinessPercent}%</span>
-								</div>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-
-			<section class="report-panel">
-				<div class="panel-header">
-					<h2>Completion Trend</h2>
-					{#if summaryLoading}
-						<span class="panel-status">Updating...</span>
-					{/if}
-				</div>
-				{#if summary.completionTrend.length === 0}
-					<p class="empty-copy">No completion history for the current filters.</p>
-				{:else}
-					<ul class="trend-list">
-						{#each summary.completionTrend as point (point.month)}
-							<li class="trend-item">
-								<span class="trend-month">{monthLabel(point.month)}</span>
-								<span class="trend-count">{point.completions}</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-		</div>
+		{#if dashboardError}
+			<p class="report-error" role="alert">{dashboardError}</p>
+		{/if}
 	</div>
-{/if}
+
+	{#if loading}
+		<section class="report-state" aria-busy="true" aria-live="polite" role="status">
+			Loading critical task reports...
+		</section>
+	{:else if !hasActiveTasks}
+		<EmptyState message="No active critical tasks configured." />
+	{:else}
+		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
+		<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} />
+		<div class="report-visual-grid">
+			<IctReadinessTrendChart trend={dashboard.readinessTrend} loading={dashboardLoading} />
+			<IctTasksBelowThresholdTable
+				rows={dashboard.tasksBelowThreshold.rows}
+				thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
+				loading={dashboardLoading}
+			/>
+		</div>
+		<div class="report-followup-grid">
+			<IctExpirationCliffChart
+				cliff={dashboard.expirationCliff}
+				currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
+				loading={dashboardLoading}
+			/>
+			<IctAtRiskSoldiersTable
+				rows={dashboard.atRiskSoldiers.rows}
+				expiringSoonWindowDays={dashboard.kpis.tasksExpiringSoon.windowDays}
+				loading={dashboardLoading}
+			/>
+		</div>
+		<IctReadinessDistributionHistogram
+			distribution={dashboard.readinessDistribution}
+			selectedPageMos={filterMosValues}
+			loading={dashboardLoading}
+		/>
+	{/if}
+</div>
 
 <style>
 	.reports-page-shell {
 		display: flex;
 		flex-direction: column;
+		gap: var(--sp-5);
+		padding: var(--sp-4);
+	}
+
+	.report-visual-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: var(--sp-4);
-		padding: var(--sp-3);
+		align-items: start;
+	}
+
+	.report-followup-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: var(--sp-4);
+		align-items: start;
 	}
 
 	.report-filters,
-	.report-card,
-	.report-panel {
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+	.report-state {
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 	}
 
 	.report-filters {
-		padding: var(--sp-4);
+		background: var(--surface-subtle);
+		padding: 14px 18px;
 	}
 
 	.filter-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: end;
+		gap: 10px;
+		align-items: center;
+	}
+
+	.filter-label {
+		margin-right: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.filter-select {
-		min-width: 9rem;
-		max-width: 12rem;
+		flex: 0 1 8.75rem;
+		width: 8.75rem;
+		min-width: 8.75rem;
+		max-width: 10.5rem;
+	}
+
+	.filter-multi {
+		flex: 0 1 17.5rem;
+		width: 17.5rem;
+		min-width: 17.5rem;
+		max-width: 20rem;
+	}
+
+	.report-filters :global(.input-wrapper),
+	.report-filters :global(.mts-control) {
+		min-height: 34px;
+		border-color: color-mix(in srgb, var(--border-default) 82%, var(--text-primary) 18%);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		box-shadow: none;
+	}
+
+	.report-filters :global(.display-btn),
+	.report-filters :global(.search-input),
+	.report-filters :global(.mts-input) {
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+	}
+
+	.report-filters :global(.display-btn) {
+		min-height: 32px;
+		padding: 7px 28px 7px 12px;
+	}
+
+	.report-filters :global(.display-icon) {
+		width: 12px;
+		height: 12px;
+	}
+
+	.report-filters :global(.mts-control) {
+		padding: 5px 8px;
+	}
+
+	.filter-multi :global(.mts-control) {
+		height: 34px;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: thin;
+	}
+
+	.filter-multi :global(.mts-control::-webkit-scrollbar) {
+		height: 4px;
+	}
+
+	.filter-multi :global(.mts-control::-webkit-scrollbar-thumb) {
+		background: color-mix(in srgb, var(--text-tertiary) 42%, transparent);
+		border-radius: var(--radius-sm);
+	}
+
+	.report-filters :global(.mts-tag) {
+		flex: 0 0 auto;
+		max-width: 5.5rem;
+		padding: 2px 4px 2px 6px;
+		font-size: 0.625rem;
+	}
+
+	.filter-multi :global(.mts-input) {
+		flex: 0 0 4rem;
+		min-width: 4rem;
+	}
+
+	.filter-multi :global(.mts-input:placeholder-shown) {
+		flex-basis: 100%;
+	}
+
+	.report-filters :global(.btn) {
+		min-height: 34px;
+		border-radius: var(--radius-sm);
+		padding: 7px 12px;
+		font-size: var(--text-sm);
 	}
 
 	.report-error {
@@ -305,152 +360,22 @@
 		color: var(--danger);
 	}
 
-	.dashboard-grid {
+	.report-state {
+		background: var(--surface-panel);
+		min-height: 8.5rem;
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.report-card,
-	.report-panel {
+		place-items: center;
 		padding: var(--sp-4);
-	}
-
-	.report-card-highlight {
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.card-label {
-		margin: 0 0 var(--sp-2);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
 
-	.readiness-value,
-	.mos-name,
-	.bar-value,
-	.trend-count {
-		margin: 0;
-		font-family: var(--font-display);
-		font-weight: var(--font-weight-display);
-		text-transform: uppercase;
-	}
-
-	.readiness-value {
-		font-size: clamp(2.6rem, 2.2rem + 1vw, 3.2rem);
-		line-height: 1;
-	}
-
-	.mos-name {
-		font-size: var(--text-2xl);
-		line-height: 1;
-		color: var(--text-primary);
-	}
-
-	.metric-copy,
-	.empty-copy,
-	.trend-month {
-		margin: var(--sp-1) 0 0;
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-	}
-
-	.reports-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.panel-header {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--sp-3);
-	}
-
-	.panel-header h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-		font-weight: var(--font-weight-bold);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-	}
-
-	.panel-status {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-	}
-
-	.report-list,
-	.trend-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.report-list-item,
-	.trend-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding-top: var(--sp-3);
-		border-top: var(--border-rule);
-	}
-
-	.report-list-item:first-child,
-	.trend-item:first-child {
-		padding-top: 0;
-		border-top: 0;
-	}
-
-	.bar-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 12rem;
-	}
-
-	.bar-track {
-		flex: 1;
-		height: 0.75rem;
-		border-radius: var(--radius-pill);
-		background: var(--surface-subtle);
-		overflow: hidden;
-	}
-
-	.bar-fill {
-		height: 100%;
-		border-radius: inherit;
-	}
-
-	.bar-value,
-	.trend-count {
-		font-size: var(--text-lg);
-		line-height: 1;
-		color: var(--text-primary);
-	}
-
-	.trend-month {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	@media (max-width: 960px) {
-		.dashboard-grid,
-		.reports-grid {
+	@media (max-width: 1024px) {
+		.report-visual-grid,
+		.report-followup-grid {
 			grid-template-columns: 1fr;
 		}
 	}
@@ -460,16 +385,20 @@
 			padding: var(--sp-2);
 		}
 
+		.filter-label {
+			flex: 1 0 100%;
+		}
+
 		.filter-select {
 			width: 100%;
+			min-width: 0;
 			max-width: none;
 		}
 
-		.bar-row,
-		.report-list-item,
-		.trend-item {
-			align-items: start;
-			flex-direction: column;
+		.filter-multi {
+			width: 100%;
+			min-width: 0;
+			max-width: none;
 		}
 	}
 </style>

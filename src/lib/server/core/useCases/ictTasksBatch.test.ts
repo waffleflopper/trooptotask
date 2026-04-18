@@ -16,6 +16,7 @@ describe('importIctTasksBatch', () => {
 				task_code: '181-105-1001',
 				title: 'Old title',
 				description: 'Old description',
+				category: 'Legacy Medicine',
 				mos: ['68W'],
 				expiration_months: 12,
 				sort_order: 5,
@@ -32,6 +33,7 @@ describe('importIctTasksBatch', () => {
 					values: {
 						taskCode: '181-105-1001',
 						title: 'Updated title',
+						category: 'Casualty Care',
 						mos: '18D',
 						expirationMonths: '18'
 					}
@@ -41,6 +43,7 @@ describe('importIctTasksBatch', () => {
 					values: {
 						taskCode: '181-105-1002',
 						title: 'New task',
+						category: 'Field Care',
 						mos: '68W, 18D',
 						expirationMonths: '24',
 						sortOrder: '8'
@@ -55,6 +58,7 @@ describe('importIctTasksBatch', () => {
 				id: 'task-existing',
 				taskCode: '181-105-1001',
 				title: 'Updated title',
+				category: 'Casualty Care',
 				mos: ['18D'],
 				expirationMonths: 18,
 				sortOrder: 5
@@ -65,6 +69,7 @@ describe('importIctTasksBatch', () => {
 			expect.objectContaining({
 				taskCode: '181-105-1002',
 				title: 'New task',
+				category: 'Field Care',
 				mos: ['68W', '18D'],
 				expirationMonths: 24,
 				sortOrder: 8

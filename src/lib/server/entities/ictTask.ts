@@ -20,6 +20,9 @@ export const IctTaskEntity = defineEntity<IctTask>({
 		description: field(z.string().max(2000).nullable().optional(), {
 			insertDefault: null
 		}),
+		category: field(z.string().max(120).nullable().optional(), {
+			insertDefault: null
+		}),
 		mos: field(z.array(z.string()), {
 			insertDefault: [],
 			nullDefault: []

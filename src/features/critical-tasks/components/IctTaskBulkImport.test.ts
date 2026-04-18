@@ -63,6 +63,7 @@ describe('IctTaskBulkImport', () => {
 
 		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
 		expect(screen.queryByPlaceholderText(/Paste CSV/i)).toBeNull();
+		expect(screen.getByText('Optional: Description, Category, MOS, Expiration Months, Sort Order')).toBeTruthy();
 
 		const fileInput = screen.getByLabelText('Upload file');
 		await fireEvent.change(fileInput, {
@@ -90,8 +91,8 @@ describe('IctTaskBulkImport', () => {
 
 	it('imports checked rows and renders the created and updated summary', async () => {
 		parseFileMock.mockResolvedValue([
-			['Task Code', 'Title', 'MOS', 'Expiration Months'],
-			['181-105-2001', 'Task one', '68W', '12']
+			['Task Code', 'Title', 'Category', 'MOS', 'Expiration Months'],
+			['181-105-2001', 'Task one', 'Casualty Care', '68W', '12']
 		]);
 		const importBatch = vi.spyOn(ictTasksStore, 'importBatch').mockResolvedValue({
 			inserted: [
@@ -100,6 +101,7 @@ describe('IctTaskBulkImport', () => {
 					taskCode: '181-105-2001',
 					title: 'Task one',
 					description: null,
+					category: 'Casualty Care',
 					mos: ['68W'],
 					expirationMonths: 12,
 					sortOrder: 2,
@@ -146,6 +148,7 @@ describe('IctTaskBulkImport', () => {
 						values: {
 							taskCode: '181-105-2001',
 							title: 'Task one',
+							category: 'Casualty Care',
 							mos: '68W',
 							expirationMonths: '12'
 						}

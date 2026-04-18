@@ -1,6 +1,6 @@
 <script lang="ts">
-	import MultiTagSelect from './MultiTagSelect.svelte';
-	import type { TagOption } from './MultiTagSelect.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
 	import type { StatusType } from '$lib/types';
 	import type { SetupMode, SoftPreferenceOption } from './advancedDutyTemplateBuilder.helpers';
 

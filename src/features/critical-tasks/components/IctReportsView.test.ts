@@ -7,6 +7,7 @@ import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type {
 	IctExpirationCliff,
+	IctReadinessMatrix,
 	IctReadinessTrend,
 	IctReportDashboard
 } from '$features/critical-tasks/utils/ictReports';
@@ -132,6 +133,33 @@ function expirationCliff(percent: number, mos = '11B'): IctExpirationCliff {
 	};
 }
 
+function readinessMatrix(percent: number, mos = '11B'): IctReadinessMatrix {
+	return {
+		hasCategorizedTasks: true,
+		categories: [{ key: 'category:medical', label: 'Medical', isUncategorized: false }],
+		rows: [
+			{
+				mos,
+				personnelCount: 1,
+				averageReadinessPercent: percent,
+				averageReadyCount: percent,
+				averageApplicableCount: 100,
+				averageTier: percent >= 90 ? 'good' : percent >= 70 ? 'caution' : percent >= 60 ? 'warn' : 'danger',
+				cells: [
+					{
+						categoryKey: 'category:medical',
+						categoryLabel: 'Medical',
+						readinessPercent: percent,
+						readyCount: percent,
+						applicableCount: 100,
+						tier: percent >= 90 ? 'good' : percent >= 70 ? 'caution' : percent >= 60 ? 'warn' : 'danger'
+					}
+				]
+			}
+		]
+	};
+}
+
 const initialDashboard: IctReportDashboard = {
 	kpis: {
 		overallReadiness: {
@@ -187,7 +215,8 @@ const initialDashboard: IctReportDashboard = {
 		]
 	},
 	readinessTrend: readinessTrend(67),
-	expirationCliff: expirationCliff(58)
+	expirationCliff: expirationCliff(58),
+	readinessMatrix: readinessMatrix(67)
 };
 
 const filteredDashboard: IctReportDashboard = {
@@ -235,7 +264,8 @@ const filteredDashboard: IctReportDashboard = {
 		]
 	},
 	readinessTrend: readinessTrend(100, '68W'),
-	expirationCliff: expirationCliff(100, '68W')
+	expirationCliff: expirationCliff(100, '68W'),
+	readinessMatrix: readinessMatrix(100, '68W')
 };
 
 describe('IctReportsView', () => {
@@ -295,8 +325,16 @@ describe('IctReportsView', () => {
 		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
 		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
 		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
+		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix — MOS × Task Category' });
+		expect(
+			within(readinessMatrixSection).getByRole('table', { name: 'MOS by task category readiness matrix' })
+		).toBeTruthy();
+		expect(within(readinessMatrixSection).getByLabelText('11B Medical readiness: 67%, 67 of 100 current')).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
+		expect(
+			Boolean(readinessMatrixSection.compareDocumentPosition(readinessTrendSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+		).toBe(true);
 		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
 		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
@@ -334,6 +372,9 @@ describe('IctReportsView', () => {
 			expect(
 				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
 			).toBe('100%');
+			expect(
+				within(readinessMatrixSection).getByLabelText('68W Medical readiness: 100%, 100 of 100 current')
+			).toBeTruthy();
 			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
 			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
 			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();

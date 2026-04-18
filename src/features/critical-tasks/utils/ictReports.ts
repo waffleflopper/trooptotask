@@ -11,6 +11,8 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 const READINESS_THRESHOLD_PERCENT = 70;
 const EXPIRING_SOON_WINDOW_DAYS = 30;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const UNCATEGORIZED_TASK_CATEGORY_KEY = '__uncategorized__';
+const UNCATEGORIZED_TASK_CATEGORY_LABEL = 'Uncategorized';
 
 export interface IctReportFilters {
 	groupId?: string;
@@ -110,6 +112,39 @@ export interface IctExpirationCliff {
 	};
 }
 
+export type IctReadinessMatrixTier = 'danger' | 'warn' | 'caution' | 'okay' | 'good' | 'not-applicable';
+
+export interface IctReadinessMatrixCategory {
+	key: string;
+	label: string;
+	isUncategorized: boolean;
+}
+
+export interface IctReadinessMatrixCell {
+	categoryKey: string;
+	categoryLabel: string;
+	readinessPercent: number | null;
+	readyCount: number;
+	applicableCount: number;
+	tier: IctReadinessMatrixTier;
+}
+
+export interface IctReadinessMatrixRow {
+	mos: string;
+	personnelCount: number;
+	averageReadinessPercent: number | null;
+	averageReadyCount: number;
+	averageApplicableCount: number;
+	averageTier: IctReadinessMatrixTier;
+	cells: IctReadinessMatrixCell[];
+}
+
+export interface IctReadinessMatrix {
+	categories: IctReadinessMatrixCategory[];
+	rows: IctReadinessMatrixRow[];
+	hasCategorizedTasks: boolean;
+}
+
 export interface IctReportSummary {
 	overallReadinessPercent: number;
 	readinessByMos: IctMosReadinessSummary[];
@@ -150,6 +185,7 @@ export interface IctReportDashboard {
 	};
 	readinessTrend: IctReadinessTrend;
 	expirationCliff: IctExpirationCliff;
+	readinessMatrix: IctReadinessMatrix;
 }
 
 interface ReadinessSnapshot {
@@ -290,6 +326,41 @@ function computeReadinessPercent(readyCount: number, applicableCount: number): n
 	}
 
 	return Math.round((readyCount / applicableCount) * 100);
+}
+
+function readinessTierForPercent(percent: number | null): IctReadinessMatrixTier {
+	if (percent === null) return 'not-applicable';
+	if (percent < 60) return 'danger';
+	if (percent < 70) return 'warn';
+	if (percent < 80) return 'caution';
+	if (percent < 90) return 'okay';
+	return 'good';
+}
+
+function normalizeTaskCategoryLabel(category: string | null | undefined): string | null {
+	const trimmed = category?.trim();
+	return trimmed ? trimmed : null;
+}
+
+function taskCategoryKey(label: string): string {
+	return `category:${label.toLocaleLowerCase('en-US')}`;
+}
+
+function taskCategoryForMatrix(task: IctTask): IctReadinessMatrixCategory {
+	const label = normalizeTaskCategoryLabel(task.category);
+	if (!label) {
+		return {
+			key: UNCATEGORIZED_TASK_CATEGORY_KEY,
+			label: UNCATEGORIZED_TASK_CATEGORY_LABEL,
+			isUncategorized: true
+		};
+	}
+
+	return {
+		key: taskCategoryKey(label),
+		label,
+		isUncategorized: false
+	};
 }
 
 function compareBelowThresholdTaskRows(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {
@@ -558,6 +629,103 @@ function buildReadinessCounts(input: {
 	};
 }
 
+function buildReadinessMatrix(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	latestCompletions: Map<string, PersonnelIctCompletion>;
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): IctReadinessMatrix {
+	const categoriesByKey = new Map<string, IctReadinessMatrixCategory>();
+	const tasksByCategoryKey = new Map<string, IctTask[]>();
+	let hasCategorizedTasks = false;
+
+	for (const task of input.activeTasks) {
+		const category = taskCategoryForMatrix(task);
+		if (!category.isUncategorized) {
+			hasCategorizedTasks = true;
+		}
+		if (!categoriesByKey.has(category.key)) {
+			categoriesByKey.set(category.key, category);
+		}
+
+		const tasksForCategory = tasksByCategoryKey.get(category.key) ?? [];
+		tasksForCategory.push(task);
+		tasksByCategoryKey.set(category.key, tasksForCategory);
+	}
+
+	const categories = [...categoriesByKey.values()];
+	const personnelByMos = new Map<string, Personnel[]>();
+	for (const person of input.personnel) {
+		if (person.archivedAt) {
+			continue;
+		}
+
+		const mos = normalizeMosName(person.mos);
+		const people = personnelByMos.get(mos) ?? [];
+		people.push(person);
+		personnelByMos.set(mos, people);
+	}
+
+	const rows = [...personnelByMos.entries()]
+		.map(([mos, people]) => {
+			let rowReadyCount = 0;
+			let rowApplicableCount = 0;
+			const cells = categories.map((category) => {
+				let readyCount = 0;
+				let applicableCount = 0;
+				const tasks = tasksByCategoryKey.get(category.key) ?? [];
+
+				for (const person of people) {
+					for (const task of tasks) {
+						if (!isIctTaskApplicableToMos(task, person.mos)) {
+							continue;
+						}
+
+						applicableCount += 1;
+						const completion = input.latestCompletions.get(completionKey(person.id, task.id));
+						const status = getIctStatus(completion?.completedAt ?? null, task, input.settings, input.asOf).status;
+						if (status === 'current' || status === 'expiring-soon') {
+							readyCount += 1;
+						}
+					}
+				}
+
+				rowReadyCount += readyCount;
+				rowApplicableCount += applicableCount;
+				const readinessPercent = applicableCount > 0 ? computeReadinessPercent(readyCount, applicableCount) : null;
+
+				return {
+					categoryKey: category.key,
+					categoryLabel: category.label,
+					readinessPercent,
+					readyCount,
+					applicableCount,
+					tier: readinessTierForPercent(readinessPercent)
+				};
+			});
+			const averageReadinessPercent =
+				rowApplicableCount > 0 ? computeReadinessPercent(rowReadyCount, rowApplicableCount) : null;
+
+			return {
+				mos,
+				personnelCount: people.length,
+				averageReadinessPercent,
+				averageReadyCount: rowReadyCount,
+				averageApplicableCount: rowApplicableCount,
+				averageTier: readinessTierForPercent(averageReadinessPercent),
+				cells
+			};
+		})
+		.sort((left, right) => right.personnelCount - left.personnelCount || left.mos.localeCompare(right.mos));
+
+	return {
+		categories,
+		rows,
+		hasCategorizedTasks
+	};
+}
+
 function buildReadinessTrend(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
@@ -805,6 +973,13 @@ export function buildIctReportDashboard({
 			personnel,
 			activeTasks,
 			completions,
+			settings,
+			asOf: currentAsOfDate
+		}),
+		readinessMatrix: buildReadinessMatrix({
+			personnel,
+			activeTasks,
+			latestCompletions: currentSnapshot.latestCompletions,
 			settings,
 			asOf: currentAsOfDate
 		})

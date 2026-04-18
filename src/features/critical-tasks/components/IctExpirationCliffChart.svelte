@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { BarChart } from 'layerchart';
-	import { REPORT_CHART_SERIES } from '$lib/components/charts/reportChartConventions';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { IctExpirationCliff } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {
 		cliff: IctExpirationCliff;
+		currentReadinessPercent?: number | null;
 		loading?: boolean;
 	}
 
@@ -17,17 +17,41 @@
 		values: Record<string, number>;
 	}
 
+	interface CliffTooltipEntry {
+		key: string;
+		label: string;
+		color: string;
+		count: number;
+	}
+
 	const TITLE_ID = 'ict-expiration-cliff-title';
 	const DESCRIPTION_ID = 'ict-expiration-cliff-description';
+	const TOOLTIP_WIDTH_PX = 220;
+	const TOOLTIP_MARGIN_PX = 12;
+	const EXPIRATION_SERIES_COLORS = [
+		'#ba7517',
+		'#993c1d',
+		'#534ab7',
+		'#5f5e5a',
+		'#1d9e75',
+		'#c18713',
+		'#9d3d22',
+		'#5b50b8',
+		'#6f6d68',
+		'#269b73'
+	];
 
-	let { cliff, loading = false }: Props = $props();
+	let { cliff, currentReadinessPercent = null, loading = false }: Props = $props();
 
 	const hasExpirations = $derived(cliff.months.some((month) => month.totalExpiringCount > 0));
+	const projectionChangeText = $derived(
+		formatProjectionChange(cliff.projectedReadinessAtMonth6.readinessPercent, currentReadinessPercent)
+	);
 	const chartData = $derived.by<CliffChartDatum[]>(() =>
 		cliff.months.map((month) => ({
 			month: month.month,
 			label: month.label,
-			chartLabel: month.label.split(' ')[0] ?? month.label,
+			chartLabel: (month.label.split(' ')[0] ?? month.label).toUpperCase(),
 			totalExpiringCount: month.totalExpiringCount,
 			values: Object.fromEntries(month.mosSegments.map((segment) => [segment.mos, segment.expiringCount]))
 		}))
@@ -36,14 +60,15 @@
 	const yTicks = $derived.by(() => buildCountTicks(yMax));
 	const chartSeries = $derived.by(() =>
 		cliff.mosSeries.map((mos, index) => {
-			const convention = REPORT_CHART_SERIES[index % REPORT_CHART_SERIES.length];
+			const color = EXPIRATION_SERIES_COLORS[index % EXPIRATION_SERIES_COLORS.length];
 			return {
 				key: mos,
 				label: mos,
 				value: (datum: CliffChartDatum) => datum.values[mos] ?? 0,
-				color: convention.color,
+				color,
 				props: {
 					class: 'expiration-bar',
+					fill: color,
 					stroke: 'var(--surface-panel)',
 					strokeWidth: 1,
 					radius: 0
@@ -65,6 +90,101 @@
 	function formatCount(value: unknown): string {
 		return String(Math.round(Number(value)));
 	}
+
+	function formatProjectionMonth(label: string): string {
+		return label.toUpperCase();
+	}
+
+	function formatProjectionChange(projectedPercent: number, currentPercent: number | null): string | null {
+		if (currentPercent === null) return null;
+
+		const delta = projectedPercent - currentPercent;
+		const points = Math.abs(delta);
+		if (delta < 0) return `a ${points}-point drop from current`;
+		if (delta > 0) return `a ${points}-point gain from current`;
+		return 'no change from current';
+	}
+
+	function pluralizeTask(count: number): string {
+		return count === 1 ? 'task' : 'tasks';
+	}
+
+	function tooltipCliffDatum(value: unknown): CliffChartDatum | null {
+		if (!value || typeof value !== 'object') return null;
+		const datum = value as Partial<CliffChartDatum>;
+		if (typeof datum.label !== 'string' || typeof datum.totalExpiringCount !== 'number') return null;
+		if (!datum.values || typeof datum.values !== 'object') return null;
+		return datum as CliffChartDatum;
+	}
+
+	function tooltipEntries(datum: CliffChartDatum): CliffTooltipEntry[] {
+		return chartSeries.map((series) => ({
+			key: series.key,
+			label: series.label,
+			color: series.color,
+			count: series.value(datum)
+		}));
+	}
+
+	function hoveredTooltipEntry(
+		datum: CliffChartDatum,
+		pointerY: unknown,
+		height: unknown,
+		padding: { top?: number } | undefined
+	): CliffTooltipEntry | null {
+		const chartHeight = numericTooltipCoordinate(height);
+		if (chartHeight <= 0) return null;
+
+		const plotY = Math.min(Math.max(numericTooltipCoordinate(pointerY) - (padding?.top ?? 0), 0), chartHeight);
+		const valueAtPointer = ((chartHeight - plotY) / chartHeight) * yMax;
+		if (valueAtPointer > datum.totalExpiringCount) return null;
+
+		let lowerBound = 0;
+		for (const entry of tooltipEntries(datum)) {
+			const upperBound = lowerBound + entry.count;
+			if (entry.count > 0 && valueAtPointer >= lowerBound && valueAtPointer <= upperBound) {
+				return entry;
+			}
+			lowerBound = upperBound;
+		}
+
+		return null;
+	}
+
+	function numericTooltipCoordinate(value: unknown): number {
+		const numericValue = Number(value);
+		return Number.isFinite(numericValue) ? numericValue : 0;
+	}
+
+	function tooltipBoundary(
+		size: unknown,
+		padding: { top?: number; right?: number; bottom?: number; left?: number } | undefined,
+		axis: 'x' | 'y'
+	): number {
+		const numericSize = numericTooltipCoordinate(size);
+		if (!padding) return numericSize;
+		return axis === 'x'
+			? numericSize + (padding.left ?? 0) + (padding.right ?? 0)
+			: numericSize + (padding.top ?? 0) + (padding.bottom ?? 0);
+	}
+
+	function tooltipLeft(value: unknown, boundaryWidth: number): number {
+		const x = numericTooltipCoordinate(value);
+		const min = TOOLTIP_WIDTH_PX / 2 + TOOLTIP_MARGIN_PX;
+		const max = Math.max(min, boundaryWidth - TOOLTIP_WIDTH_PX / 2 - TOOLTIP_MARGIN_PX);
+		return Math.min(Math.max(x, min), max);
+	}
+
+	function tooltipTop(value: unknown, boundaryHeight: number): number {
+		const y = numericTooltipCoordinate(value);
+		const min = TOOLTIP_MARGIN_PX;
+		const max = Math.max(min, boundaryHeight - TOOLTIP_MARGIN_PX);
+		return Math.min(Math.max(y, min), max);
+	}
+
+	function tooltipPlacement(value: unknown): 'above' | 'below' {
+		return numericTooltipCoordinate(value) < 120 ? 'below' : 'above';
+	}
 </script>
 
 <section
@@ -75,23 +195,17 @@
 >
 	<div class="cliff-card-header">
 		<div>
-			<h2 id={TITLE_ID}>Expiration Cliff - 6 Months</h2>
+			<h2 id={TITLE_ID}>Expiration Cliff — Next 6 Months</h2>
 			<p id={DESCRIPTION_ID} class="screen-reader-text">
 				Task completion expirations over the next six calendar months, stacked by MOS.
 			</p>
 		</div>
-		{#if loading}
-			<span class="chart-status">Updating</span>
-		{/if}
-	</div>
-
-	<div class="projection-summary" aria-label="Projected unit readiness at month 6">
-		<span>Projected readiness at {cliff.projectedReadinessAtMonth6.label}</span>
-		<strong>{cliff.projectedReadinessAtMonth6.readinessPercent}%</strong>
-		<small>
-			{cliff.projectedReadinessAtMonth6.readyCount} of {cliff.projectedReadinessAtMonth6.applicableCount} requirements still
-			current
-		</small>
+		<div class="cliff-card-meta">
+			<span class="chart-kicker">Tasks lapsing by month</span>
+			{#if loading}
+				<span class="chart-status">Updating</span>
+			{/if}
+		</div>
 	</div>
 
 	{#if !hasExpirations}
@@ -101,6 +215,7 @@
 	{:else}
 		<div class="chart-canvas" role="img" aria-label="6-month expiration cliff chart" aria-describedby={DESCRIPTION_ID}>
 			<div class="expiration-layer-chart" data-testid="layerchart-expiration-cliff">
+				<span class="expiration-y-axis-title" aria-hidden="true">Tasks expiring</span>
 				<BarChart
 					data={chartData}
 					x="chartLabel"
@@ -119,9 +234,15 @@
 					rule={false}
 					legend={false}
 					labels={false}
-					tooltip={false}
+					tooltip={{ mode: 'band', hideDelay: 40 }}
 					padding={{ top: 16, right: 24, bottom: 50, left: 58 }}
 					props={{
+						highlight: {
+							area: {
+								fill: 'rgba(196, 127, 0, 0.08)',
+								class: 'expiration-hover-band'
+							}
+						},
 						svg: {
 							class: 'expiration-layer-svg',
 							label: '6-month expiration cliff chart',
@@ -161,7 +282,44 @@
 							}
 						}
 					}}
-				/>
+				>
+					<svelte:fragment slot="tooltip" let:tooltip let:width let:height let:padding>
+						{#if tooltip?.data}
+							{@const tooltipDatum = tooltipCliffDatum(tooltip.data)}
+							{#if tooltipDatum}
+								{@const activeEntry = hoveredTooltipEntry(tooltipDatum, tooltip.y, height, padding)}
+								{#if activeEntry}
+									<div
+										class="expiration-tooltip-root"
+										data-placement={tooltipPlacement(tooltip.y)}
+										style:left={`${tooltipLeft(tooltip.x, tooltipBoundary(width, padding, 'x'))}px`}
+										style:top={`${tooltipTop(tooltip.y, tooltipBoundary(height, padding, 'y'))}px`}
+									>
+										<div class="expiration-tooltip" role="status" aria-live="polite">
+											<div class="expiration-tooltip-header">{tooltipDatum.label}</div>
+											<div class="expiration-tooltip-list">
+												<div class="expiration-tooltip-row">
+													<span class="expiration-tooltip-label">
+														<span
+															class="expiration-tooltip-swatch"
+															style:--swatch-color={activeEntry.color}
+															aria-hidden="true"
+														></span>
+														{activeEntry.label}
+													</span>
+													<strong class="expiration-tooltip-value">
+														{activeEntry.count}
+														{pluralizeTask(activeEntry.count)}
+													</strong>
+												</div>
+											</div>
+										</div>
+									</div>
+								{/if}
+							{/if}
+						{/if}
+					</svelte:fragment>
+				</BarChart>
 			</div>
 
 			<ul class="chart-legend" aria-label="Expiration cliff MOS series">
@@ -173,53 +331,62 @@
 				{/each}
 			</ul>
 		</div>
+	{/if}
 
-		<div class="fallback-table-scroll screen-reader-table">
-			<table aria-label="6-month expiration cliff data">
-				<thead>
+	<div class="projection-banner" aria-label="Projected unit readiness without retraining">
+		<p>
+			<span>Projected unit readiness without retraining:</span>
+			<strong>
+				{cliff.projectedReadinessAtMonth6.readinessPercent}% by {formatProjectionMonth(
+					cliff.projectedReadinessAtMonth6.label
+				)}
+			</strong>
+			{#if projectionChangeText}
+				<span>- {projectionChangeText}.</span>
+			{/if}
+		</p>
+	</div>
+
+	<div class="fallback-table-scroll screen-reader-table">
+		<table aria-label="6-month expiration cliff data">
+			<thead>
+				<tr>
+					<th scope="col">Month</th>
+					<th scope="col" class="numeric">Total expiring</th>
+					{#each cliff.mosSeries as mos (mos)}
+						<th scope="col" class="numeric">{mos} expiring</th>
+					{/each}
+				</tr>
+			</thead>
+			<tbody>
+				{#each cliff.months as month (month.month)}
 					<tr>
-						<th scope="col">Month</th>
-						<th scope="col" class="numeric">Total expiring</th>
+						<td>{month.label}</td>
+						<td class="numeric">{month.totalExpiringCount}</td>
 						{#each cliff.mosSeries as mos (mos)}
-							<th scope="col" class="numeric">{mos} expiring</th>
+							<td class="numeric">
+								{month.mosSegments.find((segment) => segment.mos === mos)?.expiringCount ?? 0}
+							</td>
 						{/each}
 					</tr>
-				</thead>
-				<tbody>
-					{#each cliff.months as month (month.month)}
-						<tr>
-							<td>{month.label}</td>
-							<td class="numeric">{month.totalExpiringCount}</td>
-							{#each cliff.mosSeries as mos (mos)}
-								<td class="numeric">
-									{month.mosSegments.find((segment) => segment.mos === mos)?.expiringCount ?? 0}
-								</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+				{/each}
+			</tbody>
+		</table>
+	</div>
 </section>
 
 <style>
 	.cliff-card {
-		--trend-unit: #1f9970;
-		--trend-1: var(--amber-dark);
-		--trend-2: #6255c7;
-		--trend-3: #9a3f28;
-		--trend-4: var(--info);
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 42%, transparent);
+		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
 
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
+		gap: var(--sp-5);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6) var(--sp-4);
+		padding: var(--sp-5) var(--sp-6);
 	}
 
 	.cliff-card-header {
@@ -227,53 +394,37 @@
 		align-items: baseline;
 		justify-content: space-between;
 		gap: var(--sp-3);
-		border-bottom: 0.5px solid var(--border-default);
-		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
+		padding-bottom: 14px;
 	}
 
 	.cliff-card h2 {
 		margin: 0;
 		font-family: var(--font-display);
-		font-size: var(--text-3xl);
+		font-size: 1.25rem;
 		font-weight: var(--font-weight-semibold);
 		line-height: 1;
-		letter-spacing: 0;
+		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--text-primary);
 	}
 
+	.cliff-card-meta {
+		display: inline-flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.chart-kicker,
 	.chart-status {
 		margin: 0;
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0;
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
-	}
-
-	.projection-summary {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: var(--sp-1) var(--sp-3);
-		align-items: baseline;
-	}
-
-	.projection-summary span,
-	.projection-summary small {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.projection-summary strong {
-		grid-row: span 2;
-		font-family: var(--font-display);
-		font-size: var(--text-4xl);
-		font-weight: var(--font-weight-semibold);
-		line-height: 0.95;
-		color: var(--text-primary);
 	}
 
 	.chart-canvas {
@@ -282,8 +433,23 @@
 
 	.expiration-layer-chart {
 		position: relative;
-		height: 18rem;
-		min-height: 16rem;
+		height: 16.25rem;
+		min-height: 15rem;
+	}
+
+	.expiration-y-axis-title {
+		position: absolute;
+		top: 50%;
+		left: -1.35rem;
+		z-index: 2;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		transform: translateY(-50%) rotate(-90deg);
+		white-space: nowrap;
+		pointer-events: none;
 	}
 
 	.expiration-layer-chart :global(.layercake-container) {
@@ -308,12 +474,23 @@
 		vector-effect: non-scaling-stroke;
 	}
 
+	.expiration-layer-chart :global(.expiration-hover-band) {
+		pointer-events: none;
+	}
+
+	.expiration-layer-chart :global(.tooltip-rects rect),
+	.expiration-layer-chart :global(.fill-transparent) {
+		fill: transparent;
+		stroke: none;
+	}
+
 	.expiration-layer-chart :global(.chart-axis-label) {
-		font-family: var(--font-body);
-		font-size: 15px;
-		letter-spacing: 0;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
 		fill: var(--text-secondary);
 		opacity: 1;
+		text-transform: uppercase;
 	}
 
 	.expiration-layer-chart :global(.chart-axis-rule),
@@ -330,12 +507,119 @@
 		vector-effect: non-scaling-stroke;
 	}
 
+	.expiration-layer-chart :global(.TooltipContext) {
+		position: absolute;
+		z-index: 1;
+		touch-action: none;
+	}
+
+	.expiration-layer-chart :global(.TooltipContext > .absolute) {
+		position: absolute;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-root) {
+		position: absolute;
+		z-index: var(--z-tooltip);
+		pointer-events: none;
+		user-select: none;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-root[data-placement='above']) {
+		transform: translate(-50%, calc(-100% - 0.75rem));
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-root[data-placement='below']) {
+		transform: translate(-50%, 0.75rem);
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip) {
+		position: relative;
+		box-sizing: border-box;
+		width: 13.75rem;
+		max-width: min(13.75rem, calc(100vw - 2rem));
+		border: 0;
+		border-radius: var(--radius-md);
+		background: #141412;
+		box-shadow: 0 10px 24px rgba(14, 14, 13, 0.24);
+		padding: var(--sp-3);
+		color: #f8f7f2;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		line-height: 1.35;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip)::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		width: 0.625rem;
+		height: 0.625rem;
+		background: #141412;
+		transform: translateX(-50%) rotate(45deg);
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-root[data-placement='above'] .expiration-tooltip)::after {
+		bottom: -0.3125rem;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-root[data-placement='below'] .expiration-tooltip)::after {
+		top: -0.3125rem;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-header) {
+		margin: 0 0 var(--sp-1);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0;
+		text-transform: uppercase;
+		color: #f8f7f2;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-list) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-row) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--sp-3);
+		align-items: center;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-label) {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-width: 0;
+		color: #f8f7f2;
+		white-space: nowrap;
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-swatch) {
+		display: block;
+		flex: 0 0 auto;
+		width: 0.625rem;
+		height: 0.625rem;
+		border: 0.5px solid color-mix(in srgb, #f8f7f2 46%, transparent);
+		border-radius: 1px;
+		background: var(--swatch-color);
+	}
+
+	.expiration-layer-chart :global(.expiration-tooltip-value) {
+		color: #f8f7f2;
+		font-weight: var(--font-weight-semibold);
+		font-variant-numeric: tabular-nums;
+		text-align: right;
+		white-space: nowrap;
+	}
+
 	.chart-legend {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--sp-2) var(--sp-4);
-		margin: var(--sp-2) 0 0;
+		gap: var(--sp-2) var(--sp-3);
+		margin: var(--sp-3) 0 0;
 		padding: 0;
 		list-style: none;
 	}
@@ -343,20 +627,55 @@
 	.chart-legend li {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 6px;
 		font-family: var(--font-mono);
-		font-size: var(--text-base);
-		letter-spacing: 0;
-		color: var(--text-primary);
+		font-size: 0.625rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.legend-swatch {
 		display: block;
-		width: 1rem;
-		height: 1rem;
+		width: 0.625rem;
+		height: 0.625rem;
 		border: 0.5px solid color-mix(in srgb, var(--text-primary) 40%, transparent);
 		border-radius: 1px;
 		background: var(--swatch-color);
+	}
+
+	.projection-banner {
+		display: grid;
+		grid-template-columns: 3px minmax(0, 1fr);
+		align-items: stretch;
+		margin-top: -2px;
+		background: var(--surface-subtle);
+	}
+
+	.projection-banner::before {
+		content: '';
+		display: block;
+		background: var(--amber-dark);
+	}
+
+	.projection-banner p {
+		margin: 0;
+		padding: 10px 14px;
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+		font-style: italic;
+		line-height: 1.35;
+		color: var(--text-primary);
+	}
+
+	.projection-banner strong {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-style: normal;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0;
+		text-transform: uppercase;
+		color: var(--danger);
 	}
 
 	.fallback-table-scroll {
@@ -415,35 +734,29 @@
 		border: 0;
 	}
 
-	:root[data-theme='dark'] .cliff-card {
-		--trend-unit: #60c89f;
-		--trend-2: #b8b0ff;
-		--trend-3: #ed9d80;
-	}
-
 	@media (max-width: 640px) {
 		.cliff-card {
 			padding: var(--sp-4);
 		}
 
+		.cliff-card-header {
+			align-items: start;
+			flex-direction: column;
+		}
+
 		.cliff-card h2 {
-			font-size: var(--text-2xl);
-		}
-
-		.projection-summary {
-			grid-template-columns: 1fr;
-		}
-
-		.projection-summary strong {
-			grid-row: auto;
-			font-size: var(--text-3xl);
+			font-size: 1.125rem;
 		}
 
 		.expiration-layer-chart {
-			height: 16rem;
+			height: 15.5rem;
 		}
 
 		.chart-legend li {
+			font-size: 0.5625rem;
+		}
+
+		.projection-banner p {
 			font-size: var(--text-sm);
 		}
 	}

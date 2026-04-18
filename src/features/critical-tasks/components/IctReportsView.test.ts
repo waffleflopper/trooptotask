@@ -268,7 +268,7 @@ describe('IctReportsView', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders action KPI cards and updates the shared report context when filters change', async () => {
+	it('renders KPI cards and updates the shared report context when filters change', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
@@ -281,24 +281,27 @@ describe('IctReportsView', () => {
 
 		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
 		expect(screen.getByText('Beta')).toBeTruthy();
-		const kpiStrip = screen.getByRole('region', { name: 'Action KPIs' });
-		expect(within(kpiStrip).getByText('67%')).toBeTruthy();
+		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
+		expect(
+			within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
+		).toBe('67%');
 		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤30d' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
-		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
 		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
-		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
 		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
-		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff - 6 Months' });
+		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
 		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
-		expect(within(expirationCliffSection).getByText('58%')).toBeTruthy();
+		expect(within(expirationCliffSection).getByText('58% by SEP 2026')).toBeTruthy();
+		expect(within(expirationCliffSection).getByText('- a 9-point drop from current.')).toBeTruthy();
 		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
 		expect(expirationCliffSection.parentElement?.classList.contains('report-followup-grid')).toBe(true);
 		expect(
@@ -306,6 +309,7 @@ describe('IctReportsView', () => {
 		).toBe(true);
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
+		expect(screen.queryByText('Action KPIs')).toBeNull();
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
@@ -327,10 +331,12 @@ describe('IctReportsView', () => {
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
 				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
-			expect(within(kpiStrip).getByText('100%')).toBeTruthy();
+			expect(
+				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
+			).toBe('100%');
 			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
 			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
-			expect(within(expirationCliffSection).getByText('Projected readiness at Sep 2026')).toBeTruthy();
+			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();
 			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});

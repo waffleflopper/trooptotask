@@ -56,22 +56,23 @@ describe('IctReportKpiStrip', () => {
 		cleanup();
 	});
 
-	it('renders the four action KPI cards with accessible labels and operational subtitles', () => {
+	it('renders the four KPI cards with accessible labels and mockup-style subtitles', () => {
 		render(IctReportKpiStrip, { props: { dashboard } });
 
-		const strip = screen.getByRole('region', { name: 'Action KPIs' });
+		const strip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		const overall = within(strip).getByRole('article', { name: 'Overall Readiness' });
 		const soldiers = within(strip).getByRole('article', { name: 'Soldiers Below 70%' });
 		const expiring = within(strip).getByRole('article', { name: 'Tasks Expiring ≤30d' });
 		const threshold = within(strip).getByRole('article', { name: 'Tasks Below Threshold' });
 
-		expect(within(overall).getByText('75%')).toBeTruthy();
-		expect(within(overall).getByText('+25 pts vs 30d')).toBeTruthy();
+		expect(overall.querySelector('.kpi-value')?.textContent).toBe('75%');
+		expect(within(overall).getByText('▲ 25% vs 30 days ago')).toBeTruthy();
 		expect(within(soldiers).getByText('1')).toBeTruthy();
-		expect(within(soldiers).getByText('3 assigned')).toBeTruthy();
+		expect(within(soldiers).getByText('of 3 assigned · 33%')).toBeTruthy();
 		expect(within(expiring).getByText('2')).toBeTruthy();
-		expect(within(expiring).getByText('2 Soldiers affected')).toBeTruthy();
+		expect(within(expiring).getByText('across 2 soldiers')).toBeTruthy();
 		expect(within(threshold).getByText('1')).toBeTruthy();
-		expect(within(threshold).getByText('Below 70% unit completion')).toBeTruthy();
+		expect(within(threshold).getByText('<70% unit completion')).toBeTruthy();
+		expect(screen.queryByText('Action KPIs')).toBeNull();
 	});
 });

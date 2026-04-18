@@ -181,11 +181,14 @@ describe('IctPersonnelDetailPage', () => {
 		});
 
 		expect(screen.getByRole('table', { name: 'Applicable Critical Tasks' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Smith, Jane' })).toBeTruthy();
+		expect(screen.getByText('Individual Readiness')).toBeTruthy();
+		expect(screen.getByText('Expiring ≤60d')).toBeTruthy();
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(screen.getByText('Perform tactical combat casualty care')).toBeTruthy();
 		expect(screen.queryByText('181-105-2001')).toBeNull();
-		expect(screen.getByText('2098-01-01')).toBeTruthy();
-		expect(screen.getByText('2099-01-01')).toBeTruthy();
+		expect(screen.getAllByText('01 JAN 2098').length).toBeGreaterThan(0);
+		expect(screen.getByText('01 JAN 2099')).toBeTruthy();
 		expect(screen.getByText('Demonstration')).toBeTruthy();
 		expect(screen.getByText('SFC Observer')).toBeTruthy();
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
@@ -525,7 +528,8 @@ describe('IctPersonnelDetailPage', () => {
 			}
 		});
 
-		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Smith, Jane' })).toBeTruthy();
+		expect(screen.getByText('SGT')).toBeTruthy();
 		expect(screen.getByText('181-105-1002')).toBeTruthy();
 		expect(screen.getByText('Evacuate casualty')).toBeTruthy();
 		expect(screen.getByText('Archived')).toBeTruthy();

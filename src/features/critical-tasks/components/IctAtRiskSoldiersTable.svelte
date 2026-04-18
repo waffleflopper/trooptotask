@@ -197,7 +197,14 @@
 					{#each visibleRows as row (row.personnelId)}
 						{@const tone = readinessTone(row.readinessPercent)}
 						<tr>
-							<th scope="row" class="soldier-cell">{row.soldierName}</th>
+							<th scope="row" class="soldier-cell">
+								<span class="soldier-name">{row.soldierName}</span>
+								<span class="soldier-context">
+									<span>{row.rank}</span>
+									<span aria-hidden="true">/</span>
+									<span>{row.groupName}</span>
+								</span>
+							</th>
 							<td><span class="mos-tag">{row.mos}</span></td>
 							<td class={`numeric readiness-val ${tone}`}>{row.readinessPercent}%</td>
 							<td class="numeric">{row.tasksExpiringSoonCount}</td>
@@ -282,7 +289,7 @@
 
 	th,
 	td {
-		padding: 10px var(--sp-2) 10px 0;
+		padding: 7px var(--sp-2) 7px 0;
 		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
 		text-align: left;
 		vertical-align: top;
@@ -319,6 +326,31 @@
 	.soldier-cell {
 		font-family: var(--font-body);
 		font-weight: var(--font-weight-normal);
+	}
+
+	.soldier-name,
+	.soldier-context {
+		display: block;
+	}
+
+	.soldier-name {
+		font-size: 0.8125rem;
+		line-height: 1.22;
+		color: var(--text-primary);
+	}
+
+	.soldier-context {
+		margin-top: 1px;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		line-height: 1.2;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.soldier-context span + span {
+		margin-left: var(--sp-1);
 	}
 
 	.mos-tag,

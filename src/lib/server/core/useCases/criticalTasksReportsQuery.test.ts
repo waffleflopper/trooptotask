@@ -464,7 +464,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 });
 
 describe('formatCriticalTasksReportCsv', () => {
-	it('labels below-threshold Soldiers with the dashboard threshold and applicable population', () => {
+	it('orders action rows before summary metadata while preserving handoff context', () => {
 		const dashboard: IctReportDashboard = {
 			kpis: {
 				overallReadiness: {
@@ -484,16 +484,40 @@ describe('formatCriticalTasksReportCsv', () => {
 					windowDays: 45
 				},
 				tasksBelowThreshold: {
-					count: 0,
+					count: 1,
 					thresholdPercent: 70
 				}
 			},
 			tasksBelowThreshold: {
 				thresholdPercent: 70,
-				rows: []
+				rows: [
+					{
+						taskId: 'task-comms',
+						taskCode: '071-000-0001',
+						taskName: 'Maintain communications',
+						percentComplete: 33,
+						soldierGapCount: 2,
+						applicableCount: 3,
+						completeCount: 1
+					}
+				]
 			},
 			atRiskSoldiers: {
-				rows: []
+				rows: [
+					{
+						personnelId: 'p-rifle',
+						soldierName: 'Rifle, Ryan',
+						rank: 'SGT',
+						mos: '11B',
+						groupName: 'Alpha',
+						readinessPercent: 40,
+						applicableCount: 5,
+						readyCount: 2,
+						tasksExpiringSoonCount: 1,
+						daysSinceLastIctUpdate: 12,
+						lastIctUpdateAt: '2026-04-01T00:00:00Z'
+					}
+				]
 			},
 			readinessTrend: {
 				comparisonMos: [],
@@ -523,7 +547,17 @@ describe('formatCriticalTasksReportCsv', () => {
 		};
 
 		const csv = formatCriticalTasksReportCsv(dashboard);
+		const atRiskIndex = csv.indexOf(
+			'At-Risk Soldiers,"Rifle, Ryan",40%,SGT 11B; Alpha; 1 expiring <=45d; 12 days since update'
+		);
+		const belowThresholdIndex = csv.indexOf(
+			'Tasks Below Unit Threshold,071-000-0001 Maintain communications,33%,2 Soldiers need it'
+		);
+		const summaryIndex = csv.indexOf('Summary,Overall Readiness,68%,-3 pts vs 30d');
 
+		expect(atRiskIndex).toBeGreaterThan(-1);
+		expect(belowThresholdIndex).toBeGreaterThan(atRiskIndex);
+		expect(summaryIndex).toBeGreaterThan(belowThresholdIndex);
 		expect(csv).toContain('Summary,Soldiers Below 65%,2,3 applicable Soldiers');
 		expect(csv).not.toContain('Soldiers Below 70%');
 		expect(csv).not.toContain('assigned');

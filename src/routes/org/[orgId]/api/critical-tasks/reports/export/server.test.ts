@@ -4,7 +4,7 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
 describe('GET /api/critical-tasks/reports/export', () => {
-	it('places the filtered at-risk Soldiers call list before summary rows', async () => {
+	it('places filtered action rows before summary metadata', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -68,7 +68,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 		expect(lines[0]).toBe('Section,Metric,Value,Subtitle');
 		expect(lines[1]).toBe('At-Risk Soldiers,"NoUpdate, Nora",0%,SPC 11B; Alpha; 0 expiring <=60d; No ICT update');
-		expect(lines[2]).toContain('Summary,Overall Readiness,0%');
+		expect(lines[2]).toBe('Tasks Below Unit Threshold,071-000-0001 Maintain communications,0%,1 Soldiers need it');
+		expect(lines[3]).toContain('Summary,Overall Readiness,0%');
 		expect(result).not.toContain('Outside, Olivia');
 		expect(result).not.toContain('Bravo');
 	});

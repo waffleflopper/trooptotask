@@ -315,6 +315,48 @@ describe('ictReports', () => {
 		});
 	});
 
+	it('keeps readiness trend snapshots tied to the latest completion available in each month', () => {
+		const rapidlyExpiringTask: IctTask = {
+			...commonTask,
+			id: 'task-rapid-expiration',
+			taskCode: '081-000-0200',
+			title: 'Rapid expiration drill',
+			expirationMonths: 1
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [medic],
+			tasks: [rapidlyExpiringTask],
+			completions: [
+				completion({
+					id: 'completion-march',
+					personnelId: medic.id,
+					ictTaskId: rapidlyExpiringTask.id,
+					completedAt: '2026-03-15'
+				}),
+				completion({
+					id: 'completion-january',
+					personnelId: medic.id,
+					ictTaskId: rapidlyExpiringTask.id,
+					completedAt: '2026-01-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		const readinessByMonth = Object.fromEntries(
+			dashboard.readinessTrend.months.map((month) => [month.month, month.overallReadinessPercent])
+		);
+		expect(readinessByMonth['2026-01']).toBe(100);
+		expect(readinessByMonth['2026-02']).toBe(0);
+		expect(readinessByMonth['2026-03']).toBe(100);
+		expect(readinessByMonth['2026-04']).toBe(100);
+	});
+
 	it('selects the top four MOS by filtered headcount for readiness trend comparisons', () => {
 		const people: Personnel[] = [
 			{ ...infantry, id: '11b-1', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
@@ -446,6 +488,37 @@ describe('ictReports', () => {
 			{ mos: '68W', personnelCount: 2, counts: [0, 1, 0, 0, 1] },
 			{ mos: '25U', personnelCount: 1, counts: [0, 0, 0, 1, 0] }
 		]);
+	});
+
+	it('excludes Soldiers with no applicable ICT tasks from at-risk rows and readiness distribution', () => {
+		const signalSoldier: Personnel = {
+			...infantry,
+			id: 'person-signal',
+			firstName: 'Sam',
+			lastName: 'Signal',
+			mos: '25U'
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [medic, signalSoldier],
+			tasks: [medicTask],
+			completions: [],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.atRiskSoldiers.rows.map((row) => row.personnelId)).toEqual([medic.id]);
+		expect(dashboard.readinessDistribution.defaultMos).toBe('68W');
+		expect(
+			dashboard.readinessDistribution.series.map(({ mos, personnelCount, bins }) => ({
+				mos,
+				personnelCount,
+				counts: bins.map((bin) => bin.soldierCount)
+			}))
+		).toEqual([{ mos: '68W', personnelCount: 1, counts: [1, 0, 0, 0, 0] }]);
 	});
 
 	it('groups the next six months of latest completion expirations by MOS and projects month-6 readiness', () => {

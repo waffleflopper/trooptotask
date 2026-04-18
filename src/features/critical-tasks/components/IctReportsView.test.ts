@@ -442,7 +442,23 @@ describe('IctReportsView', () => {
 		expect(screen.getByRole('link', { name: 'Back' })).toBeTruthy();
 		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
 		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
-		expect(screen.getByText('No critical tasks configured yet.')).toBeTruthy();
+		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
+	});
+
+	it('shows the empty report state when only archived critical tasks remain', () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic],
+				groups: [alpha],
+				tasks: [{ ...medicTask, archivedAt: '2026-04-01T00:00:00Z' }],
+				initialDashboard
+			}
+		});
+
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
 	});
 
 	it('uses searchable single-select controls for group, rank, and role filters', async () => {

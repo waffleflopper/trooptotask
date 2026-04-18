@@ -43,6 +43,7 @@
 	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 	const rankOptions = $derived(availableRanks.map((rank) => ({ value: rank, label: rank })));
 	const roleOptions = $derived(availableRoles.map((role) => ({ value: role, label: role })));
+	const hasActiveTasks = $derived(tasks.some((task) => !task.archivedAt));
 	const hasActiveFilters = $derived(!!filterGroupId || filterMosValues.length > 0 || !!filterRole || !!filterRank);
 	const reportQuery = $derived.by(() => {
 		const params = new SvelteURLSearchParams();
@@ -187,8 +188,8 @@
 		<section class="report-state" aria-busy="true" aria-live="polite" role="status">
 			Loading critical task reports...
 		</section>
-	{:else if tasks.length === 0}
-		<EmptyState message="No critical tasks configured yet." />
+	{:else if !hasActiveTasks}
+		<EmptyState message="No active critical tasks configured." />
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
 		<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} />

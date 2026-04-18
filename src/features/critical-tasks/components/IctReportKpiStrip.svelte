@@ -33,7 +33,7 @@
 		return 'bad';
 	}
 
-	function assignedShare(count: number, total: number): number {
+	function applicableShare(count: number, total: number): number {
 		if (total <= 0) return 0;
 		return Math.round((count / total) * 100);
 	}
@@ -79,9 +79,9 @@
 			<p class="kpi-label">{soldiersBelowThresholdLabel}</p>
 			<p class="kpi-value bad">{soldiersBelow70.count}</p>
 			<p class="kpi-subtitle">
-				of {soldiersBelow70.totalAssigned} assigned · {assignedShare(
+				of {soldiersBelow70.totalApplicable} applicable {pluralizeSoldier(soldiersBelow70.totalApplicable)} · {applicableShare(
 					soldiersBelow70.count,
-					soldiersBelow70.totalAssigned
+					soldiersBelow70.totalApplicable
 				)}%
 			</p>
 		</article>

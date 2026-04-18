@@ -107,6 +107,7 @@ describe('IctAtRiskSoldiersTable', () => {
 		expect(within(region).getByRole('button', { name: 'Sort by % Complete' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
 		expect(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' })).toBeTruthy();
+		expect(within(region).getByText('Sorted worst first')).toBeTruthy();
 		expect(within(region).getByText('No update')).toBeTruthy();
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
 
@@ -114,18 +115,22 @@ describe('IctAtRiskSoldiersTable', () => {
 		await fireEvent.click(soldierSort);
 		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
 		expect(within(soldierSort).getByText('ASC')).toBeTruthy();
+		expect(within(region).getByText('Sorted by Soldier ASC')).toBeTruthy();
 
 		await fireEvent.click(soldierSort);
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
 		expect(within(soldierSort).getByText('DESC')).toBeTruthy();
+		expect(within(region).getByText('Sorted by Soldier DESC')).toBeTruthy();
 
 		const expiringSort = within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' });
 		await fireEvent.click(expiringSort);
 		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
 		expect(within(expiringSort).getByText('DESC')).toBeTruthy();
+		expect(within(region).getByText('Sorted by Tasks Expiring ≤60d DESC')).toBeTruthy();
 
 		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' }));
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'Expiring, Emily', 'NoUpdate, Nora']);
+		expect(within(region).getByText('Sorted by Days Since Last ICT Update DESC')).toBeTruthy();
 	});
 
 	it('explains when no Soldiers match the active filters', () => {

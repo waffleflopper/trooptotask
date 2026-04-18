@@ -189,6 +189,7 @@ describe('IctExpirationCliffChart', () => {
 			within(region).getByText('No task completions expire in the next 6 months for the active filters.')
 		).toBeTruthy();
 		expect(within(region).queryByRole('img', { name: '6-month expiration cliff chart' })).toBeNull();
-		expect(within(region).getByText('100% by SEP 2026')).toBeTruthy();
+		expect(within(region).queryByText('Projected unit readiness without retraining:')).toBeNull();
+		expect(within(region).queryByText('100% by SEP 2026')).toBeNull();
 	});
 });

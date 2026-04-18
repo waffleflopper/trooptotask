@@ -6,7 +6,7 @@ describe('critical tasks reports page server load', () => {
 		const initialDashboard = {
 			kpis: {
 				overallReadiness: { percent: 67, deltaPercent: 4, readyCount: 2, applicableCount: 3 },
-				soldiersBelow70: { count: 1, totalAssigned: 2, thresholdPercent: 70 },
+				soldiersBelow70: { count: 1, totalApplicable: 2, thresholdPercent: 70 },
 				tasksExpiringSoon: { count: 1, affectedSoldiers: 1, windowDays: 60 },
 				tasksBelowThreshold: { count: 1, thresholdPercent: 70 }
 			},

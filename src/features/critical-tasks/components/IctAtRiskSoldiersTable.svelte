@@ -30,6 +30,10 @@
 	const toggleLabel = $derived(
 		expanded ? `Show top ${VISIBLE_ROW_LIMIT} at-risk Soldiers` : `Show all ${rows.length} at-risk Soldiers`
 	);
+	const sortSummary = $derived.by(() => {
+		if (!sortKey) return 'Sorted worst first';
+		return `Sorted by ${sortLabelFor(sortKey)} ${sortDirection.toUpperCase()}`;
+	});
 
 	function toggleExpanded() {
 		expanded = !expanded;
@@ -82,6 +86,14 @@
 		sortDirection = initialDirection;
 	}
 
+	function sortLabelFor(key: SortKey): string {
+		if (key === 'soldier') return 'Soldier';
+		if (key === 'mos') return 'MOS';
+		if (key === 'readiness') return '% Complete';
+		if (key === 'expiring') return `Tasks Expiring ≤${expiringSoonWindowDays}d`;
+		return 'Days Since Last ICT Update';
+	}
+
 	function ariaSortFor(key: SortKey): 'ascending' | 'descending' | undefined {
 		if (sortKey !== key) return undefined;
 		return sortDirection === 'asc' ? 'ascending' : 'descending';
@@ -104,7 +116,7 @@
 		<div>
 			<h2 id="at-risk-soldiers-title">At-Risk Soldiers — Call List</h2>
 		</div>
-		<span class="section-meta">Sorted worst first</span>
+		<span class="section-meta">{sortSummary}</span>
 		{#if loading}
 			<span class="section-status">Updating</span>
 		{/if}

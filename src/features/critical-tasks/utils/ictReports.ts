@@ -504,6 +504,10 @@ function buildReadinessSnapshot(input: {
 			taskSummaries.set(task.id, taskSummary);
 		}
 
+		if (soldierApplicableCount === 0) {
+			continue;
+		}
+
 		const lastUpdate = lastIctUpdates.get(person.id) ?? null;
 		atRiskSoldierRows.push({
 			personnelId: person.id,
@@ -600,12 +604,13 @@ function countExpiringSoon(input: {
 function buildReadinessCounts(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
-	completions: PersonnelIctCompletion[];
+	completions?: PersonnelIctCompletion[];
+	latestCompletions?: Map<string, PersonnelIctCompletion>;
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
 	comparisonMos?: { mos: string; personnelCount: number }[];
 }): { overall: ReadinessCounts; mosReadiness: IctReadinessTrendMosSnapshot[] } {
-	const latestCompletions = buildLatestCompletionLookup(input.completions, input.asOf);
+	const latestCompletions = input.latestCompletions ?? buildLatestCompletionLookup(input.completions ?? [], input.asOf);
 	const comparisonMos = input.comparisonMos ?? [];
 	const comparisonMosSet = new Set(comparisonMos.map(({ mos }) => mos));
 	const mosCounts = new Map<string, { readyCount: number; applicableCount: number }>(
@@ -816,6 +821,9 @@ function buildReadinessTrend(input: {
 	const asOfDate = resolveAsOfDate(input.asOf);
 	const currentMonthStart = new Date(asOfDate.getFullYear(), asOfDate.getMonth(), 1);
 	const comparisonMos = selectTopMosByHeadcount(input.personnel);
+	const completionsByRecency = [...input.completions].sort(compareCompletionRecency);
+	const latestCompletions = new Map<string, PersonnelIctCompletion>();
+	let completionIndex = 0;
 	const months = Array.from({ length: 12 }, (_, index) => addMonths(currentMonthStart, index - 11)).map(
 		(monthStart) => {
 			const snapshotDate =
@@ -823,10 +831,19 @@ function buildReadinessTrend(input: {
 				monthStart.getMonth() === currentMonthStart.getMonth()
 					? asOfDate
 					: endOfMonth(monthStart);
+			const snapshotDateText = formatDate(snapshotDate);
+			while (
+				completionIndex < completionsByRecency.length &&
+				completionsByRecency[completionIndex].completedAt <= snapshotDateText
+			) {
+				const completion = completionsByRecency[completionIndex];
+				latestCompletions.set(completionKey(completion.personnelId, completion.ictTaskId), completion);
+				completionIndex += 1;
+			}
 			const snapshot = buildReadinessCounts({
 				personnel: input.personnel,
 				activeTasks: input.activeTasks,
-				completions: input.completions,
+				latestCompletions,
 				settings: input.settings,
 				asOf: snapshotDate,
 				comparisonMos

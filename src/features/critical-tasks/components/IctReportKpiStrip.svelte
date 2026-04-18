@@ -12,6 +12,7 @@
 	const soldiersBelow70 = $derived(dashboard.kpis.soldiersBelow70);
 	const tasksExpiringSoon = $derived(dashboard.kpis.tasksExpiringSoon);
 	const tasksBelowThreshold = $derived(dashboard.kpis.tasksBelowThreshold);
+	const soldiersBelowThresholdLabel = $derived(`Soldiers Below ${soldiersBelow70.thresholdPercent}%`);
 	const tasksExpiringSoonLabel = $derived(`Tasks Expiring ≤${tasksExpiringSoon.windowDays}d`);
 
 	function formatDelta(delta: number): string {
@@ -74,8 +75,8 @@
 			</p>
 		</article>
 
-		<article class="kpi-card kpi-card--alert" aria-label="Soldiers Below 70%">
-			<p class="kpi-label">Soldiers Below 70%</p>
+		<article class="kpi-card kpi-card--alert" aria-label={soldiersBelowThresholdLabel}>
+			<p class="kpi-label">{soldiersBelowThresholdLabel}</p>
 			<p class="kpi-value bad">{soldiersBelow70.count}</p>
 			<p class="kpi-subtitle">
 				of {soldiersBelow70.totalAssigned} assigned · {assignedShare(

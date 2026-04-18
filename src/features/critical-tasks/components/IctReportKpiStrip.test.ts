@@ -15,7 +15,7 @@ const dashboard: IctReportDashboard = {
 		soldiersBelow70: {
 			count: 1,
 			totalAssigned: 3,
-			thresholdPercent: 70
+			thresholdPercent: 65
 		},
 		tasksExpiringSoon: {
 			count: 2,
@@ -71,12 +71,13 @@ describe('IctReportKpiStrip', () => {
 
 		const strip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		const overall = within(strip).getByRole('article', { name: 'Overall Readiness' });
-		const soldiers = within(strip).getByRole('article', { name: 'Soldiers Below 70%' });
+		const soldiers = within(strip).getByRole('article', { name: 'Soldiers Below 65%' });
 		const expiring = within(strip).getByRole('article', { name: 'Tasks Expiring ≤60d' });
 		const threshold = within(strip).getByRole('article', { name: 'Tasks Below Threshold' });
 
 		expect(overall.querySelector('.kpi-value')?.textContent).toBe('75%');
 		expect(within(overall).getByText('▲ 25% vs 30 days ago')).toBeTruthy();
+		expect(within(soldiers).getByText('Soldiers Below 65%')).toBeTruthy();
 		expect(within(soldiers).getByText('1')).toBeTruthy();
 		expect(within(soldiers).getByText('of 3 assigned · 33%')).toBeTruthy();
 		expect(within(expiring).getByText('2')).toBeTruthy();

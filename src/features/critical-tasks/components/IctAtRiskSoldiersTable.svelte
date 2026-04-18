@@ -126,13 +126,19 @@
 								aria-label="Sort by Soldier"
 								onclick={() => sortBy('soldier', 'asc')}
 							>
-								Soldier
+								<span>Soldier</span>
+								{#if sortKey === 'soldier'}
+									<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? 'ASC' : 'DESC'}</span>
+								{/if}
 							</button>
 						</th>
 						<th scope="col" aria-sort={ariaSortFor('mos')}>
-							<button class="sort-button" type="button" aria-label="Sort by MOS" onclick={() => sortBy('mos', 'asc')}
-								>MOS</button
-							>
+							<button class="sort-button" type="button" aria-label="Sort by MOS" onclick={() => sortBy('mos', 'asc')}>
+								<span>MOS</span>
+								{#if sortKey === 'mos'}
+									<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? 'ASC' : 'DESC'}</span>
+								{/if}
+							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('readiness')}>
 							<button
@@ -141,7 +147,10 @@
 								aria-label="Sort by % Complete"
 								onclick={() => sortBy('readiness', 'asc')}
 							>
-								%
+								<span>%</span>
+								{#if sortKey === 'readiness'}
+									<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? 'ASC' : 'DESC'}</span>
+								{/if}
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('expiring')}>
@@ -151,7 +160,10 @@
 								aria-label={expiringSoonSortLabel}
 								onclick={() => sortBy('expiring', 'desc')}
 							>
-								{expiringSoonColumnLabel}
+								<span>{expiringSoonColumnLabel}</span>
+								{#if sortKey === 'expiring'}
+									<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? 'ASC' : 'DESC'}</span>
+								{/if}
 							</button>
 						</th>
 						<th scope="col" class="numeric" aria-sort={ariaSortFor('lastUpdate')}>
@@ -161,7 +173,10 @@
 								aria-label="Sort by Days Since Last ICT Update"
 								onclick={() => sortBy('lastUpdate', 'desc')}
 							>
-								Last Update
+								<span>Last Update</span>
+								{#if sortKey === 'lastUpdate'}
+									<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? 'ASC' : 'DESC'}</span>
+								{/if}
 							</button>
 						</th>
 					</tr>
@@ -341,6 +356,16 @@
 
 	.sort-button.numeric {
 		justify-content: flex-end;
+	}
+
+	.sort-indicator {
+		border: 1px solid color-mix(in srgb, var(--border-default) 82%, var(--text-primary) 18%);
+		border-radius: var(--radius-xs);
+		padding: 1px 4px;
+		font-size: 0.5625rem;
+		line-height: 1.1;
+		color: var(--text-primary);
+		letter-spacing: 0.08em;
 	}
 
 	.sort-button:focus-visible {

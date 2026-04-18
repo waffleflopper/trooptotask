@@ -110,11 +110,19 @@ describe('IctAtRiskSoldiersTable', () => {
 		expect(within(region).getByText('No update')).toBeTruthy();
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
 
-		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Soldier' }));
+		const soldierSort = within(region).getByRole('button', { name: 'Sort by Soldier' });
+		await fireEvent.click(soldierSort);
 		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
+		expect(within(soldierSort).getByText('ASC')).toBeTruthy();
 
-		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' }));
+		await fireEvent.click(soldierSort);
+		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
+		expect(within(soldierSort).getByText('DESC')).toBeTruthy();
+
+		const expiringSort = within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' });
+		await fireEvent.click(expiringSort);
 		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
+		expect(within(expiringSort).getByText('DESC')).toBeTruthy();
 
 		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' }));
 		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'Expiring, Emily', 'NoUpdate, Nora']);

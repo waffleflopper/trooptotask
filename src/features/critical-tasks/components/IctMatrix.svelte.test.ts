@@ -107,7 +107,9 @@ describe('IctMatrix', () => {
 		});
 
 		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
-		expect(screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeTruthy();
+		const tcccHeader = screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ });
+		expect(tcccHeader).toBeTruthy();
+		expect(within(tcccHeader).getByText('TCCC')).toBeTruthy();
 		const personLink = screen.getByRole('link', { name: /Smith, Jane/ });
 		expect(personLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/smith');
 		expect(personLink.textContent).toContain('SGT');

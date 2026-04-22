@@ -171,8 +171,6 @@ export function isFullEditor(permissions: OrganizationMemberPermissions): boolea
 		permissions.canEditPersonnel &&
 		permissions.canViewTraining &&
 		permissions.canEditTraining &&
-		permissions.canViewCriticalTasks &&
-		permissions.canEditCriticalTasks &&
 		permissions.canViewOnboarding &&
 		permissions.canEditOnboarding &&
 		permissions.canViewLeadersBook &&

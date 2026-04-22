@@ -174,3 +174,25 @@ Focus entries:
   - which cluster should be deepened first for the best leverage
 - Suggested next skill or planning mode:
   - `improve-codebase-architecture`
+
+## C-06 Demo And Sandbox Decommissioning
+
+- Current-state truth:
+  - `/demo` already redirects to login with `demo_unavailable`, but the repo still keeps demo cookies, sandbox bootstrap, cookie-driven org-shell bypass, and cleanup paths alive
+  - sandbox requests can still switch to service-role plus no-op auth contexts instead of a real membership row
+- Why this is unsatisfying:
+  - these deprecated exceptions still shape how contributors reason about auth, org shells, and provider ownership
+  - stale comments and permissive bootstrap paths imply "re-enable demo later" instead of "contain and remove"
+- Intended v1 direction:
+  - stage 1: keep the remaining exception files explicit in governance and fail closed on standalone sandbox bootstrap outside the legacy demo cookie flow
+  - stage 2: remove cookie-driven org-shell and auth bypasses and retire `/demo` as a product path rather than rebuilding it
+  - stage 3: remove `demo_type`, sandbox RPCs, and cleanup jobs after no runtime route depends on them
+- Constraints to preserve:
+  - do not expand demo/sandbox behavior or invent a new v1 trial architecture
+  - keep current production auth, org, billing, and membership behavior outside the deprecated demo paths
+  - accept that demo may remain unavailable during the decommission transition
+- Open questions:
+  - whether any remaining stakeholder need justifies a later non-demo replacement such as seeded org setup or recorded walkthroughs
+  - when schema and RPC cleanup can land without blocking support or ops workflows
+- Suggested next skill or planning mode:
+  - `adr-from-retrofit-decision` once ADR-05 is concrete enough to ratify the staged removal order

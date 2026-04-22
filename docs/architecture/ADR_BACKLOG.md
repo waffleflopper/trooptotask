@@ -6,10 +6,12 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-01 V1 Authorization Replacement Model
 
+- Status:
+  - Accepted in [ADR 0001](adrs/0001-v1-authorization-replacement-model.md)
 - Why:
   - replace the current role-plus-booleans-plus-scope model with clearer app-owned authz concepts
-- Should cover:
-  - roles, presets, grants or capabilities, scopes, policy decisions, migration constraints, and auditability goals
+- Covers:
+  - roles, member presets, capability levels, shared scope sets, policy decisions, migration constraints, and auditability goals
 
 ### ADR-02 Provider Boundary Contract
 

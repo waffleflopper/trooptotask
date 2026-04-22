@@ -186,7 +186,7 @@ function escapeCSV(value: string): string {
 }
 
 export function generatePivotCSV(rows: PivotRow[], types: TrainingType[]): string {
-	const headers = ['Name', 'Rank', 'MOS', 'Role', 'Group', ...types.map((t) => t.name)];
+	const headers = ['Name', 'Rank', 'MOS', 'Duty Role', 'Group', ...types.map((t) => t.name)];
 	const lines = [headers.map(escapeCSV).join(',')];
 
 	for (const row of rows) {

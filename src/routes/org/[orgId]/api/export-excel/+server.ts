@@ -120,7 +120,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				{ header: 'Last Name', key: 'last_name', width: 18 },
 				{ header: 'First Name', key: 'first_name', width: 18 },
 				{ header: 'MOS', key: 'mos', width: 12 },
-				{ header: 'Role', key: 'clinic_role', width: 12 },
+				{ header: 'Duty Role', key: 'clinic_role', width: 12 },
 				{ header: 'Group', key: 'group', width: 20 },
 				{ header: 'ETS', key: 'ets', width: 14 },
 				{ header: 'PCS / DEROS', key: 'deros', width: 14 },

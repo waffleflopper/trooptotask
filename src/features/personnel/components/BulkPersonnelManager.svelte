@@ -256,7 +256,7 @@
 			value: (person) => `${person.lastName}, ${person.firstName}`,
 			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 		},
-		{ key: 'role', header: 'Role', value: (person) => person.clinicRole || 'No role assigned' }
+		{ key: 'role', header: 'Duty Role', value: (person) => person.clinicRole || 'No duty role assigned' }
 	];
 
 	const archiveTable = useDataTable<Personnel>({
@@ -437,7 +437,7 @@
 									<button class="btn btn-secondary btn-sm" type="button" onclick={clearFile}>Clear</button>
 								{/if}
 							</div>
-							<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Role, Group</p>
+							<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Duty Role, Group</p>
 						</div>
 
 						<div class="divider"><span>or paste text</span></div>
@@ -445,8 +445,8 @@
 						<div class="format-info">
 							<h4>Paste Data</h4>
 							<p>One person per line, comma-separated:</p>
-							<code>Rank, Last Name, First Name, MOS, Role, Group</code>
-							<p class="hint">MOS, Role, and Group are optional</p>
+							<code>Rank, Last Name, First Name, MOS, Duty Role, Group</code>
+							<p class="hint">MOS, Duty Role, and Group are optional</p>
 						</div>
 
 						<div class="example-box">
@@ -456,20 +456,20 @@
 									class="btn btn-secondary btn-sm"
 									type="button"
 									onclick={() => {
-										importText = `SGT, Smith, John, 68W, Medic, Alpha Team
-SPC, Johnson, Jane, 68C, Admin, Bravo Team
-CPT, Williams, Robert, 62A, Physician, Leadership
-CIV, Brown, Sarah, RN, Receptionist, Support`;
+										importText = `SGT, Smith, John, 68W, Squad Leader, Alpha Team
+SPC, Johnson, Jane, 68C, Medic, Bravo Team
+CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
+SFC, Brown, Sarah, 42A, Operations NCO, Support`;
 										uploadedFileName = '';
 									}}
 								>
 									Use Example
 								</button>
 							</div>
-							<pre>SGT, Smith, John, 68W, Medic, Alpha Team
-SPC, Johnson, Jane, 68C, Admin, Bravo Team
-CPT, Williams, Robert, 62A, Physician, Leadership
-CIV, Brown, Sarah, RN, Receptionist, Support</pre>
+							<pre>SGT, Smith, John, 68W, Squad Leader, Alpha Team
+SPC, Johnson, Jane, 68C, Medic, Bravo Team
+CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
+SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 						</div>
 
 						<div class="form-group">
@@ -646,7 +646,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 							{:else if col.key === 'name'}
 								<span class="item-name">{row.lastName}, {row.firstName}</span>
 							{:else if col.key === 'role'}
-								<span class="item-role">{row.clinicRole || 'No role assigned'}</span>
+								<span class="item-role">{row.clinicRole || 'No duty role assigned'}</span>
 							{/if}
 						{/snippet}
 					</DataTable>

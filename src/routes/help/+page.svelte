@@ -153,7 +153,7 @@
 				{
 					title: 'Bulk Import',
 					content:
-						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar overflow menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Role, Group.'
+						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar overflow menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
 				},
 				{
 					title: 'Bulk Delete',

@@ -107,6 +107,16 @@ describe('PersonnelPageView', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('uses Duty Role as the roster column header', () => {
+		const ctx = makeCtx();
+
+		render(PersonnelPageView, {
+			props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+		});
+
+		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
+	});
+
 	describe('upcoming-loss indicators', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);

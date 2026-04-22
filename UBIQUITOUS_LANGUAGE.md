@@ -18,14 +18,14 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## People And Roster
 
-| Term                 | Definition                                                                                            | Aliases to avoid                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Personnel Record** | The stored v1 roster record for a person assigned to an **Organization**.                             | User, member, Soldier when discussing persistence              |
-| **Soldier**          | The military-facing way leaders often talk about a person represented by a **Personnel Record**.      | Personnel record when talking about the person in the workflow |
-| **Duty Role**        | The preferred canonical term for a person's local functional role or position title inside the unit.  | Clinic role                                                    |
-| **Clinic Role**      | The legacy v1 field name currently stored in code and schema for what should be called **Duty Role**. | Canonical term                                                 |
-| **Rank**             | The military grade recorded on a **Personnel Record**.                                                | Grade, pay grade                                               |
-| **MOS**              | The military occupational specialty code recorded on a **Personnel Record**.                          | Job, specialty                                                 |
+| Term                 | Definition                                                                                                                               | Aliases to avoid                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Personnel Record** | The stored v1 roster record for a person assigned to an **Organization**.                                                                | User, member, Soldier when discussing persistence              |
+| **Soldier**          | The military-facing way leaders often talk about a person represented by a **Personnel Record**.                                         | Personnel record when talking about the person in the workflow |
+| **Duty Role**        | The preferred canonical term for a person's local functional role, billet, or position title inside the unit.                            | Clinic role, bare role                                         |
+| **Clinic Role**      | The legacy v1 runtime and schema field name kept for compatibility while docs, UX copy, exports, and new abstractions say **Duty Role**. | Canonical term                                                 |
+| **Rank**             | The military grade recorded on a **Personnel Record**.                                                                                   | Grade, pay grade                                               |
+| **MOS**              | The military occupational specialty code recorded on a **Personnel Record**.                                                             | Job, specialty                                                 |
 
 ## Authorization And Governance
 
@@ -73,7 +73,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - Governance, billing, member-management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Policy Overlay** can still block or gate an action even when a member's **Capability Map** would otherwise allow it.
 - A **Personnel Record** may belong to one **Group**.
-- A **Duty Role** is stored today through the legacy **Clinic Role** field.
+- A **Duty Role** is stored today through the legacy **Clinic Role** field and may still be accepted through compatibility labels in import paths.
 - **Critical Tasks** is its own feature surface and now owns its dedicated authorization lane.
 - **Personnel** owns roster administration.
 - **Rating Scheme** may read the roster reference data it needs to resolve rated people and raters without inheriting **Personnel** lane ownership.
@@ -104,6 +104,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and can eventually support `1..n` groups.
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
+- **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or a platform/admin role. Prefer **Duty Role** for personnel position data.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
 - **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending, not as a durable first-class lane.
 - That current taxonomy does not pre-decide the rebuilt **Leader's Book** forever; a later explicit decision can revisit whether the remade surface returns to the durable lane map.

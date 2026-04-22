@@ -102,7 +102,7 @@
 				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 			},
 			{ key: 'mos', header: 'MOS', value: (p) => p.mos },
-			{ key: 'role', header: 'Role', value: (p) => p.clinicRole },
+			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole },
 			{ key: 'group', header: 'Group', value: (p) => p.groupName }
 		];
 

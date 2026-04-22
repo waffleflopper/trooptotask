@@ -54,6 +54,7 @@ describe('GET /api/personnel/[id]/export', () => {
 
 		expect(worksheetRows(infoSheet)).toEqual(
 			expect.arrayContaining([
+				{ field: 'Duty Role', value: 'Medic' },
 				{ field: 'ETS', value: '2027-05-01' },
 				{ field: 'PCS / DEROS', value: '2026-11-30' }
 			])

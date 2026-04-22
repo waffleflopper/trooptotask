@@ -114,16 +114,22 @@ Focus entries:
 
 - Current-state truth:
   - clinic-era names such as `clinicRole` still exist in schema and code
+  - some user-facing surfaces still describe that field as `clinic role` or the generic label `Role`
 - Why this is unsatisfying:
   - those names no longer fit the intended Army-wide product shape
+  - the generic label `Role` is also overloaded with membership and admin access semantics
 - Intended v1 direction:
-  - preserve compatibility while shifting docs, UX copy, and future abstractions toward Army/military-oriented canonical language such as `Duty Role`
+  - preserve compatibility while shifting docs, UX copy, filters, forms, and export/import templates toward Army/military-oriented canonical language such as `Duty Role`
+  - keep `clinicRole` / `clinic_role` as compatibility runtime and schema names until a deliberate migration slice changes them
+  - continue accepting legacy import labels such as `role` or `clinic role` as tolerated compatibility aliases while canonical copy says `Duty Role`
 - Constraints to preserve:
   - schema compatibility and existing data
+  - existing API and runtime field shapes
 - Open questions:
-  - where compatibility aliases should live during migration
+  - where a future runtime compatibility alias or abstraction should live during migration
+  - when API and schema naming should be eligible for a real rename plan
 - Suggested next skill or planning mode:
-  - `ubiquitous-language`
+  - `legacy-compat-rename`, then `grill-me` if a repo-wide rename plan becomes in scope
 
 ## C-04 Feature-Lane Separation
 

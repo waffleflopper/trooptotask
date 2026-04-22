@@ -159,7 +159,7 @@
 
 		<div class="form-row">
 			<FormField label="MOS / Job Title" id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
-			<FormField label="Role" id="clinicRole" placeholder="e.g., Medic, Physician" bind:value={clinicRole} />
+			<FormField label="Duty Role" id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
 		</div>
 
 		<div class="form-row">

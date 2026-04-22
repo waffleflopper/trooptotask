@@ -370,13 +370,13 @@
 				<select
 					class="input filter-select"
 					bind:value={filterRole}
-					aria-label="Filter by role"
+					aria-label="Filter by duty role"
 					onchange={(event) => {
 						filterRole = getSelectValue(event);
 						void reloadFirstReportPage();
 					}}
 				>
-					<option value="">All Roles</option>
+					<option value="">All Duty Roles</option>
 					{#each availableRoles as role (role)}
 						<option value={role}>{role}</option>
 					{/each}

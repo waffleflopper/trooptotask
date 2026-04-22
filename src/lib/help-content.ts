@@ -63,10 +63,10 @@ export const helpContent: Record<string, HelpTopic> = {
 	personnel: {
 		title: 'Personnel',
 		content: `
-			<p>Manage your unit's roster. Add, edit, and organize personnel by group, rank, MOS, and clinic role.</p>
+			<p>Manage your unit's roster. Add, edit, and organize personnel by group, rank, MOS, and duty role.</p>
 
 			<h4>Adding Personnel</h4>
-			<p>Click <strong>Add Person</strong> to create a new entry. Fill in rank, name, MOS, clinic role, and assign them to a group. You can also use <strong>Bulk Import</strong> (Pro feature) to paste CSV data for multiple people at once.</p>
+			<p>Click <strong>Add Person</strong> to create a new entry. Fill in rank, name, MOS, duty role, and assign them to a group. You can also use <strong>Bulk Import</strong> (Pro feature) to paste CSV data for multiple people at once.</p>
 
 			<h4>Editing & Deleting</h4>
 			<p>Click any person's card to edit their details or remove them. Changes take effect immediately across the calendar, training, and leader's book.</p>
@@ -76,7 +76,7 @@ export const helpContent: Record<string, HelpTopic> = {
 				<li><strong>A-Z</strong> — all personnel sorted alphabetically</li>
 				<li><strong>By Group</strong> — personnel organized into collapsible group sections</li>
 			</ul>
-			<p>Use the search bar to filter by name, rank, or role.</p>
+			<p>Use the search bar to filter by name, rank, or duty role.</p>
 
 			<h4>Groups</h4>
 			<p>Open <strong>Manage Groups</strong> from the overflow menu to create, rename, or remove groups. Groups are used throughout the app to organize the calendar, reports, and leader's book.</p>

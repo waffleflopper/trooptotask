@@ -310,6 +310,7 @@ describe('generatePivotCSV', () => {
 
 		expect(lines[0]).toContain('Name');
 		expect(lines[0]).toContain('Rank');
+		expect(lines[0]).toContain('Duty Role');
 		expect(lines[0]).toContain('CPR');
 		expect(lines[0]).toContain('BLS');
 	});

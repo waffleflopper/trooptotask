@@ -101,9 +101,9 @@ export const PERSONNEL_COLUMNS: ColumnDef[] = [
 	},
 	{
 		key: 'clinicRole',
-		label: 'Role',
+		label: 'Duty Role',
 		required: false,
-		aliases: ['role', 'clinic role', 'duty position', 'position', 'billet']
+		aliases: ['duty role', 'role', 'clinic role', 'duty position', 'position', 'billet']
 	},
 	{
 		key: 'groupName',

@@ -178,13 +178,14 @@ Focus entries:
 ## C-06 Demo And Sandbox Decommissioning
 
 - Current-state truth:
-  - `/demo` already redirects to login with `demo_unavailable`, but the repo still keeps demo cookies, sandbox bootstrap, cookie-driven org-shell bypass, and cleanup paths alive
+  - `/demo` already redirects to login with `demo_unavailable`, and `/api/create-demo-sandbox` now rejects requests instead of minting sandboxes
+  - the repo still keeps demo cookies, cookie-driven org-shell bypass, and cleanup paths alive
   - sandbox requests can still switch to service-role plus no-op auth contexts instead of a real membership row
 - Why this is unsatisfying:
   - these deprecated exceptions still shape how contributors reason about auth, org shells, and provider ownership
-  - stale comments and permissive bootstrap paths imply "re-enable demo later" instead of "contain and remove"
+  - the runtime still carries cookie-driven bypasses and no-op auth contexts that imply "re-enable demo later" instead of "contain and remove"
 - Intended v1 direction:
-  - stage 1: keep the remaining exception files explicit in governance and fail closed on standalone sandbox bootstrap outside the legacy demo cookie flow
+  - stage 1: keep the remaining exception files explicit in governance and disable standalone sandbox bootstrap entirely
   - stage 2: remove cookie-driven org-shell and auth bypasses and retire `/demo` as a product path rather than rebuilding it
   - stage 3: remove `demo_type`, sandbox RPCs, and cleanup jobs after no runtime route depends on them
 - Constraints to preserve:

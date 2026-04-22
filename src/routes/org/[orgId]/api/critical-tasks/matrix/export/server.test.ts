@@ -117,7 +117,7 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 		});
 		const response = _getConfig.formatOutput?.(result);
 
-		expect(result).toContain('Name,Rank,MOS,Role,Group,081-833-0010 Open airway');
+		expect(result).toContain('Name,Rank,MOS,Duty Role,Group,081-833-0010 Open airway');
 		expect(result).toContain('"Smith, Jane",SGT,68W,Medic,Alpha,Not Recorded');
 		expect(result).not.toContain('Jones, Alex');
 		expect(result).not.toContain('181-105-1001 TCCC lane');

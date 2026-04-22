@@ -165,8 +165,8 @@
 				<SearchSelect
 					options={roleOptions}
 					value={filterRole}
-					placeholder="All Roles"
-					ariaLabel="Filter by role"
+					placeholder="All Duty Roles"
+					ariaLabel="Filter by duty role"
 					disabled={loading}
 					compact
 					onchange={(value) => (filterRole = value)}

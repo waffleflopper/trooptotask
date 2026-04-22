@@ -71,7 +71,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 			{ field: 'Last Name', value: (person.last_name as string) ?? '' },
 			{ field: 'First Name', value: (person.first_name as string) ?? '' },
 			{ field: 'MOS', value: (person.mos as string) ?? '' },
-			{ field: 'Role', value: (person.clinic_role as string) ?? '' },
+			{ field: 'Duty Role', value: (person.clinic_role as string) ?? '' },
 			{ field: 'Group', value: person.group_id ? (groupMap.get(person.group_id as string) ?? '') : '' },
 			{ field: 'ETS', value: (person.ets as string) ?? '' },
 			{ field: 'PCS / DEROS', value: (person.deros as string) ?? '' },

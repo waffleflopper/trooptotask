@@ -81,14 +81,18 @@ Each entry separates:
 
 - Current-state truth:
   - legacy clinic-specific names such as `clinicRole` still exist in schema and code
+  - some UX surfaces still expose that field as `clinic role` or the ambiguous generic label `Role`
 - Intended direction:
-  - Army/military-oriented canonical terminology in docs, UX copy, and new abstractions
+  - Army/military-oriented canonical terminology in docs, UX copy, exports, import templates, and new abstractions
+  - `Duty Role` is the user-facing canonical term for the legacy `clinicRole` / `clinic_role` field until a deliberate migration changes the runtime shape
 - Why this matters:
   - old names distort domain understanding and make new design decisions noisier
+  - the bare label `Role` is easy to confuse with membership roles and admin roles
 - Guardrail until fixed:
-  - preserve compatibility, but prefer canonical military language in forward-looking material
+  - preserve compatibility field names until an explicit migration slice authorizes more
+  - do not introduce new user-facing `clinic role` copy or bare `Role` labels when the field really means `Duty Role`
 - Recommended next slice:
-  - terminology migration plan with compatibility strategy
+  - runtime abstraction and migration plan once a repo-wide rename is explicitly approved
 
 ## D-06 Demo And Sandbox Paths
 

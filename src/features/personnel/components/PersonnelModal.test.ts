@@ -22,6 +22,18 @@ describe('PersonnelModal', () => {
 		expect(screen.queryByText('Roster Preview')).toBeNull();
 	});
 
+	it('labels the personnel position field as Duty Role', () => {
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				onSubmit: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		expect(screen.getByLabelText('Duty Role')).toBeTruthy();
+	});
+
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));

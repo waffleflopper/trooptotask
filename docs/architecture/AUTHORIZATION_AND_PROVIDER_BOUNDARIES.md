@@ -35,6 +35,7 @@ This document separates what v1 authorization and provider ownership look like t
 
 - Critical Tasks currently uses the Training permission lane in routes, entities, use cases, and RLS.
 - Rating Scheme currently spans more than one borrowed lane:
+  - its current page view lives inside Personnel
   - its route shell uses Leaders Book permissions
   - its core CRUD use case enforces Personnel edit access
 - Some settings and admin actions still bypass use-case boundaries and operate directly on membership rows through route code.
@@ -106,17 +107,25 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 ### Feature-permission direction
 
-- The intended first-class v1 feature lanes are:
+- The durable first-class v1 feature lanes are:
   - calendar
   - personnel
   - training
   - critical-tasks
   - onboarding
   - rating-scheme
-- `Leader's Book` remains a documented transitional compatibility lane while the remake is pending; it should not shape the long-term preset taxonomy more than necessary.
+- The lane map covers product feature surfaces only.
+- Governance concerns such as member management, organization settings, billing, destructive org-danger actions, and platform-admin concerns remain outside the feature-lane map and stay governed by fixed roles plus policy overlays.
+- `Leader's Book` remains a documented transitional compatibility lane while the remake is pending; it is not part of the durable first-class lane map and it should not shape the long-term preset taxonomy more than necessary.
+- Temporary route or screen placement does not define durable lane ownership.
+- Rating Scheme owns its own durable lane even while the current UI remains nested in the Personnel surface.
 - Each feature should own its own permission lane.
 - A feature should not depend on another feature's read/write lane just because the early schema was coarse.
 - Transitional couplings should be documented as drift until a remediation slice removes them.
+- Approved lane-remediation order is:
+  - Critical Tasks lane implementation first, because its target ownership is already settled
+  - Leader's Book versus Rating Scheme boundary review next
+  - Rating Scheme runtime lane remediation after that boundary review lands
 
 ### Auditability direction
 

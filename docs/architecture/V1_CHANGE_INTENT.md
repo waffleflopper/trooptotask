@@ -130,22 +130,25 @@ Focus entries:
 - Current-state truth:
   - the core route/auth contract still only exposes coarse feature lanes
   - Critical Tasks currently piggybacks on Training
-  - Rating Scheme currently spans borrowed lanes across Leaders Book and Personnel-adjacent enforcement
+  - Rating Scheme currently renders inside the Personnel page while spanning borrowed lanes across Leaders Book and Personnel-adjacent enforcement
   - `Leader's Book` is hidden from primary nav during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
   - feature boundaries and audits stay muddy
 - Intended v1 direction:
   - the intended first-class v1 lanes are `calendar`, `personnel`, `training`, `critical-tasks`, `onboarding`, and `rating-scheme`
-  - `Leader's Book` remains a documented transitional compatibility lane until its remake or replacement is decided
+  - the lane map covers product feature surfaces only; governance, billing, member-management, and platform concerns stay outside it
+  - `Leader's Book` remains a documented transitional compatibility lane until its remake or replacement is decided, and it is not part of the durable first-class lane map
+  - temporary screen placement does not define lane ownership
+  - `Rating Scheme` owns its own lane and should be independently grantable from `Personnel` even if temporary UI nesting persists during migration
   - each first-class lane should own its own capability levels inside the shared member capability map
 - Constraints to preserve:
   - no fake feature split that the rest of the codebase cannot support yet
   - do not let the transitional `Leader's Book` state block the approved authz direction
+  - do not treat temporary page nesting as permission precedent
 - Open questions:
   - exact Rating Scheme versus Leader's Book record boundary during the remake / replacement decision
-  - implementation sequence for Critical Tasks and Rating Scheme lane migration
 - Suggested next skill or planning mode:
-  - `grill-me` for remaining boundary questions, then `tdd` for approved lane implementations
+  - `tdd` for `#621`, then `grill-me` plus `adr-from-retrofit-decision` for `#620`, then `tdd` for `#627`
 
 ## C-05 Deep Module Reviews
 

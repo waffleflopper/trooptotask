@@ -24,17 +24,19 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-03 Feature Permission Lane Map
 
+- Status:
+  - Accepted in [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
 - Why:
   - stop feature-permission piggybacking and define intended independent lanes
-- Should cover:
+- Covers:
   - calendar
   - personnel
   - training
   - critical tasks
   - onboarding
-  - leaders-book
   - rating scheme
-  - admin/platform concerns
+  - Leader's Book as a transitional compatibility lane, not a durable first-class lane
+  - governance and platform concerns outside the feature-lane taxonomy
 
 ### ADR-04 Leaders Book And Rating Scheme Boundary
 

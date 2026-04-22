@@ -10,15 +10,15 @@ Work in dependency waves rather than strict issue-number order.
 
 1. `#614` Define the replacement authorization model and migration plan
 2. `#615` Define the v1 feature permission lane map
-3. `#620` Decide and document Rating Scheme vs Leader's Book boundaries
-4. `#624` Replace clinic-era terminology with documented compatibility rules
-5. `#625` Isolate and decommission demo/sandbox exceptions
-6. `#616` Extract dashboard invitation and membership flows from route-local Supabase logic
-7. `#617` Extract org settings member and invitation flows behind app-owned boundaries
-8. `#618` Extract organization provisioning from the org/new route
-9. `#626` Extract org settings ownership-transfer and destructive flows
-10. `#619` Harden billing and export route/provider seams
-11. `#621` Give Critical Tasks its own permission lane
+3. `#621` Give Critical Tasks its own permission lane
+4. `#620` Decide and document Rating Scheme vs Leader's Book boundaries
+5. `#624` Replace clinic-era terminology with documented compatibility rules
+6. `#625` Isolate and decommission demo/sandbox exceptions
+7. `#616` Extract dashboard invitation and membership flows from route-local Supabase logic
+8. `#617` Extract org settings member and invitation flows behind app-owned boundaries
+9. `#618` Extract organization provisioning from the org/new route
+10. `#626` Extract org settings ownership-transfer and destructive flows
+11. `#619` Harden billing and export route/provider seams
 12. `#627` Move Rating Scheme onto the approved permission boundary
 13. `#622` Deepen the dashboard surface after boundary cleanup
 14. `#623` Deepen calendar and duty-roster orchestration modules
@@ -79,7 +79,7 @@ Use `v1-retrofit-slice`, `v1-authz-design`, `grill-me`, `ubiquitous-language`, a
 Recommended skills: `v1-retrofit-slice`, `v1-authz-design`, `grill-me`, `ubiquitous-language`, `adr-from-retrofit-decision`
 
 ```text
-Use `v1-retrofit-slice`, `v1-authz-design`, `grill-me`, `ubiquitous-language`, and `adr-from-retrofit-decision` for issue #620. Read the issue, the rating-scheme and leaders-book related code, `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`, `docs/architecture/DRIFT_LEDGER.md`, `docs/architecture/V1_CHANGE_INTENT.md`, and `UBIQUITOUS_LANGUAGE.md`. Document the current transitional reality first, then use `grill-me` one question at a time to settle the intended boundary. Update the docs and ADR artifacts, but do not implement the runtime boundary change in this slice.
+Use `v1-retrofit-slice`, `v1-authz-design`, `grill-me`, `ubiquitous-language`, and `adr-from-retrofit-decision` for issue #620. Read the issue, the rating-scheme and leaders-book related code, `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`, `docs/architecture/DRIFT_LEDGER.md`, `docs/architecture/V1_CHANGE_INTENT.md`, and `UBIQUITOUS_LANGUAGE.md`. Document the current transitional reality first, then use `grill-me` one question at a time to settle the intended boundary. Do not treat current Personnel-page placement or Leader's Book compatibility wiring as permission precedent. Update the docs and ADR artifacts, but do not implement the runtime boundary change in this slice.
 ```
 
 ### `#624` Clinic-era terminology cleanup
@@ -143,7 +143,7 @@ Use `v1-retrofit-slice`, `safe-provider-boundary-change`, `tdd`, and `retrofit-s
 Recommended skills: `v1-retrofit-slice`, `tdd`, `retrofit-slice-audit`
 
 ```text
-Use `v1-retrofit-slice`, `tdd`, and `retrofit-slice-audit` for issue #621. Read the issue, the approved authz and feature-lane docs from #614 and #615, `docs/architecture/GOVERNANCE_BASELINE.json`, and the affected Critical Tasks routes, entities, and use cases. Implement the approved lane separation for Critical Tasks, preserve intended product behavior aside from the permission-boundary correction, update the baseline and drift docs, and stop if the target lane is still ambiguous.
+Use `v1-retrofit-slice`, `tdd`, and `retrofit-slice-audit` for issue #621. Read the issue, the approved authz and feature-lane docs from #614 and #615, `docs/architecture/GOVERNANCE_BASELINE.json`, and the affected Critical Tasks routes, entities, and use cases. Implement the approved lane separation for Critical Tasks first, because its target ownership is already settled and does not depend on the Rating Scheme boundary slice. Preserve intended product behavior aside from the permission-boundary correction, update the baseline and drift docs, and stop if the target lane is still ambiguous.
 ```
 
 ### `#627` Rating Scheme permission boundary implementation
@@ -151,7 +151,7 @@ Use `v1-retrofit-slice`, `tdd`, and `retrofit-slice-audit` for issue #621. Read 
 Recommended skills: `v1-retrofit-slice`, `tdd`, `retrofit-slice-audit`
 
 ```text
-Use `v1-retrofit-slice`, `tdd`, and `retrofit-slice-audit` for issue #627. Read the issue, the approved authz and boundary docs from #615 and #620, `docs/architecture/GOVERNANCE_BASELINE.json`, and the affected Rating Scheme code paths. Implement the approved Rating Scheme boundary consistently, update the governance baseline and drift docs, and stop if the approved boundary is still unresolved.
+Use `v1-retrofit-slice`, `tdd`, and `retrofit-slice-audit` for issue #627. Read the issue, the approved authz and boundary docs from #615 and #620, `docs/architecture/GOVERNANCE_BASELINE.json`, and the affected Rating Scheme code paths. Run this only after #620 has settled the Rating Scheme versus Leader's Book boundary. Implement the approved Rating Scheme boundary consistently, update the governance baseline and drift docs, and stop if the approved boundary is still unresolved.
 ```
 
 ### `#622` Dashboard module deepening

@@ -65,7 +65,8 @@ export const actions: Actions = {
 	},
 
 	demo: async () => {
-		// Redirect to the /demo route which sets up read-only demo mode
+		// Deprecated demo entrypoint. `/demo` currently fails closed while the
+		// remaining demo/sandbox exceptions are decommissioned.
 		redirect(303, '/demo');
 	}
 };

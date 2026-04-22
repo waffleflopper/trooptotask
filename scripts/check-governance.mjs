@@ -75,6 +75,31 @@ function collectPermissionPatterns(content) {
 	return [...matches];
 }
 
+function collectDeprecatedDemoSandboxSignals(content) {
+	const signals = new Set();
+	const trackedSignals = [
+		'demo_mode',
+		'demo_sandbox',
+		'create_demo_sandbox',
+		'cleanup_expired_demo_sandboxes',
+		'createSandboxAuthContext',
+		'createDemoRootOrgShellRequest'
+	];
+
+	for (const signal of trackedSignals) {
+		if (contentHasSignal(content, signal)) {
+			signals.add(signal);
+		}
+	}
+
+	return [...signals];
+}
+
+function contentHasSignal(content, signal) {
+	const escaped = signal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`\\b${escaped}\\b`).test(content);
+}
+
 function ensureRequiredFiles() {
 	for (const relativePath of baseline.requiredFiles) {
 		if (!existsSync(path.join(repoRoot, relativePath))) {
@@ -179,9 +204,66 @@ function checkFeaturePermissionCouplings() {
 	}
 }
 
+function checkDeprecatedDemoSandboxAllowlist() {
+	const routeFiles = walkRelative('src/routes').filter(
+		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
+	);
+	const serverFiles = walkRelative('src/lib/server').filter((filePath) => {
+		if (!/\.(ts|js)$/.test(filePath)) return false;
+		if (/\.test\.(ts|js)$/.test(filePath)) return false;
+		return true;
+	});
+	const sourceFiles = ['src/hooks.server.ts', ...routeFiles, ...serverFiles];
+	const actualSignals = [];
+
+	for (const filePath of sourceFiles) {
+		if (!existsSync(path.join(repoRoot, filePath))) continue;
+		for (const signal of collectDeprecatedDemoSandboxSignals(readRelativeFile(filePath))) {
+			actualSignals.push(`${filePath}::${signal}`);
+		}
+	}
+
+	const allowlistedSignals = [];
+	for (const entry of baseline.deprecatedDemoSandboxAllowlist ?? []) {
+		const context = `Demo/sandbox allowlist entry ${entry.path}`;
+		ensureDriftIdsExist(entry.driftIds, context);
+
+		if (!existsSync(path.join(repoRoot, entry.path))) {
+			errors.push(`${context} points to a missing file`);
+			continue;
+		}
+
+		const content = readRelativeFile(entry.path);
+		for (const signal of entry.patterns ?? []) {
+			allowlistedSignals.push(`${entry.path}::${signal}`);
+			if (!contentHasSignal(content, signal)) {
+				errors.push(`${context} is stale because the signal ${signal} is no longer present`);
+			}
+		}
+	}
+
+	const allowlistedSet = new Set(allowlistedSignals);
+	const actualSet = new Set(actualSignals);
+
+	for (const signal of actualSignals.sort()) {
+		if (!allowlistedSet.has(signal)) {
+			errors.push(
+				`Undocumented deprecated demo/sandbox exception: ${signal}. Document it in docs/architecture/GOVERNANCE_BASELINE.json or remove the exception.`
+			);
+		}
+	}
+
+	for (const signal of allowlistedSignals.sort()) {
+		if (!actualSet.has(signal)) {
+			errors.push(`Stale deprecated demo/sandbox allowlist entry: ${signal}`);
+		}
+	}
+}
+
 ensureRequiredFiles();
 checkRouteSupabaseAllowlist();
 checkFeaturePermissionCouplings();
+checkDeprecatedDemoSandboxAllowlist();
 
 if (errors.length > 0) {
 	console.error('Governance check failed:\n');
@@ -194,4 +276,5 @@ if (errors.length > 0) {
 console.log('Governance checks passed.');
 console.log(`- required files: ${baseline.requiredFiles.length}`);
 console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
+console.log(`- documented demo/sandbox exception entries: ${(baseline.deprecatedDemoSandboxAllowlist ?? []).length}`);
 console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);

@@ -205,6 +205,50 @@
 			"reason": "Suspension checks remain part of the session/auth gate."
 		}
 	],
+	"deprecatedDemoSandboxAllowlist": [
+		{
+			"path": "src/hooks.server.ts",
+			"classification": "auth-gateway-bypass",
+			"patterns": ["demo_mode", "demo_sandbox"],
+			"reason": "Deprecated demo cookies still influence the unauthenticated org-route gate.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
+			"classification": "in-memory-org-shell-bypass",
+			"patterns": ["demo_mode", "demo_sandbox", "createDemoRootOrgShellRequest"],
+			"reason": "The root org shell still fabricates demo/sandbox memberships instead of requiring a real membership row.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/lib/server/supabase.ts",
+			"classification": "service-role-api-bypass",
+			"patterns": ["demo_mode", "demo_sandbox"],
+			"reason": "Sandbox API context can still swap real membership-backed access for a service-role client based on cookies.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/lib/server/adapters/httpAdapter.ts",
+			"classification": "no-op-auth-bridge",
+			"patterns": ["createSandboxAuthContext"],
+			"reason": "The HTTP adapter still routes sandbox requests through the no-op sandbox auth context.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseAuthContext.ts",
+			"classification": "no-op-auth-context",
+			"patterns": ["createSandboxAuthContext"],
+			"reason": "Sandbox auth still has an all-pass auth-context implementation that is tolerated only during decommissioning.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/routes/api/cleanup-demo-sandboxes/+server.ts",
+			"classification": "cleanup-exception",
+			"patterns": ["cleanup_expired_demo_sandboxes"],
+			"reason": "Sandbox cleanup remains a deprecated exceptional maintenance path until the runtime callers and schema are removed.",
+			"driftIds": ["D-06"]
+		}
+	],
 	"featurePermissionCouplings": [
 		{
 			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",

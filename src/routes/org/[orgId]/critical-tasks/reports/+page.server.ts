@@ -17,7 +17,7 @@ export function _createCriticalTasksReportsPageLoad(_deps: CriticalTasksReportsP
 		depends('app:critical-tasks-reports');
 		return {
 			initialDashboard: await loadWithContextFn(locals, cookies, params.orgId, {
-				permission: 'training',
+				permission: 'critical-tasks',
 				fn: (ctx) => fetchDashboardFn(ctx)
 			})
 		};

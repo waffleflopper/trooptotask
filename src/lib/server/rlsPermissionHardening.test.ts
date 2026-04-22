@@ -136,8 +136,8 @@ describe('core RLS permission hardening migration', () => {
 		expectPolicyUses('training_types', null, '"public"."can_manage_training_configuration"("organization_id")');
 	});
 
-	it('requires training-view reads for ICT tasks and scoped completion reads', () => {
-		expectPolicyUses('ict_tasks', 'SELECT', '"public"."can_view_training"("organization_id")');
+	it('requires Critical Tasks view reads for ICT tasks and scoped completion reads', () => {
+		expectPolicyUses('ict_tasks', 'SELECT', '"public"."can_view_critical_tasks"("organization_id")');
 		expectPolicyUses(
 			'personnel_ict_completions',
 			'SELECT',
@@ -145,7 +145,7 @@ describe('core RLS permission hardening migration', () => {
 		);
 	});
 
-	it('requires owner/admin task-library writes and scoped training-edit completion writes', () => {
+	it('requires owner/admin task-library writes and scoped Critical Tasks edit completion writes', () => {
 		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_manage_ict_task_library"');
 		expectPolicyUses('ict_tasks', 'INSERT', '"public"."can_manage_ict_task_library"("organization_id")');
 		expectPolicyUses('ict_tasks', 'UPDATE', '"public"."can_manage_ict_task_library"("organization_id")');

@@ -27,6 +27,8 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			canEditPersonnel: true,
 			canViewTraining: true,
 			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
@@ -149,7 +151,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasks: {
 						data: new Promise(() => undefined)
@@ -176,7 +180,9 @@ describe('critical tasks page', () => {
 					orgId: 'org-1',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					}
 				}
 			}
@@ -201,7 +207,9 @@ describe('critical tasks page', () => {
 					orgId: 'org-1',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					}
 				}
 			}
@@ -253,7 +261,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -317,7 +327,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -391,7 +403,9 @@ describe('critical tasks page', () => {
 					orgId: 'org-1',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					}
 				}
 			}
@@ -444,7 +458,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -518,7 +534,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -577,7 +595,9 @@ describe('critical tasks page', () => {
 					orgName: 'Test Unit',
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: false
+						canEditTraining: false,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: false
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -627,7 +647,9 @@ describe('critical tasks page', () => {
 					},
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -745,7 +767,9 @@ describe('critical tasks page', () => {
 					},
 					permissions: {
 						canViewTraining: true,
-						canEditTraining: true
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,

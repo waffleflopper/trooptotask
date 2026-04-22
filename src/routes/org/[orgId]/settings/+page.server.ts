@@ -41,6 +41,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				canEditPersonnel: m.can_edit_personnel as boolean,
 				canViewTraining: m.can_view_training as boolean,
 				canEditTraining: m.can_edit_training as boolean,
+				canViewCriticalTasks: m.can_view_critical_tasks as boolean,
+				canEditCriticalTasks: m.can_edit_critical_tasks as boolean,
 				canViewOnboarding: m.can_view_onboarding as boolean,
 				canEditOnboarding: m.can_edit_onboarding as boolean,
 				canViewLeadersBook: m.can_view_leaders_book as boolean,
@@ -60,6 +62,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				canEditPersonnel: inv.can_edit_personnel as boolean,
 				canViewTraining: inv.can_view_training as boolean,
 				canEditTraining: inv.can_edit_training as boolean,
+				canViewCriticalTasks: inv.can_view_critical_tasks as boolean,
+				canEditCriticalTasks: inv.can_edit_critical_tasks as boolean,
 				canViewOnboarding: inv.can_view_onboarding as boolean,
 				canEditOnboarding: inv.can_edit_onboarding as boolean,
 				canViewLeadersBook: inv.can_view_leaders_book as boolean,
@@ -169,6 +173,8 @@ export const actions: Actions = {
 			can_edit_personnel: permissions.canEditPersonnel,
 			can_view_training: permissions.canViewTraining,
 			can_edit_training: permissions.canEditTraining,
+			can_view_critical_tasks: permissions.canViewCriticalTasks,
+			can_edit_critical_tasks: permissions.canEditCriticalTasks,
 			can_view_onboarding: permissions.canViewOnboarding,
 			can_edit_onboarding: permissions.canEditOnboarding,
 			can_view_leaders_book: permissions.canViewLeadersBook,
@@ -315,6 +321,8 @@ export const actions: Actions = {
 			can_edit_personnel: boolean;
 			can_view_training: boolean;
 			can_edit_training: boolean;
+			can_view_critical_tasks: boolean;
+			can_edit_critical_tasks: boolean;
 			can_view_onboarding: boolean;
 			can_edit_onboarding: boolean;
 			can_view_leaders_book: boolean;
@@ -330,6 +338,8 @@ export const actions: Actions = {
 				can_edit_personnel: formData.get('canEditPersonnel') === 'on',
 				can_view_training: formData.get('canViewTraining') === 'on',
 				can_edit_training: formData.get('canEditTraining') === 'on',
+				can_view_critical_tasks: formData.get('canViewCriticalTasks') === 'on',
+				can_edit_critical_tasks: formData.get('canEditCriticalTasks') === 'on',
 				can_view_onboarding: formData.get('canViewOnboarding') === 'on',
 				can_edit_onboarding: formData.get('canEditOnboarding') === 'on',
 				can_view_leaders_book: formData.get('canViewLeadersBook') === 'on',
@@ -347,6 +357,8 @@ export const actions: Actions = {
 				can_edit_personnel: presetPermissions.canEditPersonnel,
 				can_view_training: presetPermissions.canViewTraining,
 				can_edit_training: presetPermissions.canEditTraining,
+				can_view_critical_tasks: presetPermissions.canViewCriticalTasks,
+				can_edit_critical_tasks: presetPermissions.canEditCriticalTasks,
 				can_view_onboarding: presetPermissions.canViewOnboarding,
 				can_edit_onboarding: presetPermissions.canEditOnboarding,
 				can_view_leaders_book: presetPermissions.canViewLeadersBook,

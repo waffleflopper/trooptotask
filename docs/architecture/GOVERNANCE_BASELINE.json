@@ -185,7 +185,7 @@
 			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Critical Tasks layout still queries directly in route code.",
-			"driftIds": ["D-02", "D-03"]
+			"driftIds": ["D-02"]
 		},
 		{
 			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
@@ -207,20 +207,6 @@
 	],
 	"featurePermissionCouplings": [
 		{
-			"path": "src/lib/server/core/useCases/ictCompletionsBatch.ts",
-			"pattern": "requireEdit('training')",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks completions still borrow the Training edit lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/ictTasksBatch.ts",
-			"pattern": "requireEdit('training')",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks task writes still borrow the Training edit lane.",
-			"driftIds": ["D-03"]
-		},
-		{
 			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
 			"pattern": "requireEdit('personnel')",
 			"feature": "rating-scheme",
@@ -228,74 +214,11 @@
 			"driftIds": ["D-04"]
 		},
 		{
-			"path": "src/lib/server/entities/ictTask.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks entity writes still ride the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/lib/server/entities/personnelIctCompletion.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks completion writes still ride the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/critical-tasks/matrix/export/+server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks matrix export still uses the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/critical-tasks/reports/export/+server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks report export still uses the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/critical-tasks/reports/summary/+server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks reports still use the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/ict-tasks/batch/+server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks task batch API still uses the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/personnel-ict-completions/batch/+server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks completion batch API still uses the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
 			"path": "src/routes/org/[orgId]/api/rating-scheme/+server.ts",
 			"pattern": "permission: 'leaders-book'",
 			"feature": "rating-scheme",
 			"reason": "Rating Scheme API still uses the Leaders Book permission lane.",
 			"driftIds": ["D-04"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/critical-tasks/[personnelId]/+page.server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks person detail page still uses the Training lane.",
-			"driftIds": ["D-03"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/critical-tasks/reports/+page.server.ts",
-			"pattern": "permission: 'training'",
-			"feature": "critical-tasks",
-			"reason": "Critical Tasks reports page still uses the Training lane.",
-			"driftIds": ["D-03"]
 		}
 	]
 }

@@ -9,7 +9,7 @@ import {
 } from '../../reportInput';
 
 export const _getConfig: RouteConfig<CriticalTasksReportRouteInput, IctReportDashboard> = {
-	permission: 'training',
+	permission: 'critical-tasks',
 	input: criticalTasksReportInput,
 	parseInput: (event) => parseCriticalTasksReportInput(event.url),
 	fn: async (ctx, input) => fetchCriticalTasksReportDashboard(ctx, toCriticalTasksReportInput(input))

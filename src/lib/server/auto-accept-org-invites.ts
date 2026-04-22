@@ -9,6 +9,8 @@ interface PendingOrgInvitation {
 	can_edit_personnel: boolean | null;
 	can_view_training: boolean | null;
 	can_edit_training: boolean | null;
+	can_view_critical_tasks: boolean | null;
+	can_edit_critical_tasks: boolean | null;
 	can_view_onboarding: boolean | null;
 	can_edit_onboarding: boolean | null;
 	can_view_leaders_book: boolean | null;
@@ -29,7 +31,7 @@ export async function autoAcceptOrgInvites(
 			supabase
 				.from('organization_invitations')
 				.select(
-					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 				)
 				.eq('email', normalizedEmail)
 				.eq('status', 'pending')
@@ -52,6 +54,8 @@ export async function autoAcceptOrgInvites(
 			inv.can_edit_personnel &&
 			inv.can_view_training &&
 			inv.can_edit_training &&
+			inv.can_view_critical_tasks &&
+			inv.can_edit_critical_tasks &&
 			inv.can_view_onboarding &&
 			inv.can_edit_onboarding &&
 			inv.can_view_leaders_book &&
@@ -69,6 +73,8 @@ export async function autoAcceptOrgInvites(
 			can_edit_personnel: inv.can_edit_personnel ?? true,
 			can_view_training: inv.can_view_training ?? true,
 			can_edit_training: inv.can_edit_training ?? true,
+			can_view_critical_tasks: inv.can_view_critical_tasks ?? true,
+			can_edit_critical_tasks: inv.can_edit_critical_tasks ?? true,
 			can_view_onboarding: inv.can_view_onboarding ?? true,
 			can_edit_onboarding: inv.can_edit_onboarding ?? true,
 			can_view_leaders_book: inv.can_view_leaders_book ?? true,

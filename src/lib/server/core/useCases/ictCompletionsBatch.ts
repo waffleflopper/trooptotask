@@ -59,7 +59,7 @@ export async function importIctCompletionsBatch(
 	ctx: WritePorts,
 	input: IctCompletionBatchImportInput
 ): Promise<IctCompletionBatchImportResult> {
-	ctx.auth.requireEdit('training');
+	ctx.auth.requireEdit('critical-tasks');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) fail(403, 'Organization is in read-only mode');

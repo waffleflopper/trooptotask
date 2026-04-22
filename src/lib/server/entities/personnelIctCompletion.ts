@@ -4,7 +4,7 @@ import { ICT_VALIDATION_METHODS, type PersonnelIctCompletion } from '$features/c
 
 export const PersonnelIctCompletionEntity = defineEntity<PersonnelIctCompletion>({
 	table: 'personnel_ict_completions',
-	permission: 'training',
+	permission: 'critical-tasks',
 	groupScope: { personnelColumn: 'personnel_id' },
 	audit: { resourceType: 'personnel_ict_completion', detailFields: ['personnelId', 'ictTaskId', 'completedAt'] },
 	orderBy: [{ column: 'completed_at', ascending: false }],

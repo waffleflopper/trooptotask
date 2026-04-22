@@ -17,6 +17,7 @@
 		IctTask,
 		PersonnelIctCompletion
 	} from '$features/critical-tasks/criticalTasks.types';
+	import type { OrganizationMemberPermissions } from '$lib/types';
 	import { parseDate } from '$lib/utils/dates';
 
 	interface Props {
@@ -27,10 +28,7 @@
 				defaultExpirationMonths: number;
 				expiringSoonWarningDays: number;
 			};
-			permissions?: {
-				canViewTraining: boolean;
-				canEditTraining: boolean;
-			};
+			permissions?: Partial<OrganizationMemberPermissions> | null;
 			session?:
 				| (Record<string, unknown> & {
 						user?:
@@ -60,7 +58,7 @@
 	const personnelName = $derived([history.personnel.rank, personnelDisplayName].filter(Boolean).join(' '));
 	const settings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
 	const permissions = $derived(data.permissions ?? org.permissions);
-	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
+	const canEditCriticalTasks = $derived(!!permissions.canEditCriticalTasks && !org.readOnly);
 	let activeEditorRow = $state<ActiveTaskRow | null>(null);
 	let showTaskInputModal = $state(false);
 	let taskSearch = $state('');
@@ -125,7 +123,9 @@
 	const archivedHistoryRows = $derived(history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null));
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
 	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
-	const canInputTask = $derived(canEditTraining && applicableTaskOptions.length > 0);
+	const canInputTask = $derived(
+		!!permissions.canViewCriticalTasks && canEditCriticalTasks && applicableTaskOptions.length > 0
+	);
 	const personnelInitials = $derived(
 		`${history.personnel.firstName.charAt(0)}${history.personnel.lastName.charAt(0)}`.toUpperCase()
 	);
@@ -372,7 +372,7 @@
 			</div>
 		</div>
 		<div class="page-actions" aria-label="Record actions">
-			{#if canEditTraining}
+			{#if canEditCriticalTasks}
 				<button class="btn btn-primary" type="button" onclick={handleTaskInput} disabled={!canInputTask}>
 					Input Task
 				</button>
@@ -469,7 +469,7 @@
 						<th>Method</th>
 						<th>Validator</th>
 						<th>Notes</th>
-						{#if canEditTraining}
+						{#if canEditCriticalTasks}
 							<th class="action-col">Action</th>
 						{/if}
 					</tr>
@@ -477,7 +477,7 @@
 				<tbody>
 					{#if filteredActiveRows.length === 0}
 						<tr>
-							<td class="empty" colspan={canEditTraining ? 8 : 7}>No active critical tasks match this view.</td>
+							<td class="empty" colspan={canEditCriticalTasks ? 8 : 7}>No active critical tasks match this view.</td>
 						</tr>
 					{:else}
 						{#each filteredActiveRows as row (row.task.id)}
@@ -521,7 +521,7 @@
 										{row.completion?.notes ?? 'No notes'}
 									</div>
 								</td>
-								{#if canEditTraining}
+								{#if canEditCriticalTasks}
 									<td class="action-cell">
 										<button
 											type="button"

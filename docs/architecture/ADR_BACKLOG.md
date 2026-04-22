@@ -56,9 +56,12 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 - Why:
   - demo/sandbox code should stop shaping the main architecture
 - Should cover:
-  - removal strategy
+  - staged removal strategy
   - temporary containment rules
   - service-role implications
+  - when `/demo` stays fail-closed versus being removed entirely
+  - whether the fail-closed sandbox bootstrap marker route should remain during the transition or be deleted outright
+  - when schema, RPC, and cleanup removal can happen after runtime callers are gone
 
 ### ADR-06 Legacy Terminology Compatibility Policy
 

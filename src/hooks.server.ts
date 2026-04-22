@@ -100,7 +100,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		cachedSession = { session: { ...session, user }, user };
 		return cachedSession;
 	};
-	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
+	// Deprecated demo/sandbox cookie bypass. Keep this contained to the legacy
+	// decommission path; do not copy or expand it into ordinary auth handling.
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');
 

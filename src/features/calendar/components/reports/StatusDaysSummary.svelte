@@ -242,7 +242,7 @@
 						<option value="mos">By MOS</option>
 					{/if}
 					{#if uniqueRoles.length > 0}
-						<option value="role">By Role</option>
+						<option value="role">By Duty Role</option>
 					{/if}
 				</select>
 			</label>

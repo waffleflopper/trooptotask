@@ -49,7 +49,7 @@
 			value: (p) => `${p.lastName}, ${p.firstName}`,
 			searchValue: (p) => `${p.lastName} ${p.firstName}`
 		},
-		{ key: 'mos', header: 'MOS/Role', value: (p) => p.mos || p.clinicRole }
+		{ key: 'mos', header: 'MOS / Duty Role', value: (p) => p.mos || p.clinicRole }
 	];
 
 	const table = useDataTable<Personnel>({

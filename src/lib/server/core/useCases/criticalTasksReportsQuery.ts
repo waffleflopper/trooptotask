@@ -309,7 +309,7 @@ export async function generateCriticalTasksMatrixCsv(
 		'Name',
 		'Rank',
 		'MOS',
-		'Role',
+		'Duty Role',
 		'Group',
 		...matrix.tasks.map((task) => `${task.taskCode} ${task.title}`)
 	];

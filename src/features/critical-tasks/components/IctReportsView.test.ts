@@ -482,8 +482,8 @@ describe('IctReportsView', () => {
 		await fireEvent.input(rankFilter, { target: { value: 'SG' } });
 		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT' }));
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Filter by role' }));
-		const roleFilter = screen.getByRole('combobox', { name: 'Filter by role' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by duty role' }));
+		const roleFilter = screen.getByRole('combobox', { name: 'Filter by duty role' });
 		await fireEvent.input(roleFilter, { target: { value: 'Rifle' } });
 		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Rifleman' }));
 

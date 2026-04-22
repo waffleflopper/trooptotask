@@ -64,7 +64,9 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 - Why:
   - clinic-era names still exist and need a consistent migration policy
+  - issue `#624` applies the first doc-and-copy cleanup wave without renaming runtime or schema fields
 - Should cover:
   - current compatibility names
   - preferred canonical language
   - how and where aliases are tolerated
+  - when the generic label `Role` is too ambiguous and must become `Duty Role`

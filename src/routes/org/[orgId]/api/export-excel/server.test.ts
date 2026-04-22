@@ -76,6 +76,7 @@ describe('POST /api/export-excel', () => {
 		expect(personnelSheet).toBeDefined();
 		if (!personnelSheet) throw new Error('Personnel sheet missing');
 
+		expect(rowValues(personnelSheet, 1)).toContain('Duty Role');
 		expect(rowValues(personnelSheet, 1)).toContain('ETS');
 		expect(rowValues(personnelSheet, 1)).toContain('PCS / DEROS');
 		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');

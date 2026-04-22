@@ -53,7 +53,7 @@ describe('GET /api/training-reports/export', () => {
 		});
 		const response = _getConfig.formatOutput?.(result);
 
-		expect(result).toContain('Name,Rank,MOS,Role,Group,CPR');
+		expect(result).toContain('Name,Rank,MOS,Duty Role,Group,CPR');
 		expect(result).toContain('"Smith, Jane"');
 		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
 		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-/);

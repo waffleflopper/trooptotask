@@ -35,6 +35,8 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Capability Level**               | The approved replacement per-feature authority level: `none`, `view`, `operate`, or `configure`.                                            | Permission flag          |
 | **Capability Map**                 | The lane-by-lane set of **Capability Level** values assigned to a member after preset defaults and overrides are applied.                   | Role permissions blob    |
 | **Feature Lane**                   | The permission surface for one product feature area.                                                                                        | Shared permission bucket |
+| **Lane Ownership**                 | The durable permission owner for a feature, independent of temporary route, page, or screen placement.                                      | Current page nesting     |
+| **Compatibility Lane**             | A temporary permission surface kept during migration so legacy flows still work while the durable lane map is remediated.                   | Durable feature lane     |
 | **Policy Overlay**                 | A cross-cutting rule that can still change the final allow or deny result after role, capability, and scope are evaluated.                  | Permission, preset       |
 | **Policy Decision**                | The effective allow or deny outcome for a requested action after role, capability or flag, scope, and policy overlays are evaluated.        | Checkbox                 |
 | **Organization Governance Action** | An action that changes organization access, settings, billing, or destructive org state and therefore stays reserved to `admin` or `owner`. | Feature edit             |
@@ -42,18 +44,18 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Feature Surfaces
 
-| Term                  | Definition                                                                                                                         | Aliases to avoid                           |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| **Calendar**          | The feature for availability, assignments, special days, and duty visibility.                                                      | Leave tracker                              |
-| **Personnel**         | The feature for roster management and personnel records.                                                                           | Member manager                             |
-| **Training**          | The feature for training types, training records, matrix views, and training reports.                                              | Certification tracker only                 |
-| **Critical Tasks**    | The feature for ICT task libraries, completions, readiness reporting, and related reporting views.                                 | Training when discussing feature ownership |
-| **Onboarding**        | The feature for template-driven in-processing workflows and onboarding progress.                                                   | Checklist feature                          |
-| **Leader's Book**     | The transitional compatibility surface for counseling-adjacent records and leader-reference workflows while its remake is pending. | Durable future default lane                |
-| **Rating Scheme**     | The active v1 surface for evaluation or rating follow-up entries.                                                                  | Personnel metadata, leaders-book-only data |
-| **Counseling Record** | A stored counseling entry tied to a person.                                                                                        | Note, eval                                 |
-| **Training Type**     | An organization-defined training requirement with applicability and expiration behavior.                                           | Certification row                          |
-| **Critical Task**     | An organization-defined ICT requirement tracked by the Critical Tasks feature.                                                     | Training type                              |
+| Term                  | Definition                                                                                                                                             | Aliases to avoid                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| **Calendar**          | The feature for availability, assignments, special days, and duty visibility.                                                                          | Leave tracker                              |
+| **Personnel**         | The feature for roster management and personnel records.                                                                                               | Member manager                             |
+| **Training**          | The feature for training types, training records, matrix views, and training reports.                                                                  | Certification tracker only                 |
+| **Critical Tasks**    | The feature for ICT task libraries, completions, readiness reporting, and related reporting views.                                                     | Training when discussing feature ownership |
+| **Onboarding**        | The feature for template-driven in-processing workflows and onboarding progress.                                                                       | Checklist feature                          |
+| **Leader's Book**     | The transitional compatibility surface and lane for counseling-adjacent records and leader-reference workflows while its remake is pending.            | Durable future default lane                |
+| **Rating Scheme**     | The active v1 surface for evaluation or rating follow-up entries, with its own durable lane ownership even when temporarily rendered inside Personnel. | Personnel metadata, leaders-book-only data |
+| **Counseling Record** | A stored counseling entry tied to a person.                                                                                                            | Note, eval                                 |
+| **Training Type**     | An organization-defined training requirement with applicability and expiration behavior.                                                               | Certification row                          |
+| **Critical Task**     | An organization-defined ICT requirement tracked by the Critical Tasks feature.                                                                         | Training type                              |
 
 ## Relationships
 
@@ -63,7 +65,11 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - In the approved replacement model, a member receives a **Member Preset**, a **Capability Map**, and a shared **Scope Set**.
 - A **Member Preset** seeds the **Capability Map**, and explicit overrides adjust individual **Feature Lanes** without severing preset lineage.
 - A **Scope Set** applies across all scoped **Feature Lanes**; it does not vary by feature.
+- The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
+- **Leader's Book** remains a **Compatibility Lane** and not part of the durable first-class lane map.
+- **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
+- Governance, billing, member-management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Policy Overlay** can still block or gate an action even when a member's **Capability Map** would otherwise allow it.
 - A **Personnel Record** may belong to one **Group**.
 - A **Duty Role** is stored today through the legacy **Clinic Role** field.
@@ -72,21 +78,17 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Example Dialogue
 
-> **Dev:** "If a member manages **Calendar** for Groups A and B but only views **Personnel**, do I need two different scope rules?"
+> **Dev:** "If **Rating Scheme** sits on the **Personnel** page today, does that make **Personnel** its **Lane Ownership**?"
 >
-> **Domain expert:** "No. Give them one shared **Scope Set** for Groups A and B, then set different **Capability Levels** per **Feature Lane** in the **Capability Map**."
+> **Domain expert:** "No. **Lane Ownership** is separate from screen placement. **Rating Scheme** keeps its own **Feature Lane** even while the UI is temporarily nested there."
 >
-> **Dev:** "Is **Team Leader** still a **Membership Role** or a canonical preset in the replacement model?"
+> **Dev:** "Then why does **Leader's Book** still show up in permissions and help?"
 >
-> **Domain expert:** "No. The fixed **Membership Roles** stay `owner`, `admin`, and `member`. `Team Leader` is just a composed description of a scoped member state."
+> **Domain expert:** "Because **Leader's Book** is a **Compatibility Lane** during the remake. It is not part of the durable first-class lane map."
 >
-> **Dev:** "Can I hand-tune a member into a partial admin by giving them a stronger **Capability Map**?"
+> **Dev:** "Do billing and member-management need their own **Feature Lanes** too?"
 >
-> **Domain expert:** "No. **Organization Governance Actions** stay with `admin` or `owner`. Member tuning changes feature authority, not governance over other people's access."
->
-> **Dev:** "What happens if billing makes the organization read-only even though the member can configure a feature?"
->
-> **Domain expert:** "That is a **Policy Overlay**. It can still block writes even when the member's **Capability Map** would otherwise allow them."
+> **Domain expert:** "No. Those are **Organization Governance Actions** or policy concerns. They stay outside the durable **Feature Lane** map."
 
 ## Flagged Ambiguities
 
@@ -100,5 +102,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Critical Tasks** and **Training** are distinct feature surfaces even though current authorization still couples them.
-- **Leader's Book** still exists in the product model, but it should be treated as a transitional compatibility lane while the remake is pending.
+- **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending, not as a durable first-class lane.
+- **Lane Ownership** is not the same thing as temporary page placement. **Rating Scheme** can live on the **Personnel** page during migration and still own its own lane.
+- **Feature Lane** and **Organization Governance Action** are different concepts. Billing, member management, org settings, and platform concerns are not part of the durable feature-lane map.
 - **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it is an active feature surface with an incomplete boundary.

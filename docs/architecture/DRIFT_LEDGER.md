@@ -57,25 +57,27 @@ Each entry separates:
 - Guardrail until fixed:
   - treat the coupling as drift, not precedent
 - Recommended next slice:
-  - implement the approved Critical Tasks lane without re-borrowing Training
+  - implement the approved Critical Tasks lane first, without re-borrowing Training or waiting on the Rating Scheme boundary review
 
 ## D-04 Rating Scheme And Leaders Book Coupling
 
 - Current-state truth:
   - Rating Scheme is active
+  - it currently renders inside the Personnel page
   - its route shell still uses the Leaders Book lane while core CRUD currently enforces Personnel edit access
   - Leaders Book still exists in permissions, help, exports, and plans
   - the main navigation currently hides Leaders Book during redesign
 - Intended direction:
-  - Rating Scheme becomes its own first-class lane in the approved member capability map
-  - Leaders Book remains a documented transitional compatibility lane while its remake is pending
+  - Rating Scheme becomes its own first-class lane in the approved member capability map and should be independently grantable from Personnel
+  - temporary screen placement does not define lane ownership
+  - Leaders Book remains a documented transitional compatibility lane while its remake is pending, and it is not part of the durable first-class lane map
   - a dedicated follow-up slice should still settle the exact records and ownership boundary between Rating Scheme and Leader's Book
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
 - Guardrail until fixed:
   - document the overlap explicitly; do not treat it as a clean feature boundary
 - Recommended next slice:
-  - boundary review for the Leaders Book remake, then Rating Scheme lane implementation against that decision
+  - after the Critical Tasks lane split, complete the Leaders Book remake boundary review, then implement Rating Scheme lane remediation against that decision
 
 ## D-05 Legacy Clinic Vocabulary
 

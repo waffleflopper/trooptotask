@@ -131,24 +131,28 @@ Focus entries:
   - the core route/auth contract still only exposes coarse feature lanes
   - Critical Tasks now owns its dedicated lane across the shared route/auth contract, membership flags, and RLS
   - Rating Scheme currently renders inside the Personnel page while spanning borrowed lanes across Leaders Book and Personnel-adjacent enforcement
-  - `Leader's Book` is hidden from primary nav during redesign, but its permissions and compatibility paths still exist
+  - Rating Scheme already stores evaluation-tracking records that are distinct from counseling and development-goal records
+  - `Leader's Book` is hidden from primary nav and redirected during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
   - feature boundaries and audits stay muddy
 - Intended v1 direction:
   - the intended first-class v1 lanes are `calendar`, `personnel`, `training`, `critical-tasks`, `onboarding`, and `rating-scheme`
   - the lane map covers product feature surfaces only; governance, billing, member-management, and platform concerns stay outside it
-  - `Leader's Book` remains a documented transitional compatibility lane until its remake or replacement is decided, and it is not part of the durable first-class lane map
-  - temporary screen placement does not define lane ownership
-  - `Rating Scheme` owns its own lane and should be independently grantable from `Personnel` even if temporary UI nesting persists during migration
+  - `Leader's Book` remains a documented transitional compatibility lane until its remake shape is settled, and it is not part of the current durable first-class lane map
+  - `Rating Scheme` owns evaluation-tracking records and workflows and should be independently grantable from both `Personnel` and `Leader's Book`
+  - `Leader's Book` owns counseling records, development goals, and the remade per-Soldier leader-reference or administrative surface
+  - `Personnel` owns roster administration, but Rating Scheme may use app-owned roster reference queries without borrowing the Personnel lane
+  - temporary page nesting and current primary-nav visibility do not define lane ownership during the current transition
   - each first-class lane should own its own capability levels inside the shared member capability map
 - Constraints to preserve:
   - no fake feature split that the rest of the codebase cannot support yet
   - do not let the transitional `Leader's Book` state block the approved authz direction
-  - do not treat temporary page nesting as permission precedent
+  - do not treat temporary page nesting or current `Leader's Book` compatibility wiring as permission precedent
 - Open questions:
-  - exact Rating Scheme versus Leader's Book record boundary during the remake / replacement decision
+  - when standalone Rating Scheme nav should become the point where primary-nav visibility regains parity with feature-lane existence
+  - when the remade `Leader's Book` should re-enter the durable lane taxonomy through a later ADR or equivalent review
 - Suggested next skill or planning mode:
-  - `grill-me` plus `adr-from-retrofit-decision` for `#620`, then `tdd` for `#627`
+  - `tdd` for `#627`, then `grill-me` plus `adr-from-retrofit-decision` again if the remade `Leader's Book` needs a later lane-taxonomy review
 
 ## C-05 Deep Module Reviews
 

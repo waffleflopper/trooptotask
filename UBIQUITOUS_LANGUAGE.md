@@ -44,18 +44,18 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Feature Surfaces
 
-| Term                  | Definition                                                                                                                                             | Aliases to avoid                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| **Calendar**          | The feature for availability, assignments, special days, and duty visibility.                                                                          | Leave tracker                              |
-| **Personnel**         | The feature for roster management and personnel records.                                                                                               | Member manager                             |
-| **Training**          | The feature for training types, training records, matrix views, and training reports.                                                                  | Certification tracker only                 |
-| **Critical Tasks**    | The feature for ICT task libraries, completions, readiness reporting, and related reporting views.                                                     | Training when discussing feature ownership |
-| **Onboarding**        | The feature for template-driven in-processing workflows and onboarding progress.                                                                       | Checklist feature                          |
-| **Leader's Book**     | The transitional compatibility surface and lane for counseling-adjacent records and leader-reference workflows while its remake is pending.            | Durable future default lane                |
-| **Rating Scheme**     | The active v1 surface for evaluation or rating follow-up entries, with its own durable lane ownership even when temporarily rendered inside Personnel. | Personnel metadata, leaders-book-only data |
-| **Counseling Record** | A stored counseling entry tied to a person.                                                                                                            | Note, eval                                 |
-| **Training Type**     | An organization-defined training requirement with applicability and expiration behavior.                                                               | Certification row                          |
-| **Critical Task**     | An organization-defined ICT requirement tracked by the Critical Tasks feature.                                                                         | Training type                              |
+| Term                  | Definition                                                                                                                                                                                               | Aliases to avoid                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Calendar**          | The feature for availability, assignments, special days, and duty visibility.                                                                                                                            | Leave tracker                              |
+| **Personnel**         | The feature for roster management and personnel records.                                                                                                                                                 | Member manager                             |
+| **Training**          | The feature for training types, training records, matrix views, and training reports.                                                                                                                    | Certification tracker only                 |
+| **Critical Tasks**    | The feature for ICT task libraries, completions, readiness reporting, and related reporting views.                                                                                                       | Training when discussing feature ownership |
+| **Onboarding**        | The feature for template-driven in-processing workflows and onboarding progress.                                                                                                                         | Checklist feature                          |
+| **Leader's Book**     | The transitional compatibility surface for counseling records, development goals, and the future remade per-Soldier leader-reference or administrative workflows while its shape is still being rebuilt. | Durable future default lane                |
+| **Rating Scheme**     | The active v1 surface for evaluation-tracking records and workflows for rated individuals, with its own durable lane ownership even when temporarily rendered inside Personnel.                          | Personnel metadata, leaders-book-only data |
+| **Counseling Record** | A stored counseling entry tied to a person.                                                                                                                                                              | Note, eval                                 |
+| **Training Type**     | An organization-defined training requirement with applicability and expiration behavior.                                                                                                                 | Certification row                          |
+| **Critical Task**     | An organization-defined ICT requirement tracked by the Critical Tasks feature.                                                                                                                           | Training type                              |
 
 ## Relationships
 
@@ -68,27 +68,30 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
 - **Leader's Book** remains a **Compatibility Lane** and not part of the durable first-class lane map.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
+- **Rating Scheme** and **Leader's Book** are independently grantable feature surfaces.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
 - Governance, billing, member-management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Policy Overlay** can still block or gate an action even when a member's **Capability Map** would otherwise allow it.
 - A **Personnel Record** may belong to one **Group**.
 - A **Duty Role** is stored today through the legacy **Clinic Role** field.
 - **Critical Tasks** is its own feature surface and now owns its dedicated authorization lane.
-- **Rating Scheme** is active even though its current boundaries still overlap with **Leader's Book** and personnel-adjacent workflows.
+- **Personnel** owns roster administration.
+- **Rating Scheme** may read the roster reference data it needs to resolve rated people and raters without inheriting **Personnel** lane ownership.
+- During the current transition, hidden or missing primary nav does not by itself mean a **Feature Lane** no longer exists.
 
 ## Example Dialogue
 
-> **Dev:** "If **Rating Scheme** sits on the **Personnel** page today, does that make **Personnel** its **Lane Ownership**?"
+> **Dev:** "If **Leader's Book** is hidden from nav right now, does that mean **Rating Scheme** should keep borrowing that permission?"
 >
-> **Domain expert:** "No. **Lane Ownership** is separate from screen placement. **Rating Scheme** keeps its own **Feature Lane** even while the UI is temporarily nested there."
+> **Domain expert:** "No. Hidden nav is just transitional presentation. **Rating Scheme** keeps its own **Feature Lane**."
 >
-> **Dev:** "Then why does **Leader's Book** still show up in permissions and help?"
+> **Dev:** "Does **Rating Scheme** need **Personnel** access because it looks up rated Soldiers and raters?"
 >
-> **Domain expert:** "Because **Leader's Book** is a **Compatibility Lane** during the remake. It is not part of the durable first-class lane map."
+> **Domain expert:** "No. **Personnel** owns roster administration, but **Rating Scheme** can read the roster reference data it needs under its own lane."
 >
-> **Dev:** "Do billing and member-management need their own **Feature Lanes** too?"
+> **Dev:** "Can someone have **Rating Scheme** without **Leader's Book**?"
 >
-> **Domain expert:** "No. Those are **Organization Governance Actions** or policy concerns. They stay outside the durable **Feature Lane** map."
+> **Domain expert:** "Yes. The lanes are independently grantable, even while **Leader's Book** remains a compatibility surface during the remake."
 
 ## Flagged Ambiguities
 
@@ -103,6 +106,10 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
 - **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending, not as a durable first-class lane.
+- That current taxonomy does not pre-decide the rebuilt **Leader's Book** forever; a later explicit decision can revisit whether the remade surface returns to the durable lane map.
+- A hidden or redirected route does not mean the underlying feature surface is already gone during this transition.
 - **Lane Ownership** is not the same thing as temporary page placement. **Rating Scheme** can live on the **Personnel** page during migration and still own its own lane.
 - **Feature Lane** and **Organization Governance Action** are different concepts. Billing, member management, org settings, and platform concerns are not part of the durable feature-lane map.
-- **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it is an active feature surface with an incomplete boundary.
+- **Personnel** owns roster administration, but another feature can still read roster reference data without inheriting the **Personnel** lane.
+- **Rating Scheme** and **Leader's Book** are separate feature surfaces; current compatibility wiring must not be misread as intended coupling.
+- **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows even though runtime lane remediation is still pending.

@@ -58,21 +58,24 @@ Each entry separates:
 
 - Current-state truth:
   - Rating Scheme is active
+  - its record model already represents evaluation-tracking records rather than counseling or development-goal records
   - it currently renders inside the Personnel page
   - its route shell still uses the Leaders Book lane while core CRUD currently enforces Personnel edit access
-  - Leaders Book still exists in permissions, help, exports, and plans
-  - the main navigation currently hides Leaders Book during redesign
+  - `Leader's Book` still exists in permissions, help, dashboard links, exports, settings, and plans
+  - the main navigation currently hides `Leader's Book` during redesign and the route redirects away
 - Intended direction:
-  - Rating Scheme becomes its own first-class lane in the approved member capability map and should be independently grantable from Personnel
-  - temporary screen placement does not define lane ownership
-  - Leaders Book remains a documented transitional compatibility lane while its remake is pending, and it is not part of the durable first-class lane map
-  - a dedicated follow-up slice should still settle the exact records and ownership boundary between Rating Scheme and Leader's Book
+  - Rating Scheme owns evaluation-tracking records and workflows and remains its own first-class lane
+  - Rating Scheme should be independently grantable from both `Personnel` and `Leader's Book`
+  - `Personnel` owns roster administration, but Rating Scheme may use app-owned roster reference queries without inheriting Personnel lane ownership
+  - temporary screen placement and current nav visibility do not define lane ownership during the current transition
+  - `Leader's Book` remains a real documented transitional compatibility lane for counseling records, development goals, and the future per-Soldier leader-reference or administrative surface while its remake is pending
+  - `Leader's Book` is not part of the current durable first-class lane map; a later ADR may revisit that once the rebuilt feature is real enough to evaluate
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
 - Guardrail until fixed:
-  - document the overlap explicitly; do not treat it as a clean feature boundary
+  - document the overlap and the approved record boundary explicitly; do not treat current Personnel-page placement or `Leader's Book` compatibility wiring as permission precedent
 - Recommended next slice:
-  - after the Critical Tasks lane split, complete the Leaders Book remake boundary review, then implement Rating Scheme lane remediation against that decision
+  - implement Rating Scheme runtime lane remediation against the approved `#620` boundary in `#627`, then revisit nav parity and remade `Leader's Book` lane taxonomy in a later decision slice
 
 ## D-05 Legacy Clinic Vocabulary
 

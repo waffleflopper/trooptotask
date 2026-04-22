@@ -40,13 +40,16 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-04 Leaders Book And Rating Scheme Boundary
 
+- Status:
+  - Accepted in [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
 - Why:
   - this area is active but architecturally blurry
-- Should cover:
+- Covers:
   - what belongs to leaders-book
   - what belongs to rating scheme
   - nav visibility versus feature existence
   - permission ownership
+  - future reminder: revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once its rebuilt shape is real
 
 ### ADR-05 Demo And Sandbox Decommissioning
 

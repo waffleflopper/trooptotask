@@ -73,7 +73,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - A **Policy Overlay** can still block or gate an action even when a member's **Capability Map** would otherwise allow it.
 - A **Personnel Record** may belong to one **Group**.
 - A **Duty Role** is stored today through the legacy **Clinic Role** field.
-- **Critical Tasks** is its own feature surface even though the current authorization lane still overlaps with **Training**.
+- **Critical Tasks** is its own feature surface and now owns its dedicated authorization lane.
 - **Rating Scheme** is active even though its current boundaries still overlap with **Leader's Book** and personnel-adjacent workflows.
 
 ## Example Dialogue
@@ -101,7 +101,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and can eventually support `1..n` groups.
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
-- **Critical Tasks** and **Training** are distinct feature surfaces even though current authorization still couples them.
+- **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
 - **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending, not as a durable first-class lane.
 - **Lane Ownership** is not the same thing as temporary page placement. **Rating Scheme** can live on the **Personnel** page during migration and still own its own lane.
 - **Feature Lane** and **Organization Governance Action** are different concepts. Billing, member management, org settings, and platform concerns are not part of the durable feature-lane map.

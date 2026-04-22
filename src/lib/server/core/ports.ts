@@ -1,6 +1,6 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 
-export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
+export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'leaders-book';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {

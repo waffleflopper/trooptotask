@@ -153,6 +153,8 @@ export function createSupabaseRootOrgLoadPort(
 						canEditPersonnel: false,
 						canViewTraining: true,
 						canEditTraining: false,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: false,
 						canViewOnboarding: true,
 						canEditOnboarding: false,
 						canViewLeadersBook: true,
@@ -181,6 +183,8 @@ export function createSupabaseRootOrgLoadPort(
 								canEditPersonnel: true,
 								canViewTraining: true,
 								canEditTraining: true,
+								canViewCriticalTasks: true,
+								canEditCriticalTasks: true,
 								canViewOnboarding: true,
 								canEditOnboarding: true,
 								canViewLeadersBook: true,
@@ -258,6 +262,8 @@ export function createSupabaseOrgAccessPort(config: {
 				canEditPersonnel: isPrivileged || membership.can_edit_personnel,
 				canViewTraining: isPrivileged || membership.can_view_training,
 				canEditTraining: isPrivileged || membership.can_edit_training,
+				canViewCriticalTasks: isPrivileged || !!membership.can_view_critical_tasks,
+				canEditCriticalTasks: isPrivileged || !!membership.can_edit_critical_tasks,
 				canViewOnboarding: isPrivileged || membership.can_view_onboarding,
 				canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
 				canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
@@ -297,7 +303,7 @@ async function loadMembershipRow(config: {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
 		.select(
-			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 		)
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)
@@ -681,14 +687,14 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
-				permission: 'training',
+				permission: 'critical-tasks',
 				defer: true,
 				fn
 			});
 		}
 
 		return loadWithContext(locals, cookies, orgId, {
-			permission: 'training',
+			permission: 'critical-tasks',
 			fn
 		});
 	}

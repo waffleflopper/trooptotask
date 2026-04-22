@@ -30,6 +30,8 @@ export interface OrganizationMemberPermissions {
 	canEditPersonnel: boolean;
 	canViewTraining: boolean;
 	canEditTraining: boolean;
+	canViewCriticalTasks: boolean;
+	canEditCriticalTasks: boolean;
 	canViewOnboarding: boolean;
 	canEditOnboarding: boolean;
 	canViewLeadersBook: boolean;
@@ -71,6 +73,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
 		canViewLeadersBook: true,
@@ -84,6 +88,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
 		canViewLeadersBook: true,
@@ -97,6 +103,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
 		canViewLeadersBook: true,
@@ -110,6 +118,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditPersonnel: false,
 		canViewTraining: true,
 		canEditTraining: false,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: false,
 		canViewOnboarding: true,
 		canEditOnboarding: false,
 		canViewLeadersBook: true,
@@ -131,6 +141,8 @@ export function getPermissionPreset(
 			permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
 			permissions.canViewTraining === presetPermissions.canViewTraining &&
 			permissions.canEditTraining === presetPermissions.canEditTraining &&
+			permissions.canViewCriticalTasks === presetPermissions.canViewCriticalTasks &&
+			permissions.canEditCriticalTasks === presetPermissions.canEditCriticalTasks &&
 			permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
 			permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
 			permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
@@ -159,6 +171,8 @@ export function isFullEditor(permissions: OrganizationMemberPermissions): boolea
 		permissions.canEditPersonnel &&
 		permissions.canViewTraining &&
 		permissions.canEditTraining &&
+		permissions.canViewCriticalTasks &&
+		permissions.canEditCriticalTasks &&
 		permissions.canViewOnboarding &&
 		permissions.canEditOnboarding &&
 		permissions.canViewLeadersBook &&

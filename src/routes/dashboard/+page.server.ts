@@ -114,6 +114,8 @@ export const actions: Actions = {
 			invitation.can_edit_personnel &&
 			invitation.can_view_training &&
 			invitation.can_edit_training &&
+			invitation.can_view_critical_tasks &&
+			invitation.can_edit_critical_tasks &&
 			invitation.can_view_onboarding &&
 			invitation.can_edit_onboarding &&
 			invitation.can_view_leaders_book &&
@@ -132,6 +134,8 @@ export const actions: Actions = {
 			can_edit_personnel: invitation.can_edit_personnel ?? true,
 			can_view_training: invitation.can_view_training ?? true,
 			can_edit_training: invitation.can_edit_training ?? true,
+			can_view_critical_tasks: invitation.can_view_critical_tasks ?? true,
+			can_edit_critical_tasks: invitation.can_edit_critical_tasks ?? true,
 			can_view_onboarding: invitation.can_view_onboarding ?? true,
 			can_edit_onboarding: invitation.can_edit_onboarding ?? true,
 			can_view_leaders_book: invitation.can_view_leaders_book ?? true,

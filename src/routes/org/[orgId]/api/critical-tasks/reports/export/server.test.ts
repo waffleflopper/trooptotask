@@ -74,7 +74,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		expect(result).not.toContain('Bravo');
 	});
 
-	it('uses training read permission and returns a report-context CSV download', async () => {
+	it('uses critical tasks read permission and returns a report-context CSV download', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -178,7 +178,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		expect(_getConfig.permission).toBe('training');
+		expect(_getConfig.permission).toBe('critical-tasks');
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, {
 			groupId: 'group-alpha',

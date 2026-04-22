@@ -53,6 +53,7 @@ export function createSandboxContext(): PermissionContext {
 		calendar: true,
 		personnel: true,
 		training: true,
+		'critical-tasks': true,
 		onboarding: true,
 		'leaders-book': true
 	};
@@ -93,6 +94,8 @@ export interface MembershipRow {
 	can_edit_personnel: boolean;
 	can_view_training: boolean;
 	can_edit_training: boolean;
+	can_view_critical_tasks?: boolean;
+	can_edit_critical_tasks?: boolean;
 	can_view_onboarding: boolean;
 	can_edit_onboarding: boolean;
 	can_view_leaders_book: boolean;
@@ -117,6 +120,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		calendar: isPrivileged || !!membership.can_view_calendar,
 		personnel: isPrivileged || !!membership.can_view_personnel,
 		training: isPrivileged || !!membership.can_view_training,
+		'critical-tasks': isPrivileged || !!membership.can_view_critical_tasks,
 		onboarding: isPrivileged || !!membership.can_view_onboarding,
 		'leaders-book': isPrivileged || !!membership.can_view_leaders_book
 	};
@@ -125,6 +129,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		calendar: isPrivileged || !!membership.can_edit_calendar,
 		personnel: isPrivileged || !!membership.can_edit_personnel,
 		training: isPrivileged || !!membership.can_edit_training,
+		'critical-tasks': isPrivileged || !!membership.can_edit_critical_tasks,
 		onboarding: isPrivileged || !!membership.can_edit_onboarding,
 		'leaders-book': isPrivileged || !!membership.can_edit_leaders_book
 	};
@@ -140,12 +145,23 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canEdit.personnel &&
 		canView.training &&
 		canEdit.training &&
+		canView['critical-tasks'] &&
+		canEdit['critical-tasks'] &&
 		canView.onboarding &&
 		canEdit.onboarding &&
 		canView['leaders-book'] &&
 		canEdit['leaders-book'];
 
-	const areaLabel = (area: FeatureArea) => (area === 'leaders-book' ? 'leaders book' : area);
+	const areaLabel = (area: FeatureArea) => {
+		switch (area) {
+			case 'leaders-book':
+				return 'leaders book';
+			case 'critical-tasks':
+				return 'critical tasks';
+			default:
+				return area;
+		}
+	};
 
 	const ctx: PermissionContext = {
 		role,
@@ -250,7 +266,7 @@ export async function getMembershipRow(
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
 		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)

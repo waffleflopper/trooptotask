@@ -70,6 +70,12 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			'11111111-1111-1111-1111-111111111111',
+			expect.objectContaining({ permission: 'training', defer: true })
+		);
 		expect(bootstrap).toBeDefined();
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap?.groups).toBeInstanceOf(Promise);

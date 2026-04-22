@@ -44,7 +44,7 @@ export async function importIctTasksBatch(
 	ctx: WritePorts,
 	input: IctTaskBatchImportInput
 ): Promise<IctTaskBatchImportResult> {
-	ctx.auth.requireEdit('training');
+	ctx.auth.requireEdit('critical-tasks');
 	ctx.auth.requirePrivileged();
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

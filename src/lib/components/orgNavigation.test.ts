@@ -9,6 +9,8 @@ const basePermissions: OrganizationMemberPermissions = {
 	canEditPersonnel: false,
 	canViewTraining: false,
 	canEditTraining: false,
+	canViewCriticalTasks: false,
+	canEditCriticalTasks: false,
 	canViewOnboarding: false,
 	canEditOnboarding: false,
 	canViewLeadersBook: false,
@@ -17,14 +19,14 @@ const basePermissions: OrganizationMemberPermissions = {
 };
 
 describe('getOrgNavigation', () => {
-	it('shows Critical Tasks for training viewers and hides it without training view access', () => {
-		const withTraining = getOrgNavigation('org-1', {
+	it('shows Critical Tasks for critical tasks viewers and hides it without critical tasks view access', () => {
+		const withCriticalTasks = getOrgNavigation('org-1', {
 			...basePermissions,
-			canViewTraining: true
+			canViewCriticalTasks: true
 		});
-		const withoutTraining = getOrgNavigation('org-1', basePermissions);
+		const withoutCriticalTasks = getOrgNavigation('org-1', basePermissions);
 
-		expect(withTraining).toEqual(
+		expect(withCriticalTasks).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: 'critical-tasks',
@@ -36,13 +38,13 @@ describe('getOrgNavigation', () => {
 				})
 			])
 		);
-		expect(withoutTraining.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
+		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
 	});
 
 	it('treats Critical Tasks child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
 			...basePermissions,
-			canViewTraining: true
+			canViewCriticalTasks: true
 		}).find((navItem) => navItem.id === 'critical-tasks');
 
 		if (!item) {

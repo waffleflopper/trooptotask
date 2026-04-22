@@ -9,6 +9,8 @@ const fullPermissions: OrganizationMemberPermissions = {
 	canEditPersonnel: true,
 	canViewTraining: true,
 	canEditTraining: true,
+	canViewCriticalTasks: true,
+	canEditCriticalTasks: true,
 	canViewOnboarding: true,
 	canEditOnboarding: true,
 	canViewLeadersBook: true,
@@ -23,6 +25,8 @@ const viewerPermissions: OrganizationMemberPermissions = {
 	canEditPersonnel: false,
 	canViewTraining: true,
 	canEditTraining: false,
+	canViewCriticalTasks: true,
+	canEditCriticalTasks: false,
 	canViewOnboarding: true,
 	canEditOnboarding: false,
 	canViewLeadersBook: true,
@@ -86,6 +90,21 @@ describe('createOrgContext', () => {
 			makeInput({
 				userRole: 'member',
 				permissions: fullPermissions,
+				scopedGroupId: null
+			})
+		);
+		expect(ctx.isFullEditor).toBe(true);
+	});
+
+	it('keeps isFullEditor=true when only Critical Tasks permissions are disabled', () => {
+		const ctx = createOrgContext(
+			makeInput({
+				userRole: 'member',
+				permissions: {
+					...fullPermissions,
+					canViewCriticalTasks: false,
+					canEditCriticalTasks: false
+				},
 				scopedGroupId: null
 			})
 		);

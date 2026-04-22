@@ -9,7 +9,7 @@ import {
 } from '../../reportInput';
 
 export const _getConfig: RouteConfig<CriticalTasksMatrixExportRouteInput, string> = {
-	permission: 'training',
+	permission: 'critical-tasks',
 	input: criticalTasksMatrixExportInput,
 	parseInput: (event) => parseCriticalTasksMatrixExportInput(event.url),
 	fn: async (ctx, input) => generateCriticalTasksMatrixCsv(ctx, toCriticalTasksMatrixExportInput(input)),

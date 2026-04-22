@@ -29,6 +29,8 @@ const baseMembership: MembershipInfo = {
 		canEditPersonnel: false,
 		canViewTraining: true,
 		canEditTraining: false,
+		canViewCriticalTasks: true,
+		canEditCriticalTasks: false,
 		canViewOnboarding: false,
 		canEditOnboarding: false,
 		canViewLeadersBook: false,

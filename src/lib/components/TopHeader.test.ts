@@ -22,6 +22,8 @@ const basePermissions: OrganizationMemberPermissions = {
 	canEditPersonnel: false,
 	canViewTraining: false,
 	canEditTraining: false,
+	canViewCriticalTasks: false,
+	canEditCriticalTasks: false,
 	canViewOnboarding: false,
 	canEditOnboarding: false,
 	canViewLeadersBook: false,

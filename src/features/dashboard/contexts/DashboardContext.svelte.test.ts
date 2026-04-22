@@ -87,6 +87,8 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 			canEditPersonnel: true,
 			canViewTraining: true,
 			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
 			canViewLeadersBook: true,

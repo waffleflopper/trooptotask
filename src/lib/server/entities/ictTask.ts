@@ -4,7 +4,7 @@ import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 
 export const IctTaskEntity = defineEntity<IctTask>({
 	table: 'ict_tasks',
-	permission: 'training',
+	permission: 'critical-tasks',
 	requirePrivileged: true,
 	groupScope: 'none',
 	methods: ['POST', 'PUT'],

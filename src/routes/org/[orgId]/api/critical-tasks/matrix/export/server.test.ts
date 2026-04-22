@@ -4,7 +4,7 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
 describe('GET /api/critical-tasks/matrix/export', () => {
-	it('uses training read permission and returns a matrix CSV matching group and gap filters', async () => {
+	it('uses critical tasks read permission and returns a matrix CSV matching group and gap filters', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -108,7 +108,7 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 			}
 		]);
 
-		expect(_getConfig.permission).toBe('training');
+		expect(_getConfig.permission).toBe('critical-tasks');
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, {
 			groupId: 'group-alpha',

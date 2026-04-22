@@ -11,6 +11,8 @@ describe('createPermissionContextFromMembership', () => {
 		can_edit_personnel: true,
 		can_view_training: false,
 		can_edit_training: false,
+		can_view_critical_tasks: false,
+		can_edit_critical_tasks: false,
 		can_view_onboarding: true,
 		can_edit_onboarding: false,
 		can_view_leaders_book: true,
@@ -52,6 +54,8 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canEdit.personnel).toBe(true);
 		expect(ctx.canView.training).toBe(false);
 		expect(ctx.canEdit.training).toBe(false);
+		expect(ctx.canView['critical-tasks']).toBe(false);
+		expect(ctx.canEdit['critical-tasks']).toBe(false);
 		expect(ctx.canManageMembers).toBe(false);
 	});
 
@@ -96,6 +100,8 @@ describe('createPermissionContextFromMembership', () => {
 			can_edit_personnel: true,
 			can_view_training: true,
 			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
 			can_view_onboarding: true,
 			can_edit_onboarding: true,
 			can_view_leaders_book: true,
@@ -104,6 +110,29 @@ describe('createPermissionContextFromMembership', () => {
 		});
 
 		expect(ctx.isFullEditor).toBe(true);
+	});
+
+	it('keeps full-editor access for non-critical-tasks lanes when critical tasks permissions are disabled', () => {
+		const ctx = createPermissionContextFromMembership({
+			role: 'member',
+			scoped_group_id: null,
+			can_view_calendar: true,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: false,
+			can_edit_critical_tasks: false,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_leaders_book: true,
+			can_edit_leaders_book: true,
+			can_manage_members: true
+		});
+
+		expect(ctx.isFullEditor).toBe(true);
+		expect(() => ctx.requireFullEditor()).not.toThrow();
 	});
 
 	it('requireEdit throws for areas without edit permission', () => {
@@ -117,6 +146,7 @@ describe('createPermissionContextFromMembership', () => {
 		const ctx = createPermissionContextFromMembership(baseMembership);
 
 		expect(() => ctx.requireView('training')).toThrow();
+		expect(() => ctx.requireView('critical-tasks')).toThrow();
 		expect(() => ctx.requireView('calendar')).not.toThrow();
 	});
 

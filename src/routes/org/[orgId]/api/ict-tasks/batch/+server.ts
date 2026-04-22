@@ -2,7 +2,7 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import { importIctTasksBatch } from '$lib/server/core/useCases/ictTasksBatch';
 
 export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'training',
+	permission: 'critical-tasks',
 	mutation: true,
 	fn: (ctx, input) =>
 		importIctTasksBatch(ctx, {

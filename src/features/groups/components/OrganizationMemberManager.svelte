@@ -20,6 +20,8 @@
 		canEditPersonnel: boolean;
 		canViewTraining: boolean;
 		canEditTraining: boolean;
+		canViewCriticalTasks: boolean;
+		canEditCriticalTasks: boolean;
 		canViewOnboarding: boolean;
 		canEditOnboarding: boolean;
 		canViewLeadersBook: boolean;
@@ -105,6 +107,8 @@
 				canEditPersonnel: member.canEditPersonnel,
 				canViewTraining: member.canViewTraining,
 				canEditTraining: member.canEditTraining,
+				canViewCriticalTasks: member.canViewCriticalTasks,
+				canEditCriticalTasks: member.canEditCriticalTasks,
 				canViewOnboarding: member.canViewOnboarding,
 				canEditOnboarding: member.canEditOnboarding,
 				canViewLeadersBook: member.canViewLeadersBook,
@@ -132,6 +136,8 @@
 				canEditPersonnel: invite.canEditPersonnel,
 				canViewTraining: invite.canViewTraining,
 				canEditTraining: invite.canEditTraining,
+				canViewCriticalTasks: invite.canViewCriticalTasks,
+				canEditCriticalTasks: invite.canEditCriticalTasks,
 				canViewOnboarding: invite.canViewOnboarding,
 				canEditOnboarding: invite.canEditOnboarding,
 				canViewLeadersBook: invite.canViewLeadersBook,
@@ -342,6 +348,22 @@
 									</label>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canEditTraining" checked={member.canEditTraining} />
+										Edit
+									</label>
+								</div>
+
+								<div class="permission-section">
+									<h4>Critical Tasks</h4>
+									<p class="permission-description">
+										View the ICTL matrix and reports. Edit allows recording ICT completions and maintaining critical
+										task readiness.
+									</p>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canViewCriticalTasks" checked={member.canViewCriticalTasks} />
+										View
+									</label>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canEditCriticalTasks" checked={member.canEditCriticalTasks} />
 										Edit
 									</label>
 								</div>

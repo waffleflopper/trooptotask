@@ -8,6 +8,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		calendar: true,
 		personnel: true,
 		training: true,
+		'critical-tasks': true,
 		onboarding: true,
 		'leaders-book': true
 	};

@@ -99,7 +99,7 @@ Each entry separates:
 - Current-state truth:
   - `/demo` already fails closed, but demo cookies and sandbox cookies still influence normal `/org/*` request handling
   - `src/hooks.server.ts` still bypasses the unauthenticated org-route redirect when legacy demo cookies are present
-  - `src/routes/api/create-demo-sandbox/+server.ts` still exists as a deprecated sandbox bootstrap route using service-role cloning
+  - `src/routes/api/create-demo-sandbox/+server.ts` now fails closed, so runtime sandbox creation no longer has a live public caller even though the schema and RPC still exist
   - `src/lib/server/adapters/supabaseOrgShell.ts`, `src/lib/server/supabase.ts`, `src/lib/server/adapters/httpAdapter.ts`, and `src/lib/server/adapters/supabaseAuthContext.ts` still manufacture demo/sandbox access without a real membership row
   - `src/routes/api/cleanup-demo-sandboxes/+server.ts` still keeps sandbox cleanup on a separate exceptional path
 - Intended direction:
@@ -107,14 +107,14 @@ Each entry separates:
   - stage removal rather than reworking demo access into a deeper supported architecture
 - Why this matters:
   - cookie-driven gateway bypasses and no-op auth contexts can look like architecture options when they are actually deprecated exceptions
-  - public/service-role sandbox bootstrap and cleanup paths widen the blast radius of demo-only logic
+  - remaining service-role cleanup and schema-level sandbox paths still widen the blast radius of demo-only logic until removal lands
 - Guardrail until fixed:
   - do not expand or deepen demo/sandbox behavior
   - do not add new demo/sandbox cookies, no-op auth contexts, or public service-role bootstrap paths
   - keep the remaining high-risk exceptions explicitly documented in `docs/architecture/GOVERNANCE_BASELINE.json`
-  - keep sandbox bootstrap as a contained legacy path, not as a general-purpose trial or provisioning pattern
+  - keep standalone sandbox bootstrap disabled rather than rebuilding it into a supported trial or provisioning flow
 - Recommended next slice:
-  - issue `#625` applies stage 1 containment: fail closed on standalone sandbox bootstrap, baseline-govern the remaining exceptions, and document the staged removal order
+  - issue `#625` applies stage 1 containment: disable standalone sandbox bootstrap, baseline-govern the remaining exceptions, and document the staged removal order
   - follow with a dedicated removal slice to delete cookie-driven org-shell/auth bypasses and retire `/demo`
   - then remove demo/sandbox schema fields, RPCs, and cleanup jobs after no runtime path depends on them
 

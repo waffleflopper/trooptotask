@@ -214,13 +214,6 @@
 			"driftIds": ["D-06"]
 		},
 		{
-			"path": "src/routes/api/create-demo-sandbox/+server.ts",
-			"classification": "public-service-role-bootstrap",
-			"patterns": ["demo_mode", "create_demo_sandbox", "demo_sandbox"],
-			"reason": "Sandbox bootstrap remains a deprecated service-role cloning path and must stay contained to the legacy demo flow.",
-			"driftIds": ["D-06"]
-		},
-		{
 			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
 			"classification": "in-memory-org-shell-bypass",
 			"patterns": ["demo_mode", "demo_sandbox", "createDemoRootOrgShellRequest"],

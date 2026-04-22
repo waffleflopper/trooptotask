@@ -14,15 +14,22 @@ Each entry separates:
 - Current-state truth:
   - membership role is `owner`, `admin`, or `member`
   - access is primarily expressed as per-feature booleans plus optional `scoped_group_id`
-  - UI presets are convenience shapes over that model
+  - UI presets and derived labels are convenience shapes over that model
+  - platform admin uses a separate role system outside organization-membership authz
 - Intended direction:
-  - app-owned roles, presets, grants or capabilities, scopes, and clearer policy decisions
+  - keep `owner`, `admin`, and `member` as the fixed organization-governance roles
+  - model member access as an assigned preset plus per-feature capability map, shared scope set, and explicit policy overlays
+  - use `Viewer`, `Operator`, and `Editor` as the starter member presets
+  - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
+  - preserve preset lineage and explicit overrides for auditability
 - Why this matters:
   - the current model is harder to audit, explain, evolve, and decouple from coarse early assumptions
+  - hidden partial-admin behavior and reverse-engineered labels would make the replacement model harder to trust
 - Guardrail until fixed:
   - document the current model honestly, but do not deepen it by accident
+  - do not invent partial-admin member shapes or per-feature scope matrices
 - Recommended next slice:
-  - authz replacement design and migration plan
+  - staged implementation of the approved member-access model while preserving initial single-group compatibility
 
 ## D-02 Provider-Boundary Leaks
 
@@ -44,28 +51,31 @@ Each entry separates:
   - Critical Tasks is a real feature surface
   - its current permission lane still rides Training
 - Intended direction:
-  - Critical Tasks gets its own permission lane
+  - Critical Tasks becomes its own first-class feature lane in the approved member capability map
 - Why this matters:
   - feature ownership and authz auditability stay muddy while one feature borrows another feature's lane
 - Guardrail until fixed:
   - treat the coupling as drift, not precedent
 - Recommended next slice:
-  - separate feature-lane design during authz rework
+  - implement the approved Critical Tasks lane without re-borrowing Training
 
 ## D-04 Rating Scheme And Leaders Book Coupling
 
 - Current-state truth:
   - Rating Scheme is active
+  - its route shell still uses the Leaders Book lane while core CRUD currently enforces Personnel edit access
   - Leaders Book still exists in permissions, help, exports, and plans
   - the main navigation currently hides Leaders Book during redesign
 - Intended direction:
-  - clearer boundary between rating scheme, leaders-book records, and adjacent personnel/admin surfaces
+  - Rating Scheme becomes its own first-class lane in the approved member capability map
+  - Leaders Book remains a documented transitional compatibility lane while its remake is pending
+  - a dedicated follow-up slice should still settle the exact records and ownership boundary between Rating Scheme and Leader's Book
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
 - Guardrail until fixed:
   - document the overlap explicitly; do not treat it as a clean feature boundary
 - Recommended next slice:
-  - boundary review and permission-lane separation
+  - boundary review for the Leaders Book remake, then Rating Scheme lane implementation against that decision
 
 ## D-05 Legacy Clinic Vocabulary
 

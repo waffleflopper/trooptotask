@@ -65,19 +65,33 @@ Focus entries:
 
 - Current-state truth:
   - v1 authorization is membership-role plus boolean permissions plus optional group scope
+  - `owner`, `admin`, and `member` are the persisted organization roles
+  - current UI presets are convenience shapes over booleans and optional single-group scope
+  - current scoped access storage/runtime is still single-group via `scoped_group_id`
 - Why this is unsatisfying:
   - it is coarse, harder to audit cleanly, and forces adjacent features to borrow permission lanes
+  - it encourages reverse-engineered labels instead of durable access concepts
+  - it creates pressure toward hidden partial-admin patterns instead of explicit governance rules
 - Intended v1 direction:
-  - move toward app-owned roles, presets, grants or capabilities, scopes, and clearer policy decisions while keeping `Organization` and `Group` as v1 nouns
+  - keep `owner`, `admin`, and `member` as the fixed organization-governance roles
+  - keep `admin` as a fixed high-trust role below `owner`, not a decomposable member preset
+  - model member access as an assigned preset plus a per-lane capability map, shared scope set, and explicit policy overlays
+  - use `Viewer`, `Operator`, and `Editor` as the starter member presets
+  - use per-lane capability levels of `none`, `view`, `operate`, and `configure`
+  - make shared member scope target `organization-wide` or `1..n` groups, without allowing per-feature scope matrices
+  - keep governance actions such as member management, org settings, and billing with `admin` / `owner`, while ownership transfer and destructive org-danger operations stay `owner`-only
 - Constraints to preserve:
   - v1 data model reality
   - existing organizations and memberships
   - current route and feature surface availability
+  - the first implementation wave may preserve current single-group compatibility while the storage and RLS migration lands later
+  - `Leader's Book` remains a documented transitional compatibility lane while remake decisions are still pending
 - Open questions:
-  - final capability taxonomy
-  - migration shape from current booleans to the replacement model
+  - exact per-feature mapping of `operate` versus `configure`
+  - exact migration shape from current booleans into the replacement capability map
+  - exact storage and RLS rollout for true multi-group scope
 - Suggested next skill or planning mode:
-  - `grill-me` then an authz-focused remediation PRD
+  - `adr-from-retrofit-decision` then `tdd` for staged implementation slices
 
 ## C-02 Provider Boundary Hardening
 
@@ -114,17 +128,24 @@ Focus entries:
 ## C-04 Feature-Lane Separation
 
 - Current-state truth:
-  - some feature permission lanes still piggyback on adjacent features
+  - the core route/auth contract still only exposes coarse feature lanes
+  - Critical Tasks currently piggybacks on Training
+  - Rating Scheme currently spans borrowed lanes across Leaders Book and Personnel-adjacent enforcement
+  - `Leader's Book` is hidden from primary nav during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
   - feature boundaries and audits stay muddy
 - Intended v1 direction:
-  - each major feature gets its own permission lane
+  - the intended first-class v1 lanes are `calendar`, `personnel`, `training`, `critical-tasks`, `onboarding`, and `rating-scheme`
+  - `Leader's Book` remains a documented transitional compatibility lane until its remake or replacement is decided
+  - each first-class lane should own its own capability levels inside the shared member capability map
 - Constraints to preserve:
   - no fake feature split that the rest of the codebase cannot support yet
+  - do not let the transitional `Leader's Book` state block the approved authz direction
 - Open questions:
-  - initial feature-lane map and migration order
+  - exact Rating Scheme versus Leader's Book record boundary during the remake / replacement decision
+  - implementation sequence for Critical Tasks and Rating Scheme lane migration
 - Suggested next skill or planning mode:
-  - `grill-me`
+  - `grill-me` for remaining boundary questions, then `tdd` for approved lane implementations
 
 ## C-05 Deep Module Reviews
 

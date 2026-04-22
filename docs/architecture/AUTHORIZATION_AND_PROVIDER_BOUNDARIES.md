@@ -24,6 +24,7 @@ This document separates what v1 authorization and provider ownership look like t
   - the membership role
   - per-feature boolean permission flags
   - optional `scoped_group_id`
+- Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context
   - route wrappers and use cases
@@ -32,8 +33,10 @@ This document separates what v1 authorization and provider ownership look like t
 
 ### Current feature-lane drift
 
-- Critical Tasks currently uses the Training permission lane.
-- Rating Scheme currently uses Leaders Book permissions even though it is operationally closer to its own feature lane.
+- Critical Tasks currently uses the Training permission lane in routes, entities, use cases, and RLS.
+- Rating Scheme currently spans more than one borrowed lane:
+  - its route shell uses Leaders Book permissions
+  - its core CRUD use case enforces Personnel edit access
 - Some settings and admin actions still bypass use-case boundaries and operate directly on membership rows through route code.
 
 ### Current provider-boundary drift
@@ -54,18 +57,63 @@ This document separates what v1 authorization and provider ownership look like t
 
 ### Authorization direction
 
-The intended v1 replacement direction is an app-owned authorization model built around clearer concepts:
+The approved v1 replacement direction keeps `Organization` and `Group` as canonical nouns and separates governance, member access, scope, and cross-cutting policy.
 
-- role
-- preset
-- capability or grant
-- scope
-- policy decision
+#### Governance roles
 
-This should still speak in v1 nouns such as `Organization` and `Group`.
+- `owner`, `admin`, and `member` remain the stable organization membership roles.
+- `owner` and `admin` remain fixed, high-trust, org-wide governance roles.
+- `admin` should be able to perform the same normal organization-governance work as `owner`, except ownership transfer and owner-only destructive operations such as deleting the organization.
+- Member-level customization must not be used to create partial admins.
+
+#### Member access shape
+
+- Member access should be modeled as:
+  - assigned member preset
+  - explicit per-feature capability overrides
+  - shared scope set
+  - policy overlays that can still change the final decision
+- The starter member presets are `Viewer`, `Operator`, and `Editor`.
+- Presets remain platform-defined in this phase; organizations do not get saved custom presets yet.
+- Manual tuning should preserve preset lineage for auditability rather than severing the preset relationship.
+- Current labels such as `Team Leader` become composed states, not canonical replacement presets.
+
+#### Capability model
+
+- Each feature lane should map to a capability level of:
+  - `none`
+  - `view`
+  - `operate`
+  - `configure`
+- Presets seed the lane-by-lane capability map; member-specific overrides adjust individual lanes.
+- Governance powers over other people remain outside the member capability map.
+
+#### Scope model
+
+- Scope should be a shared member scope set across all scoped feature lanes.
+- The approved target supports org-wide access or `1..n` groups.
+- The first implementation wave may preserve current single-group storage/runtime behavior until a dedicated migration expands storage and RLS safely.
+- Per-feature scope matrices are not part of the approved model.
+
+#### Policy-decision model
+
+- Final allow or deny decisions should come from:
+  - governance role
+  - capability map
+  - shared scope set
+  - policy overlays
+- Cross-cutting rules such as read-only mode, delete-approval workflows, and owner-only danger operations should remain explicit policy overlays rather than being stuffed into the feature capability ladder.
 
 ### Feature-permission direction
 
+- The intended first-class v1 feature lanes are:
+  - calendar
+  - personnel
+  - training
+  - critical-tasks
+  - onboarding
+  - rating-scheme
+- `Leader's Book` remains a documented transitional compatibility lane while the remake is pending; it should not shape the long-term preset taxonomy more than necessary.
 - Each feature should own its own permission lane.
 - A feature should not depend on another feature's read/write lane just because the early schema was coarse.
 - Transitional couplings should be documented as drift until a remediation slice removes them.
@@ -73,8 +121,15 @@ This should still speak in v1 nouns such as `Organization` and `Group`.
 ### Auditability direction
 
 - Authorization decisions should become easier to explain, inspect, and review.
+- Every member should remain explainable as:
+  - fixed governance role
+  - assigned preset
+  - lane-by-lane capability map
+  - shared scope set
+  - policy overlays
 - Human-facing presets should map cleanly to the underlying app-owned model.
 - Auditable authorization behavior should come from app-owned concepts, not scattered boolean coincidence.
+- Stop inferring durable labels such as `Full Editor` from expanded booleans once the replacement model lands.
 
 ### Provider-boundary direction
 
@@ -87,7 +142,10 @@ This should still speak in v1 nouns such as `Organization` and `Group`.
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
 - Do not deepen boolean-only authz patterns just because the current schema still uses them.
 - Do not create new feature-permission piggybacking.
+- Do not invent partial-admin member shapes.
+- Do not introduce per-feature scope matrices.
 - Do not treat UI presets as if they solve the deeper authorization model problem.
+- Do not let the transitional `Leader's Book` lane dictate the durable member preset design.
 - If a task is unrelated to authz or provider boundaries and it runs into one of these seams, document the seam and stop.
 - If a task is an explicitly approved remediation slice in one of these areas, it may cross adjacent seams as needed, but it must:
   - reduce drift rather than spread it

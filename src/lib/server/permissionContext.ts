@@ -145,8 +145,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canEdit.personnel &&
 		canView.training &&
 		canEdit.training &&
-		canView['critical-tasks'] &&
-		canEdit['critical-tasks'] &&
 		canView.onboarding &&
 		canEdit.onboarding &&
 		canView['leaders-book'] &&

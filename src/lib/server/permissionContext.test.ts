@@ -112,6 +112,29 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.isFullEditor).toBe(true);
 	});
 
+	it('keeps full-editor access for non-critical-tasks lanes when critical tasks permissions are disabled', () => {
+		const ctx = createPermissionContextFromMembership({
+			role: 'member',
+			scoped_group_id: null,
+			can_view_calendar: true,
+			can_edit_calendar: true,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: true,
+			can_view_critical_tasks: false,
+			can_edit_critical_tasks: false,
+			can_view_onboarding: true,
+			can_edit_onboarding: true,
+			can_view_leaders_book: true,
+			can_edit_leaders_book: true,
+			can_manage_members: true
+		});
+
+		expect(ctx.isFullEditor).toBe(true);
+		expect(() => ctx.requireFullEditor()).not.toThrow();
+	});
+
 	it('requireEdit throws for areas without edit permission', () => {
 		const ctx = createPermissionContextFromMembership(baseMembership);
 

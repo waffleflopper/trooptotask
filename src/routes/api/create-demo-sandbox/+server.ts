@@ -5,6 +5,14 @@ import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ cookies }) => {
+	const isLegacyReadOnlyDemo = cookies.get('demo_mode') === 'readonly';
+	if (!isLegacyReadOnlyDemo) {
+		throw error(403, 'Sandbox creation is only available from the deprecated read-only demo path.');
+	}
+
+	// Deprecated containment path: keep sandbox bootstrap behind the legacy demo cookie
+	// while the remaining demo/sandbox exceptions are decommissioned. Do not expand this
+	// route into a general trial, signup, or provisioning flow.
 	// Use service role client to bypass RLS for sandbox creation
 	const supabase = createClient(PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY || '', {
 		auth: { persistSession: false }

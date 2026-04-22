@@ -73,6 +73,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - `Leaders Book` still exists conceptually and in permissions, help content, exports, and plans, but is hidden from primary nav while redesign work is pending.
 - `Rating Scheme` is active and user-visible, but its boundary is not yet cleanly independent.
 - Demo and sandbox flows still exist in schema, routes, and bootstrap logic, but are already marked as deprecated for future removal.
+- The live `/demo` entry already fails closed, but cookie-driven org-route bypasses, sandbox bootstrap, and sandbox cleanup paths still remain as contained exceptions.
 
 ## Intended Guardrails Going Forward
 
@@ -116,6 +117,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 ### Deprecated or unstable areas
 
 - Do not deepen demo/sandbox behavior.
+- Treat cookie-driven demo/sandbox access, public sandbox bootstrap, and no-op sandbox auth contexts as deprecated exceptions slated for staged removal, not as architecture options.
 - Do not treat hidden or transitional surfaces as stable precedent just because code still exists for them.
 - When you touch contradictory or transitional areas, document the contradiction instead of smoothing it over.
 
@@ -128,6 +130,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - `clinicRole` and other clinic-era names still appear in schema and code.
 - Leaders Book remains hidden from primary nav while related data and permissions remain live.
 - Demo/sandbox bypass logic still exists and uses service-role access paths.
+- The highest-risk remaining demo/sandbox exceptions are the hook-level org-route bypass, public sandbox bootstrap, in-memory demo org shell/no-op auth contexts, and cleanup path.
 
 ## Not Precedent
 
@@ -139,6 +142,9 @@ The following patterns are tolerated current-state, not patterns to copy:
 - clinic-specific naming in new domain language
 - treating UI permission presets as if they were persisted auth roles
 - using demo/sandbox behavior as a model for new product work
+- cookie-driven auth or org-shell bypass for deprecated demo/sandbox access
+- public service-role bootstrap routes that mint sandbox orgs or sample data
+- no-op auth contexts or in-memory owner shells that stand in for a real membership row
 
 ## When To Update This Document
 

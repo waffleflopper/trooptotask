@@ -1,0 +1,64 @@
+name: Architecture drift / guardrail gap
+description: Record newly observed drift, contradictions, or missing guardrails before they spread.
+title: '[drift]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when you find a drift area that is not already captured well enough in the current docs.
+
+        This is for repo-specific contradictions, not generic cleanup wishes.
+  - type: input
+    id: surface
+    attributes:
+      label: Surface
+      description: Where does the drift show up?
+      placeholder: calendar route shell, rating scheme authz, org settings membership flow
+    validations:
+      required: true
+  - type: textarea
+    id: observed_behavior
+    attributes:
+      label: Observed current-state truth
+      description: What does the code or UX do today?
+      placeholder: Describe the concrete behavior, coupling, or contradiction.
+    validations:
+      required: true
+  - type: textarea
+    id: intended_behavior
+    attributes:
+      label: Intended direction or open question
+      description: What should happen instead, or what intent still needs grilling?
+      placeholder: If intent is unclear, say so explicitly and note whether grill-me is needed.
+    validations:
+      required: true
+  - type: input
+    id: source_paths
+    attributes:
+      label: Source paths
+      description: Which files or docs demonstrate the drift?
+      placeholder: src/routes/..., src/lib/server/..., docs/architecture/...
+    validations:
+      required: true
+  - type: input
+    id: related_drift_ids
+    attributes:
+      label: Related drift IDs
+      description: Existing drift entries, if any
+      placeholder: D-02, D-04
+  - type: textarea
+    id: risk
+    attributes:
+      label: Why this matters
+      description: What risk does this drift create?
+      placeholder: product ambiguity, authz auditability, provider lock-in, AI improvisation risk
+    validations:
+      required: true
+  - type: textarea
+    id: guardrail
+    attributes:
+      label: Temporary guardrail
+      description: How should contributors behave until remediation lands?
+      placeholder: Do not copy this shape; document it and stop; treat as legacy exception; etc.
+    validations:
+      required: true

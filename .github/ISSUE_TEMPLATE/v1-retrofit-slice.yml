@@ -1,0 +1,80 @@
+name: V1 retrofit slice
+description: Capture a bounded v1 remediation slice grounded in current-state truth and known drift.
+title: '[v1 retrofit]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for work that comes out of `plans/2026-04-21-v1-retrofit-foundation-prd.md`.
+
+        Keep the issue honest about what v1 is today, what drift it touches, and which docs must move with the code.
+  - type: textarea
+    id: current_state_truth
+    attributes:
+      label: Current-state truth
+      description: What does v1 actually do today in this seam?
+      placeholder: Describe the current behavior, ownership, coupling, or workflow without smoothing over the mess.
+    validations:
+      required: true
+  - type: textarea
+    id: intended_direction
+    attributes:
+      label: Intended direction
+      description: What should this seam move toward in v1?
+      placeholder: Describe the guardrail or target shape without pretending it already exists.
+    validations:
+      required: true
+  - type: input
+    id: drift_ids
+    attributes:
+      label: Drift ledger IDs
+      description: Which existing drift entries does this slice touch?
+      placeholder: D-01, D-02
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: What is this slice explicitly allowed to change?
+      placeholder: Include the route, feature, server, provider, or authz seams this issue may cross.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What should not be solved in this slice?
+      placeholder: Name adjacent cleanup that should stay deferred.
+    validations:
+      required: true
+  - type: textarea
+    id: docs_and_ledgers
+    attributes:
+      label: Docs and ledgers to update
+      description: Which docs must change if this slice lands?
+      placeholder: docs/architecture/..., UBIQUITOUS_LANGUAGE.md, plans/..., GOV...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification and enforcement
+      description: What checks or tests must pass, and what governance checks should be watched?
+      placeholder: npm run governance:check, affected tests, manual validation, CI expectations
+    validations:
+      required: true
+  - type: textarea
+    id: stop_conditions
+    attributes:
+      label: Stop conditions
+      description: When should the implementer stop and split follow-up work instead of deepening the slice?
+      placeholder: Call out authz, provider, terminology, or module-boundary traps.
+    validations:
+      required: true
+  - type: textarea
+    id: adr_notes
+    attributes:
+      label: ADR notes
+      description: Does this slice likely need a new ADR or update an ADR candidate?
+      placeholder: Reference docs/architecture/ADR_BACKLOG.md or docs/architecture/adrs/ if relevant.

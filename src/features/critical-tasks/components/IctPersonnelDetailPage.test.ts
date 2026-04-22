@@ -25,8 +25,8 @@ const { mockOrgContext } = vi.hoisted(() => ({
 			canEditCalendar: true,
 			canViewPersonnel: true,
 			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
@@ -142,7 +142,7 @@ function createDeferredResponse() {
 
 describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
-		mockOrgContext.permissions.canEditTraining = true;
+		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.readOnly = false;
 		ictTasksStore.load([], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
@@ -165,8 +165,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -203,8 +203,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -223,7 +223,7 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('keeps the page read-only for members without training edit access', () => {
-		mockOrgContext.permissions.canEditTraining = false;
+		mockOrgContext.permissions.canEditCriticalTasks = false;
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
@@ -232,8 +232,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: false
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: false
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -264,8 +264,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					session: {
 						access_token: 'access-token',
@@ -364,8 +364,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
@@ -450,8 +450,8 @@ describe('IctPersonnelDetailPage', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
 					},
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,

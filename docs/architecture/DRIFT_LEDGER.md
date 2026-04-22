@@ -45,19 +45,14 @@ Each entry separates:
 - Recommended next slice:
   - isolate the biggest `locals.supabase` clusters behind app-owned use cases and adapters
 
-## D-03 Critical Tasks Permission Coupling
+## D-03 Critical Tasks Permission Coupling (Resolved In #621)
 
 - Current-state truth:
-  - Critical Tasks is a real feature surface
-  - its current permission lane still rides Training
-- Intended direction:
-  - Critical Tasks becomes its own first-class feature lane in the approved member capability map
-- Why this matters:
-  - feature ownership and authz auditability stay muddy while one feature borrows another feature's lane
-- Guardrail until fixed:
-  - treat the coupling as drift, not precedent
-- Recommended next slice:
-  - implement the approved Critical Tasks lane first, without re-borrowing Training or waiting on the Rating Scheme boundary review
+  - Critical Tasks now owns its own first-class v1 permission lane across route guards, membership booleans, invitation flows, and RLS
+- Why this mattered:
+  - the earlier Training piggyback made feature ownership and authz audits harder to explain
+- Guardrail going forward:
+  - do not re-borrow the Training lane for Critical Tasks behavior, exports, or route access
 
 ## D-04 Rating Scheme And Leaders Book Coupling
 

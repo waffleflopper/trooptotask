@@ -60,8 +60,8 @@
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
-	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
-	const canInputTask = $derived(permissions.canViewTraining && canEditTraining);
+	const canEditCriticalTasks = $derived(permissions.canEditCriticalTasks && !org.readOnly);
+	const canInputTask = $derived(permissions.canViewCriticalTasks && canEditCriticalTasks);
 	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
 	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
 	const canOpenCompletionImport = $derived(
@@ -154,7 +154,7 @@
 	}
 
 	function handleMatrixCellSelection(selection: ActiveCompletionCell): void {
-		if (!canEditTraining) return;
+		if (!canEditCriticalTasks) return;
 		activeCompletionCell = selection;
 	}
 
@@ -215,7 +215,7 @@
 		breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Matrix' }]}
 		{overflowItems}
 	>
-		{#if permissions.canViewTraining}
+		{#if permissions.canViewCriticalTasks}
 			<a class="btn btn-secondary" href={reportsHref}>Reports</a>
 		{/if}
 		<a class="btn btn-secondary" href={matrixExportHref}>Export CSV</a>
@@ -234,10 +234,10 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !permissions.canViewTraining}
+	{#if !permissions.canViewCriticalTasks}
 		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
 			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
-			<p>Contact your organization admin for training access.</p>
+			<p>Contact your organization admin for critical tasks access.</p>
 		</section>
 	{:else}
 		<main class="page-content">
@@ -346,7 +346,7 @@
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
 							settings={criticalTasksSettings}
-							canEdit={canEditTraining}
+							canEdit={canEditCriticalTasks}
 							onSelectCell={handleMatrixCellSelection}
 							{selectedGroupId}
 							{gapsOnly}

@@ -64,6 +64,8 @@ describe('autoAcceptOrgInvites', () => {
 			can_edit_personnel: false,
 			can_view_training: true,
 			can_edit_training: false,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
 			can_view_leaders_book: false,
@@ -89,7 +91,7 @@ describe('autoAcceptOrgInvites', () => {
 		expect(supabase._updatedInvitations.called).toBe(true);
 	});
 
-	it('creates admin membership when all 11 permissions are true', async () => {
+	it('creates admin membership when all 13 permissions are true', async () => {
 		const invitation = {
 			organization_id: 'org-1',
 			can_view_calendar: true,
@@ -98,6 +100,8 @@ describe('autoAcceptOrgInvites', () => {
 			can_edit_personnel: true,
 			can_view_training: true,
 			can_edit_training: true,
+			can_view_critical_tasks: true,
+			can_edit_critical_tasks: true,
 			can_view_onboarding: true,
 			can_edit_onboarding: true,
 			can_view_leaders_book: true,
@@ -124,6 +128,8 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_personnel: false,
 				can_view_training: false,
 				can_edit_training: false,
+				can_view_critical_tasks: false,
+				can_edit_critical_tasks: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
 				can_view_leaders_book: false,
@@ -139,6 +145,8 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_personnel: true,
 				can_view_training: true,
 				can_edit_training: true,
+				can_view_critical_tasks: true,
+				can_edit_critical_tasks: true,
 				can_view_onboarding: true,
 				can_edit_onboarding: true,
 				can_view_leaders_book: true,
@@ -172,6 +180,8 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_personnel: false,
 				can_view_training: false,
 				can_edit_training: false,
+				can_view_critical_tasks: false,
+				can_edit_critical_tasks: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
 				can_view_leaders_book: false,
@@ -187,6 +197,8 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_personnel: true,
 				can_view_training: true,
 				can_edit_training: true,
+				can_view_critical_tasks: true,
+				can_edit_critical_tasks: true,
 				can_view_onboarding: true,
 				can_edit_onboarding: true,
 				can_view_leaders_book: true,

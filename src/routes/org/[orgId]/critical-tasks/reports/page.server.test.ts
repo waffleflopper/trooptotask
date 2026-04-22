@@ -60,7 +60,7 @@ describe('critical tasks reports page server load', () => {
 			expect.anything(),
 			expect.anything(),
 			'org-1',
-			expect.objectContaining({ permission: 'training' })
+			expect.objectContaining({ permission: 'critical-tasks' })
 		);
 		expect(fetchDashboard).toHaveBeenCalledWith(expect.anything());
 		expect(result).toEqual({ initialDashboard });

@@ -124,6 +124,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - Transitional couplings should be documented as drift until a remediation slice removes them.
 - Approved lane-remediation order is:
   - Critical Tasks lane implementation first, because its target ownership is already settled
+  - Critical Tasks lane implementation is now complete in `#621`
   - Leader's Book versus Rating Scheme boundary review next
   - Rating Scheme runtime lane remediation after that boundary review lands
 

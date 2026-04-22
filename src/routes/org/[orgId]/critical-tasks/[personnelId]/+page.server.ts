@@ -22,7 +22,7 @@ export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasks
 		return {
 			orgId,
 			criticalTasksPersonnelHistory: await loadWithContextFn(locals, cookies, orgId, {
-				permission: 'training',
+				permission: 'critical-tasks',
 				fn: (ctx) => fetchHistoryFn(ctx, personnelId)
 			})
 		};

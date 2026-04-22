@@ -85,15 +85,15 @@ describe('PersonnelIctCompletionEntity', () => {
 		});
 	});
 
-	it('uses the existing training edit permission boundary for writes', () => {
+	it('uses the critical tasks edit permission boundary for writes', () => {
 		expect(PersonnelIctCompletionEntity.table).toBe('personnel_ict_completions');
-		expect(PersonnelIctCompletionEntity.permission).toBe('training');
+		expect(PersonnelIctCompletionEntity.permission).toBe('critical-tasks');
 		expect(PersonnelIctCompletionEntity.requireFullEditor).toBeUndefined();
 		expect(PersonnelIctCompletionEntity.groupScope).toEqual({ personnelColumn: 'personnel_id' });
 		expect(PersonnelIctCompletionEntity.personnelIdField).toBe('personnelId');
 	});
 
-	it('rejects completion writes when the user lacks training edit permission', async () => {
+	it('rejects completion writes when the user lacks critical tasks edit permission', async () => {
 		const handlers = entityHandlers(PersonnelIctCompletionEntity);
 		const ctx = createTestContext({
 			auth: {

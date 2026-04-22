@@ -129,7 +129,7 @@ Focus entries:
 
 - Current-state truth:
   - the core route/auth contract still only exposes coarse feature lanes
-  - Critical Tasks currently piggybacks on Training
+  - Critical Tasks now owns its dedicated lane across the shared route/auth contract, membership flags, and RLS
   - Rating Scheme currently renders inside the Personnel page while spanning borrowed lanes across Leaders Book and Personnel-adjacent enforcement
   - `Leader's Book` is hidden from primary nav during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
@@ -148,7 +148,7 @@ Focus entries:
 - Open questions:
   - exact Rating Scheme versus Leader's Book record boundary during the remake / replacement decision
 - Suggested next skill or planning mode:
-  - `tdd` for `#621`, then `grill-me` plus `adr-from-retrofit-decision` for `#620`, then `tdd` for `#627`
+  - `grill-me` plus `adr-from-retrofit-decision` for `#620`, then `tdd` for `#627`
 
 ## C-05 Deep Module Reviews
 

@@ -120,9 +120,9 @@ describe('IctTaskEntity', () => {
 		});
 	});
 
-	it('uses an owner/admin-only task-library boundary', () => {
+	it('uses an owner/admin-only critical tasks library boundary', () => {
 		expect(IctTaskEntity.table).toBe('ict_tasks');
-		expect(IctTaskEntity.permission).toBe('training');
+		expect(IctTaskEntity.permission).toBe('critical-tasks');
 		expect(IctTaskEntity.requirePrivileged).toBe(true);
 		expect(IctTaskEntity.requireFullEditor).toBeUndefined();
 		expect(IctTaskEntity.methods).toEqual(['POST', 'PUT']);

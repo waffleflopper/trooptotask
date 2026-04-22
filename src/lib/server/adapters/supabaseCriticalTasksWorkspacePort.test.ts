@@ -72,7 +72,7 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 			expect.anything(),
 			expect.anything(),
 			'11111111-1111-1111-1111-111111111111',
-			expect.objectContaining({ permission: 'training', defer: true })
+			expect.objectContaining({ permission: 'critical-tasks', defer: true })
 		);
 		expect(bootstrap).toBeDefined();
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);

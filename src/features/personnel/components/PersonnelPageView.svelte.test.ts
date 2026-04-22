@@ -17,6 +17,8 @@ const editablePermissions: OrganizationMemberPermissions = {
 	canEditPersonnel: true,
 	canViewTraining: true,
 	canEditTraining: true,
+	canViewCriticalTasks: true,
+	canEditCriticalTasks: true,
 	canViewOnboarding: true,
 	canEditOnboarding: true,
 	canViewLeadersBook: true,

@@ -62,7 +62,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			compactLabel: 'ICTLs',
 			badgeLabel: 'Beta',
 			icon: 'critical-tasks',
-			visible: permissions.canViewTraining,
+			visible: permissions.canViewCriticalTasks,
 			exactMatch: false
 		},
 		{

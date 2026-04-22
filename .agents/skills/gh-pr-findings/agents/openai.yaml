@@ -1,0 +1,4 @@
+interface:
+  display_name: 'PR Findings'
+  short_description: 'Deduplicate and triage PR feedback'
+  default_prompt: 'Use $gh-pr-findings to review a PR, collapse duplicate comments, and recommend which findings to action.'

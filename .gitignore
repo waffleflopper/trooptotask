@@ -52,3 +52,6 @@ tmp/
 # Docs artifacts
 docs/pr74_full_diff.txt
 .env*.local
+
+# Local v2 workspace
+/v2/

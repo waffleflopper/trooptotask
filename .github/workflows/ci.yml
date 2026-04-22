@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Governance check
+        run: npm run governance:check
+
       - name: Type check
         run: npm run check
         env:

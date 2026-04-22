@@ -1,0 +1,301 @@
+{
+	"requiredFiles": [
+		"AGENTS.md",
+		".github/copilot-instructions.md",
+		".github/ISSUE_TEMPLATE/config.yml",
+		".github/ISSUE_TEMPLATE/v1-retrofit-slice.yml",
+		".github/ISSUE_TEMPLATE/architecture-drift.yml",
+		"UBIQUITOUS_LANGUAGE.md",
+		"docs/architecture/ARCHITECTURE.md",
+		"docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md",
+		"docs/architecture/DEFINITION_OF_DONE.md",
+		"docs/architecture/DRIFT_LEDGER.md",
+		"docs/architecture/V1_CHANGE_INTENT.md",
+		"docs/architecture/ADR_BACKLOG.md",
+		"docs/architecture/ADR_GUIDANCE.md",
+		"docs/architecture/GOVERNANCE_CHECKS.md",
+		"docs/architecture/V1_RETROFIT_SKILLS_GUIDE.md",
+		"docs/architecture/adrs/0000-template.md"
+	],
+	"routeSupabaseAllowlist": [
+		{
+			"path": "src/routes/account/security/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Supabase Auth MFA management remains a provider-specific auth edge in v1."
+		},
+		{
+			"path": "src/routes/admin/access-requests/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Admin access-request orchestration still performs route-level provider work.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/api/auth/establish-session/+server.ts",
+			"classification": "auth-edge",
+			"reason": "Session establishment is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/finalize-invite/+server.ts",
+			"classification": "auth-edge",
+			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/disable/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA disable flow is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/enroll/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA enrollment is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/enroll/cancel/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA enrollment cancellation is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/enroll/verify/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA enrollment verification is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/status/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA status lookup is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/mfa/verify/+server.ts",
+			"classification": "auth-edge",
+			"reason": "MFA challenge verification is an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/api/auth/update-password/+server.ts",
+			"classification": "auth-edge",
+			"reason": "Password updates remain inside the auth-provider edge."
+		},
+		{
+			"path": "src/routes/api/cleanup-demo-sandboxes/+server.ts",
+			"classification": "deprecated-exception",
+			"reason": "Demo/sandbox cleanup remains a deprecated exceptional path.",
+			"driftIds": ["D-06"]
+		},
+		{
+			"path": "src/routes/api/platform-invites/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Platform invite management still performs provider work directly in the route layer.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/auth/accept-invite/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Invite acceptance still depends on auth/session exchange."
+		},
+		{
+			"path": "src/routes/auth/confirm/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Email confirmation remains an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/auth/forgot-password/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Password reset request remains an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/auth/login/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Password login and AAL checks remain provider-specific auth work."
+		},
+		{
+			"path": "src/routes/auth/logout/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Logout remains an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/auth/register/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Registration still combines provider auth and invite acceptance concerns."
+		},
+		{
+			"path": "src/routes/auth/reset-password/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Password reset exchange remains an auth-provider boundary."
+		},
+		{
+			"path": "src/routes/dashboard/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Dashboard invitation acceptance and membership creation still live in route code.",
+			"driftIds": ["D-02", "D-08"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/admin/approvals/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Admin approvals still read directly through the provider in route code.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/admin/archived/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Archived admin queries still run directly in the route layer.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/admin/settings/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Admin settings still use direct route-level provider queries.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/export-excel/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Export Excel route still passes the provider client through directly.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/export/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Export route still passes the provider client through directly.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Billing page still performs provider reads in the route layer.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/cancel/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Billing cancellation still mixes provider data fetches and integration work in route code.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/checkout/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Billing checkout still mixes provider data fetches and integration work in route code.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/billing/portal/+server.ts",
+			"classification": "legacy-drift",
+			"reason": "Billing portal still mixes provider data fetches and integration work in route code.",
+			"driftIds": ["D-02"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Critical Tasks layout still queries directly in route code.",
+			"driftIds": ["D-02", "D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Organization settings still owns membership, invitation, and org administration route logic.",
+			"driftIds": ["D-02", "D-08"]
+		},
+		{
+			"path": "src/routes/org/new/+page.server.ts",
+			"classification": "legacy-drift",
+			"reason": "Organization creation still orchestrates provider work directly in the route layer.",
+			"driftIds": ["D-02", "D-08"]
+		},
+		{
+			"path": "src/routes/suspended/+page.server.ts",
+			"classification": "auth-edge",
+			"reason": "Suspension checks remain part of the session/auth gate."
+		}
+	],
+	"featurePermissionCouplings": [
+		{
+			"path": "src/lib/server/core/useCases/ictCompletionsBatch.ts",
+			"pattern": "requireEdit('training')",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks completions still borrow the Training edit lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/ictTasksBatch.ts",
+			"pattern": "requireEdit('training')",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks task writes still borrow the Training edit lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
+			"pattern": "requireEdit('personnel')",
+			"feature": "rating-scheme",
+			"reason": "Rating Scheme writes still depend on the Personnel edit lane.",
+			"driftIds": ["D-04"]
+		},
+		{
+			"path": "src/lib/server/entities/ictTask.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks entity writes still ride the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/lib/server/entities/personnelIctCompletion.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks completion writes still ride the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/critical-tasks/matrix/export/+server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks matrix export still uses the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/critical-tasks/reports/export/+server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks report export still uses the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/critical-tasks/reports/summary/+server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks reports still use the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/ict-tasks/batch/+server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks task batch API still uses the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/personnel-ict-completions/batch/+server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks completion batch API still uses the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/api/rating-scheme/+server.ts",
+			"pattern": "permission: 'leaders-book'",
+			"feature": "rating-scheme",
+			"reason": "Rating Scheme API still uses the Leaders Book permission lane.",
+			"driftIds": ["D-04"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/critical-tasks/[personnelId]/+page.server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks person detail page still uses the Training lane.",
+			"driftIds": ["D-03"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/critical-tasks/reports/+page.server.ts",
+			"pattern": "permission: 'training'",
+			"feature": "critical-tasks",
+			"reason": "Critical Tasks reports page still uses the Training lane.",
+			"driftIds": ["D-03"]
+		}
+	]
+}

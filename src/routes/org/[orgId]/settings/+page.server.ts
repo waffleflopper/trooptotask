@@ -1,13 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } from '$lib/types';
+import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
-import { loadWithContext, buildLayoutContext } from '$lib/server/adapters/httpAdapter';
-import { GroupEntity } from '$lib/server/entities/group';
-import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
-import { auditLog } from '$lib/server/auditLog';
+import { buildLayoutContext, buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
+import { auditLog } from '$lib/server/auditLog';
+import { GroupEntity } from '$lib/server/entities/group';
+import { sanitizeString, validateUUID } from '$lib/server/validation';
+import {
+	inviteOrganizationMember,
+	removeOrganizationMember,
+	revokeOrganizationInvitation,
+	updateOrganizationMemberPermissions
+} from '$lib/server/core/useCases/orgSettingsMemberManagement';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
@@ -128,292 +135,109 @@ export const actions: Actions = {
 			return fail(500, { error: error.message });
 		}
 
-		return { success: true };
+		return { nameSuccess: true };
 	},
 
-	invite: async ({ params, request, locals, cookies }) => {
+	invite: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireManageMembers();
 		const formData = await request.formData();
-		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
-		const preset = formData.get('preset') as Exclude<PermissionPreset, 'owner' | 'custom'>;
-
-		if (!validateEmail(email)) {
-			return fail(400, { inviteError: 'Please enter a valid email address' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+				},
+				{
+					email: (formData.get('email') as string) ?? '',
+					preset: (formData.get('preset') as string) ?? '',
+					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
+					actorEmail: user.email
+				}
+			);
+		} catch (error) {
+			return toActionFailure('inviteError', error);
 		}
-
-		const { data: existing } = await locals.supabase
-			.from('organization_invitations')
-			.select('id')
-			.eq('organization_id', orgId)
-			.eq('email', email)
-			.eq('status', 'pending')
-			.single();
-
-		if (existing) {
-			return fail(400, { inviteError: 'An invitation for this email is already pending' });
-		}
-
-		const permissions = PERMISSION_PRESETS[preset] || PERMISSION_PRESETS['full-editor'];
-
-		const scopedGroupId = (formData.get('scopedGroupId') as string) || null;
-
-		const { error } = await locals.supabase.from('organization_invitations').insert({
-			organization_id: orgId,
-			email,
-			invited_by: user.id,
-			scoped_group_id: preset === 'team-leader' ? scopedGroupId : null,
-			can_view_calendar: permissions.canViewCalendar,
-			can_edit_calendar: permissions.canEditCalendar,
-			can_view_personnel: permissions.canViewPersonnel,
-			can_edit_personnel: permissions.canEditPersonnel,
-			can_view_training: permissions.canViewTraining,
-			can_edit_training: permissions.canEditTraining,
-			can_view_critical_tasks: permissions.canViewCriticalTasks,
-			can_edit_critical_tasks: permissions.canEditCriticalTasks,
-			can_view_onboarding: permissions.canViewOnboarding,
-			can_edit_onboarding: permissions.canEditOnboarding,
-			can_view_leaders_book: permissions.canViewLeadersBook,
-			can_edit_leaders_book: permissions.canEditLeadersBook,
-			can_manage_members: permissions.canManageMembers
-		});
-
-		if (error) {
-			return fail(500, { inviteError: error.message });
-		}
-
-		auditLog({ action: 'member.invite', resourceType: 'organization', orgId, details: { email } }, { userId: user.id });
-
-		await createSupabaseNotificationAdapter().notifyAdmins(orgId, user.id, {
-			type: 'member_invited',
-			title: 'Member Invited',
-			message: `"${user.email}" invited "${email}" to the organization.`,
-			link: `/org/${orgId}/settings`
-		});
-
-		return {
-			inviteSuccess: true,
-			inviteEmail: email,
-			inviteMessage:
-				'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
-		};
 	},
 
-	revokeInvite: async ({ params, request, locals, cookies }) => {
+	revokeInvite: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireManageMembers();
 		const formData = await request.formData();
-		const inviteId = formData.get('inviteId') as string;
-
-		if (!validateUUID(inviteId)) {
-			return fail(400, { error: 'Invalid invitation ID' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await revokeOrganizationInvitation(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+				},
+				{ inviteId: (formData.get('inviteId') as string) ?? '' }
+			);
+		} catch (error) {
+			return toActionFailure('inviteError', error);
 		}
-
-		await locals.supabase.from('organization_invitations').delete().eq('id', inviteId).eq('organization_id', orgId);
-
-		auditLog(
-			{ action: 'member.invite_revoked', resourceType: 'organization', orgId, details: { inviteId } },
-			{ userId: user.id }
-		);
-
-		return { success: true };
 	},
 
-	removeMember: async ({ params, request, locals, cookies }) => {
+	removeMember: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireManageMembers();
-
 		const formData = await request.formData();
-		const membershipId = formData.get('membershipId') as string;
-
-		if (!validateUUID(membershipId)) {
-			return fail(400, { memberError: 'Invalid membership ID' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await removeOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+				},
+				{
+					membershipId: (formData.get('membershipId') as string) ?? '',
+					actorEmail: user.email
+				}
+			);
+		} catch (error) {
+			return toActionFailure('memberError', error);
 		}
-
-		const { data: membership } = await locals.supabase
-			.from('organization_memberships')
-			.select('user_id, role, email')
-			.eq('id', membershipId)
-			.single();
-
-		if (membership?.user_id === user.id) {
-			return fail(400, { memberError: 'You cannot remove yourself from the organization' });
-		}
-
-		if (membership?.role === 'owner') {
-			return fail(400, { memberError: 'Cannot remove the organization owner' });
-		}
-
-		await locals.supabase.from('organization_memberships').delete().eq('id', membershipId).eq('organization_id', orgId);
-
-		auditLog(
-			{ action: 'member.removed', resourceType: 'organization', orgId, details: { membershipId } },
-			{ userId: user.id }
-		);
-
-		if (membership?.user_id) {
-			const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
-
-			await createSupabaseNotificationAdapter().notifyUser(orgId, membership.user_id, {
-				type: 'member_removed',
-				title: 'Removed from Organization',
-				message: `You have been removed from "${org?.name ?? 'the organization'}".`
-			});
-
-			await createSupabaseNotificationAdapter().notifyAdmins(orgId, user.id, {
-				type: 'member_removed',
-				title: 'Member Removed',
-				message: `"${user.email}" removed "${membership.email}" from the organization.`,
-				link: `/org/${orgId}/settings`
-			});
-		}
-
-		return { success: true };
 	},
 
-	updatePermissions: async ({ params, request, locals, cookies }) => {
+	updatePermissions: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
 		const formData = await request.formData();
-		const membershipId = formData.get('membershipId') as string;
-		const preset = formData.get('preset') as PermissionPreset;
-
-		if (!validateUUID(membershipId)) {
-			return fail(400, { permissionError: 'Invalid membership ID' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await updateOrganizationMemberPermissions(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+				},
+				{
+					membershipId: (formData.get('membershipId') as string) ?? '',
+					preset: (formData.get('preset') as string) ?? '',
+					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
+					customPermissions: parseCustomPermissions(formData),
+					actorEmail: user.email
+				}
+			);
+		} catch (error) {
+			return toActionFailure('permissionError', error);
 		}
-
-		const { data: targetMembership } = await locals.supabase
-			.from('organization_memberships')
-			.select('role, user_id')
-			.eq('id', membershipId)
-			.single();
-
-		if (targetMembership?.role === 'owner') {
-			return fail(400, { permissionError: 'Cannot modify owner permissions' });
-		}
-
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		if (preset === 'admin' || targetMembership?.role === 'admin') {
-			ctx.auth.requireOwner();
-		} else {
-			ctx.auth.requireManageMembers();
-		}
-
-		let permissions: {
-			can_view_calendar: boolean;
-			can_edit_calendar: boolean;
-			can_view_personnel: boolean;
-			can_edit_personnel: boolean;
-			can_view_training: boolean;
-			can_edit_training: boolean;
-			can_view_critical_tasks: boolean;
-			can_edit_critical_tasks: boolean;
-			can_view_onboarding: boolean;
-			can_edit_onboarding: boolean;
-			can_view_leaders_book: boolean;
-			can_edit_leaders_book: boolean;
-			can_manage_members: boolean;
-		};
-
-		if (preset === 'custom') {
-			permissions = {
-				can_view_calendar: formData.get('canViewCalendar') === 'on',
-				can_edit_calendar: formData.get('canEditCalendar') === 'on',
-				can_view_personnel: formData.get('canViewPersonnel') === 'on',
-				can_edit_personnel: formData.get('canEditPersonnel') === 'on',
-				can_view_training: formData.get('canViewTraining') === 'on',
-				can_edit_training: formData.get('canEditTraining') === 'on',
-				can_view_critical_tasks: formData.get('canViewCriticalTasks') === 'on',
-				can_edit_critical_tasks: formData.get('canEditCriticalTasks') === 'on',
-				can_view_onboarding: formData.get('canViewOnboarding') === 'on',
-				can_edit_onboarding: formData.get('canEditOnboarding') === 'on',
-				can_view_leaders_book: formData.get('canViewLeadersBook') === 'on',
-				can_edit_leaders_book: formData.get('canEditLeadersBook') === 'on',
-				can_manage_members: formData.get('canManageMembers') === 'on'
-			};
-		} else {
-			const presetPermissions =
-				PERMISSION_PRESETS[preset as Exclude<PermissionPreset, 'owner' | 'custom'>] ||
-				PERMISSION_PRESETS['full-editor'];
-			permissions = {
-				can_view_calendar: presetPermissions.canViewCalendar,
-				can_edit_calendar: presetPermissions.canEditCalendar,
-				can_view_personnel: presetPermissions.canViewPersonnel,
-				can_edit_personnel: presetPermissions.canEditPersonnel,
-				can_view_training: presetPermissions.canViewTraining,
-				can_edit_training: presetPermissions.canEditTraining,
-				can_view_critical_tasks: presetPermissions.canViewCriticalTasks,
-				can_edit_critical_tasks: presetPermissions.canEditCriticalTasks,
-				can_view_onboarding: presetPermissions.canViewOnboarding,
-				can_edit_onboarding: presetPermissions.canEditOnboarding,
-				can_view_leaders_book: presetPermissions.canViewLeadersBook,
-				can_edit_leaders_book: presetPermissions.canEditLeadersBook,
-				can_manage_members: presetPermissions.canManageMembers
-			};
-		}
-
-		const role = preset === 'admin' ? 'admin' : 'member';
-		const scopedGroupId = preset === 'team-leader' ? (formData.get('scopedGroupId') as string) || null : null;
-
-		const { error } = await locals.supabase
-			.from('organization_memberships')
-			.update({ ...permissions, role, scoped_group_id: scopedGroupId })
-			.eq('id', membershipId)
-			.eq('organization_id', orgId);
-
-		if (error) {
-			return fail(500, { permissionError: error.message });
-		}
-
-		auditLog(
-			{
-				action: 'member.permissions_changed',
-				resourceType: 'organization',
-				orgId,
-				severity: 'warning',
-				details: { membershipId, preset }
-			},
-			{ userId: user.id }
-		);
-
-		const oldRole = targetMembership?.role;
-		const newRole = role;
-
-		const { data: permOrg } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
-		const orgName = permOrg?.name ?? 'the organization';
-
-		if (targetMembership?.user_id && targetMembership.user_id !== user.id) {
-			if (oldRole !== newRole) {
-				await createSupabaseNotificationAdapter().notifyUser(orgId, targetMembership.user_id, {
-					type: 'member_role_changed',
-					title: 'Role Updated',
-					message: `Your role in "${orgName}" has been changed to ${newRole}.`
-				});
-			} else {
-				await createSupabaseNotificationAdapter().notifyUser(orgId, targetMembership.user_id, {
-					type: 'member_permissions_changed',
-					title: 'Permissions Updated',
-					message: `Your permissions in "${orgName}" have been updated.`
-				});
-			}
-		}
-
-		return { permissionSuccess: true };
 	},
 
 	transferOwnership: async ({ params, request, locals, cookies }) => {
@@ -482,3 +306,29 @@ export const actions: Actions = {
 		throw redirect(303, '/dashboard?show=all');
 	}
 };
+
+function parseCustomPermissions(formData: FormData): OrganizationMemberPermissions {
+	return {
+		canViewCalendar: formData.get('canViewCalendar') === 'on',
+		canEditCalendar: formData.get('canEditCalendar') === 'on',
+		canViewPersonnel: formData.get('canViewPersonnel') === 'on',
+		canEditPersonnel: formData.get('canEditPersonnel') === 'on',
+		canViewTraining: formData.get('canViewTraining') === 'on',
+		canEditTraining: formData.get('canEditTraining') === 'on',
+		canViewCriticalTasks: formData.get('canViewCriticalTasks') === 'on',
+		canEditCriticalTasks: formData.get('canEditCriticalTasks') === 'on',
+		canViewOnboarding: formData.get('canViewOnboarding') === 'on',
+		canEditOnboarding: formData.get('canEditOnboarding') === 'on',
+		canViewLeadersBook: formData.get('canViewLeadersBook') === 'on',
+		canEditLeadersBook: formData.get('canEditLeadersBook') === 'on',
+		canManageMembers: formData.get('canManageMembers') === 'on'
+	};
+}
+
+function toActionFailure(errorKey: string, error: unknown) {
+	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
+		return fail(Reflect.get(error, 'status') as number, { [errorKey]: error.message });
+	}
+
+	throw error;
+}

@@ -40,7 +40,7 @@ This document separates what v1 authorization and provider ownership look like t
   - its core CRUD use case enforces Personnel edit access
   - its record model is already distinct from counseling and development-goal records
 - `Leader's Book` is currently hidden from primary nav and its route redirects during redesign, but its permissions and compatibility surfaces still exist in settings, help, dashboard actions, exports, and plans.
-- Some settings and admin actions still bypass use-case boundaries and operate directly on membership rows through route code.
+- Some settings and admin actions still bypass use-case boundaries; the remaining org settings route-local provider work is now limited to organization rename, ownership transfer, and delete flows.
 
 ### Current provider-boundary drift
 
@@ -48,7 +48,7 @@ This document separates what v1 authorization and provider ownership look like t
 - Even so, direct `locals.supabase` usage still leaks into multiple non-adapter surfaces.
 - The largest route-level drift clusters today are:
   - organization creation and default seeding
-  - organization settings and member-management actions
+  - organization settings org-administration actions
   - billing routes
   - admin/platform operations
   - export routes

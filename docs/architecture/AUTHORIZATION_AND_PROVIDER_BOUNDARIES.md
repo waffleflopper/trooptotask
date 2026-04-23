@@ -47,7 +47,6 @@ This document separates what v1 authorization and provider ownership look like t
 - The repo already has a working provider-abstraction direction in ports and adapters.
 - Even so, direct `locals.supabase` usage still leaks into multiple non-adapter surfaces.
 - The largest route-level drift clusters today are:
-  - dashboard membership and invitation flows
   - organization creation and default seeding
   - organization settings and member-management actions
   - billing routes
@@ -176,7 +175,6 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 ### Authorization hotspots
 
-- `src/routes/dashboard/+page.server.ts`
 - `src/routes/org/[orgId]/settings/+page.server.ts`
 - `src/routes/org/new/+page.server.ts`
 - `src/routes/org/[orgId]/api/rating-scheme/+server.ts`

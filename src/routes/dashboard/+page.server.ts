@@ -1,71 +1,31 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { createSupabaseDashboardOrgAccessPort } from '$lib/server/adapters/supabaseDashboardOrgAccess';
+import {
+	acceptDashboardInvitation,
+	declineDashboardInvitation,
+	loadDashboardOrgAccess
+} from '$lib/server/core/useCases/dashboardOrgAccess';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const user = locals.user;
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Allow forcing dashboard view with ?show=all
-	const forceShow = url.searchParams.get('show') === 'all';
+	const result = await loadDashboardOrgAccess(createSupabaseDashboardOrgAccessPort(locals), {
+		userId: user.id,
+		email: user.email,
+		forceShow: url.searchParams.get('show') === 'all'
+	});
 
-	// Get organizations the user belongs to
-	const { data: memberships } = await selectAllSupabaseRows<Record<string, unknown>>(
-		(from, to) =>
-			locals.supabase
-				.from('organization_memberships')
-				.select('organization_id, role, organizations(id, name)')
-				.eq('user_id', user.id)
-				.range(from, to) as unknown as Promise<{
-				data: Record<string, unknown>[] | null;
-				error: unknown;
-			}>
-	);
-
-	const organizations = (memberships ?? [])
-		.filter((m: Record<string, unknown>) => m.organizations)
-		.map((m: Record<string, unknown>) => {
-			const org = m.organizations as Record<string, unknown>;
-			return { id: org.id as string, name: org.name as string, role: m.role as string };
-		});
-
-	// Get pending invitations for this user's email
-	const { data: invitations } = await selectAllSupabaseRows<Record<string, unknown>>(
-		(from, to) =>
-			locals.supabase
-				.from('organization_invitations')
-				.select('id, organization_id, email, status, created_at, organizations(id, name)')
-				.eq('email', user.email?.toLowerCase())
-				.eq('status', 'pending')
-				.order('created_at', { ascending: false })
-				.range(from, to) as unknown as Promise<{
-				data: Record<string, unknown>[] | null;
-				error: unknown;
-			}>
-	);
-
-	const pendingInvitations = (invitations ?? [])
-		.filter((inv: Record<string, unknown>) => inv.organizations)
-		.map((inv: Record<string, unknown>) => ({
-			id: inv.id as string,
-			organizationId: inv.organization_id as string,
-			organizationName: (inv.organizations as Record<string, unknown>).name as string,
-			createdAt: inv.created_at as string
-		}));
-
-	// If user has exactly one organization AND no pending invitations, redirect directly
-	// (unless forceShow is set)
-	if (!forceShow && organizations.length === 1 && pendingInvitations.length === 0) {
-		throw redirect(303, `/org/${organizations[0].id}`);
+	if (result.redirectTo) {
+		throw redirect(303, result.redirectTo);
 	}
 
-	// If user has no organizations and no pending invitations, redirect to create one
-	if (!forceShow && organizations.length === 0 && pendingInvitations.length === 0) {
-		throw redirect(303, '/org/new');
-	}
-
-	return { organizations, pendingInvitations };
+	return {
+		organizations: result.organizations,
+		pendingInvitations: result.pendingInvitations
+	};
 };
 
 export const actions: Actions = {
@@ -80,85 +40,21 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invitation ID required' });
 		}
 
-		// Get the invitation
-		const { data: invitation, error: fetchError } = await locals.supabase
-			.from('organization_invitations')
-			.select('*')
-			.eq('id', invitationId)
-			.eq('email', user.email?.toLowerCase())
-			.single();
-
-		if (fetchError || !invitation) {
-			return fail(404, { error: 'Invitation not found' });
+		try {
+			return await acceptDashboardInvitation(
+				{
+					dashboard: createSupabaseDashboardOrgAccessPort(locals),
+					notifications: createSupabaseNotificationAdapter()
+				},
+				{
+					invitationId,
+					userId: user.id,
+					email: user.email
+				}
+			);
+		} catch (error) {
+			return toActionFailure(error);
 		}
-
-		// Check if already a member
-		const { data: existing } = await locals.supabase
-			.from('organization_memberships')
-			.select('id')
-			.eq('organization_id', invitation.organization_id)
-			.eq('user_id', user.id)
-			.single();
-
-		if (existing) {
-			// Already a member, just delete the invitation
-			await locals.supabase.from('organization_invitations').delete().eq('id', invitationId);
-			return fail(400, { error: 'You are already a member of this organization' });
-		}
-
-		// Determine role: if all permissions + manage members = admin
-		const isAdminInvite =
-			invitation.can_view_calendar &&
-			invitation.can_edit_calendar &&
-			invitation.can_view_personnel &&
-			invitation.can_edit_personnel &&
-			invitation.can_view_training &&
-			invitation.can_edit_training &&
-			invitation.can_view_critical_tasks &&
-			invitation.can_edit_critical_tasks &&
-			invitation.can_view_onboarding &&
-			invitation.can_edit_onboarding &&
-			invitation.can_view_leaders_book &&
-			invitation.can_edit_leaders_book &&
-			invitation.can_manage_members;
-
-		// Create membership with the invitation's permissions
-		const { error: memberError } = await locals.supabase.from('organization_memberships').insert({
-			organization_id: invitation.organization_id,
-			user_id: user.id,
-			email: user.email?.toLowerCase(),
-			role: isAdminInvite ? 'admin' : 'member',
-			can_view_calendar: invitation.can_view_calendar ?? true,
-			can_edit_calendar: invitation.can_edit_calendar ?? true,
-			can_view_personnel: invitation.can_view_personnel ?? true,
-			can_edit_personnel: invitation.can_edit_personnel ?? true,
-			can_view_training: invitation.can_view_training ?? true,
-			can_edit_training: invitation.can_edit_training ?? true,
-			can_view_critical_tasks: invitation.can_view_critical_tasks ?? true,
-			can_edit_critical_tasks: invitation.can_edit_critical_tasks ?? true,
-			can_view_onboarding: invitation.can_view_onboarding ?? true,
-			can_edit_onboarding: invitation.can_edit_onboarding ?? true,
-			can_view_leaders_book: invitation.can_view_leaders_book ?? true,
-			can_edit_leaders_book: invitation.can_edit_leaders_book ?? true,
-			can_manage_members: invitation.can_manage_members ?? false,
-			scoped_group_id: invitation.scoped_group_id ?? null
-		});
-
-		if (memberError) {
-			return fail(500, { error: 'Failed to accept invitation' });
-		}
-
-		// Delete the invitation
-		await locals.supabase.from('organization_invitations').delete().eq('id', invitationId);
-
-		await createSupabaseNotificationAdapter().notifyAdmins(invitation.organization_id, user.id, {
-			type: 'member_joined',
-			title: 'New Member Joined',
-			message: `"${user.email}" has joined the organization.`,
-			link: `/org/${invitation.organization_id}/settings`
-		});
-
-		return { success: true, accepted: true };
 	},
 
 	declineInvitation: async ({ request, locals }) => {
@@ -172,17 +68,21 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invitation ID required' });
 		}
 
-		// Delete the invitation
-		const { error } = await locals.supabase
-			.from('organization_invitations')
-			.delete()
-			.eq('id', invitationId)
-			.eq('email', user.email?.toLowerCase());
-
-		if (error) {
-			return fail(500, { error: 'Failed to decline invitation' });
+		try {
+			return await declineDashboardInvitation(createSupabaseDashboardOrgAccessPort(locals), {
+				invitationId,
+				email: user.email
+			});
+		} catch (error) {
+			return toActionFailure(error);
 		}
-
-		return { success: true, declined: true };
 	}
 };
+
+function toActionFailure(error: unknown) {
+	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
+		return fail(Reflect.get(error, 'status') as number, { error: error.message });
+	}
+
+	throw error;
+}

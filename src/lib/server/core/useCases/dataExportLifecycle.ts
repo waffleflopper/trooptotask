@@ -9,6 +9,17 @@ interface DataExportRow {
 	id: string;
 }
 
+async function updateDataExportStatusBestEffort(
+	ports: DataExportLifecyclePorts,
+	input: { exportId: string; patch: Record<string, unknown>; statusLabel: 'completed' | 'failed' }
+): Promise<void> {
+	try {
+		await ports.store.update('data_exports', ports.auth.orgId, input.exportId, input.patch);
+	} catch (error) {
+		console.warn(`[data-exports] Failed to mark export ${input.exportId} as ${input.statusLabel}:`, error);
+	}
+}
+
 export async function startDataExport(
 	ports: DataExportLifecyclePorts,
 	input: { requestedBy: string }
@@ -25,16 +36,24 @@ export async function completeDataExport(
 	ports: DataExportLifecyclePorts,
 	input: { exportId: string; fileSizeBytes: number }
 ): Promise<void> {
-	await ports.store.update('data_exports', ports.auth.orgId, input.exportId, {
-		status: 'completed',
-		completed_at: new Date().toISOString(),
-		file_size_bytes: input.fileSizeBytes
+	await updateDataExportStatusBestEffort(ports, {
+		exportId: input.exportId,
+		patch: {
+			status: 'completed',
+			completed_at: new Date().toISOString(),
+			file_size_bytes: input.fileSizeBytes
+		},
+		statusLabel: 'completed'
 	});
 }
 
 export async function failDataExport(ports: DataExportLifecyclePorts, input: { exportId: string }): Promise<void> {
-	await ports.store.update('data_exports', ports.auth.orgId, input.exportId, {
-		status: 'failed',
-		completed_at: new Date().toISOString()
+	await updateDataExportStatusBestEffort(ports, {
+		exportId: input.exportId,
+		patch: {
+			status: 'failed',
+			completed_at: new Date().toISOString()
+		},
+		statusLabel: 'failed'
 	});
 }

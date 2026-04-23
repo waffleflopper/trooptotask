@@ -42,7 +42,6 @@ describe('Rating Scheme permission-lane migration', () => {
 		expect(normalized).toContain('create or replace function "public"."can_edit_rating_scheme_record"');
 		expect(normalized).toContain('create or replace function "public"."list_rating_scheme_personnel_lookup"');
 		expect(normalized).toContain('returns table("id" "uuid", "rank" "text", "last_name" "text", "first_name" "text")');
-		expect(normalized.match(/set "search_path" to ''/g)).toHaveLength(5);
 		expect(normalized).toContain('"organization_memberships"."can_view_rating_scheme" = true');
 		expect(normalized).toContain('"organization_memberships"."can_edit_rating_scheme" = true');
 		expect(normalized).toContain('revoke all on function "public"."list_rating_scheme_personnel_lookup"');

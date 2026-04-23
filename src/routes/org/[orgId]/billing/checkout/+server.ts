@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { checkout } from '$lib/server/core/useCases/billing';
+import { persistBillingCustomerId, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 
 export const POST: RequestHandler = async (event) => {
@@ -20,13 +21,7 @@ export const POST: RequestHandler = async (event) => {
 			fail(400, 'Invalid tier. Must be "team" or "unit".');
 		}
 
-		const { data: org } = await event.locals.supabase
-			.from('organizations')
-			.select('id, name, stripe_customer_id')
-			.eq('id', orgId)
-			.single();
-
-		if (!org) fail(404, 'Organization not found');
+		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
 
 		const email = event.locals.user?.email;
 		if (!email) fail(400, 'User email not found');
@@ -40,7 +35,7 @@ export const POST: RequestHandler = async (event) => {
 						tier,
 						customerEmail: email,
 						orgName: org.name,
-						existingCustomerId: org.stripe_customer_id ?? undefined,
+						existingCustomerId: org.stripeCustomerId ?? undefined,
 						successUrl: `${event.url.origin}/org/${orgId}/billing/success`,
 						cancelUrl: `${event.url.origin}/org/${orgId}/billing/canceled`
 					}),
@@ -50,11 +45,8 @@ export const POST: RequestHandler = async (event) => {
 			undefined
 		);
 
-		if (!org.stripe_customer_id) {
-			await event.locals.supabase
-				.from('organizations')
-				.update({ stripe_customer_id: result.customerId })
-				.eq('id', orgId);
+		if (!org.stripeCustomerId) {
+			await persistBillingCustomerId({ auth: ctx.auth, store: ctx.rawStore }, { customerId: result.customerId });
 		}
 
 		return json({ url: result.url });

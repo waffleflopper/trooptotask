@@ -35,7 +35,8 @@ Each entry separates:
 
 - Current-state truth:
   - many server paths already use ports, adapters, entities, and use cases
-  - multiple non-adapter routes still depend directly on `locals.supabase`
+  - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
+  - multiple non-adapter routes still depend directly on `locals.supabase`, especially organization rename, admin/platform operations, and some layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:
@@ -43,7 +44,7 @@ Each entry separates:
 - Guardrail until fixed:
   - do not add new direct provider business logic outside approved remediation
 - Recommended next slice:
-  - isolate the biggest `locals.supabase` clusters behind app-owned use cases and adapters
+  - isolate the remaining org-settings rename and admin/platform `locals.supabase` clusters behind app-owned use cases and adapters
 
 ## D-03 Critical Tasks Permission Coupling (Resolved In #621)
 

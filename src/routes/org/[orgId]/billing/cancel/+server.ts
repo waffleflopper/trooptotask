@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { cancel } from '$lib/server/core/useCases/billing';
+import { applyBillingCancellation, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 
 export const POST: RequestHandler = async (event) => {
@@ -12,15 +13,10 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const ctx = await buildRouteContext(event);
-		const { orgId } = event.params;
+		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
+		const subscriptionId = org.stripeSubscriptionId;
 
-		const { data: org } = await event.locals.supabase
-			.from('organizations')
-			.select('stripe_subscription_id')
-			.eq('id', orgId)
-			.single();
-
-		if (!org?.stripe_subscription_id) {
+		if (!subscriptionId) {
 			fail(400, 'No active subscription found');
 		}
 
@@ -28,14 +24,14 @@ export const POST: RequestHandler = async (event) => {
 			{
 				permission: 'owner',
 				mutation: true,
-				fn: (c) => cancel(c, { subscriptionId: org.stripe_subscription_id }),
+				fn: (c) => cancel(c, { subscriptionId }),
 				audit: { action: 'billing.cancel', resourceType: 'organization' }
 			},
 			ctx,
 			undefined
 		);
 
-		await event.locals.supabase.from('organizations').update(result.orgUpdates).eq('id', orgId);
+		await applyBillingCancellation({ auth: ctx.auth, store: ctx.rawStore }, result);
 
 		return json({ success: true });
 	} catch (err) {

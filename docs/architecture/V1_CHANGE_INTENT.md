@@ -97,6 +97,7 @@ Focus entries:
 
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
+  - org settings ownership transfer and delete now run behind an app-owned use case and Supabase adapter, while organization rename remains route-local drift
 - Why this is unsatisfying:
   - provider swap blast radius is still too large
 - Intended v1 direction:

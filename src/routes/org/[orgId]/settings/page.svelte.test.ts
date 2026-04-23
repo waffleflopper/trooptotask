@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 
 vi.mock('$app/forms', () => ({
@@ -65,5 +65,21 @@ describe('org settings page', () => {
 		});
 
 		expect(screen.queryByText('Organization name updated!')).toBeNull();
+	});
+
+	it('allows delete confirmation when the typed name only differs by extra whitespace', async () => {
+		render(Page, {
+			props: {
+				data: baseData as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Organization' }));
+		await fireEvent.input(screen.getByLabelText('Type Test Org to confirm:'), {
+			target: { value: '  Test    Org  ' }
+		});
+
+		expect((screen.getByRole('button', { name: 'Delete Permanently' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 });

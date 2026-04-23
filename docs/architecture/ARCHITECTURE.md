@@ -59,7 +59,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Many server flows already go through ports and adapters.
 - Direct provider coupling still exists in route and utility code, especially around:
   - auth flows and MFA endpoints
-  - organization creation and settings/member management
+  - organization settings/member management
   - billing routes
   - admin/platform utilities
   - export routes

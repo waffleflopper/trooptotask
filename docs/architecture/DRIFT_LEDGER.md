@@ -134,7 +134,7 @@ Each entry separates:
 ## D-08 Route-Level Membership And Settings Logic
 
 - Current-state truth:
-  - organization creation still contains direct route-level membership and invitation logic
+  - organization creation bootstrap now runs through an app-owned provisioning use case and Supabase adapter in `#618` while preserving the current default seeds and owner bootstrap behavior
   - dashboard invitation acceptance and membership creation moved behind an app-owned use case and adapter in `#616`
   - org settings invitation create/delete, member removal, and permission updates moved behind an app-owned use case and adapter in `#617`
   - organization settings still keeps organization rename, ownership transfer, and delete flows in route-local provider orchestration
@@ -145,7 +145,7 @@ Each entry separates:
 - Guardrail until fixed:
   - do not copy those shapes into new surfaces
 - Recommended next slice:
-  - continue the membership boundary review in organization creation and the remaining org-administration boundary review in organization settings
+  - continue the remaining org-administration boundary review in organization settings
 
 ## D-09 Missing Repo Governance Automation
 

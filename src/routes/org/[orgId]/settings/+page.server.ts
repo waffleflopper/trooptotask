@@ -286,7 +286,7 @@ export const actions: Actions = {
 		return { transferSuccess: true };
 	},
 
-	deleteOrganization: async ({ params, locals, cookies }) => {
+	deleteOrganization: async ({ params, request, locals, cookies }) => {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
@@ -294,6 +294,21 @@ export const actions: Actions = {
 
 		const ctx = await buildLayoutContext(locals, cookies, orgId);
 		ctx.auth.requireOwner();
+		const formData = await request.formData();
+		const confirmName = sanitizeString(formData.get('confirmName') as string, 100);
+		const { data: organization, error: organizationError } = await locals.supabase
+			.from('organizations')
+			.select('name')
+			.eq('id', orgId)
+			.single();
+
+		if (organizationError) {
+			return fail(500, { deleteError: organizationError.message });
+		}
+
+		if (confirmName !== sanitizeString(organization?.name as string | null, 100)) {
+			return fail(400, { deleteError: 'Organization name does not match' });
+		}
 
 		const { error } = await locals.supabase.from('organizations').delete().eq('id', orgId);
 

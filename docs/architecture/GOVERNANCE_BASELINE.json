@@ -188,12 +188,6 @@
 			"driftIds": ["D-02", "D-08"]
 		},
 		{
-			"path": "src/routes/org/new/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Organization creation still orchestrates provider work directly in the route layer.",
-			"driftIds": ["D-02", "D-08"]
-		},
-		{
 			"path": "src/routes/suspended/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Suspension checks remain part of the session/auth gate."

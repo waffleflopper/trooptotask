@@ -93,6 +93,99 @@ describe('org settings page server actions', () => {
 		expect(eqMock).toHaveBeenCalledWith('id', 'org-1');
 	});
 
+	it('normalizes the delete confirmation name before deleting the organization', async () => {
+		const requireOwner = vi.fn();
+		buildLayoutContextMock.mockResolvedValue({
+			auth: { requireOwner }
+		});
+		const selectEqMock = vi.fn().mockReturnValue({
+			single: vi.fn().mockResolvedValue({
+				data: { name: 'Test   Org' },
+				error: null
+			})
+		});
+		const deleteEqMock = vi.fn().mockResolvedValue({ error: null });
+		const fromMock = vi.fn((table: string) => {
+			if (table === 'organizations') {
+				return {
+					select: vi.fn().mockReturnValue({ eq: selectEqMock }),
+					delete: vi.fn().mockReturnValue({ eq: deleteEqMock })
+				};
+			}
+
+			throw new Error(`Unexpected table: ${table}`);
+		});
+
+		await expect(
+			actions.deleteOrganization({
+				request: new Request('http://localhost/org/org-1/settings?/deleteOrganization', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ confirmName: '  Test Org  ' })
+				}),
+				locals: {
+					user: { id: 'user-1', email: 'user@example.com' },
+					supabase: { from: fromMock }
+				},
+				params: { orgId: 'org-1' },
+				cookies: {}
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard?show=all'
+		});
+
+		expect(requireOwner).toHaveBeenCalled();
+		expect(selectEqMock).toHaveBeenCalledWith('id', 'org-1');
+		expect(deleteEqMock).toHaveBeenCalledWith('id', 'org-1');
+	});
+
+	it('returns a delete error when the normalized confirmation name does not match', async () => {
+		const requireOwner = vi.fn();
+		buildLayoutContextMock.mockResolvedValue({
+			auth: { requireOwner }
+		});
+		const deleteEqMock = vi.fn();
+		const fromMock = vi.fn((table: string) => {
+			if (table === 'organizations') {
+				return {
+					select: vi.fn().mockReturnValue({
+						eq: vi.fn().mockReturnValue({
+							single: vi.fn().mockResolvedValue({
+								data: { name: 'Test Org' },
+								error: null
+							})
+						})
+					}),
+					delete: vi.fn().mockReturnValue({ eq: deleteEqMock })
+				};
+			}
+
+			throw new Error(`Unexpected table: ${table}`);
+		});
+
+		const result = await actions.deleteOrganization({
+			request: new Request('http://localhost/org/org-1/settings?/deleteOrganization', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ confirmName: 'Other Org' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: { from: fromMock }
+			},
+			params: { orgId: 'org-1' },
+			cookies: {}
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: { deleteError: 'Organization name does not match' }
+		});
+		expect(requireOwner).toHaveBeenCalled();
+		expect(deleteEqMock).not.toHaveBeenCalled();
+	});
+
 	it('redirects unauthenticated users to login before invoking the invite flow', async () => {
 		await expect(
 			actions.invite({

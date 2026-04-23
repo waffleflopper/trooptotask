@@ -22,7 +22,8 @@ export function createSupabaseAuditAdapter(orgId: string, requestInfo: RequestIn
 					resourceType: event.resourceType,
 					resourceId: event.resourceId,
 					orgId,
-					details: event.details
+					details: event.details,
+					severity: event.severity
 				},
 				requestInfo
 			).catch(() => {});

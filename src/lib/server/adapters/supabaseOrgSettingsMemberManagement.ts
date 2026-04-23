@@ -73,11 +73,12 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			return error?.message ?? null;
 		},
 
-		async findMembershipById(membershipId) {
+		async findMembershipById(orgId, membershipId) {
 			const { data, error } = await supabase
 				.from('organization_memberships')
 				.select('user_id, role, email')
 				.eq('id', membershipId)
+				.eq('organization_id', orgId)
 				.single<OrganizationMembershipLookupRow>();
 
 			if (error || !data) {

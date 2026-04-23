@@ -13,6 +13,7 @@ import {
 function createOrgProvisioningPort(
 	options: {
 		availability?: { allowed: boolean; message?: string };
+		availabilityError?: Error;
 		createResult?: { orgId: string | null; errorMessage: string | null };
 		updateOwnerMembershipEmailError?: string | null;
 		groupsError?: string | null;
@@ -48,6 +49,9 @@ function createOrgProvisioningPort(
 		federalHolidaySeeds,
 		async canCreateOrganization(userId) {
 			availabilityRequests.push(userId);
+			if (options.availabilityError) {
+				throw options.availabilityError;
+			}
 			return options.availability ?? { allowed: true };
 		},
 		async createOrganizationWithOwner(name) {
@@ -92,6 +96,14 @@ describe('loadOrganizationProvisioning', () => {
 			canCreate: false,
 			canCreateMessage: 'You can own up to 1 organization on your current plan.'
 		});
+		expect(port.availabilityRequests).toEqual(['user-1']);
+	});
+
+	it('preserves provider failures from the create-org gate so the route keeps current 500 handling', async () => {
+		const availabilityError = new Error('subscription lookup failed');
+		const port = createOrgProvisioningPort({ availabilityError });
+
+		await expect(loadOrganizationProvisioning(port, { userId: 'user-1' })).rejects.toBe(availabilityError);
 		expect(port.availabilityRequests).toEqual(['user-1']);
 	});
 });
@@ -206,6 +218,22 @@ describe('provisionOrganization', () => {
 		});
 
 		expect(port.createRequests).toEqual([]);
+	});
+
+	it('stops before bootstrap work when the create-org gate throws a provider failure', async () => {
+		const availabilityError = new Error('subscription lookup failed');
+		const port = createOrgProvisioningPort({ availabilityError });
+
+		await expect(
+			provisionOrganization(port, {
+				name: 'Alpha Company',
+				userId: 'user-1',
+				email: 'owner@example.com'
+			})
+		).rejects.toBe(availabilityError);
+
+		expect(port.createRequests).toEqual([]);
+		expect(port.ownerEmailUpdates).toEqual([]);
 	});
 
 	it('fails the request when organization creation itself fails', async () => {

@@ -76,6 +76,24 @@ describe('org/new page server', () => {
 		);
 	});
 
+	it('redirects unauthenticated users to login before provisioning starts', async () => {
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/org/new', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ name: 'Alpha Company' })
+				}),
+				locals: {}
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+
+		expect(provisionOrganizationMock).not.toHaveBeenCalled();
+	});
+
 	it('redirects to the newly created organization after provisioning succeeds', async () => {
 		await expect(
 			actions.default({

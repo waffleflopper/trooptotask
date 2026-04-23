@@ -140,42 +140,6 @@
 			"driftIds": ["D-02"]
 		},
 		{
-			"path": "src/routes/org/[orgId]/api/export-excel/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Export Excel route still passes the provider client through directly.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/export/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Export route still passes the provider client through directly.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/billing/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Billing page still performs provider reads in the route layer.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/billing/cancel/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Billing cancellation still mixes provider data fetches and integration work in route code.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/billing/checkout/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Billing checkout still mixes provider data fetches and integration work in route code.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/billing/portal/+server.ts",
-			"classification": "legacy-drift",
-			"reason": "Billing portal still mixes provider data fetches and integration work in route code.",
-			"driftIds": ["D-02"]
-		},
-		{
 			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Critical Tasks layout still queries directly in route code.",

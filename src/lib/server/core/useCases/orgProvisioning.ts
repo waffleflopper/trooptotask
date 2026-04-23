@@ -38,6 +38,11 @@ export interface OrgProvisioningSpecialDaySeed {
 }
 
 export interface OrgProvisioningPort {
+	/**
+	 * Returns whether the user can create an organization.
+	 * Provider failures still throw here so callers preserve the current 500 semantics from the
+	 * existing subscription gate while the rest of bootstrap remains best-effort.
+	 */
 	canCreateOrganization(userId: string): Promise<OrgProvisioningAvailability>;
 	createOrganizationWithOwner(name: string): Promise<OrgProvisioningCreateResult>;
 	updateOwnerMembershipEmail(input: {

@@ -97,7 +97,9 @@ Focus entries:
 
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
-  - org settings ownership transfer and delete now run behind an app-owned use case and Supabase adapter, while organization rename remains route-local drift
+  - org settings ownership transfer and delete now run behind an app-owned use case and Supabase adapter
+  - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
+  - organization rename plus several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
   - provider swap blast radius is still too large
 - Intended v1 direction:
@@ -106,10 +108,10 @@ Focus entries:
   - current auth-provider integration
   - working production flows
 - Open questions:
-  - which route clusters should move first
+  - which remaining route clusters should move first after org rename and admin/platform operations
   - what intermediate adapter shapes make the migration safest
 - Suggested next skill or planning mode:
-  - `improve-codebase-architecture`
+  - `safe-provider-boundary-change`
 
 ## C-03 Legacy Clinic Language Migration
 

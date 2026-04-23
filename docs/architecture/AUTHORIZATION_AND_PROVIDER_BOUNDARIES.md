@@ -46,11 +46,10 @@ This document separates what v1 authorization and provider ownership look like t
 
 - The repo already has a working provider-abstraction direction in ports and adapters.
 - Even so, direct `locals.supabase` usage still leaks into multiple non-adapter surfaces.
+- Billing organization-state reads and writes now run through app-owned store-backed helpers, and the shared `data_exports` lifecycle no longer passes provider clients through export routes.
 - The largest route-level drift clusters today are:
   - organization settings organization rename action
-  - billing routes
   - admin/platform operations
-  - export routes
   - some critical-tasks and settings layout helpers
 - Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, webhooks, and demo/sandbox flows.
 
@@ -183,7 +182,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - route files using direct `locals.supabase` for business logic
 - service-role utilities that still carry business rules rather than pure provider operations
-- export routes that combine feature logic, raw store access, and provider details
+- org settings rename plus admin/platform routes that still mix route orchestration with provider-specific persistence
 
 ## What Counts As Good Change Here
 

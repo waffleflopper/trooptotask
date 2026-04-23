@@ -1,15 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
+import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
 
 interface ExcelExportInput {
 	email: string | undefined;
-	// data_exports table uses org_id (not organization_id), so it can't go through DataStore
-	_supabase: SupabaseClient;
 }
 
 interface ExcelExportOutput {
@@ -23,8 +21,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 	permission: 'manageMembers',
 	mutation: true,
 	parseInput: (event: RequestEvent) => ({
-		email: event.locals.user?.email,
-		_supabase: event.locals.supabase as SupabaseClient
+		email: event.locals.user?.email
 	}),
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
@@ -44,12 +41,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			}
 		}
 
-		const { data: exportRecord, error: insertErr } = await input._supabase
-			.from('data_exports')
-			.insert({ org_id: orgId, requested_by: userId, status: 'processing' })
-			.select('id')
-			.single();
-		if (insertErr || !exportRecord) fail(500, 'Failed to create export record');
+		const exportRecord = await startDataExport({ auth: ctx.auth, store: ctx.rawStore }, { requestedBy: userId });
 
 		try {
 			const [
@@ -373,14 +365,13 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 
 			const buffer = await workbook.xlsx.writeBuffer();
 
-			await input._supabase
-				.from('data_exports')
-				.update({
-					status: 'completed',
-					completed_at: new Date().toISOString(),
-					file_size_bytes: (buffer as ArrayBuffer).byteLength
-				})
-				.eq('id', exportRecord.id);
+			await completeDataExport(
+				{ auth: ctx.auth, store: ctx.rawStore },
+				{
+					exportId: exportRecord.exportId,
+					fileSizeBytes: (buffer as ArrayBuffer).byteLength
+				}
+			);
 
 			ctx.audit.log({ action: 'export.excel_created', resourceType: 'data_export' });
 
@@ -393,10 +384,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			const dateStr = new Date().toISOString().split('T')[0];
 			return { _buffer: buffer as ArrayBuffer, _filename: `org-export-${orgId}-${dateStr}.xlsx` };
 		} catch (err) {
-			await input._supabase
-				.from('data_exports')
-				.update({ status: 'failed', completed_at: new Date().toISOString() })
-				.eq('id', exportRecord.id);
+			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
 			throw err;
 		}
 	},

@@ -1,5 +1,6 @@
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { fail } from '$lib/server/core/errors';
+import { sanitizeString } from '$lib/server/validation';
 
 export interface OrgProvisioningAvailability {
 	allowed: boolean;
@@ -115,7 +116,7 @@ export async function provisionOrganization(
 		email?: string | null;
 	}
 ): Promise<{ orgId: string }> {
-	const name = input.name.trim();
+	const name = sanitizeString(input.name, 100);
 	if (!name) {
 		fail(400, 'Organization name is required');
 	}

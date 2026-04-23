@@ -19,6 +19,12 @@
 	const memberCount = $derived(data.members?.length ?? 0);
 	const invitationCount = $derived(data.invitations?.length ?? 0);
 	const groupCount = $derived(data.groups?.length ?? 0);
+	const normalizedOrgName = $derived(normalizeOrganizationName(data.orgName ?? ''));
+	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
+
+	function normalizeOrganizationName(value: string): string {
+		return value.trim().replace(/\s+/g, ' ');
+	}
 
 	async function handleExport() {
 		if (exporting) return;
@@ -301,7 +307,7 @@
 				};
 			}}
 			onsubmit={(e) => {
-				if (deleteConfirmText !== data.orgName) e.preventDefault();
+				if (!deleteConfirmMatches) e.preventDefault();
 			}}
 		>
 			<div class="form-group">
@@ -310,6 +316,7 @@
 				</label>
 				<input
 					id="confirmDelete"
+					name="confirmName"
 					type="text"
 					class="input"
 					bind:value={deleteConfirmText}
@@ -321,12 +328,7 @@
 
 		{#snippet footer()}
 			<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}> Cancel </button>
-			<button
-				type="submit"
-				form="delete-org-form"
-				class="btn btn-danger"
-				disabled={loading || deleteConfirmText !== data.orgName}
-			>
+			<button type="submit" form="delete-org-form" class="btn btn-danger" disabled={loading || !deleteConfirmMatches}>
 				{loading ? 'Deleting...' : 'Delete Permanently'}
 			</button>
 		{/snippet}

@@ -151,7 +151,7 @@
 					{#if form?.error}
 						<div class="error-message">{form.error}</div>
 					{/if}
-					{#if form?.success}
+					{#if form?.nameSuccess}
 						<div class="success-message">Organization name updated!</div>
 					{/if}
 

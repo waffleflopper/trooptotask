@@ -184,7 +184,7 @@
 		{
 			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
 			"classification": "legacy-drift",
-			"reason": "Organization settings still owns membership, invitation, and org administration route logic.",
+			"reason": "Organization settings still performs direct route-level provider work for organization rename, ownership transfer, and deletion.",
 			"driftIds": ["D-02", "D-08"]
 		},
 		{

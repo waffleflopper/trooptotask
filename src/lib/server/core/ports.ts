@@ -130,7 +130,13 @@ export interface AuthContext {
 
 /** Fire-and-forget audit logging */
 export interface AuditPort {
-	log(event: { action: string; resourceType: string; resourceId?: string; details?: Record<string, unknown> }): void;
+	log(event: {
+		action: string;
+		resourceType: string;
+		resourceId?: string;
+		details?: Record<string, unknown>;
+		severity?: 'info' | 'warning' | 'critical';
+	}): void;
 }
 
 /** Subscription/billing state checks */

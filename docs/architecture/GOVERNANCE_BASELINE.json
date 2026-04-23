@@ -122,12 +122,6 @@
 			"reason": "Password reset exchange remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/dashboard/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Dashboard invitation acceptance and membership creation still live in route code.",
-			"driftIds": ["D-02", "D-08"]
-		},
-		{
 			"path": "src/routes/org/[orgId]/admin/approvals/+page.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Admin approvals still read directly through the provider in route code.",

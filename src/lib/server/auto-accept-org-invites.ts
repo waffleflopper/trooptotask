@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from './supabasePagination';
+import { deriveMembershipFromInvitation } from '$lib/server/core/useCases/organizationInvitationMembership';
 
 interface PendingOrgInvitation {
 	organization_id: string;
@@ -47,40 +48,47 @@ export async function autoAcceptOrgInvites(
 	const acceptedOrgIds: string[] = [];
 
 	for (const inv of invitations) {
-		const isAdminInvite =
-			inv.can_view_calendar &&
-			inv.can_edit_calendar &&
-			inv.can_view_personnel &&
-			inv.can_edit_personnel &&
-			inv.can_view_training &&
-			inv.can_edit_training &&
-			inv.can_view_critical_tasks &&
-			inv.can_edit_critical_tasks &&
-			inv.can_view_onboarding &&
-			inv.can_edit_onboarding &&
-			inv.can_view_leaders_book &&
-			inv.can_edit_leaders_book &&
-			inv.can_manage_members;
+		const membership = deriveMembershipFromInvitation({
+			invitation: {
+				organizationId: inv.organization_id,
+				canViewCalendar: inv.can_view_calendar,
+				canEditCalendar: inv.can_edit_calendar,
+				canViewPersonnel: inv.can_view_personnel,
+				canEditPersonnel: inv.can_edit_personnel,
+				canViewTraining: inv.can_view_training,
+				canEditTraining: inv.can_edit_training,
+				canViewCriticalTasks: inv.can_view_critical_tasks,
+				canEditCriticalTasks: inv.can_edit_critical_tasks,
+				canViewOnboarding: inv.can_view_onboarding,
+				canEditOnboarding: inv.can_edit_onboarding,
+				canViewLeadersBook: inv.can_view_leaders_book,
+				canEditLeadersBook: inv.can_edit_leaders_book,
+				canManageMembers: inv.can_manage_members,
+				scopedGroupId: inv.scoped_group_id
+			},
+			userId,
+			email: normalizedEmail
+		});
 
 		const { error: insertError } = await supabase.from('organization_memberships').insert({
-			organization_id: inv.organization_id,
-			user_id: userId,
-			email: normalizedEmail,
-			role: isAdminInvite ? 'admin' : 'member',
-			can_view_calendar: inv.can_view_calendar ?? true,
-			can_edit_calendar: inv.can_edit_calendar ?? true,
-			can_view_personnel: inv.can_view_personnel ?? true,
-			can_edit_personnel: inv.can_edit_personnel ?? true,
-			can_view_training: inv.can_view_training ?? true,
-			can_edit_training: inv.can_edit_training ?? true,
-			can_view_critical_tasks: inv.can_view_critical_tasks ?? true,
-			can_edit_critical_tasks: inv.can_edit_critical_tasks ?? true,
-			can_view_onboarding: inv.can_view_onboarding ?? true,
-			can_edit_onboarding: inv.can_edit_onboarding ?? true,
-			can_view_leaders_book: inv.can_view_leaders_book ?? true,
-			can_edit_leaders_book: inv.can_edit_leaders_book ?? true,
-			can_manage_members: inv.can_manage_members ?? false,
-			scoped_group_id: inv.scoped_group_id ?? null
+			organization_id: membership.organizationId,
+			user_id: membership.userId,
+			email: membership.email,
+			role: membership.role,
+			can_view_calendar: membership.canViewCalendar,
+			can_edit_calendar: membership.canEditCalendar,
+			can_view_personnel: membership.canViewPersonnel,
+			can_edit_personnel: membership.canEditPersonnel,
+			can_view_training: membership.canViewTraining,
+			can_edit_training: membership.canEditTraining,
+			can_view_critical_tasks: membership.canViewCriticalTasks,
+			can_edit_critical_tasks: membership.canEditCriticalTasks,
+			can_view_onboarding: membership.canViewOnboarding,
+			can_edit_onboarding: membership.canEditOnboarding,
+			can_view_leaders_book: membership.canViewLeadersBook,
+			can_edit_leaders_book: membership.canEditLeadersBook,
+			can_manage_members: membership.canManageMembers,
+			scoped_group_id: membership.scopedGroupId
 		});
 
 		if (!insertError) {

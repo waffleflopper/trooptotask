@@ -134,7 +134,8 @@ Each entry separates:
 ## D-08 Route-Level Membership And Settings Logic
 
 - Current-state truth:
-  - dashboard, organization creation, and organization settings still contain direct route-level membership and invitation logic
+  - organization creation and organization settings still contain direct route-level membership and invitation logic
+  - dashboard invitation acceptance and membership creation moved behind an app-owned use case and adapter in `#616`
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:
@@ -142,7 +143,7 @@ Each entry separates:
 - Guardrail until fixed:
   - do not copy those shapes into new surfaces
 - Recommended next slice:
-  - membership and org-administration boundary review
+  - continue the membership and org-administration boundary review in organization creation and settings
 
 ## D-09 Missing Repo Governance Automation
 

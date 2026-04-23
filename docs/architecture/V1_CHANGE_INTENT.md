@@ -139,8 +139,9 @@ Focus entries:
 - Current-state truth:
   - the core route/auth contract still only exposes coarse feature lanes
   - Critical Tasks now owns its dedicated lane across the shared route/auth contract, membership flags, and RLS
-  - Rating Scheme currently renders inside the Personnel page while spanning borrowed lanes across Leaders Book and Personnel-adjacent enforcement
+  - Rating Scheme now owns its dedicated lane across the shared route/auth contract, membership and invitation flags, nested page access, and RLS-backed scoped record checks
   - Rating Scheme already stores evaluation-tracking records that are distinct from counseling and development-goal records
+  - Rating Scheme still renders inside the Personnel page, but rating-scheme-only members can now reach that nested view through a dedicated nav entry
   - `Leader's Book` is hidden from primary nav and redirected during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
   - feature boundaries and audits stay muddy
@@ -158,10 +159,10 @@ Focus entries:
   - do not let the transitional `Leader's Book` state block the approved authz direction
   - do not treat temporary page nesting or current `Leader's Book` compatibility wiring as permission precedent
 - Open questions:
-  - when standalone Rating Scheme nav should become the point where primary-nav visibility regains parity with feature-lane existence
+  - whether Rating Scheme should eventually move from nested Personnel placement to its own standalone route or always remain a nested surface with dedicated access paths
   - when the remade `Leader's Book` should re-enter the durable lane taxonomy through a later ADR or equivalent review
 - Suggested next skill or planning mode:
-  - `tdd` for `#627`, then `grill-me` plus `adr-from-retrofit-decision` again if the remade `Leader's Book` needs a later lane-taxonomy review
+  - `retrofit-slice-audit` for `#627`, then `grill-me` plus `adr-from-retrofit-decision` again if the remade `Leader's Book` needs a later lane-taxonomy review
 
 ## C-05 Deep Module Reviews
 

@@ -14,6 +14,8 @@ interface PendingOrgInvitation {
 	can_edit_critical_tasks: boolean | null;
 	can_view_onboarding: boolean | null;
 	can_edit_onboarding: boolean | null;
+	can_view_rating_scheme?: boolean | null;
+	can_edit_rating_scheme?: boolean | null;
 	can_view_leaders_book: boolean | null;
 	can_edit_leaders_book: boolean | null;
 	can_manage_members: boolean | null;
@@ -32,7 +34,7 @@ export async function autoAcceptOrgInvites(
 			supabase
 				.from('organization_invitations')
 				.select(
-					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 				)
 				.eq('email', normalizedEmail)
 				.eq('status', 'pending')
@@ -61,6 +63,8 @@ export async function autoAcceptOrgInvites(
 				canEditCriticalTasks: inv.can_edit_critical_tasks,
 				canViewOnboarding: inv.can_view_onboarding,
 				canEditOnboarding: inv.can_edit_onboarding,
+				canViewRatingScheme: inv.can_view_rating_scheme,
+				canEditRatingScheme: inv.can_edit_rating_scheme,
 				canViewLeadersBook: inv.can_view_leaders_book,
 				canEditLeadersBook: inv.can_edit_leaders_book,
 				canManageMembers: inv.can_manage_members,
@@ -85,6 +89,8 @@ export async function autoAcceptOrgInvites(
 			can_edit_critical_tasks: membership.canEditCriticalTasks,
 			can_view_onboarding: membership.canViewOnboarding,
 			can_edit_onboarding: membership.canEditOnboarding,
+			can_view_rating_scheme: membership.canViewRatingScheme,
+			can_edit_rating_scheme: membership.canEditRatingScheme,
 			can_view_leaders_book: membership.canViewLeadersBook,
 			can_edit_leaders_book: membership.canEditLeadersBook,
 			can_manage_members: membership.canManageMembers,

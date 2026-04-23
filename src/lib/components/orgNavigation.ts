@@ -4,6 +4,7 @@ export type OrgNavIcon =
 	| 'dashboard'
 	| 'calendar'
 	| 'personnel'
+	| 'rating-scheme'
 	| 'training'
 	| 'critical-tasks'
 	| 'onboarding'
@@ -48,6 +49,15 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			exactMatch: false
 		},
 		{
+			id: 'rating-scheme',
+			href: `/org/${orgId}/personnel?view=rating-scheme`,
+			label: 'Rating Scheme',
+			compactLabel: 'Ratings',
+			icon: 'rating-scheme',
+			visible: !permissions.canViewPersonnel && permissions.canViewRatingScheme === true,
+			exactMatch: false
+		},
+		{
 			id: 'training',
 			href: `/org/${orgId}/training`,
 			label: 'Training',
@@ -88,9 +98,11 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 }
 
 export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean {
+	const itemPath = item.href.split('?')[0];
+
 	if (item.exactMatch) {
-		return pathname === item.href;
+		return pathname === itemPath;
 	}
 
-	return pathname === item.href || pathname.startsWith(`${item.href}/`);
+	return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }

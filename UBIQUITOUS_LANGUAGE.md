@@ -113,4 +113,4 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Feature Lane** and **Organization Governance Action** are different concepts. Billing, member management, org settings, and platform concerns are not part of the durable feature-lane map.
 - **Personnel** owns roster administration, but another feature can still read roster reference data without inheriting the **Personnel** lane.
 - **Rating Scheme** and **Leader's Book** are separate feature surfaces; current compatibility wiring must not be misread as intended coupling.
-- **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows even though runtime lane remediation is still pending.
+- **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows, and #627 moved runtime access onto its own lane while UI placement remains transitional.

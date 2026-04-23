@@ -54,6 +54,50 @@ describe('core RLS permission hardening migration', () => {
 		expectPolicyUses('personnel', 'DELETE', '"public"."can_edit_personnel_record"("organization_id", "group_id")');
 	});
 
+	it('keeps rating-scheme roster references behind a narrow lookup RPC instead of Personnel SELECT', () => {
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."list_rating_scheme_personnel_lookup"');
+		expect(sql).toContain(
+			'GRANT EXECUTE ON FUNCTION "public"."list_rating_scheme_personnel_lookup"("p_organization_id" "uuid") TO "authenticated"'
+		);
+		expect(sql).not.toContain(
+			'CREATE POLICY "Users can view personnel if allowed by scoped rating scheme reference access"'
+		);
+		expect(
+			getPolicyBlock(
+				'personnel',
+				'SELECT',
+				'"public"."can_view_rating_scheme_personnel_record"("organization_id", "group_id")'
+			)
+		).toBe('');
+	});
+
+	it('enforces scoped rating-scheme access through dedicated helper functions', () => {
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme"');
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme"');
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme_record"');
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme_record"');
+		expectPolicyUses(
+			'rating_scheme_entries',
+			'SELECT',
+			'"public"."can_view_rating_scheme_record"("organization_id", "rated_person_id")'
+		);
+		expectPolicyUses(
+			'rating_scheme_entries',
+			'INSERT',
+			'"public"."can_edit_rating_scheme_record"("organization_id", "rated_person_id")'
+		);
+		expectPolicyUses(
+			'rating_scheme_entries',
+			'UPDATE',
+			'"public"."can_edit_rating_scheme_record"("organization_id", "rated_person_id")'
+		);
+		expectPolicyUses(
+			'rating_scheme_entries',
+			'DELETE',
+			'"public"."can_edit_rating_scheme_record"("organization_id", "rated_person_id")'
+		);
+	});
+
 	it('enforces scoped training-record access for personnel training rows', () => {
 		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_view_personnel_training_record"');
 		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_training_record"');

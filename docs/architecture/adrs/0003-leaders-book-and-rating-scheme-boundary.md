@@ -9,7 +9,7 @@ Date: 2026-04-22
 
 - Rating Scheme is active and user-visible today through the Personnel page.
 - The `rating_scheme_entries` model already stores evaluation-tracking records for rated individuals, including eval type, rating chain participants, rating period dates, report type, workflow status, and notes.
-- The current runtime permission path is contradictory:
+- At decision time, the runtime permission path was contradictory:
   - `src/routes/org/[orgId]/api/rating-scheme/+server.ts` still uses `permission: 'leaders-book'`
   - `src/lib/server/core/useCases/ratingSchemeEntryCrud.ts` still requires `requireEdit('personnel')`
 - `Leader's Book` still exists in permissions, settings, help copy, dashboard links, exports, and plans, but the current `/leaders-book` route is hidden from primary navigation and redirects away while the remake is pending.
@@ -42,7 +42,7 @@ Date: 2026-04-22
   - Rating Scheme remains real and independently grantable even while nested inside Personnel
 - `Leader's Book` remains outside the current durable first-class lane map while the remake is still being defined.
 - A later ADR or equivalent design review may revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once its rebuilt shape is real enough to evaluate.
-- This slice does not change runtime permission enforcement. Current `leaders-book` and `personnel` couplings remain documented drift until the follow-up implementation slice lands.
+- At acceptance time, this decision slice did not change runtime permission enforcement. Those `leaders-book` and `personnel` couplings were later removed by issue [#627](https://github.com/waffleflopper/trooptotask/issues/627) without changing the approved record boundary.
 
 ## Rejected Or Deferred Alternatives
 
@@ -63,10 +63,10 @@ Date: 2026-04-22
 - Do not deepen cross-feature permission borrowing between Rating Scheme, Personnel, and `Leader's Book`.
 - Do not describe `Leader's Book` as already removed.
 - Do not silently promote the remade `Leader's Book` into the durable lane taxonomy without a later explicit decision.
-- Current runtime tolerances remain temporarily allowed:
+- At acceptance time, temporary runtime tolerances remained allowed:
   - `src/routes/org/[orgId]/api/rating-scheme/+server.ts` still enters through `leaders-book`
   - `src/lib/server/core/useCases/ratingSchemeEntryCrud.ts` still enforces `personnel`
-- Follow-up implementation must move Rating Scheme onto its own lane without changing the approved record boundary.
+- Follow-up implementation had to move Rating Scheme onto its own lane without changing the approved record boundary.
 
 ## Consequences
 
@@ -75,7 +75,7 @@ Date: 2026-04-22
   - future authz and UI work can treat Rating Scheme as independently grantable from both Personnel and `Leader's Book`
   - `Leader's Book` can remain honestly documented as a real but transitional surface during the remake
 - Tradeoffs:
-  - the repo will still temporarily carry contradictory runtime checks until the implementation slice lands
+  - the repo temporarily carried contradictory runtime checks until the implementation slice landed in `#627`
   - primary-nav visibility remains a transitional exception rather than a stable proxy for lane existence today
 - New risks or migration costs:
   - follow-up work must introduce app-owned roster reference queries cleanly instead of re-borrowing Personnel access
@@ -83,8 +83,10 @@ Date: 2026-04-22
 
 ## Rollout And Follow-Up
 
-- Do not implement runtime boundary changes in this slice.
-- Next implementation slice: issue [#627](https://github.com/waffleflopper/trooptotask/issues/627) to move Rating Scheme onto its approved runtime lane while preserving the boundary documented here.
+- This decision slice did not implement runtime boundary changes directly.
+- Implementation slice issue [#627](https://github.com/waffleflopper/trooptotask/issues/627) landed on 2026-04-23 and moved Rating Scheme onto its approved runtime lane while preserving the boundary documented here.
+  - route/auth entry, CRUD enforcement, membership and invitation booleans, and RLS-backed scoped record checks now use the dedicated `rating-scheme` lane
+  - rating-scheme-only members can receive a dedicated primary-nav entry into the nested Personnel-hosted view so Personnel access is not a prerequisite
 - Follow-up design work after the remake is real:
   - decide whether the remade `Leader's Book` re-enters the durable first-class lane map
   - decide whether primary-nav visibility should regain parity with feature-lane existence once Rating Scheme has its own standalone nav item

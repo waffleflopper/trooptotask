@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createQueryWithRawStorePortsContext, createInMemoryDataStore } from '$lib/server/adapters/inMemory';
-import { fetchPersonnelBootstrap } from './personnelWorkspaceQuery';
+import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from './personnelWorkspaceQuery';
 
 const ORG = 'test-org';
 
@@ -226,5 +226,131 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 		const result = await fetchPersonnelBootstrap(ctx);
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
+	});
+});
+
+describe('fetchRatingSchemeBootstrap', () => {
+	it('returns rating-scheme data with personnel lookup but without roster hydration data', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		seedPersonnel(ctx.store);
+		ctx.store.seed('organizations', [{ id: ORG, loss_warning_window_days: 120 }]);
+		ctx.store.seed('personnel_extended_info', [
+			{
+				id: 'pei-1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				award_tracking_acknowledged_at: '2026-04-14T00:00:00Z'
+			}
+		]);
+		ctx.ratingSchemePersonnelLookup = {
+			listPersonnelLookup: vi.fn().mockResolvedValue([
+				{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
+				{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
+			])
+		};
+
+		const result = await fetchRatingSchemeBootstrap(ctx);
+
+		expect(result.personnel).toEqual([]);
+		expect(result.personnelLookup).toEqual([
+			{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
+			{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
+		]);
+		expect(result.groups).toEqual([]);
+		expect(result.statusTypes).toEqual([]);
+		expect(result.pinnedGroups).toEqual([]);
+		expect(result.ratingSchemeEntries).toHaveLength(1);
+		expect(result.lossWarningWindowDays).toBe(120);
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
+	});
+
+	it('keeps roster reference lookup scoped to the member group', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'g1' } });
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p1',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				mos: '11B',
+				clinic_role: 'Medic',
+				group_id: 'g1',
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p2',
+				organization_id: ORG,
+				rank: 'CPT',
+				last_name: 'Jones',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Provider',
+				group_id: 'g2',
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.rawStore.seed('rating_scheme_entries', [
+			{
+				id: 'rs1',
+				organization_id: ORG,
+				rated_person_id: 'p1',
+				eval_type: 'NCOER',
+				rater_person_id: null,
+				rater_name: null,
+				senior_rater_person_id: null,
+				senior_rater_name: null,
+				intermediate_rater_person_id: null,
+				intermediate_rater_name: null,
+				reviewer_person_id: null,
+				reviewer_name: null,
+				rating_period_start: '2024-01-01',
+				rating_period_end: '2024-12-31',
+				status: 'active',
+				notes: null,
+				report_type: 'AN',
+				workflow_status: 'drafting'
+			}
+		]);
+		ctx.ratingSchemePersonnelLookup = {
+			listPersonnelLookup: vi.fn().mockResolvedValue([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }])
+		};
+
+		const result = await fetchRatingSchemeBootstrap(ctx);
+
+		expect(result.personnel).toEqual([]);
+		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
+		expect(result.ratingSchemeEntries).toHaveLength(1);
+	});
+
+	it('uses the dedicated rating-scheme personnel lookup port when available', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'p1',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				mos: '11B',
+				clinic_role: 'Medic',
+				group_id: 'g1'
+			}
+		]);
+		const listPersonnelLookup = vi
+			.fn()
+			.mockResolvedValue([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
+		ctx.ratingSchemePersonnelLookup = { listPersonnelLookup };
+
+		const result = await fetchRatingSchemeBootstrap(ctx);
+
+		expect(listPersonnelLookup).toHaveBeenCalledWith(ORG);
+		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
+	});
+
+	it('requires the dedicated rating-scheme personnel lookup port', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+
+		await expect(fetchRatingSchemeBootstrap(ctx)).rejects.toThrow('Rating Scheme personnel lookup port is required');
 	});
 });

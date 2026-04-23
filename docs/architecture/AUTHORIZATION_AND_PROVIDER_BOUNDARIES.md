@@ -31,14 +31,13 @@ This document separates what v1 authorization and provider ownership look like t
   - SQL helper functions and RLS policies
 - Admin UI presets like `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over the current model. They are not persisted first-class auth roles.
 
-### Current feature-lane drift
+### Current feature-lane reality
 
-- Critical Tasks currently uses the Training permission lane in routes, entities, use cases, and RLS.
-- Rating Scheme currently spans more than one borrowed lane:
-  - its current page view lives inside Personnel
-  - its route shell uses Leaders Book permissions
-  - its core CRUD use case enforces Personnel edit access
-  - its record model is already distinct from counseling and development-goal records
+- Critical Tasks now owns a dedicated lane across routes, entities, use cases, and RLS.
+- Rating Scheme now owns a dedicated lane across route guards, CRUD, membership and invitation flags, and RLS-backed scoped record access.
+  - its current page view still lives inside Personnel
+  - rating-scheme-only members can now receive a dedicated primary-nav entry into that nested view
+  - its record model remains distinct from counseling and development-goal records
 - `Leader's Book` is currently hidden from primary nav and its route redirects during redesign, but its permissions and compatibility surfaces still exist in settings, help, dashboard actions, exports, and plans.
 - Some settings and admin actions still bypass use-case boundaries; the remaining org settings route-local provider work is now limited to organization rename.
 
@@ -119,7 +118,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - A later ADR or equivalent design review may revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt shape is settled.
 - Temporary route or screen placement does not define durable lane ownership.
 - Current primary-nav visibility also does not define feature existence or lane ownership during this transition.
-- Rating Scheme owns its own durable lane even while the current UI remains nested in the Personnel surface and before it has its own standalone nav item.
+- Rating Scheme owns its own durable lane even while the current UI remains nested in the Personnel surface; nav treatment can change independently without redefining lane ownership.
 - Rating Scheme owns evaluation-tracking records and workflows for rated individuals.
 - `Leader's Book` owns counseling records, development goals, and the remade per-Soldier leader-reference or administrative surface.
 - `Personnel` owns roster administration.
@@ -132,7 +131,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
   - Critical Tasks lane implementation first, because its target ownership is already settled
   - Critical Tasks lane implementation is now complete in `#621`
   - `#620` now documents the Rating Scheme versus `Leader's Book` boundary and the transitional nav rule in [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
-  - Rating Scheme runtime lane remediation in `#627` is next
+  - Rating Scheme runtime lane remediation is now complete in `#627`
 
 ### Auditability direction
 
@@ -174,8 +173,9 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ### Authorization hotspots
 
 - `src/routes/org/[orgId]/settings/+page.server.ts`
-- `src/routes/org/[orgId]/api/rating-scheme/+server.ts`
+- `src/routes/org/[orgId]/personnel/+layout.server.ts`
 - `src/lib/server/permissionContext.ts`
+- `src/lib/server/core/useCases/organizationInvitationMembership.ts`
 - `supabase/migrations/*` RLS helpers and policies
 
 ### Provider-boundary hotspots

@@ -7,19 +7,19 @@ import { createRatingSchemeEntryUseCases } from '$lib/server/core/useCases/ratin
 const useCases = createRatingSchemeEntryUseCases();
 
 export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'leaders-book',
+	permission: 'rating-scheme',
 	mutation: true,
 	fn: (ctx, input) => useCases.create(ctx, input)
 });
 
 export const PUT = handle<Record<string, unknown>, unknown>({
-	permission: 'leaders-book',
+	permission: 'rating-scheme',
 	mutation: true,
 	fn: (ctx, input) => useCases.update(ctx, input)
 });
 
 export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
-	permission: 'leaders-book',
+	permission: 'rating-scheme',
 	mutation: true,
 	fn: async (ctx, input) => {
 		const id = input?.id;

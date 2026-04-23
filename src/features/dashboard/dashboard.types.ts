@@ -13,7 +13,7 @@ const ALL_TABS: DashboardTabId[] = ['unit-readiness', 'people-duty', 'training-e
 export type DashboardPermission =
 	| 'canViewCalendar'
 	| 'canViewTraining'
-	| 'canViewLeadersBook'
+	| 'canViewRatingScheme'
 	| 'canViewOnboarding'
 	| 'canViewPersonnel';
 

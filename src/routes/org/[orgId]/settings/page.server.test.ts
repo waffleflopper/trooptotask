@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+	buildLayoutContextMock,
 	buildRouteContextMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	inviteOrganizationMemberMock,
@@ -8,6 +9,7 @@ const {
 	removeOrganizationMemberMock,
 	updateOrganizationMemberPermissionsMock
 } = vi.hoisted(() => ({
+	buildLayoutContextMock: vi.fn(),
 	buildRouteContextMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
@@ -23,6 +25,7 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 	return {
 		...actual,
+		buildLayoutContext: buildLayoutContextMock,
 		buildRouteContext: buildRouteContextMock
 	};
 });
@@ -50,6 +53,9 @@ import { actions } from './+page.server';
 describe('org settings page server actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		buildLayoutContextMock.mockResolvedValue({
+			auth: { requireManageMembers: vi.fn() }
+		});
 		buildRouteContextMock.mockResolvedValue({
 			auth: { kind: 'auth' },
 			audit: { kind: 'audit' },
@@ -60,6 +66,31 @@ describe('org settings page server actions', () => {
 		revokeOrganizationInvitationMock.mockResolvedValue({ success: true });
 		removeOrganizationMemberMock.mockResolvedValue({ success: true });
 		updateOrganizationMemberPermissionsMock.mockResolvedValue({ permissionSuccess: true });
+	});
+
+	it('returns a name-specific success flag for organization rename', async () => {
+		const eqMock = vi.fn().mockResolvedValue({ error: null });
+		const updateMock = vi.fn().mockReturnValue({ eq: eqMock });
+		const fromMock = vi.fn().mockReturnValue({ update: updateMock });
+
+		const result = await actions.updateName({
+			request: new Request('http://localhost/org/org-1/settings?/updateName', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ name: 'Renamed Org' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: { from: fromMock }
+			},
+			params: { orgId: 'org-1' },
+			cookies: {}
+		} as never);
+
+		expect(result).toEqual({ nameSuccess: true });
+		expect(fromMock).toHaveBeenCalledWith('organizations');
+		expect(updateMock).toHaveBeenCalledWith({ name: 'Renamed Org' });
+		expect(eqMock).toHaveBeenCalledWith('id', 'org-1');
 	});
 
 	it('redirects unauthenticated users to login before invoking the invite flow', async () => {

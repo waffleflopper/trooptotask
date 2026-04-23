@@ -135,7 +135,7 @@ export const actions: Actions = {
 			return fail(500, { error: error.message });
 		}
 
-		return { success: true };
+		return { nameSuccess: true };
 	},
 
 	invite: async (event) => {

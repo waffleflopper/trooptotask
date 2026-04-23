@@ -17,6 +17,17 @@ describe('createSupabaseOrgSettingsAdministrationPort', () => {
 		});
 	});
 
+	it('returns rpc transfer errors as strings', async () => {
+		const rpc = vi.fn().mockResolvedValue({ error: { message: 'rpc failed' } });
+		const port = createSupabaseOrgSettingsAdministrationPort({
+			supabase: { rpc }
+		} as never);
+
+		const result = await port.transferOwnership('org-1', 'user-1');
+
+		expect(result).toBe('rpc failed');
+	});
+
 	it('loads the organization name for destructive confirmation checks', async () => {
 		const single = vi.fn().mockResolvedValue({
 			data: { name: 'Alpha Company' },
@@ -37,6 +48,23 @@ describe('createSupabaseOrgSettingsAdministrationPort', () => {
 		expect(eq).toHaveBeenCalledWith('id', 'org-1');
 	});
 
+	it('returns organization lookup errors as strings', async () => {
+		const single = vi.fn().mockResolvedValue({
+			data: null,
+			error: { message: 'lookup failed' }
+		});
+		const eq = vi.fn().mockReturnValue({ single });
+		const select = vi.fn().mockReturnValue({ eq });
+		const from = vi.fn().mockReturnValue({ select });
+		const port = createSupabaseOrgSettingsAdministrationPort({
+			supabase: { from }
+		} as never);
+
+		const result = await port.lookupOrganization('org-1');
+
+		expect(result).toEqual({ name: null, errorMessage: 'lookup failed' });
+	});
+
 	it('deletes the organization row by id and returns provider errors as strings', async () => {
 		const eq = vi.fn().mockResolvedValue({ error: { message: 'delete failed' } });
 		const remove = vi.fn().mockReturnValue({ eq });
@@ -51,5 +79,18 @@ describe('createSupabaseOrgSettingsAdministrationPort', () => {
 		expect(from).toHaveBeenCalledWith('organizations');
 		expect(remove).toHaveBeenCalledWith();
 		expect(eq).toHaveBeenCalledWith('id', 'org-1');
+	});
+
+	it('returns null when organization deletion succeeds', async () => {
+		const eq = vi.fn().mockResolvedValue({ error: null });
+		const remove = vi.fn().mockReturnValue({ eq });
+		const from = vi.fn().mockReturnValue({ delete: remove });
+		const port = createSupabaseOrgSettingsAdministrationPort({
+			supabase: { from }
+		} as never);
+
+		const result = await port.deleteOrganization('org-1');
+
+		expect(result).toBeNull();
 	});
 });

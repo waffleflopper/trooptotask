@@ -17,9 +17,9 @@ vi.mock('$lib/server/core/useCases/billingOrganization', async () => {
 	};
 });
 
-import { loadBillingPageData } from './+page.server';
+import { _loadBillingPageData } from './+page.server';
 
-describe('loadBillingPageData', () => {
+describe('_loadBillingPageData', () => {
 	it('derives subscription management state from the app-owned billing helper', async () => {
 		readBillingOrganizationMock.mockResolvedValue({
 			name: 'Alpha Company',
@@ -29,7 +29,7 @@ describe('loadBillingPageData', () => {
 		});
 		canManageBillingSubscriptionMock.mockReturnValue(true);
 
-		const result = await loadBillingPageData(
+		const result = await _loadBillingPageData(
 			{
 				auth: { orgId: 'org-1' } as never,
 				rawStore: { kind: 'raw-store' } as never

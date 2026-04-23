@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { portal } from '$lib/server/core/useCases/billing';
+import { readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import { fail } from '$lib/server/core/errors';
 
 export const POST: RequestHandler = async (event) => {
@@ -13,14 +14,10 @@ export const POST: RequestHandler = async (event) => {
 	try {
 		const ctx = await buildRouteContext(event);
 		const { orgId } = event.params;
+		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
+		const customerId = org.stripeCustomerId;
 
-		const { data: org } = await event.locals.supabase
-			.from('organizations')
-			.select('stripe_customer_id')
-			.eq('id', orgId)
-			.single();
-
-		if (!org?.stripe_customer_id) {
+		if (!customerId) {
 			fail(400, 'No active subscription found for this organization');
 		}
 
@@ -30,7 +27,7 @@ export const POST: RequestHandler = async (event) => {
 				mutation: true,
 				fn: (c) =>
 					portal(c, {
-						customerId: org.stripe_customer_id,
+						customerId,
 						returnUrl: `${event.url.origin}/org/${orgId}/billing`
 					}),
 				audit: { action: 'billing.portal', resourceType: 'organization' }

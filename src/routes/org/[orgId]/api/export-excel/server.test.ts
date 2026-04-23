@@ -6,35 +6,6 @@ import { _postConfig } from './+server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
-function createSupabaseStub() {
-	return {
-		from(table: string) {
-			expect(table).toBe('data_exports');
-
-			return {
-				insert() {
-					return {
-						select() {
-							return {
-								async single() {
-									return { data: { id: 'export-1' }, error: null };
-								}
-							};
-						}
-					};
-				},
-				update() {
-					return {
-						async eq() {
-							return { data: null, error: null };
-						}
-					};
-				}
-			};
-		}
-	};
-}
-
 function rowValues(sheet: ExcelJS.Worksheet, rowNumber: number): string[] {
 	const values = sheet.getRow(rowNumber).values;
 	if (!Array.isArray(values)) return [];
@@ -65,14 +36,14 @@ describe('POST /api/export-excel', () => {
 		]);
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com',
-			_supabase: createSupabaseStub()
+			email: 'leader@example.com'
 		});
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
 
 		const personnelSheet = workbook.getWorksheet('Personnel');
+		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(personnelSheet).toBeDefined();
 		if (!personnelSheet) throw new Error('Personnel sheet missing');
 
@@ -81,5 +52,60 @@ describe('POST /api/export-excel', () => {
 		expect(rowValues(personnelSheet, 1)).toContain('PCS / DEROS');
 		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');
 		expect(rowValues(personnelSheet, 2)).toContain('2026-11-30');
+		expect(exportRows).toEqual([
+			expect.objectContaining({
+				requested_by: ctx.auth.userId,
+				status: 'completed'
+			})
+		]);
+	});
+
+	it('still returns the workbook when the export status write fails', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				ets: '2027-05-01',
+				deros: '2026-11-30',
+				archived_at: null
+			}
+		]);
+
+		const originalUpdate = ctx.rawStore.update.bind(ctx.rawStore);
+		ctx.rawStore.update = async (...args) => {
+			const [table] = args;
+			if (table === 'data_exports') {
+				throw new Error('UPDATE denied for data_exports');
+			}
+			return originalUpdate(...args);
+		};
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+
+		const personnelSheet = workbook.getWorksheet('Personnel');
+		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(personnelSheet).toBeDefined();
+		if (!personnelSheet) throw new Error('Personnel sheet missing');
+
+		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');
+		expect(rowValues(personnelSheet, 2)).toContain('2026-11-30');
+		expect(exportRows).toEqual([
+			expect.objectContaining({
+				requested_by: ctx.auth.userId,
+				status: 'processing'
+			})
+		]);
 	});
 });

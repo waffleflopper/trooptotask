@@ -116,7 +116,7 @@ describe('provisionOrganization', () => {
 	it('preserves the current bootstrap defaults behind the provisioning boundary', async () => {
 		const port = createOrgProvisioningPort();
 		const result = await provisionOrganization(port, {
-			name: '  Alpha Company  ',
+			name: '  Alpha   Company  ',
 			userId: 'user-1',
 			email: 'OWNER@EXAMPLE.COM'
 		});
@@ -178,6 +178,18 @@ describe('provisionOrganization', () => {
 			name: expectedHolidays[0]?.name,
 			type: expectedHolidays[0]?.type
 		});
+	});
+
+	it('collapses repeated internal whitespace before creating the organization', async () => {
+		const port = createOrgProvisioningPort();
+
+		await provisionOrganization(port, {
+			name: '  1st   Platoon    HQ  ',
+			userId: 'user-1',
+			email: 'owner@example.com'
+		});
+
+		expect(port.createRequests).toEqual(['1st Platoon HQ']);
 	});
 
 	it('rejects blank organization names before any provider work starts', async () => {

@@ -104,7 +104,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				}));
 		},
 
-		async findPendingInvitation(invitationId: string, email: string): Promise<DashboardInvitationRecord | null> {
+		async findInvitation(invitationId: string, email: string): Promise<DashboardInvitationRecord | null> {
 			const { data, error } = await supabase
 				.from('organization_invitations')
 				.select(
@@ -174,8 +174,10 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			return !error;
 		},
 
-		async deleteInvitation(invitationId: string): Promise<void> {
-			await supabase.from('organization_invitations').delete().eq('id', invitationId);
+		async deleteInvitation(invitationId: string): Promise<boolean> {
+			const { error } = await supabase.from('organization_invitations').delete().eq('id', invitationId);
+
+			return !error;
 		},
 
 		async deleteInvitationForEmail(invitationId: string, email: string): Promise<boolean> {

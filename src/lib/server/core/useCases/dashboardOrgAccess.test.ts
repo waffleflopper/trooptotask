@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestNotificationPort } from '$lib/server/adapters/inMemory';
 import {
 	acceptDashboardInvitation,
@@ -40,6 +40,7 @@ function createDashboardOrgAccessPort(
 		invitation?: DashboardInvitationRecord | null;
 		hasMembership?: boolean;
 		createMembershipSucceeds?: boolean;
+		deleteInvitationSucceeds?: boolean;
 		declineSucceeds?: boolean;
 	} = {}
 ): DashboardOrgAccessPort & {
@@ -65,7 +66,7 @@ function createDashboardOrgAccessPort(
 			requestedInvitationEmails.push(email);
 			return options.pendingInvitations ?? [];
 		},
-		async findPendingInvitation(invitationId, email) {
+		async findInvitation(invitationId, email) {
 			requestedInvitationEmails.push(email);
 			return options.invitation?.id === invitationId ? options.invitation : null;
 		},
@@ -78,6 +79,7 @@ function createDashboardOrgAccessPort(
 		},
 		async deleteInvitation(invitationId) {
 			deletedInvitationIds.push(invitationId);
+			return options.deleteInvitationSucceeds ?? true;
 		},
 		async deleteInvitationForEmail(invitationId, email) {
 			declinedInvitations.push({ invitationId, email });
@@ -130,6 +132,45 @@ describe('loadDashboardOrgAccess', () => {
 		expect(result).toEqual({
 			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin' }],
 			pendingInvitations: [],
+			redirectTo: null
+		});
+	});
+
+	it('keeps the dashboard visible when multiple organizations or invitations remain', async () => {
+		const port = createDashboardOrgAccessPort({
+			organizations: [
+				{ id: 'org-1', name: 'Alpha Company', role: 'admin' },
+				{ id: 'org-2', name: 'Bravo Company', role: 'member' }
+			],
+			pendingInvitations: [
+				{
+					id: 'invite-1',
+					organizationId: 'org-3',
+					organizationName: 'Charlie Company',
+					createdAt: '2026-04-23T00:00:00.000Z'
+				}
+			]
+		});
+
+		const result = await loadDashboardOrgAccess(port, {
+			userId: 'user-1',
+			email: 'user@example.com',
+			forceShow: false
+		});
+
+		expect(result).toEqual({
+			organizations: [
+				{ id: 'org-1', name: 'Alpha Company', role: 'admin' },
+				{ id: 'org-2', name: 'Bravo Company', role: 'member' }
+			],
+			pendingInvitations: [
+				{
+					id: 'invite-1',
+					organizationId: 'org-3',
+					organizationName: 'Charlie Company',
+					createdAt: '2026-04-23T00:00:00.000Z'
+				}
+			],
 			redirectTo: null
 		});
 	});
@@ -216,6 +257,31 @@ describe('acceptDashboardInvitation', () => {
 				}
 			}
 		]);
+	});
+
+	it('logs invitation cleanup failures after accepting while preserving the success response', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const port = createDashboardOrgAccessPort({
+			invitation: buildInvitation(),
+			deleteInvitationSucceeds: false
+		});
+
+		const result = await acceptDashboardInvitation(
+			{ dashboard: port, notifications: createTestNotificationPort() },
+			{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+		);
+
+		expect(result).toEqual({ success: true, accepted: true });
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[dashboard-org-access]',
+			expect.objectContaining({
+				status: 'invitation-delete-failed',
+				reason: 'accepted-membership-cleanup',
+				invitationId: 'invite-1',
+				organizationId: 'org-1',
+				userId: 'user-1'
+			})
+		);
 	});
 
 	it('preserves the current membership defaults for nullable invitation flags', async () => {

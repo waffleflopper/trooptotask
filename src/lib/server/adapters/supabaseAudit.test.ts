@@ -45,6 +45,29 @@ describe('SupabaseAuditAdapter', () => {
 		);
 	});
 
+	it('forwards optional audit severity to auditLog', () => {
+		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
+
+		audit.log({
+			action: 'member.permissions_changed',
+			resourceType: 'organization',
+			resourceId: 'membership-1',
+			severity: 'warning'
+		});
+
+		expect(mockAuditLog).toHaveBeenCalledWith(
+			{
+				action: 'member.permissions_changed',
+				resourceType: 'organization',
+				resourceId: 'membership-1',
+				orgId: 'org-123',
+				details: undefined,
+				severity: 'warning'
+			},
+			requestInfo
+		);
+	});
+
 	it('works without optional resourceId and details', () => {
 		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 

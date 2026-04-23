@@ -36,14 +36,14 @@ function createOrganizationSettingsMemberManagementPort(
 	invitationLookups: Array<{ orgId: string; email: string }>;
 	createdInvitations: OrganizationInvitationCreateInput[];
 	revokedInvitations: Array<{ orgId: string; inviteId: string }>;
-	membershipLookups: string[];
+	membershipLookups: Array<{ orgId: string; membershipId: string }>;
 	removedMemberships: Array<{ orgId: string; membershipId: string }>;
 	updatedMemberships: OrganizationMembershipUpdateInput[];
 } {
 	const invitationLookups: Array<{ orgId: string; email: string }> = [];
 	const createdInvitations: OrganizationInvitationCreateInput[] = [];
 	const revokedInvitations: Array<{ orgId: string; inviteId: string }> = [];
-	const membershipLookups: string[] = [];
+	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
 	const removedMemberships: Array<{ orgId: string; membershipId: string }> = [];
 	const updatedMemberships: OrganizationMembershipUpdateInput[] = [];
 
@@ -66,8 +66,8 @@ function createOrganizationSettingsMemberManagementPort(
 			revokedInvitations.push({ orgId, inviteId });
 			return options.revokeInvitationError ?? null;
 		},
-		async findMembershipById(membershipId) {
-			membershipLookups.push(membershipId);
+		async findMembershipById(orgId, membershipId) {
+			membershipLookups.push({ orgId, membershipId });
 			return options.membership ?? null;
 		},
 		async removeMembership(orgId, membershipId) {
@@ -286,6 +286,7 @@ describe('removeOrganizationMember', () => {
 		);
 
 		expect(result).toEqual({ success: true });
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(port.removedMemberships).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(ctx.auditPort.events).toEqual([
 			{
@@ -437,6 +438,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 
 		expect(result).toEqual({ permissionSuccess: true });
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
 		expect(requireOwner).toHaveBeenCalledOnce();
 		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([

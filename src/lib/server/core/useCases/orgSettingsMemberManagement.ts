@@ -29,7 +29,7 @@ export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	createInvitation(input: OrganizationInvitationCreateInput): Promise<string | null>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<string | null>;
-	findMembershipById(membershipId: string): Promise<OrganizationMembershipRecord | null>;
+	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
@@ -157,7 +157,7 @@ export async function removeOrganizationMember(
 	}
 
 	const actorUserId = requireActorUserId(ports.auth);
-	const membership = await ports.settings.findMembershipById(input.membershipId);
+	const membership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
 
 	if (membership?.userId === actorUserId) {
 		fail(400, 'You cannot remove yourself from the organization');
@@ -207,7 +207,7 @@ export async function updateOrganizationMemberPermissions(
 	}
 
 	const actorUserId = requireActorUserId(ports.auth);
-	const targetMembership = await ports.settings.findMembershipById(input.membershipId);
+	const targetMembership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
 
 	if (targetMembership?.role === 'owner') {
 		fail(400, 'Cannot modify owner permissions');

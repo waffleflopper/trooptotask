@@ -56,7 +56,21 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canEdit.training).toBe(false);
 		expect(ctx.canView['critical-tasks']).toBe(false);
 		expect(ctx.canEdit['critical-tasks']).toBe(false);
+		expect(ctx.canView['rating-scheme']).toBe(true);
+		expect(ctx.canEdit['rating-scheme']).toBe(false);
 		expect(ctx.canManageMembers).toBe(false);
+	});
+
+	it('prefers explicit rating scheme flags over the legacy fallback shape', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			can_view_rating_scheme: false,
+			can_edit_rating_scheme: false,
+			can_edit_leaders_book: true
+		});
+
+		expect(ctx.canView['rating-scheme']).toBe(false);
+		expect(ctx.canEdit['rating-scheme']).toBe(false);
 	});
 
 	it('grants all permissions for privileged roles regardless of flags', () => {

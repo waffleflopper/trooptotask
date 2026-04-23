@@ -10,6 +10,8 @@ export interface OrganizationInvitationAccessShape {
 	canEditCriticalTasks: boolean | null;
 	canViewOnboarding: boolean | null;
 	canEditOnboarding: boolean | null;
+	canViewRatingScheme?: boolean | null;
+	canEditRatingScheme?: boolean | null;
 	canViewLeadersBook: boolean | null;
 	canEditLeadersBook: boolean | null;
 	canManageMembers: boolean | null;
@@ -31,6 +33,8 @@ export interface OrganizationMembershipDraft {
 	canEditCriticalTasks: boolean;
 	canViewOnboarding: boolean;
 	canEditOnboarding: boolean;
+	canViewRatingScheme: boolean;
+	canEditRatingScheme: boolean;
 	canViewLeadersBook: boolean;
 	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
@@ -43,6 +47,10 @@ export function deriveMembershipFromInvitation(input: {
 	email: string;
 }): OrganizationMembershipDraft {
 	const { invitation, userId, email } = input;
+	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
+	const canEditRatingScheme =
+		invitation.canEditRatingScheme ??
+		((invitation.canEditPersonnel ?? true) && (invitation.canEditLeadersBook ?? true));
 
 	return {
 		organizationId: invitation.organizationId,
@@ -59,6 +67,8 @@ export function deriveMembershipFromInvitation(input: {
 		canEditCriticalTasks: invitation.canEditCriticalTasks ?? true,
 		canViewOnboarding: invitation.canViewOnboarding ?? true,
 		canEditOnboarding: invitation.canEditOnboarding ?? true,
+		canViewRatingScheme,
+		canEditRatingScheme,
 		canViewLeadersBook: invitation.canViewLeadersBook ?? true,
 		canEditLeadersBook: invitation.canEditLeadersBook ?? true,
 		canManageMembers: invitation.canManageMembers ?? false,
@@ -67,6 +77,11 @@ export function deriveMembershipFromInvitation(input: {
 }
 
 export function isAdminInvitation(invitation: OrganizationInvitationAccessShape): boolean {
+	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
+	const canEditRatingScheme =
+		invitation.canEditRatingScheme ??
+		((invitation.canEditPersonnel ?? true) && (invitation.canEditLeadersBook ?? true));
+
 	return (
 		!!invitation.canViewCalendar &&
 		!!invitation.canEditCalendar &&
@@ -78,6 +93,8 @@ export function isAdminInvitation(invitation: OrganizationInvitationAccessShape)
 		!!invitation.canEditCriticalTasks &&
 		!!invitation.canViewOnboarding &&
 		!!invitation.canEditOnboarding &&
+		!!canViewRatingScheme &&
+		!!canEditRatingScheme &&
 		!!invitation.canViewLeadersBook &&
 		!!invitation.canEditLeadersBook &&
 		!!invitation.canManageMembers

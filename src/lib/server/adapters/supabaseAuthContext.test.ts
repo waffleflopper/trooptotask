@@ -10,6 +10,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		training: true,
 		'critical-tasks': true,
 		onboarding: true,
+		'rating-scheme': true,
 		'leaders-book': true
 	};
 

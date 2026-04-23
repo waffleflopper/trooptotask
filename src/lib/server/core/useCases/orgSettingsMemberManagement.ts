@@ -296,6 +296,8 @@ function resolveUpdatePermissions(
 		canEditCriticalTasks: !!customPermissions?.canEditCriticalTasks,
 		canViewOnboarding: !!customPermissions?.canViewOnboarding,
 		canEditOnboarding: !!customPermissions?.canEditOnboarding,
+		canViewRatingScheme: !!customPermissions?.canViewRatingScheme,
+		canEditRatingScheme: !!customPermissions?.canEditRatingScheme,
 		canViewLeadersBook: !!customPermissions?.canViewLeadersBook,
 		canEditLeadersBook: !!customPermissions?.canEditLeadersBook,
 		canManageMembers: !!customPermissions?.canManageMembers

@@ -201,20 +201,5 @@
 			"driftIds": ["D-06"]
 		}
 	],
-	"featurePermissionCouplings": [
-		{
-			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
-			"pattern": "requireEdit('personnel')",
-			"feature": "rating-scheme",
-			"reason": "Rating Scheme writes still depend on the Personnel edit lane.",
-			"driftIds": ["D-04"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/api/rating-scheme/+server.ts",
-			"pattern": "permission: 'leaders-book'",
-			"feature": "rating-scheme",
-			"reason": "Rating Scheme API still uses the Leaders Book permission lane.",
-			"driftIds": ["D-04"]
-		}
-	]
+	"featurePermissionCouplings": []
 }

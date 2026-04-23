@@ -34,6 +34,8 @@ export interface OrganizationMemberPermissions {
 	canEditCriticalTasks: boolean;
 	canViewOnboarding: boolean;
 	canEditOnboarding: boolean;
+	canViewRatingScheme?: boolean;
+	canEditRatingScheme?: boolean;
 	canViewLeadersBook: boolean;
 	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
@@ -77,6 +79,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
+		canViewRatingScheme: true,
+		canEditRatingScheme: true,
 		canViewLeadersBook: true,
 		canEditLeadersBook: true,
 		canManageMembers: true
@@ -92,6 +96,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
+		canViewRatingScheme: true,
+		canEditRatingScheme: true,
 		canViewLeadersBook: true,
 		canEditLeadersBook: true,
 		canManageMembers: false
@@ -107,6 +113,8 @@ export const PERMISSION_PRESETS: Record<
 		canEditCriticalTasks: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
+		canViewRatingScheme: true,
+		canEditRatingScheme: true,
 		canViewLeadersBook: true,
 		canEditLeadersBook: true,
 		canManageMembers: false
@@ -122,16 +130,33 @@ export const PERMISSION_PRESETS: Record<
 		canEditCriticalTasks: false,
 		canViewOnboarding: true,
 		canEditOnboarding: false,
+		canViewRatingScheme: true,
+		canEditRatingScheme: false,
 		canViewLeadersBook: true,
 		canEditLeadersBook: false,
 		canManageMembers: false
 	}
 };
 
+export function resolveRatingSchemePermissions(
+	permissions: Pick<
+		OrganizationMemberPermissions,
+		'canViewPersonnel' | 'canEditPersonnel' | 'canViewRatingScheme' | 'canEditRatingScheme' | 'canEditLeadersBook'
+	>
+): { canViewRatingScheme: boolean; canEditRatingScheme: boolean } {
+	return {
+		canViewRatingScheme: permissions.canViewRatingScheme ?? permissions.canViewPersonnel,
+		canEditRatingScheme:
+			permissions.canEditRatingScheme ?? (permissions.canEditPersonnel && permissions.canEditLeadersBook)
+	};
+}
+
 export function getPermissionPreset(
 	permissions: OrganizationMemberPermissions,
 	scopedGroupId?: string | null
 ): PermissionPreset {
+	const resolvedPermissions = resolveRatingSchemePermissions(permissions);
+
 	// Check each preset
 	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
 		if (
@@ -145,6 +170,8 @@ export function getPermissionPreset(
 			permissions.canEditCriticalTasks === presetPermissions.canEditCriticalTasks &&
 			permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
 			permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
+			resolvedPermissions.canViewRatingScheme === presetPermissions.canViewRatingScheme &&
+			resolvedPermissions.canEditRatingScheme === presetPermissions.canEditRatingScheme &&
 			permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
 			permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
 			permissions.canManageMembers === presetPermissions.canManageMembers

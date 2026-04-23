@@ -27,6 +27,7 @@
 
 	const editingPerson = $derived(personnelPayload?.person ?? null);
 	const editingEntry = $derived(ratingPayload?.entry ?? null);
+	const ratingSchemeResourceUrl = $derived(`/org/${ctx.orgId}/personnel?view=rating-scheme`);
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
@@ -102,7 +103,7 @@
 		if (result === 'approval_required' && entry) {
 			const person = personnelLookup.find((p) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
-			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, `/org/${ctx.orgId}/personnel`);
+			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, ratingSchemeResourceUrl);
 		}
 	}
 </script>

@@ -19,6 +19,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel, PersonnelLookup } from '$lib/types';
+	import { resolveRatingSchemePermissions } from '$lib/types';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -37,6 +38,19 @@
 	const awardTrackingOverrides = new SvelteMap<string, boolean>();
 	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
+	const canEditRoster = $derived(permissions?.canEditPersonnel ?? false);
+	const ratingPermissions = $derived(
+		resolveRatingSchemePermissions({
+			canViewPersonnel: permissions?.canViewPersonnel ?? false,
+			canEditPersonnel: permissions?.canEditPersonnel ?? false,
+			canViewRatingScheme: permissions?.canViewRatingScheme,
+			canEditRatingScheme: permissions?.canEditRatingScheme,
+			canEditLeadersBook: permissions?.canEditLeadersBook ?? false
+		})
+	);
+	const canViewRatingScheme = $derived(ratingPermissions.canViewRatingScheme);
+	const canEditRatingScheme = $derived(ratingPermissions.canEditRatingScheme);
 
 	const ratingStats = $derived.by(() => {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0, completed: 0 };
@@ -62,9 +76,11 @@
 	const dueSoonCount = $derived(ratingStats.overdue + ratingStats['due-30']);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const pageScopeLabel = $derived(ctx.data.scopedGroupId ? 'Scoped group roster' : 'Organization roster');
-	const editStateLabel = $derived(readOnly ? 'Read only' : permissions?.canEditPersonnel ? 'Editable' : 'View only');
-	const rosterSubtitle = $derived(`${pageScopeLabel} · ${editStateLabel}`);
-	const operationalSummary = $derived.by(() => [
+	const rosterAccessLabel = $derived(readOnly ? 'Read only' : canEditRoster ? 'Editable' : 'View only');
+	const ratingAccessLabel = $derived(readOnly ? 'Read only' : canEditRatingScheme ? 'Editable' : 'View only');
+	const rosterSubtitle = $derived(`${pageScopeLabel} · ${rosterAccessLabel}`);
+	const ratingSubtitle = $derived(`Evaluation-tracking lane · ${ratingAccessLabel}`);
+	const rosterOperationalSummary = $derived.by(() => [
 		{ label: 'Roster', value: `${personnelStore.items.length} total` },
 		{ label: 'Groups', value: `${rosterGroupCount} active` },
 		{ label: 'Unassigned', value: String(unassignedCount), alert: unassignedCount > 0 },
@@ -73,12 +89,25 @@
 			value: dueSoonCount > 0 ? `${dueSoonCount} due soon` : 'No 30d alerts',
 			alert: dueSoonCount > 0
 		},
-		{ label: 'Access', value: editStateLabel }
+		{ label: 'Access', value: rosterAccessLabel }
 	]);
+	const ratingOperationalSummary = $derived.by(() => [
+		{ label: 'Entries', value: `${ratingSchemeStore.items.length} total` },
+		{ label: 'Due Soon', value: dueSoonCount > 0 ? `${dueSoonCount}` : '0', alert: dueSoonCount > 0 },
+		{ label: 'Current', value: `${ratingStats.current}` },
+		{ label: 'Completed', value: `${ratingStats.completed}` },
+		{ label: 'Access', value: ratingAccessLabel }
+	]);
+	const toolbarTitle = $derived(ctx.pageView === 'rating-scheme' ? 'Rating Scheme' : 'Personnel');
+	const toolbarSubtitle = $derived(ctx.pageView === 'rating-scheme' ? ratingSubtitle : rosterSubtitle);
+	const operationalSummary = $derived(
+		ctx.pageView === 'rating-scheme' ? ratingOperationalSummary : rosterOperationalSummary
+	);
+	const canManageRoster = $derived(ctx.pageView === 'roster' && ctx.canAddPersonnel);
 
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		if (ctx.canAddPersonnel) {
+		if (canManageRoster) {
 			items.push({ label: 'Add Person', onclick: () => ctx.handleAdd(), disabled: readOnly });
 			items.push({ label: 'Manage Groups', onclick: () => ctx.openGroupManager(), disabled: readOnly });
 			items.push({
@@ -90,6 +119,7 @@
 		}
 		return items;
 	});
+	const toolbarOverflowItems = $derived(ctx.pageView === 'rating-scheme' ? [] : personnelOverflowItems);
 
 	// Personnel DataTable setup
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
@@ -160,9 +190,7 @@
 		groupedTable.setSearch(rosterSearch);
 	});
 
-	const handleRowClick = $derived(
-		permissions?.canEditPersonnel ? (person: Personnel) => ctx.handleEdit(person) : undefined
-	);
+	const handleRowClick = $derived(canEditRoster ? (person: Personnel) => ctx.handleEdit(person) : undefined);
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
@@ -176,6 +204,24 @@
 
 	function getAwardTrackingActionLabel(acknowledged: boolean): string {
 		return acknowledged ? 'Clear ack' : 'Ack award';
+	}
+
+	function updateEvalTypeFilter(event: Event) {
+		ctx.evalTypeFilter = (event.currentTarget as HTMLSelectElement).value as 'all' | 'OER' | 'NCOER' | 'WOER';
+	}
+
+	function updateRatingFilter(event: Event) {
+		ctx.ratingFilter = (event.currentTarget as HTMLSelectElement).value as
+			| 'active'
+			| 'completed'
+			| 'change-of-rater'
+			| 'all';
+	}
+
+	function updateWorkflowFilter(event: Event) {
+		ctx.workflowFilter = (event.currentTarget as HTMLSelectElement).value as
+			| import('$features/rating-scheme/rating-scheme.types').WorkflowStatus
+			| 'all';
 	}
 
 	async function setAwardTrackingAcknowledged(personId: string, acknowledged: boolean) {
@@ -202,17 +248,17 @@
 </script>
 
 <svelte:head>
-	<title>Personnel - Troop to Task</title>
+	<title>{toolbarTitle} - Troop to Task</title>
 </svelte:head>
 
 <div class="page">
 	<PageToolbar
-		title="Personnel"
-		subtitle={rosterSubtitle}
+		title={toolbarTitle}
+		subtitle={toolbarSubtitle}
 		helpTopic={ctx.pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'}
-		overflowItems={personnelOverflowItems}
+		overflowItems={toolbarOverflowItems}
 	>
-		{#if ctx.canAddPersonnel}
+		{#if canManageRoster}
 			<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
 				Manage Groups
 			</button>
@@ -242,7 +288,7 @@
 		{/snippet}
 	</PageToolbar>
 
-	{#if !permissions?.canViewPersonnel}
+	{#if (ctx.pageView === 'rating-scheme' && !canViewRatingScheme) || (ctx.pageView === 'roster' && !canViewRoster)}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -256,18 +302,21 @@
 					aria-pressed={ctx.pageView === 'roster'}
 					class:active={ctx.pageView === 'roster'}
 					onclick={() => onPageViewChange('roster')}
+					hidden={!canViewRoster}
 				>
 					Roster
 				</button>
-				<button
-					class="page-view-btn"
-					type="button"
-					aria-pressed={ctx.pageView === 'rating-scheme'}
-					class:active={ctx.pageView === 'rating-scheme'}
-					onclick={() => onPageViewChange('rating-scheme')}
-				>
-					Rating Scheme
-				</button>
+				{#if canViewRatingScheme}
+					<button
+						class="page-view-btn"
+						type="button"
+						aria-pressed={ctx.pageView === 'rating-scheme'}
+						class:active={ctx.pageView === 'rating-scheme'}
+						onclick={() => onPageViewChange('rating-scheme')}
+					>
+						Rating Scheme
+					</button>
+				{/if}
 			</div>
 		</div>
 
@@ -276,8 +325,8 @@
 				{#if ctx.totalPersonnel === 0}
 					<EmptyState
 						message="No personnel on the active roster. Add one person, or use More -> Bulk Import when you have a roster file."
-						actionLabel={permissions?.canEditPersonnel ? 'Add Person' : undefined}
-						onAction={permissions?.canEditPersonnel ? () => ctx.handleAdd() : undefined}
+						actionLabel={canEditRoster ? 'Add Person' : undefined}
+						onAction={canEditRoster ? () => ctx.handleAdd() : undefined}
 					/>
 				{:else if shouldGateGroupedRoster}
 					<div class="roster-scale-guard">
@@ -307,7 +356,7 @@
 							table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 							columns={personnelColumns}
 							onRowClick={handleRowClick}
-							rowActionLabel={permissions?.canEditPersonnel ? getPersonnelRowActionLabel : undefined}
+							rowActionLabel={canEditRoster ? getPersonnelRowActionLabel : undefined}
 							ariaLabel="Personnel roster"
 							emptyMessage="No personnel match your search."
 							maxHeight="100%"
@@ -457,7 +506,7 @@
 
 			<div class="rating-toolbar">
 				<div class="rating-action-group">
-					{#if permissions?.canEditPersonnel}
+					{#if canEditRatingScheme}
 						<button
 							class="btn btn-sm btn-primary"
 							type="button"
@@ -477,7 +526,7 @@
 						onclick={async () => {
 							exportLoading = true;
 							try {
-								await exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items);
+								await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
 							} catch (err) {
 								toastStore.error(err instanceof Error ? err.message : 'Export failed');
 							} finally {
@@ -519,7 +568,7 @@
 					<div class="rating-filter-panel">
 						<label class="filter-field">
 							<span>Eval Type</span>
-							<select class="select rating-filter" bind:value={ctx.evalTypeFilter}>
+							<select class="select rating-filter" value={ctx.evalTypeFilter} onchange={updateEvalTypeFilter}>
 								<option value="all">All Types</option>
 								<option value="OER">OER</option>
 								<option value="NCOER">NCOER</option>
@@ -528,7 +577,7 @@
 						</label>
 						<label class="filter-field">
 							<span>Status</span>
-							<select class="select rating-filter" bind:value={ctx.ratingFilter}>
+							<select class="select rating-filter" value={ctx.ratingFilter} onchange={updateRatingFilter}>
 								<option value="active">Active</option>
 								<option value="completed">Completed</option>
 								<option value="change-of-rater">Change of Rater</option>
@@ -538,7 +587,7 @@
 						{#if ctx.hasAnyWorkflowStatus}
 							<label class="filter-field">
 								<span>Workflow</span>
-								<select class="select rating-filter" bind:value={ctx.workflowFilter}>
+								<select class="select rating-filter" value={ctx.workflowFilter} onchange={updateWorkflowFilter}>
 									<option value="all">All Workflow</option>
 									{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
 										<option value={opt.value}>{opt.label}</option>
@@ -555,13 +604,13 @@
 					<RatingSchemeGroupedView
 						entries={ctx.filteredRatingEntries}
 						personnel={personnelLookup}
-						onEdit={(entry) => ctx.handleEditRatingEntry(entry)}
+						onEdit={canEditRatingScheme ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
 					/>
 				{:else}
 					<RatingSchemeTableView
 						entries={ctx.filteredRatingEntries}
 						personnel={personnelLookup}
-						onEdit={(entry) => ctx.handleEditRatingEntry(entry)}
+						onEdit={canEditRatingScheme ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
 					/>
 				{/if}
 			</main>

@@ -55,13 +55,14 @@ Each entry separates:
 - Guardrail going forward:
   - do not re-borrow the Training lane for Critical Tasks behavior, exports, or route access
 
-## D-04 Rating Scheme And Leaders Book Coupling
+## D-04 Rating Scheme And Leaders Book Coupling (Resolved In #627)
 
 - Current-state truth:
   - Rating Scheme is active
   - its record model already represents evaluation-tracking records rather than counseling or development-goal records
   - it currently renders inside the Personnel page
-  - its route shell still uses the Leaders Book lane while core CRUD currently enforces Personnel edit access
+  - it now uses its own dedicated lane across route guards, CRUD, membership and invitation booleans, and scoped RLS checks
+  - rating-scheme-only members can reach the nested Rating Scheme view through a dedicated primary-nav entry when they do not also have Personnel access
   - `Leader's Book` still exists in permissions, help, dashboard links, exports, settings, and plans
   - the main navigation currently hides `Leader's Book` during redesign and the route redirects away
 - Intended direction:
@@ -73,10 +74,10 @@ Each entry separates:
   - `Leader's Book` is not part of the current durable first-class lane map; a later ADR may revisit that once the rebuilt feature is real enough to evaluate
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
-- Guardrail until fixed:
-  - document the overlap and the approved record boundary explicitly; do not treat current Personnel-page placement or `Leader's Book` compatibility wiring as permission precedent
+- Guardrail going forward:
+  - do not re-borrow the Personnel or `Leader's Book` lanes for Rating Scheme access; temporary screen placement and nav treatment still do not define lane ownership
 - Recommended next slice:
-  - implement Rating Scheme runtime lane remediation against the approved `#620` boundary in `#627`, then revisit nav parity and remade `Leader's Book` lane taxonomy in a later decision slice
+  - revisit whether Rating Scheme should graduate from nested Personnel placement to a standalone surface, and whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt feature is concrete enough to evaluate
 
 ## D-05 Legacy Clinic Vocabulary
 

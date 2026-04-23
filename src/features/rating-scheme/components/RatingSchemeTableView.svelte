@@ -10,7 +10,7 @@
 	interface Props {
 		entries: RatingSchemeEntry[];
 		personnel: PersonnelLookup[];
-		onEdit: (entry: RatingSchemeEntry) => void;
+		onEdit?: (entry: RatingSchemeEntry) => void;
 	}
 
 	let { entries, personnel, onEdit }: Props = $props();
@@ -111,9 +111,11 @@
 <DataTable
 	data={entries}
 	{columns}
-	emptyMessage="No rating scheme entries yet. Click 'Add Entry' to get started."
-	onRowClick={(entry) => onEdit(entry)}
-	rowActionLabel={getRatingEntryActionLabel}
+	emptyMessage={onEdit
+		? "No rating scheme entries yet. Click 'Add Entry' to get started."
+		: 'No rating scheme entries yet.'}
+	onRowClick={onEdit ? (entry) => onEdit(entry) : undefined}
+	rowActionLabel={onEdit ? getRatingEntryActionLabel : undefined}
 	compact
 	initialSortKey="thruDate"
 	initialSortDirection="asc"

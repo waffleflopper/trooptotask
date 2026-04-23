@@ -35,6 +35,7 @@ ALTER TABLE "public"."organization_invitations"
 CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme"("p_organization_id" "uuid")
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -53,6 +54,7 @@ ALTER FUNCTION "public"."can_view_rating_scheme"("p_organization_id" "uuid") OWN
 CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme"("p_organization_id" "uuid")
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -103,6 +105,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme_record"(
   "p_rated_person_id" "uuid"
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -134,6 +137,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme_record"(
   "p_rated_person_id" "uuid"
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1

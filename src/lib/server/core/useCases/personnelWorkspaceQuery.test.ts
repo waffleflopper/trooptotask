@@ -242,6 +242,12 @@ describe('fetchRatingSchemeBootstrap', () => {
 				award_tracking_acknowledged_at: '2026-04-14T00:00:00Z'
 			}
 		]);
+		ctx.ratingSchemePersonnelLookup = {
+			listPersonnelLookup: vi.fn().mockResolvedValue([
+				{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
+				{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
+			])
+		};
 
 		const result = await fetchRatingSchemeBootstrap(ctx);
 
@@ -306,6 +312,9 @@ describe('fetchRatingSchemeBootstrap', () => {
 				workflow_status: 'drafting'
 			}
 		]);
+		ctx.ratingSchemePersonnelLookup = {
+			listPersonnelLookup: vi.fn().mockResolvedValue([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }])
+		};
 
 		const result = await fetchRatingSchemeBootstrap(ctx);
 
@@ -337,5 +346,11 @@ describe('fetchRatingSchemeBootstrap', () => {
 
 		expect(listPersonnelLookup).toHaveBeenCalledWith(ORG);
 		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
+	});
+
+	it('requires the dedicated rating-scheme personnel lookup port', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+
+		await expect(fetchRatingSchemeBootstrap(ctx)).rejects.toThrow('Rating Scheme personnel lookup port is required');
 	});
 });

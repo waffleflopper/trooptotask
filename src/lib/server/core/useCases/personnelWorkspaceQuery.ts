@@ -28,12 +28,6 @@ const activePersonnelFindOptions: FindOptions = {
 	isNull: { archived_at: true }
 };
 
-const ratingSchemePersonnelLookupFindOptions: FindOptions = {
-	select: 'id, rank, last_name, first_name',
-	orderBy: [{ column: 'last_name', ascending: true }],
-	isNull: { archived_at: true }
-};
-
 function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
 	return rows.map((person) => ({
 		id: person.id,
@@ -52,15 +46,6 @@ function toPersonnelLookupFromRatingSchemeRecords(rows: RatingSchemePersonnelLoo
 	}));
 }
 
-function toPersonnelLookupFromDbProjection(rows: Record<string, unknown>[]): PersonnelLookup[] {
-	return rows.map((row) => ({
-		id: String(row.id),
-		rank: typeof row.rank === 'string' ? row.rank : '',
-		lastName: typeof row.last_name === 'string' ? row.last_name : '',
-		firstName: typeof row.first_name === 'string' ? row.first_name : ''
-	}));
-}
-
 async function loadRatingSchemePersonnelLookup(ctx: QueryWithRawStorePorts): Promise<PersonnelLookup[]> {
 	const orgId = ctx.auth.orgId;
 
@@ -69,13 +54,7 @@ async function loadRatingSchemePersonnelLookup(ctx: QueryWithRawStorePorts): Pro
 		return toPersonnelLookupFromRatingSchemeRecords(records);
 	}
 
-	const personnelRows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel',
-		orgId,
-		undefined,
-		ratingSchemePersonnelLookupFindOptions
-	);
-	return toPersonnelLookupFromDbProjection(personnelRows);
+	throw new Error('Rating Scheme personnel lookup port is required');
 }
 
 async function loadRatingSchemeSharedData(

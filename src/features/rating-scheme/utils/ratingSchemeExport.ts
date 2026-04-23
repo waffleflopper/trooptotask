@@ -1,9 +1,9 @@
-import type { Personnel } from '$lib/types';
+import type { PersonnelLookup } from '$lib/types';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 
-function getPersonName(personnel: Personnel[], id: string | null, name: string | null): string {
+function getPersonName(personnel: PersonnelLookup[], id: string | null, name: string | null): string {
 	if (id) {
 		const p = personnel.find((p) => p.id === id);
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
@@ -33,7 +33,7 @@ function getStatusLabel(status: string): string {
 	return status;
 }
 
-export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Personnel[]) {
+export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: PersonnelLookup[]) {
 	const XLSX = await import('xlsx');
 	const rows = entries.map((entry) => {
 		const rated = personnel.find((p) => p.id === entry.ratedPersonId);

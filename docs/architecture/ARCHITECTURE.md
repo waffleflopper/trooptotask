@@ -49,9 +49,10 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
   - app-layer checks via `PermissionContext` / `AuthContext`
   - SQL helper functions and RLS policies in Supabase migrations
 - Admin UI presets like `Full Editor`, `Team Leader`, and `Viewer` exist today as convenience labels over the boolean-and-scope model. They are not persisted domain roles.
-- Current permission lanes are still coarse in places:
-  - Critical Tasks currently rides the training permission lane
-  - Rating Scheme still lives in a leaders-book-adjacent lane rather than a dedicated permission lane
+- Current permission lanes still carry some transitional complexity:
+  - Critical Tasks now owns a dedicated permission lane
+  - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, and RLS while remaining nested inside Personnel in the UI
+  - `Leader's Book` remains a documented transitional compatibility lane outside the durable first-class lane map
 
 ### Provider ownership
 
@@ -70,7 +71,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
 - `Leaders Book` still exists conceptually and in permissions, help content, exports, and plans, but is hidden from primary nav while redesign work is pending.
-- `Rating Scheme` is active and user-visible, but its boundary is not yet cleanly independent.
+- `Rating Scheme` is active and user-visible, owns a dedicated permission lane, and still renders inside Personnel while the standalone surface decision remains deferred.
 - Demo and sandbox flows still exist in schema, routes, and bootstrap logic, but are already marked as deprecated for future removal.
 - The live `/demo` entry and `/api/create-demo-sandbox` both fail closed now, but cookie-driven org-route bypasses and sandbox cleanup paths still remain as contained exceptions.
 
@@ -124,8 +125,8 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 - Route-level `locals.supabase` islands still exist in multiple business-critical surfaces.
 - The current authz model is boolean-heavy, hard to audit cleanly, and not the intended steady state.
-- Critical Tasks is a feature in its own right, but its permission lane is still coupled to Training.
-- Rating Scheme is active, but its boundary still overlaps with Leaders Book and personnel-centric surfaces.
+- Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
+- Rating Scheme now owns its dedicated lane; remaining drift is UI placement and the standalone-surface decision, not Personnel or `Leader's Book` permission ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.
 - Leaders Book remains hidden from primary nav while related data and permissions remain live.
 - Demo/sandbox bypass logic still exists and uses service-role access paths.

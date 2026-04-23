@@ -10,7 +10,7 @@
 	interface Props {
 		entries: RatingSchemeEntry[];
 		personnel: PersonnelLookup[];
-		onEdit: (entry: RatingSchemeEntry) => void;
+		onEdit?: (entry: RatingSchemeEntry) => void;
 	}
 
 	let { entries, personnel, onEdit }: Props = $props();
@@ -123,21 +123,39 @@
 						</div>
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
-							<button class="entry-row" type="button" onclick={() => onEdit(entry)}>
-								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-								<Badge
-									label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
-									color={getEvalTypeColor(entry.evalType)}
-								/>
-								{#if entry.workflowStatus}
+							{#if onEdit}
+								<button class="entry-row" type="button" onclick={() => onEdit(entry)}>
+									<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
 									<Badge
-										label={getWorkflowLabel(entry.workflowStatus)}
-										color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
+										label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
+										color={getEvalTypeColor(entry.evalType)}
 									/>
-								{/if}
-								<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
-								<Badge label={due.label} color={due.color} />
-							</button>
+									{#if entry.workflowStatus}
+										<Badge
+											label={getWorkflowLabel(entry.workflowStatus)}
+											color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
+										/>
+									{/if}
+									<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
+									<Badge label={due.label} color={due.color} />
+								</button>
+							{:else}
+								<div class="entry-row entry-row--static">
+									<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
+									<Badge
+										label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
+										color={getEvalTypeColor(entry.evalType)}
+									/>
+									{#if entry.workflowStatus}
+										<Badge
+											label={getWorkflowLabel(entry.workflowStatus)}
+											color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
+										/>
+									{/if}
+									<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
+									<Badge label={due.label} color={due.color} />
+								</div>
+							{/if}
 						{/each}
 					</div>
 				{/each}
@@ -196,7 +214,6 @@
 	}
 
 	.entry-row {
-		appearance: none;
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
@@ -211,11 +228,19 @@
 		text-align: left;
 		font-size: var(--text-sm);
 		color: var(--text-primary);
+	}
+
+	button.entry-row {
+		appearance: none;
 		transition: background-color var(--transition-fast);
 	}
 
-	.entry-row:hover {
+	button.entry-row:hover {
 		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+	}
+
+	.entry-row--static {
+		border-top: var(--border-rule);
 	}
 
 	.rated-name {

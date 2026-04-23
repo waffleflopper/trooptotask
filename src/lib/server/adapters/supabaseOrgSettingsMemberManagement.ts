@@ -55,6 +55,8 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
 				can_view_onboarding: input.permissions.canViewOnboarding,
 				can_edit_onboarding: input.permissions.canEditOnboarding,
+				can_view_rating_scheme: input.permissions.canViewRatingScheme,
+				can_edit_rating_scheme: input.permissions.canEditRatingScheme,
 				can_view_leaders_book: input.permissions.canViewLeadersBook,
 				can_edit_leaders_book: input.permissions.canEditLeadersBook,
 				can_manage_members: input.permissions.canManageMembers
@@ -142,6 +144,8 @@ function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {
 		can_edit_critical_tasks: input.permissions.canEditCriticalTasks,
 		can_view_onboarding: input.permissions.canViewOnboarding,
 		can_edit_onboarding: input.permissions.canEditOnboarding,
+		can_view_rating_scheme: input.permissions.canViewRatingScheme,
+		can_edit_rating_scheme: input.permissions.canEditRatingScheme,
 		can_view_leaders_book: input.permissions.canViewLeadersBook,
 		can_edit_leaders_book: input.permissions.canEditLeadersBook,
 		can_manage_members: input.permissions.canManageMembers

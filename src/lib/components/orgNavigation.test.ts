@@ -13,6 +13,8 @@ const basePermissions: OrganizationMemberPermissions = {
 	canEditCriticalTasks: false,
 	canViewOnboarding: false,
 	canEditOnboarding: false,
+	canViewRatingScheme: false,
+	canEditRatingScheme: false,
 	canViewLeadersBook: false,
 	canEditLeadersBook: false,
 	canManageMembers: false
@@ -52,5 +54,37 @@ describe('getOrgNavigation', () => {
 		}
 
 		expect(isOrgNavItemActive('/org/org-1/critical-tasks/reports', item)).toBe(true);
+	});
+
+	it('shows a Rating Scheme nav item when the member can view rating scheme but not personnel', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewRatingScheme: true
+		});
+
+		expect(nav).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 'rating-scheme',
+					href: '/org/org-1/personnel?view=rating-scheme',
+					label: 'Rating Scheme',
+					visible: true
+				})
+			])
+		);
+		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
+	});
+
+	it('treats the rating-scheme nav item as active on the nested personnel route', () => {
+		const item = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewRatingScheme: true
+		}).find((navItem) => navItem.id === 'rating-scheme');
+
+		if (!item) {
+			throw new Error('Rating Scheme nav item missing');
+		}
+
+		expect(isOrgNavItemActive('/org/org-1/personnel', item)).toBe(true);
 	});
 });

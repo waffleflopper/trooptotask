@@ -102,6 +102,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			can_edit_critical_tasks: false,
 			can_view_onboarding: true,
 			can_edit_onboarding: false,
+			can_view_rating_scheme: true,
+			can_edit_rating_scheme: false,
 			can_view_leaders_book: false,
 			can_edit_leaders_book: false,
 			can_manage_members: false
@@ -138,6 +140,8 @@ describe('createSupabaseOrgAccessPort', () => {
 				canEditCriticalTasks: false,
 				canViewOnboarding: true,
 				canEditOnboarding: false,
+				canViewRatingScheme: true,
+				canEditRatingScheme: false,
 				canViewLeadersBook: false,
 				canEditLeadersBook: false,
 				canManageMembers: false

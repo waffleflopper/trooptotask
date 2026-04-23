@@ -330,6 +330,8 @@ describe('org settings page server actions', () => {
 					canEditCriticalTasks: false,
 					canViewOnboarding: false,
 					canEditOnboarding: false,
+					canViewRatingScheme: false,
+					canEditRatingScheme: false,
 					canViewLeadersBook: false,
 					canEditLeadersBook: false,
 					canManageMembers: true

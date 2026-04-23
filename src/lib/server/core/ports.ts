@@ -1,6 +1,13 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 
-export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'leaders-book';
+export type FeatureArea =
+	| 'calendar'
+	| 'personnel'
+	| 'training'
+	| 'critical-tasks'
+	| 'onboarding'
+	| 'rating-scheme'
+	| 'leaders-book';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -43,6 +50,17 @@ export interface CriticalTasksReadModelPort {
 		orgId: string,
 		filters?: CriticalTasksReadModelFilters
 	): Promise<CriticalTasksCompletionTrendPoint[]>;
+}
+
+export interface RatingSchemePersonnelLookupRecord {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+}
+
+export interface RatingSchemePersonnelLookupPort {
+	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
 }
 
 export interface PersistedDutyTemplateAggregate {
@@ -225,6 +243,7 @@ export interface QueryPorts {
 	store: DataStore;
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 }
 
 /** Query operations needing unscoped access (e.g., shared data) */
@@ -244,6 +263,7 @@ export interface UseCaseContext {
 	billing: BillingPort;
 	storage: StoragePort;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

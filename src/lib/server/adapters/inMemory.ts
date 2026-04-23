@@ -314,6 +314,7 @@ interface AuditEvent {
 	resourceType: string;
 	resourceId?: string;
 	details?: Record<string, unknown>;
+	severity?: 'info' | 'warning' | 'critical';
 }
 
 export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {

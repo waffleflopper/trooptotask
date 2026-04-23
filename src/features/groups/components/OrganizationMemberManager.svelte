@@ -40,6 +40,7 @@
 		form?: {
 			error?: string;
 			success?: boolean;
+			deleteError?: string;
 			inviteError?: string;
 			inviteSuccess?: boolean;
 			inviteMessage?: string;

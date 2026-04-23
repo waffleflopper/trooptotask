@@ -32,7 +32,7 @@ export interface RatingSchemeEntryUseCases {
 export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 	return {
 		async create(ctx, data) {
-			ctx.auth.requireEdit('personnel');
+			ctx.auth.requireEdit('rating-scheme');
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
@@ -58,7 +58,7 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 		},
 
 		async update(ctx, data) {
-			ctx.auth.requireEdit('personnel');
+			ctx.auth.requireEdit('rating-scheme');
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
@@ -89,7 +89,7 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 		},
 
 		async remove(ctx, id) {
-			ctx.auth.requireEdit('personnel');
+			ctx.auth.requireEdit('rating-scheme');
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {

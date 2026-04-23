@@ -71,6 +71,8 @@ describe('organizationInvitationMembership', () => {
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
 			canManageMembers: false,

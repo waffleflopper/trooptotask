@@ -24,6 +24,8 @@
 		canEditCriticalTasks: boolean;
 		canViewOnboarding: boolean;
 		canEditOnboarding: boolean;
+		canViewRatingScheme: boolean;
+		canEditRatingScheme: boolean;
 		canViewLeadersBook: boolean;
 		canEditLeadersBook: boolean;
 		canManageMembers: boolean;
@@ -113,6 +115,8 @@
 				canEditCriticalTasks: member.canEditCriticalTasks,
 				canViewOnboarding: member.canViewOnboarding,
 				canEditOnboarding: member.canEditOnboarding,
+				canViewRatingScheme: member.canViewRatingScheme,
+				canEditRatingScheme: member.canEditRatingScheme,
 				canViewLeadersBook: member.canViewLeadersBook,
 				canEditLeadersBook: member.canEditLeadersBook,
 				canManageMembers: member.canManageMembers
@@ -142,6 +146,8 @@
 				canEditCriticalTasks: invite.canEditCriticalTasks,
 				canViewOnboarding: invite.canViewOnboarding,
 				canEditOnboarding: invite.canEditOnboarding,
+				canViewRatingScheme: invite.canViewRatingScheme,
+				canEditRatingScheme: invite.canEditRatingScheme,
 				canViewLeadersBook: invite.canViewLeadersBook,
 				canEditLeadersBook: invite.canEditLeadersBook,
 				canManageMembers: invite.canManageMembers
@@ -382,6 +388,22 @@
 									</label>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canEditOnboarding" checked={member.canEditOnboarding} />
+										Edit
+									</label>
+								</div>
+
+								<div class="permission-section">
+									<h4>Rating Scheme</h4>
+									<p class="permission-description">
+										View evaluation-tracking records and workflow status. Edit allows creating and updating rating
+										scheme entries.
+									</p>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canViewRatingScheme" checked={member.canViewRatingScheme} />
+										View
+									</label>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canEditRatingScheme" checked={member.canEditRatingScheme} />
 										Edit
 									</label>
 								</div>

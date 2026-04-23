@@ -21,6 +21,8 @@ const editablePermissions: OrganizationMemberPermissions = {
 	canEditCriticalTasks: true,
 	canViewOnboarding: true,
 	canEditOnboarding: true,
+	canViewRatingScheme: true,
+	canEditRatingScheme: true,
 	canViewLeadersBook: true,
 	canEditLeadersBook: true,
 	canManageMembers: true
@@ -29,6 +31,14 @@ const editablePermissions: OrganizationMemberPermissions = {
 const viewOnlyPermissions: OrganizationMemberPermissions = {
 	...editablePermissions,
 	canEditPersonnel: false
+};
+
+const ratingOnlyPermissions: OrganizationMemberPermissions = {
+	...editablePermissions,
+	canViewPersonnel: false,
+	canEditPersonnel: false,
+	canViewRatingScheme: true,
+	canEditRatingScheme: true
 };
 
 const personnel: Personnel[] = [
@@ -241,5 +251,90 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(row!);
 
 		expect(handleEdit).not.toHaveBeenCalled();
+	});
+
+	it('allows rating-scheme-only viewers to open the rating scheme view without showing roster access errors', () => {
+		const ctx = {
+			...makeCtx(),
+			pageView: 'rating-scheme',
+			filteredRatingEntries: [
+				{
+					id: 'rs1',
+					ratedPersonId: 'person-1',
+					evalType: 'NCOER',
+					raterPersonId: null,
+					raterName: null,
+					seniorRaterPersonId: null,
+					seniorRaterName: null,
+					intermediateRaterPersonId: null,
+					intermediateRaterName: null,
+					reviewerPersonId: null,
+					reviewerName: null,
+					ratingPeriodStart: '2026-01-01',
+					ratingPeriodEnd: '2026-12-31',
+					status: 'active',
+					reportType: 'AN',
+					workflowStatus: 'drafting',
+					notes: null
+				}
+			]
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: {
+				ctx,
+				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
+				permissions: ratingOnlyPermissions,
+				onPageViewChange: vi.fn()
+			}
+		});
+
+		expect(screen.queryByText('Access Restricted')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Rating Scheme' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Roster' })).toBeNull();
+	});
+
+	it('uses rating-scheme edit permission for rating entry actions', () => {
+		const handleAddRatingEntry = vi.fn();
+		const ctx = {
+			...makeCtx(),
+			pageView: 'rating-scheme',
+			handleAddRatingEntry,
+			filteredRatingEntries: []
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: {
+				ctx,
+				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
+				permissions: ratingOnlyPermissions,
+				onPageViewChange: vi.fn()
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
+	});
+
+	it('does not show roster administration actions on the rating scheme view', () => {
+		const ctx = {
+			...makeCtx(),
+			canAddPersonnel: true,
+			pageView: 'rating-scheme',
+			filteredRatingEntries: []
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: {
+				ctx,
+				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
+				permissions: editablePermissions,
+				onPageViewChange: vi.fn()
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 	});
 });

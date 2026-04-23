@@ -34,7 +34,7 @@ import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCale
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
-import { fetchPersonnelBootstrap } from '../core/useCases/personnelWorkspaceQuery';
+import { fetchPersonnelBootstrap, fetchRatingSchemeBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
@@ -266,6 +266,10 @@ export function createSupabaseOrgAccessPort(config: {
 				canEditCriticalTasks: isPrivileged || !!membership.can_edit_critical_tasks,
 				canViewOnboarding: isPrivileged || membership.can_view_onboarding,
 				canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
+				canViewRatingScheme: isPrivileged || (membership.can_view_rating_scheme ?? membership.can_view_personnel),
+				canEditRatingScheme:
+					isPrivileged ||
+					(membership.can_edit_rating_scheme ?? (membership.can_edit_personnel && membership.can_edit_leaders_book)),
 				canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
 				canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
 				canManageMembers: isPrivileged || membership.can_manage_members
@@ -303,7 +307,7 @@ async function loadMembershipRow(config: {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
 		.select(
-			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 		)
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)
@@ -766,7 +770,8 @@ export function createSupabaseOnboardingWorkspacePort(
 export function createSupabasePersonnelWorkspacePort(
 	locals: App.Locals,
 	cookies: Cookies,
-	orgId: string
+	orgId: string,
+	view: 'roster' | 'rating-scheme' = 'roster'
 ): OrgWorkspacePort {
 	return {
 		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
@@ -775,8 +780,8 @@ export function createSupabasePersonnelWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'personnel',
-				fn: async (ctx) => fetchPersonnelBootstrap(ctx)
+				permission: view === 'rating-scheme' ? 'rating-scheme' : 'personnel',
+				fn: async (ctx) => (view === 'rating-scheme' ? fetchRatingSchemeBootstrap(ctx) : fetchPersonnelBootstrap(ctx))
 			});
 
 			return data as T;

@@ -15,6 +15,22 @@ const validInput = {
 };
 
 describe('Rating scheme entry — create', () => {
+	it('requires the rating scheme edit lane before mutating', async () => {
+		const requireEditCalls: string[] = [];
+		const ctx = buildContext({
+			auth: {
+				requireEdit(area) {
+					requireEditCalls.push(area);
+				}
+			}
+		});
+		const { create } = createRatingSchemeEntryUseCases();
+
+		await create(ctx, { ...validInput });
+
+		expect(requireEditCalls).toEqual(['rating-scheme']);
+	});
+
 	it('creates an entry, persists it, and audits', async () => {
 		const ctx = buildContext();
 		const { create } = createRatingSchemeEntryUseCases();

@@ -6,7 +6,7 @@ import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscript
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
 
-export async function loadBillingPageData(
+export async function _loadBillingPageData(
 	ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
 	effectiveTier: EffectiveTier
 ) {
@@ -46,6 +46,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'owner',
-		fn: async (ctx) => loadBillingPageData(ctx, parentData.effectiveTier!)
+		fn: async (ctx) => _loadBillingPageData(ctx, parentData.effectiveTier!)
 	});
 };

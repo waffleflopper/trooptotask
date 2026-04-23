@@ -4,11 +4,14 @@ import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/typ
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { buildLayoutContext, buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
-import { auditLog } from '$lib/server/auditLog';
 import { GroupEntity } from '$lib/server/entities/group';
-import { sanitizeString, validateUUID } from '$lib/server/validation';
+import { sanitizeString } from '$lib/server/validation';
+import {
+	deleteOrganization as deleteOrganizationUseCase,
+	transferOrganizationOwnership
+} from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
 	removeOrganizationMember,
@@ -240,83 +243,52 @@ export const actions: Actions = {
 		}
 	},
 
-	transferOwnership: async ({ params, request, locals, cookies }) => {
+	transferOwnership: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireOwner();
 		const formData = await request.formData();
-		const newOwnerId = formData.get('newOwnerId') as string;
-
-		if (!validateUUID(newOwnerId)) {
-			return fail(400, { transferError: 'Invalid user ID' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await transferOrganizationOwnership(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				},
+				{
+					newOwnerId: (formData.get('newOwnerId') as string) ?? ''
+				}
+			);
+		} catch (error) {
+			return toActionFailure('transferError', error);
 		}
-
-		const { error } = await locals.supabase.rpc('transfer_org_ownership', {
-			p_organization_id: orgId,
-			p_new_owner_id: newOwnerId
-		});
-
-		if (error) {
-			return fail(500, { transferError: error.message });
-		}
-
-		auditLog(
-			{
-				action: 'org.ownership_transferred',
-				resourceType: 'organization',
-				orgId,
-				severity: 'critical',
-				details: { newOwnerId }
-			},
-			{ userId: user.id }
-		);
-
-		const { data: transferOrg } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
-
-		await createSupabaseNotificationAdapter().notifyUser(orgId, newOwnerId, {
-			type: 'ownership_transferred',
-			title: 'Ownership Transferred',
-			message: `You are now the owner of "${transferOrg?.name ?? 'the organization'}".`,
-			link: `/org/${orgId}/settings`
-		});
-
-		return { transferSuccess: true };
 	},
 
-	deleteOrganization: async ({ params, request, locals, cookies }) => {
+	deleteOrganization: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireOwner();
 		const formData = await request.formData();
-		const confirmName = sanitizeString(formData.get('confirmName') as string, 100);
-		const { data: organization, error: organizationError } = await locals.supabase
-			.from('organizations')
-			.select('name')
-			.eq('id', orgId)
-			.single();
-
-		if (organizationError) {
-			return fail(500, { deleteError: organizationError.message });
+		try {
+			const ctx = await buildRouteContext(event);
+			await deleteOrganizationUseCase(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				},
+				{
+					confirmName: (formData.get('confirmName') as string) ?? ''
+				}
+			);
+		} catch (error) {
+			return toActionFailure('deleteError', error);
 		}
-
-		if (confirmName !== sanitizeString(organization?.name as string | null, 100)) {
-			return fail(400, { deleteError: 'Organization name does not match' });
-		}
-
-		const { error } = await locals.supabase.from('organizations').delete().eq('id', orgId);
-
-		if (error) {
-			return fail(500, { deleteError: error.message });
-		}
-
-		auditLog({ action: 'org.deleted', resourceType: 'organization', orgId, severity: 'critical' }, { userId: user.id });
 
 		throw redirect(303, '/dashboard?show=all');
 	}

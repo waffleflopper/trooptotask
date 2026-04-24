@@ -34,7 +34,7 @@ describe('user preferences', () => {
 		const result = await loadUserOrgPreferences(ctx);
 
 		expect(result.calendar.showStatusText).toBe(true);
-		expect(result.calendar.showPersonnelRoles).toBe(true);
+		expect(result.calendar.showPersonnelRoles).toBe(false);
 		expect(result.calendar.highlightOnboarding).toBe(true);
 		expect(result.training.matrixViewMode).toBe('by-group');
 	});

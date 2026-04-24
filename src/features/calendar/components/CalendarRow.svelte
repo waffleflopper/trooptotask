@@ -42,7 +42,7 @@
 		personAssignments,
 		personDutyBadges,
 		showStatusText = false,
-		showPersonnelRoles = true,
+		showPersonnelRoles = false,
 		isOnboarding = false,
 		highlightOnboarding = true,
 		upcomingLossRecord,

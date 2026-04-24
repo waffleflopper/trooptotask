@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
-	import TodayBreakdownPanel from '$features/calendar/components/TodayBreakdownPanel.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
@@ -9,7 +8,6 @@
 	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -34,7 +32,7 @@
 
 	function getExportData() {
 		return {
-			personnelByGroup: ctx.scopedPBG,
+			personnelByGroup: ctx.filteredPBG,
 			availabilityEntries: availabilityStore.items,
 			statusTypes: statusTypesStore.items,
 			specialDays: specialDaysStore.items,
@@ -49,14 +47,15 @@
 			canEditCalendar: data.permissions?.canEditCalendar ?? false,
 			canManageConfig: ctx.canManageConfig,
 			readOnly: ctx.readOnly,
-			breakdownExpanded: ctx.breakdownExpanded,
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
+			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
+			highlightOnboarding: ctx.highlightOnboarding,
 			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			viewMode: ctx.viewMode,
-			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
+			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
@@ -75,23 +74,6 @@
 </svelte:head>
 
 <div class="page">
-	<SmartToolbar title="Calendar" helpTopic="calendar" items={toolbarItems}>
-		{#if ctx.activeOnboardingPersonnelIds.length > 0}
-			<button
-				class="toolbar-toggle"
-				class:active={ctx.highlightOnboarding}
-				onclick={() => ctx.toggleHighlightOnboarding()}
-				title={ctx.highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
-			>
-				<span class="toggle-dot"></span>
-				Onboarding
-			</button>
-		{/if}
-		{#if ctx.readOnly}
-			<span class="text-muted" style="font-size: var(--text-xs);">View only</span>
-		{/if}
-	</SmartToolbar>
-
 	{#if !data.permissions?.canViewCalendar}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
@@ -102,19 +84,6 @@
 			<section class="calendar-section calendar-section--loading" aria-live="polite" role="status">
 				<p class="loading-kicker">Loading calendar data</p>
 
-				<section class="breakdown-placeholder" aria-hidden="true">
-					<div class="breakdown-placeholder__header">
-						<SkeletonLine width="132px" height="12px" />
-						<SkeletonLine width="90px" height="12px" />
-					</div>
-					<div class="breakdown-placeholder__chips">
-						<SkeletonBlock height="28px" />
-						<SkeletonBlock height="28px" />
-						<SkeletonBlock height="28px" />
-						<SkeletonBlock height="28px" />
-					</div>
-				</section>
-
 				{#if ctx.viewMode === '3-month'}
 					<SkeletonBlock height="820px" />
 				{:else}
@@ -123,23 +92,43 @@
 			</section>
 		</main>
 	{:else}
-		<TodayBreakdownPanel
-			expanded={ctx.breakdownExpanded}
-			onToggle={() => ctx.toggleBreakdown()}
-			personnelByGroup={ctx.personnelByGroup}
-			availabilityEntries={availabilityStore.items}
-			statusTypes={statusTypesStore.items}
-			assignmentTypes={dailyAssignmentsStore.types}
-			assignments={dailyAssignmentsStore.assignments}
-			dutyEvents={ctx.advancedDutyEvents}
-		/>
-
 		<main class="page-content">
 			<section class="calendar-section">
+				<div class="command-strip">
+					<div class="filter-cluster" aria-label="Calendar filters">
+						<select
+							class="filter-select"
+							aria-label="Calendar group filter"
+							value={ctx.calendarGroupFilter}
+							onchange={(event) => ctx.setCalendarGroupFilter(event.currentTarget.value)}
+						>
+							{#each ctx.groupFilterOptions as option (option.value)}
+								<option value={option.value}>
+									{option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`}
+								</option>
+							{/each}
+						</select>
+						<div class="personnel-filter">
+							<input
+								type="search"
+								class="input personnel-search"
+								aria-label="Search by name, rank, MOS, role, or group"
+								placeholder="Search name, rank, MOS, role, or group..."
+								value={ctx.calendarPersonnelSearch}
+								oninput={(event) => ctx.setCalendarPersonnelSearch(event.currentTarget.value)}
+							/>
+						</div>
+					</div>
+
+					<div class="strip-actions">
+						<SmartToolbar items={toolbarItems} />
+					</div>
+				</div>
+
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
-						personnelByGroup={ctx.scopedPBG}
+						personnelByGroup={ctx.filteredPBG}
 						availabilityEntries={availabilityStore.items}
 						statusTypes={statusTypesStore.items}
 						specialDays={specialDaysStore.items}
@@ -156,7 +145,7 @@
 						month={calendarStore.month}
 						monthName={calendarStore.monthName}
 						dates={calendarStore.dates}
-						personnelByGroup={ctx.personnelByGroup}
+						personnelByGroup={ctx.filteredPBG}
 						availabilityEntries={availabilityStore.items}
 						statusTypes={statusTypesStore.items}
 						specialDays={specialDaysStore.items}
@@ -224,14 +213,16 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--surface-page);
+		background: color-mix(in srgb, var(--surface-page) 92%, var(--surface-panel) 8%);
+		--personnel-column-width: 250px;
+		--cell-height: 30px;
 	}
 
 	.page-content {
 		flex: 1;
 		display: flex;
 		overflow: hidden;
-		padding: var(--sp-5) var(--sp-6) var(--sp-6);
+		padding: var(--sp-4) var(--sp-6) var(--sp-5);
 	}
 
 	.calendar-section {
@@ -247,6 +238,105 @@
 		overflow: visible;
 	}
 
+	.command-strip {
+		display: grid;
+		grid-template-columns: minmax(18rem, 1fr) auto;
+		align-items: center;
+		gap: var(--sp-3);
+		padding: var(--sp-3);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+	}
+
+	.filter-cluster,
+	.strip-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.filter-cluster {
+		flex-wrap: wrap;
+	}
+
+	.strip-actions {
+		justify-content: flex-end;
+	}
+
+	.filter-select,
+	.personnel-search {
+		display: inline-flex;
+		align-items: center;
+		min-height: 34px;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.filter-select {
+		height: 34px;
+		max-width: 12rem;
+		padding: 0 var(--sp-8) 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+		appearance: none;
+		background-image:
+			linear-gradient(45deg, transparent 50%, currentColor 50%),
+			linear-gradient(135deg, currentColor 50%, transparent 50%);
+		background-position:
+			calc(100% - 15px) 14px,
+			calc(100% - 10px) 14px;
+		background-size:
+			5px 5px,
+			5px 5px;
+		background-repeat: no-repeat;
+	}
+
+	.personnel-filter {
+		width: min(20rem, 100%);
+		min-width: min(16rem, 100%);
+	}
+
+	.personnel-search {
+		width: 100%;
+		padding: 0 var(--sp-3);
+		font-size: var(--text-sm);
+		color: var(--text-tertiary);
+	}
+
+	.filter-select:hover,
+	.personnel-search:hover,
+	.personnel-search:focus {
+		border-color: var(--ink-35);
+		color: var(--text-primary);
+		background: var(--surface-subtle);
+	}
+
+	.personnel-search::placeholder {
+		color: var(--text-muted);
+	}
+
+	:global(.calendar-section .smart-toolbar-shell) {
+		gap: var(--sp-2);
+	}
+
+	:global(.calendar-section .smart-toolbar) {
+		margin-left: 0;
+	}
+
+	:global(.calendar-section .toolbar-btn) {
+		min-height: 34px;
+	}
+
 	.loading-kicker {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -255,34 +345,6 @@
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 		color: var(--amber);
-	}
-
-	.breakdown-placeholder {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-5);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.breakdown-placeholder__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-	}
-
-	.breakdown-placeholder__chips {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.breakdown-placeholder__chips :global(.skeleton-block) {
-		min-height: 28px;
 	}
 
 	.no-permission {
@@ -316,59 +378,21 @@
 		line-height: var(--line-height-copy);
 	}
 
-	.toolbar-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-height: 34px;
-		padding: 7px 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
+	@media (max-width: 1180px) {
+		.command-strip {
+			grid-template-columns: 1fr;
+			align-items: stretch;
+		}
 
-	.toolbar-toggle:hover {
-		border-color: var(--ink-35);
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.toolbar-toggle.active {
-		border-color: var(--amber);
-		color: var(--amber-dark);
-		background: var(--amber-light);
-	}
-
-	.toggle-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 1px;
-		background: var(--border-default);
-		transition: background-color var(--transition-fast);
-	}
-
-	.toolbar-toggle.active .toggle-dot {
-		background: var(--amber);
+		.filter-cluster,
+		.strip-actions {
+			justify-content: flex-start;
+		}
 	}
 
 	@media (max-width: 640px) {
 		.page-content {
-			padding: var(--sp-4);
-		}
-
-		.breakdown-placeholder__chips {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+			padding: var(--sp-3);
 		}
 
 		.no-permission {

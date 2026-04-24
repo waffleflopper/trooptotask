@@ -213,6 +213,7 @@
 
 	.app-content {
 		padding-top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
+		padding-left: var(--app-rail-width, 0px);
 		min-height: 100vh;
 		background:
 			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 7rem no-repeat,
@@ -221,6 +222,7 @@
 
 	@media (max-width: 920px) {
 		.app-content {
+			padding-left: 0;
 			padding-bottom: calc(64px + env(safe-area-inset-bottom));
 		}
 	}

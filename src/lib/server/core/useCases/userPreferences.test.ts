@@ -44,13 +44,11 @@ describe('user preferences', () => {
 
 		const result = await patchUserOrgPreferences(ctx, {
 			calendar: {
-				showStatusText: true,
-				todaySummaryExpanded: false
+				showStatusText: true
 			}
 		});
 
 		expect(result.calendar.showStatusText).toBe(true);
-		expect(result.calendar.todaySummaryExpanded).toBe(false);
 
 		const stored = (await ctx.store.findMany('user_org_preferences', 'test-org')) as Record<string, unknown>[];
 		expect(stored).toHaveLength(1);
@@ -68,8 +66,7 @@ describe('user preferences', () => {
 				preferences: {
 					calendar: {
 						showStatusText: true,
-						highlightOnboarding: false,
-						todaySummaryExpanded: true
+						highlightOnboarding: false
 					},
 					training: {
 						selectedGroupId: 'group-1',

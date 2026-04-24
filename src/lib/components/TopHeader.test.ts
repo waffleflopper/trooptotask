@@ -74,4 +74,12 @@ describe('TopHeader', () => {
 
 		expect(screen.getByRole('link', { name: 'Help' }).getAttribute('href')).toBe('/help');
 	});
+
+	it('keeps account access available outside the desktop rail', () => {
+		const { container } = renderHeader();
+		const utilityCluster = container.querySelector('.header-right');
+
+		expect(utilityCluster).not.toBeNull();
+		expect(utilityCluster?.querySelector('.mobile-account-menu [aria-label="Account menu"]')).not.toBeNull();
+	});
 });

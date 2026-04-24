@@ -152,33 +152,8 @@ describe('CalendarPageContext', () => {
 
 	// ---- Modal registry removed (Phase 3.3 — modals inlined into CalendarPageView) ----
 
-	// ---- breakdown panel state --------------------------------------------
-
-	describe('breakdownExpanded / toggleBreakdown', () => {
-		it('breakdownExpanded starts false before responsive init runs', () => {
-			expect(ctx.breakdownExpanded).toBe(false);
-		});
-
-		it('syncUserPreferences keeps the panel collapsed when no explicit preference is saved', () => {
-			ctx.syncUserPreferences(getDefaultUserOrgPreferences(), () => ({ matches: true }));
-			expect(ctx.breakdownExpanded).toBe(false);
-		});
-
-		it('syncUserPreferences honors an explicit saved today-summary preference', () => {
-			ctx.syncUserPreferences(
-				{
-					...getDefaultUserOrgPreferences(),
-					calendar: {
-						...getDefaultUserOrgPreferences().calendar,
-						todaySummaryExpanded: true
-					}
-				},
-				() => ({ matches: true })
-			);
-			expect(ctx.breakdownExpanded).toBe(true);
-		});
-
-		it('syncUserPreferences honors a saved personnel role display preference', () => {
+	describe('syncUserPreferences', () => {
+		it('honors a saved personnel role display preference', () => {
 			ctx.syncUserPreferences({
 				...getDefaultUserOrgPreferences(),
 				calendar: {
@@ -188,13 +163,6 @@ describe('CalendarPageContext', () => {
 			});
 
 			expect(ctx.showPersonnelRoles).toBe(false);
-		});
-
-		it('toggleBreakdown flips breakdownExpanded', () => {
-			ctx.toggleBreakdown();
-			expect(ctx.breakdownExpanded).toBe(true);
-			ctx.toggleBreakdown();
-			expect(ctx.breakdownExpanded).toBe(false);
 		});
 	});
 

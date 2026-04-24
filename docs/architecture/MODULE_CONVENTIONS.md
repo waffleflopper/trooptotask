@@ -69,6 +69,13 @@ A client read model should:
 
 This pattern is appropriate for dashboard-style surfaces where components should mostly render stable rows, counts, sections, and labels instead of re-deriving business-facing screen state. It is not a reason to move provider access or route permissions into frontend modules.
 
+Calendar and duty-roster have two current examples of this direction:
+
+- `CalendarRangeCoordinator` owns client-side calendar range expansion, request de-duping, range-store merging, retry state, and advanced duty event merging for the calendar page.
+- `advancedDutyCollections` owns duty-roster template normalization and applied-duty timeline update rules so the page component does not repeat collection ordering and replacement rules inside every handler.
+
+These are feature-owned client orchestration boundaries. They should not grow into provider access, permission evaluation, or new duty-roster product behavior.
+
 ## Server Conventions
 
 ### Default path
@@ -111,7 +118,7 @@ The following areas are especially likely to benefit from deepening rather than 
 
 - calendar contexts, range loading, and page orchestration
 - dashboard bootstrapping and context orchestration
-- duty roster generation and template/event flows
+- duty roster generation and template/event flows, even though advanced-duty collection rules now have a feature-owned helper boundary
 - personnel page orchestration and bulk flows
 - training reports and applicability flows
 - organization settings and membership-management flows

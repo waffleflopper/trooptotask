@@ -125,6 +125,8 @@ Each entry separates:
 - Current-state truth:
   - several page contexts, views, and flows are large coordination-heavy modules
   - the dashboard client surface now has a feature-owned read-model boundary that centralizes hydrated-store joins, grouping preferences, and tab-facing display rows while leaving existing route/provider/authz boundaries unchanged
+  - the calendar page now has a feature-owned range coordinator for client-side range expansion, store merging, retry state, and advanced duty event hydration
+  - the duty-roster page now keeps advanced-duty template normalization and applied-duty timeline collection rules behind a feature-owned module
 - Intended direction:
   - deeper modules with thinner public interfaces
 - Why this matters:
@@ -132,7 +134,7 @@ Each entry separates:
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - continue prioritized deep-module reviews using `improve-codebase-architecture`, especially for remaining calendar, duty-roster, personnel, and training orchestration seams
+  - continue prioritized deep-module reviews using `improve-codebase-architecture`, especially for remaining calendar, duty-roster, personnel, and training orchestration seams; the current calendar and duty-roster helpers reduce D-07 but do not resolve it
 
 ## D-08 Route-Level Membership And Settings Logic
 

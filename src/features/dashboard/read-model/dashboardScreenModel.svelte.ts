@@ -7,11 +7,11 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveBadgeColor, deriveShortName } from '$features/calendar/utils/dutyEventBadges';
-import { parseDate } from '$lib/utils/dates';
+import { formatDate, parseDate } from '$lib/utils/dates';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
-import type { DashboardPageData, TrainingIssue } from '$features/dashboard/contexts/DashboardContext.svelte';
+import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 
 export type GroupedEntries<T> = Array<[string, T[]]>;
 export type UpcomingGroupBy = 'date' | 'group';
@@ -144,7 +144,7 @@ export interface DashboardUnitReadinessView {
 	statusEntries: Array<[string, DashboardStatusBreakdown]>;
 	upcomingChanges: Pick<
 		DashboardGroupedPreferenceView<UpcomingGroupBy, DashboardUpcomingChangeRow>,
-		'mode' | 'setMode' | 'byGroup' | 'byDate'
+		'mode' | 'setMode' | 'byGroup'
 	>;
 }
 
@@ -158,7 +158,7 @@ export interface DashboardPeopleDutyView {
 	>;
 	upcomingChanges: Pick<
 		DashboardGroupedPreferenceView<UpcomingGroupBy, DashboardUpcomingChangeRow>,
-		'mode' | 'setMode' | 'byGroup' | 'byDate'
+		'mode' | 'setMode' | 'byGroup'
 	>;
 }
 
@@ -605,8 +605,7 @@ export class DashboardScreenModel {
 			upcomingChanges: {
 				mode: this.upcomingGroupBy,
 				setMode: (mode) => this.setUpcomingGroupBy(mode),
-				byGroup: this.upcomingChangesByGroup,
-				byDate: this.upcomingChangesByDate
+				byGroup: this.upcomingChangesByGroup
 			}
 		};
 	}
@@ -626,8 +625,7 @@ export class DashboardScreenModel {
 			upcomingChanges: {
 				mode: this.upcomingGroupBy,
 				setMode: (mode) => this.setUpcomingGroupBy(mode),
-				byGroup: this.upcomingChangesByGroup,
-				byDate: this.upcomingChangesByDate
+				byGroup: this.upcomingChangesByGroup
 			}
 		};
 	}
@@ -809,7 +807,7 @@ function hexToTextColor(hex: string): string {
 }
 
 function formatToday(date: Date | SvelteDate): string {
-	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	return formatDate(date);
 }
 
 function dateAfter(dateStr: string, days: number): string {

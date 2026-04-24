@@ -3,9 +3,8 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
@@ -13,7 +12,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel } from '$lib/types';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -30,40 +29,16 @@
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
 	const canEditRoster = $derived(permissions?.canEditPersonnel ?? false);
-
-	const rosterGroupCount = $derived.by(() => {
-		const groupNames = new SvelteSet<string>();
-		for (const person of personnelStore.items) {
-			const groupName = person.groupName?.trim();
-			if (groupName) groupNames.add(groupName);
-		}
-		return groupNames.size;
-	});
-
-	const unassignedCount = $derived(
-		personnelStore.items.filter((person) => !person.groupName || person.groupName.trim() === '').length
-	);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
-	const pageScopeLabel = $derived(ctx.data.scopedGroupId ? 'Scoped group roster' : 'Organization roster');
-	const rosterAccessLabel = $derived(readOnly ? 'Read only' : canEditRoster ? 'Editable' : 'View only');
-	const rosterSubtitle = $derived(`${pageScopeLabel} · ${rosterAccessLabel}`);
-	const rosterOperationalSummary = $derived.by(() => [
-		{ label: 'Roster', value: `${personnelStore.items.length} total` },
-		{ label: 'Groups', value: `${rosterGroupCount} active` },
-		{ label: 'Unassigned', value: String(unassignedCount), alert: unassignedCount > 0 },
-		{ label: 'Access', value: rosterAccessLabel }
-	]);
 	const canManageRoster = $derived(ctx.canAddPersonnel);
+	let showPersonnelOverflow = $state(false);
 
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		if (canManageRoster) {
-			items.push({ label: 'Add Person', onclick: () => ctx.handleAdd(), disabled: readOnly });
-			items.push({ label: 'Manage Groups', onclick: () => ctx.openGroupManager(), disabled: readOnly });
 			items.push({
 				label: 'Bulk Import',
 				onclick: () => ctx.openBulkManager(),
-				divider: true,
 				disabled: readOnly
 			});
 		}
@@ -176,37 +151,6 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Personnel" subtitle={rosterSubtitle} helpTopic="personnel" overflowItems={personnelOverflowItems}>
-		{#if canManageRoster}
-			<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
-				Manage Groups
-			</button>
-			<button
-				class="btn btn-sm btn-primary"
-				type="button"
-				data-testid="add-personnel-btn"
-				onclick={() => ctx.handleAdd()}
-				disabled={readOnly}
-			>
-				Add Person
-			</button>
-			{#if readOnly}
-				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
-			{/if}
-		{/if}
-
-		{#snippet below()}
-			<div class="operational-strip" aria-label="Personnel operational summary">
-				{#each rosterOperationalSummary as item (item.label)}
-					<div class="operational-item" class:alert={item.alert}>
-						<span class="operational-label">{item.label}</span>
-						<span class="operational-value">{item.value}</span>
-					</div>
-				{/each}
-			</div>
-		{/snippet}
-	</PageToolbar>
-
 	{#if !canViewRoster}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
@@ -214,6 +158,94 @@
 		</div>
 	{:else}
 		<main class="page-content roster-content">
+			<section class="personnel-command-strip" aria-label="Personnel controls">
+				<div class="roster-controls" aria-label="Roster filters">
+					<div class="view-toggle">
+						<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
+							<button
+								class="view-btn"
+								type="button"
+								aria-pressed={ctx.viewMode === 'alphabetical'}
+								class:active={ctx.viewMode === 'alphabetical'}
+								onclick={() => (ctx.viewMode = 'alphabetical')}
+							>
+								A-Z
+							</button>
+							<button
+								class="view-btn"
+								type="button"
+								aria-pressed={ctx.viewMode === 'by-group'}
+								class:active={ctx.viewMode === 'by-group'}
+								onclick={() => (ctx.viewMode = 'by-group')}
+							>
+								By Group
+							</button>
+						</div>
+					</div>
+					<input
+						type="search"
+						class="input roster-search"
+						data-testid="personnel-search"
+						aria-label="Search by name, rank, MOS, role, or group"
+						placeholder="Search name, rank, MOS, role, or group..."
+						bind:value={rosterSearch}
+					/>
+				</div>
+
+				{#if canManageRoster}
+					<div class="strip-actions">
+						<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
+							Manage Groups
+						</button>
+						<button
+							class="btn btn-sm btn-primary"
+							type="button"
+							data-testid="add-personnel-btn"
+							onclick={() => ctx.handleAdd()}
+							disabled={readOnly}
+						>
+							Add Person
+						</button>
+						{#if personnelOverflowItems.length > 0}
+							<div class="overflow-wrapper">
+								<button
+									type="button"
+									class="more-btn"
+									aria-label="More personnel actions"
+									aria-expanded={showPersonnelOverflow}
+									aria-haspopup="menu"
+									onclick={() => (showPersonnelOverflow = !showPersonnelOverflow)}
+								>
+									<span>More</span>
+									<svg
+										width="12"
+										height="12"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<polyline points="6 9 12 15 18 9" />
+									</svg>
+								</button>
+								<OverflowMenu
+									items={personnelOverflowItems}
+									align="right"
+									open={showPersonnelOverflow}
+									onClose={() => (showPersonnelOverflow = false)}
+								/>
+							</div>
+						{/if}
+						{#if readOnly}
+							<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+						{/if}
+					</div>
+				{/if}
+			</section>
+
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
 					message="No personnel on the active roster. Add one person, or use More -> Bulk Import when you have a roster file."
@@ -253,50 +285,6 @@
 						emptyMessage="No personnel match your search."
 						maxHeight="100%"
 					>
-						{#snippet toolbar(tbl)}
-							<div class="roster-toolbar">
-								<div class="roster-toolbar-copy">
-									<span class="roster-kicker">Personnel roster</span>
-									<div class="roster-meta">
-										<Badge label={`${personnelStore.items.length} total`} variant="outlined" />
-										{#if tbl.search && tbl.totalRows !== personnelStore.items.length}
-											<Badge label={`${tbl.totalRows} shown`} />
-										{/if}
-									</div>
-								</div>
-								<input
-									type="search"
-									class="input roster-search"
-									data-testid="personnel-search"
-									aria-label="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									bind:value={rosterSearch}
-								/>
-								<div class="view-toggle">
-									<span class="view-label">View:</span>
-									<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
-										<button
-											class="view-btn"
-											type="button"
-											aria-pressed={ctx.viewMode === 'alphabetical'}
-											class:active={ctx.viewMode === 'alphabetical'}
-											onclick={() => (ctx.viewMode = 'alphabetical')}
-										>
-											A-Z
-										</button>
-										<button
-											class="view-btn"
-											type="button"
-											aria-pressed={ctx.viewMode === 'by-group'}
-											class:active={ctx.viewMode === 'by-group'}
-											onclick={() => (ctx.viewMode = 'by-group')}
-										>
-											By Group
-										</button>
-									</div>
-								</div>
-							</div>
-						{/snippet}
 						{#snippet cell(row, col)}
 							{@const lossRecord = upcomingLossMap.get(row.id)}
 							{#if col.key === 'rank'}
@@ -389,45 +377,76 @@
 		display: flex;
 		min-height: 0;
 		flex-direction: column;
+		gap: var(--sp-4);
 		overflow: hidden;
+		padding: var(--sp-4) var(--sp-6) var(--sp-5);
 	}
 
-	.operational-strip {
+	.personnel-command-strip {
+		display: grid;
+		grid-template-columns: minmax(24rem, 1fr) auto;
+		align-items: center;
+		gap: var(--sp-3);
+		padding: var(--sp-3);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+	}
+
+	.roster-controls,
+	.strip-actions {
 		display: flex;
-		align-items: stretch;
+		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
+		min-width: 0;
 	}
 
-	.operational-item {
-		display: inline-flex;
-		align-items: baseline;
-		gap: var(--sp-2);
-		min-height: 30px;
-		padding: 5px 10px;
-		border: var(--border-thin);
+	.strip-actions {
+		justify-content: flex-end;
+	}
+
+	.roster-controls {
+		justify-content: flex-start;
+	}
+
+	.overflow-wrapper {
+		position: relative;
+	}
+
+	.more-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--sp-1);
+		min-height: 34px;
+		padding: 7px 12px;
+		background: transparent;
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.operational-item.alert {
-		border-color: color-mix(in srgb, var(--amber) 46%, var(--border-default) 54%);
-		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
-	}
-
-	.operational-label {
+		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-weight: var(--font-weight-medium);
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
-	.operational-value {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
+	.more-btn:hover {
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
 		color: var(--text-primary);
+	}
+
+	.more-btn:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
 	}
 
 	.btn-ghost {
@@ -458,16 +477,6 @@
 		background: var(--surface-subtle);
 	}
 
-	.roster-toolbar {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-5);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
 	.roster-table-region {
 		display: flex;
 		flex: 1 1 auto;
@@ -478,14 +487,6 @@
 		width: 100%;
 		flex: 1 1 auto;
 		min-height: 0;
-	}
-
-	.roster-toolbar-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		margin-right: auto;
-		min-width: 0;
 	}
 
 	.roster-scale-guard {
@@ -527,25 +528,10 @@
 		color: var(--amber-dark);
 	}
 
-	.roster-kicker {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.roster-meta {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
 	.roster-search {
 		flex: 1 1 260px;
-		max-width: 360px;
+		max-width: 420px;
+		min-height: 34px;
 	}
 
 	.view-toggle {
@@ -562,15 +548,6 @@
 
 	.view-toggle-controls .view-btn + .view-btn {
 		margin-left: -1px;
-	}
-
-	.view-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
 	}
 
 	.view-btn {
@@ -783,18 +760,22 @@
 	}
 
 	@media (max-width: 640px) {
-		.operational-strip {
+		.page-content.roster-content {
+			padding: var(--sp-3);
+		}
+
+		.personnel-command-strip {
 			display: grid;
 			grid-template-columns: 1fr;
+			align-items: stretch;
 		}
 
-		.operational-item {
-			justify-content: space-between;
+		.strip-actions {
+			justify-content: flex-start;
 		}
 
-		.roster-toolbar {
-			flex-wrap: wrap;
-			padding: var(--sp-4);
+		.roster-controls {
+			justify-content: flex-start;
 		}
 
 		.roster-search {
@@ -825,8 +806,18 @@
 	}
 
 	@media (min-width: 641px) and (max-width: 1024px) {
+		.personnel-command-strip {
+			grid-template-columns: 1fr;
+			align-items: stretch;
+		}
+
+		.roster-controls,
+		.strip-actions {
+			justify-content: flex-start;
+		}
+
 		.roster-search {
-			max-width: 300px;
+			max-width: 360px;
 		}
 	}
 </style>

@@ -54,7 +54,7 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 	return {
 		calendar: {
 			showStatusText: false,
-			showPersonnelRoles: true,
+			showPersonnelRoles: false,
 			highlightOnboarding: true,
 			todaySummaryExpanded: null,
 			dutyStartDayOnly: true

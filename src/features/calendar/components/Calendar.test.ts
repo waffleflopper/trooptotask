@@ -102,7 +102,7 @@ function renderCalendar(
 			assignmentTypes: overrides.assignmentTypes ?? [],
 			assignments: overrides.assignments ?? [],
 			dutyEvents: overrides.dutyEvents ?? [],
-			showPersonnelRoles: overrides.showPersonnelRoles ?? true,
+			showPersonnelRoles: overrides.showPersonnelRoles ?? false,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -321,7 +321,8 @@ describe('Calendar', () => {
 	it('mounts a scrolling window of personnel rows for large rosters', async () => {
 		const largeRoster = makePersonnel(120, { clinicRole: 'Role text that would otherwise add a second line' });
 		const { container } = renderCalendar({
-			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }],
+			showPersonnelRoles: true
 		});
 
 		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;

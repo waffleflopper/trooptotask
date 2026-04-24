@@ -7,13 +7,14 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 		canEditCalendar: false,
 		canManageConfig: false,
 		readOnly: false,
-		breakdownExpanded: false,
 		showStatusText: false,
 		showPersonnelRoles: true,
+		showOnboardingToggle: false,
+		highlightOnboarding: false,
 		dutyStartDayOnly: false,
-		onToggleBreakdown: () => {},
 		onToggleStatusText: () => {},
 		onTogglePersonnelRoles: () => {},
+		onToggleHighlightOnboarding: () => {},
 		onToggleDutyStartDayOnly: () => {},
 		onExportCSV: () => {},
 		onExportPDF: () => {},
@@ -22,12 +23,23 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 }
 
 describe('buildCalendarToolbarItems', () => {
-	it("always includes an active-aware Today's Summary button", () => {
-		const items = buildCalendarToolbarItems(makeInput({ breakdownExpanded: true }));
-		const summaryItem = items.find((i) => i.label === "Today's Summary");
-		expect(summaryItem).toBeDefined();
-		expect(summaryItem!.type).toBe('button');
-		expect(summaryItem!.active).toBe(true);
+	it("does not include Today's Summary in calendar overflow", () => {
+		const items = buildCalendarToolbarItems(makeInput());
+
+		expect(items.find((i) => i.label === "Today's Summary")).toBeUndefined();
+	});
+
+	it('includes onboarding as an active-aware overflow option only when available', () => {
+		const withoutOnboarding = buildCalendarToolbarItems(makeInput());
+		expect(withoutOnboarding.find((i) => i.label === 'Show Onboarding')).toBeUndefined();
+
+		const withOnboarding = buildCalendarToolbarItems(
+			makeInput({ showOnboardingToggle: true, highlightOnboarding: true })
+		);
+		const onboardingItem = withOnboarding.find((i) => i.label === 'Show Onboarding');
+		expect(onboardingItem).toBeDefined();
+		expect(onboardingItem!.type).toBe('overflow');
+		expect(onboardingItem!.active).toBe(true);
 	});
 
 	it('includes Bulk Status dropdown for users with edit + manage permissions', () => {

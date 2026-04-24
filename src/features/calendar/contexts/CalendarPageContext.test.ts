@@ -43,7 +43,17 @@ const mockPersonnel: Personnel[] = [
 		groupId: 'g1',
 		groupName: 'Alpha',
 		clinicRole: '',
-		mos: ''
+		mos: '11B'
+	},
+	{
+		id: 'p2',
+		firstName: 'Bob',
+		lastName: 'Jones',
+		rank: 'SSG',
+		groupId: 'g2',
+		groupName: 'Bravo',
+		clinicRole: 'Medic',
+		mos: '68W'
 	}
 ];
 
@@ -145,11 +155,11 @@ describe('CalendarPageContext', () => {
 	// ---- breakdown panel state --------------------------------------------
 
 	describe('breakdownExpanded / toggleBreakdown', () => {
-		it('breakdownExpanded starts true before responsive init runs', () => {
-			expect(ctx.breakdownExpanded).toBe(true);
+		it('breakdownExpanded starts false before responsive init runs', () => {
+			expect(ctx.breakdownExpanded).toBe(false);
 		});
 
-		it('syncUserPreferences collapses the panel on mobile when no explicit preference is saved', () => {
+		it('syncUserPreferences keeps the panel collapsed when no explicit preference is saved', () => {
 			ctx.syncUserPreferences(getDefaultUserOrgPreferences(), () => ({ matches: true }));
 			expect(ctx.breakdownExpanded).toBe(false);
 		});
@@ -182,9 +192,9 @@ describe('CalendarPageContext', () => {
 
 		it('toggleBreakdown flips breakdownExpanded', () => {
 			ctx.toggleBreakdown();
-			expect(ctx.breakdownExpanded).toBe(false);
-			ctx.toggleBreakdown();
 			expect(ctx.breakdownExpanded).toBe(true);
+			ctx.toggleBreakdown();
+			expect(ctx.breakdownExpanded).toBe(false);
 		});
 	});
 
@@ -223,7 +233,7 @@ describe('CalendarPageContext', () => {
 		it('selectedDate starts null', () => expect(ctx.selectedDate).toBeNull());
 		it('assignmentDate starts null', () => expect(ctx.assignmentDate).toBeNull());
 		it('showStatusText starts false', () => expect(ctx.showStatusText).toBe(false));
-		it('showPersonnelRoles starts true', () => expect(ctx.showPersonnelRoles).toBe(true));
+		it('showPersonnelRoles starts false', () => expect(ctx.showPersonnelRoles).toBe(false));
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
 	});
 
@@ -330,14 +340,14 @@ describe('CalendarPageContext', () => {
 
 	describe('toggleShowPersonnelRoles', () => {
 		it('flips showPersonnelRoles and persists the preference', () => {
-			expect(ctx.showPersonnelRoles).toBe(true);
+			expect(ctx.showPersonnelRoles).toBe(false);
 
 			ctx.toggleShowPersonnelRoles();
 
-			expect(ctx.showPersonnelRoles).toBe(false);
+			expect(ctx.showPersonnelRoles).toBe(true);
 			expect(queueUserPreferencesPatch).toHaveBeenCalledWith('org1', {
 				calendar: {
-					showPersonnelRoles: false
+					showPersonnelRoles: true
 				}
 			});
 		});
@@ -385,6 +395,56 @@ describe('CalendarPageContext', () => {
 
 		it('does not contain unknown ids', () => {
 			expect(ctx.scopedPersonnelIds.has('unknown')).toBe(false);
+		});
+	});
+
+	describe('calendar roster filters', () => {
+		it('builds group filter options from the scoped roster', () => {
+			expect(ctx.groupFilterOptions).toEqual([
+				{ value: '', label: 'All groups', count: 2 },
+				{ value: 'g1', label: 'Alpha', count: 1 },
+				{ value: 'g2', label: 'Bravo', count: 1 }
+			]);
+		});
+
+		it('filters the visible roster to one group', () => {
+			ctx.setCalendarGroupFilter('g2');
+
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+		});
+
+		it('filters the visible roster from typed personnel search text', () => {
+			ctx.setCalendarPersonnelSearch('med');
+
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+		});
+
+		it('matches typed personnel search text against rank, MOS, name, role, and group', () => {
+			ctx.setCalendarPersonnelSearch('sgt');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
+
+			ctx.setCalendarPersonnelSearch('68w');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+
+			ctx.setCalendarPersonnelSearch('smith');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
+
+			ctx.setCalendarPersonnelSearch('medic');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+
+			ctx.setCalendarPersonnelSearch('bravo');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+		});
+
+		it('combines group filtering with typed personnel search text', () => {
+			ctx.setCalendarGroupFilter('g2');
+			ctx.setCalendarPersonnelSearch('alice');
+
+			expect(ctx.calendarPersonnelSearch).toBe('alice');
+			expect(ctx.filteredPBG).toEqual([]);
+
+			ctx.setCalendarPersonnelSearch('bob');
+			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 		});
 	});
 

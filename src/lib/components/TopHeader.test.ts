@@ -68,4 +68,10 @@ describe('TopHeader', () => {
 
 		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
 	});
+
+	it('renders help in the utility cluster', () => {
+		renderHeader();
+
+		expect(screen.getByRole('link', { name: 'Help' }).getAttribute('href')).toBe('/help');
+	});
 });

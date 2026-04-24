@@ -82,6 +82,10 @@
 			currentDate: calendarStore.currentDate,
 			viewMode: ctx.viewMode
 		});
+
+		return () => {
+			rangeCoordinator.cancelInFlightLoads();
+		};
 	});
 
 	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);

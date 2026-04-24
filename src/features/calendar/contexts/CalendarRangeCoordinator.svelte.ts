@@ -49,7 +49,13 @@ export class CalendarRangeCoordinator {
 		this.#failedRangeKey = null;
 		this.loading = false;
 		this.error = null;
+		this.cancelInFlightLoads();
+	}
+
+	cancelInFlightLoads(): void {
 		this.#requestSerial += 1;
+		this.#pendingRangeKey = null;
+		this.loading = false;
 	}
 
 	includeBootstrap(bootstrap: CalendarBootstrapRangeData): void {
@@ -124,7 +130,7 @@ export class CalendarRangeCoordinator {
 				return;
 			}
 
-			this.mergeRangeDataSets(input.orgId, rangeDataSets);
+			this.#mergeRangeDataSets(input.orgId, rangeDataSets);
 			this.loading = false;
 			this.#failedRangeKey = null;
 			this.#pendingRangeKey = null;
@@ -140,7 +146,7 @@ export class CalendarRangeCoordinator {
 		}
 	}
 
-	private mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[]): void {
+	#mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[]): void {
 		for (const rangeData of rangeDataSets) {
 			const loadedRange = untrack(() => this.loadedRange);
 			const advancedDutyEvents = untrack(() => this.advancedDutyEvents);

@@ -55,8 +55,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 			upcomingChanges: {
 				mode: 'date',
 				setMode: () => {},
-				byGroup: [['Alpha', []]],
-				byDate: []
+				byGroup: [['Alpha', []]]
 			}
 		},
 		upcomingChanges: [

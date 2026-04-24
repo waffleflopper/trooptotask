@@ -150,12 +150,26 @@ describe('createDashboardScreenModel', () => {
 
 		expect(model.peopleDuty.upcomingChanges.mode).toBe('date');
 		expect(storage.values['dashboard-upcoming-group-by']).toBe('date');
-		expect(model.peopleDuty.upcomingChanges.byDate.map(([date]) => date)).toEqual([
+		expect(model.upcomingChanges.map((change) => change.date)).toEqual([
 			'2026-04-25',
 			'2026-04-26',
 			'2026-04-27',
 			'2026-04-28'
 		]);
+	});
+
+	it('defaults today through the shared date formatter when no explicit date is supplied', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-04-23T12:00:00'));
+
+		const model = createDashboardScreenModel(makeData(), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+
+		expect(model.today).toBe('2026-04-23');
+
+		vi.useRealTimers();
 	});
 
 	it('pre-shapes training and evaluation rows for the training tab', () => {

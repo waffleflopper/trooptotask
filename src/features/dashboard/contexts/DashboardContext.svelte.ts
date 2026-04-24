@@ -3,42 +3,25 @@ import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
-import type { OrganizationMemberPermissions } from '$lib/types';
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import type { HydrationPlan } from '$lib/server/core/orgShell';
+import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 import {
 	createDashboardScreenModel,
-	type DashboardScreenModel
+	type DashboardAdvancedDutyRow,
+	type DashboardDutyAssignmentRow,
+	type DashboardDutyDayView,
+	type DashboardGroupBreakdownRow,
+	type DashboardOnboardingProgressRow,
+	type DashboardOutTodayRow,
+	type DashboardScreenModel,
+	type DashboardStatusBreakdown,
+	type DashboardUpcomingChangeRow
 } from '$features/dashboard/read-model/dashboardScreenModel.svelte';
-
-export interface TrainingIssue {
-	personName: string;
-	typeName: string;
-	status: string;
-	label: string;
-}
 
 export interface DashboardSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
 	gettingStartedDismissed: boolean;
-}
-
-// Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
-export interface DashboardPageData {
-	orgId: string;
-	orgName: string;
-	userId: string | null;
-	permissions: OrganizationMemberPermissions | null;
-	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
-	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
-	onboardingTrainingCompletions: string[];
-	onboardingTemplateStepCount?: number;
-	ratingSchemeEntryCount?: number;
-	orgMemberCount?: number;
-	gettingStartedDismissed?: boolean;
-	[key: string]: unknown;
 }
 
 export class DashboardContext {
@@ -226,35 +209,21 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: statusBreakdown
 	// ---------------------------------------------------------------------------
-	get statusBreakdown(): Map<string, { name: string; color: string; textColor: string; count: number }> {
+	get statusBreakdown(): Map<string, DashboardStatusBreakdown> {
 		return this.screen.statusBreakdown;
 	}
 
 	// ---------------------------------------------------------------------------
 	// Derived: dutyAssignments
 	// ---------------------------------------------------------------------------
-	get dutyAssignments(): {
-		id: string;
-		typeName: string;
-		shortName: string;
-		color: string;
-		textColor: string;
-		assigneeName: string;
-	}[] {
+	get dutyAssignments(): DashboardDutyAssignmentRow[] {
 		return this.screen.dutyAssignments;
 	}
 
 	// ---------------------------------------------------------------------------
 	// Derived: todayAdvancedDuty
 	// ---------------------------------------------------------------------------
-	get todayAdvancedDuty(): Array<{
-		id: string;
-		templateName: string;
-		shortName: string;
-		color: string;
-		textColor: string;
-		slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
-	}> {
+	get todayAdvancedDuty(): DashboardAdvancedDutyRow[] {
 		return this.screen.todayAdvancedDuty;
 	}
 
@@ -272,16 +241,7 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: upcomingChanges (entries starting or ending within 7 days)
 	// ---------------------------------------------------------------------------
-	get upcomingChanges(): {
-		key: string;
-		date: string;
-		personName: string;
-		statusName: string;
-		statusColor: string;
-		direction: 'departing' | 'returning';
-		groupId: string | null;
-		groupName: string;
-	}[] {
+	get upcomingChanges(): DashboardUpcomingChangeRow[] {
 		return this.screen.upcomingChanges;
 	}
 
@@ -295,29 +255,14 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: activeOnboardings with progress (scoped)
 	// ---------------------------------------------------------------------------
-	get activeOnboardings(): {
-		id: string;
-		personnelId: string;
-		personName: string;
-		totalSteps: number;
-		completedSteps: number;
-		pct: number;
-	}[] {
+	get activeOnboardings(): DashboardOnboardingProgressRow[] {
 		return this.screen.activeOnboardings;
 	}
 
 	// ---------------------------------------------------------------------------
 	// Derived: groupBreakdown (per-group strength)
 	// ---------------------------------------------------------------------------
-	get groupBreakdown(): {
-		id: string;
-		name: string;
-		total: number;
-		available: number;
-		pct: number;
-		statusCounts: Map<string, number>;
-		isPinned: boolean;
-	}[] {
+	get groupBreakdown(): DashboardGroupBreakdownRow[] {
 		return this.screen.groupBreakdown;
 	}
 
@@ -342,37 +287,14 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: nonAvailablePersonnel — enriched list of who's out today
 	// ---------------------------------------------------------------------------
-	get nonAvailablePersonnel(): {
-		id: string;
-		personnelId: string;
-		personName: string;
-		rank: string;
-		statusName: string;
-		statusColor: string;
-		startDate: string;
-		endDate: string;
-		statusTypeId: string;
-		groupId: string | null;
-		groupName: string;
-	}[] {
+	get nonAvailablePersonnel(): DashboardOutTodayRow[] {
 		return this.screen.nonAvailablePersonnel;
 	}
 
 	// ---------------------------------------------------------------------------
 	// Derived: dutyForDays — duty assignments for today + N upcoming days
 	// ---------------------------------------------------------------------------
-	dutyForDays(count: number): {
-		date: string;
-		isToday: boolean;
-		assignments: {
-			id: string;
-			typeName: string;
-			shortName: string;
-			color: string;
-			textColor: string;
-			assigneeName: string;
-		}[];
-	}[] {
+	dutyForDays(count: number): DashboardDutyDayView[] {
 		return this.screen.dutyForDays(count);
 	}
 

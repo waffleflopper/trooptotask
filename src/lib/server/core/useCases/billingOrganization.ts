@@ -1,10 +1,18 @@
 import type { AuthContext, DataStore } from '$lib/server/core/ports';
+import type { BillingPort } from '$lib/server/core/ports';
 import type { CancelResult } from './billing';
+import { cancel } from './billing';
 import { fail } from '$lib/server/core/errors';
 
 interface BillingOrganizationPorts {
 	auth: Pick<AuthContext, 'orgId'>;
 	store: DataStore;
+}
+
+interface BillingCancellationPorts {
+	auth: Pick<AuthContext, 'orgId'>;
+	rawStore: DataStore;
+	billing: BillingPort;
 }
 
 interface BillingOrganizationRow {
@@ -65,4 +73,44 @@ export async function applyBillingCancellation(
 	input: Pick<CancelResult, 'orgUpdates'>
 ): Promise<void> {
 	await ports.store.updateById('organizations', ports.auth.orgId, input.orgUpdates);
+}
+
+async function applyBillingCancellationWithWebhookFallback(
+	ports: BillingOrganizationPorts,
+	input: Pick<CancelResult, 'orgUpdates'>
+): Promise<boolean> {
+	try {
+		await applyBillingCancellation(ports, input);
+		return true;
+	} catch (error) {
+		console.warn(
+			`[billing] Local cancellation state for organization ${ports.auth.orgId} will be reconciled by Stripe subscription-deleted webhook processing.`,
+			error
+		);
+		return false;
+	}
+}
+
+export interface CancelBillingSubscriptionResult {
+	success: true;
+	localCancellationApplied: boolean;
+}
+
+export async function cancelBillingSubscriptionForOrganization(
+	ports: BillingCancellationPorts
+): Promise<CancelBillingSubscriptionResult> {
+	const org = await readBillingOrganization({ auth: ports.auth, store: ports.rawStore });
+	const subscriptionId = org.stripeSubscriptionId;
+
+	if (!subscriptionId) {
+		fail(400, 'No active subscription found');
+	}
+
+	const result = await cancel(ports, { subscriptionId });
+	const localCancellationApplied = await applyBillingCancellationWithWebhookFallback(
+		{ auth: ports.auth, store: ports.rawStore },
+		result
+	);
+
+	return { success: true, localCancellationApplied };
 }

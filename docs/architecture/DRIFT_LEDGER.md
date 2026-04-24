@@ -36,6 +36,7 @@ Each entry separates:
 - Current-state truth:
   - many server paths already use ports, adapters, entities, and use cases
   - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
+  - billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
   - multiple non-adapter routes still depend directly on `locals.supabase`, especially organization rename, admin/platform operations, and some layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic

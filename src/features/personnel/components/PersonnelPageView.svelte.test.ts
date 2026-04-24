@@ -109,6 +109,22 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
 	});
 
+	it('uses a compact command strip without the old summary noise', () => {
+		const ctx = makeCtx();
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: viewOnlyPermissions }
+		});
+
+		expect(screen.queryByRole('heading', { name: 'Personnel' })).toBeNull();
+		expect(screen.queryByText('Total Personnel')).toBeNull();
+		expect(screen.queryByText('Groups')).toBeNull();
+		expect(screen.queryByText('Unassigned')).toBeNull();
+		expect(screen.queryByText('Access')).toBeNull();
+		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
+		expect(screen.getByTestId('personnel-search')).toBeTruthy();
+	});
+
 	describe('upcoming-loss indicators', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);

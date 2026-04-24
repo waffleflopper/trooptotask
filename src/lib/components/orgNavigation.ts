@@ -14,6 +14,7 @@ export interface OrgNavItem {
 	id: string;
 	href: string;
 	label: string;
+	breadcrumbLabel?: string;
 	compactLabel?: string;
 	badgeLabel?: string;
 	icon: OrgNavIcon;
@@ -50,11 +51,11 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 		},
 		{
 			id: 'rating-scheme',
-			href: `/org/${orgId}/personnel?view=rating-scheme`,
-			label: 'Rating Scheme',
-			compactLabel: 'Ratings',
+			href: `/org/${orgId}/evals`,
+			label: 'Evals',
+			breadcrumbLabel: 'Evaluations',
 			icon: 'rating-scheme',
-			visible: !permissions.canViewPersonnel && permissions.canViewRatingScheme === true,
+			visible: permissions.canViewRatingScheme === true,
 			exactMatch: false
 		},
 		{

@@ -1,6 +1,5 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
-import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -14,11 +13,9 @@ export interface PersonnelPageData {
 	orgId: string;
 	orgName: string;
 	pinnedGroups: string[];
-	ratingSchemeEntries: RatingSchemeEntry[];
 	personnel?: Personnel[];
 	permissions?: OrganizationMemberPermissions | null;
 	scopedGroupId?: string | null;
-	initialPageView?: 'roster' | 'rating-scheme';
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
@@ -34,10 +31,6 @@ export interface PersonnelStoreAccessor {
 	readonly items: Personnel[];
 }
 
-export interface RatingStoreAccessor {
-	readonly items: RatingSchemeEntry[];
-}
-
 export interface PinnedGroupsAccessor {
 	readonly list: string[];
 }
@@ -48,12 +41,7 @@ export interface PinnedGroupsAccessor {
 export class PersonnelPageContext {
 	// ---- Reactive state ----
 	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
-	pageView = $state<'roster' | 'rating-scheme'>('roster');
 	searchQuery = $state('');
-	ratingViewMode = $state<'grouped' | 'table'>('grouped');
-	ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
-	evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
-	workflowFilter = $state<WorkflowStatus | 'all'>('all');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
 	// ---- Injected deps ----
@@ -61,7 +49,6 @@ export class PersonnelPageContext {
 	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
 	readonly #personnelStore: PersonnelStoreAccessor;
-	readonly #ratingStore: RatingStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
 	/**
 	 * Reference date for upcoming-loss evaluation.
@@ -75,7 +62,6 @@ export class PersonnelPageContext {
 		modals: ModalRegistry,
 		org: OrgContext,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
-		ratingStore: RatingStoreAccessor | RatingSchemeEntry[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
 		today?: string
 	) {
@@ -98,14 +84,6 @@ export class PersonnelPageContext {
 				}
 			: personnelStore;
 
-		this.#ratingStore = Array.isArray(ratingStore)
-			? {
-					get items() {
-						return ratingStore as RatingSchemeEntry[];
-					}
-				}
-			: (ratingStore as RatingStoreAccessor);
-
 		this.#pinnedGroupsStore = Array.isArray(pinnedGroupsStore)
 			? {
 					get list() {
@@ -113,8 +91,6 @@ export class PersonnelPageContext {
 					}
 				}
 			: (pinnedGroupsStore as PinnedGroupsAccessor);
-
-		this.pageView = data.initialPageView ?? 'roster';
 	}
 
 	// ---- Permission flags ----
@@ -189,20 +165,6 @@ export class PersonnelPageContext {
 		return map;
 	}
 
-	// ---- Derived: rating scheme ----
-
-	get hasAnyWorkflowStatus(): boolean {
-		return this.#ratingStore.items.some((e) => !!e.workflowStatus);
-	}
-
-	get filteredRatingEntries(): RatingSchemeEntry[] {
-		let entries = this.#ratingStore.items;
-		if (this.ratingFilter !== 'all') entries = entries.filter((e) => e.status === this.ratingFilter);
-		if (this.evalTypeFilter !== 'all') entries = entries.filter((e) => e.evalType === this.evalTypeFilter);
-		if (this.workflowFilter !== 'all') entries = entries.filter((e) => e.workflowStatus === this.workflowFilter);
-		return entries;
-	}
-
 	// ---- Data accessors (for view/modals) ----
 
 	get data(): PersonnelPageData {
@@ -225,14 +187,6 @@ export class PersonnelPageContext {
 
 	handleEdit(person: Personnel): void {
 		this.#modals.open('personnel-modal', { person });
-	}
-
-	handleAddRatingEntry(): void {
-		this.#modals.open('rating-modal', { entry: null });
-	}
-
-	handleEditRatingEntry(entry: RatingSchemeEntry): void {
-		this.#modals.open('rating-modal', { entry });
 	}
 
 	openGroupManager(): void {

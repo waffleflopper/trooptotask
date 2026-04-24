@@ -5,33 +5,11 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { Group } from '$lib/stores/groups.svelte';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
 import type { PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import { _createPersonnelLayoutLoad } from './+layout.server';
 
 describe('personnel layout server load', () => {
 	it('registers personnel dependencies and preserves the canonical personnel workspace payload', async () => {
-		const ratingSchemeEntries = [
-			{
-				id: 'rs1',
-				ratedPersonId: 'p1',
-				evalType: 'NCOER',
-				raterPersonId: null,
-				raterName: null,
-				seniorRaterPersonId: null,
-				seniorRaterName: null,
-				intermediateRaterPersonId: null,
-				intermediateRaterName: null,
-				reviewerPersonId: null,
-				reviewerName: null,
-				ratingPeriodStart: '2024-01-01',
-				ratingPeriodEnd: '2024-12-31',
-				status: 'active',
-				notes: null,
-				reportType: 'AN',
-				workflowStatus: 'drafting'
-			} satisfies RatingSchemeEntry
-		];
 		const personnelData: PersonnelBootstrap = {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			personnelLookup: [
@@ -41,7 +19,6 @@ describe('personnel layout server load', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
 			pinnedGroups: ['Alpha'],
-			ratingSchemeEntries,
 			lossWarningWindowDays: 180,
 			awardTrackingAcknowledgedPersonnelIds: []
 		};
@@ -69,7 +46,7 @@ describe('personnel layout server load', () => {
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:personnel-data');
-		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1', view: 'roster' });
+		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
 		expect(result).toMatchObject({
 			personnel: {
@@ -102,50 +79,9 @@ describe('personnel layout server load', () => {
 						items: personnelData.pinnedGroups,
 						deferred: false,
 						snapshotKey: expect.any(String)
-					}),
-					ratingSchemeEntries: expect.objectContaining({
-						mode: 'replace',
-						items: personnelData.ratingSchemeEntries,
-						deferred: false,
-						snapshotKey: expect.any(String)
 					})
 				}
 			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
 		});
-	});
-
-	it('switches to the rating-scheme workspace mode when requested by the query string', async () => {
-		const personnelData: PersonnelBootstrap = {
-			personnel: [],
-			personnelLookup: [{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' } as PersonnelLookup],
-			groups: [],
-			statusTypes: [],
-			pinnedGroups: [],
-			ratingSchemeEntries: [],
-			lossWarningWindowDays: 180,
-			awardTrackingAcknowledgedPersonnelIds: []
-		};
-		const depends = vi.fn();
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
-		);
-		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
-		const load = _createPersonnelLayoutLoad({
-			createWorkspacePort,
-			createPlannerPort: vi.fn().mockReturnValue(createDefaultHydrationPlanner('org-1'))
-		});
-		const locals = {} as App.Locals;
-		const cookies = {} as Cookies;
-
-		await load({
-			params: { orgId: 'org-1' },
-			locals,
-			cookies,
-			depends,
-			url: new URL('https://example.test/org/org-1/personnel?view=rating-scheme')
-		} as unknown as Parameters<typeof load>[0]);
-
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:rating-scheme-data');
-		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1', view: 'rating-scheme' });
 	});
 });

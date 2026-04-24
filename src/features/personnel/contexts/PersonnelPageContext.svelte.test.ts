@@ -3,7 +3,6 @@ import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -24,35 +23,11 @@ function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 	};
 }
 
-function makeRatingEntry(overrides: Partial<RatingSchemeEntry> = {}): RatingSchemeEntry {
-	return {
-		id: 'r1',
-		ratedPersonId: 'p1',
-		raterPersonId: null,
-		raterName: null,
-		seniorRaterPersonId: null,
-		seniorRaterName: null,
-		intermediateRaterPersonId: null,
-		intermediateRaterName: null,
-		reviewerPersonId: null,
-		reviewerName: null,
-		evalType: 'NCOER',
-		status: 'active',
-		ratingPeriodStart: '2025-01-01',
-		ratingPeriodEnd: '2025-12-31',
-		reportType: null,
-		workflowStatus: null,
-		notes: null,
-		...overrides
-	};
-}
-
 function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org1',
 		orgName: 'Test Org',
 		pinnedGroups: [] as string[],
-		ratingSchemeEntries: [] as RatingSchemeEntry[],
 		personnel: [] as Personnel[],
 		permissions: {
 			canViewPersonnel: true,
@@ -119,16 +94,7 @@ describe('PersonnelPageContext', () => {
 		it('initialises with default view state', () => {
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg());
 			expect(ctx.viewMode).toBe('by-group');
-			expect(ctx.pageView).toBe('roster');
 			expect(ctx.searchQuery).toBe('');
-			expect(ctx.ratingViewMode).toBe('grouped');
-			expect(ctx.ratingFilter).toBe('active');
-			expect(ctx.evalTypeFilter).toBe('all');
-		});
-
-		it('initialises pageView from incoming page data when provided', () => {
-			const ctx = new PersonnelPageContext(makeData({ initialPageView: 'rating-scheme' }), makeModals(), makeOrg());
-			expect(ctx.pageView).toBe('rating-scheme');
 		});
 
 		it('initialises with no modals open', () => {
@@ -137,7 +103,6 @@ describe('PersonnelPageContext', () => {
 			expect(modals.isOpen('personnel-modal')).toBe(false);
 			expect(modals.isOpen('group-manager')).toBe(false);
 			expect(modals.isOpen('bulk-manager')).toBe(false);
-			expect(modals.isOpen('rating-modal')).toBe(false);
 		});
 	});
 
@@ -285,74 +250,6 @@ describe('PersonnelPageContext', () => {
 		});
 	});
 
-	describe('rating scheme filtering', () => {
-		it('hasAnyWorkflowStatus is false when no entries have workflowStatus', () => {
-			const ctx = new PersonnelPageContext(
-				makeData(),
-				makeModals(),
-				makeOrg(),
-				[],
-				[makeRatingEntry({ workflowStatus: null })]
-			);
-			expect(ctx.hasAnyWorkflowStatus).toBe(false);
-		});
-
-		it('hasAnyWorkflowStatus is true when any entry has workflowStatus', () => {
-			const ctx = new PersonnelPageContext(
-				makeData(),
-				makeModals(),
-				makeOrg(),
-				[],
-				[makeRatingEntry({ workflowStatus: 'drafting' })]
-			);
-			expect(ctx.hasAnyWorkflowStatus).toBe(true);
-		});
-
-		it('filteredRatingEntries filters by ratingFilter (active by default)', () => {
-			const entries = [
-				makeRatingEntry({ id: 'r1', status: 'active' }),
-				makeRatingEntry({ id: 'r2', status: 'completed' }),
-				makeRatingEntry({ id: 'r3', status: 'change-of-rater' })
-			];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], entries);
-			// default is 'active'
-			expect(ctx.filteredRatingEntries).toHaveLength(1);
-			expect(ctx.filteredRatingEntries[0].id).toBe('r1');
-		});
-
-		it('filteredRatingEntries returns all when ratingFilter is all', () => {
-			const entries = [
-				makeRatingEntry({ id: 'r1', status: 'active' }),
-				makeRatingEntry({ id: 'r2', status: 'completed' })
-			];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], entries);
-			ctx.ratingFilter = 'all';
-			expect(ctx.filteredRatingEntries).toHaveLength(2);
-		});
-
-		it('filteredRatingEntries filters by evalTypeFilter', () => {
-			const entries = [
-				makeRatingEntry({ id: 'r1', evalType: 'OER', status: 'active' }),
-				makeRatingEntry({ id: 'r2', evalType: 'NCOER', status: 'active' })
-			];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], entries);
-			ctx.evalTypeFilter = 'OER';
-			expect(ctx.filteredRatingEntries).toHaveLength(1);
-			expect(ctx.filteredRatingEntries[0].id).toBe('r1');
-		});
-
-		it('filteredRatingEntries filters by workflowFilter', () => {
-			const entries = [
-				makeRatingEntry({ id: 'r1', status: 'active', workflowStatus: 'drafting' }),
-				makeRatingEntry({ id: 'r2', status: 'active', workflowStatus: 'completed' })
-			];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], entries);
-			ctx.workflowFilter = 'drafting';
-			expect(ctx.filteredRatingEntries).toHaveLength(1);
-			expect(ctx.filteredRatingEntries[0].id).toBe('r1');
-		});
-	});
-
 	describe('modal handlers', () => {
 		it('handleAdd opens personnel-modal with null person payload', () => {
 			const modals = makeModals();
@@ -369,23 +266,6 @@ describe('PersonnelPageContext', () => {
 			ctx.handleEdit(person);
 			expect(modals.isOpen('personnel-modal')).toBe(true);
 			expect(modals.payload<{ person: Personnel }>('personnel-modal')?.person).toBe(person);
-		});
-
-		it('handleAddRatingEntry opens rating-modal with null entry payload', () => {
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
-			ctx.handleAddRatingEntry();
-			expect(modals.isOpen('rating-modal')).toBe(true);
-			expect(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal')?.entry).toBeNull();
-		});
-
-		it('handleEditRatingEntry opens rating-modal with the entry payload', () => {
-			const entry = makeRatingEntry();
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg(), [], [entry]);
-			ctx.handleEditRatingEntry(entry);
-			expect(modals.isOpen('rating-modal')).toBe(true);
-			expect(modals.payload<{ entry: RatingSchemeEntry }>('rating-modal')?.entry).toBe(entry);
 		});
 
 		it('openGroupManager opens group-manager modal', () => {
@@ -432,13 +312,13 @@ describe('PersonnelPageContext', () => {
 
 		it('returns an empty map when no personnel have tracked dates', () => {
 			const people = [makePerson({ id: 'p1', ets: null, deros: null })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
 		it('includes a person whose ETS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('ETS');
@@ -446,7 +326,7 @@ describe('PersonnelPageContext', () => {
 
 		it('includes a person whose DEROS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', deros: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('PCS / DEROS');
@@ -454,12 +334,12 @@ describe('PersonnelPageContext', () => {
 
 		it('excludes a person whose ETS falls outside the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: OUT_OF_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('returns an empty map when personnel array is empty', () => {
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], [], TODAY);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
@@ -471,7 +351,6 @@ describe('PersonnelPageContext', () => {
 				makeModals(),
 				makeOrg(),
 				people,
-				[],
 				[],
 				TODAY
 			);
@@ -487,7 +366,6 @@ describe('PersonnelPageContext', () => {
 				makeOrg(),
 				people,
 				[],
-				[],
 				TODAY
 			);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
@@ -496,7 +374,7 @@ describe('PersonnelPageContext', () => {
 		it('uses 180 days as default window when lossWarningWindowDays is not in page data', () => {
 			// ETS 120 days from today — inside 180-day default
 			const people = [makePerson({ id: 'p1', ets: '2026-08-12' })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
 		});
 
@@ -507,7 +385,6 @@ describe('PersonnelPageContext', () => {
 				makeModals(),
 				makeOrg(),
 				people,
-				[],
 				[],
 				TODAY
 			);

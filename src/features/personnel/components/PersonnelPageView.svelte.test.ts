@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelPageView from './PersonnelPageView.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { OrganizationMemberPermissions, Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -31,14 +30,6 @@ const editablePermissions: OrganizationMemberPermissions = {
 const viewOnlyPermissions: OrganizationMemberPermissions = {
 	...editablePermissions,
 	canEditPersonnel: false
-};
-
-const ratingOnlyPermissions: OrganizationMemberPermissions = {
-	...editablePermissions,
-	canViewPersonnel: false,
-	canEditPersonnel: false,
-	canViewRatingScheme: true,
-	canEditRatingScheme: true
 };
 
 const personnel: Personnel[] = [
@@ -82,27 +73,19 @@ function makeCtx(
 		data: { orgId: 'org-1', scopedGroupId: null },
 		orgId: 'org-1',
 		canAddPersonnel: false,
-		pageView: 'roster',
 		viewMode: 'alphabetical',
-		evalTypeFilter: 'all',
-		ratingFilter: 'active',
-		workflowFilter: 'all',
-		filteredRatingEntries: [],
 		totalPersonnel: personnel.length,
 		upcomingLossMap,
 		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn(),
-		openBulkManager: vi.fn(),
-		handleAddRatingEntry: vi.fn(),
-		handleEditRatingEntry: vi.fn()
+		openBulkManager: vi.fn()
 	} as unknown as PersonnelPageContext;
 }
 
 describe('PersonnelPageView', () => {
 	beforeEach(() => {
 		personnelStore.load(personnel, 'org-1');
-		ratingSchemeStore.load([], 'org-1');
 		pinnedGroupsStore.load([], 'org-1');
 		subscriptionStore.clear();
 		vi.stubGlobal('fetch', vi.fn());
@@ -111,7 +94,6 @@ describe('PersonnelPageView', () => {
 	afterEach(() => {
 		cleanup();
 		personnelStore.load([], 'org-test-reset');
-		ratingSchemeStore.load([], 'org-test-reset');
 		pinnedGroupsStore.load([], 'org-test-reset');
 		subscriptionStore.clear();
 		vi.unstubAllGlobals();
@@ -121,7 +103,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+			props: { ctx, permissions: viewOnlyPermissions }
 		});
 
 		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
@@ -133,7 +115,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: viewOnlyPermissions }
 			});
 
 			// The ETS chip should appear in the roster row
@@ -145,7 +127,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: viewOnlyPermissions }
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('ETS');
@@ -156,7 +138,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: viewOnlyPermissions }
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS');
@@ -167,7 +149,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), new Map());
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: viewOnlyPermissions }
 			});
 
 			expect(screen.queryByTestId('loss-indicator-person-1')).toBeNull();
@@ -178,7 +160,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: editablePermissions }
 			});
 
 			expect(screen.getByTestId('award-ack-action-person-1').textContent).toBe('Ack award');
@@ -188,7 +170,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), new Map());
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: editablePermissions }
 			});
 
 			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
@@ -203,7 +185,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+				props: { ctx, permissions: editablePermissions }
 			});
 
 			await fireEvent.click(screen.getByTestId('award-ack-action-person-1'));
@@ -228,9 +210,7 @@ describe('PersonnelPageView', () => {
 		const view = render(PersonnelPageView, {
 			props: {
 				ctx,
-				personnelLookup: [],
-				permissions: editablePermissions,
-				onPageViewChange: vi.fn()
+				permissions: editablePermissions
 			}
 		});
 
@@ -239,9 +219,7 @@ describe('PersonnelPageView', () => {
 
 		await view.rerender({
 			ctx,
-			personnelLookup: [],
-			permissions: viewOnlyPermissions,
-			onPageViewChange: vi.fn()
+			permissions: viewOnlyPermissions
 		});
 
 		expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
@@ -253,88 +231,14 @@ describe('PersonnelPageView', () => {
 		expect(handleEdit).not.toHaveBeenCalled();
 	});
 
-	it('allows rating-scheme-only viewers to open the rating scheme view without showing roster access errors', () => {
-		const ctx = {
-			...makeCtx(),
-			pageView: 'rating-scheme',
-			filteredRatingEntries: [
-				{
-					id: 'rs1',
-					ratedPersonId: 'person-1',
-					evalType: 'NCOER',
-					raterPersonId: null,
-					raterName: null,
-					seniorRaterPersonId: null,
-					seniorRaterName: null,
-					intermediateRaterPersonId: null,
-					intermediateRaterName: null,
-					reviewerPersonId: null,
-					reviewerName: null,
-					ratingPeriodStart: '2026-01-01',
-					ratingPeriodEnd: '2026-12-31',
-					status: 'active',
-					reportType: 'AN',
-					workflowStatus: 'drafting',
-					notes: null
-				}
-			]
-		} as unknown as PersonnelPageContext;
+	it('keeps rating scheme controls out of the Personnel roster page', () => {
+		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: {
-				ctx,
-				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
-				permissions: ratingOnlyPermissions,
-				onPageViewChange: vi.fn()
-			}
+			props: { ctx, permissions: editablePermissions }
 		});
 
-		expect(screen.queryByText('Access Restricted')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Rating Scheme' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Roster' })).toBeNull();
-	});
-
-	it('uses rating-scheme edit permission for rating entry actions', () => {
-		const handleAddRatingEntry = vi.fn();
-		const ctx = {
-			...makeCtx(),
-			pageView: 'rating-scheme',
-			handleAddRatingEntry,
-			filteredRatingEntries: []
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: {
-				ctx,
-				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
-				permissions: ratingOnlyPermissions,
-				onPageViewChange: vi.fn()
-			}
-		});
-
-		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
-	});
-
-	it('does not show roster administration actions on the rating scheme view', () => {
-		const ctx = {
-			...makeCtx(),
-			canAddPersonnel: true,
-			pageView: 'rating-scheme',
-			filteredRatingEntries: []
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: {
-				ctx,
-				personnelLookup: [{ id: 'person-1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' }],
-				permissions: editablePermissions,
-				onPageViewChange: vi.fn()
-			}
-		});
-
-		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Manage Groups' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Rating Scheme' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Add Entry' })).toBeNull();
 	});
 });

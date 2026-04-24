@@ -56,9 +56,10 @@ describe('getOrgNavigation', () => {
 		expect(isOrgNavItemActive('/org/org-1/critical-tasks/reports', item)).toBe(true);
 	});
 
-	it('shows a Rating Scheme nav item when the member can view rating scheme but not personnel', () => {
+	it('shows an Evals nav item when the member can view rating scheme', () => {
 		const nav = getOrgNavigation('org-1', {
 			...basePermissions,
+			canViewPersonnel: true,
 			canViewRatingScheme: true
 		});
 
@@ -66,16 +67,16 @@ describe('getOrgNavigation', () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: 'rating-scheme',
-					href: '/org/org-1/personnel?view=rating-scheme',
-					label: 'Rating Scheme',
+					href: '/org/org-1/evals',
+					label: 'Evals',
 					visible: true
 				})
 			])
 		);
-		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
+		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(true);
 	});
 
-	it('treats the rating-scheme nav item as active on the nested personnel route', () => {
+	it('treats Evals child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
 			...basePermissions,
 			canViewRatingScheme: true
@@ -85,6 +86,6 @@ describe('getOrgNavigation', () => {
 			throw new Error('Rating Scheme nav item missing');
 		}
 
-		expect(isOrgNavItemActive('/org/org-1/personnel', item)).toBe(true);
+		expect(isOrgNavItemActive('/org/org-1/evals/reports', item)).toBe(true);
 	});
 });

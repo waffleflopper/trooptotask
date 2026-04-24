@@ -7,7 +7,7 @@ Date: 2026-04-22
 
 ### Current-state truth
 
-- Rating Scheme is active and user-visible today through the Personnel page.
+- Rating Scheme is active and user-visible today through the Evals route. At decision time, it was still presented through the Personnel page.
 - The `rating_scheme_entries` model already stores evaluation-tracking records for rated individuals, including eval type, rating chain participants, rating period dates, report type, workflow status, and notes.
 - At decision time, the runtime permission path was contradictory:
   - `src/routes/org/[orgId]/api/rating-scheme/+server.ts` still uses `permission: 'leaders-book'`
@@ -39,7 +39,7 @@ Date: 2026-04-22
 - Rating Scheme and `Leader's Book` are independently grantable feature lanes. A member may have one without the other.
 - During the current v1 transition, primary-nav visibility does not define feature existence or lane ownership:
   - `Leader's Book` remains real current-state compatibility surface area even while hidden from nav
-  - Rating Scheme remains real and independently grantable even while nested inside Personnel
+  - Rating Scheme remains real and independently grantable even if temporarily nested inside another surface
 - `Leader's Book` remains outside the current durable first-class lane map while the remake is still being defined.
 - A later ADR or equivalent design review may revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once its rebuilt shape is real enough to evaluate.
 - At acceptance time, this decision slice did not change runtime permission enforcement. Those `leaders-book` and `personnel` couplings were later removed by issue [#627](https://github.com/waffleflopper/trooptotask/issues/627) without changing the approved record boundary.
@@ -86,10 +86,9 @@ Date: 2026-04-22
 - This decision slice did not implement runtime boundary changes directly.
 - Implementation slice issue [#627](https://github.com/waffleflopper/trooptotask/issues/627) landed on 2026-04-23 and moved Rating Scheme onto its approved runtime lane while preserving the boundary documented here.
   - route/auth entry, CRUD enforcement, membership and invitation booleans, and RLS-backed scoped record checks now use the dedicated `rating-scheme` lane
-  - rating-scheme-only members can receive a dedicated primary-nav entry into the nested Personnel-hosted view so Personnel access is not a prerequisite
+  - rating-scheme-only members can use the first-class Evals route so Personnel access is not a prerequisite
 - Follow-up design work after the remake is real:
   - decide whether the remade `Leader's Book` re-enters the durable first-class lane map
-  - decide whether primary-nav visibility should regain parity with feature-lane existence once Rating Scheme has its own standalone nav item
 - Docs updated with this ADR:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`

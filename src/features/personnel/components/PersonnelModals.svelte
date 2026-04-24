@@ -1,13 +1,10 @@
 <script lang="ts">
-	import type { Personnel, PersonnelLookup } from '$lib/types';
-	import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
+	import type { Personnel } from '$lib/types';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from '$features/groups/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$features/personnel/components/BulkPersonnelManager.svelte';
-	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -17,17 +14,13 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		modals: ModalRegistry;
-		personnelLookup: PersonnelLookup[];
 	}
 
-	let { ctx, modals, personnelLookup }: Props = $props();
+	let { ctx, modals }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
-	const ratingPayload = $derived(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal'));
 
 	const editingPerson = $derived(personnelPayload?.person ?? null);
-	const editingEntry = $derived(ratingPayload?.entry ?? null);
-	const ratingSchemeResourceUrl = $derived(`/org/${ctx.orgId}/personnel?view=rating-scheme`);
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
@@ -86,37 +79,7 @@
 		}
 		modals.close('bulk-manager');
 	}
-
-	async function handleSaveRatingEntry(entryData: Omit<RatingSchemeEntry, 'id'>) {
-		if (editingEntry) {
-			const updated = await ratingSchemeStore.update(editingEntry.id, entryData);
-			if (!updated) throw new Error('Failed to update rating entry');
-		} else {
-			const created = await ratingSchemeStore.add(entryData);
-			if (!created) throw new Error('Failed to add rating entry');
-		}
-	}
-
-	async function handleDeleteRatingEntry(id: string) {
-		const entry = ratingSchemeStore.items.find((e) => e.id === id);
-		const result = await ratingSchemeStore.remove(id);
-		if (result === 'approval_required' && entry) {
-			const person = personnelLookup.find((p) => p.id === entry.ratedPersonId);
-			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
-			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, ratingSchemeResourceUrl);
-		}
-	}
 </script>
-
-{#if modals.isOpen('rating-modal')}
-	<RatingSchemeEntryModal
-		entry={editingEntry}
-		personnel={personnelLookup}
-		onSave={handleSaveRatingEntry}
-		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
-		onClose={modals.closerFor('rating-modal')}
-	/>
-{/if}
 
 {#if modals.isOpen('personnel-modal')}
 	<PersonnelModal

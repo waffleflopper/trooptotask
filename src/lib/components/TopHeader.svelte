@@ -88,7 +88,7 @@
 			<div class="breadcrumb" aria-label="Current section">
 				<span class="breadcrumb-parent">{orgName}</span>
 				<span class="breadcrumb-separator">›</span>
-				<span class="breadcrumb-current">{activeNavItem?.label ?? 'Dashboard'}</span>
+				<span class="breadcrumb-current">{activeNavItem?.breadcrumbLabel ?? activeNavItem?.label ?? 'Dashboard'}</span>
 			</div>
 		</div>
 

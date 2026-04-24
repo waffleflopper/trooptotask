@@ -38,7 +38,7 @@
 			{ label: 'Record Training', href: `/org/${orgId}/training`, permission: 'canViewTraining' },
 			{
 				label: 'Add Eval',
-				href: `/org/${orgId}/personnel?view=rating-scheme`,
+				href: `/org/${orgId}/evals`,
 				permission: 'canViewRatingScheme'
 			}
 		]

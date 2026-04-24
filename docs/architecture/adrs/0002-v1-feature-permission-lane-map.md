@@ -48,7 +48,7 @@ Date: 2026-04-21
 - `Leader's Book` is not part of the durable first-class lane map and must not shape long-term preset taxonomy more than necessary.
 - Temporary route, page, or screen placement does not define durable lane ownership.
 - `Critical Tasks` owns its own durable lane and must stop borrowing `training`.
-- `Rating Scheme` owns its own durable lane even while current UI placement remains inside the Personnel surface during migration.
+- `Rating Scheme` owns its own durable lane even if UI placement changes during migration.
 - `Rating Scheme` should be independently grantable from `Personnel` in the approved member-access model.
 - Current borrowed-lane behavior is migration drift only and must not be copied into new work.
 - Approved remediation order is:

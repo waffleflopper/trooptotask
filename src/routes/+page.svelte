@@ -27,7 +27,7 @@
 		{
 			question: 'What is the "Leaders Book" and when is it coming back?',
 			answer:
-				"The Leaders Book is a digital replacement for that notebook every NCO keeps in their left cargo pocket — counseling records, development goals, extended soldier info, and everything else that doesn't have a home on a standard form. We're currently rebuilding it from the ground up to be more intuitive and better integrated with the rest of the app. The Rating Scheme tracker is still fully available on the Personnel page in the meantime."
+				"The Leaders Book is a digital replacement for that notebook every NCO keeps in their left cargo pocket — counseling records, development goals, extended soldier info, and everything else that doesn't have a home on a standard form. We're currently rebuilding it from the ground up to be more intuitive and better integrated with the rest of the app. The Rating Scheme tracker is fully available from Evals in the meantime."
 		},
 		{
 			question: 'How does the duty roster generator actually work?',

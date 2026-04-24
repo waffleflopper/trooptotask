@@ -10,7 +10,6 @@ interface PersonnelLayoutRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
-	view: 'roster' | 'rating-scheme';
 }
 
 export interface PersonnelLayoutLoadDeps {
@@ -23,16 +22,15 @@ export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): 
 	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
 	const createWorkspacePort =
 		deps.createWorkspacePort ??
-		(({ locals, cookies, orgId, view }: PersonnelLayoutRequestContext) =>
-			createSupabasePersonnelWorkspacePort(locals, cookies, orgId, view));
+		(({ locals, cookies, orgId }: PersonnelLayoutRequestContext) =>
+			createSupabasePersonnelWorkspacePort(locals, cookies, orgId));
 	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
 
-	return async ({ params, locals, cookies, depends, url }) => {
-		const view = url.searchParams.get('view') === 'rating-scheme' ? 'rating-scheme' : 'roster';
-		depends('app:org-core', view === 'rating-scheme' ? 'app:rating-scheme-data' : 'app:personnel-data');
+	return async ({ params, locals, cookies, depends }) => {
+		depends('app:org-core', 'app:personnel-data');
 
 		const { orgId } = params;
-		const workspacePort = createWorkspacePort({ locals, cookies, orgId, view });
+		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 
 		return coordinator.loadWorkspace<PersonnelBootstrap, 'personnel'>('personnel', {

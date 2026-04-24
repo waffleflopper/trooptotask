@@ -1,3 +1,8 @@
+import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
+import type { HydrationPlan } from '$lib/server/core/orgShell';
+import type { OrganizationMemberPermissions } from '$lib/types';
+import type { TrainingStats } from '$features/training/utils/trainingStatus';
+
 // ---------------------------------------------------------------------------
 // Dashboard tab identity
 // ---------------------------------------------------------------------------
@@ -64,4 +69,27 @@ export function normalizeDashboardConfig(value: unknown): DashboardConfig {
 		widgets: Array.isArray(maybeConfig?.widgets) ? maybeConfig.widgets : DEFAULT_DASHBOARD_CONFIG.widgets,
 		defaultTab: resolveDashboardTab(maybeConfig?.defaultTab)
 	};
+}
+
+export interface TrainingIssue {
+	personName: string;
+	typeName: string;
+	status: string;
+	label: string;
+}
+
+// Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
+export interface DashboardPageData {
+	orgId: string;
+	orgName: string;
+	userId: string | null;
+	permissions: OrganizationMemberPermissions | null;
+	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
+	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
+	onboardingTrainingCompletions: string[];
+	onboardingTemplateStepCount?: number;
+	ratingSchemeEntryCount?: number;
+	orgMemberCount?: number;
+	gettingStartedDismissed?: boolean;
+	[key: string]: unknown;
 }

@@ -1,0 +1,224 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
+import type { Group } from '$lib/stores/groups.svelte';
+import type { AssignmentType, DailyAssignment } from '$lib/types';
+import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
+
+function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
+	values: Record<string, string>;
+} {
+	return {
+		values: { ...initial },
+		getItem(key: string) {
+			return this.values[key] ?? null;
+		},
+		setItem(key: string, value: string) {
+			this.values[key] = value;
+		}
+	};
+}
+
+function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: Record<string, unknown> = {}) {
+	return {
+		orgId: 'org-1',
+		orgName: 'Test Unit',
+		userId: 'user-1',
+		permissions: null,
+		dashboard: {
+			workspace: 'dashboard',
+			data: {
+				availabilityEntries: [],
+				assignmentTypes: [],
+				todayAssignments: [],
+				pinnedGroups: [],
+				activeOnboardings: [],
+				ratingSchemeEntries: [],
+				todayDutyEvents: [],
+				personnel: [],
+				groups: [],
+				statusTypes: [],
+				trainingTypes: [],
+				lossWarningWindowDays: 180,
+				awardTrackingAcknowledgedPersonnelIds: [],
+				...workspaceOverrides
+			}
+		},
+		trainingSummary: null,
+		onboardingTrainingCompletions: [],
+		...overrides
+	};
+}
+
+function makeSources(
+	input: {
+		personnel?: Partial<Personnel>[];
+		statusTypes?: Partial<StatusType>[];
+		availabilityEntries?: Partial<AvailabilityEntry>[];
+		groups?: Partial<Group>[];
+		assignmentTypes?: Partial<AssignmentType>[];
+		dailyAssignments?: Partial<DailyAssignment>[];
+		pinnedGroups?: string[];
+		loading?: Partial<Record<'personnel' | 'statusTypes' | 'availability' | 'dailyAssignments' | 'groups', boolean>>;
+	} = {}
+) {
+	return {
+		personnel: {
+			items: (input.personnel ?? []) as Personnel[],
+			loading: input.loading?.personnel ?? false
+		},
+		statusTypes: {
+			items: (input.statusTypes ?? []) as StatusType[],
+			loading: input.loading?.statusTypes ?? false
+		},
+		availability: {
+			items: (input.availabilityEntries ?? []) as AvailabilityEntry[],
+			loading: input.loading?.availability ?? false
+		},
+		dailyAssignments: {
+			assignments: (input.dailyAssignments ?? []) as DailyAssignment[],
+			types: (input.assignmentTypes ?? []) as AssignmentType[],
+			loading: input.loading?.dailyAssignments ?? false
+		},
+		groups: {
+			items: (input.groups ?? []) as Group[],
+			loading: input.loading?.groups ?? false
+		},
+		pinnedGroups: {
+			list: input.pinnedGroups ?? []
+		}
+	};
+}
+
+describe('createDashboardScreenModel', () => {
+	it('pre-shapes out-today rows by status and group while preserving the saved grouping mode', () => {
+		const storage = createMemoryStorage({ 'dashboard-out-today-group-by': 'group' });
+		const model = createDashboardScreenModel(makeData(), {
+			today: '2026-04-23',
+			storage,
+			sources: makeSources({
+				personnel: [
+					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
+					{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: null }
+				],
+				groups: [{ id: 'g1', name: 'Alpha', sortOrder: 1 }],
+				statusTypes: [
+					{ id: 'st1', name: 'Leave', color: '#aa0000', textColor: '#ffffff' },
+					{ id: 'st2', name: 'TDY', color: '#0000aa', textColor: '#ffffff' }
+				],
+				availabilityEntries: [
+					{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-04-23', endDate: '2026-04-23' },
+					{ id: 'a2', personnelId: 'p2', statusTypeId: 'st2', startDate: '2026-04-22', endDate: '2026-04-24' }
+				]
+			})
+		});
+
+		expect(model.peopleDuty.outToday.mode).toBe('group');
+		expect(model.peopleDuty.outToday.byStatus.map(([label]) => label)).toEqual(['Leave', 'TDY']);
+		expect(model.peopleDuty.outToday.byGroup.map(([label]) => label)).toEqual(['Alpha', 'Unassigned']);
+		expect(model.peopleDuty.outToday.byGroup[0][1][0].personName).toBe('SGT Smith, Ann');
+
+		model.peopleDuty.outToday.setMode('status');
+
+		expect(model.peopleDuty.outToday.mode).toBe('status');
+		expect(storage.values['dashboard-out-today-group-by']).toBe('status');
+	});
+
+	it('pre-shapes upcoming changes and shares the persisted grouping mode across dashboard tabs', () => {
+		const storage = createMemoryStorage({ 'dashboard-upcoming-group-by': 'group' });
+		const model = createDashboardScreenModel(makeData(), {
+			today: '2026-04-23',
+			storage,
+			sources: makeSources({
+				personnel: [
+					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
+					{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: null }
+				],
+				groups: [{ id: 'g1', name: 'Alpha', sortOrder: 1 }],
+				statusTypes: [{ id: 'st1', name: 'Leave', color: '#aa0000', textColor: '#ffffff' }],
+				availabilityEntries: [
+					{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-04-25', endDate: '2026-04-27' },
+					{ id: 'a2', personnelId: 'p2', statusTypeId: 'st1', startDate: '2026-04-26', endDate: '2026-04-28' }
+				]
+			})
+		});
+
+		expect(model.unitReadiness.upcomingChanges.mode).toBe('group');
+		expect(model.peopleDuty.upcomingChanges.mode).toBe('group');
+		expect(model.unitReadiness.upcomingChanges.byGroup.map(([label]) => label)).toEqual(['Alpha', 'Unassigned']);
+
+		model.unitReadiness.upcomingChanges.setMode('date');
+
+		expect(model.peopleDuty.upcomingChanges.mode).toBe('date');
+		expect(storage.values['dashboard-upcoming-group-by']).toBe('date');
+		expect(model.upcomingChanges.map((change) => change.date)).toEqual([
+			'2026-04-25',
+			'2026-04-26',
+			'2026-04-27',
+			'2026-04-28'
+		]);
+	});
+
+	it('defaults today through the shared date formatter when no explicit date is supplied', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-04-23T12:00:00'));
+
+		const model = createDashboardScreenModel(makeData(), {
+			storage: createMemoryStorage(),
+			sources: makeSources()
+		});
+
+		expect(model.today).toBe('2026-04-23');
+
+		vi.useRealTimers();
+	});
+
+	it('pre-shapes training and evaluation rows for the training tab', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-04-23T12:00:00Z'));
+
+		const model = createDashboardScreenModel(
+			makeData(
+				{
+					trainingSummary: {
+						stats: { current: 3, expired: 1, warningOrange: 2, warningYellow: 0 },
+						issues: [
+							{ personName: 'SGT Smith', typeName: 'CPR', status: 'warning-orange', label: 'Due 20d' },
+							{ personName: 'SGT Smith', typeName: 'BLS', status: 'expired', label: 'Expired 5d' },
+							{ personName: 'SPC Jones', typeName: 'Range', status: 'warning-orange', label: 'Due 10d' }
+						]
+					}
+				},
+				{
+					ratingSchemeEntries: [
+						{ id: 'r1', ratedPersonId: 'p1', ratingPeriodEnd: '2026-05-15', status: 'active', evalType: 'NCOER' }
+					]
+				}
+			),
+			{
+				today: '2026-04-23',
+				sources: makeSources({
+					personnel: [
+						{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
+						{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: 'g1' }
+					],
+					groups: [{ id: 'g1', name: 'Alpha', sortOrder: 1 }]
+				})
+			}
+		);
+
+		expect(model.trainingEvals.hasTrainingIssues).toBe(true);
+		expect(model.trainingEvals.trainingColor).toBe('var(--danger)');
+		expect(model.trainingEvals.groupedIndividuals[0]).toMatchObject({
+			personName: 'SGT Smith',
+			typeNames: 'BLS, CPR',
+			isExpired: true
+		});
+		expect(model.trainingEvals.evalsDueSoon[0]).toMatchObject({
+			id: 'r1',
+			personName: 'SGT Smith',
+			evalType: 'NCOER'
+		});
+
+		vi.useRealTimers();
+	});
+});

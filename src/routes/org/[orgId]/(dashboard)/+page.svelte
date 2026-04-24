@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DashboardContext, DashboardPageView } from '$features/dashboard';
-	import type { DashboardPageData, DashboardSupportData } from '$features/dashboard/contexts/DashboardContext.svelte';
+	import type { DashboardSupportData } from '$features/dashboard/contexts/DashboardContext.svelte';
+	import type { DashboardPageData } from '$features/dashboard/dashboard.types';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { SvelteMap } from 'svelte/reactivity';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 
 	interface Props {
@@ -8,55 +7,12 @@
 
 	let { ctx }: Props = $props();
 
-	function availabilityColor(pct: number): string {
-		if (pct >= 90) return 'var(--success)';
-		if (pct >= 75) return 'var(--amber)';
-		return 'var(--danger)';
-	}
-
-	const evalsDueSoon = $derived(ctx.ratingsDueSoon(90));
-	const trainingColor = $derived(availabilityColor(ctx.trainingCurrencyPct));
-	const hasTrainingIssues = $derived(
-		ctx.trainingStats !== null && (ctx.trainingStats.expired > 0 || ctx.trainingStats.warningOrange > 0)
-	);
-
-	// Group bars: normalise relative to worst group so bars are proportional,
-	// not absolute percentages (which all look the same when estimated proportionally).
-	const delinquencies = $derived(ctx.trainingGroupDelinquencies);
-	const maxGroupCount = $derived(delinquencies.length > 0 ? Math.max(...delinquencies.map((g) => g.count)) : 1);
-
-	// Individuals: one row per person with all their issues comma-joined.
-	// Mirrors the grouping logic in TrainingHealthWidget.
-	const groupedIndividuals = $derived.by(() => {
-		const issues = ctx.topTrainingIssues;
-		const byPerson = new SvelteMap<string, typeof issues>();
-		for (const issue of issues) {
-			const existing = byPerson.get(issue.personName) ?? [];
-			existing.push(issue);
-			byPerson.set(issue.personName, existing);
-		}
-		return [...byPerson.values()].map((personIssues) => {
-			// Sort: expired first, then by urgency
-			const sorted = [...personIssues].sort((a, b) => {
-				if (a.status === 'expired' && b.status !== 'expired') return -1;
-				if (b.status === 'expired' && a.status !== 'expired') return 1;
-				const daysA = parseInt(a.label?.match(/\d+/)?.[0] ?? '0');
-				const daysB = parseInt(b.label?.match(/\d+/)?.[0] ?? '0');
-				return a.status === 'expired' ? daysB - daysA : daysA - daysB;
-			});
-			return {
-				personName: sorted[0].personName,
-				typeNames: sorted.map((i) => i.typeName).join(', '),
-				label: sorted[0].label || sorted[0].status,
-				isExpired: sorted[0].status === 'expired'
-			};
-		});
-	});
+	const view = $derived(ctx.trainingEvals);
 </script>
 
 <section class="tab-panel">
 	<!-- Status Summary (conditional) -->
-	{#if hasTrainingIssues && ctx.trainingStats}
+	{#if view.hasTrainingIssues && ctx.trainingStats}
 		<div class="training-summary">
 			<div class="summary-cell">
 				<div class="summary-kicker">Expired</div>
@@ -70,7 +26,7 @@
 			</div>
 			<div class="summary-cell">
 				<div class="summary-kicker">Currency</div>
-				<div class="summary-count" style="color: {trainingColor}">{ctx.trainingCurrencyPct}%</div>
+				<div class="summary-count" style="color: {view.trainingColor}">{ctx.trainingCurrencyPct}%</div>
 				<div class="summary-sub">personnel current</div>
 			</div>
 		</div>
@@ -96,16 +52,16 @@
 		<!-- Group Delinquencies -->
 		<div class="split-col">
 			<div class="section-kicker">By Section</div>
-			{#if delinquencies.length === 0}
+			{#if view.delinquencies.length === 0}
 				<p class="empty-mono">All sections current.</p>
 			{:else}
-				{#each delinquencies as g (g.groupName)}
+				{#each view.delinquencies as g (g.groupName)}
 					<div class="group-row">
 						<span class="group-name">{g.groupName}</span>
 						<div class="group-bar-track">
 							<div
 								class="group-bar-fill"
-								style="width: {Math.max((g.count / maxGroupCount) * 100, 4)}%; background: var(--danger)"
+								style="width: {Math.max((g.count / view.maxGroupCount) * 100, 4)}%; background: var(--danger)"
 							></div>
 						</div>
 						<span class="group-count" style="color: var(--danger)">~{g.count}</span>
@@ -117,11 +73,11 @@
 		<!-- Individual Issues -->
 		<div class="split-col">
 			<div class="section-kicker">Individuals</div>
-			{#if groupedIndividuals.length === 0}
+			{#if view.groupedIndividuals.length === 0}
 				<p class="empty-mono">No individual issues.</p>
 			{:else}
 				<div class="individual-list">
-					{#each groupedIndividuals as person (person.personName)}
+					{#each view.groupedIndividuals as person (person.personName)}
 						<div class="individual-row">
 							<span class="individual-name">{person.personName}</span>
 							<span class="individual-task">{person.typeNames}</span>
@@ -139,11 +95,11 @@
 	<div class="eval-section">
 		<div class="eval-section-heading">Evaluation Pipeline</div>
 
-		{#if evalsDueSoon.length === 0}
+		{#if view.evalsDueSoon.length === 0}
 			<p class="empty-mono">No evaluations due within 90 days.</p>
 		{:else}
 			<div class="eval-list">
-				{#each evalsDueSoon as entry (entry.id)}
+				{#each view.evalsDueSoon as entry (entry.id)}
 					<div class="eval-row">
 						<span class="eval-person">{entry.personName}</span>
 						<span class="eval-type">{entry.evalType}</span>

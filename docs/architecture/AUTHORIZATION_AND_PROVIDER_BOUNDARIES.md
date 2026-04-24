@@ -45,7 +45,7 @@ This document separates what v1 authorization and provider ownership look like t
 
 - The repo already has a working provider-abstraction direction in ports and adapters.
 - Even so, direct `locals.supabase` usage still leaks into multiple non-adapter surfaces.
-- Billing organization-state reads and writes now run through app-owned store-backed helpers, and the shared `data_exports` lifecycle no longer passes provider clients through export routes.
+- Billing organization-state reads and writes now run through app-owned store-backed helpers, including cancellation-state reconciliation when Stripe cancellation succeeds before a local org update failure, and the shared `data_exports` lifecycle no longer passes provider clients through export routes.
 - The largest route-level drift clusters today are:
   - organization settings organization rename action
   - admin/platform operations

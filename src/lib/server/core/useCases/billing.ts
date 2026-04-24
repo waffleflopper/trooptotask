@@ -8,11 +8,11 @@
  * routes guard that at the route level. Tests use the in-memory BillingPort from
  * `inMemory.ts`.
  */
-import type { AuthContext, BillingPort } from '$lib/server/core/ports';
+import type { BillingPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 
 export interface BillingPorts {
-	auth: AuthContext;
+	auth: { orgId: string };
 	billing: BillingPort;
 }
 

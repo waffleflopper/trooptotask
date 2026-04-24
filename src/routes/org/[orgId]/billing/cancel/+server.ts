@@ -2,9 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { cancel } from '$lib/server/core/useCases/billing';
-import { applyBillingCancellation, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
-import { fail } from '$lib/server/core/errors';
+import { cancelBillingSubscriptionForOrganization } from '$lib/server/core/useCases/billingOrganization';
 
 export const POST: RequestHandler = async (event) => {
 	if (!isBillingEnabled) {
@@ -13,25 +11,17 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const ctx = await buildRouteContext(event);
-		const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
-		const subscriptionId = org.stripeSubscriptionId;
 
-		if (!subscriptionId) {
-			fail(400, 'No active subscription found');
-		}
-
-		const result = await handleUseCaseRequest(
+		await handleUseCaseRequest(
 			{
 				permission: 'owner',
 				mutation: true,
-				fn: (c) => cancel(c, { subscriptionId }),
+				fn: cancelBillingSubscriptionForOrganization,
 				audit: { action: 'billing.cancel', resourceType: 'organization' }
 			},
 			ctx,
 			undefined
 		);
-
-		await applyBillingCancellation({ auth: ctx.auth, store: ctx.rawStore }, result);
 
 		return json({ success: true });
 	} catch (err) {

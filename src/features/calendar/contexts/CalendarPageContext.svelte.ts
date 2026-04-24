@@ -88,7 +88,6 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
-	breakdownExpanded = $state(false);
 	dutyStartDayOnly = $state(true);
 	calendarGroupFilter = $state('');
 	calendarPersonnelSearch = $state('');
@@ -242,7 +241,6 @@ export class CalendarPageContext {
 		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
 		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
-		this.breakdownExpanded = current.calendar.todaySummaryExpanded ?? false;
 	}
 
 	/** Mark calendar as explored for Getting Started checklist. */
@@ -265,15 +263,6 @@ export class CalendarPageContext {
 	navigateToMonth(date: Date): void {
 		this.viewMode = 'month';
 		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
-	}
-
-	toggleBreakdown(): void {
-		this.breakdownExpanded = !this.breakdownExpanded;
-		void this.persistPreferences({
-			calendar: {
-				todaySummaryExpanded: this.breakdownExpanded
-			}
-		});
 	}
 
 	toggleHighlightOnboarding(): void {

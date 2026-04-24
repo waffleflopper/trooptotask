@@ -100,6 +100,9 @@
 			{/if}
 			<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
 			<a class="header-help-link" href="/help" aria-label="Help">?</a>
+			<div class="mobile-account-menu">
+				<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onFeedback} {onWhatsNew} />
+			</div>
 		</div>
 	</div>
 </header>
@@ -294,6 +297,10 @@
 		min-width: 0;
 	}
 
+	.mobile-account-menu {
+		display: none;
+	}
+
 	.header-feedback-button {
 		display: flex;
 		align-items: center;
@@ -441,6 +448,10 @@
 			border-color: transparent;
 			background: rgba(var(--amber-rgb), 0.08);
 			color: var(--color-chrome-active);
+		}
+
+		.mobile-account-menu {
+			display: block;
 		}
 	}
 

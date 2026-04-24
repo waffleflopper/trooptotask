@@ -32,7 +32,6 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/BulkStatusAdd.svelte
 // $features/calendar/components/BulkStatusRemove.svelte
 // $features/calendar/components/BulkStatusImport.svelte
-// $features/calendar/components/TodayBreakdown.svelte
 // $features/calendar/components/StatusLegend.svelte
 // $features/calendar/components/PersonStatusModal.svelte
 // $features/calendar/components/DailyAssignmentModal.svelte

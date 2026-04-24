@@ -85,6 +85,31 @@ describe('CalendarRangeCoordinator', () => {
 		expect(coordinator.advancedDutyEvents[0].coverageStart).toBe('2026-04-03T08:00:00');
 	});
 
+	it('applies coordinator range and duty event state to bootstrap output', () => {
+		const bootstrap = {
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			advancedDutyEvents: [makeDutyEvent('bootstrap-event')]
+		};
+
+		expect(coordinator.applyToBootstrap(bootstrap)).toEqual({
+			...bootstrap,
+			advancedDutyEvents: []
+		});
+
+		coordinator.includeBootstrap({
+			rangeStart: '2026-04-01',
+			rangeEnd: '2026-04-30',
+			advancedDutyEvents: [makeDutyEvent('coordinator-event')]
+		});
+
+		expect(coordinator.applyToBootstrap(bootstrap)).toEqual({
+			rangeStart: '2026-04-01',
+			rangeEnd: '2026-04-30',
+			advancedDutyEvents: [makeDutyEvent('coordinator-event')]
+		});
+	});
+
 	it('loads missing visible ranges, merges them into stores, and extends the loaded envelope', async () => {
 		coordinator.includeBootstrap({
 			rangeStart: '2026-03-01',
@@ -143,5 +168,37 @@ describe('CalendarRangeCoordinator', () => {
 
 		expect(loadRange).toHaveBeenCalledTimes(2);
 		expect(coordinator.error).toBeNull();
+	});
+
+	it('abandons an in-flight range load when explicitly cancelled', async () => {
+		let resolveRange: ((value: CalendarRangeData) => void) | undefined;
+		coordinator.includeBootstrap({
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-04-30',
+			advancedDutyEvents: [makeDutyEvent('event-bootstrap')]
+		});
+		loadRange.mockImplementationOnce(
+			() =>
+				new Promise<CalendarRangeData>((resolve) => {
+					resolveRange = resolve;
+				})
+		);
+
+		const loadPromise = coordinator.loadVisibleRange({
+			orgId: 'org-1',
+			canViewCalendar: true,
+			currentDate: new Date(2026, 4, 1),
+			viewMode: 'month'
+		});
+		expect(coordinator.loading).toBe(true);
+
+		coordinator.cancelInFlightLoads();
+		resolveRange?.(makeRangeData());
+		await loadPromise;
+
+		expect(mergeRangeIntoStores).not.toHaveBeenCalled();
+		expect(coordinator.loading).toBe(false);
+		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' });
+		expect(coordinator.advancedDutyEvents.map((event) => event.id)).toEqual(['event-bootstrap']);
 	});
 });

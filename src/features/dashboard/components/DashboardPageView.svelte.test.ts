@@ -37,6 +37,48 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		gettingStartedDismissed: true,
 		isHydrating: false,
 		statusBreakdown: new Map(),
+		unitReadiness: {
+			availabilityColor: (pct: number) => {
+				if (pct >= 90) return 'var(--success)';
+				if (pct >= 75) return 'var(--amber)';
+				return 'var(--danger)';
+			},
+			availPct: 100,
+			availColor: 'var(--success)',
+			trainingColor: 'var(--success)',
+			statusEntries: [],
+			upcomingChanges: {
+				mode: 'date',
+				setMode: () => {},
+				byGroup: [],
+				byDate: []
+			}
+		},
+		peopleDuty: {
+			today: undefined,
+			tomorrow: undefined,
+			dutyDays: [],
+			outToday: {
+				mode: 'status',
+				setMode: () => {},
+				byStatus: [],
+				byGroup: []
+			},
+			upcomingChanges: {
+				mode: 'date',
+				setMode: () => {},
+				byGroup: [],
+				byDate: []
+			}
+		},
+		trainingEvals: {
+			evalsDueSoon: [],
+			trainingColor: 'var(--success)',
+			hasTrainingIssues: false,
+			delinquencies: [],
+			maxGroupCount: 1,
+			groupedIndividuals: []
+		},
 		trainingStats: {
 			expired: 0,
 			warningOrange: 0,

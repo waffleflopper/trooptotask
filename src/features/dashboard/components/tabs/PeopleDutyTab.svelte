@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
@@ -9,100 +8,9 @@
 
 	let { ctx }: Props = $props();
 
-	const dutyDays = $derived(ctx.dutyForDays(2));
-	const today = $derived(dutyDays[0]);
-	const tomorrow = $derived(dutyDays[1]);
-
-	type OutTodayPerson = (typeof ctx.nonAvailablePersonnel)[number];
-	type UpcomingChange = (typeof ctx.upcomingChanges)[number];
-	type GroupedEntries<T> = Array<[string, T[]]>;
-
-	function sortGroupName(a: string, b: string): number {
-		if (a === 'Unassigned') return 1;
-		if (b === 'Unassigned') return -1;
-		return a.localeCompare(b);
-	}
-
-	function groupEntries<T>(
-		items: T[],
-		getKey: (item: T) => string,
-		sort: (a: string, b: string) => number
-	): GroupedEntries<T> {
-		const grouped: Record<string, T[]> = {};
-		for (const item of items) {
-			const key = getKey(item);
-			(grouped[key] ??= []).push(item);
-		}
-		return Object.entries(grouped).sort(([a], [b]) => sort(a, b));
-	}
-
-	// ── Out Today grouping toggle ───────────────────────────
-	const OUT_TODAY_KEY = 'dashboard-out-today-group-by';
-	type OutTodayGroupBy = 'status' | 'group';
-
-	let outTodayGroupBy = $state<OutTodayGroupBy>('status');
-
-	function readStorageValue(key: string): string | null {
-		if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
-
-		try {
-			return globalThis.localStorage.getItem(key);
-		} catch {
-			return null;
-		}
-	}
-
-	function writeStorageValue(key: string, value: string) {
-		if (!browser || typeof globalThis.localStorage?.setItem !== 'function') return;
-
-		try {
-			globalThis.localStorage.setItem(key, value);
-		} catch {
-			// Preference persistence is best-effort; the UI state has already updated.
-		}
-	}
-
-	$effect(() => {
-		const saved = readStorageValue(OUT_TODAY_KEY);
-		if (saved === 'status' || saved === 'group') outTodayGroupBy = saved;
-	});
-
-	function setOutTodayGroupBy(value: OutTodayGroupBy) {
-		outTodayGroupBy = value;
-		writeStorageValue(OUT_TODAY_KEY, value);
-	}
-
-	const outTodayByStatus = $derived.by(() => {
-		return groupEntries<OutTodayPerson>(
-			ctx.nonAvailablePersonnel,
-			(person) => person.statusName,
-			(a, b) => a.localeCompare(b)
-		);
-	});
-
-	const outTodayByGroup = $derived.by(() => {
-		return groupEntries<OutTodayPerson>(ctx.nonAvailablePersonnel, (person) => person.groupName, sortGroupName);
-	});
-
-	// ── Upcoming Changes grouping toggle ───────────────────
-	const UPCOMING_KEY = 'dashboard-upcoming-group-by';
-	type UpcomingGroupBy = 'date' | 'group';
-
-	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
-
-	$effect(() => {
-		const saved = readStorageValue(UPCOMING_KEY);
-		if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
-	});
-
-	function setUpcomingGroupBy(value: UpcomingGroupBy) {
-		upcomingGroupBy = value;
-		writeStorageValue(UPCOMING_KEY, value);
-	}
-
-	const upcomingByGroup = $derived.by(() => {
-		return groupEntries<UpcomingChange>(ctx.upcomingChanges, (change) => change.groupName, sortGroupName);
-	});
+	const view = $derived(ctx.peopleDuty);
+	const today = $derived(view.today);
+	const tomorrow = $derived(view.tomorrow);
 </script>
 
 <section class="tab-panel">
@@ -119,13 +27,13 @@
 					<div class="view-toggle">
 						<button
 							class="toggle-btn"
-							class:active={outTodayGroupBy === 'status'}
-							onclick={() => setOutTodayGroupBy('status')}>Status</button
+							class:active={view.outToday.mode === 'status'}
+							onclick={() => view.outToday.setMode('status')}>Status</button
 						>
 						<button
 							class="toggle-btn"
-							class:active={outTodayGroupBy === 'group'}
-							onclick={() => setOutTodayGroupBy('group')}>Group</button
+							class:active={view.outToday.mode === 'group'}
+							onclick={() => view.outToday.setMode('group')}>Group</button
 						>
 					</div>
 				{/if}
@@ -133,9 +41,9 @@
 
 			{#if ctx.nonAvailablePersonnel.length === 0}
 				<p class="empty-mono">All personnel accounted for.</p>
-			{:else if outTodayGroupBy === 'status'}
+			{:else if view.outToday.mode === 'status'}
 				<div class="out-list">
-					{#each outTodayByStatus as [statusName, people], i (statusName)}
+					{#each view.outToday.byStatus as [statusName, people], i (statusName)}
 						<div class="group-header" class:group-header--first={i === 0} style="color: {people[0].statusColor}">
 							{statusName}
 						</div>
@@ -151,7 +59,7 @@
 				</div>
 			{:else}
 				<div class="out-list">
-					{#each outTodayByGroup as [groupName, people], i (groupName)}
+					{#each view.outToday.byGroup as [groupName, people], i (groupName)}
 						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 						{#each people as person (person.id)}
 							<div class="out-row">
@@ -271,13 +179,13 @@
 					<div class="view-toggle">
 						<button
 							class="toggle-btn"
-							class:active={upcomingGroupBy === 'date'}
-							onclick={() => setUpcomingGroupBy('date')}>Date</button
+							class:active={view.upcomingChanges.mode === 'date'}
+							onclick={() => view.upcomingChanges.setMode('date')}>Date</button
 						>
 						<button
 							class="toggle-btn"
-							class:active={upcomingGroupBy === 'group'}
-							onclick={() => setUpcomingGroupBy('group')}>Group</button
+							class:active={view.upcomingChanges.mode === 'group'}
+							onclick={() => view.upcomingChanges.setMode('group')}>Group</button
 						>
 					</div>
 				{/if}
@@ -285,7 +193,7 @@
 
 			{#if ctx.upcomingChanges.length === 0}
 				<p class="empty-mono">No changes in the next 7 days.</p>
-			{:else if upcomingGroupBy === 'date'}
+			{:else if view.upcomingChanges.mode === 'date'}
 				{#each ctx.upcomingChanges as change (change.key)}
 					<div class="upcoming-row">
 						<span class="upcoming-name">{change.personName}</span>
@@ -294,7 +202,7 @@
 					</div>
 				{/each}
 			{:else}
-				{#each upcomingByGroup as [groupName, changes], i (groupName)}
+				{#each view.upcomingChanges.byGroup as [groupName, changes], i (groupName)}
 					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 					{#each changes as change (change.key)}
 						<div class="upcoming-row">

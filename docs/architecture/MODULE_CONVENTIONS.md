@@ -55,6 +55,20 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
 
+### Client read models
+
+For orchestration-heavy frontend pages, prefer a feature-owned client read model when a context or tab component starts combining many hydrated stores, route payloads, grouping preferences, formatting rules, and display-row calculations.
+
+A client read model should:
+
+- live inside the owning feature module
+- consume already-authorized route data and hydrated stores
+- expose pre-shaped view data for the page or tab components
+- keep browser persistence behind tiny local adapters when needed
+- preserve route, provider, and authorization boundaries
+
+This pattern is appropriate for dashboard-style surfaces where components should mostly render stable rows, counts, sections, and labels instead of re-deriving business-facing screen state. It is not a reason to move provider access or route permissions into frontend modules.
+
 ## Server Conventions
 
 ### Default path

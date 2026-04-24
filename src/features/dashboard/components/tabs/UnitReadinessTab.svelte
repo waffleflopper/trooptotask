@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
@@ -9,68 +8,8 @@
 
 	let { ctx }: Props = $props();
 
-	type UpcomingChange = (typeof ctx.upcomingChanges)[number];
-	type GroupedEntries<T> = Array<[string, T[]]>;
-
-	function availabilityColor(pct: number): string {
-		if (pct >= 90) return 'var(--success)';
-		if (pct >= 75) return 'var(--amber)';
-		return 'var(--danger)';
-	}
-
-	const availPct = $derived(ctx.dutyStrengthPct);
-	const availColor = $derived(availabilityColor(availPct));
-	const trainingColor = $derived(availabilityColor(ctx.trainingCurrencyPct));
-	const statusEntries = $derived([...ctx.statusBreakdown.entries()]);
-
-	// ── Upcoming Changes grouping toggle ───────────────────
-	const UPCOMING_KEY = 'dashboard-upcoming-group-by';
-	type UpcomingGroupBy = 'date' | 'group';
-
-	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
-
-	function readStorageValue(key: string): string | null {
-		if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
-
-		try {
-			return globalThis.localStorage.getItem(key);
-		} catch {
-			return null;
-		}
-	}
-
-	function writeStorageValue(key: string, value: string) {
-		if (!browser || typeof globalThis.localStorage?.setItem !== 'function') return;
-
-		try {
-			globalThis.localStorage.setItem(key, value);
-		} catch {
-			// Preference persistence is best-effort; the UI state has already updated.
-		}
-	}
-
-	$effect(() => {
-		const saved = readStorageValue(UPCOMING_KEY);
-		if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
-	});
-
-	function setUpcomingGroupBy(value: UpcomingGroupBy) {
-		upcomingGroupBy = value;
-		writeStorageValue(UPCOMING_KEY, value);
-	}
-
-	const upcomingByGroup = $derived.by(() => {
-		const grouped: Record<string, UpcomingChange[]> = {};
-		for (const change of ctx.upcomingChanges) {
-			const key = change.groupName;
-			(grouped[key] ??= []).push(change);
-		}
-		return Object.entries(grouped).sort(([a], [b]) => {
-			if (a === 'Unassigned') return 1;
-			if (b === 'Unassigned') return -1;
-			return a.localeCompare(b);
-		}) satisfies GroupedEntries<UpcomingChange>;
-	});
+	const view = $derived(ctx.unitReadiness);
+	const statusEntries = $derived(view.statusEntries);
 </script>
 
 <section class="tab-panel">
@@ -83,12 +22,12 @@
 				<span class="hero-total">/ {ctx.totalPersonnel}</span>
 			</div>
 			<div class="hero-availability">
-				<span class="hero-availability-pct" style="color: {availColor}">{availPct}%</span>
+				<span class="hero-availability-pct" style="color: {view.availColor}">{view.availPct}%</span>
 				<span class="hero-availability-label">Available</span>
 			</div>
 		</div>
 		<div class="strength-bar-track">
-			<div class="strength-bar-fill" style="width: {availPct}%; background: {availColor}"></div>
+			<div class="strength-bar-fill" style="width: {view.availPct}%; background: {view.availColor}"></div>
 		</div>
 		<div class="status-chips">
 			<span class="status-entry"><strong>{ctx.availableCount}</strong> Present</span>
@@ -103,7 +42,7 @@
 		<!-- Training Currency -->
 		<div class="grid-cell">
 			<div class="section-kicker">Training Currency</div>
-			<div class="metric-large" style="color: {trainingColor}">{ctx.trainingCurrencyPct}%</div>
+			<div class="metric-large" style="color: {view.trainingColor}">{ctx.trainingCurrencyPct}%</div>
 			<div class="metric-sub">of personnel current</div>
 			{#if ctx.trainingStats}
 				<div class="metric-detail">
@@ -139,9 +78,12 @@
 				<div class="group-row">
 					<span class="group-name">{group.name}</span>
 					<div class="group-bar-track">
-						<div class="group-bar-fill" style="width: {group.pct}%; background: {availabilityColor(group.pct)}"></div>
+						<div
+							class="group-bar-fill"
+							style="width: {group.pct}%; background: {view.availabilityColor(group.pct)}"
+						></div>
 					</div>
-					<span class="group-pct" style="color: {availabilityColor(group.pct)}">{group.pct}%</span>
+					<span class="group-pct" style="color: {view.availabilityColor(group.pct)}">{group.pct}%</span>
 				</div>
 			{/each}
 		</div>
@@ -157,20 +99,20 @@
 						<div class="view-toggle">
 							<button
 								class="toggle-btn"
-								class:active={upcomingGroupBy === 'date'}
-								onclick={() => setUpcomingGroupBy('date')}>Date</button
+								class:active={view.upcomingChanges.mode === 'date'}
+								onclick={() => view.upcomingChanges.setMode('date')}>Date</button
 							>
 							<button
 								class="toggle-btn"
-								class:active={upcomingGroupBy === 'group'}
-								onclick={() => setUpcomingGroupBy('group')}>Group</button
+								class:active={view.upcomingChanges.mode === 'group'}
+								onclick={() => view.upcomingChanges.setMode('group')}>Group</button
 							>
 						</div>
 					{/if}
 				</div>
 				{#if ctx.upcomingChanges.length === 0}
 					<p class="empty-mono">No changes in the next 7 days.</p>
-				{:else if upcomingGroupBy === 'date'}
+				{:else if view.upcomingChanges.mode === 'date'}
 					{#each ctx.upcomingChanges as change (change.key)}
 						<div class="upcoming-row">
 							<span class="upcoming-name">{change.personName}</span>
@@ -182,7 +124,7 @@
 						</div>
 					{/each}
 				{:else}
-					{#each upcomingByGroup as [groupName, changes], i (groupName)}
+					{#each view.upcomingChanges.byGroup as [groupName, changes], i (groupName)}
 						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 						{#each changes as change (change.key)}
 							<div class="upcoming-row">

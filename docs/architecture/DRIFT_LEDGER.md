@@ -124,6 +124,7 @@ Each entry separates:
 
 - Current-state truth:
   - several page contexts, views, and flows are large coordination-heavy modules
+  - the dashboard client surface now has a feature-owned read-model boundary that centralizes hydrated-store joins, grouping preferences, and tab-facing display rows while leaving existing route/provider/authz boundaries unchanged
 - Intended direction:
   - deeper modules with thinner public interfaces
 - Why this matters:
@@ -131,7 +132,7 @@ Each entry separates:
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - prioritized deep-module reviews using `improve-codebase-architecture`
+  - continue prioritized deep-module reviews using `improve-codebase-architecture`, especially for remaining calendar, duty-roster, personnel, and training orchestration seams
 
 ## D-08 Route-Level Membership And Settings Logic
 

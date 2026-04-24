@@ -33,7 +33,17 @@
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
-	import { cloneDefaultSoftPreferences } from '../duty-roster.types';
+	import {
+		mergeDutyEventsIntoTimeline,
+		normalizeDutyTemplate,
+		normalizeDutyTemplates,
+		removeDutyEventsById,
+		removeDutyEventsByRunId,
+		removeLegacyDutyEvents,
+		sortDutyTemplates,
+		sortDutyEventsByCoverageStart,
+		upsertDutyEventIntoTimeline
+	} from '../advancedDutyCollections';
 
 	interface Props {
 		data: {
@@ -60,10 +70,8 @@
 	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
-	let advancedDutyTemplates = $derived(sortTemplates((data.advancedDutyTemplates ?? []).map(normalizeTemplate)));
-	let advancedDutyEvents = $derived(
-		[...data.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
-	);
+	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
+	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(
 		advancedDutyTemplates.filter((template) => template.status !== 'archived').length
 	);
@@ -98,25 +106,6 @@
 		})
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
-
-	function sortTemplates(items: DutyTemplate[]): DutyTemplate[] {
-		return [...items].sort((a, b) => a.name.localeCompare(b.name));
-	}
-
-	function normalizeTemplate(template: DutyTemplate): DutyTemplate {
-		return {
-			...template,
-			scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
-			exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
-			exemptStatusTypeIds: Array.isArray(template.exemptStatusTypeIds) ? template.exemptStatusTypeIds : [],
-			softPreferences:
-				Array.isArray(template.softPreferences) && template.softPreferences.length > 0
-					? template.softPreferences
-					: cloneDefaultSoftPreferences(),
-			slots: Array.isArray(template.slots) ? template.slots : [],
-			rotationBaselines: Array.isArray(template.rotationBaselines) ? template.rotationBaselines : []
-		};
-	}
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
 		const raw = await res.text();
@@ -190,8 +179,8 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to save advanced duty template'));
 			}
 
-			const item = normalizeTemplate((await res.json()) as DutyTemplate);
-			advancedDutyTemplates = sortTemplates([...advancedDutyTemplates, item]);
+			const item = normalizeDutyTemplate((await res.json()) as DutyTemplate);
+			advancedDutyTemplates = sortDutyTemplates([...advancedDutyTemplates, item]);
 			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty template saved');
 			return item;
@@ -215,8 +204,8 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to update advanced duty template'));
 			}
 
-			const item = normalizeTemplate((await res.json()) as DutyTemplate);
-			advancedDutyTemplates = sortTemplates(
+			const item = normalizeDutyTemplate((await res.json()) as DutyTemplate);
+			advancedDutyTemplates = sortDutyTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);
 			await refreshAdvancedDutyData();
@@ -264,9 +253,7 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
-			advancedDutyEvents = [event, ...advancedDutyEvents.filter((item) => item.id !== event.id)].sort((a, b) =>
-				b.coverageStart.localeCompare(a.coverageStart)
-			);
+			advancedDutyEvents = upsertDutyEventIntoTimeline(advancedDutyEvents, event);
 			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty event applied');
 			return event;
@@ -308,10 +295,7 @@
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;
-			advancedDutyEvents = [
-				...result.events,
-				...advancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
-			].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
+			advancedDutyEvents = mergeDutyEventsIntoTimeline(advancedDutyEvents, result.events);
 			await refreshAdvancedDutyData();
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
 			return result;
@@ -358,9 +342,7 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
-			advancedDutyEvents = [event, ...advancedDutyEvents.filter((existing) => existing.id !== event.id)].sort((a, b) =>
-				b.coverageStart.localeCompare(a.coverageStart)
-			);
+			advancedDutyEvents = upsertDutyEventIntoTimeline(advancedDutyEvents, event);
 			await refreshAdvancedDutyData();
 			toastStore.success('Applied duty event updated');
 			return event;
@@ -376,7 +358,7 @@
 			if (!res.ok) {
 				throw new Error(await readResponseErrorMessage(res, 'Failed to delete applied duty event'));
 			}
-			advancedDutyEvents = advancedDutyEvents.filter((event) => event.id !== dutyEventId);
+			advancedDutyEvents = removeDutyEventsById(advancedDutyEvents, dutyEventId);
 			await refreshAdvancedDutyData();
 			toastStore.success('Applied duty event deleted');
 			return true;
@@ -393,7 +375,7 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to delete applied duty run'));
 			}
 			const result = (await res.json()) as DutyEventRunDeleteResult;
-			advancedDutyEvents = advancedDutyEvents.filter((event) => event.runId !== runId);
+			advancedDutyEvents = removeDutyEventsByRunId(advancedDutyEvents, runId);
 			await refreshAdvancedDutyData();
 			toastStore.success(
 				`Deleted ${result.deletedEvents} applied duty event${result.deletedEvents === 1 ? '' : 's'} from history`
@@ -416,8 +398,7 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to delete legacy duty history group'));
 			}
 			const result = (await res.json()) as DutyEventRunDeleteResult;
-			const removed = new Set(eventIds);
-			advancedDutyEvents = advancedDutyEvents.filter((event) => !removed.has(event.id));
+			advancedDutyEvents = removeLegacyDutyEvents(advancedDutyEvents, eventIds);
 			await refreshAdvancedDutyData();
 			toastStore.success(
 				`Deleted ${result.deletedEvents} legacy duty event${result.deletedEvents === 1 ? '' : 's'} from history`
@@ -435,8 +416,8 @@
 			if (!res.ok) {
 				throw new Error(await readResponseErrorMessage(res, 'Failed to archive duty template'));
 			}
-			const item = normalizeTemplate((await res.json()) as DutyTemplate);
-			advancedDutyTemplates = sortTemplates(
+			const item = normalizeDutyTemplate((await res.json()) as DutyTemplate);
+			advancedDutyTemplates = sortDutyTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);
 			await refreshAdvancedDutyData();

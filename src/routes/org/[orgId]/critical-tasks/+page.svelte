@@ -2,6 +2,7 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
@@ -18,6 +19,7 @@
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
 	import type { Personnel } from '$lib/types';
 
 	let { data } = $props();
@@ -139,6 +141,40 @@
 		showCompletionImportModal = true;
 	}
 
+	const toolbarActionItems = $derived.by<ProgressiveToolbarAction[]>(() => {
+		const items: ProgressiveToolbarAction[] = [
+			{ id: 'export-csv', label: 'Export CSV', href: matrixExportHref, className: 'btn btn-sm' }
+		];
+
+		if (canInputTask) {
+			items.push({
+				id: 'import-completions',
+				label: 'Import Completions',
+				onclick: handleCompletionImportOpen,
+				disabled: !canOpenCompletionImport,
+				className: 'btn btn-sm'
+			});
+		}
+
+		if (org.isPrivileged) {
+			items.push({ id: 'task-library', label: 'Task Library', href: taskLibraryHref, className: 'btn btn-sm' });
+		}
+
+		items.push({ id: 'reports', label: 'Reports', href: reportsHref, className: 'btn btn-sm' });
+
+		if (canInputTask) {
+			items.push({
+				id: 'record-training',
+				label: 'Record Training',
+				onclick: handleToolbarTaskInput,
+				disabled: !canOpenTaskInput,
+				className: 'btn btn-primary btn-sm'
+			});
+		}
+
+		return items;
+	});
+
 	async function handleCompletionSave(
 		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
 		existingId?: string
@@ -170,7 +206,7 @@
 		</section>
 	{:else}
 		<main class="page-content">
-			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="wide" leadingMin="40rem">
+			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="narrow" leadingMin="0">
 				{#snippet leading()}
 					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
 						<ToolbarSelect
@@ -196,29 +232,11 @@
 					</div>
 				{/snippet}
 
-				<a class="btn btn-sm" href={reportsHref}>Reports</a>
-				<a class="btn btn-sm" href={matrixExportHref}>Export CSV</a>
-				{#if org.isPrivileged}
-					<a class="btn btn-sm" href={taskLibraryHref}>Task Library</a>
-				{/if}
-				{#if canInputTask}
-					<button
-						class="btn btn-sm"
-						type="button"
-						onclick={handleCompletionImportOpen}
-						disabled={!canOpenCompletionImport}
-					>
-						Import Completions
-					</button>
-					<button
-						class="btn btn-primary btn-sm"
-						type="button"
-						onclick={handleToolbarTaskInput}
-						disabled={!canOpenTaskInput}
-					>
-						Record Training
-					</button>
-				{/if}
+				<ProgressiveToolbarActions
+					items={toolbarActionItems}
+					overflowAriaLabel="More Critical Tasks actions"
+					overflowIconOnly
+				/>
 			</FloatingPageToolbar>
 
 			{#if loading}
@@ -345,14 +363,36 @@
 	}
 
 	.matrix-toolbar-controls {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: minmax(10rem, 14rem) minmax(12rem, 24rem) max-content;
 		align-items: center;
 		gap: var(--sp-2);
+		width: 100%;
 		min-width: 0;
 	}
 
+	.matrix-toolbar-controls :global(.toolbar-select) {
+		width: 100%;
+		max-width: none;
+	}
+
+	.matrix-toolbar-controls :global(.toolbar-search) {
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.matrix-toolbar-controls :global(.segmented-control) {
+		justify-self: start;
+	}
+
 	/* ── Responsive ─────────────────────────────────────────── */
+
+	@media (max-width: 900px) {
+		.matrix-toolbar-controls {
+			grid-template-columns: minmax(9.5rem, 12rem) minmax(10rem, 1fr) max-content;
+		}
+	}
 
 	@media (max-width: 720px) {
 		.page-content {

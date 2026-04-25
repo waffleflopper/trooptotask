@@ -191,6 +191,16 @@ describe('critical tasks page', () => {
 		expect(reportsLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/reports');
 		const libraryLink = screen.getByRole('link', { name: 'Task Library' });
 		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
+		const orderedActions = [
+			screen.getByRole('link', { name: 'Export CSV' }),
+			screen.getByRole('button', { name: 'Import Completions' }),
+			libraryLink,
+			reportsLink,
+			screen.getByRole('button', { name: 'Record Training' })
+		];
+		for (let index = 0; index < orderedActions.length - 1; index += 1) {
+			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
+		}
 	});
 
 	it('opens the completion import modal from the page toolbar', async () => {
@@ -412,8 +422,8 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
 			'/org/org-1/critical-tasks/reports'
 		);
-		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
-		expect(screen.queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Task Library' })).toBeNull();
 	});
 
 	it('renders the matrix with the group filter and simplified toolbar controls', async () => {

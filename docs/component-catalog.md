@@ -119,17 +119,20 @@ Compact command surface for primary app routes after the app shell breadcrumb/ti
         <RosterFilters />
     {/snippet}
 
-    <button class="btn btn-sm btn-primary" type="button">Add Person</button>
+    <ProgressiveToolbarActions
+        items={toolbarActionItems}
+        overflowAriaLabel="More personnel actions"
+    />
 </FloatingPageToolbar>
 ```
 
-Props: `ariaLabel: string`, `leadingMin?: string` (default `'18rem'`), `collapse?: 'wide' | 'medium' | 'narrow'` (default `'wide'`), `leading?: Snippet`, `children?: Snippet` (right-side actions)
+Props: `ariaLabel: string`, `leadingMin?: string` (default `'18rem'`), `collapse?: 'wide' | 'medium' | 'narrow'` (default `'wide'`), `leading?: Snippet`, `children?: Snippet` (right-side actions), `overflow?: Snippet` (shown at the collapse breakpoint when actions should move into a menu)
 
 Toolbar guidance:
 
 - Use this for the floating page toolbar pattern on Calendar, Personnel, Evals, Onboarding, and similar dense route pages.
 - Put filters, toggles, small stat ledgers, or navigation affordances in `leading`.
-- Put page actions and overflow menus in the default children slot.
+- Put page actions in the default children slot. When an action set can run out of room, prefer `ProgressiveToolbarActions` so lower-priority actions collapse into `ToolbarOverflowMenu` one by one before the toolbar wraps.
 - Choose `collapse="wide"` for complex toolbars, `medium` for roster-style toolbars, and `narrow` when the toolbar only needs to stack on mobile.
 
 Authenticated route anatomy:
@@ -145,7 +148,8 @@ Shared toolbar primitives:
 - Use `ui/ToolbarSearch.svelte` for toolbar search inputs. Props: `ariaLabel: string`, `value?: string`, `placeholder?: string`, `testId?: string`, `width?: 'default' | 'wide' | 'full'`, `onValueChange?: (value: string) => void`.
 - Use `ui/ToolbarSelect.svelte` for compact toolbar selects. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean }[]`, `value?: string`, `width?: 'default' | 'wide'`, `onValueChange?: (value: string) => void`.
 - Use `ui/SegmentedControl.svelte` for binary or small mode switches like A-Z/By Group or Grouped/Table. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean; title?: string }[]`, `value?: string`, `onValueChange?: (value: string) => void`.
-- Use `ui/ToolbarOverflowMenu.svelte` when a toolbar needs a standard More button around `OverflowMenu`. Props: `items: OverflowItem[]`, `ariaLabel: string`, `label?: string`, `align?: 'left' | 'right'`, `side?: 'bottom' | 'top'`.
+- Use `ui/ProgressiveToolbarActions.svelte` for action sets that should stay on one row as long as possible. Pass items from lowest priority to highest priority; lower-priority leading items move into overflow first while trailing items remain visible longest. Props: `items: { id: string; label: string; href?: string; onclick?: () => void; disabled?: boolean; className?: string }[]`, `overflowAriaLabel: string`, `overflowLabel?: string`, `overflowIconOnly?: boolean`.
+- Use `ui/ToolbarOverflowMenu.svelte` when a toolbar needs a standard More button around `OverflowMenu`, or `iconOnly` for compact three-dot overflow when horizontal space is tight. Props: `items: OverflowItem[]`, `ariaLabel: string`, `label?: string`, `iconOnly?: boolean`, `align?: 'left' | 'right'`, `side?: 'bottom' | 'top'`.
 - Use `ui/ToolbarIconButton.svelte` for icon-only controls. Props: `label: string`, `title?: string`, `href?: string`, `disabled?: boolean`, `onclick?: () => void`, `children?: Snippet`. The visible child should be an icon; the label is required for assistive technology.
 
 ---

@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { SvelteMap, SvelteURLSearchParams } from 'svelte/reactivity';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
+	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -12,8 +15,8 @@
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
-	import { getIctStatus, normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
-	import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
+	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 	import type { Personnel } from '$lib/types';
 
@@ -24,24 +27,13 @@
 	const orgName = $derived(data.orgName ?? org.orgName);
 	const permissions = $derived(data.permissions ?? org.permissions);
 	let selectedGroupId = $state('');
-	let gapsOnly = $state(false);
+	const gapsOnly = false;
 	let personnelSearch = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
 	let showCompletionImportModal = $state(false);
 	const reportsHref = $derived(`/org/${orgId}/critical-tasks/reports`);
-	const overflowItems = $derived.by(() => {
-		const items = [];
-
-		if (org.isPrivileged) {
-			items.push({
-				label: 'Task Library',
-				href: `/org/${orgId}/critical-tasks/library`
-			});
-		}
-
-		return items;
-	});
+	const taskLibraryHref = $derived(`/org/${orgId}/critical-tasks/library`);
 
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === orgId &&
@@ -67,45 +59,17 @@
 	const canOpenCompletionImport = $derived(
 		canInputTask && personnelStore.items.length > 0 && ictTasksStore.items.length > 0
 	);
+	const groupFilterOptions = $derived([
+		{ value: '', label: 'Group: All' },
+		...groupsStore.items.map((group) => ({ value: group.id, label: group.name }))
+	]);
+	const matrixViewOptions = [
+		{ value: 'alphabetical', label: 'A-Z' },
+		{ value: 'by-group', label: 'By Group' }
+	];
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
-	const groupScopedPersonnel = $derived(
-		selectedGroupId ? filteredPersonnel.filter((person) => person.groupId === selectedGroupId) : filteredPersonnel
-	);
-	const latestCompletionByCell = $derived.by(() => {
-		const lookup = new SvelteMap<string, PersonnelIctCompletion>();
-		for (const completion of personnelIctCompletionsStore.items) {
-			const key = `${completion.personnelId}:${completion.ictTaskId}`;
-			const existing = lookup.get(key);
-			const completionIsNewer =
-				!existing ||
-				completion.completedAt.localeCompare(existing.completedAt) > 0 ||
-				(completion.completedAt === existing.completedAt && completion.createdAt.localeCompare(existing.createdAt) > 0);
-			if (completionIsNewer) {
-				lookup.set(key, completion);
-			}
-		}
-		return lookup;
-	});
-	const unitReadinessPercent = $derived.by(() => {
-		let readyCount = 0;
-		let applicableCount = 0;
-		for (const person of groupScopedPersonnel) {
-			for (const task of activeTasks) {
-				if (!isIctTaskApplicableToMos(task, person.mos)) {
-					continue;
-				}
-				applicableCount += 1;
-				const completion = latestCompletionByCell.get(`${person.id}:${task.id}`);
-				const status = getIctStatus(completion?.completedAt ?? null, task, criticalTasksSettings).status;
-				if (status === 'current' || status === 'expiring-soon') {
-					readyCount += 1;
-				}
-			}
-		}
-		return applicableCount === 0 ? 0 : Math.round((readyCount / applicableCount) * 100);
-	});
 
 	interface ActiveCompletionCell {
 		person: Personnel;
@@ -145,14 +109,6 @@
 
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
 
-	function handleGroupFilterChange(event: Event): void {
-		selectedGroupId = (event.currentTarget as HTMLSelectElement).value;
-	}
-
-	function handleGapsOnlyChange(event: Event): void {
-		gapsOnly = (event.currentTarget as HTMLInputElement).checked;
-	}
-
 	function handleMatrixCellSelection(selection: ActiveCompletionCell): void {
 		if (!canEditCriticalTasks) return;
 		activeCompletionCell = selection;
@@ -162,9 +118,6 @@
 		const params = new SvelteURLSearchParams();
 		if (selectedGroupId) {
 			params.set('groupId', selectedGroupId);
-		}
-		if (gapsOnly) {
-			params.set('gapsOnly', 'true');
 		}
 		if (personnelSearch.trim()) {
 			params.set('search', personnelSearch.trim());
@@ -210,30 +163,6 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar
-		title="Training Matrix"
-		breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Matrix' }]}
-		{overflowItems}
-	>
-		{#if permissions.canViewCriticalTasks}
-			<a class="btn btn-secondary" href={reportsHref}>Reports</a>
-		{/if}
-		<a class="btn btn-secondary" href={matrixExportHref}>Export CSV</a>
-		{#if canInputTask}
-			<button
-				class="btn btn-secondary"
-				type="button"
-				onclick={handleCompletionImportOpen}
-				disabled={!canOpenCompletionImport}
-			>
-				Import Completions
-			</button>
-			<button class="btn btn-primary" type="button" onclick={handleToolbarTaskInput} disabled={!canOpenTaskInput}>
-				Record Training
-			</button>
-		{/if}
-	</PageToolbar>
-
 	{#if !permissions.canViewCriticalTasks}
 		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
 			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
@@ -241,6 +170,57 @@
 		</section>
 	{:else}
 		<main class="page-content">
+			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="wide" leadingMin="40rem">
+				{#snippet leading()}
+					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
+						<ToolbarSelect
+							ariaLabel="Critical Tasks group filter"
+							options={groupFilterOptions}
+							value={selectedGroupId}
+							width="wide"
+							onValueChange={(value) => (selectedGroupId = value)}
+						/>
+						<ToolbarSearch
+							testId="critical-tasks-search"
+							ariaLabel="Search by name, rank, or MOS"
+							placeholder="Search name, rank, or MOS..."
+							width="wide"
+							bind:value={personnelSearch}
+						/>
+						<SegmentedControl
+							ariaLabel="Critical Tasks matrix view mode"
+							options={matrixViewOptions}
+							value={viewMode}
+							onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+						/>
+					</div>
+				{/snippet}
+
+				<a class="btn btn-sm" href={reportsHref}>Reports</a>
+				<a class="btn btn-sm" href={matrixExportHref}>Export CSV</a>
+				{#if org.isPrivileged}
+					<a class="btn btn-sm" href={taskLibraryHref}>Task Library</a>
+				{/if}
+				{#if canInputTask}
+					<button
+						class="btn btn-sm"
+						type="button"
+						onclick={handleCompletionImportOpen}
+						disabled={!canOpenCompletionImport}
+					>
+						Import Completions
+					</button>
+					<button
+						class="btn btn-primary btn-sm"
+						type="button"
+						onclick={handleToolbarTaskInput}
+						disabled={!canOpenTaskInput}
+					>
+						Record Training
+					</button>
+				{/if}
+			</FloatingPageToolbar>
+
 			{#if loading}
 				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
 					<SkeletonGrid rows={6} columns={4} />
@@ -251,93 +231,6 @@
 				</section>
 			{:else}
 				<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
-					<div class="matrix-controls">
-						<div class="controls-row">
-							<div class="matrix-filter-controls">
-								<div class="filter-field">
-									<label for="critical-tasks-search">Search</label>
-									<input
-										id="critical-tasks-search"
-										type="search"
-										class="input"
-										data-testid="critical-tasks-search"
-										aria-label="Search by name, rank, or MOS"
-										placeholder="Search name, rank, or MOS..."
-										bind:value={personnelSearch}
-									/>
-								</div>
-
-								<div class="filter-field">
-									<label for="critical-tasks-group-filter">Group</label>
-									<select
-										id="critical-tasks-group-filter"
-										class="input"
-										value={selectedGroupId}
-										onchange={handleGroupFilterChange}
-									>
-										<option value="">All groups</option>
-										{#each groupsStore.items as group (group.id)}
-											<option value={group.id}>{group.name}</option>
-										{/each}
-									</select>
-								</div>
-							</div>
-
-							<div class="controls-actions">
-								<label class="gap-toggle">
-									<span>Show readiness gaps only</span>
-									<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
-								</label>
-
-								<div class="view-toggle">
-									<span class="view-label">View</span>
-									<div class="view-toggle-controls" role="group" aria-label="Critical Tasks matrix view mode">
-										<button
-											class="view-btn"
-											type="button"
-											aria-pressed={viewMode === 'alphabetical'}
-											class:active={viewMode === 'alphabetical'}
-											onclick={() => (viewMode = 'alphabetical')}
-										>
-											A-Z
-										</button>
-										<button
-											class="view-btn"
-											type="button"
-											aria-pressed={viewMode === 'by-group'}
-											class:active={viewMode === 'by-group'}
-											onclick={() => (viewMode = 'by-group')}
-										>
-											By Group
-										</button>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div class="matrix-statsbar" aria-label="Critical Tasks matrix totals">
-							<div class="matrix-counts">
-								<div class="stat-item">
-									<span class="stat-value">{groupScopedPersonnel.length}</span>
-									<span class="stat-label">Personnel</span>
-								</div>
-								<div class="stat-item">
-									<span class="stat-value">{activeTasks.length}</span>
-									<span class="stat-label">Active Tasks</span>
-								</div>
-								<div class="stat-item">
-									<span class="stat-value">{personnelIctCompletionsStore.items.length}</span>
-									<span class="stat-label">Validations</span>
-								</div>
-								<div class="stat-item stat-item--readiness">
-									<span class="stat-value">{unitReadinessPercent}%</span>
-									<span class="stat-label">Unit Readiness</span>
-								</div>
-							</div>
-							<div class="statsbar-right">{orgName}</div>
-						</div>
-					</div>
-
 					<div class="matrix-panel" data-testid="critical-tasks-matrix-panel">
 						<IctMatrix
 							{orgId}
@@ -406,7 +299,10 @@
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
-		padding: 28px;
+		padding: var(--sp-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
 	}
 
 	.workspace-state,
@@ -421,7 +317,6 @@
 		flex-direction: column;
 		height: 100%;
 		flex: 1;
-		gap: 18px;
 		min-height: 0;
 	}
 
@@ -449,227 +344,12 @@
 		color: var(--text-secondary);
 	}
 
-	/* ── Matrix Controls ───────────────────────────────────── */
-
-	.matrix-controls {
-		display: flex;
-		flex-direction: column;
-		border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		overflow: hidden;
-	}
-
-	/* Main controls row: filters left, display options right */
-	.controls-row {
+	.matrix-toolbar-controls {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-end;
-		gap: var(--sp-4);
-		padding: var(--sp-4) var(--sp-5);
-	}
-
-	.matrix-filter-controls {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		gap: var(--sp-4);
-		min-width: 0;
-		flex: 1 1 32rem;
-	}
-
-	.filter-field {
-		display: flex;
-		min-width: 12rem;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.filter-field:first-child {
-		flex: 1 1 22rem;
-	}
-
-	.filter-field:nth-child(2) {
-		flex: 0 0 13.75rem;
-	}
-
-	.filter-field label {
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.filter-field :global(.input) {
-		min-height: 2.25rem;
-		border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-	}
-
-	.filter-field :global(.input::placeholder) {
-		color: var(--text-tertiary);
-		font-style: italic;
-	}
-
-	/* Display options: view toggle + gaps checkbox, pushed right */
-	.controls-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		gap: var(--sp-4);
-		margin-left: auto;
-	}
-
-	.view-toggle {
-		display: flex;
-		align-items: flex-start;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.view-label {
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.view-toggle-controls {
-		display: inline-flex;
-		align-items: stretch;
-		border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
-		border-radius: var(--radius-sm);
-		overflow: hidden;
-	}
-
-	.view-toggle-controls .view-btn + .view-btn {
-		border-left: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
-	}
-
-	.view-btn {
-		appearance: none;
-		min-height: 2.125rem;
-		padding: 0 14px;
-		font-family: var(--font-display);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		border: 0;
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.view-btn:first-of-type {
-		border-radius: 0;
-	}
-
-	.view-btn:last-of-type {
-		border-radius: 0;
-	}
-
-	.view-btn:hover {
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.view-btn.active {
-		background: var(--amber);
-		color: var(--accent-contrast);
-	}
-
-	.gap-toggle {
-		display: inline-flex;
 		align-items: center;
 		gap: var(--sp-2);
-		min-height: 2rem;
-		cursor: pointer;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.gap-toggle input {
-		width: 1rem;
-		height: 1rem;
-		flex-shrink: 0;
-		accent-color: var(--amber);
-	}
-
-	.matrix-statsbar {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-5);
-		border-top: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
-		background: var(--surface-subtle);
-		padding: 14px var(--sp-5);
-	}
-
-	.matrix-counts {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0;
-	}
-
-	.stat-item {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-1);
-		padding: 0 14px;
-	}
-
-	.stat-item:first-child {
-		padding-left: 0;
-	}
-
-	.stat-item + .stat-item {
-		border-left: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
-	}
-
-	.stat-value {
-		font-family: var(--font-display);
-		font-size: var(--text-lg);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-		letter-spacing: 0.02em;
-	}
-
-	.stat-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.stat-item--readiness .stat-value {
-		color: var(--amber);
-	}
-
-	.statsbar-right {
-		margin-left: auto;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		white-space: nowrap;
+		min-width: 0;
 	}
 
 	/* ── Responsive ─────────────────────────────────────────── */
@@ -681,44 +361,6 @@
 
 		.matrix-workspace {
 			gap: var(--sp-3);
-		}
-
-		.controls-row {
-			flex-direction: column;
-			align-items: stretch;
-			gap: var(--sp-3);
-		}
-
-		.matrix-filter-controls {
-			width: 100%;
-		}
-
-		.filter-field {
-			flex: 1;
-			min-width: 0;
-		}
-
-		.controls-actions {
-			margin-left: 0;
-			width: 100%;
-			flex-direction: column;
-			align-items: flex-start;
-			gap: var(--sp-3);
-		}
-
-		.gap-toggle {
-			white-space: normal;
-		}
-
-		.matrix-statsbar {
-			overflow-x: auto;
-			align-items: flex-start;
-			flex-direction: column;
-			gap: var(--sp-3);
-		}
-
-		.statsbar-right {
-			margin-left: 0;
 		}
 	}
 </style>

@@ -2,7 +2,8 @@
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -12,32 +13,10 @@
 	}
 
 	let { ctx }: Props = $props();
+	let showOnboardingOverflow = $state(false);
 </script>
 
 <div class="page">
-	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
-		<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
-		{#if ctx.canEditOnboarding}
-			{#if ctx.canManageConfig}
-				<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
-					>Manage Templates</a
-				>
-			{/if}
-			<button
-				class="btn btn-primary btn-sm"
-				type="button"
-				onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
-				disabled={!ctx.hasTemplateSteps || ctx.readOnly}
-				title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
-			>
-				Start Onboarding
-			</button>
-			{#if ctx.readOnly}
-				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
-			{/if}
-		{/if}
-	</PageToolbar>
-
 	{#if !ctx.canViewOnboarding}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
@@ -45,6 +24,65 @@
 		</div>
 	{:else}
 		<main class="page-content">
+			<FloatingPageToolbar ariaLabel="Onboarding controls" collapse="narrow">
+				{#snippet leading()}
+					<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
+				{/snippet}
+
+				{#if ctx.canEditOnboarding}
+					{#if ctx.canManageConfig}
+						<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
+							>Manage Templates</a
+						>
+					{/if}
+					<button
+						class="btn btn-primary btn-sm"
+						type="button"
+						onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
+						disabled={!ctx.hasTemplateSteps || ctx.readOnly}
+						title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
+					>
+						Start Onboarding
+					</button>
+					{#if ctx.readOnly}
+						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+					{/if}
+				{/if}
+				{#if ctx.overflowItems.length > 0}
+					<div class="overflow-wrapper">
+						<button
+							type="button"
+							class="more-btn"
+							aria-label="More onboarding actions"
+							aria-expanded={showOnboardingOverflow}
+							aria-haspopup="menu"
+							onclick={() => (showOnboardingOverflow = !showOnboardingOverflow)}
+						>
+							<span>More</span>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<polyline points="6 9 12 15 18 9" />
+							</svg>
+						</button>
+						<OverflowMenu
+							items={ctx.overflowItems}
+							align="right"
+							open={showOnboardingOverflow}
+							onClose={() => (showOnboardingOverflow = false)}
+						/>
+					</div>
+				{/if}
+			</FloatingPageToolbar>
+
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="notice-banner notice-banner--warning">
 					<div class="notice-copy">
@@ -368,6 +406,54 @@
 		font-weight: var(--font-weight-display);
 		line-height: 0.95;
 		text-transform: uppercase;
+	}
+
+	.page-content {
+		display: flex;
+		min-height: 0;
+		flex-direction: column;
+		gap: var(--sp-4);
+		overflow: auto;
+		padding: var(--sp-4) var(--sp-6) var(--sp-5);
+	}
+
+	.overflow-wrapper {
+		position: relative;
+	}
+
+	.more-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--sp-1);
+		min-height: 34px;
+		padding: 7px 12px;
+		background: transparent;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.more-btn:hover {
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
+		color: var(--text-primary);
+	}
+
+	.more-btn:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
 	}
 
 	[data-quiet-button] {
@@ -827,6 +913,10 @@
 	}
 
 	@media (max-width: 640px) {
+		.page-content {
+			padding: var(--sp-3);
+		}
+
 		.notice-banner,
 		.card-summary,
 		.card-detail {

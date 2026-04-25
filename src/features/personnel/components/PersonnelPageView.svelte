@@ -3,6 +3,7 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
@@ -158,93 +159,93 @@
 		</div>
 	{:else}
 		<main class="page-content roster-content">
-			<section class="personnel-command-strip" aria-label="Personnel controls">
-				<div class="roster-controls" aria-label="Roster filters">
-					<div class="view-toggle">
-						<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
-							<button
-								class="view-btn"
-								type="button"
-								aria-pressed={ctx.viewMode === 'alphabetical'}
-								class:active={ctx.viewMode === 'alphabetical'}
-								onclick={() => (ctx.viewMode = 'alphabetical')}
-							>
-								A-Z
-							</button>
-							<button
-								class="view-btn"
-								type="button"
-								aria-pressed={ctx.viewMode === 'by-group'}
-								class:active={ctx.viewMode === 'by-group'}
-								onclick={() => (ctx.viewMode = 'by-group')}
-							>
-								By Group
-							</button>
+			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="36rem" collapse="medium">
+				{#snippet leading()}
+					<div class="roster-controls" aria-label="Roster filters">
+						<div class="view-toggle">
+							<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
+								<button
+									class="view-btn"
+									type="button"
+									aria-pressed={ctx.viewMode === 'alphabetical'}
+									class:active={ctx.viewMode === 'alphabetical'}
+									onclick={() => (ctx.viewMode = 'alphabetical')}
+								>
+									A-Z
+								</button>
+								<button
+									class="view-btn"
+									type="button"
+									aria-pressed={ctx.viewMode === 'by-group'}
+									class:active={ctx.viewMode === 'by-group'}
+									onclick={() => (ctx.viewMode = 'by-group')}
+								>
+									By Group
+								</button>
+							</div>
 						</div>
+						<input
+							type="search"
+							class="input roster-search"
+							data-testid="personnel-search"
+							aria-label="Search by name, rank, MOS, role, or group"
+							placeholder="Search name, rank, MOS, role, or group..."
+							bind:value={rosterSearch}
+						/>
 					</div>
-					<input
-						type="search"
-						class="input roster-search"
-						data-testid="personnel-search"
-						aria-label="Search by name, rank, MOS, role, or group"
-						placeholder="Search name, rank, MOS, role, or group..."
-						bind:value={rosterSearch}
-					/>
-				</div>
+				{/snippet}
 
 				{#if canManageRoster}
-					<div class="strip-actions">
-						<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
-							Manage Groups
-						</button>
-						<button
-							class="btn btn-sm btn-primary"
-							type="button"
-							data-testid="add-personnel-btn"
-							onclick={() => ctx.handleAdd()}
-							disabled={readOnly}
-						>
-							Add Person
-						</button>
-						{#if personnelOverflowItems.length > 0}
-							<div class="overflow-wrapper">
-								<button
-									type="button"
-									class="more-btn"
-									aria-label="More personnel actions"
-									aria-expanded={showPersonnelOverflow}
-									aria-haspopup="menu"
-									onclick={() => (showPersonnelOverflow = !showPersonnelOverflow)}
+					<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
+						Manage Groups
+					</button>
+					<button
+						class="btn btn-sm btn-primary"
+						type="button"
+						data-testid="add-personnel-btn"
+						onclick={() => ctx.handleAdd()}
+						disabled={readOnly}
+					>
+						Add Person
+					</button>
+					{#if personnelOverflowItems.length > 0}
+						<div class="overflow-wrapper">
+							<button
+								type="button"
+								class="more-btn"
+								aria-label="More personnel actions"
+								aria-expanded={showPersonnelOverflow}
+								aria-haspopup="menu"
+								onclick={() => (showPersonnelOverflow = !showPersonnelOverflow)}
+							>
+								<span>More</span>
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
 								>
-									<span>More</span>
-									<svg
-										width="12"
-										height="12"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										aria-hidden="true"
-									>
-										<polyline points="6 9 12 15 18 9" />
-									</svg>
-								</button>
-								<OverflowMenu
-									items={personnelOverflowItems}
-									align="right"
-									open={showPersonnelOverflow}
-									onClose={() => (showPersonnelOverflow = false)}
-								/>
-							</div>
-						{/if}
-						{#if readOnly}
-							<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
-						{/if}
-					</div>
+									<polyline points="6 9 12 15 18 9" />
+								</svg>
+							</button>
+							<OverflowMenu
+								items={personnelOverflowItems}
+								align="right"
+								open={showPersonnelOverflow}
+								onClose={() => (showPersonnelOverflow = false)}
+							/>
+						</div>
+					{/if}
+					{#if readOnly}
+						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+					{/if}
 				{/if}
-			</section>
+			</FloatingPageToolbar>
 
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
@@ -382,28 +383,12 @@
 		padding: var(--sp-4) var(--sp-6) var(--sp-5);
 	}
 
-	.personnel-command-strip {
-		display: grid;
-		grid-template-columns: minmax(24rem, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3);
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-	}
-
-	.roster-controls,
-	.strip-actions {
+	.roster-controls {
 		display: flex;
 		align-items: center;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: var(--sp-2);
 		min-width: 0;
-	}
-
-	.strip-actions {
-		justify-content: flex-end;
 	}
 
 	.roster-controls {
@@ -529,16 +514,21 @@
 	}
 
 	.roster-search {
-		flex: 1 1 260px;
-		max-width: 420px;
-		min-height: 34px;
+		flex: 0 0 min(20rem, 100%);
+		width: min(20rem, 100%);
+		max-width: none;
+		box-sizing: border-box;
+		height: 34px;
+		min-height: 0;
+		padding: 0 12px;
 	}
 
 	.view-toggle {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
+		flex-shrink: 0;
 	}
 
 	.view-toggle-controls {
@@ -552,13 +542,18 @@
 
 	.view-btn {
 		appearance: none;
-		min-height: 32px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 34px;
 		padding: 0 12px;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
 		letter-spacing: 0.1em;
+		line-height: 1;
 		text-transform: uppercase;
+		white-space: nowrap;
 		border: var(--border-thin);
 		background: var(--surface-panel);
 		color: var(--text-secondary);
@@ -764,21 +759,13 @@
 			padding: var(--sp-3);
 		}
 
-		.personnel-command-strip {
-			display: grid;
-			grid-template-columns: 1fr;
-			align-items: stretch;
-		}
-
-		.strip-actions {
-			justify-content: flex-start;
-		}
-
 		.roster-controls {
+			flex-wrap: wrap;
 			justify-content: flex-start;
 		}
 
 		.roster-search {
+			flex-basis: 100%;
 			max-width: unset;
 			width: 100%;
 		}
@@ -806,18 +793,12 @@
 	}
 
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.personnel-command-strip {
-			grid-template-columns: 1fr;
-			align-items: stretch;
-		}
-
-		.roster-controls,
-		.strip-actions {
+		.roster-controls {
 			justify-content: flex-start;
 		}
 
 		.roster-search {
-			max-width: 360px;
+			max-width: none;
 		}
 	}
 </style>

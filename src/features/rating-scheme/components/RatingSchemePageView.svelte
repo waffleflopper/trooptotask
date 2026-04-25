@@ -4,6 +4,7 @@
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
@@ -61,112 +62,112 @@
 	{:else}
 		<main class="page-content">
 			<section class="evals-section">
-				<div class="command-strip">
-					<div class="rating-status-ledger" aria-label="Evaluation status summary">
-						<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
-							<span class="stat-count">{ratingStats.overdue}</span>
-							<span class="stat-label">Overdue</span>
+				<FloatingPageToolbar ariaLabel="Evaluation controls">
+					{#snippet leading()}
+						<div class="rating-status-ledger" aria-label="Evaluation status summary">
+							<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
+								<span class="stat-count">{ratingStats.overdue}</span>
+								<span class="stat-label">Overdue</span>
+							</div>
+							<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
+								<span class="stat-count">{ratingStats['due-60']}</span>
+								<span class="stat-label">60d</span>
+							</div>
+							<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
+								<span class="stat-count">{ratingStats['due-30']}</span>
+								<span class="stat-label">30d</span>
+							</div>
 						</div>
-						<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
-							<span class="stat-count">{ratingStats['due-60']}</span>
-							<span class="stat-label">60d</span>
-						</div>
-						<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
-							<span class="stat-count">{ratingStats['due-30']}</span>
-							<span class="stat-label">30d</span>
-						</div>
-					</div>
+					{/snippet}
 
-					<div class="strip-actions">
-						<span class="rating-shown">{ratingShownLabel}</span>
-						<div class="view-toggle">
-							<div class="view-toggle-controls" role="group" aria-label="Evaluation view mode">
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={ctx.ratingViewMode === 'grouped'}
-									class:active={ctx.ratingViewMode === 'grouped'}
-									onclick={() => (ctx.ratingViewMode = 'grouped')}
-								>
-									Grouped
-								</button>
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={ctx.ratingViewMode === 'table'}
-									class:active={ctx.ratingViewMode === 'table'}
-									onclick={() => (ctx.ratingViewMode = 'table')}
-								>
-									Table
-								</button>
-							</div>
-						</div>
-						<details class="filter-disclosure">
-							<summary>
-								<span>Filters</span>
-								<span class="filter-summary">{ratingFilterSummary}</span>
-							</summary>
-							<div class="rating-filter-panel">
-								<label class="filter-field">
-									<span>Eval Type</span>
-									<select class="select rating-filter" value={ctx.evalTypeFilter} onchange={updateEvalTypeFilter}>
-										<option value="all">All Types</option>
-										<option value="OER">OER</option>
-										<option value="NCOER">NCOER</option>
-										<option value="WOER">WOER</option>
-									</select>
-								</label>
-								<label class="filter-field">
-									<span>Status</span>
-									<select class="select rating-filter" value={ctx.ratingFilter} onchange={updateRatingFilter}>
-										<option value="active">Active</option>
-										<option value="completed">Completed</option>
-										<option value="change-of-rater">Change of Rater</option>
-										<option value="all">All Statuses</option>
-									</select>
-								</label>
-								{#if ctx.hasAnyWorkflowStatus}
-									<label class="filter-field">
-										<span>Workflow</span>
-										<select class="select rating-filter" value={ctx.workflowFilter} onchange={updateWorkflowFilter}>
-											<option value="all">All Workflow</option>
-											{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
-												<option value={opt.value}>{opt.label}</option>
-											{/each}
-										</select>
-									</label>
-								{/if}
-							</div>
-						</details>
-						<button
-							class="btn btn-sm btn-secondary"
-							type="button"
-							disabled={exportLoading}
-							onclick={async () => {
-								exportLoading = true;
-								try {
-									await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
-								} catch (err) {
-									toastStore.error(err instanceof Error ? err.message : 'Export failed');
-								} finally {
-									exportLoading = false;
-								}
-							}}
-						>
-							{exportLoading ? 'Exporting...' : 'Export'}
-						</button>
-						{#if canEditRatingScheme}
+					<span class="rating-shown">{ratingShownLabel}</span>
+					<div class="view-toggle">
+						<div class="view-toggle-controls" role="group" aria-label="Evaluation view mode">
 							<button
-								class="btn btn-sm btn-primary"
+								class="view-btn"
 								type="button"
-								onclick={() => ctx.handleAddRatingEntry()}
-								disabled={readOnly}
+								aria-pressed={ctx.ratingViewMode === 'grouped'}
+								class:active={ctx.ratingViewMode === 'grouped'}
+								onclick={() => (ctx.ratingViewMode = 'grouped')}
 							>
-								Add Entry
+								Grouped
 							</button>
-						{/if}
+							<button
+								class="view-btn"
+								type="button"
+								aria-pressed={ctx.ratingViewMode === 'table'}
+								class:active={ctx.ratingViewMode === 'table'}
+								onclick={() => (ctx.ratingViewMode = 'table')}
+							>
+								Table
+							</button>
+						</div>
 					</div>
-				</div>
+					<details class="filter-disclosure">
+						<summary>
+							<span>Filters</span>
+							<span class="filter-summary">{ratingFilterSummary}</span>
+						</summary>
+						<div class="rating-filter-panel">
+							<label class="filter-field">
+								<span>Eval Type</span>
+								<select class="select rating-filter" value={ctx.evalTypeFilter} onchange={updateEvalTypeFilter}>
+									<option value="all">All Types</option>
+									<option value="OER">OER</option>
+									<option value="NCOER">NCOER</option>
+									<option value="WOER">WOER</option>
+								</select>
+							</label>
+							<label class="filter-field">
+								<span>Status</span>
+								<select class="select rating-filter" value={ctx.ratingFilter} onchange={updateRatingFilter}>
+									<option value="active">Active</option>
+									<option value="completed">Completed</option>
+									<option value="change-of-rater">Change of Rater</option>
+									<option value="all">All Statuses</option>
+								</select>
+							</label>
+							{#if ctx.hasAnyWorkflowStatus}
+								<label class="filter-field">
+									<span>Workflow</span>
+									<select class="select rating-filter" value={ctx.workflowFilter} onchange={updateWorkflowFilter}>
+										<option value="all">All Workflow</option>
+										{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
+											<option value={opt.value}>{opt.label}</option>
+										{/each}
+									</select>
+								</label>
+							{/if}
+						</div>
+					</details>
+					<button
+						class="btn btn-sm btn-secondary"
+						type="button"
+						disabled={exportLoading}
+						onclick={async () => {
+							exportLoading = true;
+							try {
+								await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
+							} catch (err) {
+								toastStore.error(err instanceof Error ? err.message : 'Export failed');
+							} finally {
+								exportLoading = false;
+							}
+						}}
+					>
+						{exportLoading ? 'Exporting...' : 'Export'}
+					</button>
+					{#if canEditRatingScheme}
+						<button
+							class="btn btn-sm btn-primary"
+							type="button"
+							onclick={() => ctx.handleAddRatingEntry()}
+							disabled={readOnly}
+						>
+							Add Entry
+						</button>
+					{/if}
+				</FloatingPageToolbar>
 
 				<div class="evals-content">
 					{#if ctx.ratingViewMode === 'grouped'}
@@ -216,28 +217,12 @@
 		overflow: hidden;
 	}
 
-	.command-strip {
-		display: grid;
-		grid-template-columns: minmax(18rem, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3);
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-	}
-
-	.rating-status-ledger,
-	.strip-actions {
+	.rating-status-ledger {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
 		min-width: 0;
-	}
-
-	.strip-actions {
-		justify-content: flex-end;
 	}
 
 	.rating-ledger-item {
@@ -424,17 +409,6 @@
 		margin: 0;
 		max-width: 44ch;
 		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 1180px) {
-		.command-strip {
-			grid-template-columns: 1fr;
-			align-items: stretch;
-		}
-
-		.strip-actions {
-			justify-content: flex-start;
-		}
 	}
 
 	@media (max-width: 640px) {

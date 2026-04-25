@@ -109,6 +109,31 @@ Toolbar guidance:
 
 ---
 
+## `FloatingPageToolbar.svelte`
+
+Compact command surface for primary app routes after the app shell breadcrumb/title has already identified the page. Use it inside the route content area for filters, view toggles, stats, and page actions.
+
+```svelte
+<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="24rem" collapse="medium">
+    {#snippet leading()}
+        <RosterFilters />
+    {/snippet}
+
+    <button class="btn btn-sm btn-primary" type="button">Add Person</button>
+</FloatingPageToolbar>
+```
+
+Props: `ariaLabel: string`, `leadingMin?: string` (default `'18rem'`), `collapse?: 'wide' | 'medium' | 'narrow'` (default `'wide'`), `leading?: Snippet`, `children?: Snippet` (right-side actions)
+
+Toolbar guidance:
+
+- Use this for the floating page toolbar pattern on Calendar, Personnel, Evals, Onboarding, and similar dense route pages.
+- Put filters, toggles, small stat ledgers, or navigation affordances in `leading`.
+- Put page actions and overflow menus in the default children slot.
+- Choose `collapse="wide"` for complex toolbars, `medium` for roster-style toolbars, and `narrow` when the toolbar only needs to stack on mobile.
+
+---
+
 ## `Modal.svelte`
 
 Base modal wrapper. Use for all modals. Default width is `480px`. The refreshed modal shell uses a structured document-style header/footer, dark close affordance, and shared focus treatment.

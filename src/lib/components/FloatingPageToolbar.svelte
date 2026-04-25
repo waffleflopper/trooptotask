@@ -16,7 +16,8 @@
 	);
 </script>
 
-<section
+<div
+	role="toolbar"
 	class={toolbarClass}
 	aria-label={ariaLabel}
 	data-testid="floating-page-toolbar"
@@ -33,7 +34,7 @@
 			{@render children()}
 		</div>
 	{/if}
-</section>
+</div>
 
 <style>
 	.floating-page-toolbar {

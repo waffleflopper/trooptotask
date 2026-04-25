@@ -34,6 +34,10 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 		'duty-roster': 'Duty Roster',
 		reports: 'Reports',
 		settings: 'Settings'
+	},
+	onboarding: {
+		history: 'History',
+		templates: 'Templates'
 	}
 };
 

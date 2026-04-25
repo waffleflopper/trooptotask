@@ -121,4 +121,22 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Settings' }
 		]);
 	});
+
+	it('includes linked Onboarding subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewOnboarding: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/onboarding/templates', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Onboarding', href: '/org/org-1/onboarding' },
+			{ label: 'Templates' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/onboarding/history', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Onboarding', href: '/org/org-1/onboarding' },
+			{ label: 'History' }
+		]);
+	});
 });

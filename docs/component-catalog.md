@@ -111,7 +111,7 @@ Toolbar guidance:
 
 ## `FloatingPageToolbar.svelte`
 
-Compact command surface for primary app routes after the app shell breadcrumb/title has already identified the page. Use it inside the route content area for filters, view toggles, stats, and page actions.
+Compact command surface for primary app routes after the app shell breadcrumb/title has already identified the page. It renders as an aria-labelled toolbar; use it inside the route content area for filters, view toggles, stats, and page actions.
 
 ```svelte
 <FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="24rem" collapse="medium">

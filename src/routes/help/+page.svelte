@@ -148,12 +148,12 @@
 				{
 					title: 'Groups',
 					content:
-						'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar overflow menu to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
+						'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
 				},
 				{
 					title: 'Bulk Import',
 					content:
-						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar overflow menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
+						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar or actions menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
 				},
 				{
 					title: 'Bulk Delete',

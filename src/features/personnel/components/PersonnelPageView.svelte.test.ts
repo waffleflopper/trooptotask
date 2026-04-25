@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelPageView from './PersonnelPageView.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -123,6 +123,22 @@ describe('PersonnelPageView', () => {
 		expect(screen.queryByText('Access')).toBeNull();
 		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
 		expect(screen.getByTestId('personnel-search')).toBeTruthy();
+	});
+
+	it('keeps primary personnel actions visible in the floating toolbar for editors', () => {
+		const ctx = {
+			...makeCtx(),
+			canAddPersonnel: true
+		} as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
+		expect(within(toolbar).getByRole('button', { name: 'Manage Groups' })).toBeTruthy();
+		expect(within(toolbar).getByRole('button', { name: 'Add Person' })).toBeTruthy();
+		expect(within(toolbar).getByRole('button', { name: 'Bulk Import' })).toBeTruthy();
 	});
 
 	describe('upcoming-loss indicators', () => {

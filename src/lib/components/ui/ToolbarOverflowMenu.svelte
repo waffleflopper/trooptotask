@@ -21,6 +21,7 @@
 		class="toolbar-overflow-menu__button"
 		class:toolbar-overflow-menu__button--icon={iconOnly}
 		aria-label={ariaLabel}
+		title={iconOnly ? ariaLabel : undefined}
 		aria-expanded={open}
 		aria-haspopup="menu"
 		onmousedown={(event) => event.stopPropagation()}

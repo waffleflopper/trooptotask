@@ -29,4 +29,10 @@ describe('FloatingPageToolbar', () => {
 		expect(screen.getByText('History')).toBeTruthy();
 		expect(screen.queryByText('Add')).toBeNull();
 	});
+
+	it('renders an overflow action slot when actions can collapse', () => {
+		render(FloatingPageToolbarTest, { props: { withOverflow: true } });
+
+		expect(screen.getByRole('button', { name: 'More test actions' })).toBeTruthy();
+	});
 });

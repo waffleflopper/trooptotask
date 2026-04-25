@@ -7,12 +7,19 @@
 		collapse?: 'wide' | 'medium' | 'narrow';
 		leading?: Snippet;
 		children?: Snippet;
+		overflow?: Snippet;
 	}
 
-	let { ariaLabel, leadingMin = '18rem', collapse = 'wide', leading, children }: Props = $props();
+	let { ariaLabel, leadingMin = '18rem', collapse = 'wide', leading, children, overflow }: Props = $props();
 
 	const toolbarClass = $derived(
-		['floating-page-toolbar', `floating-page-toolbar--${collapse}`].filter(Boolean).join(' ')
+		[
+			'floating-page-toolbar',
+			`floating-page-toolbar--${collapse}`,
+			overflow ? 'floating-page-toolbar--has-overflow' : ''
+		]
+			.filter(Boolean)
+			.join(' ')
 	);
 </script>
 
@@ -20,6 +27,7 @@
 	role="toolbar"
 	class={toolbarClass}
 	aria-label={ariaLabel}
+	data-floating-page-toolbar
 	data-testid="floating-page-toolbar"
 	style:--toolbar-leading-min={leadingMin}
 >
@@ -32,6 +40,12 @@
 	{#if children}
 		<div class="floating-page-toolbar__actions">
 			{@render children()}
+		</div>
+	{/if}
+
+	{#if overflow}
+		<div class="floating-page-toolbar__overflow">
+			{@render overflow()}
 		</div>
 	{/if}
 </div>
@@ -49,7 +63,8 @@
 	}
 
 	.floating-page-toolbar__leading,
-	.floating-page-toolbar__actions {
+	.floating-page-toolbar__actions,
+	.floating-page-toolbar__overflow {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
@@ -65,6 +80,15 @@
 		justify-content: flex-end;
 	}
 
+	.floating-page-toolbar__overflow {
+		display: none;
+		justify-content: flex-end;
+	}
+
+	.floating-page-toolbar--has-overflow {
+		grid-template-columns: minmax(var(--toolbar-leading-min), 1fr) auto auto;
+	}
+
 	@media (max-width: 1180px) {
 		.floating-page-toolbar--wide {
 			grid-template-columns: 1fr;
@@ -73,6 +97,19 @@
 
 		.floating-page-toolbar--wide .floating-page-toolbar__actions {
 			justify-content: flex-start;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--wide {
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--wide .floating-page-toolbar__actions {
+			display: none;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--wide .floating-page-toolbar__overflow {
+			display: flex;
 		}
 	}
 
@@ -85,6 +122,19 @@
 		.floating-page-toolbar--medium .floating-page-toolbar__actions {
 			justify-content: flex-start;
 		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--medium {
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--medium .floating-page-toolbar__actions {
+			display: none;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--medium .floating-page-toolbar__overflow {
+			display: flex;
+		}
 	}
 
 	@media (max-width: 640px) {
@@ -95,6 +145,19 @@
 
 		.floating-page-toolbar--narrow .floating-page-toolbar__actions {
 			justify-content: flex-start;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--narrow {
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--narrow .floating-page-toolbar__actions {
+			display: none;
+		}
+
+		.floating-page-toolbar--has-overflow.floating-page-toolbar--narrow .floating-page-toolbar__overflow {
+			display: flex;
 		}
 	}
 </style>

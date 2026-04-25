@@ -12,6 +12,7 @@
 		onSegmentChange?: (value: string) => void;
 		onIconClick?: () => void;
 		onOverflowClick?: () => void;
+		iconOnlyOverflow?: boolean;
 	}
 
 	let {
@@ -19,7 +20,8 @@
 		onSelectChange = () => undefined,
 		onSegmentChange = () => undefined,
 		onIconClick = () => undefined,
-		onOverflowClick = () => undefined
+		onOverflowClick = () => undefined,
+		iconOnlyOverflow = false
 	}: Props = $props();
 
 	let searchValue = $state('');
@@ -65,4 +67,4 @@
 	<span aria-hidden="true">E</span>
 </ToolbarIconButton>
 
-<ToolbarOverflowMenu ariaLabel="More roster actions" items={overflowItems} />
+<ToolbarOverflowMenu ariaLabel="More roster actions" items={overflowItems} iconOnly={iconOnlyOverflow} />

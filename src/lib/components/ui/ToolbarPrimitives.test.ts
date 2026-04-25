@@ -65,4 +65,11 @@ describe('toolbar primitives', () => {
 		await fireEvent.click(moreButton);
 		expect(screen.queryByRole('menuitem', { name: 'Bulk Import' })).toBeNull();
 	});
+
+	it('supports an icon-only overflow trigger with an accessible name', () => {
+		render(ToolbarPrimitivesTest, { props: { iconOnlyOverflow: true } });
+
+		const moreButton = screen.getByRole('button', { name: 'More roster actions' });
+		expect(moreButton.textContent?.trim()).toBe('');
+	});
 });

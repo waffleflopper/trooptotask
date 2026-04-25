@@ -6,11 +6,12 @@
 		items: OverflowItem[];
 		ariaLabel: string;
 		label?: string;
+		iconOnly?: boolean;
 		align?: 'left' | 'right';
 		side?: 'bottom' | 'top';
 	}
 
-	let { items, ariaLabel, label = 'More', align = 'right', side = 'bottom' }: Props = $props();
+	let { items, ariaLabel, label = 'More', iconOnly = false, align = 'right', side = 'bottom' }: Props = $props();
 	let open = $state(false);
 </script>
 
@@ -18,26 +19,45 @@
 	<button
 		type="button"
 		class="toolbar-overflow-menu__button"
+		class:toolbar-overflow-menu__button--icon={iconOnly}
 		aria-label={ariaLabel}
 		aria-expanded={open}
 		aria-haspopup="menu"
 		onmousedown={(event) => event.stopPropagation()}
 		onclick={() => (open = !open)}
 	>
-		<span>{label}</span>
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<polyline points="6 9 12 15 18 9" />
-		</svg>
+		{#if iconOnly}
+			<svg
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<circle cx="12" cy="12" r="1" />
+				<circle cx="12" cy="5" r="1" />
+				<circle cx="12" cy="19" r="1" />
+			</svg>
+		{:else}
+			<span>{label}</span>
+			<svg
+				width="12"
+				height="12"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<polyline points="6 9 12 15 18 9" />
+			</svg>
+		{/if}
 	</button>
 	<OverflowMenu {items} {align} {side} {open} onClose={() => (open = false)} />
 </div>
@@ -70,6 +90,11 @@
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			color var(--transition-fast);
+	}
+
+	.toolbar-overflow-menu__button--icon {
+		width: 34px;
+		padding: 7px;
 	}
 
 	.toolbar-overflow-menu__button:hover {

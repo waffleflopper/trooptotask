@@ -22,6 +22,21 @@ export interface OrgNavItem {
 	exactMatch: boolean;
 }
 
+export interface OrgBreadcrumb {
+	label: string;
+	href?: string;
+}
+
+const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
+	calendar: {
+		assignments: 'Assignments',
+		bulk: 'Bulk Status',
+		'duty-roster': 'Duty Roster',
+		reports: 'Reports',
+		settings: 'Settings'
+	}
+};
+
 export function getOrgNavigation(orgId: string, permissions: OrganizationMemberPermissions): OrgNavItem[] {
 	return [
 		{
@@ -106,4 +121,27 @@ export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean 
 	}
 
 	return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
+
+export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: OrgNavItem[]): OrgBreadcrumb[] {
+	const activeItem = navItems.find((item) => isOrgNavItemActive(pathname, item)) ?? navItems[0];
+	const activeLabel = activeItem?.breadcrumbLabel ?? activeItem?.label ?? 'Dashboard';
+	const dashboardItem = navItems.find((item) => item.id === 'dashboard') ?? navItems[0];
+	const breadcrumbs: OrgBreadcrumb[] = [{ label: orgName, href: dashboardItem?.href }, { label: activeLabel }];
+
+	if (!activeItem) return breadcrumbs;
+
+	const itemPath = activeItem.href.split('?')[0];
+	if (pathname === itemPath || !pathname.startsWith(`${itemPath}/`)) {
+		return breadcrumbs;
+	}
+
+	breadcrumbs[1].href = activeItem.href;
+	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
+	const childLabel = ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment];
+	if (childLabel) {
+		breadcrumbs.push({ label: childLabel });
+	}
+
+	return breadcrumbs;
 }

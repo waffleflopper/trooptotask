@@ -1,18 +1,10 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import CalendarReports from '$features/calendar/components/reports/CalendarReports.svelte';
 
 	let { data } = $props();
 </script>
 
 <div class="page">
-	<PageToolbar
-		title="Calendar Reports"
-		breadcrumbs={[{ label: 'Calendar', href: `/org/${data.orgId}/calendar` }, { label: 'Reports' }]}
-	>
-		<a href="/org/{data.orgId}/calendar" class="btn btn-sm">Back</a>
-	</PageToolbar>
-
 	<main class="page-content">
 		<CalendarReports
 			orgId={data.orgId}
@@ -29,5 +21,9 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--surface-page);
+	}
+
+	.page-content {
+		padding: var(--sp-4) var(--sp-6) var(--sp-6);
 	}
 </style>

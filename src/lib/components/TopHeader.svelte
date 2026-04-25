@@ -4,7 +4,7 @@
 	import AvatarMenu from './ui/AvatarMenu.svelte';
 	import NotificationBell from './ui/NotificationBell.svelte';
 	import OrgNavIcon from './OrgNavIcon.svelte';
-	import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 	interface OrgInfo {
 		id: string;
@@ -40,7 +40,7 @@
 
 	const pathname = $derived($page.url.pathname);
 	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
-	const activeNavItem = $derived(navItems.find((item) => isOrgNavItemActive(pathname, item)) ?? navItems[0]);
+	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems));
 </script>
 
 <aside class="app-rail" aria-label="Primary navigation">
@@ -86,9 +86,30 @@
 	<div class="header-shell">
 		<div class="header-left">
 			<div class="breadcrumb" aria-label="Current section">
-				<span class="breadcrumb-parent">{orgName}</span>
-				<span class="breadcrumb-separator">›</span>
-				<span class="breadcrumb-current">{activeNavItem?.breadcrumbLabel ?? activeNavItem?.label ?? 'Dashboard'}</span>
+				{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
+					{#if index === 0}
+						{#if crumb.href}
+							<a class="breadcrumb-parent breadcrumb-link" href={crumb.href}>{crumb.label}</a>
+						{:else}
+							<span class="breadcrumb-parent">{crumb.label}</span>
+						{/if}
+					{:else}
+						<span class="breadcrumb-separator">›</span>
+						{#if crumb.href}
+							<a
+								class="breadcrumb-current breadcrumb-link"
+								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
+								href={crumb.href}>{crumb.label}</a
+							>
+						{:else}
+							<span
+								class="breadcrumb-current"
+								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
+								aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined}>{crumb.label}</span
+							>
+						{/if}
+					{/if}
+				{/each}
 			</div>
 		</div>
 
@@ -287,6 +308,22 @@
 
 	.breadcrumb-current {
 		color: var(--text-primary);
+	}
+
+	.breadcrumb-current--section {
+		color: var(--text-secondary);
+	}
+
+	.breadcrumb-link {
+		text-decoration: none;
+		transition: color var(--transition-fast);
+	}
+
+	.breadcrumb-link:hover {
+		color: var(--text-primary);
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.2em;
 	}
 
 	.header-right {

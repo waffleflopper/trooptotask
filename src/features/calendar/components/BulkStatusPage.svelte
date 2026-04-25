@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SubNav from '$lib/components/ui/SubNav.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
@@ -92,25 +92,23 @@
 	}
 </script>
 
-<PageToolbar
-	title="Bulk Status Operations"
-	subtitle="Add, remove, or import status changes for multiple people without opening each record one by one."
-	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Bulk Status Operations' }]}
->
-	<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Back</a>
-</PageToolbar>
-
 <div class="bulk-page">
+	<FloatingPageToolbar ariaLabel="Bulk status controls" collapse="narrow" leadingMin="24rem">
+		{#snippet leading()}
+			{#if canMutate}
+				<SubNav tabs={TABS} active={activeTab} onChange={(tab) => switchTab(tab as Tab)} />
+			{/if}
+		{/snippet}
+
+		<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Calendar</a>
+	</FloatingPageToolbar>
+
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
 			<p>Only organization admins and full editors can perform bulk status operations.</p>
 		</section>
 	{:else}
-		<div class="bulk-tabs">
-			<SubNav tabs={TABS} active={activeTab} onChange={(tab) => switchTab(tab as Tab)} />
-		</div>
-
 		<div class="tab-panel">
 			{#if activeTab === 'add'}
 				<BulkStatusAdd
@@ -143,9 +141,12 @@
 
 <style>
 	.bulk-page {
-		padding: var(--sp-6);
 		max-width: 1480px;
 		margin: 0 auto;
+		padding: var(--sp-4) var(--sp-6) var(--sp-6);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
 	.restricted-hero {
@@ -165,18 +166,7 @@
 	}
 
 	.tab-panel {
-		margin-top: var(--sp-4);
-	}
-
-	.bulk-tabs {
-		display: flex;
-		justify-content: center;
-		margin-bottom: var(--sp-4);
-	}
-
-	.bulk-tabs :global(.sub-nav) {
-		width: min(100%, 760px);
-		justify-content: center;
+		min-width: 0;
 	}
 
 	@media (max-width: 768px) {
@@ -188,11 +178,7 @@
 			padding: var(--sp-8) var(--sp-6);
 		}
 
-		.bulk-tabs {
-			justify-content: stretch;
-		}
-
-		.bulk-tabs :global(.sub-nav) {
+		.bulk-page :global(.sub-nav) {
 			width: 100%;
 		}
 	}

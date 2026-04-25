@@ -122,12 +122,13 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 }
 
 describe('DashboardPageView', () => {
-	it('renders the org name and date in the toolbar', () => {
+	it('renders dashboard tabs in a floating toolbar without an in-body route title', () => {
 		const ctx = makeCtx();
 
 		render(DashboardPageView, { props: { ctx } });
 
-		expect(screen.getByText('Test Unit')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Dashboard controls' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Test Unit' })).toBeNull();
 		expect(screen.getByText('Thursday, Apr 2 2026')).toBeTruthy();
 	});
 

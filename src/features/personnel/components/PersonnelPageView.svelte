@@ -5,10 +5,10 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
 	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
-	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
@@ -39,13 +39,29 @@
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canManageRoster = $derived(ctx.canAddPersonnel);
 
-	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
-		const items: OverflowItem[] = [];
+	const personnelActionItems = $derived.by<ProgressiveToolbarAction[]>(() => {
+		const items: ProgressiveToolbarAction[] = [];
 		if (canManageRoster) {
 			items.push({
+				id: 'bulk-import',
 				label: 'Bulk Import',
 				onclick: () => ctx.openBulkManager(),
-				disabled: readOnly
+				disabled: readOnly,
+				className: 'btn btn-sm'
+			});
+			items.push({
+				id: 'manage-groups',
+				label: 'Manage Groups',
+				onclick: () => ctx.openGroupManager(),
+				disabled: readOnly,
+				className: 'btn btn-sm btn-secondary'
+			});
+			items.push({
+				id: 'add-person',
+				label: 'Add Person',
+				onclick: () => ctx.handleAdd(),
+				disabled: readOnly,
+				className: 'btn btn-sm btn-primary'
 			});
 		}
 		return items;
@@ -164,7 +180,7 @@
 		</div>
 	{:else}
 		<main class="page-content roster-content">
-			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="36rem" collapse="medium">
+			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="0" collapse="narrow">
 				{#snippet leading()}
 					<div class="roster-controls" aria-label="Roster filters">
 						<SegmentedControl
@@ -177,27 +193,18 @@
 							testId="personnel-search"
 							ariaLabel="Search by name, rank, MOS, role, or group"
 							placeholder="Search name, rank, MOS, role, or group..."
+							width="wide"
 							bind:value={rosterSearch}
 						/>
 					</div>
 				{/snippet}
 
-				{#if canManageRoster}
-					<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
-						Manage Groups
-					</button>
-					<button
-						class="btn btn-sm btn-primary"
-						type="button"
-						data-testid="add-personnel-btn"
-						onclick={() => ctx.handleAdd()}
-						disabled={readOnly}
-					>
-						Add Person
-					</button>
-					{#if personnelOverflowItems.length > 0}
-						<ToolbarOverflowMenu ariaLabel="More personnel actions" items={personnelOverflowItems} />
-					{/if}
+				{#if personnelActionItems.length > 0}
+					<ProgressiveToolbarActions
+						items={personnelActionItems}
+						overflowAriaLabel="More personnel actions"
+						overflowIconOnly
+					/>
 					{#if readOnly}
 						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 					{/if}
@@ -206,7 +213,7 @@
 
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
-					message="No personnel on the active roster. Add one person, or use More -> Bulk Import when you have a roster file."
+					message="No personnel on the active roster. Add one person, or use the actions menu for Bulk Import when you have a roster file."
 					actionLabel={canEditRoster ? 'Add Person' : undefined}
 					onAction={canEditRoster ? () => ctx.handleAdd() : undefined}
 				/>
@@ -350,34 +357,6 @@
 
 	.roster-controls {
 		justify-content: flex-start;
-	}
-
-	.btn-ghost {
-		appearance: none;
-		display: flex;
-		align-items: center;
-		min-height: 34px;
-		padding: 7px 12px;
-		border: 1px solid transparent;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.btn-ghost:hover {
-		color: var(--text-primary);
-		border-color: var(--border-default);
-		background: var(--surface-subtle);
 	}
 
 	.roster-table-region {

@@ -124,6 +124,30 @@ describe('RatingSchemePageView', () => {
 		expect(within(summary).queryByText('Access')).toBeNull();
 	});
 
+	it('uses shared toolbar filter controls instead of the old filter disclosure', async () => {
+		const ctx = makeContext();
+
+		render(RatingSchemePageView, {
+			props: {
+				ctx,
+				personnelLookup: [
+					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
+					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
+				]
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Evaluation controls' });
+		const typeFilter = within(toolbar).getByLabelText('Evaluation type filter') as HTMLSelectElement;
+		expect(within(toolbar).getByLabelText('Evaluation status filter')).toBeTruthy();
+		expect(within(toolbar).getByLabelText('Evaluation workflow filter')).toBeTruthy();
+		expect(within(toolbar).queryByText('Filters')).toBeNull();
+
+		await fireEvent.change(typeFilter, { target: { value: 'OER' } });
+
+		expect(ctx.evalTypeFilter).toBe('OER');
+	});
+
 	it('routes Add Entry through the rating scheme page context', async () => {
 		const modals = new ModalRegistry();
 		const ctx = makeContext(modals);

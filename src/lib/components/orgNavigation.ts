@@ -49,6 +49,23 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	}
 };
 
+const SUPPORT_ROUTE_BREADCRUMBS: Record<string, string> = {
+	settings: 'Settings',
+	billing: 'Billing'
+};
+
+const ADMIN_CHILD_BREADCRUMBS: Record<string, string> = {
+	settings: 'Settings',
+	approvals: 'Approvals',
+	archived: 'Archived Personnel',
+	audit: 'Audit'
+};
+
+const BILLING_CHILD_BREADCRUMBS: Record<string, string> = {
+	success: 'Success',
+	canceled: 'Canceled'
+};
+
 export function getOrgNavigation(orgId: string, permissions: OrganizationMemberPermissions): OrgNavItem[] {
 	return [
 		{
@@ -136,10 +153,17 @@ export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean 
 }
 
 export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: OrgNavItem[]): OrgBreadcrumb[] {
+	const dashboardItem = navItems.find((item) => item.id === 'dashboard') ?? navItems[0];
+	const orgCrumb: OrgBreadcrumb = { label: orgName, href: dashboardItem?.href };
+	const supportBreadcrumbs = getSupportRouteBreadcrumbs(pathname, orgCrumb);
+
+	if (supportBreadcrumbs) {
+		return supportBreadcrumbs;
+	}
+
 	const activeItem = navItems.find((item) => isOrgNavItemActive(pathname, item)) ?? navItems[0];
 	const activeLabel = activeItem?.breadcrumbLabel ?? activeItem?.label ?? 'Dashboard';
-	const dashboardItem = navItems.find((item) => item.id === 'dashboard') ?? navItems[0];
-	const breadcrumbs: OrgBreadcrumb[] = [{ label: orgName, href: dashboardItem?.href }, { label: activeLabel }];
+	const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: activeLabel }];
 
 	if (!activeItem) return breadcrumbs;
 
@@ -154,6 +178,46 @@ export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: O
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
 		(activeItem.id === 'critical-tasks' && childSegment ? 'Person' : undefined);
 	if (childLabel) {
+		breadcrumbs.push({ label: childLabel });
+	}
+
+	return breadcrumbs;
+}
+
+function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): OrgBreadcrumb[] | null {
+	const orgBasePath = orgCrumb.href;
+
+	if (!orgBasePath || !pathname.startsWith(`${orgBasePath}/`)) {
+		return null;
+	}
+
+	const segments = pathname
+		.slice(orgBasePath.length + 1)
+		.split('/')
+		.filter(Boolean);
+	const [primarySegment, childSegment] = segments;
+
+	if (primarySegment === 'admin') {
+		const childLabel = ADMIN_CHILD_BREADCRUMBS[childSegment ?? 'settings'];
+		const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: 'Admin', href: `${orgBasePath}/admin` }];
+
+		if (childLabel) {
+			breadcrumbs.push({ label: childLabel });
+		}
+
+		return breadcrumbs;
+	}
+
+	const primaryLabel = SUPPORT_ROUTE_BREADCRUMBS[primarySegment];
+	if (!primaryLabel) {
+		return null;
+	}
+
+	const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: primaryLabel }];
+	const childLabel = primarySegment === 'billing' ? BILLING_CHILD_BREADCRUMBS[childSegment] : undefined;
+
+	if (childLabel) {
+		breadcrumbs[1].href = `${orgBasePath}/${primarySegment}`;
 		breadcrumbs.push({ label: childLabel });
 	}
 

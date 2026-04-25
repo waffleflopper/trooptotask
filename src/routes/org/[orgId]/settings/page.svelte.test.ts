@@ -11,10 +11,6 @@ vi.mock('$features/groups/components/OrganizationMemberManager.svelte', () => ({
 	default: VisibleStub
 }));
 
-vi.mock('$lib/components/PageToolbar.svelte', () => ({
-	default: VisibleStub
-}));
-
 vi.mock('$lib/config/billing', () => ({
 	isBillingEnabled: false
 }));
@@ -45,6 +41,21 @@ const baseData = {
 };
 
 describe('org settings page', () => {
+	it('places account shortcuts in the floating toolbar without the old overview stats', () => {
+		render(Page, {
+			props: {
+				data: baseData as never,
+				form: null as never
+			}
+		});
+
+		expect(screen.getByRole('toolbar', { name: 'Organization settings controls' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Sign Out' }).getAttribute('href')).toBe('/auth/logout');
+		expect(screen.getByRole('link', { name: 'Switch Organization' }).getAttribute('href')).toBe('/dashboard?show=all');
+		expect(screen.queryByText('Pending Invites')).toBeNull();
+		expect(screen.queryByText('Active people with access to this organization')).toBeNull();
+	});
+
 	it('shows the organization-name success banner only for the rename action payload', () => {
 		render(Page, {
 			props: {

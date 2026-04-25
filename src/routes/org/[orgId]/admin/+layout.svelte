@@ -1,17 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+
 	let { children } = $props();
 	const currentPath = $derived($page.url.pathname);
 	const orgId = $derived($page.params.orgId);
 </script>
 
 <div class="admin-layout">
-	<div class="admin-shell">
-		<div class="admin-header">
-			<div class="header-copy">
-				<p class="eyebrow">Admin Area</p>
-				<h1>Organization Controls</h1>
-			</div>
+	<FloatingPageToolbar ariaLabel="Admin sections" leadingMin="0" collapse="narrow">
+		{#snippet leading()}
 			<nav class="admin-tabs" aria-label="Admin sections">
 				<a href="/org/{orgId}/admin/approvals" class="tab" class:active={currentPath.includes('/approvals')}>
 					Approvals
@@ -24,8 +22,8 @@
 					Settings
 				</a>
 			</nav>
-		</div>
-	</div>
+		{/snippet}
+	</FloatingPageToolbar>
 	<div class="admin-content">
 		{@render children()}
 	</div>
@@ -39,45 +37,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
-	}
-
-	.admin-shell {
-		padding: var(--sp-5);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.admin-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.header-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.eyebrow {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber);
-	}
-
-	.admin-header h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(2.2rem, 4vw, 3rem);
-		line-height: 0.96;
-		font-weight: 800;
-		text-transform: uppercase;
-		color: var(--text-strong);
 	}
 
 	.admin-tabs {
@@ -123,10 +82,6 @@
 
 	@media (max-width: 640px) {
 		.admin-layout {
-			padding: var(--sp-4);
-		}
-
-		.admin-shell {
 			padding: var(--sp-4);
 		}
 

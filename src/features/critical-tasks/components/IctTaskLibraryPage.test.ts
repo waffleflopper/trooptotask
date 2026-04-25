@@ -109,6 +109,7 @@ describe('IctTaskLibraryPage', () => {
 	it('shows active tasks only in configured library order', () => {
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
+		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(
 			within(screen.getByRole('list', { name: 'ICT task library' })).getByText('Casualty Care / 68W')
@@ -170,6 +171,7 @@ describe('IctTaskLibraryPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
 
+		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
 		expect(await screen.findByRole('heading', { name: 'Import ICT Tasks' })).toBeTruthy();
 		expect(screen.getByRole('region', { name: 'ICT task import workspace' })).toBeTruthy();
 		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();

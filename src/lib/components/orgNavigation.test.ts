@@ -157,4 +157,35 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Reports' }
 		]);
 	});
+
+	it('includes linked Critical Tasks subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCriticalTasks: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/library', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Library' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/reports', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Reports' }
+		]);
+	});
+
+	it('uses a personnel breadcrumb for Critical Tasks person records', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCriticalTasks: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/person-1', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Person' }
+		]);
+	});
 });

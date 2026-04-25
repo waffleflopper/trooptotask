@@ -181,7 +181,8 @@ describe('IctPersonnelDetailPage', () => {
 		});
 
 		expect(screen.getByRole('table', { name: 'Applicable Critical Tasks' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Smith, Jane' })).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Personnel critical task controls' })).toBeTruthy();
+		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('Individual Readiness')).toBeTruthy();
 		expect(screen.getByText('Expiring ≤60d')).toBeTruthy();
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
@@ -528,8 +529,8 @@ describe('IctPersonnelDetailPage', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Smith, Jane' })).toBeTruthy();
-		expect(screen.getByText('SGT')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Personnel critical task controls' })).toBeTruthy();
+		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('181-105-1002')).toBeTruthy();
 		expect(screen.getByText('Evacuate casualty')).toBeTruthy();
 		expect(screen.getByText('Archived')).toBeTruthy();

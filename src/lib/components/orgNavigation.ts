@@ -42,6 +42,10 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	training: {
 		reports: 'Reports',
 		types: 'Types'
+	},
+	'critical-tasks': {
+		library: 'Library',
+		reports: 'Reports'
 	}
 };
 
@@ -146,7 +150,9 @@ export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: O
 
 	breadcrumbs[1].href = activeItem.href;
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
-	const childLabel = ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment];
+	const childLabel =
+		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
+		(activeItem.id === 'critical-tasks' && childSegment ? 'Person' : undefined);
 	if (childLabel) {
 		breadcrumbs.push({ label: childLabel });
 	}

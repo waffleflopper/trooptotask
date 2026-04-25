@@ -5,6 +5,7 @@
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -94,36 +95,38 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<div class="command-strip">
-					<div class="filter-cluster" aria-label="Calendar filters">
-						<select
-							class="filter-select"
-							aria-label="Calendar group filter"
-							value={ctx.calendarGroupFilter}
-							onchange={(event) => ctx.setCalendarGroupFilter(event.currentTarget.value)}
-						>
-							{#each ctx.groupFilterOptions as option (option.value)}
-								<option value={option.value}>
-									{option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`}
-								</option>
-							{/each}
-						</select>
-						<div class="personnel-filter">
-							<input
-								type="search"
-								class="input personnel-search"
-								aria-label="Search by name, rank, MOS, role, or group"
-								placeholder="Search name, rank, MOS, role, or group..."
-								value={ctx.calendarPersonnelSearch}
-								oninput={(event) => ctx.setCalendarPersonnelSearch(event.currentTarget.value)}
-							/>
+				<FloatingPageToolbar ariaLabel="Calendar controls" leadingMin="29rem">
+					{#snippet leading()}
+						<div class="filter-cluster" aria-label="Calendar filters">
+							<select
+								class="filter-select"
+								aria-label="Calendar group filter"
+								value={ctx.calendarGroupFilter}
+								onchange={(event) => ctx.setCalendarGroupFilter(event.currentTarget.value)}
+							>
+								{#each ctx.groupFilterOptions as option (option.value)}
+									<option value={option.value}>
+										{option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`}
+									</option>
+								{/each}
+							</select>
+							<div class="personnel-filter">
+								<input
+									type="search"
+									class="input personnel-search"
+									aria-label="Search by name, rank, MOS, role, or group"
+									placeholder="Search name, rank, MOS, role, or group..."
+									value={ctx.calendarPersonnelSearch}
+									oninput={(event) => ctx.setCalendarPersonnelSearch(event.currentTarget.value)}
+								/>
+							</div>
 						</div>
-					</div>
+					{/snippet}
 
-					<div class="strip-actions">
+					<div class="toolbar-actions">
 						<SmartToolbar items={toolbarItems} />
 					</div>
-				</div>
+				</FloatingPageToolbar>
 
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
@@ -238,19 +241,8 @@
 		overflow: visible;
 	}
 
-	.command-strip {
-		display: grid;
-		grid-template-columns: minmax(18rem, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3);
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-	}
-
 	.filter-cluster,
-	.strip-actions {
+	.toolbar-actions {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
@@ -258,10 +250,10 @@
 	}
 
 	.filter-cluster {
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 	}
 
-	.strip-actions {
+	.toolbar-actions {
 		justify-content: flex-end;
 	}
 
@@ -379,13 +371,9 @@
 	}
 
 	@media (max-width: 1180px) {
-		.command-strip {
-			grid-template-columns: 1fr;
-			align-items: stretch;
-		}
-
 		.filter-cluster,
-		.strip-actions {
+		.toolbar-actions {
+			flex-wrap: wrap;
 			justify-content: flex-start;
 		}
 	}

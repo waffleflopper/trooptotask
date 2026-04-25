@@ -3,7 +3,7 @@
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
+	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -13,7 +13,6 @@
 	}
 
 	let { ctx }: Props = $props();
-	let showOnboardingOverflow = $state(false);
 </script>
 
 <div class="page">
@@ -49,37 +48,7 @@
 					{/if}
 				{/if}
 				{#if ctx.overflowItems.length > 0}
-					<div class="overflow-wrapper">
-						<button
-							type="button"
-							class="more-btn"
-							aria-label="More onboarding actions"
-							aria-expanded={showOnboardingOverflow}
-							aria-haspopup="menu"
-							onclick={() => (showOnboardingOverflow = !showOnboardingOverflow)}
-						>
-							<span>More</span>
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<polyline points="6 9 12 15 18 9" />
-							</svg>
-						</button>
-						<OverflowMenu
-							items={ctx.overflowItems}
-							align="right"
-							open={showOnboardingOverflow}
-							onClose={() => (showOnboardingOverflow = false)}
-						/>
-					</div>
+					<ToolbarOverflowMenu ariaLabel="More onboarding actions" items={ctx.overflowItems} />
 				{/if}
 			</FloatingPageToolbar>
 
@@ -415,45 +384,6 @@
 		gap: var(--sp-4);
 		overflow: auto;
 		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.overflow-wrapper {
-		position: relative;
-	}
-
-	.more-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-1);
-		min-height: 34px;
-		padding: 7px 12px;
-		background: transparent;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.more-btn:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.more-btn:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-		box-shadow: var(--focus-ring);
 	}
 
 	[data-quiet-button] {

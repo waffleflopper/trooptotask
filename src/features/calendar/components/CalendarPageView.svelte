@@ -9,6 +9,8 @@
 	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
+	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -68,6 +70,13 @@
 			}
 		})
 	);
+
+	const groupFilterOptions = $derived(
+		ctx.groupFilterOptions.map((option) => ({
+			value: option.value,
+			label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
+		}))
+	);
 </script>
 
 <svelte:head>
@@ -98,28 +107,18 @@
 				<FloatingPageToolbar ariaLabel="Calendar controls" leadingMin="29rem">
 					{#snippet leading()}
 						<div class="filter-cluster" aria-label="Calendar filters">
-							<select
-								class="filter-select"
-								aria-label="Calendar group filter"
+							<ToolbarSelect
+								ariaLabel="Calendar group filter"
+								options={groupFilterOptions}
 								value={ctx.calendarGroupFilter}
-								onchange={(event) => ctx.setCalendarGroupFilter(event.currentTarget.value)}
-							>
-								{#each ctx.groupFilterOptions as option (option.value)}
-									<option value={option.value}>
-										{option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`}
-									</option>
-								{/each}
-							</select>
-							<div class="personnel-filter">
-								<input
-									type="search"
-									class="input personnel-search"
-									aria-label="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									value={ctx.calendarPersonnelSearch}
-									oninput={(event) => ctx.setCalendarPersonnelSearch(event.currentTarget.value)}
-								/>
-							</div>
+								onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
+							/>
+							<ToolbarSearch
+								ariaLabel="Search by name, rank, MOS, role, or group"
+								placeholder="Search name, rank, MOS, role, or group..."
+								value={ctx.calendarPersonnelSearch}
+								onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
+							/>
 						</div>
 					{/snippet}
 
@@ -255,66 +254,6 @@
 
 	.toolbar-actions {
 		justify-content: flex-end;
-	}
-
-	.filter-select,
-	.personnel-search {
-		display: inline-flex;
-		align-items: center;
-		min-height: 34px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		text-decoration: none;
-		white-space: nowrap;
-	}
-
-	.filter-select {
-		height: 34px;
-		max-width: 12rem;
-		padding: 0 var(--sp-8) 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		cursor: pointer;
-		appearance: none;
-		background-image:
-			linear-gradient(45deg, transparent 50%, currentColor 50%),
-			linear-gradient(135deg, currentColor 50%, transparent 50%);
-		background-position:
-			calc(100% - 15px) 14px,
-			calc(100% - 10px) 14px;
-		background-size:
-			5px 5px,
-			5px 5px;
-		background-repeat: no-repeat;
-	}
-
-	.personnel-filter {
-		width: min(20rem, 100%);
-		min-width: min(16rem, 100%);
-	}
-
-	.personnel-search {
-		width: 100%;
-		padding: 0 var(--sp-3);
-		font-size: var(--text-sm);
-		color: var(--text-tertiary);
-	}
-
-	.filter-select:hover,
-	.personnel-search:hover,
-	.personnel-search:focus {
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.personnel-search::placeholder {
-		color: var(--text-muted);
 	}
 
 	:global(.calendar-section .smart-toolbar-shell) {

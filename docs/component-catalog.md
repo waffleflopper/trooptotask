@@ -1,7 +1,7 @@
 # Component Catalog & CSS Design System
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
-Layout components (Modal, PageToolbar) live in `src/lib/components/`. Import via `$lib/components/...`.
+Layout components (Modal, PageToolbar, FloatingPageToolbar) live in `src/lib/components/`. Import via `$lib/components/...`.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
 ---
@@ -131,6 +131,22 @@ Toolbar guidance:
 - Put filters, toggles, small stat ledgers, or navigation affordances in `leading`.
 - Put page actions and overflow menus in the default children slot.
 - Choose `collapse="wide"` for complex toolbars, `medium` for roster-style toolbars, and `narrow` when the toolbar only needs to stack on mobile.
+
+Authenticated route anatomy:
+
+- The app shell owns the route label through breadcrumbs, normally `Organization Name > Page`. Do not repeat the same page name as a large in-body route title.
+- The route content should start with `FloatingPageToolbar` when it has filters, modes, page navigation, or page actions. Static explanatory text belongs in empty states, notices, or task-specific panels instead.
+- Avoid decorative stat boxes that simply repeat visible table/list counts. Keep compact stats only when they drive action, like overdue/60d/30d on Evals.
+- Keep primary workflow controls visible when there is room: common filters, search, view modes, and the main create/manage action. Use overflow for secondary, destructive, configuration, or lower-frequency actions.
+- Icon-only toolbar actions are allowed only when the icon is familiar for the action and the control has an accessible label plus hover/focus title or tooltip. Prefer text labels for domain-specific actions.
+
+Shared toolbar primitives:
+
+- Use `ui/ToolbarSearch.svelte` for toolbar search inputs. Props: `ariaLabel: string`, `value?: string`, `placeholder?: string`, `testId?: string`, `width?: 'default' | 'wide' | 'full'`, `onValueChange?: (value: string) => void`.
+- Use `ui/ToolbarSelect.svelte` for compact toolbar selects. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean }[]`, `value?: string`, `width?: 'default' | 'wide'`, `onValueChange?: (value: string) => void`.
+- Use `ui/SegmentedControl.svelte` for binary or small mode switches like A-Z/By Group or Grouped/Table. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean; title?: string }[]`, `value?: string`, `onValueChange?: (value: string) => void`.
+- Use `ui/ToolbarOverflowMenu.svelte` when a toolbar needs a standard More button around `OverflowMenu`. Props: `items: OverflowItem[]`, `ariaLabel: string`, `label?: string`, `align?: 'left' | 'right'`, `side?: 'bottom' | 'top'`.
+- Use `ui/ToolbarIconButton.svelte` for icon-only controls. Props: `label: string`, `title?: string`, `href?: string`, `disabled?: boolean`, `onclick?: () => void`, `children?: Snippet`. The visible child should be an icon; the label is required for assistive technology.
 
 ---
 

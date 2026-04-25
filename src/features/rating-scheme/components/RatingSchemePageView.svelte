@@ -5,6 +5,7 @@
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
@@ -18,6 +19,10 @@
 	let { ctx, personnelLookup }: Props = $props();
 
 	let exportLoading = $state(false);
+	const ratingViewOptions = [
+		{ value: 'grouped', label: 'Grouped' },
+		{ value: 'table', label: 'Table' }
+	];
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRatingScheme = $derived(ctx.canViewRatingScheme);
 	const canEditRatingScheme = $derived(ctx.canEditRatingScheme);
@@ -81,28 +86,12 @@
 					{/snippet}
 
 					<span class="rating-shown">{ratingShownLabel}</span>
-					<div class="view-toggle">
-						<div class="view-toggle-controls" role="group" aria-label="Evaluation view mode">
-							<button
-								class="view-btn"
-								type="button"
-								aria-pressed={ctx.ratingViewMode === 'grouped'}
-								class:active={ctx.ratingViewMode === 'grouped'}
-								onclick={() => (ctx.ratingViewMode = 'grouped')}
-							>
-								Grouped
-							</button>
-							<button
-								class="view-btn"
-								type="button"
-								aria-pressed={ctx.ratingViewMode === 'table'}
-								class:active={ctx.ratingViewMode === 'table'}
-								onclick={() => (ctx.ratingViewMode = 'table')}
-							>
-								Table
-							</button>
-						</div>
-					</div>
+					<SegmentedControl
+						ariaLabel="Evaluation view mode"
+						options={ratingViewOptions}
+						value={ctx.ratingViewMode}
+						onValueChange={(value) => (ctx.ratingViewMode = value as 'grouped' | 'table')}
+					/>
 					<details class="filter-disclosure">
 						<summary>
 							<span>Filters</span>
@@ -259,52 +248,9 @@
 		white-space: nowrap;
 	}
 
-	.view-toggle-controls {
-		display: inline-flex;
-		align-items: stretch;
-	}
-
-	.view-toggle-controls .view-btn + .view-btn {
-		margin-left: -1px;
-	}
-
-	.view-btn {
-		appearance: none;
-		min-height: 34px;
-		padding: 0 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		border: var(--border-thin);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.view-btn:first-of-type {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-
-	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-
-	.view-btn:hover,
 	.filter-disclosure summary:hover {
 		background: var(--surface-subtle);
 		color: var(--text-primary);
-	}
-
-	.view-btn.active {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber);
-		color: var(--amber-dark);
 	}
 
 	.filter-disclosure {
@@ -432,7 +378,6 @@
 			box-shadow: none;
 		}
 
-		.view-btn,
 		.filter-disclosure summary {
 			min-height: 44px;
 		}

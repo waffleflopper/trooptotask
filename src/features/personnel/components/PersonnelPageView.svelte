@@ -5,7 +5,9 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
+	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
@@ -24,6 +26,10 @@
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
+	const rosterViewOptions = [
+		{ value: 'alphabetical', label: 'A-Z' },
+		{ value: 'by-group', label: 'By Group' }
+	];
 
 	const awardTrackingOverrides = new SvelteMap<string, boolean>();
 	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
@@ -32,7 +38,6 @@
 	const canEditRoster = $derived(permissions?.canEditPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canManageRoster = $derived(ctx.canAddPersonnel);
-	let showPersonnelOverflow = $state(false);
 
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
@@ -162,33 +167,15 @@
 			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="36rem" collapse="medium">
 				{#snippet leading()}
 					<div class="roster-controls" aria-label="Roster filters">
-						<div class="view-toggle">
-							<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={ctx.viewMode === 'alphabetical'}
-									class:active={ctx.viewMode === 'alphabetical'}
-									onclick={() => (ctx.viewMode = 'alphabetical')}
-								>
-									A-Z
-								</button>
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={ctx.viewMode === 'by-group'}
-									class:active={ctx.viewMode === 'by-group'}
-									onclick={() => (ctx.viewMode = 'by-group')}
-								>
-									By Group
-								</button>
-							</div>
-						</div>
-						<input
-							type="search"
-							class="input roster-search"
-							data-testid="personnel-search"
-							aria-label="Search by name, rank, MOS, role, or group"
+						<SegmentedControl
+							ariaLabel="Roster sort mode"
+							options={rosterViewOptions}
+							value={ctx.viewMode}
+							onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
+						/>
+						<ToolbarSearch
+							testId="personnel-search"
+							ariaLabel="Search by name, rank, MOS, role, or group"
 							placeholder="Search name, rank, MOS, role, or group..."
 							bind:value={rosterSearch}
 						/>
@@ -209,37 +196,7 @@
 						Add Person
 					</button>
 					{#if personnelOverflowItems.length > 0}
-						<div class="overflow-wrapper">
-							<button
-								type="button"
-								class="more-btn"
-								aria-label="More personnel actions"
-								aria-expanded={showPersonnelOverflow}
-								aria-haspopup="menu"
-								onclick={() => (showPersonnelOverflow = !showPersonnelOverflow)}
-							>
-								<span>More</span>
-								<svg
-									width="12"
-									height="12"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<polyline points="6 9 12 15 18 9" />
-								</svg>
-							</button>
-							<OverflowMenu
-								items={personnelOverflowItems}
-								align="right"
-								open={showPersonnelOverflow}
-								onClose={() => (showPersonnelOverflow = false)}
-							/>
-						</div>
+						<ToolbarOverflowMenu ariaLabel="More personnel actions" items={personnelOverflowItems} />
 					{/if}
 					{#if readOnly}
 						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
@@ -395,45 +352,6 @@
 		justify-content: flex-start;
 	}
 
-	.overflow-wrapper {
-		position: relative;
-	}
-
-	.more-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-1);
-		min-height: 34px;
-		padding: 7px 12px;
-		background: transparent;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.more-btn:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.more-btn:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-		box-shadow: var(--focus-ring);
-	}
-
 	.btn-ghost {
 		appearance: none;
 		display: flex;
@@ -510,76 +428,6 @@
 		font-weight: var(--font-weight-semibold);
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.roster-search {
-		flex: 0 0 min(20rem, 100%);
-		width: min(20rem, 100%);
-		max-width: none;
-		box-sizing: border-box;
-		height: 34px;
-		min-height: 0;
-		padding: 0 12px;
-	}
-
-	.view-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: nowrap;
-		flex-shrink: 0;
-	}
-
-	.view-toggle-controls {
-		display: inline-flex;
-		align-items: stretch;
-	}
-
-	.view-toggle-controls .view-btn + .view-btn {
-		margin-left: -1px;
-	}
-
-	.view-btn {
-		appearance: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 34px;
-		padding: 0 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		line-height: 1;
-		text-transform: uppercase;
-		white-space: nowrap;
-		border: var(--border-thin);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.view-btn:first-of-type {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-
-	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-
-	.view-btn:hover {
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.view-btn.active {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber);
 		color: var(--amber-dark);
 	}
 
@@ -764,17 +612,6 @@
 			justify-content: flex-start;
 		}
 
-		.roster-search {
-			flex-basis: 100%;
-			max-width: unset;
-			width: 100%;
-		}
-
-		.view-toggle {
-			width: 100%;
-			justify-content: flex-start;
-		}
-
 		.roster-scale-guard {
 			flex-direction: column;
 			align-items: stretch;
@@ -786,7 +623,6 @@
 			flex-basis: auto;
 		}
 
-		.view-btn,
 		.dt-pin-btn {
 			min-height: 44px;
 		}
@@ -795,10 +631,6 @@
 	@media (min-width: 641px) and (max-width: 1024px) {
 		.roster-controls {
 			justify-content: flex-start;
-		}
-
-		.roster-search {
-			max-width: none;
 		}
 	}
 </style>

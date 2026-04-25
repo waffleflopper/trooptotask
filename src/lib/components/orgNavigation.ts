@@ -38,6 +38,10 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	onboarding: {
 		history: 'History',
 		templates: 'Templates'
+	},
+	training: {
+		reports: 'Reports',
+		types: 'Types'
 	}
 };
 

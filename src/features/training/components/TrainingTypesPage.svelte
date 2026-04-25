@@ -1,9 +1,8 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -214,262 +213,264 @@
 	}
 </script>
 
-<PageToolbar
-	title="Training Types"
-	breadcrumbs={[{ label: 'Training', href: `/org/${org.orgId}/training` }, { label: 'Types' }]}
->
-	<a href={`/org/${org.orgId}/training`} class="btn btn-sm">Back</a>
-</PageToolbar>
+<main class="types-page">
+	<FloatingPageToolbar ariaLabel="Training type controls" collapse="narrow" leadingMin="18rem">
+		{#if canMutate}
+			<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
+				+ New Type
+			</button>
+		{/if}
+	</FloatingPageToolbar>
 
-<div class="types-layout">
-	<!-- Left panel: Type list -->
-	<div class="panel type-list-panel">
-		<div class="panel-header">
-			<div class="panel-header-copy">
-				<h3 class="panel-title">Training Types</h3>
-				<Badge label={`${orderedTypes.length} configured`} variant="outlined" />
-			</div>
-			{#if canMutate}
-				<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
-					+ New Type
-				</button>
+	<div class="types-layout">
+		<!-- Left panel: Type list -->
+		<div class="panel type-list-panel">
+			{#if orderedTypes.length === 0 && !creating}
+				<EmptyState
+					message="No training types yet. Create one to get started."
+					actionLabel={canMutate ? '+ New Type' : undefined}
+					onAction={canMutate ? startCreate : undefined}
+				/>
+			{:else}
+				<ul class="type-list" role="listbox" aria-label="Training types">
+					{#each orderedTypes as type, i (type.id)}
+						<li
+							class="type-item"
+							class:selected={selectedTypeId === type.id && !creating}
+							role="option"
+							aria-selected={selectedTypeId === type.id && !creating}
+							onclick={() => selectType(type.id)}
+							onkeydown={(e) => e.key === 'Enter' && selectType(type.id)}
+							tabindex="0"
+						>
+							<div class="type-item-main">
+								<span class="type-color-swatch" style="background-color: {type.color}"></span>
+								<div class="type-info">
+									<span class="type-name">{type.name}</span>
+									<span class="type-summary">{getTypeSummaryLine(type)}</span>
+								</div>
+							</div>
+							{#if canMutate && !editing && !creating}
+								<div
+									class="type-reorder"
+									onclick={(e) => e.stopPropagation()}
+									onkeydown={(e) => e.stopPropagation()}
+									role="toolbar"
+									tabindex="-1"
+								>
+									<button
+										class="btn-move"
+										type="button"
+										onclick={() => moveUp(i)}
+										disabled={i === 0}
+										aria-label="Move up">&#9650;</button
+									>
+									<button
+										class="btn-move"
+										type="button"
+										onclick={() => moveDown(i)}
+										disabled={i === orderedTypes.length - 1}
+										aria-label="Move down">&#9660;</button
+									>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
 			{/if}
 		</div>
 
-		{#if orderedTypes.length === 0 && !creating}
-			<EmptyState
-				message="No training types yet. Create one to get started."
-				actionLabel={canMutate ? '+ New Type' : undefined}
-				onAction={canMutate ? startCreate : undefined}
-			/>
-		{:else}
-			<ul class="type-list" role="listbox" aria-label="Training types">
-				{#each orderedTypes as type, i (type.id)}
-					<li
-						class="type-item"
-						class:selected={selectedTypeId === type.id && !creating}
-						role="option"
-						aria-selected={selectedTypeId === type.id && !creating}
-						onclick={() => selectType(type.id)}
-						onkeydown={(e) => e.key === 'Enter' && selectType(type.id)}
-						tabindex="0"
-					>
-						<div class="type-item-main">
-							<span class="type-color-swatch" style="background-color: {type.color}"></span>
-							<div class="type-info">
-								<span class="type-name">{type.name}</span>
-								<span class="type-summary">{getTypeSummaryLine(type)}</span>
-							</div>
-						</div>
-						{#if canMutate && !editing && !creating}
-							<div
-								class="type-reorder"
-								onclick={(e) => e.stopPropagation()}
-								onkeydown={(e) => e.stopPropagation()}
-								role="toolbar"
-								tabindex="-1"
-							>
-								<button class="btn-move" type="button" onclick={() => moveUp(i)} disabled={i === 0} aria-label="Move up"
-									>&#9650;</button
-								>
-								<button
-									class="btn-move"
-									type="button"
-									onclick={() => moveDown(i)}
-									disabled={i === orderedTypes.length - 1}
-									aria-label="Move down">&#9660;</button
-								>
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
+		<!-- Right panel: Detail / Editor -->
+		<div class="panel detail-panel">
+			{#if creating || editing}
+				<!-- Editor -->
+				<div class="editor">
+					<h3 class="panel-title">{creating ? 'New Training Type' : 'Edit Training Type'}</h3>
 
-	<!-- Right panel: Detail / Editor -->
-	<div class="panel detail-panel">
-		{#if creating || editing}
-			<!-- Editor -->
-			<div class="editor">
-				<h3 class="panel-title">{creating ? 'New Training Type' : 'Edit Training Type'}</h3>
-
-				<!-- Section 1: Basics -->
-				<fieldset class="editor-section">
-					<legend class="section-title">Basics</legend>
-					<div class="form-field">
-						<label class="form-label" for="type-name">Name</label>
-						<input class="input" id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
-					</div>
-					<div class="form-field">
-						<label class="form-label" for="type-desc">Description</label>
-						<textarea
-							class="input"
-							id="type-desc"
-							rows="2"
-							bind:value={editDescription}
-							placeholder="Optional description"
-						></textarea>
-					</div>
-					<div class="form-field">
-						<label class="form-label" for="type-color">Color</label>
-						<div class="color-picker">
-							<input id="type-color" type="color" bind:value={editColor} />
-							<span class="color-value">{editColor}</span>
-						</div>
-					</div>
-				</fieldset>
-
-				<!-- Section 2: Expiration -->
-				<fieldset class="editor-section">
-					<legend class="section-title">Expiration</legend>
-					<div class="radio-group">
-						{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
-							<label class="radio-option">
-								<input type="radio" name="expiration-mode" value={mode} bind:group={editExpirationMode} />
-								<span>{getExpirationLabel(mode)}</span>
-							</label>
-						{/each}
-					</div>
-					{#if editExpirationMode === 'fixed'}
-						<div class="form-field inline-field">
-							<label class="form-label" for="exp-months">Months until expiration</label>
-							<input
-								class="input input-sm"
-								id="exp-months"
-								type="number"
-								min="1"
-								max="120"
-								bind:value={editExpirationMonths}
-							/>
-						</div>
-					{/if}
-				</fieldset>
-
-				<!-- Section 3: Warning Thresholds -->
-				{#if editExpirationMode !== 'never'}
+					<!-- Section 1: Basics -->
 					<fieldset class="editor-section">
-						<legend class="section-title">Warning Thresholds</legend>
-						<div class="threshold-fields">
-							<div class="form-field inline-field">
-								<label class="form-label" for="warn-yellow">Yellow warning (days)</label>
-								<input class="input input-sm" id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
-							</div>
-							<div class="form-field inline-field">
-								<label class="form-label" for="warn-orange">Orange warning (days)</label>
-								<input class="input input-sm" id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
+						<legend class="section-title">Basics</legend>
+						<div class="form-field">
+							<label class="form-label" for="type-name">Name</label>
+							<input class="input" id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
+						</div>
+						<div class="form-field">
+							<label class="form-label" for="type-desc">Description</label>
+							<textarea
+								class="input"
+								id="type-desc"
+								rows="2"
+								bind:value={editDescription}
+								placeholder="Optional description"
+							></textarea>
+						</div>
+						<div class="form-field">
+							<label class="form-label" for="type-color">Color</label>
+							<div class="color-picker">
+								<input id="type-color" type="color" bind:value={editColor} />
+								<span class="color-value">{editColor}</span>
 							</div>
 						</div>
 					</fieldset>
-				{/if}
 
-				<!-- Section 4: Applicability -->
-				<ApplicabilityEditor
-					appliesToRoles={editAppliesToRoles}
-					appliesToMos={editAppliesToMos}
-					appliesToRanks={editAppliesToRanks}
-					excludedRoles={editExcludedRoles}
-					excludedMos={editExcludedMos}
-					excludedRanks={editExcludedRanks}
-					isOptional={editIsOptional}
-					{availableRoles}
-					{availableMos}
-					{availableRanks}
-					onchange={handleApplicabilityChange}
-				/>
+					<!-- Section 2: Expiration -->
+					<fieldset class="editor-section">
+						<legend class="section-title">Expiration</legend>
+						<div class="radio-group">
+							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
+								<label class="radio-option">
+									<input type="radio" name="expiration-mode" value={mode} bind:group={editExpirationMode} />
+									<span>{getExpirationLabel(mode)}</span>
+								</label>
+							{/each}
+						</div>
+						{#if editExpirationMode === 'fixed'}
+							<div class="form-field inline-field">
+								<label class="form-label" for="exp-months">Months until expiration</label>
+								<input
+									class="input input-sm"
+									id="exp-months"
+									type="number"
+									min="1"
+									max="120"
+									bind:value={editExpirationMonths}
+								/>
+							</div>
+						{/if}
+					</fieldset>
 
-				<!-- Section 5: Options -->
-				<fieldset class="editor-section">
-					<legend class="section-title">Options</legend>
-					<label class="toggle-option">
-						<input type="checkbox" bind:checked={editCanBeExempted} />
-						<span>Can be exempted</span>
-					</label>
-				</fieldset>
-
-				<!-- Actions -->
-				<div class="editor-actions">
-					{#if !creating && selectedTypeId && canMutate}
-						<button
-							class="btn btn-danger btn-sm"
-							type="button"
-							onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
-							>Delete</button
-						>
+					<!-- Section 3: Warning Thresholds -->
+					{#if editExpirationMode !== 'never'}
+						<fieldset class="editor-section">
+							<legend class="section-title">Warning Thresholds</legend>
+							<div class="threshold-fields">
+								<div class="form-field inline-field">
+									<label class="form-label" for="warn-yellow">Yellow warning (days)</label>
+									<input class="input input-sm" id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
+								</div>
+								<div class="form-field inline-field">
+									<label class="form-label" for="warn-orange">Orange warning (days)</label>
+									<input class="input input-sm" id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
+								</div>
+							</div>
+						</fieldset>
 					{/if}
-					<div class="spacer"></div>
-					<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
-					<button class="btn btn-primary btn-sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
-						{#if saving}<Spinner size={12} />{/if}
-						{creating ? 'Create' : 'Save'}
-					</button>
-				</div>
-			</div>
-		{:else if selectedType}
-			<!-- Read-only detail view -->
-			<div class="detail-view">
-				<div class="detail-header">
-					<div class="detail-title-row">
-						<span class="type-color-swatch large" style="background-color: {selectedType.color}"></span>
-						<h3 class="detail-name">{selectedType.name}</h3>
+
+					<!-- Section 4: Applicability -->
+					<ApplicabilityEditor
+						appliesToRoles={editAppliesToRoles}
+						appliesToMos={editAppliesToMos}
+						appliesToRanks={editAppliesToRanks}
+						excludedRoles={editExcludedRoles}
+						excludedMos={editExcludedMos}
+						excludedRanks={editExcludedRanks}
+						isOptional={editIsOptional}
+						{availableRoles}
+						{availableMos}
+						{availableRanks}
+						onchange={handleApplicabilityChange}
+					/>
+
+					<!-- Section 5: Options -->
+					<fieldset class="editor-section">
+						<legend class="section-title">Options</legend>
+						<label class="toggle-option">
+							<input type="checkbox" bind:checked={editCanBeExempted} />
+							<span>Can be exempted</span>
+						</label>
+					</fieldset>
+
+					<!-- Actions -->
+					<div class="editor-actions">
+						{#if !creating && selectedTypeId && canMutate}
+							<button
+								class="btn btn-danger btn-sm"
+								type="button"
+								onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
+								>Delete</button
+							>
+						{/if}
+						<div class="spacer"></div>
+						<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
+						<button
+							class="btn btn-primary btn-sm"
+							type="button"
+							onclick={saveEdit}
+							disabled={!editName.trim() || saving}
+						>
+							{#if saving}<Spinner size={12} />{/if}
+							{creating ? 'Create' : 'Save'}
+						</button>
 					</div>
+				</div>
+			{:else if selectedType}
+				<!-- Read-only detail view -->
+				<div class="detail-view">
+					<div class="detail-header">
+						<div class="detail-title-row">
+							<span class="type-color-swatch large" style="background-color: {selectedType.color}"></span>
+							<h3 class="detail-name">{selectedType.name}</h3>
+						</div>
+						{#if canMutate}
+							<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
+						{/if}
+					</div>
+
+					{#if selectedType.description}
+						<p class="detail-description">{selectedType.description}</p>
+					{/if}
+
+					<dl class="detail-fields">
+						<div class="detail-field">
+							<dt>Expiration</dt>
+							<dd>{getExpirationLabel(getExpirationMode(selectedType))}</dd>
+						</div>
+
+						{#if getExpirationMode(selectedType) === 'fixed'}
+							<div class="detail-field">
+								<dt>Duration</dt>
+								<dd>{selectedType.expirationMonths} months</dd>
+							</div>
+						{/if}
+
+						{#if getExpirationMode(selectedType) !== 'never'}
+							<div class="detail-field">
+								<dt>Warning Thresholds</dt>
+								<dd>
+									Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
+								</dd>
+							</div>
+						{/if}
+
+						<div class="detail-field">
+							<dt>Applies to</dt>
+							<dd>{formatApplicability(selectedType)}</dd>
+						</div>
+
+						<div class="detail-field">
+							<dt>Can be exempted</dt>
+							<dd>{selectedType.canBeExempted ? 'Yes' : 'No'}</dd>
+						</div>
+					</dl>
+
 					{#if canMutate}
-						<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
+						<div class="detail-actions">
+							<button
+								class="btn btn-danger btn-sm"
+								type="button"
+								onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}>Delete Type</button
+							>
+						</div>
 					{/if}
 				</div>
-
-				{#if selectedType.description}
-					<p class="detail-description">{selectedType.description}</p>
-				{/if}
-
-				<dl class="detail-fields">
-					<div class="detail-field">
-						<dt>Expiration</dt>
-						<dd>{getExpirationLabel(getExpirationMode(selectedType))}</dd>
-					</div>
-
-					{#if getExpirationMode(selectedType) === 'fixed'}
-						<div class="detail-field">
-							<dt>Duration</dt>
-							<dd>{selectedType.expirationMonths} months</dd>
-						</div>
-					{/if}
-
-					{#if getExpirationMode(selectedType) !== 'never'}
-						<div class="detail-field">
-							<dt>Warning Thresholds</dt>
-							<dd>Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days</dd>
-						</div>
-					{/if}
-
-					<div class="detail-field">
-						<dt>Applies to</dt>
-						<dd>{formatApplicability(selectedType)}</dd>
-					</div>
-
-					<div class="detail-field">
-						<dt>Can be exempted</dt>
-						<dd>{selectedType.canBeExempted ? 'Yes' : 'No'}</dd>
-					</div>
-				</dl>
-
-				{#if canMutate}
-					<div class="detail-actions">
-						<button
-							class="btn btn-danger btn-sm"
-							type="button"
-							onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}>Delete Type</button
-						>
-					</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="panel-placeholder">
-				<p class="placeholder-text">Select a training type to view details</p>
-			</div>
-		{/if}
+			{:else}
+				<div class="panel-placeholder">
+					<p class="placeholder-text">Select a training type to view details</p>
+				</div>
+			{/if}
+		</div>
 	</div>
-</div>
+</main>
 
 {#if confirmDelete}
 	<ConfirmDialog
@@ -485,12 +486,22 @@
 {/if}
 
 <style>
+	.types-page {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		min-height: 0;
+		height: 100%;
+		padding: var(--sp-2);
+	}
+
 	.types-layout {
 		display: grid;
 		grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);
 		gap: var(--sp-5);
-		height: calc(100vh - var(--header-height, 56px) - 72px);
+		flex: 1;
+		min-height: 0;
 		overflow: hidden;
 	}
 
@@ -507,21 +518,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
-	}
-
-	.panel-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.panel-header-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
 	}
 
 	.panel-title {

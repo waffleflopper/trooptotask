@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 const basePermissions: OrganizationMemberPermissions = {
 	canViewCalendar: false,
@@ -87,5 +87,38 @@ describe('getOrgNavigation', () => {
 		}
 
 		expect(isOrgNavItemActive('/org/org-1/evals/reports', item)).toBe(true);
+	});
+});
+
+describe('getOrgBreadcrumbs', () => {
+	it('includes Calendar subroute labels after the organization and primary section', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
+			'Test Org',
+			'Calendar',
+			'Settings'
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/duty-roster', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
+			'Test Org',
+			'Calendar',
+			'Duty Roster'
+		]);
+	});
+
+	it('links parent breadcrumbs for Calendar subroutes', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Calendar', href: '/org/org-1/calendar' },
+			{ label: 'Settings' }
+		]);
 	});
 });

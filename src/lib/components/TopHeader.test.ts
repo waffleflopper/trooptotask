@@ -1,17 +1,38 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import TopHeader from './TopHeader.svelte';
 import type { OrganizationMemberPermissions } from '$lib/types';
 
-vi.mock('$app/stores', async () => {
-	const { readable } = await import('svelte/store');
+const { pageStore } = vi.hoisted(() => {
+	let current = {
+		url: new URL('https://example.test/org/org-1/personnel')
+	};
+	const subscribers = new Set<(value: typeof current) => void>();
 
 	return {
-		page: readable({
-			url: new URL('https://example.test/org/org-1/personnel')
-		})
+		pageStore: {
+			subscribe(fn: (value: typeof current) => void) {
+				subscribers.add(fn);
+				fn(current);
+				return () => subscribers.delete(fn);
+			},
+			setPath(pathname: string) {
+				current = {
+					url: new URL(`https://example.test${pathname}`)
+				};
+				for (const subscriber of subscribers) subscriber(current);
+			}
+		}
+	};
+});
+
+vi.mock('$app/stores', () => {
+	return {
+		page: {
+			subscribe: pageStore.subscribe
+		}
 	};
 });
 
@@ -34,6 +55,7 @@ const basePermissions: OrganizationMemberPermissions = {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	pageStore.setPath('/org/org-1/personnel');
 });
 
 function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {}) {
@@ -81,5 +103,27 @@ describe('TopHeader', () => {
 
 		expect(utilityCluster).not.toBeNull();
 		expect(utilityCluster?.querySelector('.mobile-account-menu [aria-label="Account menu"]')).not.toBeNull();
+	});
+
+	it('renders route-aware Calendar breadcrumbs for subpages', () => {
+		pageStore.setPath('/org/org-1/calendar/settings');
+
+		renderHeader();
+
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(breadcrumb.textContent).toContain('Test Org');
+		expect(breadcrumb.textContent).toContain('Calendar');
+		expect(breadcrumb.textContent).toContain('Settings');
+	});
+
+	it('links Calendar parent breadcrumbs on subpages', () => {
+		pageStore.setPath('/org/org-1/calendar/settings');
+
+		renderHeader();
+
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(within(breadcrumb).getByRole('link', { name: 'Test Org' }).getAttribute('href')).toBe('/org/org-1');
+		expect(within(breadcrumb).getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+		expect(within(breadcrumb).queryByRole('link', { name: 'Settings' })).toBeNull();
 	});
 });

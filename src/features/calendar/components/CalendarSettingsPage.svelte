@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
@@ -205,14 +205,19 @@
 	}
 </script>
 
-<PageToolbar
-	title="Calendar Settings"
-	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Settings' }]}
->
-	<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Back</a>
-</PageToolbar>
-
 <div class="settings-page">
+	<FloatingPageToolbar ariaLabel="Calendar settings controls" collapse="medium" leadingMin="27rem">
+		{#snippet leading()}
+			<nav class="settings-jump-nav" aria-label="Calendar settings sections">
+				<a href="#status-types">Status Types</a>
+				<a href="#assignment-types">Assignment Types</a>
+				<a href="#special-days">Closures</a>
+			</nav>
+		{/snippet}
+
+		<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Calendar</a>
+	</FloatingPageToolbar>
+
 	{#if !canManageConfig}
 		<section class="settings-hero">
 			<div class="hero-copy">
@@ -227,7 +232,7 @@
 	{:else}
 		<div class="settings-grid">
 			<!-- ===== STATUS TYPES ===== -->
-			<section class="settings-section card card-flat">
+			<section id="status-types" class="settings-section card card-flat">
 				<div class="section-header">
 					<div>
 						<p class="section-kicker">Personnel availability</p>
@@ -319,7 +324,7 @@
 			</section>
 
 			<!-- ===== ASSIGNMENT TYPES ===== -->
-			<section class="settings-section card card-flat">
+			<section id="assignment-types" class="settings-section card card-flat">
 				<div class="section-header">
 					<div>
 						<p class="section-kicker">Duty coverage</p>
@@ -454,7 +459,7 @@
 			</section>
 
 			<!-- ===== HOLIDAYS & SPECIAL DAYS ===== -->
-			<section class="settings-section settings-section-wide card card-flat">
+			<section id="special-days" class="settings-section settings-section-wide card card-flat">
 				<div class="section-header">
 					<div>
 						<p class="section-kicker">Date exceptions</p>
@@ -627,10 +632,44 @@
 	.settings-page {
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: var(--sp-6);
+		padding: var(--sp-4) var(--sp-6) var(--sp-6);
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-5);
+		gap: var(--sp-4);
+	}
+
+	.settings-jump-nav {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.settings-jump-nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 34px;
+		padding: 0 var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-decoration: none;
+		text-transform: uppercase;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.settings-jump-nav a:hover {
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
+		color: var(--text-primary);
 	}
 
 	.settings-hero {

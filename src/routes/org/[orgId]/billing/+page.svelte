@@ -1,7 +1,9 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
+	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
 
 	let { data } = $props();
@@ -36,6 +38,28 @@
 		if (!giftExpiresAt) return null;
 		const diff = new Date(giftExpiresAt).getTime() - Date.now();
 		return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+	});
+	const billingToolbarActions = $derived.by(() => {
+		if (!data.canManageSubscription) return [];
+
+		const actions: ProgressiveToolbarAction[] = [
+			{
+				id: 'cancel-subscription',
+				label: cancelLoading ? 'Canceling...' : 'Cancel Subscription',
+				onclick: handleCancelSubscription,
+				disabled: cancelLoading,
+				className: 'btn btn-sm btn-danger'
+			},
+			{
+				id: 'manage-subscription',
+				label: portalLoading ? 'Opening...' : 'Manage Subscription',
+				onclick: handleManageSubscription,
+				disabled: portalLoading,
+				className: 'btn btn-sm btn-primary'
+			}
+		];
+
+		return actions;
 	});
 
 	function formatPrice(cents: number): string {
@@ -174,9 +198,17 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Billing & Subscription" helpTopic="billing" />
-
 	<main class="page-content">
+		{#if billingToolbarActions.length > 0}
+			<FloatingPageToolbar ariaLabel="Billing controls" leadingMin="0" collapse="narrow">
+				<ProgressiveToolbarActions
+					items={billingToolbarActions}
+					overflowAriaLabel="More billing actions"
+					overflowIconOnly
+				/>
+			</FloatingPageToolbar>
+		{/if}
+
 		{#if isReadOnly}
 			<div class="read-only-notice">
 				<div class="notice-icon">
@@ -258,19 +290,6 @@
 								({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
 							{/if}
 						</p>
-					</div>
-				{/if}
-
-				{#if data.canManageSubscription}
-					<div class="plan-actions">
-						<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
-							{#if portalLoading}<Spinner />{/if}
-							{portalLoading ? 'Opening...' : 'Manage Subscription'}
-						</button>
-						<button class="btn btn-danger" onclick={handleCancelSubscription} disabled={cancelLoading}>
-							{#if cancelLoading}<Spinner />{/if}
-							{cancelLoading ? 'Canceling...' : 'Cancel Subscription'}
-						</button>
 					</div>
 				{/if}
 			</div>
@@ -500,14 +519,6 @@
 		color: var(--text-strong);
 	}
 
-	.plan-actions {
-		display: flex;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
 	.gift-info {
 		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
 		border: var(--border-thin);
@@ -651,10 +662,6 @@
 
 		.page-content {
 			padding: var(--sp-4);
-		}
-
-		.plan-actions {
-			flex-direction: column;
 		}
 	}
 

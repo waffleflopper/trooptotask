@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import OrganizationMemberManager from '$features/groups/components/OrganizationMemberManager.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
+	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
 	import { isBillingEnabled } from '$lib/config/billing';
 
 	let { data, form } = $props();
@@ -16,11 +18,30 @@
 	let exportError = $state('');
 	let exportSuccess = $state(false);
 
-	const memberCount = $derived(data.members?.length ?? 0);
-	const invitationCount = $derived(data.invitations?.length ?? 0);
-	const groupCount = $derived(data.groups?.length ?? 0);
 	const normalizedOrgName = $derived(normalizeOrganizationName(data.orgName ?? ''));
 	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
+	const settingsToolbarActions = $derived.by(() => {
+		const actions: ProgressiveToolbarAction[] = [
+			{ id: 'sign-out', label: 'Sign Out', href: '/auth/logout', className: 'btn btn-sm btn-secondary' },
+			{
+				id: 'switch-organization',
+				label: 'Switch Organization',
+				href: '/dashboard?show=all',
+				className: 'btn btn-sm btn-secondary'
+			}
+		];
+
+		if ((data.isOwner || data.isAdmin) && isBillingEnabled) {
+			actions.push({
+				id: 'manage-billing',
+				label: 'Manage Billing',
+				href: `/org/${data.orgId}/billing`,
+				className: 'btn btn-sm btn-primary'
+			});
+		}
+
+		return actions;
+	});
 
 	function normalizeOrganizationName(value: string): string {
 		return value.trim().replace(/\s+/g, ' ');
@@ -115,26 +136,14 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Organization Settings" helpTopic="settings" />
-
 	<main class="page-content">
-		<div class="overview-strip">
-			<div class="overview-card">
-				<span class="overview-label">Members</span>
-				<strong class="overview-value">{memberCount}</strong>
-				<span class="overview-meta">Active people with access to this organization</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Pending Invites</span>
-				<strong class="overview-value">{invitationCount}</strong>
-				<span class="overview-meta">Outstanding invitations waiting to be accepted</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Groups</span>
-				<strong class="overview-value">{groupCount}</strong>
-				<span class="overview-meta">Sections available for personnel scoping and organization</span>
-			</div>
-		</div>
+		<FloatingPageToolbar ariaLabel="Organization settings controls" leadingMin="0" collapse="medium">
+			<ProgressiveToolbarActions
+				items={settingsToolbarActions}
+				overflowAriaLabel="More organization settings actions"
+				overflowIconOnly
+			/>
+		</FloatingPageToolbar>
 
 		<div class="settings-card">
 			<div class="section-heading">
@@ -186,31 +195,6 @@
 			groups={data.groups}
 			form={form ?? undefined}
 		/>
-
-		<div class="settings-card">
-			<div class="section-heading">
-				<p class="section-label">Account</p>
-				<h2>Your Account</h2>
-			</div>
-			<p class="section-description">
-				Use these shortcuts when you need to leave this workspace or move to another organization.
-			</p>
-			<div class="action-row">
-				<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
-				<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
-			</div>
-		</div>
-
-		{#if (data.isOwner || data.isAdmin) && isBillingEnabled}
-			<div class="settings-card">
-				<div class="section-heading">
-					<p class="section-label">Subscription</p>
-					<h2>Billing & Subscription</h2>
-				</div>
-				<p class="section-description">Review your plan, usage, and payment details from the billing workspace.</p>
-				<a href="/org/{data.orgId}/billing" class="btn btn-primary">Manage Billing</a>
-			</div>
-		{/if}
 
 		{#if data.isOwner || data.isAdmin || data.permissions?.canManageMembers}
 			<div class="settings-card">
@@ -354,47 +338,12 @@
 		width: 100%;
 	}
 
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
 	.section-label {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-	}
-
-	.overview-label {
-		color: var(--text-muted);
-	}
-
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 4vw, 2.5rem);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
 	}
 
 	.settings-card {
@@ -465,7 +414,6 @@
 		font-size: var(--text-sm);
 	}
 
-	.action-row,
 	.export-buttons {
 		display: flex;
 		gap: var(--sp-3);
@@ -513,7 +461,6 @@
 			padding: var(--sp-4);
 		}
 
-		.action-row,
 		.export-buttons {
 			flex-direction: column;
 		}

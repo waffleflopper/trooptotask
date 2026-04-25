@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -87,6 +87,14 @@ const trainingType: TrainingType = {
 	isOptional: false
 };
 
+const secondaryTrainingType: TrainingType = {
+	...trainingType,
+	id: 'type-2',
+	name: 'Weapons Qual',
+	color: '#f59e0b',
+	sortOrder: 1
+};
+
 function makeServerReport(
 	person: Personnel,
 	overrides: Partial<TrainingReportData['detail']> = {}
@@ -169,7 +177,64 @@ describe('TrainingReportsPage', () => {
 		});
 
 		expect(screen.getByRole('option', { name: 'Alpha' })).toBeTruthy();
-		expect(screen.getAllByText('2 personnel')).toHaveLength(2);
+		expect(screen.getByText('Overall Readiness (2 personnel)')).toBeTruthy();
+	});
+
+	it('puts report filters and export in the floating page toolbar', () => {
+		trainingTypesStore.load([trainingType, secondaryTrainingType], 'org-1');
+
+		render(TrainingReportsPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							personnelTrainings: Promise.resolve([])
+						}
+					},
+					personnel,
+					groups
+				}
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Training report controls' });
+
+		expect(toolbar).toBeTruthy();
+		expect(screen.queryByTestId('page-toolbar')).toBeNull();
+		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
+		expect(screen.getByLabelText('Filter by status')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Filter by training type' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains('btn-primary')).toBe(true);
+		expect(screen.queryByText('2 personnel')).toBeNull();
+	});
+
+	it('filters training types with the tag-style multi-select', async () => {
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			json: async () => makeServerReport(personnel[0])
+		}));
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(TrainingReportsPage, {
+			props: {
+				data: {
+					trainingReport: {
+						...makeServerReport(personnel[1]),
+						trainingTypes: [trainingType, secondaryTrainingType]
+					}
+				}
+			}
+		});
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'Filter by training type' }));
+		await fireEvent.mouseDown(
+			within(screen.getByRole('listbox', { name: 'Filter by training type' })).getByText('CPR')
+		);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Remove CPR' })).toBeTruthy();
+			expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('trainingTypeId=type-1'));
+		});
 	});
 
 	it('renders only the server-provided report page instead of rebuilding every store row', () => {

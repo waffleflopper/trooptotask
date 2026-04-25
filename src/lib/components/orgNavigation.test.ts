@@ -139,4 +139,22 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'History' }
 		]);
 	});
+
+	it('includes linked Training subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewTraining: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/training/types', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Training', href: '/org/org-1/training' },
+			{ label: 'Types' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/training/reports', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Training', href: '/org/org-1/training' },
+			{ label: 'Reports' }
+		]);
+	});
 });

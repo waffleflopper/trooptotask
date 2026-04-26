@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import DashboardTabs from './DashboardTabs.svelte';
 	import UnitReadinessTab from './tabs/UnitReadinessTab.svelte';
 	import PeopleDutyTab from './tabs/PeopleDutyTab.svelte';
@@ -27,7 +28,9 @@
 				<DashboardTabs orgId={ctx.data.orgId} permissions={ctx.data.permissions} />
 			{/snippet}
 
-			<span class="toolbar-date">{ctx.todayDisplay}</span>
+			<div class="dashboard-toolbar__meta">
+				<ToolbarMetaItem label={ctx.todayDisplay} />
+			</div>
 		</FloatingPageToolbar>
 	</div>
 
@@ -94,11 +97,8 @@
 		grid-template-columns: 1fr 1fr 1fr;
 	}
 
-	.toolbar-date {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--ink-35);
-		white-space: nowrap;
+	.dashboard-toolbar__meta {
+		display: contents;
 	}
 
 	@media (max-width: 720px) {
@@ -116,7 +116,7 @@
 	}
 
 	@media (max-width: 600px) {
-		.toolbar-date {
+		.dashboard-toolbar__meta {
 			display: none;
 		}
 	}

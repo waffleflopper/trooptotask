@@ -129,7 +129,8 @@ describe('DashboardPageView', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Dashboard controls' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Test Unit' })).toBeNull();
-		expect(screen.getByText('Thursday, Apr 2 2026')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Thursday, Apr 2 2026' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Thursday, Apr 2 2026' })).toBeNull();
 	});
 
 	it('renders the three dashboard tab buttons', () => {

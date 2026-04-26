@@ -2,6 +2,7 @@
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 
@@ -109,9 +110,10 @@
 	<main class="page-content">
 		<FloatingPageToolbar ariaLabel="Admin settings status" leadingMin="0" collapse="narrow">
 			{#snippet leading()}
-				<span class="toolbar-state" class:pending={hasPendingChanges}>
-					{hasPendingChanges ? 'Unsaved changes' : 'Saved'}
-				</span>
+				<ToolbarMetaItem
+					label={hasPendingChanges ? 'Unsaved changes' : 'Saved'}
+					tone={hasPendingChanges ? 'warning' : 'default'}
+				/>
 			{/snippet}
 		</FloatingPageToolbar>
 
@@ -266,29 +268,6 @@
 	.section-label {
 		margin: 0;
 		color: var(--amber);
-	}
-
-	.toolbar-state {
-		display: inline-flex;
-		align-items: center;
-		min-height: 34px;
-		padding: 0 var(--sp-3);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.toolbar-state.pending {
-		border-color: color-mix(in srgb, var(--amber) 42%, var(--border-default) 58%);
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-		color: var(--amber-dark);
 	}
 
 	.settings-section {

@@ -668,6 +668,8 @@ Public components:
 | `ToolbarAction.svelte`     | Renders one anchor or button action in full or compact mode.                |
 | `ToolbarSearchItem.svelte` | Renders page-owned search as a full input or compact trigger with an inline panel. |
 | `ToolbarGroup.svelte`      | Renders a stateful-control group boundary, active count, compact trigger, and panel. |
+| `ToolbarNavGroup.svelte`   | Renders related navigation links, including active state, without command overflow. |
+| `ToolbarMetaItem.svelte`   | Renders passive status/count/date text as non-command toolbar content.      |
 | `ToolbarFilterSelect.svelte` | Renders a select filter as a full select or compact trigger/panel.        |
 | `ToolbarViewToggle.svelte` | Renders a segmented mode switch as a full control or compact trigger/panel. |
 | `toolbarLayout.ts`         | Pure deterministic layout utility for full/compact/overflow states.         |
@@ -687,6 +689,10 @@ Policy fields:
 `ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use `mode="full"` when the search should render directly and `mode="compact"` when constrained toolbar space should show a search trigger. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
 
 `ToolbarGroup` keeps stateful controls out of command overflow. Use it for filter and view groups that should collapse into a trigger plus panel instead of moving into `ToolbarOverflowMenu`. `compactStrategy` supports `items-first`, `group-trigger`, and `never`; `items-first` is the Critical Tasks default. `activeCount` should count active filters in the group, while search activity stays visually separate through `ToolbarSearchItem`.
+
+`ToolbarNavGroup` keeps tab, back, and related-page navigation as links. Use it for route navigation that should remain keyboard-accessible and should not collapse into command overflow. Mark the current item with `active`; the component renders `aria-current="page"`.
+
+`ToolbarMetaItem` keeps passive toolbar content from masquerading as a command. Use it for counts, dates, retention notes, pending state, and read-only notices. It renders as status text, not a button or link.
 
 `ToolbarFilterSelect` preserves ordinary select behavior in full mode and exposes active state in compact mode when `value !== defaultValue`. `ToolbarViewToggle` preserves segmented-control behavior and keeps the current mode in the compact trigger label, `aria-label`, and `title`.
 

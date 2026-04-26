@@ -6,9 +6,10 @@
 		open: boolean;
 		onClose: () => void;
 		align?: 'left' | 'right';
+		side?: 'bottom' | 'top';
 	}
 
-	let { items, open, onClose, align = 'right' }: Props = $props();
+	let { items, open, onClose, align = 'right', side = 'bottom' }: Props = $props();
 
 	let menuEl: HTMLElement | undefined = $state();
 
@@ -46,6 +47,8 @@
 		class="overflow-menu"
 		class:align-left={align === 'left'}
 		class:align-right={align === 'right'}
+		class:side-top={side === 'top'}
+		class:side-bottom={side === 'bottom'}
 		bind:this={menuEl}
 		role="menu"
 	>
@@ -99,7 +102,6 @@
 <style>
 	.overflow-menu {
 		position: absolute;
-		top: 100%;
 		z-index: 1000;
 		min-width: 220px;
 		max-height: 400px;
@@ -109,7 +111,16 @@
 		border-radius: var(--radius-md);
 		box-shadow: var(--shadow-md);
 		padding: 6px 0;
+	}
+
+	.side-bottom {
+		top: 100%;
 		margin-top: 6px;
+	}
+
+	.side-top {
+		bottom: 100%;
+		margin-bottom: 6px;
 	}
 
 	.align-right {

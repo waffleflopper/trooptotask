@@ -116,12 +116,15 @@ describe('AssignmentPlannerPage', () => {
 		cleanup();
 	});
 
-	it('renders the planner as a full page with calendar breadcrumbs', () => {
+	it('renders the planner with floating toolbar actions', () => {
 		renderPage();
 
-		expect(screen.getByText('Assignment Planner')).toBeTruthy();
+		expect(screen.getByLabelText('Assignment planner controls')).toBeTruthy();
+		expect(screen.getByText('Manual monthly coverage planning')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Duty Roster' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/duty-roster'
+		);
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(screen.getByRole('link', { name: 'Back' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.getByText('Quick Fill')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});

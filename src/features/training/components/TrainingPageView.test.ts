@@ -139,6 +139,23 @@ describe('TrainingPageView', () => {
 		expect(screen.getAllByRole('table', { name: 'Training status matrix', hidden: true })).toHaveLength(1);
 	});
 
+	it('puts the matrix controls in the floating page toolbar', () => {
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group') as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Training controls' });
+
+		expect(toolbar).toBeTruthy();
+		expect(screen.queryByTestId('page-toolbar')).toBeNull();
+		expect(screen.getByLabelText('Training view filter')).toBeTruthy();
+		expect(screen.getByLabelText('Training group filter')).toBeTruthy();
+		expect(screen.getByRole('group', { name: 'Training matrix view mode' })).toBeTruthy();
+	});
+
 	it('keeps the loading skeleton while another orgs training stores are still on screen', () => {
 		personnelStore.load(personnel, 'org-stale');
 		groupsStore.load(groups, 'org-stale');

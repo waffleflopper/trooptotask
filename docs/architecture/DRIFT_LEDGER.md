@@ -61,9 +61,8 @@ Each entry separates:
 - Current-state truth:
   - Rating Scheme is active
   - its record model already represents evaluation-tracking records rather than counseling or development-goal records
-  - it currently renders inside the Personnel page
   - it now uses its own dedicated lane across route guards, CRUD, membership and invitation booleans, and scoped RLS checks
-  - rating-scheme-only members can reach the nested Rating Scheme view through a dedicated primary-nav entry when they do not also have Personnel access
+  - it now renders through the first-class Evals primary nav route, without requiring Personnel access
   - `Leader's Book` still exists in permissions, help, dashboard links, exports, settings, and plans
   - the main navigation currently hides `Leader's Book` during redesign and the route redirects away
 - Intended direction:
@@ -76,9 +75,9 @@ Each entry separates:
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
 - Guardrail going forward:
-  - do not re-borrow the Personnel or `Leader's Book` lanes for Rating Scheme access; temporary screen placement and nav treatment still do not define lane ownership
+  - do not re-borrow the Personnel or `Leader's Book` lanes for Rating Scheme access; route placement and nav treatment still do not define lane ownership
 - Recommended next slice:
-  - revisit whether Rating Scheme should graduate from nested Personnel placement to a standalone surface, and whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt feature is concrete enough to evaluate
+  - revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt feature is concrete enough to evaluate
 
 ## D-05 Legacy Clinic Vocabulary
 

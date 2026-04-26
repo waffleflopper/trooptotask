@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 vi.mock('$app/stores', () => ({
@@ -11,10 +10,6 @@ vi.mock('$app/stores', () => ({
 			return () => {};
 		}
 	}
-}));
-
-vi.mock('$lib/components/PageToolbar.svelte', () => ({
-	default: VisibleStub
 }));
 
 import Page from './+page.svelte';
@@ -33,6 +28,26 @@ describe('admin settings page', () => {
 		cleanup();
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
+	});
+
+	it('uses a floating toolbar for save state instead of the old settings overview cards', () => {
+		render(Page, {
+			props: {
+				data: {
+					retentionMonths: 36,
+					lossWarningWindowDays: 180,
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				} as never
+			}
+		});
+
+		expect(screen.getByRole('toolbar', { name: 'Admin settings status' })).toBeTruthy();
+		expect(screen.getByText('Saved')).toBeTruthy();
+		expect(screen.queryByText('Change State')).toBeNull();
+		expect(screen.queryByText('ICT Default')).toBeNull();
 	});
 
 	it('shows the loss warning control and saves the warning window through the settings endpoint', async () => {

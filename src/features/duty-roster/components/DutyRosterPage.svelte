@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SubNav from '$lib/components/ui/SubNav.svelte';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
@@ -430,71 +430,78 @@
 	}
 </script>
 
-<PageToolbar
-	title="Duty Roster"
-	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Duty Roster' }]}
->
-	<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Back</a>
-</PageToolbar>
-
 <div class="duty-roster-page">
+	<FloatingPageToolbar ariaLabel="Duty roster controls" collapse="medium" leadingMin="24rem">
+		{#snippet leading()}
+			{#if canMutate}
+				<SubNav
+					tabs={dutyRosterTabs}
+					active={activeTab}
+					onChange={(value) => (activeTab = value as typeof activeTab)}
+				/>
+			{/if}
+		{/snippet}
+
+		<a href={`/org/${org.orgId}/calendar/assignments`} class="btn btn-secondary btn-sm">Assignments</a>
+		<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Calendar</a>
+	</FloatingPageToolbar>
+
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
 			<p>Only organization admins and full editors can manage duty rosters.</p>
 		</section>
+	{:else if activeTab === 'wizard'}
+		<DutyRosterWizard
+			assignmentTypes={dailyAssignmentsStore.types}
+			assignments={dailyAssignmentsStore.assignments}
+			personnelByGroup={scopedPBG}
+			groups={groupsStore.names}
+			availabilityEntries={availabilityStore.items}
+			statusTypes={statusTypesStore.items}
+			specialDays={specialDaysStore.items}
+			rosterHistory={dutyRosterHistoryStore.items}
+			{advancedDutyTemplates}
+			{advancedDutyEvents}
+			onApplyRoster={handleApplyRoster}
+			onSaveRoster={handleSaveRoster}
+			onDeleteRoster={handleDeleteRoster}
+			onUpdateExemptions={handleUpdateExemptions}
+			onPreviewAdvancedEvent={handlePreviewAdvancedEvent}
+			onApplyAdvancedEvent={handleApplyAdvancedEvent}
+			onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
+			onApplyAdvancedSeries={handleApplyAdvancedSeries}
+			onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+			onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+			onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+			onDeleteAdvancedRun={handleDeleteAdvancedRun}
+			onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+			onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
+			{canManageAdvancedTemplates}
+			onManageAdvancedTemplates={handleManageAdvancedTemplates}
+		/>
 	{:else}
-		<SubNav tabs={dutyRosterTabs} active={activeTab} onChange={(value) => (activeTab = value as typeof activeTab)} />
-
-		{#if activeTab === 'wizard'}
-			<DutyRosterWizard
-				assignmentTypes={dailyAssignmentsStore.types}
-				assignments={dailyAssignmentsStore.assignments}
-				personnelByGroup={scopedPBG}
-				groups={groupsStore.names}
-				availabilityEntries={availabilityStore.items}
-				statusTypes={statusTypesStore.items}
-				specialDays={specialDaysStore.items}
-				rosterHistory={dutyRosterHistoryStore.items}
-				{advancedDutyTemplates}
-				{advancedDutyEvents}
-				onApplyRoster={handleApplyRoster}
-				onSaveRoster={handleSaveRoster}
-				onDeleteRoster={handleDeleteRoster}
-				onUpdateExemptions={handleUpdateExemptions}
-				onPreviewAdvancedEvent={handlePreviewAdvancedEvent}
-				onApplyAdvancedEvent={handleApplyAdvancedEvent}
-				onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
-				onApplyAdvancedSeries={handleApplyAdvancedSeries}
-				onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
-				onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
-				onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
-				onDeleteAdvancedRun={handleDeleteAdvancedRun}
-				onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
-				onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
-				{canManageAdvancedTemplates}
-				onManageAdvancedTemplates={handleManageAdvancedTemplates}
-			/>
-		{:else}
-			<AdvancedDutyTemplateBuilder
-				templates={advancedDutyTemplates}
-				groups={groupsStore.items}
-				personnel={calendarPersonnel}
-				statusTypes={statusTypesStore.items}
-				canManageTemplates={canManageAdvancedTemplates}
-				onCreateTemplate={handleCreateAdvancedTemplate}
-				onUpdateTemplate={handleUpdateAdvancedTemplate}
-				onArchiveTemplate={handleArchiveAdvancedTemplate}
-			/>
-		{/if}
+		<AdvancedDutyTemplateBuilder
+			templates={advancedDutyTemplates}
+			groups={groupsStore.items}
+			personnel={calendarPersonnel}
+			statusTypes={statusTypesStore.items}
+			canManageTemplates={canManageAdvancedTemplates}
+			onCreateTemplate={handleCreateAdvancedTemplate}
+			onUpdateTemplate={handleUpdateAdvancedTemplate}
+			onArchiveTemplate={handleArchiveAdvancedTemplate}
+		/>
 	{/if}
 </div>
 
 <style>
 	.duty-roster-page {
-		padding: var(--sp-6);
 		max-width: 1200px;
 		margin: 0 auto;
+		padding: var(--sp-4) var(--sp-6) var(--sp-6);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
 	.restricted-hero {

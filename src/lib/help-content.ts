@@ -125,7 +125,7 @@ export const helpContent: Record<string, HelpTopic> = {
 
 			<p>When it returns, it will include counseling records, development goals, extended personnel info, and everything you'd expect from a digital leader's book — just done right this time.</p>
 
-			<p>In the meantime, the <strong>Rating Scheme</strong> is still fully available on the <strong>Personnel</strong> page.</p>
+			<p>In the meantime, the <strong>Rating Scheme</strong> is fully available from <strong>Evals</strong>.</p>
 		`
 	},
 	onboarding: {

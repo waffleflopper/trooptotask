@@ -11,7 +11,7 @@
 		getTemplateDisplayName,
 		STEP_TYPE_LABELS
 	} from '$features/onboarding/contexts/OnboardingPageContext.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -25,8 +25,6 @@
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
 	);
-	const completedCount = $derived(historyOnboardings.filter((item) => item.status === 'completed').length);
-	const cancelledCount = $derived(historyOnboardings.filter((item) => item.status === 'cancelled').length);
 
 	function toggleExpand(id: string) {
 		expandedOnboardingId = expandedOnboardingId === id ? null : id;
@@ -43,32 +41,12 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar
-		title="Onboarding History"
-		helpTopic="onboarding"
-		breadcrumbs={[{ label: 'Onboarding', href: `/org/${data.orgId}/onboarding` }, { label: 'History' }]}
-	>
-		<a href={`/org/${data.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Back</a>
-	</PageToolbar>
-
 	<main class="page-content">
-		<div class="history-summary">
-			<div class="summary-card">
-				<span class="summary-label">Archived</span>
-				<strong class="summary-value">{historyOnboardings.length}</strong>
-				<span class="summary-meta">Completed or cancelled onboarding records</span>
-			</div>
-			<div class="summary-card">
-				<span class="summary-label">Completed</span>
-				<strong class="summary-value">{completedCount}</strong>
-				<span class="summary-meta">Packets closed successfully</span>
-			</div>
-			<div class="summary-card">
-				<span class="summary-label">Cancelled</span>
-				<strong class="summary-value">{cancelledCount}</strong>
-				<span class="summary-meta">Packets stopped before completion</span>
-			</div>
-		</div>
+		<FloatingPageToolbar ariaLabel="Onboarding history controls" collapse="narrow" leadingMin="18rem">
+			{#snippet leading()}
+				<a href={`/org/${data.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Onboarding</a>
+			{/snippet}
+		</FloatingPageToolbar>
 
 		{#if historyOnboardings.length === 0}
 			<EmptyState message="No completed or cancelled onboardings yet." />
@@ -221,21 +199,10 @@
 		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
-	.history-summary {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-	}
-
-	.summary-card {
+	.page-content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+		gap: var(--sp-4);
 	}
 
 	.summary-label {
@@ -245,20 +212,6 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-	}
-
-	.summary-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		color: var(--text-primary);
-	}
-
-	.summary-meta {
-		font-size: var(--text-sm);
-		line-height: 1.45;
-		color: var(--text-secondary);
 	}
 
 	.onboarding-list {
@@ -585,10 +538,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.history-summary {
-			grid-template-columns: 1fr;
-		}
-
 		.card-summary,
 		.card-detail {
 			padding: var(--sp-3);

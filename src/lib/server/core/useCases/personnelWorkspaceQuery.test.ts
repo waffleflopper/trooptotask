@@ -81,7 +81,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
-		expect(result.ratingSchemeEntries).toHaveLength(1);
+		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
 
@@ -183,7 +183,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
-		expect(result.ratingSchemeEntries).toHaveLength(1);
+		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
 });
@@ -251,17 +251,17 @@ describe('fetchRatingSchemeBootstrap', () => {
 
 		const result = await fetchRatingSchemeBootstrap(ctx);
 
-		expect(result.personnel).toEqual([]);
+		expect(result).not.toHaveProperty('personnel');
 		expect(result.personnelLookup).toEqual([
 			{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
 			{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
 		]);
-		expect(result.groups).toEqual([]);
-		expect(result.statusTypes).toEqual([]);
-		expect(result.pinnedGroups).toEqual([]);
+		expect(result).not.toHaveProperty('groups');
+		expect(result).not.toHaveProperty('statusTypes');
+		expect(result).not.toHaveProperty('pinnedGroups');
 		expect(result.ratingSchemeEntries).toHaveLength(1);
 		expect(result.lossWarningWindowDays).toBe(120);
-		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
+		expect(result).not.toHaveProperty('awardTrackingAcknowledgedPersonnelIds');
 	});
 
 	it('keeps roster reference lookup scoped to the member group', async () => {
@@ -318,7 +318,7 @@ describe('fetchRatingSchemeBootstrap', () => {
 
 		const result = await fetchRatingSchemeBootstrap(ctx);
 
-		expect(result.personnel).toEqual([]);
+		expect(result).not.toHaveProperty('personnel');
 		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
 		expect(result.ratingSchemeEntries).toHaveLength(1);
 	});

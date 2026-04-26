@@ -70,6 +70,8 @@ export default ts.config(
 			'node_modules/',
 			'.claude/',
 			'.superpowers/',
+			'.agents/skills/impeccable/agents/',
+			'.agents/skills/impeccable/scripts/',
 			'.vercel/',
 			'playwright-report/',
 			'test-results/'

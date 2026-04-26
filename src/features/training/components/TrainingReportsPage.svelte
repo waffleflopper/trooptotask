@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
+	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -99,6 +101,9 @@
 	const filteredLocalTrainingTypes = $derived(
 		filterTypeIds.length > 0 ? localTrainingTypes.filter((type) => filterTypeIds.includes(type.id)) : localTrainingTypes
 	);
+	const typeFilterOptions = $derived<TagOption[]>(
+		availableTypeFilters.map((type) => ({ value: type.id, label: type.name }))
+	);
 
 	const dashboard = $derived(
 		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, allTrainings)
@@ -167,6 +172,23 @@
 		{ value: 'expired', label: 'Expired' },
 		{ value: 'not-completed', label: 'Not Done' }
 	];
+	const groupFilterOptions = $derived([
+		{ value: '', label: 'All Groups' },
+		...allGroups.map((group) => ({ value: group.id, label: group.name }))
+	]);
+	const rankFilterOptions = $derived([
+		{ value: '', label: 'All Ranks' },
+		...availableRanks.map((rank) => ({ value: rank, label: rank }))
+	]);
+	const mosFilterOptions = $derived([
+		{ value: '', label: 'All MOS' },
+		...availableMos.map((mos) => ({ value: mos, label: mos }))
+	]);
+	const roleFilterOptions = $derived([
+		{ value: '', label: 'All Duty Roles' },
+		...availableRoles.map((role) => ({ value: role, label: role }))
+	]);
+	const statusFilterOptions = [{ value: '', label: 'All Statuses' }, ...statusOptions];
 
 	const hasActiveFilters = $derived(
 		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
@@ -252,10 +274,6 @@
 		await loadReportPage(1);
 	}
 
-	function getSelectValue(event: Event): string {
-		return (event.currentTarget as HTMLSelectElement).value;
-	}
-
 	function exportCSV() {
 		if (activeReport) {
 			const link = document.createElement('a');
@@ -292,12 +310,8 @@
 		void reloadFirstReportPage();
 	}
 
-	function toggleTypeFilter(typeId: string) {
-		if (filterTypeIds.includes(typeId)) {
-			filterTypeIds = filterTypeIds.filter((id) => id !== typeId);
-		} else {
-			filterTypeIds = [...filterTypeIds, typeId];
-		}
+	function setTypeFilters(typeIds: string[]) {
+		filterTypeIds = typeIds;
 		void reloadFirstReportPage();
 	}
 
@@ -308,137 +322,88 @@
 	}
 </script>
 
-<PageToolbar
-	title="Training Reports"
-	breadcrumbs={[{ label: 'Training', href: `/org/${org.orgId}/training` }, { label: 'Reports' }]}
->
-	<button class="btn btn-sm" type="button" onclick={exportCSV} disabled={pivotRows.length === 0}>Export CSV</button>
-	<a href={`/org/${org.orgId}/training`} class="btn btn-sm">Back</a>
-</PageToolbar>
-
 {#if allTypes.length === 0}
 	<EmptyState message="No training types configured. Create training types first." />
 {:else}
 	<div class="reports-page-shell">
-		<div class="report-filters">
-			<div class="filter-row">
-				<select
-					class="input filter-select"
-					bind:value={filterGroupId}
-					aria-label="Filter by group"
-					onchange={(event) => {
-						filterGroupId = getSelectValue(event);
-						void reloadFirstReportPage();
-					}}
-				>
-					<option value="">All Groups</option>
-					{#each allGroups as group (group.id)}
-						<option value={group.id}>{group.name}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					bind:value={filterRank}
-					aria-label="Filter by rank"
-					onchange={(event) => {
-						filterRank = getSelectValue(event);
-						void reloadFirstReportPage();
-					}}
-				>
-					<option value="">All Ranks</option>
-					{#each availableRanks as rank (rank)}
-						<option value={rank}>{rank}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					bind:value={filterMos}
-					aria-label="Filter by MOS"
-					onchange={(event) => {
-						filterMos = getSelectValue(event);
-						void reloadFirstReportPage();
-					}}
-				>
-					<option value="">All MOS</option>
-					{#each availableMos as mos (mos)}
-						<option value={mos}>{mos}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					bind:value={filterRole}
-					aria-label="Filter by duty role"
-					onchange={(event) => {
-						filterRole = getSelectValue(event);
-						void reloadFirstReportPage();
-					}}
-				>
-					<option value="">All Duty Roles</option>
-					{#each availableRoles as role (role)}
-						<option value={role}>{role}</option>
-					{/each}
-				</select>
-
-				<select
-					class="input filter-select"
-					bind:value={filterStatus}
-					aria-label="Filter by status"
-					onchange={(event) => {
-						filterStatus = getSelectValue(event) as TrainingStatus | '';
-						void reloadFirstReportPage();
-					}}
-				>
-					<option value="">All Statuses</option>
-					{#each statusOptions as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-
-				<div class="filter-actions">
-					<Badge label={`${detailPersonnelCount} personnel`} variant="outlined" />
-					{#if hasActiveFilters}
-						<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
-					{/if}
-				</div>
-			</div>
-
-			{#if availableTypeFilters.length > 1}
-				<div class="type-filter-chips">
-					<span class="filter-label">Training types</span>
-					{#each availableTypeFilters as type (type.id)}
-						<button
-							class="type-filter-chip"
-							class:active={filterTypeIds.includes(type.id)}
-							type="button"
-							onclick={() => toggleTypeFilter(type.id)}
-						>
-							<span class="chip-dot" style="background-color: {type.color}"></span>
-							{type.name}
-						</button>
-					{/each}
-					{#if filterTypeIds.length > 0}
-						<button
-							class="type-filter-chip type-filter-chip-clear"
-							type="button"
-							onclick={() => {
-								filterTypeIds = [];
+		<FloatingPageToolbar ariaLabel="Training report controls" collapse="wide" leadingMin="42rem">
+			{#snippet leading()}
+				<div class="report-filter-cluster" aria-label="Report filters">
+					<div class="filter-row">
+						<ToolbarSelect
+							ariaLabel="Filter by group"
+							options={groupFilterOptions}
+							value={filterGroupId}
+							onValueChange={(value) => {
+								filterGroupId = value;
 								void reloadFirstReportPage();
 							}}
-						>
-							Clear
-						</button>
+						/>
+						<ToolbarSelect
+							ariaLabel="Filter by rank"
+							options={rankFilterOptions}
+							value={filterRank}
+							onValueChange={(value) => {
+								filterRank = value;
+								void reloadFirstReportPage();
+							}}
+						/>
+						<ToolbarSelect
+							ariaLabel="Filter by MOS"
+							options={mosFilterOptions}
+							value={filterMos}
+							onValueChange={(value) => {
+								filterMos = value;
+								void reloadFirstReportPage();
+							}}
+						/>
+						<ToolbarSelect
+							ariaLabel="Filter by duty role"
+							options={roleFilterOptions}
+							value={filterRole}
+							width="wide"
+							onValueChange={(value) => {
+								filterRole = value;
+								void reloadFirstReportPage();
+							}}
+						/>
+						<ToolbarSelect
+							ariaLabel="Filter by status"
+							options={statusFilterOptions}
+							value={filterStatus}
+							onValueChange={(value) => {
+								filterStatus = value as TrainingStatus | '';
+								void reloadFirstReportPage();
+							}}
+						/>
+					</div>
+
+					{#if typeFilterOptions.length > 1}
+						<div class="type-filter-control">
+							<MultiTagSelect
+								options={typeFilterOptions}
+								value={filterTypeIds}
+								placeholder="All training types"
+								ariaLabel="Filter by training type"
+								onChange={setTypeFilters}
+							/>
+						</div>
 					{/if}
 				</div>
+			{/snippet}
+
+			{#if hasActiveFilters}
+				<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
 			{/if}
-		</div>
+			<button class="btn btn-sm btn-primary" type="button" onclick={exportCSV} disabled={pivotRows.length === 0}>
+				Export CSV
+			</button>
+		</FloatingPageToolbar>
 
 		<div class="dashboard">
 			<div class="dashboard-row">
 				<div class="dashboard-card">
-					<div class="card-label">Overall Readiness</div>
+					<div class="card-label">Overall Readiness ({detailPersonnelCount} personnel)</div>
 					<div class="readiness-value" style="color: {getReadinessColor(dashboard.readinessPercent)}">
 						{dashboard.readinessPercent}%
 					</div>
@@ -538,7 +503,6 @@
 					{#if reportLoading}
 						<span class="detail-status">Loading page...</span>
 					{/if}
-					<Badge label={`${detailPersonnelCount} personnel`} variant="outlined" />
 				</div>
 			</div>
 			{#if reportError}
@@ -641,79 +605,27 @@
 		padding: var(--sp-3);
 	}
 
-	.report-filters {
+	.report-filter-cluster {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-2);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		min-width: 0;
 	}
 
 	.filter-row {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: end;
-		gap: var(--sp-2);
-	}
-
-	.filter-select {
-		min-width: 9.5rem;
-		max-width: 12rem;
-	}
-
-	.filter-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		margin-left: auto;
-	}
-
-	.type-filter-chips {
-		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--sp-2);
 	}
 
-	.type-filter-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
+	.type-filter-control {
+		width: min(34rem, 100%);
+	}
+
+	.type-filter-control :global(.mts-control) {
+		min-height: 34px;
 		background: var(--surface-panel);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.type-filter-chip:hover {
-		border-color: var(--border-strong);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.type-filter-chip.active {
-		border-color: color-mix(in srgb, var(--amber) 38%, var(--border-default));
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-		color: var(--amber-dark);
-	}
-
-	.chip-dot {
-		width: 0.625rem;
-		height: 0.625rem;
-		border-radius: 2px;
-		flex-shrink: 0;
 	}
 
 	.dashboard {
@@ -1029,17 +941,6 @@
 	@media (max-width: 640px) {
 		.reports-page-shell {
 			padding: var(--sp-2);
-		}
-
-		.filter-select {
-			width: 100%;
-			max-width: none;
-		}
-
-		.filter-actions {
-			width: 100%;
-			margin-left: 0;
-			justify-content: space-between;
 		}
 
 		.status-cards {

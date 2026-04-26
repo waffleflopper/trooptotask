@@ -59,7 +59,14 @@ export interface OrgShellData {
 // Workspace types
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding';
+export type WorkspaceKey =
+	| 'dashboard'
+	| 'calendar'
+	| 'personnel'
+	| 'rating-scheme'
+	| 'training'
+	| 'critical-tasks'
+	| 'onboarding';
 
 /**
  * Serializable description of how each client store should be hydrated.

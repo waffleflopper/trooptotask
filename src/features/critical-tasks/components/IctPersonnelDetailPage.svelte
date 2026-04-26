@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { SvelteDate } from 'svelte/reactivity';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
+	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -126,9 +129,6 @@
 	const canInputTask = $derived(
 		!!permissions.canViewCriticalTasks && canEditCriticalTasks && applicableTaskOptions.length > 0
 	);
-	const personnelInitials = $derived(
-		`${history.personnel.firstName.charAt(0)}${history.personnel.lastName.charAt(0)}`.toUpperCase()
-	);
 	const mosRoleLabel = $derived(
 		[history.personnel.mos ? `MOS ${history.personnel.mos}` : 'No MOS', history.personnel.clinicRole || null]
 			.filter(Boolean)
@@ -146,6 +146,13 @@
 		expired: 'Expired',
 		'not-recorded': 'Not Recorded'
 	} as const;
+	const statusFilterOptions = [
+		{ value: 'all', label: 'All Statuses' },
+		{ value: 'current', label: 'Current' },
+		{ value: 'expiring-soon', label: 'Expiring Soon' },
+		{ value: 'expired', label: 'Expired' },
+		{ value: 'not-recorded', label: 'Not Recorded' }
+	];
 
 	const taskCategories = $derived.by(() => {
 		const categories: string[] = [];
@@ -157,6 +164,11 @@
 		}
 		return categories.sort((a, b) => a.localeCompare(b));
 	});
+	const categoryFilterOptions = $derived([
+		{ value: 'all', label: 'All Categories' },
+		{ value: 'Uncategorized', label: 'Uncategorized' },
+		...taskCategories.map((category) => ({ value: category, label: category }))
+	]);
 
 	const filteredActiveRows = $derived.by(() => {
 		const search = taskSearch.trim().toLocaleLowerCase('en-US');
@@ -339,48 +351,52 @@
 </svelte:head>
 
 <main class="record-page">
-	<nav class="record-crumb" aria-label="Breadcrumb">
-		<a href={`/org/${data.orgId}/critical-tasks`}>Critical Tasks</a>
-		<span aria-hidden="true">/</span>
-		<a href={`/org/${data.orgId}/critical-tasks`}>Matrix</a>
-		<span aria-hidden="true">/</span>
-		<span>{personnelDisplayName}</span>
-	</nav>
-
-	<header class="soldier-head">
-		<div class="soldier-identity">
-			<div class="soldier-avatar" aria-hidden="true">{personnelInitials}</div>
-			<div class="soldier-info">
-				<div class="eyebrow">Critical Tasks Record</div>
-				<div class="soldier-title-row">
-					<h1>{personnelDisplayName}</h1>
-					<span class="beta">Beta</span>
-				</div>
-				<div class="soldier-meta" aria-label={personnelName}>
-					<span class="rank">{history.personnel.rank}</span>
-					<span aria-hidden="true">·</span>
+	<FloatingPageToolbar ariaLabel="Personnel critical task controls" collapse="wide" leadingMin="54rem">
+		{#snippet leading()}
+			<div class="person-record-toolbar" aria-label={personnelName}>
+				<div class="person-record-identity">
+					<span class="person-name">{personnelName}</span>
 					<span>{mosRoleLabel}</span>
 					{#if history.personnel.groupName}
-						<span aria-hidden="true">·</span>
 						<span>{history.personnel.groupName}</span>
 					{/if}
 					{#if separationLabel}
-						<span aria-hidden="true">·</span>
 						<span>{separationLabel}</span>
 					{/if}
 				</div>
+				<div class="record-filter-controls" aria-label="Applicable task filters">
+					<ToolbarSearch
+						ariaLabel="Filter by task ID or name"
+						placeholder="Filter by task ID or name..."
+						width="wide"
+						bind:value={taskSearch}
+					/>
+					<ToolbarSelect
+						ariaLabel="Status"
+						options={statusFilterOptions}
+						value={statusFilter}
+						width="wide"
+						onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
+					/>
+					<ToolbarSelect
+						ariaLabel="Category"
+						options={categoryFilterOptions}
+						value={categoryFilter}
+						width="wide"
+						onValueChange={(value) => (categoryFilter = value)}
+					/>
+					<span class="toolbar-right">Sorted: Expiring first</span>
+				</div>
 			</div>
-		</div>
-		<div class="page-actions" aria-label="Record actions">
-			{#if canEditCriticalTasks}
-				<button class="btn btn-primary" type="button" onclick={handleTaskInput} disabled={!canInputTask}>
-					Input Task
-				</button>
-			{/if}
-			<button class="btn" type="button" onclick={handlePrint}>Print Record</button>
-			<a href={`/org/${data.orgId}/critical-tasks`} class="btn">Back</a>
-		</div>
-	</header>
+		{/snippet}
+
+		{#if canEditCriticalTasks}
+			<button class="btn btn-primary btn-sm" type="button" onclick={handleTaskInput} disabled={!canInputTask}>
+				Input Task
+			</button>
+		{/if}
+		<button class="btn btn-sm" type="button" onclick={handlePrint}>Print Record</button>
+	</FloatingPageToolbar>
 
 	<section class="summary" aria-label="Individual critical tasks summary">
 		<article class="summary-card readiness-card">
@@ -428,34 +444,6 @@
 				<p>Current ICTL record for this soldier in one place.</p>
 			</div>
 			<span class="section-meta">{summary.total} tasks assigned</span>
-		</div>
-
-		<div class="record-toolbar" aria-label="Applicable task filters">
-			<label>
-				<span class="sr-only">Filter by task ID or name</span>
-				<input bind:value={taskSearch} type="search" placeholder="Filter by task ID or name..." />
-			</label>
-			<label>
-				<span class="sr-only">Status</span>
-				<select bind:value={statusFilter}>
-					<option value="all">All statuses</option>
-					<option value="current">Current</option>
-					<option value="expiring-soon">Expiring soon</option>
-					<option value="expired">Expired</option>
-					<option value="not-recorded">Not recorded</option>
-				</select>
-			</label>
-			<label>
-				<span class="sr-only">Category</span>
-				<select bind:value={categoryFilter}>
-					<option value="all">All categories</option>
-					<option value="Uncategorized">Uncategorized</option>
-					{#each taskCategories as category (category)}
-						<option value={category}>{category}</option>
-					{/each}
-				</select>
-			</label>
-			<div class="toolbar-right">Sorted: Expiring first</div>
 		</div>
 
 		<div class="table-frame">
@@ -525,8 +513,8 @@
 									<td class="action-cell">
 										<button
 											type="button"
-											class:amber={!row.completion}
-											class="btn-sm"
+											class:btn-primary={!row.completion}
+											class="btn btn-sm"
 											aria-label={`${row.completion ? 'Edit' : 'Log'} completion for ${row.task.taskCode}`}
 											onclick={() => (activeEditorRow = row)}
 										>
@@ -650,188 +638,50 @@
 		color: var(--text-primary);
 	}
 
-	.record-crumb {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: center;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.record-crumb a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	.record-crumb a:hover,
-	.record-crumb a:focus-visible {
-		color: var(--text-primary);
-	}
-
-	.soldier-head {
-		display: flex;
-		gap: var(--sp-4);
-		align-items: flex-start;
-		justify-content: space-between;
-		padding-bottom: var(--sp-5);
-		border-bottom: 1px solid var(--record-rule-strong);
-	}
-
-	.soldier-identity {
-		display: flex;
-		gap: var(--sp-4);
-		min-width: 0;
-	}
-
-	.soldier-avatar {
-		display: grid;
-		flex: none;
-		width: 4.375rem;
-		height: 4.375rem;
-		place-items: center;
-		border: 1px solid var(--record-rule-strong);
-		border-radius: var(--radius-sm);
-		background: var(--record-paper-2);
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: 1.625rem;
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.02em;
-	}
-
-	.soldier-info {
-		min-width: 0;
-	}
-
-	.eyebrow,
 	.summary-label,
 	.section-meta,
-	.record-toolbar,
 	.record-foot {
 		font-family: var(--font-mono);
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 	}
 
-	.eyebrow {
-		margin-bottom: var(--sp-1);
-		color: var(--text-secondary);
-		font-size: 0.625rem;
-	}
-
-	.soldier-title-row {
+	.person-record-toolbar {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		align-items: center;
-		margin-bottom: var(--sp-2);
-	}
-
-	.soldier-title-row h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: 2.375rem;
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.02em;
-		line-height: 1;
-		text-transform: uppercase;
-	}
-
-	.beta {
-		padding: 4px 8px;
-		border-radius: var(--radius-sm);
-		background: var(--record-amber-fill);
-		color: var(--amber-dark);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.soldier-meta {
-		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
 		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.person-record-identity,
+	.record-filter-controls {
+		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+	}
+
+	.person-record-identity {
+		gap: var(--sp-2);
 		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		letter-spacing: 0.04em;
 	}
 
-	.soldier-meta .rank {
-		color: var(--amber-dark);
-		font-weight: var(--font-weight-medium);
+	.person-record-identity > span + span::before {
+		color: var(--text-tertiary);
+		content: '·';
+		margin-right: var(--sp-2);
 	}
 
-	.page-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		justify-content: flex-end;
-	}
-
-	.btn,
-	.btn-sm {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		border: 1px solid var(--record-rule-strong);
-		border-radius: var(--radius-sm);
-		background: transparent;
+	.person-name {
 		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.1em;
-		text-decoration: none;
+		font-weight: var(--font-weight-semibold);
 		text-transform: uppercase;
-		cursor: pointer;
 	}
 
-	.btn {
-		min-height: 2.5rem;
-		padding: 10px 16px;
-		font-size: var(--text-sm);
-	}
-
-	.btn-sm {
-		min-height: 1.875rem;
-		padding: 6px 12px;
-		font-size: var(--text-xs);
-		white-space: nowrap;
-	}
-
-	.btn:hover,
-	.btn:focus-visible,
-	.btn-sm:hover,
-	.btn-sm:focus-visible {
-		background: var(--record-paper-2);
-		color: var(--text-primary);
-	}
-
-	.btn-primary,
-	.btn-sm.amber {
-		border-color: var(--amber);
-		background: var(--amber);
-		color: var(--ink);
-	}
-
-	.btn-primary:hover,
-	.btn-primary:focus-visible,
-	.btn-sm.amber:hover,
-	.btn-sm.amber:focus-visible {
-		border-color: var(--amber-vivid);
-		background: var(--amber-vivid);
-		color: var(--ink);
-	}
-
-	.btn:disabled {
-		cursor: not-allowed;
-		opacity: 0.5;
+	.record-filter-controls {
+		gap: var(--sp-2);
 	}
 
 	.summary {
@@ -1000,49 +850,15 @@
 		font-size: 0.625rem;
 	}
 
-	.record-toolbar {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		margin-bottom: var(--sp-3);
-		padding: 10px 12px;
-		border: 1px solid var(--record-rule);
-		border-radius: var(--radius-sm);
-		background: var(--record-paper-2);
-		color: var(--text-secondary);
-		font-size: 0.625rem;
-	}
-
-	.record-toolbar label {
-		display: flex;
-		min-width: 0;
-	}
-
-	.record-toolbar label:first-child {
-		flex: 1;
-		max-width: 20rem;
-	}
-
-	.record-toolbar input,
-	.record-toolbar select {
-		width: 100%;
-		min-height: 2rem;
-		padding: 7px 12px;
-		border: 1px solid var(--record-rule-strong);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-	}
-
-	.record-toolbar input::placeholder {
-		color: var(--text-tertiary);
-		font-style: italic;
-	}
-
 	.toolbar-right {
-		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		min-height: 34px;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 		white-space: nowrap;
 	}
 
@@ -1243,49 +1059,18 @@
 		font-size: 0.625rem;
 	}
 
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
 	@media (max-width: 820px) {
 		.record-page {
 			padding: var(--sp-4);
 		}
 
-		.soldier-head,
 		.section-head {
 			align-items: stretch;
 			flex-direction: column;
 		}
 
-		.page-actions {
-			justify-content: flex-start;
-		}
-
 		.summary {
 			grid-template-columns: 1fr;
-		}
-
-		.record-toolbar {
-			align-items: stretch;
-			flex-direction: column;
-		}
-
-		.record-toolbar label,
-		.record-toolbar label:first-child {
-			max-width: none;
-		}
-
-		.toolbar-right {
-			margin-left: 0;
 		}
 	}
 

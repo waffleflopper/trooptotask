@@ -2622,7 +2622,7 @@ INSERT INTO "public"."training_views" ("id", "organization_id", "name", "column_
 --
 
 INSERT INTO "public"."user_org_preferences" ("id", "organization_id", "user_id", "preferences", "created_at", "updated_at") VALUES
-	('48562b34-1701-4d3c-a6ad-1d7d43a63dbd', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '{"calendar": {"showStatusText": true, "dutyStartDayOnly": true, "showPersonnelRoles": false, "highlightOnboarding": true, "todaySummaryExpanded": false}, "training": {"matrixViewMode": "by-group", "selectedViewId": null, "selectedGroupId": null}}', '2026-04-13 01:00:27.655734+00', '2026-04-15 02:15:18.449319+00');
+	('48562b34-1701-4d3c-a6ad-1d7d43a63dbd', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '{"calendar": {"showStatusText": true, "dutyStartDayOnly": true, "showPersonnelRoles": false, "highlightOnboarding": true}, "training": {"matrixViewMode": "by-group", "selectedViewId": null, "selectedGroupId": null}}', '2026-04-13 01:00:27.655734+00', '2026-04-15 02:15:18.449319+00');
 
 
 --

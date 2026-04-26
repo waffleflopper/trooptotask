@@ -7,14 +7,15 @@ export interface CalendarToolbarInput {
 	canEditCalendar: boolean;
 	canManageConfig: boolean;
 	readOnly: boolean;
-	breakdownExpanded: boolean;
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
+	showOnboardingToggle: boolean;
+	highlightOnboarding: boolean;
 	dutyStartDayOnly: boolean;
 	viewMode?: 'month' | '3-month';
-	onToggleBreakdown: () => void;
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
+	onToggleHighlightOnboarding: () => void;
 	onToggleDutyStartDayOnly: () => void;
 	onExportCSV: () => void;
 	onExportPDF: () => void;
@@ -22,13 +23,6 @@ export interface CalendarToolbarInput {
 
 export function buildCalendarToolbarItems(input: CalendarToolbarInput): SmartToolbarItem[] {
 	const items: SmartToolbarItem[] = [];
-
-	items.push({
-		type: 'button',
-		label: "Today's Summary",
-		onclick: input.onToggleBreakdown,
-		active: input.breakdownExpanded
-	});
 
 	if (input.canEditCalendar && input.canManageConfig) {
 		items.push({
@@ -68,6 +62,15 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): SmartToo
 			{ type: 'overflow', label: 'Export to Excel', onclick: input.onExportCSV },
 			{ type: 'overflow', label: 'Print / PDF', onclick: input.onExportPDF }
 		);
+	}
+
+	if (input.showOnboardingToggle) {
+		items.push({
+			type: 'overflow',
+			label: 'Show Onboarding',
+			onclick: input.onToggleHighlightOnboarding,
+			active: input.highlightOnboarding
+		});
 	}
 
 	items.push(

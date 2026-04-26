@@ -13,10 +13,10 @@ Date: 2026-04-21
   - optional `scoped_group_id`
 - Current UI presets such as `Admin`, `Full Editor`, `Team Leader`, `Viewer`, and `Custom` are convenience shapes over that boolean-and-scope model. They are not persisted first-class authorization concepts.
 - Explainability is weak today because labels such as `Full Editor` and `Team Leader` are reverse-engineered from expanded booleans and scope rather than recorded as durable access concepts.
-- The current feature-lane contract is coarse:
+- At acceptance time, the feature-lane contract was coarse:
   - the core route/auth contract still exposes `calendar`, `personnel`, `training`, `onboarding`, and `leaders-book`
   - Critical Tasks still borrows the Training lane
-  - Rating Scheme currently spans borrowed lanes, with its route shell using Leaders Book permissions while core CRUD still enforces Personnel edit access
+  - Rating Scheme spanned borrowed lanes, with its route shell on Leaders Book permissions while core CRUD enforced Personnel edit access
 - Group scoping is currently single-group only in storage, runtime helpers, and RLS through `scoped_group_id`.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 

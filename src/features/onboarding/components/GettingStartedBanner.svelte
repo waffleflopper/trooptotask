@@ -55,7 +55,7 @@
 			complete: onboardingTemplateStepCount > 0,
 			link: `/org/${orgId}/onboarding`
 		},
-		{ label: 'Configure your rating scheme', complete: ratingSchemeEntryCount > 0, link: `/org/${orgId}/personnel` },
+		{ label: 'Configure your rating scheme', complete: ratingSchemeEntryCount > 0, link: `/org/${orgId}/evals` },
 		{ label: 'Invite a team member', complete: orgMemberCount > 1, link: `/org/${orgId}/settings` },
 		{ label: 'Review the unit calendar', complete: calendarVisited, link: `/org/${orgId}/calendar` }
 	]);

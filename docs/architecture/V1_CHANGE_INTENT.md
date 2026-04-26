@@ -140,9 +140,9 @@ Focus entries:
 - Current-state truth:
   - the core route/auth contract still only exposes coarse feature lanes
   - Critical Tasks now owns its dedicated lane across the shared route/auth contract, membership flags, and RLS
-  - Rating Scheme now owns its dedicated lane across the shared route/auth contract, membership and invitation flags, nested page access, and RLS-backed scoped record checks
+  - Rating Scheme now owns its dedicated lane across the shared route/auth contract, membership and invitation flags, first-class Evals route access, and RLS-backed scoped record checks
   - Rating Scheme already stores evaluation-tracking records that are distinct from counseling and development-goal records
-  - Rating Scheme still renders inside the Personnel page, but rating-scheme-only members can now reach that nested view through a dedicated nav entry
+  - Rating Scheme now renders through the Evals primary nav route instead of the Personnel page
   - `Leader's Book` is hidden from primary nav and redirected during redesign, but its permissions and compatibility paths still exist
 - Why this is unsatisfying:
   - feature boundaries and audits stay muddy
@@ -153,14 +153,13 @@ Focus entries:
   - `Rating Scheme` owns evaluation-tracking records and workflows and should be independently grantable from both `Personnel` and `Leader's Book`
   - `Leader's Book` owns counseling records, development goals, and the remade per-Soldier leader-reference or administrative surface
   - `Personnel` owns roster administration, but Rating Scheme may use app-owned roster reference queries without borrowing the Personnel lane
-  - temporary page nesting and current primary-nav visibility do not define lane ownership during the current transition
+  - route placement and current primary-nav visibility do not define lane ownership during the current transition
   - each first-class lane should own its own capability levels inside the shared member capability map
 - Constraints to preserve:
   - no fake feature split that the rest of the codebase cannot support yet
   - do not let the transitional `Leader's Book` state block the approved authz direction
-  - do not treat temporary page nesting or current `Leader's Book` compatibility wiring as permission precedent
+  - do not treat route placement or current `Leader's Book` compatibility wiring as permission precedent
 - Open questions:
-  - whether Rating Scheme should eventually move from nested Personnel placement to its own standalone route or always remain a nested surface with dedicated access paths
   - when the remade `Leader's Book` should re-enter the durable lane taxonomy through a later ADR or equivalent review
 - Suggested next skill or planning mode:
   - `retrofit-slice-audit` for `#627`, then `grill-me` plus `adr-from-retrofit-decision` again if the remade `Leader's Book` needs a later lane-taxonomy review

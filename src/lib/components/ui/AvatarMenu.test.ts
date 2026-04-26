@@ -32,6 +32,8 @@ function renderMenu(
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		menuAlign?: 'left' | 'right';
+		menuSide?: 'bottom' | 'top';
 	}> = {}
 ) {
 	return render(AvatarMenu, {
@@ -66,5 +68,14 @@ describe('AvatarMenu', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 
 		expect(screen.queryByRole('menuitem', { name: 'Send Feedback' })).toBeNull();
+	});
+
+	it('supports rail placement that opens up and into the viewport', async () => {
+		renderMenu({ menuAlign: 'left', menuSide: 'top' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+
+		expect(screen.getByRole('menu').classList.contains('align-left')).toBe(true);
+		expect(screen.getByRole('menu').classList.contains('side-top')).toBe(true);
 	});
 });

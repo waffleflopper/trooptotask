@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
@@ -113,76 +113,70 @@
 	});
 </script>
 
-<PageToolbar
-	title="Critical Task Reports"
-	titleBadge="Beta"
-	breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Reports' }]}
->
-	<a class="btn btn-sm" href={exportHref}>Export CSV</a>
-	<a class="btn btn-secondary btn-sm" href={`/org/${orgId}/critical-tasks`}>Back</a>
-</PageToolbar>
-
 <div class="reports-page-shell">
-	<div class="report-filters">
-		<div class="filter-row">
-			<span class="filter-label">Filter</span>
-			<div class="filter-select">
-				<SearchSelect
-					options={groupOptions}
-					value={filterGroupId}
-					placeholder="All Groups"
-					ariaLabel="Filter by group"
-					disabled={loading}
-					compact
-					onchange={(value) => (filterGroupId = value)}
-				/>
-			</div>
+	<FloatingPageToolbar ariaLabel="Critical task report controls" collapse="wide" leadingMin="52rem">
+		{#snippet leading()}
+			<div class="report-filter-row" aria-label="Critical task report filters">
+				<div class="filter-select">
+					<SearchSelect
+						options={groupOptions}
+						value={filterGroupId}
+						placeholder="All Groups"
+						ariaLabel="Filter by group"
+						disabled={loading}
+						compact
+						onchange={(value) => (filterGroupId = value)}
+					/>
+				</div>
 
-			<div class="filter-select">
-				<SearchSelect
-					options={rankOptions}
-					value={filterRank}
-					placeholder="All Ranks"
-					ariaLabel="Filter by rank"
-					disabled={loading}
-					compact
-					onchange={(value) => (filterRank = value)}
-				/>
-			</div>
+				<div class="filter-select">
+					<SearchSelect
+						options={rankOptions}
+						value={filterRank}
+						placeholder="All Ranks"
+						ariaLabel="Filter by rank"
+						disabled={loading}
+						compact
+						onchange={(value) => (filterRank = value)}
+					/>
+				</div>
 
-			<div class="filter-multi">
-				<MultiTagSelect
-					options={availableMosOptions}
-					value={filterMosValues}
-					placeholder="All MOS"
-					ariaLabel="Filter by MOS"
-					disabled={loading}
-					onChange={(values) => (filterMosValues = values)}
-				/>
-			</div>
+				<div class="filter-multi">
+					<MultiTagSelect
+						options={availableMosOptions}
+						value={filterMosValues}
+						placeholder="All MOS"
+						ariaLabel="Filter by MOS"
+						disabled={loading}
+						onChange={(values) => (filterMosValues = values)}
+					/>
+				</div>
 
-			<div class="filter-select">
-				<SearchSelect
-					options={roleOptions}
-					value={filterRole}
-					placeholder="All Duty Roles"
-					ariaLabel="Filter by duty role"
-					disabled={loading}
-					compact
-					onchange={(value) => (filterRole = value)}
-				/>
+				<div class="filter-select filter-select-role">
+					<SearchSelect
+						options={roleOptions}
+						value={filterRole}
+						placeholder="All Duty Roles"
+						ariaLabel="Filter by duty role"
+						disabled={loading}
+						compact
+						onchange={(value) => (filterRole = value)}
+					/>
+				</div>
 			</div>
+		{/snippet}
 
-			{#if hasActiveFilters}
-				<button class="btn btn-secondary btn-sm" type="button" disabled={loading} onclick={clearFilters}
-					>Clear filters</button
-				>
-			{/if}
-		</div>
-		{#if dashboardError}
-			<p class="report-error" role="alert">{dashboardError}</p>
+		{#if hasActiveFilters}
+			<button class="btn btn-secondary btn-sm" type="button" disabled={loading} onclick={clearFilters}
+				>Clear filters</button
+			>
 		{/if}
-	</div>
+		<a class="btn btn-primary btn-sm" href={exportHref}>Export CSV</a>
+	</FloatingPageToolbar>
+
+	{#if dashboardError}
+		<p class="report-error" role="alert">{dashboardError}</p>
+	{/if}
 
 	{#if loading}
 		<section class="report-state" aria-busy="true" aria-live="polite" role="status">
@@ -243,38 +237,30 @@
 		align-items: start;
 	}
 
-	.report-filters,
 	.report-state {
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
 	}
 
-	.report-filters {
-		background: var(--surface-subtle);
-		padding: 14px 18px;
-	}
-
-	.filter-row {
+	.report-filter-row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 10px;
 		align-items: center;
 	}
 
-	.filter-label {
-		margin-right: var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
+	.filter-select {
+		flex: 0 1 9.5rem;
+		width: 9.5rem;
+		min-width: 9.5rem;
+		max-width: 12rem;
 	}
 
-	.filter-select {
-		flex: 0 1 8.75rem;
-		width: 8.75rem;
-		min-width: 8.75rem;
-		max-width: 10.5rem;
+	.filter-select-role {
+		flex-basis: 12rem;
+		width: 12rem;
+		min-width: 12rem;
+		max-width: 14rem;
 	}
 
 	.filter-multi {
@@ -284,8 +270,8 @@
 		max-width: 20rem;
 	}
 
-	.report-filters :global(.input-wrapper),
-	.report-filters :global(.mts-control) {
+	.report-filter-row :global(.input-wrapper),
+	.report-filter-row :global(.mts-control) {
 		min-height: 34px;
 		border-color: color-mix(in srgb, var(--border-default) 82%, var(--text-primary) 18%);
 		border-radius: var(--radius-sm);
@@ -293,25 +279,26 @@
 		box-shadow: none;
 	}
 
-	.report-filters :global(.display-btn),
-	.report-filters :global(.search-input),
-	.report-filters :global(.mts-input) {
+	.report-filter-row :global(.display-btn),
+	.report-filter-row :global(.search-input),
+	.report-filter-row :global(.mts-input) {
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-primary);
 	}
 
-	.report-filters :global(.display-btn) {
+	.report-filter-row :global(.display-btn) {
 		min-height: 32px;
 		padding: 7px 28px 7px 12px;
+		white-space: nowrap;
 	}
 
-	.report-filters :global(.display-icon) {
+	.report-filter-row :global(.display-icon) {
 		width: 12px;
 		height: 12px;
 	}
 
-	.report-filters :global(.mts-control) {
+	.report-filter-row :global(.mts-control) {
 		padding: 5px 8px;
 	}
 
@@ -332,7 +319,7 @@
 		border-radius: var(--radius-sm);
 	}
 
-	.report-filters :global(.mts-tag) {
+	.report-filter-row :global(.mts-tag) {
 		flex: 0 0 auto;
 		max-width: 5.5rem;
 		padding: 2px 4px 2px 6px;
@@ -348,15 +335,8 @@
 		flex-basis: 100%;
 	}
 
-	.report-filters :global(.btn) {
-		min-height: 34px;
-		border-radius: var(--radius-sm);
-		padding: 7px 12px;
-		font-size: var(--text-sm);
-	}
-
 	.report-error {
-		margin: var(--sp-2) 0 0;
+		margin: 0;
 		color: var(--danger);
 	}
 
@@ -383,10 +363,6 @@
 	@media (max-width: 640px) {
 		.reports-page-shell {
 			padding: var(--sp-2);
-		}
-
-		.filter-label {
-			flex: 1 0 100%;
 		}
 
 		.filter-select {

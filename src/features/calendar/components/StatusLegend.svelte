@@ -26,10 +26,10 @@
 		flex-wrap: wrap;
 		align-items: flex-start;
 		gap: var(--sp-3) var(--sp-4);
-		padding: var(--sp-4) var(--sp-5);
+		padding: var(--sp-3) var(--sp-4);
 		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
 	}
 
 	.legend-label {
@@ -53,11 +53,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
-		min-height: 28px;
-		padding: 4px 8px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
+		min-height: 24px;
 	}
 
 	.legend-color {

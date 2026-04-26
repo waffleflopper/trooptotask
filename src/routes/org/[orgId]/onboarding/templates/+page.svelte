@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -51,7 +51,6 @@
 	// --- Derived ---
 	const templates = $derived(templateStore.items);
 	const allSteps = $derived(templateStepStore.items);
-	const totalStepCount = $derived(allSteps.length);
 
 	const selectedTemplate = $derived(selectedTemplateId ? templateStore.getById(selectedTemplateId) : null);
 
@@ -276,35 +275,18 @@
 	}
 </script>
 
-<PageToolbar
-	title="Manage Templates"
-	breadcrumbs={[{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }, { label: 'Manage Templates' }]}
->
-	<a href={`/org/${org.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Back</a>
-</PageToolbar>
-
 <div class="templates-page">
-	<div class="templates-summary">
-		<div class="summary-card">
-			<span class="summary-label">Templates</span>
-			<strong class="summary-value">{templates.length}</strong>
-			<span class="summary-meta">Reusable onboarding packet definitions</span>
-		</div>
-		<div class="summary-card">
-			<span class="summary-label">Steps</span>
-			<strong class="summary-value">{totalStepCount}</strong>
-			<span class="summary-meta">Template steps currently configured</span>
-		</div>
-		<div class="summary-card">
-			<span class="summary-label">Editor</span>
-			<strong class="summary-value">{selectedTemplate ? selectedSteps.length : 0}</strong>
-			<span class="summary-meta"
-				>{selectedTemplate
-					? `${selectedTemplate.name} currently selected`
-					: 'Select a template to edit its steps'}</span
-			>
-		</div>
-	</div>
+	<FloatingPageToolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
+		{#snippet leading()}
+			<a href={`/org/${org.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Onboarding</a>
+		{/snippet}
+
+		{#if canMutate}
+			<button class="btn btn-primary btn-sm" onclick={() => (addingTemplate = true)} disabled={addingTemplate}>
+				Add Template
+			</button>
+		{/if}
+	</FloatingPageToolbar>
 
 	<div class="templates-layout">
 		<!-- Left panel: Template list -->
@@ -314,11 +296,6 @@
 					<p class="panel-eyebrow">Library</p>
 					<h3 class="panel-title">Templates</h3>
 				</div>
-				{#if canMutate}
-					<button class="btn btn-primary btn-sm" onclick={() => (addingTemplate = true)} disabled={addingTemplate}>
-						+ Add Template
-					</button>
-				{/if}
 			</div>
 
 			{#if addingTemplate}
@@ -702,23 +679,6 @@
 		min-height: calc(100vh - 120px);
 	}
 
-	.templates-summary {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.summary-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.summary-label,
 	.panel-eyebrow,
 	.form-label {
 		font-family: var(--font-mono);
@@ -728,23 +688,8 @@
 		text-transform: uppercase;
 	}
 
-	.summary-label,
 	.form-label {
 		color: var(--text-tertiary);
-	}
-
-	.summary-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		color: var(--text-primary);
-	}
-
-	.summary-meta {
-		font-size: var(--text-sm);
-		line-height: 1.45;
-		color: var(--text-secondary);
 	}
 
 	.templates-layout {
@@ -1109,10 +1054,6 @@
 	@media (max-width: 640px) {
 		.templates-page {
 			padding: var(--sp-2);
-		}
-
-		.templates-summary {
-			grid-template-columns: 1fr;
 		}
 
 		.panel-header,

@@ -340,8 +340,7 @@ describe('IctReportsView', () => {
 			}
 		});
 
-		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
-		expect(screen.getByText('Beta')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Critical task report controls' })).toBeTruthy();
 		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
 		expect(
@@ -439,7 +438,6 @@ describe('IctReportsView', () => {
 		});
 
 		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Back' })).toBeTruthy();
 		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
 		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();

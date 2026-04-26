@@ -79,7 +79,7 @@
 		highlightOnboarding = true,
 		canEdit = true,
 		showStatusText = false,
-		showPersonnelRoles = true,
+		showPersonnelRoles = false,
 		upcomingLossMap,
 		onPrevMonth,
 		onNextMonth,
@@ -336,10 +336,10 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
 		overflow: hidden;
-		box-shadow: var(--shadow-sm);
+		box-shadow: none;
 	}
 
 	.calendar-body {

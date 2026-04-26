@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -42,16 +42,16 @@
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
 </script>
 
-<PageToolbar
-	title="Assignment Planner"
-	subtitle="Manual monthly coverage planning for duty positions that need direct control."
-	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Assignments' }]}
->
-	<a href={`/org/${org.orgId}/calendar/duty-roster`} class="btn btn-secondary btn-sm">Duty Roster</a>
-	<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Back</a>
-</PageToolbar>
-
 <div class="assignment-planner-page">
+	<FloatingPageToolbar ariaLabel="Assignment planner controls" collapse="narrow" leadingMin="18rem">
+		{#snippet leading()}
+			<span class="toolbar-context">Manual monthly coverage planning</span>
+		{/snippet}
+
+		<a href={`/org/${org.orgId}/calendar/duty-roster`} class="btn btn-secondary btn-sm">Duty Roster</a>
+		<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Calendar</a>
+	</FloatingPageToolbar>
+
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
@@ -72,12 +72,17 @@
 
 <style>
 	.assignment-planner-page {
-		padding: var(--sp-5) var(--sp-6) var(--sp-6);
+		padding: var(--sp-4) var(--sp-6) var(--sp-6);
 		max-width: 1600px;
 		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-5);
+		gap: var(--sp-4);
+	}
+
+	.toolbar-context {
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.restricted-hero {

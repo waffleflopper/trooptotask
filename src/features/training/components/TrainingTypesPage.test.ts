@@ -101,4 +101,26 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByRole('button', { name: '68W' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'SGT' })).toBeTruthy();
 	});
+
+	it('moves type management actions into the floating page toolbar', () => {
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType])
+						}
+					},
+					personnel
+				}
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Training type controls' });
+
+		expect(toolbar).toBeTruthy();
+		expect(screen.queryByTestId('page-toolbar')).toBeNull();
+		expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
+		expect(screen.queryByText('1 configured')).toBeNull();
+	});
 });

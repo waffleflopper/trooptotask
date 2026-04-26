@@ -38,7 +38,7 @@
 			{ label: 'Record Training', href: `/org/${orgId}/training`, permission: 'canViewTraining' },
 			{
 				label: 'Add Eval',
-				href: `/org/${orgId}/personnel?view=rating-scheme`,
+				href: `/org/${orgId}/evals`,
 				permission: 'canViewRatingScheme'
 			}
 		]
@@ -279,7 +279,7 @@
 			border-radius: var(--radius-md);
 			padding: 3px;
 			gap: 3px;
-			margin: var(--sp-4) var(--sp-4) 0;
+			margin: 0;
 		}
 
 		.pill {
@@ -319,8 +319,7 @@
 			align-items: center;
 			overflow-x: auto;
 			scrollbar-width: none;
-			padding: var(--sp-2) var(--sp-4);
-			border-bottom: 1px solid var(--border-rule);
+			padding: var(--sp-2) 0 0;
 			margin-top: var(--sp-2);
 		}
 

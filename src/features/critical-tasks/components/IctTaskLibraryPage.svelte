@@ -1,8 +1,10 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -82,6 +84,10 @@
 			? `${filteredTasks.length} of ${visibleTasks.length} shown`
 			: `${visibleTasks.length} ${taskStatusFilter === 'active' ? 'configured' : 'archived'}`
 	);
+	const taskStatusOptions = [
+		{ value: 'active', label: 'Active' },
+		{ value: 'archived', label: 'Archived' }
+	];
 	const canReorderTasks = $derived(
 		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
 	);
@@ -285,99 +291,30 @@
 	<title>ICT Task Library - Troop to Task</title>
 </svelte:head>
 
-<PageToolbar
-	title="ICT Task Library"
-	titleBadge="Beta"
-	subtitle="Owner and admin task definitions"
-	breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Library' }]}
->
-	<a href={`/org/${orgId}/critical-tasks`} class="btn btn-sm">Back</a>
-</PageToolbar>
-
 {#if !org.isPrivileged}
 	<section class="page-message" aria-labelledby="library-restricted-title">
 		<h2 id="library-restricted-title">Access Restricted</h2>
 		<p>Only organization owners and admins can manage ICT task definitions.</p>
 	</section>
-{:else if loading}
-	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-		<Spinner color="currentColor" />
-		<p>Loading ICT task library...</p>
-	</section>
-{:else if importingTasks}
-	<section class="import-route-workspace" aria-label="ICT task import workspace">
-		<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
-	</section>
 {:else}
-	<div class="library-layout">
-		<section class="panel task-list-panel" aria-labelledby="task-library-title">
-			<div class="panel-header">
-				<div class="panel-header-copy">
-					<h3 id="task-library-title" class="panel-title">
-						{taskStatusFilter === 'active' ? 'Active Tasks' : 'Archived Tasks'}
-					</h3>
-					<span class="panel-meta">{taskListMeta}</span>
-				</div>
-				{#if canManage}
-					<div class="panel-actions">
-						<button
-							class="btn btn-sm"
-							type="button"
-							onclick={startImport}
-							disabled={creating || editing || importingTasks}
-						>
-							Import CSV
-						</button>
-						<button
-							class="btn btn-primary btn-sm"
-							type="button"
-							onclick={startCreate}
-							disabled={creating || editing || importingTasks}
-						>
-							New Task
-						</button>
-					</div>
-				{/if}
-			</div>
-
-			<div class="status-toggle" aria-label="Filter ICT tasks by status">
-				<button
-					class="btn btn-sm"
-					class:is-selected={taskStatusFilter === 'active'}
-					type="button"
-					aria-pressed={taskStatusFilter === 'active'}
-					onclick={() => (taskStatusFilter = 'active')}
-				>
-					Active
-				</button>
-				<button
-					class="btn btn-sm"
-					class:is-selected={taskStatusFilter === 'archived'}
-					type="button"
-					aria-pressed={taskStatusFilter === 'archived'}
-					onclick={() => (taskStatusFilter = 'archived')}
-				>
-					Archived
-				</button>
-			</div>
-
-			{#if visibleTasks.length > 0}
-				<div class="task-filters" aria-label="Filter ICT task library">
-					<div class="filter-field filter-field-search">
-						<label for="ict-library-task-search">Search</label>
-						<input
-							id="ict-library-task-search"
-							class="input task-search-input"
-							type="search"
-							placeholder="Search task number or title..."
-							bind:value={taskSearch}
-						/>
-					</div>
-
-					<div class="filter-field">
-						<label for="ict-library-mos-filter">MOS</label>
+	<div class="library-page-shell">
+		<FloatingPageToolbar ariaLabel="ICT task library controls" collapse="wide" leadingMin="50rem">
+			{#snippet leading()}
+				<div class="library-toolbar-controls" aria-label="ICT task library filters">
+					<SegmentedControl
+						ariaLabel="Filter ICT tasks by status"
+						options={taskStatusOptions}
+						value={taskStatusFilter}
+						onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
+					/>
+					<ToolbarSearch
+						ariaLabel="Search"
+						placeholder="Search task number or title..."
+						width="wide"
+						bind:value={taskSearch}
+					/>
+					<div class="toolbar-search-select">
 						<SearchSelect
-							id="ict-library-mos-filter"
 							options={mosFilterOptions}
 							bind:value={selectedMos}
 							placeholder="All MOSs"
@@ -385,219 +322,262 @@
 							compact
 						/>
 					</div>
-
 					{#if filtersActive}
-						<button class="btn btn-sm" type="button" onclick={clearTaskFilters}>Clear filters</button>
+						<span class="filter-result-meta">{taskListMeta}</span>
 					{/if}
 				</div>
-			{/if}
+			{/snippet}
 
-			{#if visibleTasks.length === 0 && !creating}
-				<EmptyState
-					message={taskStatusFilter === 'active'
-						? 'No active ICT tasks. Add task definitions to begin tracking ICTL readiness.'
-						: 'No archived ICT tasks. Restore a task after archiving when you need it back in the active library.'}
-					actionLabel={canManage ? 'New Task' : undefined}
-					onAction={canManage ? startCreate : undefined}
-				/>
-			{:else if visibleTasks.length > 0 && filteredTasks.length === 0}
-				<EmptyState
-					message="No ICT tasks match the current filters."
-					actionLabel="Clear filters"
-					onAction={clearTaskFilters}
-				/>
-			{:else}
-				<ul class="task-list" aria-label="ICT task library">
-					{#each filteredTasks as task, index (task.id)}
-						<li class="task-item" class:selected={selectedTaskId === task.id && !creating}>
-							<button
-								class="task-select"
-								type="button"
-								aria-pressed={selectedTaskId === task.id && !creating}
-								onclick={() => selectTask(task.id)}
-							>
-								<span class="task-code">{task.taskCode}</span>
-								<span class="task-title">{task.title}</span>
-								<span class="task-meta">{formatTaskListMeta(task)}</span>
-							</button>
-							{#if canReorderTasks}
-								<div class="task-reorder" aria-label="Reorder {task.taskCode}">
+			{#if filtersActive}
+				<button class="btn btn-sm" type="button" onclick={clearTaskFilters}>Clear filters</button>
+			{/if}
+			{#if canManage}
+				<button class="btn btn-sm" type="button" onclick={startImport} disabled={creating || editing || importingTasks}>
+					Import CSV
+				</button>
+				<button
+					class="btn btn-primary btn-sm"
+					type="button"
+					onclick={startCreate}
+					disabled={creating || editing || importingTasks}
+				>
+					New Task
+				</button>
+			{/if}
+		</FloatingPageToolbar>
+
+		{#if loading}
+			<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
+				<Spinner color="currentColor" />
+				<p>Loading ICT task library...</p>
+			</section>
+		{:else if importingTasks}
+			<section class="import-route-workspace" aria-label="ICT task import workspace">
+				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
+			</section>
+		{:else}
+			<div class="library-layout">
+				<section class="panel task-list-panel" aria-labelledby="task-library-title">
+					<div class="panel-header">
+						<div class="panel-header-copy">
+							<h3 id="task-library-title" class="panel-title">
+								{taskStatusFilter === 'active' ? 'Active Tasks' : 'Archived Tasks'}
+							</h3>
+						</div>
+					</div>
+
+					{#if visibleTasks.length === 0 && !creating}
+						<EmptyState
+							message={taskStatusFilter === 'active'
+								? 'No active ICT tasks. Add task definitions to begin tracking ICTL readiness.'
+								: 'No archived ICT tasks. Restore a task after archiving when you need it back in the active library.'}
+							actionLabel={canManage ? 'New Task' : undefined}
+							onAction={canManage ? startCreate : undefined}
+						/>
+					{:else if visibleTasks.length > 0 && filteredTasks.length === 0}
+						<EmptyState
+							message="No ICT tasks match the current filters."
+							actionLabel="Clear filters"
+							onAction={clearTaskFilters}
+						/>
+					{:else}
+						<ul class="task-list" aria-label="ICT task library">
+							{#each filteredTasks as task, index (task.id)}
+								<li class="task-item" class:selected={selectedTaskId === task.id && !creating}>
 									<button
-										class="btn-move"
+										class="task-select"
 										type="button"
-										onclick={() => moveTask(index, -1)}
-										disabled={index === 0}
-										aria-label="Move {task.taskCode} up">▲</button
+										aria-pressed={selectedTaskId === task.id && !creating}
+										onclick={() => selectTask(task.id)}
 									>
-									<button
-										class="btn-move"
-										type="button"
-										onclick={() => moveTask(index, 1)}
-										disabled={index === activeTasks.length - 1}
-										aria-label="Move {task.taskCode} down">▼</button
-									>
+										<span class="task-code">{task.taskCode}</span>
+										<span class="task-title">{task.title}</span>
+										<span class="task-meta">{formatTaskListMeta(task)}</span>
+									</button>
+									{#if canReorderTasks}
+										<div class="task-reorder" aria-label="Reorder {task.taskCode}">
+											<button
+												class="btn-move"
+												type="button"
+												onclick={() => moveTask(index, -1)}
+												disabled={index === 0}
+												aria-label="Move {task.taskCode} up">▲</button
+											>
+											<button
+												class="btn-move"
+												type="button"
+												onclick={() => moveTask(index, 1)}
+												disabled={index === activeTasks.length - 1}
+												aria-label="Move {task.taskCode} down">▼</button
+											>
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</section>
+
+				<section class="panel detail-panel" aria-label="ICT task details">
+					{#if creating || editing}
+						<form class="editor" onsubmit={saveTask}>
+							<h3 class="panel-title">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
+
+							<div class="form-grid">
+								<div class="form-field">
+									<label class="form-label" for="ict-task-code">Task code</label>
+									<input class="input" id="ict-task-code" type="text" bind:value={formTaskCode} required />
+								</div>
+
+								<div class="form-field">
+									<label class="form-label" for="ict-task-title">Title</label>
+									<input class="input" id="ict-task-title" type="text" bind:value={formTitle} required />
+								</div>
+
+								<div class="form-field full">
+									<label class="form-label" for="ict-task-description">Description</label>
+									<textarea
+										class="input"
+										id="ict-task-description"
+										rows="3"
+										bind:value={formDescription}
+										placeholder="Optional task context"
+									></textarea>
+								</div>
+
+								<div class="form-field full">
+									<label class="form-label" for="ict-task-category">Category</label>
+									<input
+										class="input"
+										id="ict-task-category"
+										type="text"
+										bind:value={formCategory}
+										placeholder="Optional local task category"
+									/>
+									<p class="field-hint">Free text for your unit terminology, such as Casualty Care or Crew Drills.</p>
+								</div>
+
+								<div class="form-field full">
+									<label class="form-label" for="ict-task-mos">MOS applicability</label>
+									<input
+										class="input"
+										id="ict-task-mos"
+										type="text"
+										bind:value={formMos}
+										placeholder="68W, 18D. Leave blank for all MOSs."
+									/>
+									<p class="field-hint">Leave blank for all MOSs.</p>
+								</div>
+
+								<div class="form-field">
+									<label class="form-label" for="ict-task-expiration">Expiration override</label>
+									<input
+										class="input"
+										id="ict-task-expiration"
+										type="number"
+										min="1"
+										value={formExpirationMonths}
+										oninput={handleExpirationInput}
+										placeholder="Org default"
+									/>
+								</div>
+
+								<div class="form-field">
+									<label class="form-label" for="ict-task-sort">Sort order</label>
+									<input
+										class="input"
+										id="ict-task-sort"
+										type="number"
+										min="0"
+										value={formSortOrder}
+										oninput={handleSortOrderInput}
+									/>
+								</div>
+							</div>
+
+							<div class="editor-actions">
+								<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
+								<button
+									class="btn btn-primary btn-sm"
+									type="submit"
+									disabled={!formTaskCode.trim() || !formTitle.trim() || saving}
+								>
+									{#if saving}<Spinner size={12} />{/if}
+									{creating ? 'Create Task' : 'Save Changes'}
+								</button>
+							</div>
+						</form>
+					{:else if selectedTask}
+						<div class="detail-view">
+							<div class="detail-header">
+								<div>
+									<span class="task-code">{selectedTask.taskCode}</span>
+									<h3 class="detail-title">{selectedTask.title}</h3>
+								</div>
+								{#if canManage && !selectedTask.archivedAt}
+									<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
+								{/if}
+							</div>
+
+							{#if selectedTask.description}
+								<p class="detail-description">{selectedTask.description}</p>
+							{/if}
+
+							<dl class="detail-fields">
+								<div>
+									<dt>Category</dt>
+									<dd>{selectedTask.category ?? 'Not set'}</dd>
+								</div>
+								<div>
+									<dt>MOS applicability</dt>
+									<dd>{formatMosApplicability(selectedTask.mos)}</dd>
+								</div>
+								<div>
+									<dt>Expiration override</dt>
+									<dd>{selectedTask.expirationMonths ? `${selectedTask.expirationMonths} months` : 'Org default'}</dd>
+								</div>
+								<div>
+									<dt>Sort order</dt>
+									<dd>{selectedTask.sortOrder}</dd>
+								</div>
+								<div>
+									<dt>Completion history</dt>
+									<dd>{completionCount(selectedTask.id)} records</dd>
+								</div>
+								{#if selectedTask.archivedAt}
+									<div>
+										<dt>Archived</dt>
+										<dd>{formatArchivedAt(selectedTask.archivedAt)}</dd>
+									</div>
+								{/if}
+							</dl>
+
+							{#if canManage}
+								<div class="detail-actions">
+									{#if selectedTask.archivedAt}
+										<button class="btn btn-sm" type="button" onclick={() => restoreTask(selectedTask.id)}>
+											Restore Task
+										</button>
+									{:else}
+										<button
+											class="btn btn-warning btn-sm"
+											type="button"
+											onclick={() => (confirmArchive = selectedTask)}
+										>
+											Archive Task
+										</button>
+									{/if}
 								</div>
 							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
-
-		<section class="panel detail-panel" aria-label="ICT task details">
-			{#if creating || editing}
-				<form class="editor" onsubmit={saveTask}>
-					<h3 class="panel-title">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
-
-					<div class="form-grid">
-						<div class="form-field">
-							<label class="form-label" for="ict-task-code">Task code</label>
-							<input class="input" id="ict-task-code" type="text" bind:value={formTaskCode} required />
 						</div>
-
-						<div class="form-field">
-							<label class="form-label" for="ict-task-title">Title</label>
-							<input class="input" id="ict-task-title" type="text" bind:value={formTitle} required />
-						</div>
-
-						<div class="form-field full">
-							<label class="form-label" for="ict-task-description">Description</label>
-							<textarea
-								class="input"
-								id="ict-task-description"
-								rows="3"
-								bind:value={formDescription}
-								placeholder="Optional task context"
-							></textarea>
-						</div>
-
-						<div class="form-field full">
-							<label class="form-label" for="ict-task-category">Category</label>
-							<input
-								class="input"
-								id="ict-task-category"
-								type="text"
-								bind:value={formCategory}
-								placeholder="Optional local task category"
-							/>
-							<p class="field-hint">Free text for your unit terminology, such as Casualty Care or Crew Drills.</p>
-						</div>
-
-						<div class="form-field full">
-							<label class="form-label" for="ict-task-mos">MOS applicability</label>
-							<input
-								class="input"
-								id="ict-task-mos"
-								type="text"
-								bind:value={formMos}
-								placeholder="68W, 18D. Leave blank for all MOSs."
-							/>
-							<p class="field-hint">Leave blank for all MOSs.</p>
-						</div>
-
-						<div class="form-field">
-							<label class="form-label" for="ict-task-expiration">Expiration override</label>
-							<input
-								class="input"
-								id="ict-task-expiration"
-								type="number"
-								min="1"
-								value={formExpirationMonths}
-								oninput={handleExpirationInput}
-								placeholder="Org default"
-							/>
-						</div>
-
-						<div class="form-field">
-							<label class="form-label" for="ict-task-sort">Sort order</label>
-							<input
-								class="input"
-								id="ict-task-sort"
-								type="number"
-								min="0"
-								value={formSortOrder}
-								oninput={handleSortOrderInput}
-							/>
-						</div>
-					</div>
-
-					<div class="editor-actions">
-						<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
-						<button
-							class="btn btn-primary btn-sm"
-							type="submit"
-							disabled={!formTaskCode.trim() || !formTitle.trim() || saving}
-						>
-							{#if saving}<Spinner size={12} />{/if}
-							{creating ? 'Create Task' : 'Save Changes'}
-						</button>
-					</div>
-				</form>
-			{:else if selectedTask}
-				<div class="detail-view">
-					<div class="detail-header">
-						<div>
-							<span class="task-code">{selectedTask.taskCode}</span>
-							<h3 class="detail-title">{selectedTask.title}</h3>
-						</div>
-						{#if canManage && !selectedTask.archivedAt}
-							<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
-						{/if}
-					</div>
-
-					{#if selectedTask.description}
-						<p class="detail-description">{selectedTask.description}</p>
-					{/if}
-
-					<dl class="detail-fields">
-						<div>
-							<dt>Category</dt>
-							<dd>{selectedTask.category ?? 'Not set'}</dd>
-						</div>
-						<div>
-							<dt>MOS applicability</dt>
-							<dd>{formatMosApplicability(selectedTask.mos)}</dd>
-						</div>
-						<div>
-							<dt>Expiration override</dt>
-							<dd>{selectedTask.expirationMonths ? `${selectedTask.expirationMonths} months` : 'Org default'}</dd>
-						</div>
-						<div>
-							<dt>Sort order</dt>
-							<dd>{selectedTask.sortOrder}</dd>
-						</div>
-						<div>
-							<dt>Completion history</dt>
-							<dd>{completionCount(selectedTask.id)} records</dd>
-						</div>
-						{#if selectedTask.archivedAt}
-							<div>
-								<dt>Archived</dt>
-								<dd>{formatArchivedAt(selectedTask.archivedAt)}</dd>
-							</div>
-						{/if}
-					</dl>
-
-					{#if canManage}
-						<div class="detail-actions">
-							{#if selectedTask.archivedAt}
-								<button class="btn btn-sm" type="button" onclick={() => restoreTask(selectedTask.id)}>
-									Restore Task
-								</button>
-							{:else}
-								<button class="btn btn-warning btn-sm" type="button" onclick={() => (confirmArchive = selectedTask)}>
-									Archive Task
-								</button>
-							{/if}
+					{:else}
+						<div class="panel-placeholder">
+							<p>Select an ICT task to view details.</p>
 						</div>
 					{/if}
-				</div>
-			{:else}
-				<div class="panel-placeholder">
-					<p>Select an ICT task to view details.</p>
-				</div>
-			{/if}
-		</section>
+				</section>
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -626,15 +606,52 @@
 		color: var(--text-secondary);
 	}
 
+	.library-page-shell {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		padding: var(--sp-4);
+	}
+
+	.library-toolbar-controls {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: var(--sp-2);
+		width: 100%;
+		min-width: 0;
+	}
+
+	.library-toolbar-controls :global(.toolbar-search) {
+		flex: 1 1 18rem;
+		width: auto;
+		min-width: 16rem;
+	}
+
+	.toolbar-search-select {
+		flex: 0 0 10rem;
+		width: 10rem;
+		min-width: 10rem;
+	}
+
+	.filter-result-meta {
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
 	.import-route-workspace {
-		padding: var(--sp-5);
+		padding: 0;
 	}
 
 	.library-layout {
 		display: grid;
 		grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
 		gap: var(--sp-5);
-		padding: var(--sp-5);
+		padding: 0;
 	}
 
 	.panel {
@@ -668,58 +685,6 @@
 		border-bottom: var(--border-thin);
 	}
 
-	.panel-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		justify-content: flex-end;
-	}
-
-	.status-toggle {
-		display: flex;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.status-toggle .btn.is-selected {
-		border-color: color-mix(in srgb, var(--amber) 35%, var(--border-default));
-		background: color-mix(in srgb, var(--amber-light) 70%, var(--surface-panel) 30%);
-		color: var(--text-primary);
-	}
-
-	.task-filters {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		align-items: stretch;
-	}
-
-	.filter-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.filter-field label {
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.task-search-input {
-		min-height: 32px;
-		padding: 6px 8px;
-		font-size: var(--text-sm);
-	}
-
-	.task-filters > .btn {
-		align-self: flex-start;
-	}
-
 	.panel-header-copy {
 		display: flex;
 		flex-direction: column;
@@ -745,7 +710,6 @@
 		font-size: var(--text-2xl);
 	}
 
-	.panel-meta,
 	.field-hint,
 	.detail-description,
 	.panel-placeholder p,
@@ -755,7 +719,6 @@
 		color: var(--text-secondary);
 	}
 
-	.panel-meta,
 	.field-hint {
 		font-size: var(--text-xs);
 	}
@@ -895,10 +858,23 @@
 	}
 
 	@media (max-width: 820px) {
-		.import-route-workspace,
 		.library-layout {
 			grid-template-columns: 1fr;
-			padding: var(--sp-4);
+		}
+
+		.library-toolbar-controls {
+			flex-wrap: wrap;
+		}
+
+		.library-toolbar-controls :global(.toolbar-search) {
+			flex-basis: 100%;
+			width: 100%;
+			min-width: 0;
+		}
+
+		.toolbar-search-select {
+			width: 100%;
+			min-width: 0;
 		}
 
 		.form-grid,

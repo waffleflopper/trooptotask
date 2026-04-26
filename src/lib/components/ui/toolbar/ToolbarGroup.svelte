@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SlidersHorizontal } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import type { ToolbarPanelMode, ToolbarStatefulControlMode } from './toolbar.types';
@@ -29,6 +29,8 @@
 
 	let open = $state(false);
 	let hostEl: HTMLElement | undefined = $state();
+	let triggerEl: HTMLButtonElement | undefined = $state();
+	let panelEl: HTMLElement | undefined = $state();
 	let measuredWidth = $state<number | null>(null);
 	const coordinator = getToolbarCoordinator();
 	const panelId = $derived(`group:${testId ?? label}`);
@@ -50,6 +52,14 @@
 		}
 	});
 
+	$effect(() => {
+		if (!panelOpen) return;
+
+		void tick().then(() => {
+			focusFirstPanelElement();
+		});
+	});
+
 	function togglePanel(): void {
 		if (panelOpen) {
 			closePanel();
@@ -60,17 +70,61 @@
 		}
 	}
 
-	function closePanel(): void {
+	function closePanel(restoreFocus = false): void {
 		if (coordinator) {
 			coordinator.closePanel(panelId);
 		} else {
 			open = false;
 		}
+		if (restoreFocus) {
+			triggerEl?.focus();
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key !== 'Escape') return;
-		closePanel();
+		closePanel(true);
+	}
+
+	function getFocusablePanelElements(): HTMLElement[] {
+		if (!panelEl) return [];
+		return Array.from(
+			panelEl.querySelectorAll<HTMLElement>(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		);
+	}
+
+	function focusFirstPanelElement(): void {
+		const [firstElement] = getFocusablePanelElements();
+		(firstElement ?? panelEl)?.focus();
+	}
+
+	function handlePanelKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			closePanel(true);
+			return;
+		}
+		if (event.key !== 'Tab') return;
+
+		const focusableElements = getFocusablePanelElements();
+		if (focusableElements.length === 0) {
+			event.preventDefault();
+			panelEl?.focus();
+			return;
+		}
+
+		const firstElement = focusableElements[0];
+		const lastElement = focusableElements[focusableElements.length - 1];
+		const activeElement = document.activeElement;
+
+		if (event.shiftKey && activeElement === firstElement) {
+			event.preventDefault();
+			lastElement.focus();
+		} else if (!event.shiftKey && activeElement === lastElement) {
+			event.preventDefault();
+			firstElement.focus();
+		}
 	}
 
 	function measure(): void {
@@ -120,6 +174,7 @@
 			aria-label={label}
 			aria-expanded={panelOpen}
 			data-active-count={activeCount}
+			bind:this={triggerEl}
 			onclick={togglePanel}
 			onkeydown={handleKeydown}
 		>
@@ -137,7 +192,8 @@
 				aria-label={`${label} panel`}
 				data-testid={panelTestId}
 				tabindex="-1"
-				onkeydown={handleKeydown}
+				bind:this={panelEl}
+				onkeydown={handlePanelKeydown}
 			>
 				{#if panel}
 					{@render panel()}

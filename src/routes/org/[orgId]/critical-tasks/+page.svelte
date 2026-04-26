@@ -153,7 +153,7 @@
 		const items: ToolbarActionConfig[] = [
 			{
 				id: 'export-csv',
-				label: 'Export',
+				label: 'Export CSV',
 				href: matrixExportHref,
 				icon: 'download',
 				priority: 'low',
@@ -164,7 +164,7 @@
 		if (canInputTask) {
 			items.push({
 				id: 'import-completions',
-				label: 'Import',
+				label: 'Import Completions',
 				onclick: handleCompletionImportOpen,
 				icon: 'upload',
 				priority: 'normal',
@@ -199,7 +199,7 @@
 		if (canInputTask) {
 			items.push({
 				id: 'record-training',
-				label: 'New Entry',
+				label: 'Record Training',
 				onclick: handleToolbarTaskInput,
 				icon: 'clipboard-check',
 				priority: 'critical',
@@ -286,7 +286,7 @@
 						</ToolbarGroup>
 						<ToolbarSearchItem
 							testId="critical-tasks-search"
-							ariaLabel="Search by name, rank, MOS..."
+							ariaLabel="Search by name, rank, or MOS"
 							placeholder="Search name, rank, MOS..."
 							width="wide"
 							bind:value={personnelSearch}

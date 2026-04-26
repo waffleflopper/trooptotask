@@ -148,4 +148,29 @@ describe('computeToolbarActionLayout', () => {
 		]);
 		expect(layout.warnings).toEqual(['Toolbar protected actions cannot fit within 72px: record requires 92px.']);
 	});
+
+	it('includes the overflow trigger when warning about protected action fit', () => {
+		const layout = computeToolbarActionLayout({
+			containerWidth: 100,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions: [
+				action({ id: 'export', priority: 'low', icon: 'download', fullWidth: 96, compactWidth: 40 }),
+				action({
+					id: 'record',
+					priority: 'critical',
+					icon: 'clipboard-check',
+					overflow: 'never',
+					fullWidth: 140,
+					compactWidth: 92
+				})
+			]
+		});
+
+		expect(layout.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['export', 'overflow'],
+			['record', 'compact']
+		]);
+		expect(layout.warnings).toEqual(['Toolbar protected actions cannot fit within 100px: record requires 92px.']);
+	});
 });

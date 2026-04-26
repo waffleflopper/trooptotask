@@ -1,10 +1,16 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
-	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+
+	import { tick } from 'svelte';
+	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarMultiSelectFilter,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -23,7 +29,7 @@
 		type ReportFilters
 	} from '$features/training/utils/reportCalculations';
 
-	let { data } = $props();
+	let { data, toolbarContainerWidth = undefined } = $props();
 
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
@@ -193,6 +199,10 @@
 	const hasActiveFilters = $derived(
 		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
 	);
+	const personnelFilterCount = $derived((filterMos ? 1 : 0) + (filterRole ? 1 : 0) + (filterRank ? 1 : 0));
+	const reportFilterCount = $derived(
+		(filterGroupId ? 1 : 0) + (filterStatus ? 1 : 0) + (filterTypeIds.length > 0 ? 1 : 0)
+	);
 	const detailPersonnelCount = $derived(activeReport?.detail.totalRows ?? filteredPersonnel.length);
 	const currentPage = $derived(activeReport?.detail.page ?? 1);
 	const totalPages = $derived(activeReport?.detail.totalPages ?? 1);
@@ -320,85 +330,131 @@
 		if (pct >= 60) return 'var(--amber)';
 		return 'var(--danger)';
 	}
+
+	const toolbarActions = $derived<ToolbarActionConfig[]>([
+		{
+			id: 'clear-filters',
+			label: 'Clear filters',
+			onclick: clearFilters,
+			disabled: !hasActiveFilters,
+			disabledReason: !hasActiveFilters ? 'No filters are active' : undefined,
+			priority: 'normal'
+		},
+		{
+			id: 'export-csv',
+			label: 'Export',
+			onclick: exportCSV,
+			disabled: pivotRows.length === 0,
+			disabledReason: pivotRows.length === 0 ? 'No report rows to export' : undefined,
+			icon: 'download',
+			priority: 'critical',
+			variant: 'primary'
+		}
+	]);
 </script>
 
 {#if allTypes.length === 0}
 	<EmptyState message="No training types configured. Create training types first." />
 {:else}
 	<div class="reports-page-shell">
-		<FloatingPageToolbar ariaLabel="Training report controls" collapse="wide" leadingMin="42rem">
+		<Toolbar
+			ariaLabel="Training report controls"
+			collapse="wide"
+			leadingMin="42rem"
+			containerWidth={toolbarContainerWidth}
+			compactLeadingWhenCrowded
+		>
 			{#snippet leading()}
-				<div class="report-filter-cluster" aria-label="Report filters">
-					<div class="filter-row">
-						<ToolbarSelect
-							ariaLabel="Filter by group"
-							options={groupFilterOptions}
-							value={filterGroupId}
-							onValueChange={(value) => {
-								filterGroupId = value;
-								void reloadFirstReportPage();
-							}}
-						/>
-						<ToolbarSelect
-							ariaLabel="Filter by rank"
-							options={rankFilterOptions}
-							value={filterRank}
-							onValueChange={(value) => {
-								filterRank = value;
-								void reloadFirstReportPage();
-							}}
-						/>
-						<ToolbarSelect
-							ariaLabel="Filter by MOS"
-							options={mosFilterOptions}
-							value={filterMos}
-							onValueChange={(value) => {
-								filterMos = value;
-								void reloadFirstReportPage();
-							}}
-						/>
-						<ToolbarSelect
-							ariaLabel="Filter by duty role"
-							options={roleFilterOptions}
-							value={filterRole}
-							width="wide"
-							onValueChange={(value) => {
-								filterRole = value;
-								void reloadFirstReportPage();
-							}}
-						/>
-						<ToolbarSelect
-							ariaLabel="Filter by status"
-							options={statusFilterOptions}
-							value={filterStatus}
-							onValueChange={(value) => {
-								filterStatus = value as TrainingStatus | '';
-								void reloadFirstReportPage();
-							}}
-						/>
-					</div>
-
-					{#if typeFilterOptions.length > 1}
-						<div class="type-filter-control">
-							<MultiTagSelect
-								options={typeFilterOptions}
-								value={filterTypeIds}
-								placeholder="All training types"
-								ariaLabel="Filter by training type"
-								onChange={setTypeFilters}
+				<div class="report-filter-row" aria-label="Report filters">
+					<ToolbarGroup
+						label="Personnel filters"
+						activeCount={personnelFilterCount}
+						mode="compact"
+						testId="training-personnel-filters"
+					>
+						{#snippet full()}
+							<ToolbarFilterSelect
+								ariaLabel="Filter by rank"
+								options={rankFilterOptions}
+								value={filterRank}
+								defaultValue=""
+								mode="full"
+								onValueChange={(value) => {
+									filterRank = value;
+									void reloadFirstReportPage();
+								}}
 							/>
-						</div>
-					{/if}
+							<ToolbarFilterSelect
+								ariaLabel="Filter by MOS"
+								options={mosFilterOptions}
+								value={filterMos}
+								defaultValue=""
+								mode="full"
+								onValueChange={(value) => {
+									filterMos = value;
+									void reloadFirstReportPage();
+								}}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Filter by duty role"
+								options={roleFilterOptions}
+								value={filterRole}
+								defaultValue=""
+								width="wide"
+								mode="full"
+								onValueChange={(value) => {
+									filterRole = value;
+									void reloadFirstReportPage();
+								}}
+							/>
+						{/snippet}
+					</ToolbarGroup>
+					<ToolbarGroup label="Report filters" activeCount={reportFilterCount} testId="training-report-filters">
+						{#snippet full()}
+							<ToolbarFilterSelect
+								ariaLabel="Filter by group"
+								options={groupFilterOptions}
+								value={filterGroupId}
+								defaultValue=""
+								mode="full"
+								onValueChange={(value) => {
+									filterGroupId = value;
+									void reloadFirstReportPage();
+								}}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Filter by status"
+								options={statusFilterOptions}
+								value={filterStatus}
+								defaultValue=""
+								mode="full"
+								onValueChange={(value) => {
+									filterStatus = value as TrainingStatus | '';
+									void reloadFirstReportPage();
+								}}
+							/>
+							{#if typeFilterOptions.length > 1}
+								<ToolbarMultiSelectFilter
+									options={typeFilterOptions}
+									value={filterTypeIds}
+									placeholder="All training types"
+									ariaLabel="Filter by training type"
+									label="Training types"
+									mode="full"
+									onChange={setTypeFilters}
+								/>
+							{/if}
+						{/snippet}
+					</ToolbarGroup>
 				</div>
 			{/snippet}
 
-			{#if hasActiveFilters}
-				<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
-			{/if}
-			<button class="btn btn-sm btn-primary" type="button" onclick={exportCSV} disabled={pivotRows.length === 0}>
-				Export CSV
-			</button>
-		</FloatingPageToolbar>
+			<ToolbarActions
+				actions={toolbarActions}
+				ariaLabel="Training report actions"
+				overflowAriaLabel="More training report actions"
+			/>
+		</Toolbar>
 
 		<div class="dashboard">
 			<div class="dashboard-row">
@@ -605,27 +661,17 @@
 		padding: var(--sp-3);
 	}
 
-	.report-filter-cluster {
+	.report-filter-row {
 		display: flex;
-		flex-direction: column;
+		align-items: center;
+		flex: 1 1 auto;
 		gap: var(--sp-2);
 		min-width: 0;
+		width: 100%;
 	}
 
-	.filter-row {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.type-filter-control {
-		width: min(34rem, 100%);
-	}
-
-	.type-filter-control :global(.mts-control) {
-		min-height: 34px;
-		background: var(--surface-panel);
+	.report-filter-row :global([data-testid='training-report-filters']:not(.toolbar-group--compact)) {
+		flex: 1 1 auto;
 	}
 
 	.dashboard {

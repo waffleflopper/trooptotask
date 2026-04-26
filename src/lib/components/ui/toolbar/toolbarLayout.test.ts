@@ -233,4 +233,29 @@ describe('computeToolbarActionLayout', () => {
 		]);
 		expect(layout.warnings).toEqual(['Toolbar protected actions cannot fit within 100px: record requires 92px.']);
 	});
+
+	it('overflows lower-priority text actions before compacting critical icon actions', () => {
+		const layout = computeToolbarActionLayout({
+			containerWidth: 144,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions: [
+				action({ id: 'clear-filters', priority: 'normal', fullWidth: 110, compactWidth: 110 }),
+				action({
+					id: 'export',
+					priority: 'critical',
+					icon: 'download',
+					variant: 'primary',
+					fullWidth: 96,
+					compactWidth: 40
+				})
+			]
+		});
+
+		expect(layout.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['clear-filters', 'overflow'],
+			['export', 'full']
+		]);
+		expect(layout.overflowActions.map((item) => item.id)).toEqual(['clear-filters']);
+	});
 });

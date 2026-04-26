@@ -44,6 +44,12 @@ function sortByYieldOrder(states: ToolbarActionState[]): ToolbarActionState[] {
 	});
 }
 
+function hasLowerPriority(action: MeasuredToolbarAction, candidate: MeasuredToolbarAction): boolean {
+	return (
+		toolbarPriorityRank[getToolbarActionPriority(candidate)] < toolbarPriorityRank[getToolbarActionPriority(action)]
+	);
+}
+
 function buildProtectedWarning(
 	containerWidth: number,
 	states: ToolbarActionState[],
@@ -102,6 +108,19 @@ export function computeToolbarActionLayout({
 	for (const state of sortByYieldOrder(states).filter(
 		(item) => item.mode !== 'overflow' && actionCanCompact(item.action)
 	)) {
+		if (getVisibleWidth(states, overflowWidth, gapWidth) <= containerWidth) break;
+
+		for (const lowerPriorityState of sortByYieldOrder(states).filter(
+			(item) =>
+				item.mode !== 'overflow' &&
+				getToolbarActionOverflowPolicy(item.action) === 'auto' &&
+				!actionCanCompact(item.action) &&
+				hasLowerPriority(state.action, item.action)
+		)) {
+			if (getVisibleWidth(states, overflowWidth, gapWidth) <= containerWidth) break;
+			lowerPriorityState.mode = 'overflow';
+		}
+
 		if (getVisibleWidth(states, overflowWidth, gapWidth) <= containerWidth) break;
 		state.mode = 'compact';
 	}

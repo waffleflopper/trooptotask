@@ -204,8 +204,41 @@ describe('TrainingReportsPage', () => {
 		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
 		expect(screen.getByLabelText('Filter by status')).toBeTruthy();
 		expect(screen.getByRole('combobox', { name: 'Filter by training type' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains('btn-primary')).toBe(true);
+		expect(screen.getByRole('button', { name: 'Export' }).classList.contains('btn-primary')).toBe(true);
 		expect(screen.queryByText('2 personnel')).toBeNull();
+	});
+
+	it('collapses report filters into a shared filter group when the toolbar is narrow', async () => {
+		trainingTypesStore.load([trainingType, secondaryTrainingType], 'org-1');
+
+		render(TrainingReportsPage, {
+			props: {
+				toolbarContainerWidth: 520,
+				data: {
+					training: {
+						data: {
+							personnelTrainings: Promise.resolve([])
+						}
+					},
+					personnel,
+					groups
+				}
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Personnel filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Report filters' })).toBeTruthy();
+		expect(screen.queryByLabelText('Filter by group')).toBeNull();
+		expect(screen.queryByLabelText('Filter by status')).toBeNull();
+		expect(screen.queryByRole('combobox', { name: 'Filter by training type' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Report filters' }));
+		const panel = screen.getByTestId('training-report-filters-panel');
+
+		expect(within(panel).getByLabelText('Filter by group')).toBeTruthy();
+		expect(within(panel).getByLabelText('Filter by status')).toBeTruthy();
+		expect(within(panel).getByRole('combobox', { name: 'Filter by training type' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
 	});
 
 	it('filters training types with the tag-style multi-select', async () => {
@@ -701,7 +734,7 @@ describe('TrainingReportsPage', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
 		const appendedLinks = appendSpy.mock.calls
 			.map(([node]) => node)

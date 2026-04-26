@@ -55,13 +55,19 @@
 	const layout = $derived(
 		computeToolbarActionLayout({
 			containerWidth:
-				containerWidth ?? coordinator?.availableActionWidth ?? measuredContainerWidth ?? Number.MAX_SAFE_INTEGER,
+				containerWidth ??
+				(coordinator?.availableActionWidth !== null && coordinator?.availableActionWidth !== undefined
+					? coordinator.availableActionWidth
+					: (measuredContainerWidth ?? Number.MAX_SAFE_INTEGER)),
 			actions: resolvedActions,
 			overflowWidth: measuredOverflowWidth,
 			gapWidth: 8
 		})
 	);
 	const visibleStates = $derived(layout.states.filter(isVisibleState));
+	const requiredActionsWidth = $derived(
+		resolvedActions.reduce((total, action) => total + action.fullWidth, 0) + Math.max(0, resolvedActions.length - 1) * 8
+	);
 	const overflowItems = $derived(
 		layout.overflowActions.flatMap<OverflowItem>((action) => {
 			if (action.menuItems?.length) {
@@ -174,7 +180,14 @@
 	});
 </script>
 
-<div class="toolbar-actions" role="group" aria-label={ariaLabel} bind:this={hostEl}>
+<div
+	class="toolbar-actions"
+	role="group"
+	aria-label={ariaLabel}
+	data-toolbar-actions
+	data-toolbar-actions-required-width={requiredActionsWidth}
+	bind:this={hostEl}
+>
 	{#each visibleStates as state (state.action.id)}
 		<ToolbarAction action={state.action} mode={state.mode} />
 	{/each}

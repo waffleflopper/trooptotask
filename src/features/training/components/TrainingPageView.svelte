@@ -1,4 +1,6 @@
 <script lang="ts">
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+
 	import { goto } from '$app/navigation';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -6,10 +8,15 @@
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarMetaItem,
+		ToolbarViewToggle,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -51,8 +58,65 @@
 	]);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'By Group' }
+		{ value: 'by-group', label: 'Group' }
 	];
+	const activeFilterCount = $derived((ctx.selectedViewId ? 1 : 0) + (ctx.selectedGroupId ? 1 : 0));
+	const toolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
+		const actions: ToolbarActionConfig[] = [];
+
+		if (ctx.canManageConfig) {
+			actions.push(
+				{
+					id: 'bulk-import',
+					label: 'Import',
+					onclick: () => modals.open('bulk-import'),
+					icon: 'upload',
+					disabled: ctx.readOnly,
+					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
+					priority: 'normal'
+				},
+				{
+					id: 'manage-views',
+					label: 'Manage Views',
+					onclick: () => (showViewEditor = true),
+					icon: 'settings',
+					disabled: ctx.readOnly,
+					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
+					priority: 'normal'
+				}
+			);
+		}
+
+		actions.push(
+			{
+				id: 'sign-in-rosters',
+				label: 'Sign-In Rosters',
+				onclick: () => modals.open('sign-in-rosters'),
+				icon: 'clipboard-list',
+				priority: 'normal'
+			},
+			{
+				id: 'reports',
+				label: 'Reports',
+				href: `/org/${ctx.orgId}/training/reports`,
+				icon: 'chart',
+				priority: 'normal'
+			}
+		);
+
+		if (ctx.canManageConfig) {
+			actions.push({
+				id: 'manage-types',
+				label: 'Manage Types',
+				href: `/org/${ctx.orgId}/training/types`,
+				icon: 'book-open',
+				priority: 'critical',
+				variant: 'primary'
+			});
+		}
+
+		return actions;
+	});
 </script>
 
 <div class="page">
@@ -63,46 +127,47 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			<FloatingPageToolbar ariaLabel="Training controls" collapse="medium" leadingMin="34rem">
+			<Toolbar ariaLabel="Training controls" collapse="medium" leadingMin="34rem">
 				{#snippet leading()}
-					<div class="training-controls" aria-label="Training filters">
-						<ToolbarSelect
-							ariaLabel="Training view filter"
-							options={trainingViewOptions}
-							value={ctx.selectedViewId ?? ''}
-							width="wide"
-							onValueChange={(value) => ctx.setSelectedViewId(value || null)}
-						/>
-						<ToolbarSelect
-							ariaLabel="Training group filter"
-							options={groupFilterOptions}
-							value={ctx.selectedGroupId}
-							onValueChange={(value) => ctx.setSelectedGroupId(value)}
-						/>
-						<SegmentedControl
-							ariaLabel="Training matrix view mode"
-							options={matrixViewOptions}
-							value={ctx.viewMode}
-							onValueChange={(value) => ctx.setViewMode(value as 'alphabetical' | 'by-group')}
-						/>
-					</div>
+					<ToolbarGroup label="Training filters" activeCount={activeFilterCount} testId="training-filters">
+						{#snippet full()}
+							<ToolbarViewToggle
+								ariaLabel="Training matrix view mode"
+								options={matrixViewOptions}
+								value={ctx.viewMode}
+								mode="full"
+								onValueChange={(value) => ctx.setViewMode(value as 'alphabetical' | 'by-group')}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Training view filter"
+								options={trainingViewOptions}
+								value={ctx.selectedViewId ?? ''}
+								defaultValue=""
+								width="wide"
+								mode="full"
+								onValueChange={(value) => ctx.setSelectedViewId(value || null)}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Training group filter"
+								options={groupFilterOptions}
+								value={ctx.selectedGroupId}
+								defaultValue=""
+								mode="full"
+								onValueChange={(value) => ctx.setSelectedGroupId(value)}
+							/>
+						{/snippet}
+					</ToolbarGroup>
 				{/snippet}
 
-				<button class="btn btn-sm" type="button" onclick={() => modals.open('sign-in-rosters')}>Sign-In Rosters</button>
-				<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm">Reports</a>
-				{#if ctx.canManageConfig}
-					<button class="btn btn-sm" type="button" onclick={() => (showViewEditor = true)} disabled={ctx.readOnly}>
-						Manage Views
-					</button>
-					<button class="btn btn-sm" type="button" onclick={() => modals.open('bulk-import')} disabled={ctx.readOnly}>
-						Bulk Import
-					</button>
-					<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm">Manage Types</a>
-				{/if}
+				<ToolbarActions
+					actions={toolbarActions}
+					ariaLabel="Training actions"
+					overflowAriaLabel="More training actions"
+				/>
 				{#if ctx.readOnly}
-					<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+					<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
 				{/if}
-			</FloatingPageToolbar>
+			</Toolbar>
 
 			{#if loading}
 				<div class="skeleton-matrix-wrapper">
@@ -160,14 +225,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--surface-page);
-	}
-
-	.training-controls {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		min-width: 0;
 	}
 
 	.no-permission {
@@ -230,16 +287,6 @@
 
 		.page-content {
 			padding: var(--sp-2);
-		}
-
-		.training-controls {
-			width: 100%;
-		}
-
-		.training-controls :global(select),
-		.training-controls :global(.segmented-control) {
-			flex: 1 1 100%;
-			width: 100%;
 		}
 	}
 

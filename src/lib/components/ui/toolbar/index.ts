@@ -1,8 +1,10 @@
+export { default as Toolbar } from './Toolbar.svelte';
 export { default as ToolbarAction } from './ToolbarAction.svelte';
 export { default as ToolbarActions } from './ToolbarActions.svelte';
 export { default as ToolbarFilterSelect } from './ToolbarFilterSelect.svelte';
 export { default as ToolbarGroup } from './ToolbarGroup.svelte';
 export { default as ToolbarMetaItem } from './ToolbarMetaItem.svelte';
+export { default as ToolbarMultiSelectFilter } from './ToolbarMultiSelectFilter.svelte';
 export { default as ToolbarNavGroup } from './ToolbarNavGroup.svelte';
 export { default as ToolbarSearchItem } from './ToolbarSearchItem.svelte';
 export { default as ToolbarToggle } from './ToolbarToggle.svelte';

@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
@@ -103,7 +104,7 @@
 	<FloatingPageToolbar ariaLabel="Approval request filters" leadingMin="0" collapse="narrow">
 		{#snippet leading()}
 			<SegmentedControl ariaLabel="Approval status filter" options={filters} bind:value={statusFilter} />
-			<span class="toolbar-count">{filteredRequests.length} shown</span>
+			<ToolbarMetaItem label={`${filteredRequests.length} shown`} />
 		{/snippet}
 	</FloatingPageToolbar>
 
@@ -197,12 +198,6 @@
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
-	}
-
-	.toolbar-count {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		white-space: nowrap;
 	}
 
 	.requester-cell {

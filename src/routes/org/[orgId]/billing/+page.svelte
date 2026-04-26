@@ -2,8 +2,7 @@
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
-	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
+	import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
 
 	let { data } = $props();
@@ -42,20 +41,23 @@
 	const billingToolbarActions = $derived.by(() => {
 		if (!data.canManageSubscription) return [];
 
-		const actions: ProgressiveToolbarAction[] = [
+		const actions: ToolbarActionConfig[] = [
 			{
 				id: 'cancel-subscription',
 				label: cancelLoading ? 'Canceling...' : 'Cancel Subscription',
 				onclick: handleCancelSubscription,
 				disabled: cancelLoading,
-				className: 'btn btn-sm btn-danger'
+				priority: 'low',
+				variant: 'danger'
 			},
 			{
 				id: 'manage-subscription',
 				label: portalLoading ? 'Opening...' : 'Manage Subscription',
 				onclick: handleManageSubscription,
 				disabled: portalLoading,
-				className: 'btn btn-sm btn-primary'
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
 			}
 		];
 
@@ -201,8 +203,9 @@
 	<main class="page-content">
 		{#if billingToolbarActions.length > 0}
 			<FloatingPageToolbar ariaLabel="Billing controls" leadingMin="0" collapse="narrow">
-				<ProgressiveToolbarActions
-					items={billingToolbarActions}
+				<ToolbarActions
+					actions={billingToolbarActions}
+					ariaLabel="Billing actions"
 					overflowAriaLabel="More billing actions"
 					overflowIconOnly
 				/>

@@ -4,8 +4,7 @@
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
-	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
+	import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import { isBillingEnabled } from '$lib/config/billing';
 
 	let { data, form } = $props();
@@ -21,13 +20,14 @@
 	const normalizedOrgName = $derived(normalizeOrganizationName(data.orgName ?? ''));
 	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
 	const settingsToolbarActions = $derived.by(() => {
-		const actions: ProgressiveToolbarAction[] = [
-			{ id: 'sign-out', label: 'Sign Out', href: '/auth/logout', className: 'btn btn-sm btn-secondary' },
+		const actions: ToolbarActionConfig[] = [
+			{ id: 'sign-out', label: 'Sign Out', href: '/auth/logout', priority: 'low', variant: 'secondary' },
 			{
 				id: 'switch-organization',
 				label: 'Switch Organization',
 				href: '/dashboard?show=all',
-				className: 'btn btn-sm btn-secondary'
+				priority: 'normal',
+				variant: 'secondary'
 			}
 		];
 
@@ -36,7 +36,9 @@
 				id: 'manage-billing',
 				label: 'Manage Billing',
 				href: `/org/${data.orgId}/billing`,
-				className: 'btn btn-sm btn-primary'
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
 			});
 		}
 
@@ -138,8 +140,9 @@
 <div class="page">
 	<main class="page-content">
 		<FloatingPageToolbar ariaLabel="Organization settings controls" leadingMin="0" collapse="medium">
-			<ProgressiveToolbarActions
-				items={settingsToolbarActions}
+			<ToolbarActions
+				actions={settingsToolbarActions}
+				ariaLabel="Organization settings actions"
 				overflowAriaLabel="More organization settings actions"
 				overflowIconOnly
 			/>

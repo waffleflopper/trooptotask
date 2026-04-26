@@ -297,6 +297,13 @@ describe('critical tasks page', () => {
 				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones'
 			);
 		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Gaps' }));
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones&gapsOnly=true'
+			);
+		});
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {

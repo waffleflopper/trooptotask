@@ -109,48 +109,163 @@ Toolbar guidance:
 
 ---
 
-## `FloatingPageToolbar.svelte`
+## Floating Page Toolbar Family
 
-Compact command surface for primary app routes after the app shell breadcrumb/title has already identified the page. It renders as an aria-labelled toolbar; use it inside the route content area for filters, view toggles, stats, and page actions.
+Use the floating toolbar family for dense authenticated route workspaces after the app shell has already identified the page through breadcrumbs. The toolbar should stay a single resting row, compact controls before it overflows commands, and keep stateful controls out of command overflow.
+
+Import the shell from `$lib/components/FloatingPageToolbar.svelte`. Import toolbar items from `$lib/components/ui/toolbar`.
 
 ```svelte
-<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="24rem" collapse="medium">
+<script lang="ts">
+    import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+    import {
+        ToolbarActions,
+        ToolbarFilterSelect,
+        ToolbarGroup,
+        ToolbarSearchItem,
+        ToolbarToggle,
+        ToolbarViewToggle
+    } from '$lib/components/ui/toolbar';
+    import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
+
+    const actions: ToolbarActionConfig[] = [
+        { id: 'export', label: 'Export CSV', href: exportHref, icon: 'download', priority: 'low' },
+        {
+            id: 'record',
+            label: 'Record Training',
+            onclick: openRecordTraining,
+            icon: 'clipboard-check',
+            priority: 'critical',
+            variant: 'primary',
+            overflow: 'never',
+            disabled: !canRecord,
+            disabledReason: 'Add personnel and active tasks first.'
+        }
+    ];
+</script>
+
+<FloatingPageToolbar ariaLabel="Critical Tasks controls" leadingMin="0" collapse="narrow">
     {#snippet leading()}
-        <RosterFilters />
+        <ToolbarGroup label="Critical Tasks filters" activeCount={activeFilterCount}>
+            {#snippet full()}
+                <ToolbarViewToggle ariaLabel="Critical Tasks matrix view mode" options={viewOptions} bind:value={viewMode} />
+                <ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
+                <ToolbarFilterSelect ariaLabel="Critical Tasks group filter" options={groupOptions} bind:value={groupId} width="wide" />
+            {/snippet}
+        </ToolbarGroup>
+        <ToolbarSearchItem ariaLabel="Search by name, rank, or MOS" width="wide" bind:value={personnelSearch} />
     {/snippet}
 
-    <ProgressiveToolbarActions
-        items={toolbarActionItems}
-        overflowAriaLabel="More personnel actions"
-    />
+    <ToolbarActions actions={actions} ariaLabel="Critical Tasks actions" overflowAriaLabel="More Critical Tasks actions" />
 </FloatingPageToolbar>
 ```
 
-Props: `ariaLabel: string`, `leadingMin?: string` (default `'18rem'`), `collapse?: 'wide' | 'medium' | 'narrow'` (default `'wide'`), `leading?: Snippet`, `children?: Snippet` (right-side actions), `overflow?: Snippet` (shown at the collapse breakpoint when actions should move into a menu)
+### Public Components
 
-Toolbar guidance:
+- `FloatingPageToolbar`: shared shell and compact-panel coordinator. Props: `ariaLabel: string`, `leadingMin?: string`, `collapse?: 'wide' | 'medium' | 'narrow'`, `containerWidth?: number`, `leading?: Snippet`, `children?: Snippet`, `overflow?: Snippet`.
+- `ToolbarActions`: measured action group that renders `ToolbarAction` items and generated command overflow. Props: `actions: ToolbarActionConfig[]`, `ariaLabel: string`, `overflowAriaLabel: string`, `overflowLabel?: string`, `overflowIconOnly?: boolean`, `containerWidth?: number`, `actionMeasurements?: Record<string, ToolbarActionMeasurement>`.
+- `ToolbarAction`: low-level action renderer for `ToolbarActions`. Prefer `ToolbarActions` at route level.
+- `ToolbarGroup`: first-class group boundary for related stateful controls. Props: `label: string`, `activeCount?: number`, `compactStrategy?: 'items-first' | 'group-trigger' | 'never'`, `mode?: 'auto' | 'full' | 'compact'`, `compactBreakpoint?: number`, `panelMode?: 'inline'`, `testId?: string`, `full?: Snippet`, `panel?: Snippet`.
+- `ToolbarSearchItem`: search input that renders full width when possible and compacts to a viewport-safe trigger/panel when constrained.
+- `ToolbarFilterSelect`: select-style filter primitive for stateful filters.
+- `ToolbarViewToggle`: segmented view-mode control with compact trigger/panel behavior.
+- `ToolbarToggle`: icon toggle for boolean toolbar state such as "Show gaps only".
+- `ToolbarOverflowMenu`: still used by `ToolbarActions` for generated command overflow.
 
-- Use this for the floating page toolbar pattern on Calendar, Personnel, Evals, Onboarding, and similar dense route pages.
-- Put filters, toggles, small stat ledgers, or navigation affordances in `leading`.
-- Put page actions in the default children slot. When an action set can run out of room, prefer `ProgressiveToolbarActions` so lower-priority actions collapse into `ToolbarOverflowMenu` one by one before the toolbar wraps.
-- Choose `collapse="wide"` for complex toolbars, `medium` for roster-style toolbars, and `narrow` when the toolbar only needs to stack on mobile.
+### Policies
 
-Authenticated route anatomy:
+Toolbar actions use explicit layout policy fields:
+
+```ts
+type ToolbarActionPriority = 'low' | 'normal' | 'high' | 'critical';
+type ToolbarActionDisplayMode = 'auto' | 'full' | 'compact';
+type ToolbarActionOverflowPolicy = 'auto' | 'never';
+type ToolbarActionVariant = 'default' | 'primary' | 'secondary' | 'danger';
+type ToolbarActionIcon = 'book-open' | 'chart' | 'clipboard-check' | 'download' | 'upload';
+```
+
+Defaults are `priority: 'normal'`, `displayMode: 'auto'`, `overflow: 'auto'`, and `variant: 'default'`.
+
+- `priority` controls yield order. Lower-priority actions compact and overflow before higher-priority actions.
+- `displayMode="auto"` renders full when space allows and compact when needed, if the action has an icon. `displayMode="full"` skips compact rendering. `displayMode="compact"` prefers compact rendering.
+- `overflow="auto"` allows command overflow. `overflow="never"` keeps the action visible and emits a development warning if the protected action cannot fit.
+- `variant` is visual only. Do not use `variant="primary"` to imply layout priority.
+- Overflow menu entries preserve author order, even when yield order is determined by priority.
+
+Group policies:
+
+- `compactStrategy="items-first"` lets controls compact before the whole group becomes one trigger.
+- `compactStrategy="group-trigger"` jumps directly to the group trigger under constraint.
+- `compactStrategy="never"` keeps the group full-size and should be reserved for small, protected controls.
+- Current panel mode is `inline`. True sheet behavior is deferred.
+
+### Action Guidance
+
+`ToolbarActionConfig` supports link and button actions:
+
+```ts
+{
+    id: string;
+    label: string;
+    href?: string;
+    onclick?: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
+    icon?: ToolbarActionIcon;
+    priority?: ToolbarActionPriority;
+    displayMode?: ToolbarActionDisplayMode;
+    overflow?: ToolbarActionOverflowPolicy;
+    variant?: ToolbarActionVariant;
+}
+```
+
+- Provide either `href` or `onclick`, not both.
+- Use `disabledReason` whenever a disabled action depends on page state. The reason is preserved for compact and overflow render paths.
+- Use `overflow="never"` only for the main workflow action that must remain reachable, such as Critical Tasks `Record Training`.
+- Use the built-in toolbar icon names instead of route-local SVGs. The family owns lucide sizing, `aria-hidden`, labels, and compact rendering.
+
+### Stateful Controls
+
+Use stateful primitives for page state, not command overflow:
+
+- `ToolbarSearchItem`: controlled search text. The compact trigger is active when the value is non-empty and opens a viewport-safe search panel.
+- `ToolbarFilterSelect`: single-select filter. The compact trigger is active when value differs from `defaultValue`.
+- `ToolbarViewToggle`: small segmented view switch like `A-Z` / `By Group`.
+- `ToolbarToggle`: boolean state. Use for on/off filters that are not semantically dropdowns.
+- `ToolbarGroup`: related stateful controls, active count, group trigger, and panel.
+
+Search, filter, toggle, and view state belongs to the page. Compact panels render against the same controlled state instead of moving live DOM instances between containers.
+
+### Accessibility
+
+- Every toolbar shell must have a concrete `ariaLabel`, such as `Critical Tasks controls`.
+- Icon-only actions and triggers must keep an accessible name through `aria-label` and a native `title` or visible text.
+- Compact search/filter/group/view triggers must expose `aria-expanded`.
+- Boolean toggles must expose `aria-pressed`.
+- Disabled actions must preserve `disabled` or `aria-disabled` and surface `disabledReason`.
+- Escape closes compact panels without clearing search, filter, toggle, or view state.
+- Only one compact panel should be open per toolbar at a time; opening search closes filters, opening filters closes search, and opening command overflow closes compact panels.
+
+### Authenticated Route Anatomy
 
 - The app shell owns the route label through breadcrumbs, normally `Organization Name > Page`. Do not repeat the same page name as a large in-body route title.
-- The route content should start with `FloatingPageToolbar` when it has filters, modes, page navigation, or page actions. Static explanatory text belongs in empty states, notices, or task-specific panels instead.
-- Avoid decorative stat boxes that simply repeat visible table/list counts. Keep compact stats only when they drive action, like overdue/60d/30d on Evals.
-- Keep primary workflow controls visible when there is room: common filters, search, view modes, and the main create/manage action. Use overflow for secondary, destructive, configuration, or lower-frequency actions.
-- Icon-only toolbar actions are allowed only when the icon is familiar for the action and the control has an accessible label plus hover/focus title or tooltip. Prefer text labels for domain-specific actions.
+- Start dense workspace content with `FloatingPageToolbar` when the page has filters, modes, page navigation, or page actions.
+- Keep primary workflow controls visible when there is room: common filters, search, view modes, and the main create/manage action.
+- Use command overflow for secondary, lower-frequency, or configuration actions. Do not put stateful filters/search/view controls into command overflow.
+- Avoid decorative stat boxes that repeat visible table/list counts. Keep compact stats only when they drive action.
 
-Shared toolbar primitives:
+### Migration Notes
 
-- Use `ui/ToolbarSearch.svelte` for toolbar search inputs. Props: `ariaLabel: string`, `value?: string`, `placeholder?: string`, `testId?: string`, `width?: 'default' | 'wide' | 'full'`, `onValueChange?: (value: string) => void`.
-- Use `ui/ToolbarSelect.svelte` for compact toolbar selects. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean }[]`, `value?: string`, `width?: 'default' | 'wide'`, `onValueChange?: (value: string) => void`.
-- Use `ui/SegmentedControl.svelte` for binary or small mode switches like A-Z/By Group or Grouped/Table. Props: `ariaLabel: string`, `options: { value: string; label: string; disabled?: boolean; title?: string }[]`, `value?: string`, `onValueChange?: (value: string) => void`.
-- Use `ui/ProgressiveToolbarActions.svelte` for action sets that should stay on one row as long as possible. Pass items from lowest priority to highest priority; lower-priority leading items move into overflow first while trailing items remain visible longest. Props: `items: { id: string; label: string; href?: string; onclick?: () => void; disabled?: boolean; className?: string }[]`, `overflowAriaLabel: string`, `overflowLabel?: string`, `overflowIconOnly?: boolean`.
-- Use `ui/ToolbarOverflowMenu.svelte` when a toolbar needs a standard More button around `OverflowMenu`, or `iconOnly` for compact three-dot overflow when horizontal space is tight. Props: `items: OverflowItem[]`, `ariaLabel: string`, `label?: string`, `iconOnly?: boolean`, `align?: 'left' | 'right'`, `side?: 'bottom' | 'top'`.
-- Use `ui/ToolbarIconButton.svelte` for icon-only controls. Props: `label: string`, `title?: string`, `href?: string`, `disabled?: boolean`, `onclick?: () => void`, `children?: Snippet`. The visible child should be an icon; the label is required for assistive technology.
+The new toolbar family is the target API for dense authenticated routes. Existing primitives remain as migration bridges while issue #655 plans the full route-by-route changeover.
+
+- Prefer `ToolbarActions` over `ProgressiveToolbarActions` for new floating toolbar work.
+- Prefer `ToolbarSearchItem` over route-local `ToolbarSearch` composition when search must compact.
+- Prefer `ToolbarFilterSelect`, `ToolbarViewToggle`, `ToolbarToggle`, and `ToolbarGroup` over hand-built leading control layouts.
+- Keep `ToolbarOverflowMenu` as the command overflow surface, normally through `ToolbarActions`.
+- Keep `ToolbarIconButton` only for simple standalone icon buttons that are not part of the floating toolbar family.
+- If a route toolbar does not fit these primitives cleanly, design a reusable toolbar primitive or policy extension. Do not force route-local hacks into the toolbar.
+
+Known deferred work: true mobile sheet panel mode, a shared tooltip primitive, and the full authenticated-route migration plan in #655.
 
 ---
 

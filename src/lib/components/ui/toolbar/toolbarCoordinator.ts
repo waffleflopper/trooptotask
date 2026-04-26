@@ -8,6 +8,7 @@ export const toolbarCoordinatorKey = Symbol('toolbar-coordinator');
 export interface ToolbarCoordinator {
 	readonly openPanelId: string | null;
 	readonly compactPhase: ToolbarCompactPhase;
+	readonly availableActionWidth: number | null;
 	requestPanel(panelId: string, kind: ToolbarPanelKind): void;
 	closePanel(panelId: string): void;
 	closeAllPanels(): void;

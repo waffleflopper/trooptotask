@@ -36,7 +36,9 @@
 	let panelStyle = $state('');
 
 	const active = $derived(value.trim().length > 0);
-	const compact = $derived(mode === 'compact' || (mode === 'auto' && coordinator?.compactPhase !== 'full'));
+	const compact = $derived(
+		mode === 'compact' || (mode === 'auto' && coordinator ? coordinator.compactPhase !== 'full' : false)
+	);
 	const open = $derived(coordinator ? coordinator.openPanelId === panelId : localOpen);
 	const resolvedTriggerTitle = $derived(triggerTitle ?? ariaLabel);
 

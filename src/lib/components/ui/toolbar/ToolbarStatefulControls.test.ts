@@ -48,13 +48,4 @@ describe('stateful toolbar controls', () => {
 		expect(screen.getByRole('button', { name: 'Show gaps only' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
 	});
-
-	it('keeps never-compact groups rendered as full controls', () => {
-		render(ToolbarStatefulControlsTest, {
-			props: { mode: 'compact', compactStrategy: 'never' }
-		});
-
-		expect(screen.queryByRole('button', { name: 'Filters' })).toBeNull();
-		expect(screen.getByLabelText('Group filter')).toBeTruthy();
-	});
 });

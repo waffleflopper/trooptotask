@@ -17,7 +17,6 @@ export type {
 	ToolbarActionPriority,
 	ToolbarActionState,
 	ToolbarActionVariant,
-	ToolbarGroupCompactStrategy,
 	ToolbarPanelMode,
 	ToolbarSearchItemMode,
 	ToolbarSearchPanelMode,

@@ -3,12 +3,11 @@
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { getToolbarCoordinator } from './toolbarCoordinator';
-	import type { ToolbarGroupCompactStrategy, ToolbarPanelMode, ToolbarStatefulControlMode } from './toolbar.types';
+	import type { ToolbarPanelMode, ToolbarStatefulControlMode } from './toolbar.types';
 
 	interface Props {
 		label: string;
 		activeCount?: number;
-		compactStrategy?: ToolbarGroupCompactStrategy;
 		mode?: ToolbarStatefulControlMode;
 		compactBreakpoint?: number;
 		panelMode?: ToolbarPanelMode;
@@ -20,7 +19,6 @@
 	let {
 		label,
 		activeCount = 0,
-		compactStrategy = 'items-first',
 		mode = 'auto',
 		compactBreakpoint = 560,
 		panelMode = 'inline',
@@ -37,12 +35,11 @@
 
 	const active = $derived(activeCount > 0);
 	const compact = $derived(
-		(mode === 'compact' ||
+		mode === 'compact' ||
 			(mode === 'auto' &&
 				(coordinator
 					? coordinator.compactPhase === 'group'
-					: measuredWidth !== null && measuredWidth < compactBreakpoint))) &&
-			compactStrategy !== 'never'
+					: measuredWidth !== null && measuredWidth < compactBreakpoint))
 	);
 	const panelOpen = $derived(coordinator ? coordinator.openPanelId === panelId : open);
 	const panelTestId = $derived(testId ? `${testId}-panel` : undefined);
@@ -102,14 +99,7 @@
 </script>
 
 {#if !compact}
-	<div
-		class="toolbar-group"
-		role="group"
-		aria-label={label}
-		data-compact-strategy={compactStrategy}
-		data-testid={testId}
-		bind:this={hostEl}
-	>
+	<div class="toolbar-group" role="group" aria-label={label} data-testid={testId} bind:this={hostEl}>
 		{#if full}
 			{@render full()}
 		{/if}
@@ -119,7 +109,6 @@
 		class="toolbar-group toolbar-group--compact"
 		role="group"
 		aria-label={label}
-		data-compact-strategy={compactStrategy}
 		data-panel-mode={panelMode}
 		data-testid={testId}
 		bind:this={hostEl}

@@ -3,14 +3,13 @@
 	import ToolbarGroup from './ToolbarGroup.svelte';
 	import ToolbarToggle from './ToolbarToggle.svelte';
 	import ToolbarViewToggle from './ToolbarViewToggle.svelte';
-	import type { ToolbarGroupCompactStrategy, ToolbarStatefulControlMode } from './toolbar.types';
+	import type { ToolbarStatefulControlMode } from './toolbar.types';
 
 	interface Props {
 		mode?: ToolbarStatefulControlMode;
-		compactStrategy?: ToolbarGroupCompactStrategy;
 	}
 
-	let { mode = 'full', compactStrategy = 'items-first' }: Props = $props();
+	let { mode = 'full' }: Props = $props();
 
 	let groupId = $state('');
 	let gapsOnly = $state(false);
@@ -32,7 +31,7 @@
 
 <p data-testid="state">{groupId || 'all'}|{gapsOnly ? 'gaps' : 'all'}|{viewMode}|{activeCount}</p>
 
-<ToolbarGroup label="Filters" {activeCount} {compactStrategy} {mode} testId="filters-group">
+<ToolbarGroup label="Filters" {activeCount} {mode} testId="filters-group">
 	{#snippet full()}
 		<ToolbarFilterSelect
 			ariaLabel="Group filter"

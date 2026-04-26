@@ -71,7 +71,7 @@
 	]);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'By Group' }
+		{ value: 'by-group', label: 'Group' }
 	];
 	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0));
 	const filteredPersonnel = $derived(
@@ -153,7 +153,7 @@
 		const items: ToolbarActionConfig[] = [
 			{
 				id: 'export-csv',
-				label: 'Export CSV',
+				label: 'Export',
 				href: matrixExportHref,
 				icon: 'download',
 				priority: 'low',
@@ -164,7 +164,7 @@
 		if (canInputTask) {
 			items.push({
 				id: 'import-completions',
-				label: 'Import Completions',
+				label: 'Import',
 				onclick: handleCompletionImportOpen,
 				icon: 'upload',
 				priority: 'normal',
@@ -199,7 +199,7 @@
 		if (canInputTask) {
 			items.push({
 				id: 'record-training',
-				label: 'Record Training',
+				label: 'New Entry',
 				onclick: handleToolbarTaskInput,
 				icon: 'clipboard-check',
 				priority: 'critical',
@@ -244,68 +244,52 @@
 		</section>
 	{:else}
 		<main class="page-content">
+			{#snippet criticalTasksFilterControls()}
+				<ToolbarViewToggle
+					ariaLabel="Critical Tasks matrix view mode"
+					options={matrixViewOptions}
+					value={viewMode}
+					mode="full"
+					onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+				/>
+				<ToolbarToggle
+					label="Show gaps only"
+					title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+					bind:pressed={gapsOnly}
+				/>
+				<ToolbarFilterSelect
+					ariaLabel="Critical Tasks group filter"
+					options={groupFilterOptions}
+					defaultValue=""
+					value={selectedGroupId}
+					width="wide"
+					mode="full"
+					onValueChange={(value) => (selectedGroupId = value)}
+				/>
+			{/snippet}
+
 			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="narrow" leadingMin="0">
 				{#snippet leading()}
 					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
 						<ToolbarGroup
 							label="Critical Tasks filters"
 							activeCount={activeFilterCount}
-							compactStrategy="items-first"
 							testId="critical-tasks-filter-group"
 						>
 							{#snippet full()}
-								<ToolbarViewToggle
-									ariaLabel="Critical Tasks matrix view mode"
-									options={matrixViewOptions}
-									value={viewMode}
-									mode="full"
-									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-								/>
-								<ToolbarToggle
-									label="Show gaps only"
-									title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-									bind:pressed={gapsOnly}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Critical Tasks group filter"
-									options={groupFilterOptions}
-									defaultValue=""
-									value={selectedGroupId}
-									width="wide"
-									mode="full"
-									onValueChange={(value) => (selectedGroupId = value)}
-								/>
+								{@render criticalTasksFilterControls()}
 							{/snippet}
 
 							{#snippet panel()}
-								<ToolbarViewToggle
-									ariaLabel="Critical Tasks matrix view mode"
-									options={matrixViewOptions}
-									value={viewMode}
-									mode="full"
-									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-								/>
-								<ToolbarToggle
-									label="Show gaps only"
-									title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-									bind:pressed={gapsOnly}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Critical Tasks group filter"
-									options={groupFilterOptions}
-									defaultValue=""
-									value={selectedGroupId}
-									width="wide"
-									mode="full"
-									onValueChange={(value) => (selectedGroupId = value)}
-								/>
+								{@render criticalTasksFilterControls()}
 							{/snippet}
 						</ToolbarGroup>
 						<ToolbarSearchItem
 							testId="critical-tasks-search"
-							ariaLabel="Search by name, rank, or MOS"
-							placeholder="Search name, rank, or MOS..."
+							ariaLabel="Search by name, rank, MOS..."
+							placeholder="Search name, rank, MOS..."
 							width="wide"
+							
 							bind:value={personnelSearch}
 						/>
 					</div>

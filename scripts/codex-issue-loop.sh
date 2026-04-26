@@ -17,6 +17,7 @@ Options:
   --fast                 Enable Codex fast mode for each issue run.
   --model MODEL          Optional Codex model override.
   --profile PROFILE      Optional Codex config profile.
+  --skip-verify          Skip enforced verification before fallback commits.
   --dry-run              Print the generated prompts without running Codex.
   -h, --help             Show this help.
 
@@ -32,6 +33,7 @@ enable_fast=false
 model=""
 profile=""
 dry_run=false
+skip_verify=false
 issues=()
 
 while [[ $# -gt 0 ]]; do
@@ -59,6 +61,10 @@ while [[ $# -gt 0 ]]; do
 		--profile)
 			profile="${2:?--profile requires a value}"
 			shift 2
+			;;
+		--skip-verify)
+			skip_verify=true
+			shift
 			;;
 		--dry-run)
 			dry_run=true
@@ -127,6 +133,20 @@ commit_issue_changes() {
 	fi
 
 	git commit -m "Issue #$issue: $title"
+}
+
+run_required_verification() {
+	if [[ "$skip_verify" == true ]]; then
+		echo "==> Skipping enforced verification because --skip-verify was provided"
+		return
+	fi
+
+	echo "==> Running required verification before fallback commit"
+	npm run format
+	npm run lint
+	npm run governance:check
+	npm run check
+	npm run test
 }
 
 for issue in "${issues[@]}"; do
@@ -203,6 +223,7 @@ for issue in "${issues[@]}"; do
 	echo "==> Starting fresh Codex session for issue #$issue"
 	codex "${codex_args[@]}" - < "$prompt_file"
 
+	run_required_verification
 	commit_issue_changes "$issue" "$title"
 	require_clean_worktree
 	echo "==> Issue #$issue finished with a clean worktree"

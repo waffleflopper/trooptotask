@@ -69,11 +69,15 @@
 					href={item.disabled ? undefined : item.href}
 					role="menuitem"
 					aria-disabled={item.disabled || undefined}
+					title={item.disabledReason}
 					onclick={() => {
 						if (!item.disabled) onClose();
 					}}
 				>
 					<span class="menu-item-label">{item.label}</span>
+					{#if item.disabledReason}
+						<span class="menu-item-reason">{item.disabledReason}</span>
+					{/if}
 					{#if item.toggle && item.active}
 						<span class="checkmark">&#10003;</span>
 					{/if}
@@ -87,9 +91,13 @@
 					role="menuitem"
 					aria-disabled={item.disabled || undefined}
 					disabled={item.disabled}
+					title={item.disabledReason}
 					onclick={() => handleItemClick(item)}
 				>
 					<span class="menu-item-label">{item.label}</span>
+					{#if item.disabledReason}
+						<span class="menu-item-reason">{item.disabledReason}</span>
+					{/if}
 					{#if item.toggle && item.active}
 						<span class="checkmark">&#10003;</span>
 					{/if}
@@ -149,6 +157,12 @@
 		gap: 8px;
 	}
 
+	.menu-item:has(.menu-item-reason) {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 3px;
+	}
+
 	.menu-item:hover:not(.disabled) {
 		background: var(--surface-subtle);
 	}
@@ -170,6 +184,12 @@
 
 	.menu-item-label {
 		flex: 1;
+	}
+
+	.menu-item-reason {
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		line-height: 1.3;
 	}
 
 	.checkmark {

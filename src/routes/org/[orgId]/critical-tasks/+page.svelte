@@ -2,11 +2,15 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import {
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarSearchItem,
+		ToolbarToggle,
+		ToolbarViewToggle
+	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -19,7 +23,7 @@
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
+	import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import type { Personnel } from '$lib/types';
 
 	let { data } = $props();
@@ -67,12 +71,9 @@
 	]);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'By Group' }
+		{ value: 'by-group', label: 'Group' }
 	];
-	const matrixScopeOptions = [
-		{ value: 'all', label: 'All' },
-		{ value: 'gaps', label: 'Gaps' }
-	];
+	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0));
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
@@ -148,9 +149,16 @@
 		showCompletionImportModal = true;
 	}
 
-	const toolbarActionItems = $derived.by<ProgressiveToolbarAction[]>(() => {
-		const items: ProgressiveToolbarAction[] = [
-			{ id: 'export-csv', label: 'Export CSV', href: matrixExportHref, className: 'btn btn-sm' }
+	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
+		const items: ToolbarActionConfig[] = [
+			{
+				id: 'export-csv',
+				label: 'Export CSV',
+				href: matrixExportHref,
+				icon: 'download',
+				priority: 'low',
+				variant: 'default'
+			}
 		];
 
 		if (canInputTask) {
@@ -158,24 +166,47 @@
 				id: 'import-completions',
 				label: 'Import Completions',
 				onclick: handleCompletionImportOpen,
+				icon: 'upload',
+				priority: 'normal',
+				variant: 'default',
 				disabled: !canOpenCompletionImport,
-				className: 'btn btn-sm'
+				disabledReason: !canOpenCompletionImport
+					? 'Add personnel and active tasks before importing completions.'
+					: undefined
 			});
 		}
 
 		if (org.isPrivileged) {
-			items.push({ id: 'task-library', label: 'Task Library', href: taskLibraryHref, className: 'btn btn-sm' });
+			items.push({
+				id: 'task-library',
+				label: 'Task Library',
+				href: taskLibraryHref,
+				icon: 'book-open',
+				priority: 'normal',
+				variant: 'default'
+			});
 		}
 
-		items.push({ id: 'reports', label: 'Reports', href: reportsHref, className: 'btn btn-sm' });
+		items.push({
+			id: 'reports',
+			label: 'Reports',
+			href: reportsHref,
+			icon: 'chart',
+			priority: 'high',
+			variant: 'default'
+		});
 
 		if (canInputTask) {
 			items.push({
 				id: 'record-training',
 				label: 'Record Training',
 				onclick: handleToolbarTaskInput,
+				icon: 'clipboard-check',
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary',
 				disabled: !canOpenTaskInput,
-				className: 'btn btn-primary btn-sm'
+				disabledReason: !canOpenTaskInput ? 'Add personnel and active tasks before recording training.' : undefined
 			});
 		}
 
@@ -213,40 +244,59 @@
 		</section>
 	{:else}
 		<main class="page-content">
+			{#snippet criticalTasksFilterControls()}
+				<ToolbarViewToggle
+					ariaLabel="Critical Tasks matrix view mode"
+					options={matrixViewOptions}
+					value={viewMode}
+					mode="full"
+					onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+				/>
+				<ToolbarToggle
+					label="Show gaps only"
+					title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+					bind:pressed={gapsOnly}
+				/>
+				<ToolbarFilterSelect
+					ariaLabel="Critical Tasks group filter"
+					options={groupFilterOptions}
+					defaultValue=""
+					value={selectedGroupId}
+					width="wide"
+					mode="full"
+					onValueChange={(value) => (selectedGroupId = value)}
+				/>
+			{/snippet}
+
 			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="narrow" leadingMin="0">
 				{#snippet leading()}
 					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
-						<ToolbarSelect
-							ariaLabel="Critical Tasks group filter"
-							options={groupFilterOptions}
-							value={selectedGroupId}
-							width="wide"
-							onValueChange={(value) => (selectedGroupId = value)}
-						/>
-						<ToolbarSearch
+						<ToolbarGroup
+							label="Critical Tasks filters"
+							activeCount={activeFilterCount}
+							testId="critical-tasks-filter-group"
+						>
+							{#snippet full()}
+								{@render criticalTasksFilterControls()}
+							{/snippet}
+
+							{#snippet panel()}
+								{@render criticalTasksFilterControls()}
+							{/snippet}
+						</ToolbarGroup>
+						<ToolbarSearchItem
 							testId="critical-tasks-search"
 							ariaLabel="Search by name, rank, or MOS"
-							placeholder="Search name, rank, or MOS..."
+							placeholder="Search name, rank, MOS..."
 							width="wide"
 							bind:value={personnelSearch}
-						/>
-						<SegmentedControl
-							ariaLabel="Critical Tasks matrix view mode"
-							options={matrixViewOptions}
-							value={viewMode}
-							onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-						/>
-						<SegmentedControl
-							ariaLabel="Critical Tasks matrix scope"
-							options={matrixScopeOptions}
-							value={gapsOnly ? 'gaps' : 'all'}
-							onValueChange={(value) => (gapsOnly = value === 'gaps')}
 						/>
 					</div>
 				{/snippet}
 
-				<ProgressiveToolbarActions
-					items={toolbarActionItems}
+				<ToolbarActions
+					actions={toolbarActionItems}
+					ariaLabel="Critical Tasks actions"
 					overflowAriaLabel="More Critical Tasks actions"
 					overflowIconOnly
 				/>
@@ -376,36 +426,29 @@
 	}
 
 	.matrix-toolbar-controls {
-		display: grid;
-		grid-template-columns: minmax(10rem, 14rem) minmax(12rem, 24rem) max-content;
+		display: flex;
+		flex-wrap: nowrap;
 		align-items: center;
 		gap: var(--sp-2);
-		width: 100%;
+		width: auto;
 		min-width: 0;
 	}
 
 	.matrix-toolbar-controls :global(.toolbar-select) {
-		width: 100%;
-		max-width: none;
+		width: auto;
 	}
 
 	.matrix-toolbar-controls :global(.toolbar-search) {
-		flex: 1 1 auto;
-		width: 100%;
+		flex: 0 1 18rem;
+		width: min(18rem, 100%);
 		min-width: 0;
 	}
 
 	.matrix-toolbar-controls :global(.segmented-control) {
-		justify-self: start;
+		flex: 0 0 auto;
 	}
 
 	/* ── Responsive ─────────────────────────────────────────── */
-
-	@media (max-width: 900px) {
-		.matrix-toolbar-controls {
-			grid-template-columns: minmax(9.5rem, 12rem) minmax(10rem, 1fr) max-content;
-		}
-	}
 
 	@media (max-width: 720px) {
 		.page-content {

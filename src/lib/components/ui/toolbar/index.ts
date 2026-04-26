@@ -24,4 +24,5 @@ export type {
 	ToolbarSearchPanelMode,
 	ToolbarStatefulControlMode
 } from './toolbar.types';
+export type { ToolbarMetaTone } from './ToolbarMetaItem.svelte';
 export type { ToolbarNavItem } from './ToolbarNavGroup.svelte';

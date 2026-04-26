@@ -1,5 +1,5 @@
 <script lang="ts">
-	type ToolbarMetaTone = 'default' | 'warning' | 'success' | 'danger';
+	export type ToolbarMetaTone = 'default' | 'warning' | 'success' | 'danger';
 
 	interface Props {
 		label: string;

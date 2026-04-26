@@ -4,6 +4,7 @@ import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAda
 import { validateUUID } from '$lib/server/validation';
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { invalidateTierCache } from '$lib/server/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -216,6 +217,7 @@ export const actions: Actions = {
 				details: { giftTier, days },
 				severity: 'warning'
 			});
+			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	}),
@@ -255,6 +257,7 @@ export const actions: Actions = {
 				resourceId: orgId,
 				severity: 'warning'
 			});
+			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	}),
@@ -296,6 +299,7 @@ export const actions: Actions = {
 				details: { days },
 				severity: 'info'
 			});
+			invalidateTierCache(orgId);
 			return { success: true };
 		}
 	})

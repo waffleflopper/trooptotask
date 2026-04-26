@@ -296,6 +296,7 @@ export function crudHandlers(config: CrudConfig): {
 export interface RouteConfig<TInput = void, TOutput = unknown> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
 	mutation?: boolean;
+	allowReadOnlyMutation?: boolean;
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
@@ -344,7 +345,7 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	enforcePermission(ctx, config as RouteConfig<unknown, unknown>);
 
 	// 2. Read-only guard for mutations
-	if (config.mutation) {
+	if (config.mutation && !config.allowReadOnlyMutation) {
 		const isReadOnly = await ctx.readOnlyGuard.check();
 		if (isReadOnly) {
 			fail(403, 'Organization is in read-only mode');

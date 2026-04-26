@@ -65,4 +65,35 @@ describe('POST /billing/checkout', () => {
 			tier: 'free'
 		});
 	});
+
+	it('allows owners to create a checkout session when the organization is read-only', async () => {
+		const ctx = createTestContext({ readOnly: true });
+		ctx.rawStore.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				name: 'Alpha Company',
+				tier: 'free',
+				stripe_customer_id: null,
+				stripe_subscription_id: null,
+				subscription_status: null
+			}
+		]);
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		const response = await POST({
+			request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier: 'unit' })
+			}),
+			locals: {
+				user: { email: 'owner@example.com' }
+			},
+			params: { orgId: ctx.auth.orgId },
+			url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+		} as never);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ url: 'https://checkout.test/session' });
+	});
 });

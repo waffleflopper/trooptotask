@@ -1,0 +1,115 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { invalidateTierCacheMock, pauseSubscriptionMock, resumeSubscriptionMock } = vi.hoisted(() => ({
+	invalidateTierCacheMock: vi.fn(),
+	pauseSubscriptionMock: vi.fn(),
+	resumeSubscriptionMock: vi.fn()
+}));
+
+vi.mock('$lib/server/adapters/adminAdapter', () => ({
+	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
+		config.fn(event.__ctx, event),
+	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
+		config.fn(event.__ctx, event)
+}));
+
+vi.mock('$lib/server/subscription', () => ({
+	invalidateTierCache: invalidateTierCacheMock
+}));
+
+vi.mock('$lib/server/stripe', () => ({
+	pauseSubscription: pauseSubscriptionMock,
+	resumeSubscription: resumeSubscriptionMock
+}));
+
+import { actions } from './+page.server';
+
+function makeRequest(form: Record<string, string>): Request {
+	const body = new URLSearchParams(form);
+	return new Request('http://localhost/admin/organizations/org-1', {
+		method: 'POST',
+		body
+	});
+}
+
+function makeAdminClient(org: Record<string, unknown>) {
+	const updateEq = vi.fn().mockResolvedValue({ error: null });
+	const single = vi.fn().mockResolvedValue({ data: org, error: null });
+	const eqAfterSelect = vi.fn(() => ({ single }));
+	const select = vi.fn(() => ({ eq: eqAfterSelect }));
+	const update = vi.fn(() => ({ eq: updateEq }));
+	const from = vi.fn(() => ({ select, update }));
+
+	return {
+		client: { from },
+		update,
+		updateEq,
+		single
+	};
+}
+
+function makeContext(adminClient: unknown) {
+	return {
+		adminClient,
+		adminUser: { id: 'admin-1', role: 'super_admin' },
+		audit: vi.fn()
+	};
+}
+
+describe('admin organization gifting actions', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('invalidates effective tier cache after gifting from the organization detail page', async () => {
+		const adminClient = makeAdminClient({
+			id: 'org-1',
+			tier: 'free',
+			stripe_subscription_id: null,
+			subscription_status: null
+		});
+
+		const result = await actions.giftTier({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: 'org-1' },
+			request: makeRequest({ giftTier: 'team', days: '30' })
+		} as unknown as Parameters<(typeof actions)['giftTier']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('invalidates effective tier cache after revoking a gift from the organization detail page', async () => {
+		const adminClient = makeAdminClient({
+			id: 'org-1',
+			stripe_subscription_id: null,
+			subscription_status: null
+		});
+
+		const result = await actions.revokeGift({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: 'org-1' },
+			request: makeRequest({})
+		} as unknown as Parameters<(typeof actions)['revokeGift']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+
+	it('invalidates effective tier cache after extending a gift from the organization detail page', async () => {
+		const adminClient = makeAdminClient({
+			id: 'org-1',
+			gift_tier: 'team',
+			gift_expires_at: new Date('2026-05-01T00:00:00.000Z').toISOString()
+		});
+
+		const result = await actions.extendGift({
+			__ctx: makeContext(adminClient.client),
+			params: { orgId: 'org-1' },
+			request: makeRequest({ days: '15' })
+		} as unknown as Parameters<(typeof actions)['extendGift']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(invalidateTierCacheMock).toHaveBeenCalledWith('org-1');
+	});
+});

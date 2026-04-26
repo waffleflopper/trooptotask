@@ -30,6 +30,7 @@ export const POST: RequestHandler = async (event) => {
 			{
 				permission: 'owner',
 				mutation: true,
+				allowReadOnlyMutation: true,
 				fn: (c) =>
 					checkout(c, {
 						tier,

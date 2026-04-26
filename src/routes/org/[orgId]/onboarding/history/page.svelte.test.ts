@@ -22,9 +22,8 @@ describe('onboarding history page', () => {
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding history controls' });
-		expect(within(toolbar).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe(
-			'/org/org-1/onboarding'
-		);
+		const nav = within(toolbar).getByRole('navigation', { name: 'Onboarding sections' });
+		expect(within(nav).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
 		expect(screen.queryByRole('heading', { name: 'Onboarding History' })).toBeNull();
 	});
 

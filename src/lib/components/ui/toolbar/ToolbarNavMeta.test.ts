@@ -39,4 +39,15 @@ describe('toolbar nav and meta primitives', () => {
 		expect(screen.getByRole('link', { name: 'Approvals' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
 	});
+
+	it('renders disabled nav items without an active href', () => {
+		render(ToolbarNavMetaTest);
+
+		const locked = screen.getByRole('link', { name: 'Locked Settings' });
+
+		expect(locked.getAttribute('aria-disabled')).toBe('true');
+		expect(locked.getAttribute('href')).toBeNull();
+		expect(locked.getAttribute('title')).toBe('Upgrade to edit');
+		expect(locked.getAttribute('aria-describedby')).toBeTruthy();
+	});
 });

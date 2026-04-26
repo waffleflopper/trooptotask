@@ -11,7 +11,13 @@
 
 	const navItems = [
 		{ label: 'Approvals', href: '/org/org-1/admin/approvals', active: true },
-		{ label: 'Archived Personnel', href: '/org/org-1/admin/archived' }
+		{ label: 'Archived Personnel', href: '/org/org-1/admin/archived' },
+		{
+			label: 'Locked Settings',
+			href: '/org/org-1/admin/settings',
+			disabled: true,
+			disabledReason: 'Upgrade to edit'
+		}
 	];
 </script>
 

@@ -165,7 +165,8 @@
 		position: relative;
 		display: flex;
 		align-items: center;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
+		flex: 0 0 auto;
 		gap: var(--sp-2);
 		min-width: 0;
 	}
@@ -202,10 +203,12 @@
 
 	.toolbar-group__panel {
 		position: absolute;
-		z-index: 20;
+		z-index: var(--z-tooltip);
 		top: calc(100% + var(--sp-2));
 		left: 0;
-		display: grid;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
 		gap: var(--sp-2);
 		width: min(24rem, calc(100vw - var(--sp-6)));
 		padding: var(--sp-2);
@@ -215,8 +218,16 @@
 		box-shadow: var(--shadow-md);
 	}
 
-	.toolbar-group__panel :global(.toolbar-select),
 	.toolbar-group__panel :global(.segmented-control) {
+		flex: 0 0 auto;
+	}
+
+	.toolbar-group__panel :global(.toolbar-toggle) {
+		flex: 0 0 auto;
+	}
+
+	.toolbar-group__panel :global(.toolbar-select) {
+		flex: 1 1 100%;
 		width: 100%;
 		max-width: none;
 	}

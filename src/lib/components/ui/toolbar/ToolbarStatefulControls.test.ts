@@ -15,7 +15,7 @@ describe('stateful toolbar controls', () => {
 		expect(screen.queryByText('2 active')).toBeNull();
 
 		await fireEvent.change(screen.getByLabelText('Group filter'), { target: { value: 'bravo' } });
-		await fireEvent.change(screen.getByLabelText('Critical Tasks matrix scope'), { target: { value: 'gaps' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Show gaps only' }));
 
 		expect(screen.getByTestId('state').textContent).toBe('bravo|gaps|by-group|2');
 	});
@@ -30,7 +30,7 @@ describe('stateful toolbar controls', () => {
 
 		await fireEvent.click(trigger);
 		await fireEvent.change(await screen.findByLabelText('Group filter'), { target: { value: 'alpha' } });
-		await fireEvent.change(screen.getByLabelText('Critical Tasks matrix scope'), { target: { value: 'gaps' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Show gaps only' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
 
 		expect(screen.getByTestId('state').textContent).toBe('alpha|gaps|alphabetical|2');
@@ -45,7 +45,7 @@ describe('stateful toolbar controls', () => {
 
 		await fireEvent.click(trigger);
 		expect(((await screen.findByLabelText('Group filter')) as HTMLSelectElement).value).toBe('alpha');
-		expect((screen.getByLabelText('Critical Tasks matrix scope') as HTMLSelectElement).value).toBe('gaps');
+		expect(screen.getByRole('button', { name: 'Show gaps only' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
 	});
 

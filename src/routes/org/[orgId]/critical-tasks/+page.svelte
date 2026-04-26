@@ -8,6 +8,7 @@
 		ToolbarFilterSelect,
 		ToolbarGroup,
 		ToolbarSearchItem,
+		ToolbarToggle,
 		ToolbarViewToggle
 	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -71,10 +72,6 @@
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'By Group' }
-	];
-	const matrixScopeOptions = [
-		{ value: 'all', label: 'All' },
-		{ value: 'gaps', label: 'Gaps' }
 	];
 	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0));
 	const filteredPersonnel = $derived(
@@ -257,6 +254,18 @@
 							testId="critical-tasks-filter-group"
 						>
 							{#snippet full()}
+								<ToolbarViewToggle
+									ariaLabel="Critical Tasks matrix view mode"
+									options={matrixViewOptions}
+									value={viewMode}
+									mode="full"
+									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+								/>
+								<ToolbarToggle
+									label="Show gaps only"
+									title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+									bind:pressed={gapsOnly}
+								/>
 								<ToolbarFilterSelect
 									ariaLabel="Critical Tasks group filter"
 									options={groupFilterOptions}
@@ -265,25 +274,22 @@
 									width="wide"
 									mode="full"
 									onValueChange={(value) => (selectedGroupId = value)}
-								/>
-								<ToolbarViewToggle
-									ariaLabel="Critical Tasks matrix view mode"
-									options={matrixViewOptions}
-									value={viewMode}
-									mode="full"
-									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Critical Tasks matrix scope"
-									options={matrixScopeOptions}
-									defaultValue="all"
-									value={gapsOnly ? 'gaps' : 'all'}
-									mode="full"
-									onValueChange={(value) => (gapsOnly = value === 'gaps')}
 								/>
 							{/snippet}
 
 							{#snippet panel()}
+								<ToolbarViewToggle
+									ariaLabel="Critical Tasks matrix view mode"
+									options={matrixViewOptions}
+									value={viewMode}
+									mode="full"
+									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+								/>
+								<ToolbarToggle
+									label="Show gaps only"
+									title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+									bind:pressed={gapsOnly}
+								/>
 								<ToolbarFilterSelect
 									ariaLabel="Critical Tasks group filter"
 									options={groupFilterOptions}
@@ -292,21 +298,6 @@
 									width="wide"
 									mode="full"
 									onValueChange={(value) => (selectedGroupId = value)}
-								/>
-								<ToolbarViewToggle
-									ariaLabel="Critical Tasks matrix view mode"
-									options={matrixViewOptions}
-									value={viewMode}
-									mode="full"
-									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Critical Tasks matrix scope"
-									options={matrixScopeOptions}
-									defaultValue="all"
-									value={gapsOnly ? 'gaps' : 'all'}
-									mode="full"
-									onValueChange={(value) => (gapsOnly = value === 'gaps')}
 								/>
 							{/snippet}
 						</ToolbarGroup>
@@ -452,36 +443,29 @@
 	}
 
 	.matrix-toolbar-controls {
-		display: grid;
-		grid-template-columns: minmax(18rem, max-content) minmax(12rem, 24rem);
+		display: flex;
+		flex-wrap: nowrap;
 		align-items: center;
 		gap: var(--sp-2);
-		width: 100%;
+		width: auto;
 		min-width: 0;
 	}
 
 	.matrix-toolbar-controls :global(.toolbar-select) {
-		width: 100%;
-		max-width: none;
+		width: auto;
 	}
 
 	.matrix-toolbar-controls :global(.toolbar-search) {
-		flex: 1 1 auto;
-		width: 100%;
+		flex: 0 1 18rem;
+		width: min(18rem, 100%);
 		min-width: 0;
 	}
 
 	.matrix-toolbar-controls :global(.segmented-control) {
-		justify-self: start;
+		flex: 0 0 auto;
 	}
 
 	/* ── Responsive ─────────────────────────────────────────── */
-
-	@media (max-width: 900px) {
-		.matrix-toolbar-controls {
-			grid-template-columns: minmax(0, 1fr) max-content;
-		}
-	}
 
 	@media (max-width: 720px) {
 		.page-content {

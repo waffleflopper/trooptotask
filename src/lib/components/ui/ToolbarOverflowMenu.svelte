@@ -1,5 +1,6 @@
 <script lang="ts">
 	import OverflowMenu from './OverflowMenu.svelte';
+	import { getToolbarCoordinator } from './toolbar/toolbarCoordinator';
 	import type { OverflowItem } from './OverflowMenu.types';
 
 	interface Props {
@@ -13,6 +14,15 @@
 
 	let { items, ariaLabel, label = 'More', iconOnly = false, align = 'right', side = 'bottom' }: Props = $props();
 	let open = $state(false);
+	const coordinator = getToolbarCoordinator();
+
+	function toggleOpen(): void {
+		const nextOpen = !open;
+		if (nextOpen) {
+			coordinator?.closeAllPanels();
+		}
+		open = nextOpen;
+	}
 </script>
 
 <div class="toolbar-overflow-menu">
@@ -25,7 +35,7 @@
 		aria-expanded={open}
 		aria-haspopup="menu"
 		onmousedown={(event) => event.stopPropagation()}
-		onclick={() => (open = !open)}
+		onclick={toggleOpen}
 	>
 		{#if iconOnly}
 			<svg

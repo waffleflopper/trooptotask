@@ -119,6 +119,20 @@ function expectBefore(a: Node, b: Node): void {
 	expect(Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 }
 
+function rectWithWidth(width: number): DOMRect {
+	return {
+		x: 0,
+		y: 0,
+		width,
+		height: 34,
+		top: 0,
+		right: width,
+		bottom: 34,
+		left: 0,
+		toJSON: () => ({})
+	} as DOMRect;
+}
+
 describe('critical tasks page', () => {
 	beforeEach(() => {
 		parseFileMock.mockReset();
@@ -304,6 +318,73 @@ describe('critical tasks page', () => {
 				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones&gapsOnly=true'
 			);
 		});
+	});
+
+	it('keeps Critical Tasks filters, search, and action overflow coordinated at constrained width', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-floating-page-toolbar]')) return rectWithWidth(520);
+			if (this.classList.contains('toolbar-actions')) return rectWithWidth(150);
+			return originalRect.call(this);
+		});
+
+		personnelStore.load(
+			[
+				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
+				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
+			],
+			'org-1'
+		);
+		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId('floating-page-toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
+		});
+
+		const filterTrigger = screen.getByRole('button', { name: 'Critical Tasks filters' });
+		await fireEvent.click(filterTrigger);
+		await fireEvent.change(await screen.findByLabelText('Critical Tasks group filter'), {
+			target: { value: bravoGroup.id }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Search by name, rank, or MOS' }));
+		await waitFor(() => {
+			expect(screen.queryByTestId('critical-tasks-filter-group-panel')).toBeNull();
+		});
+		await fireEvent.input(await screen.findByTestId('critical-tasks-search'), { target: { value: 'Jones' } });
+
+		await waitFor(() => {
+			expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
+			expect(screen.getByRole('link', { name: /Jones, Jane/ })).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More Critical Tasks actions' }));
+		await waitFor(() => {
+			expect(screen.queryByTestId('critical-tasks-search-panel')).toBeNull();
+		});
+		expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Record Training/ })).toBeTruthy();
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {

@@ -82,6 +82,50 @@ describe('computeToolbarActionLayout', () => {
 		expect(layout.overflowActions.map((item) => item.id)).toEqual(['export', 'import', 'library']);
 	});
 
+	it('re-expands actions in author order as width returns', () => {
+		const actions = [
+			action({ id: 'export', priority: 'low', icon: 'download', fullWidth: 96, compactWidth: 40 }),
+			action({ id: 'import', priority: 'normal', icon: 'upload', fullWidth: 136, compactWidth: 40 }),
+			action({ id: 'reports', priority: 'high', icon: 'chart', fullWidth: 96, compactWidth: 40 }),
+			action({
+				id: 'record',
+				priority: 'critical',
+				icon: 'clipboard-check',
+				overflow: 'never',
+				fullWidth: 136,
+				compactWidth: 40
+			})
+		];
+
+		const constrained = computeToolbarActionLayout({
+			containerWidth: 128,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions
+		});
+		const expanded = computeToolbarActionLayout({
+			containerWidth: 496,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions
+		});
+
+		expect(constrained.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['export', 'overflow'],
+			['import', 'overflow'],
+			['reports', 'overflow'],
+			['record', 'compact']
+		]);
+		expect(constrained.overflowActions.map((item) => item.id)).toEqual(['export', 'import', 'reports']);
+		expect(expanded.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['export', 'full'],
+			['import', 'full'],
+			['reports', 'full'],
+			['record', 'full']
+		]);
+		expect(expanded.overflowActions).toEqual([]);
+	});
+
 	it('reports an impossible protected layout instead of overflowing protected actions', () => {
 		const layout = computeToolbarActionLayout({
 			containerWidth: 72,

@@ -45,7 +45,8 @@ describe('admin settings page', () => {
 		});
 
 		expect(screen.getByRole('toolbar', { name: 'Admin settings status' })).toBeTruthy();
-		expect(screen.getByText('Saved')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Saved' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Saved' })).toBeNull();
 		expect(screen.queryByText('Change State')).toBeNull();
 		expect(screen.queryByText('ICT Default')).toBeNull();
 	});

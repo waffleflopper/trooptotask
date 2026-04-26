@@ -7,6 +7,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import { addMonths } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -126,7 +127,7 @@
 	<main class="page-content">
 		<FloatingPageToolbar ariaLabel="Archived personnel status" leadingMin="0" collapse="narrow">
 			{#snippet leading()}
-				<span class="toolbar-note">Retention: {data.retentionMonths} mo</span>
+				<ToolbarMetaItem label={`Retention: ${data.retentionMonths} mo`} />
 			{/snippet}
 		</FloatingPageToolbar>
 
@@ -234,23 +235,6 @@
 		color: var(--text-secondary);
 		font-size: var(--text-sm);
 		line-height: 1.55;
-	}
-
-	.toolbar-note {
-		display: inline-flex;
-		align-items: center;
-		min-height: 34px;
-		padding: 0 var(--sp-3);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		white-space: nowrap;
 	}
 
 	.name-cell {

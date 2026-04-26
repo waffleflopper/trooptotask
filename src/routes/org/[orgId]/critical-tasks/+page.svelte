@@ -4,8 +4,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import { ToolbarActions } from '$lib/components/ui/toolbar';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
+	import { ToolbarActions, ToolbarSearchItem } from '$lib/components/ui/toolbar';
 	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -253,7 +252,7 @@
 							width="wide"
 							onValueChange={(value) => (selectedGroupId = value)}
 						/>
-						<ToolbarSearch
+						<ToolbarSearchItem
 							testId="critical-tasks-search"
 							ariaLabel="Search by name, rank, or MOS"
 							placeholder="Search name, rank, or MOS..."

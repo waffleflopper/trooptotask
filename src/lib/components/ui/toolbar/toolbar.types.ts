@@ -4,6 +4,8 @@ export type ToolbarActionOverflowPolicy = 'auto' | 'never';
 export type ToolbarActionVariant = 'default' | 'primary' | 'secondary' | 'danger';
 export type ToolbarActionIcon = 'book-open' | 'chart' | 'clipboard-check' | 'download' | 'upload';
 export type ToolbarActionLayoutMode = 'full' | 'compact' | 'overflow';
+export type ToolbarSearchItemMode = 'full' | 'compact';
+export type ToolbarSearchPanelMode = 'inline';
 
 export interface ToolbarAction {
 	id: string;

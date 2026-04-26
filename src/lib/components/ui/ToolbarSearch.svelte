@@ -6,6 +6,7 @@
 		testId?: string;
 		width?: 'default' | 'wide' | 'full';
 		onValueChange?: (value: string) => void;
+		onKeydown?: (event: KeyboardEvent) => void;
 	}
 
 	let {
@@ -14,7 +15,8 @@
 		placeholder = 'Search...',
 		testId,
 		width = 'default',
-		onValueChange
+		onValueChange,
+		onKeydown
 	}: Props = $props();
 
 	const searchClass = $derived(['toolbar-search', `toolbar-search--${width}`].join(' '));
@@ -31,6 +33,7 @@
 	{placeholder}
 	bind:value
 	oninput={handleInput}
+	onkeydown={onKeydown}
 	data-testid={testId}
 />
 

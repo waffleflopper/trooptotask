@@ -2,6 +2,18 @@
 
 Build a feature with impeccable UX and UI quality through a structured process: shape the design, load the right references, then build and iterate visually until the result is delightful.
 
+## Real Example: Neon Mirai
+
+Neon Mirai is the full craft loop in public. A retro-futurist AI design conference started with generated brand and hi-fi reference images, then shipped as a responsive static site in `public/neon-mirai`.
+
+Repro command:
+
+```bash
+$impeccable craft retro-futurist AI design conference website
+```
+
+The important detail is the artifact chain: brand toolkit, north-star mock, semantic implementation, regenerated assets, browser iteration, responsive fixes. The mock was not treated as a screenshot to trace. It was used as direction for a real page.
+
 ## Step 1: Shape the Design
 
 Run $impeccable shape, passing along whatever feature description the user provided.
@@ -18,7 +30,6 @@ Based on the design brief's "Recommended References" section, consult the releva
 - [typography.md](typography.md) for type hierarchy
 
 Then add references based on the brief's needs:
-
 - Complex interactions or forms? Consult [interaction-design.md](interaction-design.md)
 - Animation or transitions? Consult [motion-design.md](motion-design.md)
 - Color-heavy or themed? Consult [color-and-contrast.md](color-and-contrast.md)
@@ -92,7 +103,6 @@ Implement the feature following the design brief. Work in this order:
 7. **Responsive**: Adapt for different viewports. Don't just shrink; redesign for the context.
 
 ### During Build
-
 - Test with real (or realistic) data at every step, not placeholder text
 - Check each state as you build it, not all at the end
 - If you discover a design question, stop and ask rather than guessing
@@ -120,7 +130,6 @@ After each round of fixes, visually verify again. **Repeat until you would be pr
 ## Step 7: Present
 
 Present the result to the user:
-
 - Show the feature in its primary state
 - Walk through the key states (empty, error, responsive)
 - Explain design decisions that connect back to the design brief and, when used, the chosen north-star mock

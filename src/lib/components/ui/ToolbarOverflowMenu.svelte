@@ -1,28 +1,65 @@
 <script lang="ts">
 	import OverflowMenu from './OverflowMenu.svelte';
+	import ToolbarIcon from './toolbar/ToolbarIcon.svelte';
 	import { getToolbarCoordinator } from './toolbar/toolbarCoordinator';
+	import type { ToolbarActionIcon } from './toolbar/toolbar.types';
 	import type { OverflowItem } from './OverflowMenu.types';
 
 	interface Props {
 		items: OverflowItem[];
 		ariaLabel: string;
 		label?: string;
+		icon?: ToolbarActionIcon;
+		idSeed?: string;
 		iconOnly?: boolean;
 		align?: 'left' | 'right';
 		side?: 'bottom' | 'top';
+		disabled?: boolean;
+		disabledReason?: string;
 	}
 
-	let { items, ariaLabel, label = 'More', iconOnly = false, align = 'right', side = 'bottom' }: Props = $props();
+	let {
+		items,
+		ariaLabel,
+		label = 'More',
+		icon,
+		idSeed,
+		iconOnly = false,
+		align = 'right',
+		side = 'bottom',
+		disabled = false,
+		disabledReason
+	}: Props = $props();
 	let open = $state(false);
 	const coordinator = getToolbarCoordinator();
+	const menuId = $derived(idSeed ?? `toolbar-overflow-${ariaLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+	const menuOpenEvent = 'toolbar-overflow-menu-open';
+	const disabledReasonId = $derived(disabledReason ? `${menuId}-disabled-reason` : undefined);
 
 	function toggleOpen(): void {
 		const nextOpen = !open;
 		if (nextOpen) {
 			coordinator?.closeAllPanels();
+			window.dispatchEvent(new CustomEvent(menuOpenEvent, { detail: menuId }));
 		}
 		open = nextOpen;
 	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		function handleOtherMenuOpen(event: Event): void {
+			if ((event as CustomEvent<string>).detail !== menuId) {
+				open = false;
+			}
+		}
+
+		window.addEventListener(menuOpenEvent, handleOtherMenuOpen);
+
+		return () => {
+			window.removeEventListener(menuOpenEvent, handleOtherMenuOpen);
+		};
+	});
 </script>
 
 <div class="toolbar-overflow-menu">
@@ -31,29 +68,38 @@
 		class="toolbar-overflow-menu__button"
 		class:toolbar-overflow-menu__button--icon={iconOnly}
 		aria-label={ariaLabel}
-		title={iconOnly ? ariaLabel : undefined}
+		title={disabledReason ?? (iconOnly ? ariaLabel : undefined)}
 		aria-expanded={open}
 		aria-haspopup="menu"
+		aria-describedby={disabledReasonId}
+		{disabled}
 		onmousedown={(event) => event.stopPropagation()}
 		onclick={toggleOpen}
 	>
 		{#if iconOnly}
-			<svg
-				width="18"
-				height="18"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<circle cx="12" cy="12" r="1" />
-				<circle cx="12" cy="5" r="1" />
-				<circle cx="12" cy="19" r="1" />
-			</svg>
+			{#if icon}
+				<ToolbarIcon {icon} />
+			{:else}
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="1" />
+					<circle cx="12" cy="5" r="1" />
+					<circle cx="12" cy="19" r="1" />
+				</svg>
+			{/if}
 		{:else}
+			{#if icon}
+				<ToolbarIcon {icon} />
+			{/if}
 			<span>{label}</span>
 			<svg
 				width="12"
@@ -70,6 +116,9 @@
 			</svg>
 		{/if}
 	</button>
+	{#if disabledReason}
+		<span id={disabledReasonId} class="toolbar-overflow-menu__reason">{disabledReason}</span>
+	{/if}
 	<OverflowMenu {items} {align} {side} {open} onClose={() => (open = false)} />
 </div>
 
@@ -118,5 +167,17 @@
 		outline: var(--focus-outline);
 		outline-offset: var(--focus-outline-offset);
 		box-shadow: var(--focus-ring);
+	}
+
+	.toolbar-overflow-menu__reason {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

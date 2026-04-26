@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -10,6 +10,16 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
+
+const { exportMonthToCSVMock, printMonthCalendarMock } = vi.hoisted(() => ({
+	exportMonthToCSVMock: vi.fn(),
+	printMonthCalendarMock: vi.fn()
+}));
+
+vi.mock('$features/calendar/utils/calendarExport', () => ({
+	exportMonthToCSV: exportMonthToCSVMock,
+	printMonthCalendar: printMonthCalendarMock
+}));
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], loading: false, load: vi.fn() }
@@ -179,5 +189,65 @@ describe('CalendarPageView', () => {
 
 		expect(ctx.calendarPersonnelSearch).toBe('medic');
 		expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [filterPersonnel[1]] }]);
+	});
+
+	it('exposes calendar toolbar actions, settings, overflow exports, search, and group filter for editors', async () => {
+		mutableAvailabilityStore.loading = false;
+		mutableDailyAssignmentsStore.loading = false;
+		mutableSpecialDaysStore.loading = false;
+		mutableStatusTypesStore.loading = false;
+		mutableGroupsStore.loading = false;
+		exportMonthToCSVMock.mockClear();
+		printMonthCalendarMock.mockClear();
+		printMonthCalendarMock.mockResolvedValue(undefined);
+
+		const data = {
+			...mockData,
+			personnel: filterPersonnel,
+			allPersonnel: filterPersonnel
+		};
+		const ctx = new CalendarPageContext(data, makeMockOrg({ isFullEditor: true }));
+
+		render(CalendarPageView, {
+			props: {
+				ctx,
+				data: {
+					orgId: data.orgId,
+					orgName: 'Test Org',
+					permissions: data.permissions
+				}
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Calendar controls' });
+		await fireEvent.change(within(toolbar).getByRole('combobox', { name: 'Calendar group filter' }), {
+			target: { value: 'g2' }
+		});
+		await fireEvent.input(
+			within(toolbar).getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }),
+			{
+				target: { value: 'medic' }
+			}
+		);
+
+		expect(ctx.calendarGroupFilter).toBe('g2');
+		expect(ctx.calendarPersonnelSearch).toBe('medic');
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Bulk Status' }));
+		expect(screen.getByRole('menuitem', { name: 'Add Bulk' }).getAttribute('href')).toBe(
+			'/org/org1/calendar/bulk?tab=add'
+		);
+
+		expect(within(toolbar).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe(
+			'/org/org1/calendar/settings'
+		);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Export to Excel' }));
+		expect(exportMonthToCSVMock).toHaveBeenCalledTimes(1);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: /Show Status Text/ }));
+		expect(ctx.showStatusText).toBe(true);
 	});
 });

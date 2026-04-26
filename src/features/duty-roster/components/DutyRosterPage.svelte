@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import SubNav from '$lib/components/ui/SubNav.svelte';
+	import { ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -77,14 +77,23 @@
 	);
 
 	const dutyRosterTabs = $derived.by(() => {
-		const tabs: Array<{ label: string; value: 'wizard' | 'advanced-templates'; badge?: number }> = [
+		const tabs: Array<{ label: string; value: 'wizard' | 'advanced-templates'; title?: string }> = [
 			{ label: 'Wizard', value: 'wizard' }
 		];
 		if (canManageAdvancedTemplates) {
-			tabs.push({ label: 'Advanced Templates', value: 'advanced-templates', badge: visibleAdvancedTemplateCount });
+			tabs.push({
+				label: `Advanced Templates (${visibleAdvancedTemplateCount})`,
+				value: 'advanced-templates',
+				title: `${visibleAdvancedTemplateCount} active advanced duty templates`
+			});
 		}
 		return tabs;
 	});
+
+	const relatedLinks = $derived([
+		{ label: 'Assignments', href: `/org/${org.orgId}/calendar/assignments` },
+		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
+	]);
 
 	$effect(() => {
 		if (!canManageAdvancedTemplates && activeTab === 'advanced-templates') {
@@ -434,16 +443,17 @@
 	<FloatingPageToolbar ariaLabel="Duty roster controls" collapse="medium" leadingMin="24rem">
 		{#snippet leading()}
 			{#if canMutate}
-				<SubNav
-					tabs={dutyRosterTabs}
-					active={activeTab}
-					onChange={(value) => (activeTab = value as typeof activeTab)}
+				<ToolbarViewToggle
+					ariaLabel="Duty roster sections"
+					options={dutyRosterTabs}
+					mode="full"
+					value={activeTab}
+					onValueChange={(value) => (activeTab = value as typeof activeTab)}
 				/>
 			{/if}
 		{/snippet}
 
-		<a href={`/org/${org.orgId}/calendar/assignments`} class="btn btn-secondary btn-sm">Assignments</a>
-		<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Calendar</a>
+		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
 	</FloatingPageToolbar>
 
 	{#if !canMutate}

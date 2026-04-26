@@ -428,7 +428,7 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- overflow items removed (Phase 3.3 — replaced by SmartToolbar in 3.4)
+	// ---- legacy route-local overflow items removed
 
 	describe('calendarOverflowItems removed', () => {
 		it('does not have calendarOverflowItems getter', () => {

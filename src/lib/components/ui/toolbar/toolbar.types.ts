@@ -1,8 +1,18 @@
+import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+
 export type ToolbarActionPriority = 'low' | 'normal' | 'high' | 'critical';
 export type ToolbarActionDisplayMode = 'auto' | 'full' | 'compact';
-export type ToolbarActionOverflowPolicy = 'auto' | 'never';
+export type ToolbarActionOverflowPolicy = 'auto' | 'always' | 'never';
 export type ToolbarActionVariant = 'default' | 'primary' | 'secondary' | 'danger';
-export type ToolbarActionIcon = 'book-open' | 'chart' | 'clipboard-check' | 'download' | 'upload';
+export type ToolbarActionIcon =
+	| 'book-open'
+	| 'calendar-days'
+	| 'chart'
+	| 'clipboard-check'
+	| 'clipboard-list'
+	| 'download'
+	| 'settings'
+	| 'upload';
 export type ToolbarActionLayoutMode = 'full' | 'compact' | 'overflow';
 export type ToolbarSearchItemMode = 'auto' | 'full' | 'compact';
 export type ToolbarSearchPanelMode = 'inline';
@@ -14,6 +24,9 @@ export interface ToolbarAction {
 	label: string;
 	href?: string;
 	onclick?: () => void;
+	menuItems?: OverflowItem[];
+	toggle?: boolean;
+	active?: boolean;
 	disabled?: boolean;
 	disabledReason?: string;
 	icon?: ToolbarActionIcon;

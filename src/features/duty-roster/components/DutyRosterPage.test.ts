@@ -26,10 +26,6 @@ vi.mock('$lib/components/PageToolbar.svelte', async () => ({
 	default: (await import('./test-stubs/PassiveStub.svelte')).default
 }));
 
-vi.mock('$lib/components/ui/SubNav.svelte', async () => ({
-	default: (await import('./test-stubs/SubNavHarness.svelte')).default
-}));
-
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
 		orgId: 'test-org',
@@ -245,6 +241,29 @@ describe('DutyRosterPage', () => {
 			]
 		});
 
-		expect(screen.getByTestId('tab-badge-advanced-templates').textContent).toBe('1');
+		expect(screen.getByRole('button', { name: 'Advanced Templates (1)' })).toBeTruthy();
+	});
+
+	it('uses shared toolbar primitives for duty roster sections and related calendar links', async () => {
+		renderPage();
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Duty roster controls' });
+		const sections = screen.getByRole('group', { name: 'Duty roster sections' });
+		const relatedLinks = screen.getByRole('navigation', { name: 'Related calendar pages' });
+
+		expect(toolbar.contains(sections)).toBe(true);
+		expect(toolbar.contains(relatedLinks)).toBe(true);
+		expect(screen.getByRole('link', { name: 'Assignments' }).getAttribute('href')).toBe(
+			'/org/test-org/calendar/assignments'
+		);
+		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/test-org/calendar');
+
+		const wizardTab = screen.getByRole('button', { name: 'Wizard' });
+		const advancedTab = screen.getByRole('button', { name: 'Advanced Templates (1)' });
+		expect(wizardTab.getAttribute('aria-pressed')).toBe('true');
+
+		await fireEvent.click(advancedTab);
+
+		expect(advancedTab.getAttribute('aria-pressed')).toBe('true');
 	});
 });

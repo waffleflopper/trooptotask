@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Filter } from '@lucide/svelte';
 	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import type { ToolbarSelectOption } from '$lib/components/ui/ToolbarSelect.svelte';
 	import type { ToolbarPanelMode, ToolbarStatefulControlMode } from './toolbar.types';
 
@@ -29,10 +30,13 @@
 	}: Props = $props();
 
 	let open = $state(false);
+	const coordinator = getToolbarCoordinator();
 
 	const active = $derived(value !== defaultValue);
 	const selectedLabel = $derived(options.find((option) => option.value === value)?.label ?? ariaLabel);
-	const compact = $derived(mode === 'compact');
+	const compact = $derived(
+		mode === 'compact' || (mode === 'auto' && coordinator ? coordinator.compactPhase !== 'full' : false)
+	);
 	const resolvedTitle = $derived(title ?? `${ariaLabel}: ${selectedLabel}`);
 
 	$effect(() => {

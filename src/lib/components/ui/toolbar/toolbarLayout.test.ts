@@ -66,6 +66,39 @@ describe('computeToolbarActionLayout', () => {
 		]);
 	});
 
+	it('compacts low-priority settings before normal calendar dropdown actions', () => {
+		const layout = computeToolbarActionLayout({
+			containerWidth: 302,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions: [
+				action({
+					id: 'bulk-status',
+					priority: 'normal',
+					icon: 'clipboard-list',
+					displayMode: 'full',
+					fullWidth: 128,
+					compactWidth: 40
+				}),
+				action({
+					id: 'planning',
+					priority: 'normal',
+					icon: 'calendar-days',
+					displayMode: 'full',
+					fullWidth: 118,
+					compactWidth: 40
+				}),
+				action({ id: 'settings', priority: 'low', icon: 'settings', fullWidth: 96, compactWidth: 40 })
+			]
+		});
+
+		expect(layout.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['bulk-status', 'full'],
+			['planning', 'full'],
+			['settings', 'compact']
+		]);
+	});
+
 	it('preserves author order inside generated overflow items', () => {
 		const layout = computeToolbarActionLayout({
 			containerWidth: 88,
@@ -80,6 +113,33 @@ describe('computeToolbarActionLayout', () => {
 		});
 
 		expect(layout.overflowActions.map((item) => item.id)).toEqual(['export', 'import', 'library']);
+	});
+
+	it('keeps always-overflow icon actions in overflow during compaction', () => {
+		const layout = computeToolbarActionLayout({
+			containerWidth: 280,
+			overflowWidth: 40,
+			gapWidth: 8,
+			actions: [
+				action({
+					id: 'export',
+					overflow: 'always',
+					priority: 'low',
+					icon: 'download',
+					fullWidth: 112,
+					compactWidth: 40
+				}),
+				action({ id: 'settings', priority: 'normal', icon: 'settings', fullWidth: 96, compactWidth: 40 }),
+				action({ id: 'planning', priority: 'normal', icon: 'calendar-days', fullWidth: 118, compactWidth: 40 })
+			]
+		});
+
+		expect(layout.states.map((state) => [state.action.id, state.mode])).toEqual([
+			['export', 'overflow'],
+			['settings', 'full'],
+			['planning', 'full']
+		]);
+		expect(layout.overflowActions.map((item) => item.id)).toEqual(['export']);
 	});
 
 	it('re-expands actions in author order as width returns', () => {

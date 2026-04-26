@@ -472,6 +472,74 @@ Import types: `import type { SmartToolbarItem, DropdownItem } from '$lib/compone
 
 ---
 
+## `ui/toolbar`
+
+Typed floating-toolbar action package for page-level command zones. Use it for action groups that need deterministic full, compact, and overflow states without mixing visual style with layout priority.
+
+```svelte
+<script lang="ts">
+    import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+
+    const actions: ToolbarActionConfig[] = [
+        {
+            id: 'export-csv',
+            label: 'Export CSV',
+            href: exportHref,
+            icon: 'download',
+            priority: 'low'
+        },
+        {
+            id: 'record-training',
+            label: 'Record Training',
+            onclick: openRecordTraining,
+            icon: 'clipboard-check',
+            priority: 'critical',
+            overflow: 'never',
+            variant: 'primary',
+            disabled: !canRecord,
+            disabledReason: !canRecord ? 'Add personnel and active tasks before recording training.' : undefined
+        }
+    ];
+</script>
+
+<ToolbarActions
+    {actions}
+    ariaLabel="Critical Tasks actions"
+    overflowAriaLabel="More Critical Tasks actions"
+/>
+```
+
+Public components:
+
+| Component               | Purpose                                                            |
+| ----------------------- | ------------------------------------------------------------------ |
+| `ToolbarActions.svelte` | Measures and renders the action zone with generated overflow.      |
+| `ToolbarAction.svelte`  | Renders one anchor or button action in full or compact mode.        |
+| `toolbarLayout.ts`      | Pure deterministic layout utility for full/compact/overflow states. |
+
+Policy fields:
+
+| Field            | Type                                         | Notes                                                              |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `priority?`      | `'low' \| 'normal' \| 'high' \| 'critical'`  | Layout yield order only; it does not change color or emphasis.     |
+| `displayMode?`   | `'auto' \| 'full' \| 'compact'`              | `auto` allows icon-capable actions to compact before overflowing.   |
+| `overflow?`      | `'auto' \| 'never'`                          | `never` keeps protected actions visible and warns if impossible.    |
+| `variant?`       | `'default' \| 'primary' \| 'secondary' \| 'danger'` | Visual style only; keep this separate from priority.        |
+| `disabledReason?` | `string`                                    | Rendered through full, compact, and overflow paths for assistive tech and menu context. |
+
+`ToolbarAction` accepts either `href` or `onclick`. In development it warns when both are supplied, or when neither is supplied. Compact icon actions keep their accessible name through `aria-label` and `title`.
+
+Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `book-open`, `chart`, and `clipboard-check`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
+
+Migration notes:
+
+- Keep existing leading controls in place until they are migrated deliberately. For mixed toolbars, wrap `ToolbarActions` inside the existing `FloatingPageToolbar` actions zone.
+- Prefer `ToolbarActions` over `ProgressiveToolbarActions` when actions need priorities, protected visibility, compact icon rendering, disabled reasons, or deterministic overflow tests.
+- Keep `ToolbarSearch`, `ToolbarSelect`, and `ToolbarIconButton` for existing leading/filter controls in this phase.
+- Deferred: true sheet-mode compact panels and a shared tooltip primitive.
+
+---
+
 ## `ui/OverflowMenu.svelte`
 
 Controlled dropdown menu. Used as an escape hatch when SmartToolbar doesn't fit (e.g. per-row menus in a table). The parent manages `open` state.
@@ -494,7 +562,7 @@ Controlled dropdown menu. Used as an escape hatch when SmartToolbar doesn't fit 
 
 Props: `items: OverflowItem[]`, `open: boolean`, `onClose: () => void`, `align?: 'left' | 'right'` (default `'right'`)
 
-`OverflowItem` shape: `label: string`, `onclick?: () => void`, `href?: string`, `toggle?: boolean`, `active?: boolean` (shows checkmark when `toggle && active`), `divider?: boolean` (renders a separator line above this item), `group?: string` (renders a group label above), `danger?: boolean` (red text), `disabled?: boolean`
+`OverflowItem` shape: `label: string`, `onclick?: () => void`, `href?: string`, `toggle?: boolean`, `active?: boolean` (shows checkmark when `toggle && active`), `divider?: boolean` (renders a separator line above this item), `group?: string` (renders a group label above), `danger?: boolean` (red text), `disabled?: boolean`, `disabledReason?: string`
 
 Import type: `import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte'`
 

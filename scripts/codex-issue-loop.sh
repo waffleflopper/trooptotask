@@ -7,24 +7,28 @@ Usage:
   scripts/codex-issue-loop.sh [options] ISSUE...
 
 Runs one fresh `codex exec --ephemeral` session per GitHub issue.
+Each issue starts from a clean worktree. If Codex finishes successfully and
+leaves changes uncommitted, this script commits them before moving on.
 
 Options:
   --repo OWNER/REPO       GitHub repo to read issues from. Defaults to current gh repo.
   --tdd                  Tell Codex to use the tdd skill for issues by default.
   --search               Enable native Codex web search for each issue run.
+  --fast                 Enable Codex fast mode for each issue run.
   --model MODEL          Optional Codex model override.
   --profile PROFILE      Optional Codex config profile.
   --dry-run              Print the generated prompts without running Codex.
   -h, --help             Show this help.
 
 Example:
-  scripts/codex-issue-loop.sh --tdd --search 650 651 652 653
+  scripts/codex-issue-loop.sh --tdd --search --fast 650 651 652 653
 EOF
 }
 
 repo=""
 use_tdd=false
 enable_search=false
+enable_fast=false
 model=""
 profile=""
 dry_run=false
@@ -42,6 +46,10 @@ while [[ $# -gt 0 ]]; do
 			;;
 		--search)
 			enable_search=true
+			shift
+			;;
+		--fast)
+			enable_fast=true
 			shift
 			;;
 		--model)
@@ -102,6 +110,25 @@ issue_uses_tdd() {
 	[[ "$use_tdd" == true ]]
 }
 
+commit_issue_changes() {
+	local issue="$1"
+	local title="$2"
+
+	if [[ -z "$(git status --porcelain)" ]]; then
+		return
+	fi
+
+	echo "==> Codex left changes for issue #$issue; creating local commit"
+	git add -A
+
+	if git diff --cached --quiet; then
+		echo "No staged changes found after git add." >&2
+		exit 1
+	fi
+
+	git commit -m "Issue #$issue: $title"
+}
+
 for issue in "${issues[@]}"; do
 	if [[ "$dry_run" != true ]]; then
 		require_clean_worktree
@@ -140,8 +167,8 @@ for issue in "${issues[@]}"; do
 		echo "- Run the required verification before claiming completion: npm run format, npm run lint, npm run governance:check, npm run check, and npm run test."
 		echo "- If verification fails, fix the issue and rerun the relevant checks, then rerun the full required verification before final completion."
 		echo "- If a product/design/API decision is ambiguous, stop and say exactly what needs a human decision."
-		echo "- If the work completes and verification passes, create a local git commit for this issue only, using a clear message that starts with \"Issue #$issue:\"."
-		echo "- In the final response, summarize changed files, verification results, and the commit SHA."
+		echo "- If the work completes and verification passes, create a local git commit for this issue only if you can, using a clear message that starts with \"Issue #$issue:\". If you leave verified changes uncommitted, the runner will create the commit before moving on."
+		echo "- In the final response, summarize changed files, verification results, and the commit SHA if you created one."
 		echo
 		echo "Issue body:"
 		echo
@@ -162,6 +189,9 @@ for issue in "${issues[@]}"; do
 	if [[ "$enable_search" == true ]]; then
 		codex_args+=(--search)
 	fi
+	if [[ "$enable_fast" == true ]]; then
+		codex_args+=(--enable fast_mode)
+	fi
 	codex_args+=(exec --full-auto --ephemeral -C "$repo_root")
 	if [[ -n "$model" ]]; then
 		codex_args+=(--model "$model")
@@ -173,6 +203,7 @@ for issue in "${issues[@]}"; do
 	echo "==> Starting fresh Codex session for issue #$issue"
 	codex "${codex_args[@]}" - < "$prompt_file"
 
+	commit_issue_changes "$issue" "$title"
 	require_clean_worktree
 	echo "==> Issue #$issue finished with a clean worktree"
 	cleanup_prompt

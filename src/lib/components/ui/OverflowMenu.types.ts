@@ -15,4 +15,5 @@ export interface OverflowItem {
 	group?: string;
 	danger?: boolean;
 	disabled?: boolean;
+	disabledReason?: string;
 }

@@ -29,7 +29,7 @@
 	const orgName = $derived(data.orgName ?? org.orgName);
 	const permissions = $derived(data.permissions ?? org.permissions);
 	let selectedGroupId = $state('');
-	const gapsOnly = false;
+	let gapsOnly = $state(false);
 	let personnelSearch = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
@@ -68,6 +68,10 @@
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'By Group' }
+	];
+	const matrixScopeOptions = [
+		{ value: 'all', label: 'All' },
+		{ value: 'gaps', label: 'Gaps' }
 	];
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
@@ -123,6 +127,9 @@
 		}
 		if (personnelSearch.trim()) {
 			params.set('search', personnelSearch.trim());
+		}
+		if (gapsOnly) {
+			params.set('gapsOnly', 'true');
 		}
 		const query = params.toString();
 		return `/org/${orgId}/api/critical-tasks/matrix/export${query ? `?${query}` : ''}`;
@@ -228,6 +235,12 @@
 							options={matrixViewOptions}
 							value={viewMode}
 							onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+						/>
+						<SegmentedControl
+							ariaLabel="Critical Tasks matrix scope"
+							options={matrixScopeOptions}
+							value={gapsOnly ? 'gaps' : 'all'}
+							onValueChange={(value) => (gapsOnly = value === 'gaps')}
 						/>
 					</div>
 				{/snippet}

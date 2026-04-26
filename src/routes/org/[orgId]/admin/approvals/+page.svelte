@@ -2,8 +2,10 @@
 	import { page } from '$app/stores';
 	import { invalidateAll } from '$app/navigation';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
@@ -98,41 +100,20 @@
 </svelte:head>
 
 <div class="approvals-page">
-	<div class="overview-strip">
-		<div class="overview-card">
-			<span class="overview-label">Pending</span>
-			<strong class="overview-value">{data.requests.filter((r) => r.status === 'pending').length}</strong>
-			<span class="overview-meta">Requests still waiting on an admin decision</span>
-		</div>
-		<div class="overview-card">
-			<span class="overview-label">Resolved</span>
-			<strong class="overview-value">{data.requests.filter((r) => r.status !== 'pending').length}</strong>
-			<span class="overview-meta">Requests already approved or denied</span>
-		</div>
-	</div>
+	<FloatingPageToolbar ariaLabel="Approval request filters" leadingMin="0" collapse="narrow">
+		{#snippet leading()}
+			<SegmentedControl ariaLabel="Approval status filter" options={filters} bind:value={statusFilter} />
+			<span class="toolbar-count">{filteredRequests.length} shown</span>
+		{/snippet}
+	</FloatingPageToolbar>
 
 	<div class="table-shell">
-		<div class="page-header">
-			<p class="eyebrow">Review Queue</p>
-			<h2>Approvals</h2>
-			<p class="subtitle">Review deletion requests from team members.</p>
-		</div>
-
 		<DataTable
 			{table}
 			{columns}
 			ariaLabel="Approval requests"
 			emptyMessage="No {statusFilter === 'all' ? '' : statusFilter} requests"
 		>
-			{#snippet toolbar(_tbl)}
-				<div class="filter-tabs">
-					{#each filters as f (f.value)}
-						<button class="filter-tab" class:active={statusFilter === f.value} onclick={() => (statusFilter = f.value)}>
-							{f.label}
-						</button>
-					{/each}
-				</div>
-			{/snippet}
 			{#snippet cell(row, col)}
 				{#if col.key === 'requester'}
 					<span class="requester-cell">{row.requester_email ?? '-'}</span>
@@ -208,54 +189,6 @@
 		gap: var(--sp-4);
 	}
 
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
-	.eyebrow {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.overview-label {
-		color: var(--text-muted);
-	}
-
-	.eyebrow {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 4vw, 2.5rem);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
 	.table-shell {
 		display: flex;
 		flex-direction: column;
@@ -266,67 +199,10 @@
 		background: var(--surface-panel);
 	}
 
-	.page-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.page-header h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(2rem, 4vw, 2.8rem);
-		line-height: 0.98;
-		font-weight: 700;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.subtitle {
-		margin: 0;
+	.toolbar-count {
 		color: var(--text-secondary);
-		line-height: 1.55;
-	}
-
-	.filter-tabs {
-		display: flex;
-		gap: 0;
-		flex-wrap: wrap;
-		padding-bottom: var(--sp-3);
-		border-bottom: var(--border-thin);
-	}
-
-	.filter-tab {
-		padding: 0.7rem 0.95rem;
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border: var(--border-thin);
-		border-right: none;
-		cursor: pointer;
-		border-radius: 0;
-	}
-
-	.filter-tab:first-child {
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-	}
-
-	.filter-tab:last-child {
-		border-right: var(--border-thin);
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-	}
-
-	.filter-tab:hover {
-		color: var(--text-strong);
-	}
-
-	.filter-tab.active {
-		color: var(--text-strong);
-		background: var(--surface-panel);
+		font-size: var(--text-sm);
+		white-space: nowrap;
 	}
 
 	.requester-cell {

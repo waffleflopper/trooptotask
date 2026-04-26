@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -106,40 +106,14 @@
 </script>
 
 <div class="settings-page">
-	<PageToolbar title="Organization Settings" helpTopic="settings" />
-
 	<main class="page-content">
-		<div class="overview-strip">
-			<div class="overview-card">
-				<span class="overview-label">Retention</span>
-				<strong class="overview-value">{savedRetentionMonths} mo</strong>
-				<span class="overview-meta">Current archive retention window before permanent cleanup</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Warning Window</span>
-				<strong class="overview-value">{savedWarningWindowDays} d</strong>
-				<span class="overview-meta">Current loss warning window before ETS or PCS / DEROS follow-up</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">ICT Default</span>
-				<strong class="overview-value">{savedCriticalTasksDefaultExpirationMonths} mo</strong>
-				<span class="overview-meta">Default expiration window for tasks without per-task overrides</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">ICT Warning</span>
-				<strong class="overview-value">{savedCriticalTasksExpiringSoonWarningDays} d</strong>
-				<span class="overview-meta">Expiring-soon warning window used by Critical Tasks status calculation</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Change State</span>
-				<strong class="overview-value">{hasPendingChanges ? 'Pending' : 'Saved'}</strong>
-				<span class="overview-meta"
-					>{hasPendingChanges
-						? 'You have unsaved organization setting changes'
-						: 'The current organization settings match what is saved'}</span
-				>
-			</div>
-		</div>
+		<FloatingPageToolbar ariaLabel="Admin settings status" leadingMin="0" collapse="narrow">
+			{#snippet leading()}
+				<span class="toolbar-state" class:pending={hasPendingChanges}>
+					{hasPendingChanges ? 'Unsaved changes' : 'Saved'}
+				</span>
+			{/snippet}
+		</FloatingPageToolbar>
 
 		<section class="settings-section">
 			<div class="section-heading">
@@ -281,23 +255,6 @@
 		gap: var(--sp-4);
 	}
 
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
 	.section-label {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
@@ -306,27 +263,32 @@
 		text-transform: uppercase;
 	}
 
-	.overview-label {
-		color: var(--text-muted);
-	}
-
 	.section-label {
 		margin: 0;
 		color: var(--amber);
 	}
 
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 4vw, 2.5rem);
-		line-height: 0.95;
+	.toolbar-state {
+		display: inline-flex;
+		align-items: center;
+		min-height: 34px;
+		padding: 0 var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--text-strong);
+		white-space: nowrap;
 	}
 
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
+	.toolbar-state.pending {
+		border-color: color-mix(in srgb, var(--amber) 42%, var(--border-default) 58%);
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+		color: var(--amber-dark);
 	}
 
 	.settings-section {

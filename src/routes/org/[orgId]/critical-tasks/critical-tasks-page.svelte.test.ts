@@ -143,7 +143,7 @@ describe('critical tasks page', () => {
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 	});
 
-	it('renders the Training Matrix shell while workspace data is still streaming', () => {
+	it('renders the floating matrix toolbar while workspace data is still streaming', () => {
 		render(Page, {
 			props: {
 				data: {
@@ -162,9 +162,8 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Training Matrix' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Critical Tasks' }).getAttribute('href')).toBe('/org/org-1/critical-tasks');
-		expect(screen.getByText('Matrix')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
+		expect(screen.getByLabelText('Search by name, rank, or MOS')).toBeTruthy();
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
 	});
 
@@ -190,9 +189,18 @@ describe('critical tasks page', () => {
 
 		const reportsLink = screen.getByRole('link', { name: 'Reports' });
 		expect(reportsLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/reports');
-		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
-		const libraryLink = screen.getByRole('menuitem', { name: 'Task Library' });
+		const libraryLink = screen.getByRole('link', { name: 'Task Library' });
 		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
+		const orderedActions = [
+			screen.getByRole('link', { name: 'Export CSV' }),
+			screen.getByRole('button', { name: 'Import Completions' }),
+			libraryLink,
+			reportsLink,
+			screen.getByRole('button', { name: 'Record Training' })
+		];
+		for (let index = 0; index < orderedActions.length - 1; index += 1) {
+			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
+		}
 	});
 
 	it('opens the completion import modal from the page toolbar', async () => {
@@ -221,7 +229,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByLabelText('Upload file')).toBeTruthy();
 	});
 
-	it('keeps the matrix export link in sync with group and gaps-only filters', async () => {
+	it('keeps the matrix export link in sync with group and search filters', async () => {
 		const currentTask: IctTask = {
 			...ictTask,
 			id: 'current-task',
@@ -276,17 +284,24 @@ describe('critical tasks page', () => {
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/matrix/export');
 
-		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: 'group-bravo' } });
+		await fireEvent.change(screen.getByLabelText('Critical Tasks group filter'), { target: { value: 'group-bravo' } });
 		await waitFor(() => {
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
 				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo'
 			);
 		});
 
-		await fireEvent.click(screen.getByRole('checkbox', { name: 'Show readiness gaps only' }));
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'Jones' } });
 		await waitFor(() => {
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&gapsOnly=true'
+				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones'
+			);
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Gaps' }));
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones&gapsOnly=true'
 			);
 		});
 	});
@@ -414,11 +429,11 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
 			'/org/org-1/critical-tasks/reports'
 		);
-		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
-		expect(screen.queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Task Library' })).toBeNull();
 	});
 
-	it('renders the matrix with group and readiness gap filters', async () => {
+	it('renders the matrix with the group filter and simplified toolbar controls', async () => {
 		const currentTask: IctTask = {
 			...ictTask,
 			id: 'current-task',
@@ -473,31 +488,19 @@ describe('critical tasks page', () => {
 		const matrixPanel = screen.getByTestId('critical-tasks-matrix-panel');
 		expect(matrixPanel).toBeTruthy();
 		expect(within(matrixPanel).getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
-		const totals = screen.getByLabelText('Critical Tasks matrix totals');
-		expect(within(totals).getByText('Personnel')).toBeTruthy();
-		expect(within(totals).getByText('Active Tasks')).toBeTruthy();
-		expect(within(totals).getByText('Validations')).toBeTruthy();
-		expect(within(totals).getByText('Unit Readiness')).toBeTruthy();
-		expect(within(totals).getByText('75%')).toBeTruthy();
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('Jones, Jane')).toBeTruthy();
 
-		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: 'group-bravo' } });
+		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
+		expect(screen.queryByText('Readiness 75%')).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: 'Gaps only' })).toBeNull();
+		expect(screen.queryByLabelText('Critical Tasks matrix totals')).toBeNull();
+
+		await fireEvent.change(screen.getByLabelText('Critical Tasks group filter'), { target: { value: 'group-bravo' } });
 
 		await waitFor(() => {
 			expect(screen.queryByText('Smith, Jane')).toBeNull();
 			expect(screen.getByText('Jones, Jane')).toBeTruthy();
-		});
-
-		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: '' } });
-		await fireEvent.click(screen.getByRole('checkbox', { name: 'Show readiness gaps only' }));
-
-		await waitFor(() => {
-			expect(screen.getByText('Smith, Jane')).toBeTruthy();
-			expect(screen.queryByText('Jones, Jane')).toBeNull();
-			expect(screen.queryByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeNull();
-			expect(screen.getByRole('columnheader', { name: /181-105-1002 Airway management/ })).toBeTruthy();
-			expect(screen.getByRole('button', { name: /Smith 181-105-1002: not recorded/ })).toBeTruthy();
 		});
 	});
 

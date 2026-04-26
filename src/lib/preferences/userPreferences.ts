@@ -10,10 +10,6 @@ export interface UserOrgPreferences {
 		showPersonnelRoles: boolean;
 		highlightOnboarding: boolean;
 		/**
-		 * `null` means "follow the responsive default" instead of forcing open/closed.
-		 */
-		todaySummaryExpanded: boolean | null;
-		/**
 		 * When true, overnight duty events only show a badge on the day they begin.
 		 * When false, badges appear on every day their coverage window spans.
 		 */
@@ -37,7 +33,6 @@ export const UserOrgPreferencesPatchSchema = z.object({
 			showStatusText: z.boolean().optional(),
 			showPersonnelRoles: z.boolean().optional(),
 			highlightOnboarding: z.boolean().optional(),
-			todaySummaryExpanded: z.boolean().nullable().optional(),
 			dutyStartDayOnly: z.boolean().optional()
 		})
 		.optional(),
@@ -54,9 +49,8 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 	return {
 		calendar: {
 			showStatusText: false,
-			showPersonnelRoles: true,
+			showPersonnelRoles: false,
 			highlightOnboarding: true,
-			todaySummaryExpanded: null,
 			dutyStartDayOnly: true
 		},
 		training: {

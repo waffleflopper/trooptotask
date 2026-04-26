@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe('DashboardTabs', () => {
-	it('routes Add Eval through the rating-scheme view when the member can view rating scheme', () => {
+	it('routes Add Eval through the first-class Evals route when the member can view rating scheme', () => {
 		dashboardTabStore.setTab('training-evals');
 
 		render(DashboardTabs, {
@@ -26,7 +26,7 @@ describe('DashboardTabs', () => {
 		expect(
 			screen
 				.getAllByRole('link', { name: 'Add Eval' })
-				.every((link) => link.getAttribute('href') === '/org/org-1/personnel?view=rating-scheme')
+				.every((link) => link.getAttribute('href') === '/org/org-1/evals')
 		).toBe(true);
 	});
 

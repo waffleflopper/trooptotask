@@ -15,11 +15,17 @@ export interface PersonnelBootstrap {
 	groups: Group[];
 	statusTypes: StatusType[];
 	pinnedGroups: string[];
-	ratingSchemeEntries: RatingSchemeEntry[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds: string[];
+}
+
+export interface RatingSchemeBootstrap {
+	personnelLookup: PersonnelLookup[];
+	ratingSchemeEntries: RatingSchemeEntry[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays: number;
 }
 
 const activePersonnelFindOptions: FindOptions = {
@@ -93,30 +99,41 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 
-	const [personnelRows, allPersonnelRows, groupRows, statusTypeRows, pinnedGroupRows, ratingSchemeSharedData] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
-			ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			userId
-				? ctx.store.findMany<Record<string, unknown>>(
-						'user_pinned_groups',
-						orgId,
-						{ user_id: userId },
-						{
-							orderBy: [{ column: 'sort_order', ascending: true }]
-						}
-					)
-				: Promise.resolve([]),
-			loadRatingSchemeSharedData(ctx, { includePersonnelLookup: false, includeAwardTracking: true })
-		]);
+	const [
+		personnelRows,
+		allPersonnelRows,
+		groupRows,
+		statusTypeRows,
+		pinnedGroupRows,
+		orgSettingsRow,
+		awardTrackingAcknowledgedPersonnelIds
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
+		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, activePersonnelFindOptions),
+		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		userId
+			? ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					orgId,
+					{ user_id: userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				)
+			: Promise.resolve([]),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null),
+		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
+	]);
 
 	const scopedAllPersonnelRows = ctx.auth.scopedGroupId ? personnelRows : allPersonnelRows;
+	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
@@ -124,26 +141,20 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-		ratingSchemeEntries: ratingSchemeSharedData.ratingSchemeEntries,
-		lossWarningWindowDays: ratingSchemeSharedData.lossWarningWindowDays,
-		awardTrackingAcknowledgedPersonnelIds: ratingSchemeSharedData.awardTrackingAcknowledgedPersonnelIds
+		lossWarningWindowDays,
+		awardTrackingAcknowledgedPersonnelIds
 	};
 }
 
-export async function fetchRatingSchemeBootstrap(ctx: QueryWithRawStorePorts): Promise<PersonnelBootstrap> {
+export async function fetchRatingSchemeBootstrap(ctx: QueryWithRawStorePorts): Promise<RatingSchemeBootstrap> {
 	const shared = await loadRatingSchemeSharedData(ctx, {
 		includePersonnelLookup: true,
 		includeAwardTracking: false
 	});
 
 	return {
-		personnel: [],
 		personnelLookup: shared.personnelLookup,
-		groups: [],
-		statusTypes: [],
-		pinnedGroups: [],
 		ratingSchemeEntries: shared.ratingSchemeEntries,
-		lossWarningWindowDays: shared.lossWarningWindowDays,
-		awardTrackingAcknowledgedPersonnelIds: shared.awardTrackingAcknowledgedPersonnelIds
+		lossWarningWindowDays: shared.lossWarningWindowDays
 	};
 }

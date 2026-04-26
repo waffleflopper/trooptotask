@@ -35,8 +35,8 @@ This document separates what v1 authorization and provider ownership look like t
 
 - Critical Tasks now owns a dedicated lane across routes, entities, use cases, and RLS.
 - Rating Scheme now owns a dedicated lane across route guards, CRUD, membership and invitation flags, and RLS-backed scoped record access.
-  - its current page view still lives inside Personnel
-  - rating-scheme-only members can now receive a dedicated primary-nav entry into that nested view
+  - its current primary surface is the first-class Evals route
+  - rating-scheme-only members can use that Evals route without Personnel access
   - its record model remains distinct from counseling and development-goal records
 - `Leader's Book` is currently hidden from primary nav and its route redirects during redesign, but its permissions and compatibility surfaces still exist in settings, help, dashboard actions, exports, and plans.
 - Some settings and admin actions still bypass use-case boundaries; the remaining org settings route-local provider work is now limited to organization rename.
@@ -118,7 +118,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - A later ADR or equivalent design review may revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt shape is settled.
 - Temporary route or screen placement does not define durable lane ownership.
 - Current primary-nav visibility also does not define feature existence or lane ownership during this transition.
-- Rating Scheme owns its own durable lane even while the current UI remains nested in the Personnel surface; nav treatment can change independently without redefining lane ownership.
+- Rating Scheme owns its own durable lane and now uses the Evals route as its primary UI; nav treatment can change independently without redefining lane ownership.
 - Rating Scheme owns evaluation-tracking records and workflows for rated individuals.
 - `Leader's Book` owns counseling records, development goals, and the remade per-Soldier leader-reference or administrative surface.
 - `Personnel` owns roster administration.

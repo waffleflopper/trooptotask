@@ -19,9 +19,22 @@
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		menuAlign?: 'left' | 'right';
+		menuSide?: 'bottom' | 'top';
 	}
 
-	let { orgId, orgName, userRole, allOrgs = [], onToggleTheme, isDarkTheme, onFeedback, onWhatsNew }: Props = $props();
+	let {
+		orgId,
+		orgName,
+		userRole,
+		allOrgs = [],
+		onToggleTheme,
+		isDarkTheme,
+		onFeedback,
+		onWhatsNew,
+		menuAlign = 'right',
+		menuSide = 'bottom'
+	}: Props = $props();
 
 	let menuOpen = $state(false);
 
@@ -125,7 +138,7 @@
 		{initial}
 	</button>
 
-	<OverflowMenu {items} open={menuOpen} onClose={closeMenu} align="right" />
+	<OverflowMenu {items} open={menuOpen} onClose={closeMenu} align={menuAlign} side={menuSide} />
 </div>
 
 <style>

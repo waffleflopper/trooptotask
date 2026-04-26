@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 const basePermissions: OrganizationMemberPermissions = {
 	canViewCalendar: false,
@@ -56,9 +56,10 @@ describe('getOrgNavigation', () => {
 		expect(isOrgNavItemActive('/org/org-1/critical-tasks/reports', item)).toBe(true);
 	});
 
-	it('shows a Rating Scheme nav item when the member can view rating scheme but not personnel', () => {
+	it('shows an Evals nav item when the member can view rating scheme', () => {
 		const nav = getOrgNavigation('org-1', {
 			...basePermissions,
+			canViewPersonnel: true,
 			canViewRatingScheme: true
 		});
 
@@ -66,16 +67,16 @@ describe('getOrgNavigation', () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: 'rating-scheme',
-					href: '/org/org-1/personnel?view=rating-scheme',
-					label: 'Rating Scheme',
+					href: '/org/org-1/evals',
+					label: 'Evals',
 					visible: true
 				})
 			])
 		);
-		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
+		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(true);
 	});
 
-	it('treats the rating-scheme nav item as active on the nested personnel route', () => {
+	it('treats Evals child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
 			...basePermissions,
 			canViewRatingScheme: true
@@ -85,6 +86,145 @@ describe('getOrgNavigation', () => {
 			throw new Error('Rating Scheme nav item missing');
 		}
 
-		expect(isOrgNavItemActive('/org/org-1/personnel', item)).toBe(true);
+		expect(isOrgNavItemActive('/org/org-1/evals/reports', item)).toBe(true);
+	});
+});
+
+describe('getOrgBreadcrumbs', () => {
+	it('includes Calendar subroute labels after the organization and primary section', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
+			'Test Org',
+			'Calendar',
+			'Settings'
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/duty-roster', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
+			'Test Org',
+			'Calendar',
+			'Duty Roster'
+		]);
+	});
+
+	it('links parent breadcrumbs for Calendar subroutes', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/calendar/settings', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Calendar', href: '/org/org-1/calendar' },
+			{ label: 'Settings' }
+		]);
+	});
+
+	it('includes linked Onboarding subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewOnboarding: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/onboarding/templates', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Onboarding', href: '/org/org-1/onboarding' },
+			{ label: 'Templates' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/onboarding/history', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Onboarding', href: '/org/org-1/onboarding' },
+			{ label: 'History' }
+		]);
+	});
+
+	it('includes linked Training subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewTraining: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/training/types', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Training', href: '/org/org-1/training' },
+			{ label: 'Types' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/training/reports', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Training', href: '/org/org-1/training' },
+			{ label: 'Reports' }
+		]);
+	});
+
+	it('includes linked Critical Tasks subroute breadcrumbs', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCriticalTasks: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/library', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Library' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/reports', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Reports' }
+		]);
+	});
+
+	it('uses a personnel breadcrumb for Critical Tasks person records', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCriticalTasks: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/person-1', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Person' }
+		]);
+	});
+
+	it('uses support route breadcrumbs for Settings routes outside primary navigation', () => {
+		const nav = getOrgNavigation('org-1', basePermissions);
+
+		expect(getOrgBreadcrumbs('/org/org-1/settings', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Settings' }
+		]);
+	});
+
+	it('uses linked Admin breadcrumbs for admin subroutes outside primary navigation', () => {
+		const nav = getOrgNavigation('org-1', basePermissions);
+
+		expect(getOrgBreadcrumbs('/org/org-1/admin/audit', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Admin', href: '/org/org-1/admin' },
+			{ label: 'Audit' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/admin/approvals', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Admin', href: '/org/org-1/admin' },
+			{ label: 'Approvals' }
+		]);
+	});
+
+	it('uses linked Billing breadcrumbs for billing result routes outside primary navigation', () => {
+		const nav = getOrgNavigation('org-1', basePermissions);
+
+		expect(getOrgBreadcrumbs('/org/org-1/billing/success', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Billing', href: '/org/org-1/billing' },
+			{ label: 'Success' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/billing/canceled', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Billing', href: '/org/org-1/billing' },
+			{ label: 'Canceled' }
+		]);
 	});
 });

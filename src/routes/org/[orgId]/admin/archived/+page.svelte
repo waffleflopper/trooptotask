@@ -6,7 +6,7 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import { addMonths } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -123,27 +123,14 @@
 </script>
 
 <div class="archived-page">
-	<PageToolbar title="Archived Personnel" helpTopic="settings" />
-
 	<main class="page-content">
-		<div class="overview-strip">
-			<div class="overview-card">
-				<span class="overview-label">Archived</span>
-				<strong class="overview-value">{data.archivedPersonnel.length}</strong>
-				<span class="overview-meta">Personnel records currently held in archive</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Retention</span>
-				<strong class="overview-value">{data.retentionMonths} mo</strong>
-				<span class="overview-meta">Automatic cleanup window before permanent deletion</span>
-			</div>
-		</div>
+		<FloatingPageToolbar ariaLabel="Archived personnel status" leadingMin="0" collapse="narrow">
+			{#snippet leading()}
+				<span class="toolbar-note">Retention: {data.retentionMonths} mo</span>
+			{/snippet}
+		</FloatingPageToolbar>
 
 		<div class="table-shell">
-			<div class="section-heading">
-				<p class="section-label">Archive</p>
-				<h2>Archived Personnel</h2>
-			</div>
 			<p class="header-description">
 				Archived personnel are retained for {data.retentionMonths} months before automatic permanent deletion.
 			</p>
@@ -232,54 +219,6 @@
 		gap: var(--sp-4);
 	}
 
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
-	.section-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.overview-label {
-		color: var(--text-muted);
-	}
-
-	.section-label {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 4vw, 2.5rem);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
 	.table-shell {
 		display: flex;
 		flex-direction: column;
@@ -290,27 +229,28 @@
 		background: var(--surface-panel);
 	}
 
-	.section-heading {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.table-shell h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(2rem, 4vw, 2.8rem);
-		line-height: 0.98;
-		font-weight: 700;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
 	.header-description {
 		margin: 0;
 		color: var(--text-secondary);
 		font-size: var(--text-sm);
 		line-height: 1.55;
+	}
+
+	.toolbar-note {
+		display: inline-flex;
+		align-items: center;
+		min-height: 34px;
+		padding: 0 var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	.name-cell {

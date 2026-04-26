@@ -79,8 +79,8 @@ describe('training page', () => {
 			}
 		});
 
-		expect(screen.getByText('Training & Certifications')).toBeTruthy();
-		expect(screen.getByTestId('page-toolbar')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Training controls' })).toBeTruthy();
+		expect(screen.queryByTestId('page-toolbar')).toBeNull();
 		expect(screen.getByTestId('skeleton-grid')).toBeTruthy();
 	});
 });

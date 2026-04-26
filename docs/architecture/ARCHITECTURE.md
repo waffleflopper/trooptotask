@@ -51,7 +51,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Admin UI presets like `Full Editor`, `Team Leader`, and `Viewer` exist today as convenience labels over the boolean-and-scope model. They are not persisted domain roles.
 - Current permission lanes still carry some transitional complexity:
   - Critical Tasks now owns a dedicated permission lane
-  - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, and RLS while remaining nested inside Personnel in the UI
+  - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, RLS, and the first-class Evals route
   - `Leader's Book` remains a documented transitional compatibility lane outside the durable first-class lane map
 
 ### Provider ownership
@@ -71,7 +71,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
 - `Leaders Book` still exists conceptually and in permissions, help content, exports, and plans, but is hidden from primary nav while redesign work is pending.
-- `Rating Scheme` is active and user-visible, owns a dedicated permission lane, and still renders inside Personnel while the standalone surface decision remains deferred.
+- `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
 - Demo and sandbox flows still exist in schema, routes, and bootstrap logic, but are already marked as deprecated for future removal.
 - The live `/demo` entry and `/api/create-demo-sandbox` both fail closed now, but cookie-driven org-route bypasses and sandbox cleanup paths still remain as contained exceptions.
 
@@ -126,7 +126,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Route-level `locals.supabase` islands still exist in multiple business-critical surfaces.
 - The current authz model is boolean-heavy, hard to audit cleanly, and not the intended steady state.
 - Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
-- Rating Scheme now owns its dedicated lane; remaining drift is UI placement and the standalone-surface decision, not Personnel or `Leader's Book` permission ownership.
+- Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is around the future `Leader's Book` remake, not Rating Scheme placement or permission ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.
 - Leaders Book remains hidden from primary nav while related data and permissions remain live.
 - Demo/sandbox bypass logic still exists and uses service-role access paths.

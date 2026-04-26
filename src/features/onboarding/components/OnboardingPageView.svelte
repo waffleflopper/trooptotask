@@ -2,7 +2,8 @@
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -15,29 +16,6 @@
 </script>
 
 <div class="page">
-	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
-		<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
-		{#if ctx.canEditOnboarding}
-			{#if ctx.canManageConfig}
-				<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
-					>Manage Templates</a
-				>
-			{/if}
-			<button
-				class="btn btn-primary btn-sm"
-				type="button"
-				onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
-				disabled={!ctx.hasTemplateSteps || ctx.readOnly}
-				title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
-			>
-				Start Onboarding
-			</button>
-			{#if ctx.readOnly}
-				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
-			{/if}
-		{/if}
-	</PageToolbar>
-
 	{#if !ctx.canViewOnboarding}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
@@ -45,6 +23,35 @@
 		</div>
 	{:else}
 		<main class="page-content">
+			<FloatingPageToolbar ariaLabel="Onboarding controls" collapse="narrow">
+				{#snippet leading()}
+					<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
+				{/snippet}
+
+				{#if ctx.canEditOnboarding}
+					{#if ctx.canManageConfig}
+						<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
+							>Manage Templates</a
+						>
+					{/if}
+					<button
+						class="btn btn-primary btn-sm"
+						type="button"
+						onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
+						disabled={!ctx.hasTemplateSteps || ctx.readOnly}
+						title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
+					>
+						Start Onboarding
+					</button>
+					{#if ctx.readOnly}
+						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+					{/if}
+				{/if}
+				{#if ctx.overflowItems.length > 0}
+					<ToolbarOverflowMenu ariaLabel="More onboarding actions" items={ctx.overflowItems} />
+				{/if}
+			</FloatingPageToolbar>
+
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="notice-banner notice-banner--warning">
 					<div class="notice-copy">
@@ -368,6 +375,15 @@
 		font-weight: var(--font-weight-display);
 		line-height: 0.95;
 		text-transform: uppercase;
+	}
+
+	.page-content {
+		display: flex;
+		min-height: 0;
+		flex-direction: column;
+		gap: var(--sp-4);
+		overflow: auto;
+		padding: var(--sp-4) var(--sp-6) var(--sp-5);
 	}
 
 	[data-quiet-button] {
@@ -827,6 +843,10 @@
 	}
 
 	@media (max-width: 640px) {
+		.page-content {
+			padding: var(--sp-3);
+		}
+
 		.notice-banner,
 		.card-summary,
 		.card-detail {

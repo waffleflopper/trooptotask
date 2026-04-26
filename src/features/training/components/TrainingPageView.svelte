@@ -4,14 +4,12 @@
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
-	import { getTrainingStats } from '$features/training/utils/trainingStatus';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
-	import ViewSelector from '$features/training/components/ViewSelector.svelte';
 	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -43,107 +41,69 @@
 
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
 
-	const viewStats = $derived(getTrainingStats(ctx.filteredPersonnel, filteredTypes, personnelTrainingsStore.items));
-
-	const skeletonStatSlots = [0, 1, 2, 3, 4];
+	const trainingViewOptions = $derived([
+		{ value: '', label: 'All Trainings' },
+		...trainingViewsStore.items.map((view) => ({ value: view.id, label: view.name }))
+	]);
+	const groupFilterOptions = $derived([
+		{ value: '', label: 'Group: All' },
+		...ctx.groups.map((group) => ({ value: group.id, label: group.name }))
+	]);
+	const matrixViewOptions = [
+		{ value: 'alphabetical', label: 'A-Z' },
+		{ value: 'by-group', label: 'By Group' }
+	];
 </script>
 
 <div class="page">
-	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={ctx.trainingOverflowItems}>
-		<button class="btn btn-sm" type="button" onclick={() => modals.open('sign-in-rosters')}>Sign-In Rosters</button>
-		<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm"> Reports </a>
-		{#if ctx.canManageConfig}
-			<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm"> Manage Types </a>
-		{/if}
-		{#if ctx.readOnly}
-			<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
-		{/if}
-	</PageToolbar>
-
 	{#if !ctx.canViewTraining}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-		<div class="stats-bar">
-			{#if loading}
-				{#each skeletonStatSlots as slot (slot)}
-					<SkeletonBlock width="100px" height="52px" />
-				{/each}
-			{:else}
-				<div class="stat-card current">
-					<span class="stat-value">{viewStats.current}</span>
-					<span class="stat-label">Current</span>
-				</div>
-				<div class="stat-card warning-yellow">
-					<span class="stat-value">{viewStats.warningYellow}</span>
-					<span class="stat-label">Expiring (60d)</span>
-				</div>
-				<div class="stat-card warning-orange">
-					<span class="stat-value">{viewStats.warningOrange}</span>
-					<span class="stat-label">Expiring (30d)</span>
-				</div>
-				<div class="stat-card expired">
-					<span class="stat-value">{viewStats.expired}</span>
-					<span class="stat-label">Expired</span>
-				</div>
-				<div class="stat-card not-completed">
-					<span class="stat-value">{viewStats.notCompleted}</span>
-					<span class="stat-label">Not Done</span>
-				</div>
-			{/if}
-		</div>
-
-		<div class="filter-bar">
-			<div class="filter-controls">
-				<ViewSelector
-					selectedViewId={ctx.selectedViewId}
-					onSelect={(viewId) => ctx.setSelectedViewId(viewId)}
-					canEdit={ctx.canManageConfig && !ctx.readOnly}
-					onEditClick={() => (showViewEditor = true)}
-				/>
-				<label class="filter-label">
-					<span class="filter-label-text">Group</span>
-					<select
-						class="select"
-						value={ctx.selectedGroupId}
-						onchange={(event) => ctx.setSelectedGroupId((event.currentTarget as HTMLSelectElement).value)}
-					>
-						<option value="">All Groups</option>
-						{#each ctx.groups as group (group.id)}
-							<option value={group.id}>{group.name}</option>
-						{/each}
-					</select>
-				</label>
-			</div>
-			<div class="view-toggle">
-				<span class="view-label">View:</span>
-				<div class="view-toggle-controls" role="group" aria-label="Training matrix view mode">
-					<button
-						class="view-btn"
-						type="button"
-						class:active={ctx.viewMode === 'alphabetical'}
-						onclick={() => ctx.setViewMode('alphabetical')}
-					>
-						A-Z
-					</button>
-					<button
-						class="view-btn"
-						type="button"
-						class:active={ctx.viewMode === 'by-group'}
-						onclick={() => ctx.setViewMode('by-group')}
-					>
-						By Group
-					</button>
-				</div>
-			</div>
-			<div class="filter-meta">
-				<Badge label={`${ctx.filteredPersonnel.length} personnel`} variant="outlined" />
-			</div>
-		</div>
-
 		<main class="page-content">
+			<FloatingPageToolbar ariaLabel="Training controls" collapse="medium" leadingMin="34rem">
+				{#snippet leading()}
+					<div class="training-controls" aria-label="Training filters">
+						<ToolbarSelect
+							ariaLabel="Training view filter"
+							options={trainingViewOptions}
+							value={ctx.selectedViewId ?? ''}
+							width="wide"
+							onValueChange={(value) => ctx.setSelectedViewId(value || null)}
+						/>
+						<ToolbarSelect
+							ariaLabel="Training group filter"
+							options={groupFilterOptions}
+							value={ctx.selectedGroupId}
+							onValueChange={(value) => ctx.setSelectedGroupId(value)}
+						/>
+						<SegmentedControl
+							ariaLabel="Training matrix view mode"
+							options={matrixViewOptions}
+							value={ctx.viewMode}
+							onValueChange={(value) => ctx.setViewMode(value as 'alphabetical' | 'by-group')}
+						/>
+					</div>
+				{/snippet}
+
+				<button class="btn btn-sm" type="button" onclick={() => modals.open('sign-in-rosters')}>Sign-In Rosters</button>
+				<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm">Reports</a>
+				{#if ctx.canManageConfig}
+					<button class="btn btn-sm" type="button" onclick={() => (showViewEditor = true)} disabled={ctx.readOnly}>
+						Manage Views
+					</button>
+					<button class="btn btn-sm" type="button" onclick={() => modals.open('bulk-import')} disabled={ctx.readOnly}>
+						Bulk Import
+					</button>
+					<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm">Manage Types</a>
+				{/if}
+				{#if ctx.readOnly}
+					<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+				{/if}
+			</FloatingPageToolbar>
+
 			{#if loading}
 				<div class="skeleton-matrix-wrapper">
 					<SkeletonGrid rows={8} columns={6} cellWidth="100px" cellHeight="38px" />
@@ -202,162 +162,12 @@
 		background: var(--surface-page);
 	}
 
-	.stats-bar {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-3);
-		background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-subtle) 6%);
-		border-bottom: var(--border-thin);
-	}
-
-	.stat-card {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: var(--sp-1);
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		--stat-color: var(--text-secondary);
-	}
-
-	.stat-card.current {
-		--stat-color: var(--success);
-	}
-
-	.stat-card.warning-yellow,
-	.stat-card.warning-orange {
-		--stat-color: var(--amber-dark);
-	}
-
-	.stat-card.expired {
-		--stat-color: var(--danger);
-	}
-
-	.stat-card.not-completed {
-		--stat-color: var(--text-secondary);
-	}
-
-	.stat-value {
-		display: block;
-		font-family: var(--font-display);
-		font-size: clamp(1.35rem, 1.1rem + 0.4vw, 1.8rem);
-		font-weight: var(--font-weight-display);
-		line-height: 1;
-		color: var(--stat-color);
-	}
-
-	.stat-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: var(--text-tertiary);
-	}
-
-	.filter-bar {
+	.training-controls {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-3);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border-bottom: var(--border-thin);
-	}
-
-	.filter-controls {
-		display: flex;
-		align-items: flex-end;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin-right: auto;
 		min-width: 0;
-	}
-
-	.filter-label {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: var(--sp-2);
-	}
-
-	.filter-label .select {
-		width: 200px;
-	}
-
-	.filter-label-text {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.view-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.view-toggle-controls {
-		display: inline-flex;
-		align-items: stretch;
-	}
-
-	.view-toggle-controls .view-btn + .view-btn {
-		margin-left: -1px;
-	}
-
-	.view-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.view-btn {
-		appearance: none;
-		min-height: 32px;
-		padding: 0 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		border: var(--border-thin);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.view-btn:first-of-type {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-
-	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-
-	.view-btn:hover {
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.view-btn.active {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber);
-		color: var(--amber-dark);
 	}
 
 	.no-permission {
@@ -395,6 +205,9 @@
 		min-height: 0;
 		overflow: hidden;
 		padding: var(--sp-2);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
 	.view-panel {
@@ -409,11 +222,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.stats-bar {
-			padding: var(--sp-2);
-		}
-
-		.filter-bar,
 		.view-panel,
 		.skeleton-matrix-wrapper {
 			padding-left: 0;
@@ -424,31 +232,18 @@
 			padding: var(--sp-2);
 		}
 
-		.filter-bar {
-			align-items: stretch;
-		}
-
-		.filter-controls,
-		.filter-label {
+		.training-controls {
 			width: 100%;
 		}
 
-		.filter-label .select {
+		.training-controls :global(select),
+		.training-controls :global(.segmented-control) {
+			flex: 1 1 100%;
 			width: 100%;
-		}
-
-		.filter-controls {
-			margin-right: 0;
-		}
-
-		.view-toggle {
-			justify-content: space-between;
 		}
 	}
 
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.stats-bar,
-		.filter-bar,
 		.view-panel,
 		.skeleton-matrix-wrapper {
 			padding-left: 0;

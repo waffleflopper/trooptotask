@@ -22,6 +22,12 @@ import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
+export interface CalendarRosterFilterOption {
+	value: string;
+	label: string;
+	count?: number;
+}
+
 type MatchMediaFn = (query: string) => { matches: boolean };
 
 function getDefaultMatchMedia(): MatchMediaFn | null {
@@ -80,10 +86,11 @@ export class CalendarPageContext {
 
 	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
-	showPersonnelRoles = $state(true);
+	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
-	breakdownExpanded = $state(true);
 	dutyStartDayOnly = $state(true);
+	calendarGroupFilter = $state('');
+	calendarPersonnelSearch = $state('');
 
 	get #workspaceData() {
 		return this.#data.calendar?.data;
@@ -152,6 +159,37 @@ export class CalendarPageContext {
 		return this.scopedPBG.flatMap((g) => g.personnel);
 	}
 
+	get groupFilterOptions(): CalendarRosterFilterOption[] {
+		const scopedGroups = this.scopedPBG;
+		const total = scopedGroups.reduce((sum, group) => sum + group.personnel.length, 0);
+
+		return [
+			{ value: '', label: 'All groups', count: total },
+			...scopedGroups.map((group) => ({
+				value: this.groupFilterValue(group),
+				label: group.group,
+				count: group.personnel.length
+			}))
+		];
+	}
+
+	get groupFilteredPBG() {
+		if (!this.calendarGroupFilter) return this.scopedPBG;
+		return this.scopedPBG.filter((group) => this.groupFilterValue(group) === this.calendarGroupFilter);
+	}
+
+	get filteredPBG() {
+		const query = this.calendarPersonnelSearch.trim().toLowerCase();
+		if (!query) return this.groupFilteredPBG;
+
+		return this.groupFilteredPBG
+			.map((group) => ({
+				...group,
+				personnel: group.personnel.filter((person) => this.matchesPersonnelSearch(person, group.group, query))
+			}))
+			.filter((group) => group.personnel.length > 0);
+	}
+
 	// ---- reference date (for upcoming-loss evaluation) --------------------
 	/**
 	 * Calendar date used as "today" when evaluating upcoming losses.
@@ -196,15 +234,13 @@ export class CalendarPageContext {
 
 	syncUserPreferences(
 		preferences: UserOrgPreferences | undefined,
-		matchMediaFn: MatchMediaFn | null = getDefaultMatchMedia()
+		_matchMediaFn: MatchMediaFn | null = getDefaultMatchMedia()
 	): void {
 		const current = preferences ?? getDefaultUserOrgPreferences();
 		this.showStatusText = current.calendar.showStatusText;
 		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
 		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
-		this.breakdownExpanded =
-			current.calendar.todaySummaryExpanded ?? (matchMediaFn ? !matchMediaFn('(max-width: 640px)').matches : true);
 	}
 
 	/** Mark calendar as explored for Getting Started checklist. */
@@ -227,15 +263,6 @@ export class CalendarPageContext {
 	navigateToMonth(date: Date): void {
 		this.viewMode = 'month';
 		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
-	}
-
-	toggleBreakdown(): void {
-		this.breakdownExpanded = !this.breakdownExpanded;
-		void this.persistPreferences({
-			calendar: {
-				todaySummaryExpanded: this.breakdownExpanded
-			}
-		});
 	}
 
 	toggleHighlightOnboarding(): void {
@@ -272,6 +299,14 @@ export class CalendarPageContext {
 				dutyStartDayOnly: this.dutyStartDayOnly
 			}
 		});
+	}
+
+	setCalendarGroupFilter(value: string): void {
+		this.calendarGroupFilter = value;
+	}
+
+	setCalendarPersonnelSearch(value: string): void {
+		this.calendarPersonnelSearch = value;
 	}
 
 	handlePinToggle(group: string): void {
@@ -320,5 +355,25 @@ export class CalendarPageContext {
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to save your calendar preferences');
 		}
+	}
+
+	private groupFilterValue(group: { group: string; personnel: Personnel[] }): string {
+		return group.personnel.find((person) => person.groupId)?.groupId ?? `name:${group.group}`;
+	}
+
+	private matchesPersonnelSearch(person: Personnel, groupName: string, query: string): boolean {
+		const searchableValues = [
+			person.rank,
+			person.mos,
+			person.clinicRole,
+			person.groupName,
+			groupName,
+			person.firstName,
+			person.lastName,
+			`${person.firstName} ${person.lastName}`,
+			`${person.lastName}, ${person.firstName}`
+		];
+
+		return searchableValues.some((value) => value?.toLowerCase().includes(query));
 	}
 }

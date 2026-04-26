@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import DashboardTabs from './DashboardTabs.svelte';
 	import UnitReadinessTab from './tabs/UnitReadinessTab.svelte';
@@ -21,21 +21,15 @@
 </svelte:head>
 
 <div class="dashboard-page">
-	<PageToolbar title={ctx.data.orgName}>
-		{#snippet leading()}
-			<div class="toolbar-leading">
-				<div class="toolbar-org">
-					<span class="toolbar-org-kicker">Dashboard</span>
-					<h1 class="toolbar-org-name">{ctx.data.orgName}</h1>
-				</div>
-				<span class="toolbar-date">{ctx.todayDisplay}</span>
-			</div>
-		{/snippet}
+	<div class="dashboard-toolbar">
+		<FloatingPageToolbar ariaLabel="Dashboard controls" collapse="narrow" leadingMin="0">
+			{#snippet leading()}
+				<DashboardTabs orgId={ctx.data.orgId} permissions={ctx.data.permissions} />
+			{/snippet}
 
-		{#snippet below()}
-			<DashboardTabs orgId={ctx.data.orgId} permissions={ctx.data.permissions} />
-		{/snippet}
-	</PageToolbar>
+			<span class="toolbar-date">{ctx.todayDisplay}</span>
+		</FloatingPageToolbar>
+	</div>
 
 	<main class="dashboard-canvas page-scroll" id="main-content">
 		{#if ctx.isHydrating || dashboardTabStore.loading}
@@ -75,6 +69,10 @@
 		overflow-y: auto;
 	}
 
+	.dashboard-toolbar {
+		padding: var(--sp-4) var(--sp-6) 0;
+	}
+
 	/* Loading skeleton */
 	.dashboard-skeleton {
 		display: flex;
@@ -96,48 +94,18 @@
 		grid-template-columns: 1fr 1fr 1fr;
 	}
 
-	/* Toolbar leading area */
-	.toolbar-leading {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-4);
-	}
-
-	.toolbar-org {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
-	.toolbar-org-kicker {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-		color: var(--ink-35);
-		line-height: 1;
-	}
-
-	.toolbar-org-name {
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-		font-weight: var(--font-weight-display);
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		color: var(--ink);
-		margin: 0;
-		line-height: 1.1;
-	}
-
 	.toolbar-date {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		color: var(--ink-35);
-		padding-left: var(--sp-4);
-		border-left: var(--border-thin);
+		white-space: nowrap;
 	}
 
 	@media (max-width: 720px) {
+		.dashboard-toolbar {
+			padding: var(--sp-3) var(--sp-3) 0;
+		}
+
 		.skeleton-row--3 {
 			grid-template-columns: 1fr;
 		}

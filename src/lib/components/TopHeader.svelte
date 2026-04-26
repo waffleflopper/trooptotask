@@ -3,7 +3,8 @@
 	import type { OrganizationMemberPermissions } from '$lib/types';
 	import AvatarMenu from './ui/AvatarMenu.svelte';
 	import NotificationBell from './ui/NotificationBell.svelte';
-	import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+	import OrgNavIcon from './OrgNavIcon.svelte';
+	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 	interface OrgInfo {
 		id: string;
@@ -39,42 +40,78 @@
 
 	const pathname = $derived($page.url.pathname);
 	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
-	const activeNavItem = $derived(navItems.find((item) => isOrgNavItemActive(pathname, item)) ?? navItems[0]);
+	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems));
 </script>
+
+<aside class="app-rail" aria-label="Primary navigation">
+	<a href="/org/{orgId}" class="rail-mark-link" aria-label="Troop to Task dashboard">
+		<span class="rail-mark">T2T</span>
+	</a>
+
+	<nav class="rail-nav">
+		{#each navItems as item (item.href)}
+			<a
+				href={item.href}
+				class="rail-item"
+				class:active={isOrgNavItemActive(pathname, item)}
+				aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
+			>
+				<OrgNavIcon icon={item.icon} size={21} strokeWidth={1.9} />
+				<span class="rail-item-label">{item.compactLabel ?? item.label}</span>
+				{#if item.badgeLabel}
+					<span class="rail-badge">{item.badgeLabel}</span>
+				{/if}
+			</a>
+		{/each}
+	</nav>
+
+	<div class="rail-menu">
+		<AvatarMenu
+			{orgId}
+			{orgName}
+			{userRole}
+			{allOrgs}
+			{onToggleTheme}
+			{isDarkTheme}
+			{onFeedback}
+			{onWhatsNew}
+			menuAlign="left"
+			menuSide="top"
+		/>
+	</div>
+</aside>
 
 <header class="top-header">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<div class="header-shell">
 		<div class="header-left">
-			<a href="/org/{orgId}" class="logo-link" aria-label="Troop to Task dashboard">
-				<span class="header-mark">T2T</span>
-				<span class="header-brand-text">
-					<span class="header-logotype">Troop to Task</span>
-					<span class="header-active-label">{activeNavItem?.label ?? 'Dashboard'}</span>
-				</span>
-			</a>
-
-			<div class="header-org-block" aria-label="Current organization">
-				<span class="header-org-kicker">Organization</span>
-				<span class="header-org-name">{orgName}</span>
+			<div class="breadcrumb" aria-label="Current section">
+				{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
+					{#if index === 0}
+						{#if crumb.href}
+							<a class="breadcrumb-parent breadcrumb-link" href={crumb.href}>{crumb.label}</a>
+						{:else}
+							<span class="breadcrumb-parent">{crumb.label}</span>
+						{/if}
+					{:else}
+						<span class="breadcrumb-separator">›</span>
+						{#if crumb.href}
+							<a
+								class="breadcrumb-current breadcrumb-link"
+								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
+								href={crumb.href}>{crumb.label}</a
+							>
+						{:else}
+							<span
+								class="breadcrumb-current"
+								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
+								aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined}>{crumb.label}</span
+							>
+						{/if}
+					{/if}
+				{/each}
 			</div>
 		</div>
-
-		<nav class="header-nav" aria-label="Primary navigation">
-			{#each navItems as item (item.href)}
-				<a
-					href={item.href}
-					class="nav-tab"
-					class:active={isOrgNavItemActive(pathname, item)}
-					aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
-				>
-					<span class="nav-tab-label">{item.label}</span>
-					{#if item.badgeLabel}
-						<span class="nav-tab-badge">{item.badgeLabel}</span>
-					{/if}
-				</a>
-			{/each}
-		</nav>
 
 		<div class="header-right">
 			{#if onFeedback}
@@ -83,38 +120,164 @@
 				</button>
 			{/if}
 			<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
-			<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onFeedback} {onWhatsNew} />
+			<a class="header-help-link" href="/help" aria-label="Help">?</a>
+			<div class="mobile-account-menu">
+				<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onFeedback} {onWhatsNew} />
+			</div>
 		</div>
 	</div>
 </header>
 
 <style>
 	:global(:root) {
-		--header-height: 68px;
+		--app-rail-width: 74px;
+		--header-height: 52px;
+	}
+
+	.app-rail {
+		position: fixed;
+		inset: 0 auto 0 0;
+		z-index: calc(var(--z-sticky) + 120);
+		width: var(--app-rail-width);
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		padding: var(--sp-3) 0;
+		box-sizing: border-box;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)), var(--color-chrome);
+		border-right: 1px solid var(--color-chrome-border);
+		color: var(--color-chrome-text-muted);
+	}
+
+	.rail-mark-link {
+		display: flex;
+		justify-content: center;
+		padding: var(--sp-1) 0 var(--sp-6);
+		text-decoration: none;
+	}
+
+	.rail-mark {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 42px;
+		min-height: 28px;
+		border: 1px solid rgba(var(--amber-rgb), 0.72);
+		border-radius: var(--radius-sm);
+		color: var(--color-chrome-active);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		line-height: 1;
+	}
+
+	.rail-nav {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+	}
+
+	.rail-item,
+	.rail-menu {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		min-height: 68px;
+		padding: 6px 4px;
+		text-align: center;
+		text-decoration: none;
+		color: var(--color-chrome-text-muted);
+		transition:
+			color var(--transition-fast),
+			background var(--transition-fast);
+	}
+
+	.rail-item:hover {
+		color: var(--color-chrome-text);
+		background: rgba(240, 239, 233, 0.04);
+	}
+
+	.rail-item.active {
+		color: var(--color-chrome-active);
+		background: rgba(var(--amber-rgb), 0.08);
+	}
+
+	.rail-item.active::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 16px;
+		bottom: 16px;
+		width: 2px;
+		background: var(--color-chrome-active);
+	}
+
+	.rail-item-label {
+		max-width: 64px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.02em;
+		line-height: 1.1;
+	}
+
+	.rail-badge {
+		color: var(--color-chrome-active);
+		font-family: var(--font-mono);
+		font-size: 8px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.rail-menu {
+		margin-top: auto;
+		min-height: 56px;
+	}
+
+	.rail-menu :global(.avatar-circle) {
+		min-width: 38px;
+		height: 34px;
+		border-color: rgba(240, 239, 233, 0.16);
+		background: rgba(240, 239, 233, 0.04);
+		color: var(--color-chrome-text);
+	}
+
+	.rail-menu :global(.avatar-circle:hover),
+	.rail-menu :global(.avatar-circle.open) {
+		border-color: rgba(var(--amber-rgb), 0.42);
+		background: rgba(var(--amber-rgb), 0.1);
+		color: var(--color-chrome-active);
 	}
 
 	.top-header {
 		position: fixed;
 		top: 0;
-		left: 0;
-		width: 100%;
+		left: var(--app-rail-width);
+		width: calc(100% - var(--app-rail-width));
 		height: var(--header-height);
-		background: var(--color-chrome);
-		color: var(--color-chrome-text);
-		border-bottom: 1px solid var(--color-chrome-border);
+		background: color-mix(in srgb, var(--surface-panel) 96%, var(--surface-page) 4%);
+		color: var(--text-primary);
+		border-bottom: 1px solid var(--border-default);
 		z-index: calc(var(--z-sticky) + 100);
 		box-sizing: border-box;
 	}
 
 	.header-shell {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
-		gap: clamp(var(--sp-4), 2vw, var(--sp-8));
+		gap: var(--sp-4);
 		height: 100%;
 		width: 100%;
 		box-sizing: border-box;
-		padding: 0 clamp(var(--sp-4), 2vw, var(--sp-6));
+		padding: 0 var(--sp-5);
 	}
 
 	.header-left {
@@ -124,150 +287,43 @@
 		min-width: 0;
 	}
 
-	.logo-link {
+	.breadcrumb {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
-		text-decoration: none;
-		color: var(--color-chrome-text);
 		min-width: 0;
-	}
-
-	.header-mark {
 		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		border: 1px solid rgba(var(--amber-rgb), 0.4);
-		color: var(--color-chrome-active);
-		padding: 0.4rem 0.5rem;
-		border-radius: var(--radius-md);
-		line-height: 1;
-		flex-shrink: 0;
-	}
-
-	.header-brand-text {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-
-	.header-logotype {
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		line-height: 0.95;
-	}
-
-	.header-active-label,
-	.header-org-kicker {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		line-height: 1.3;
-	}
-
-	.header-active-label {
-		color: var(--color-chrome-text-muted);
-	}
-
-	.header-org-block {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		padding-left: clamp(var(--sp-2), 1vw, var(--sp-4));
-		border-left: 1px solid var(--color-chrome-border);
-		min-width: 0;
-	}
-
-	.header-org-kicker {
-		color: var(--color-chrome-text-muted);
-	}
-
-	.header-org-name {
 		font-size: var(--text-sm);
 		font-weight: var(--font-weight-semibold);
-		color: var(--color-chrome-text);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		letter-spacing: 0;
 	}
 
-	.header-nav {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0;
-		min-width: 0;
-		overflow-x: auto;
-		scrollbar-width: none;
+	.breadcrumb-parent {
+		color: var(--text-tertiary);
 	}
 
-	.header-nav::-webkit-scrollbar {
-		display: none;
+	.breadcrumb-separator {
+		color: var(--border-strong);
 	}
 
-	.nav-tab {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		height: 2.5rem;
-		padding: 0 0.875rem;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--color-chrome-text-muted);
+	.breadcrumb-current {
+		color: var(--text-primary);
+	}
+
+	.breadcrumb-current--section {
+		color: var(--text-secondary);
+	}
+
+	.breadcrumb-link {
 		text-decoration: none;
-		border: 1px solid transparent;
-		border-radius: var(--radius-md);
-		box-sizing: border-box;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast),
-			background var(--transition-fast);
-		white-space: nowrap;
+		transition: color var(--transition-fast);
 	}
 
-	.nav-tab-label {
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.nav-tab-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 18px;
-		padding: 1px 6px;
-		border: 1px solid rgba(var(--amber-rgb), 0.3);
-		border-radius: var(--radius-sm);
-		background: rgba(var(--amber-rgb), 0.12);
-		color: var(--color-chrome-active);
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		line-height: 1;
-		text-transform: uppercase;
-	}
-
-	.nav-tab:hover {
-		color: var(--color-chrome-text);
-		border-color: rgba(240, 239, 233, 0.12);
-		background: rgba(240, 239, 233, 0.03);
-	}
-
-	.nav-tab.active {
-		color: var(--color-chrome-active);
-		border-color: rgba(var(--amber-rgb), 0.42);
-		background: rgba(var(--amber-rgb), 0.08);
+	.breadcrumb-link:hover {
+		color: var(--text-primary);
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.2em;
 	}
 
 	.header-right {
@@ -275,18 +331,23 @@
 		align-items: center;
 		gap: var(--sp-2);
 		justify-self: end;
+		min-width: 0;
+	}
+
+	.mobile-account-menu {
+		display: none;
 	}
 
 	.header-feedback-button {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		height: 2.25rem;
 		padding: 0 0.85rem;
-		border: 1px solid var(--color-chrome-border);
-		border-radius: var(--radius-md);
-		background: rgba(240, 239, 233, 0.03);
-		color: var(--color-chrome-text-muted);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-medium);
@@ -299,10 +360,49 @@
 			background var(--transition-fast);
 	}
 
+	.header-help-link {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		text-decoration: none;
+		transition:
+			color var(--transition-fast),
+			background var(--transition-fast);
+	}
+
+	.header-feedback-button:hover,
+	.header-help-link:hover {
+		color: var(--text-primary);
+		background: var(--surface-subtle);
+	}
+
 	.header-feedback-button:hover {
-		color: var(--color-chrome-text);
-		border-color: rgba(240, 239, 233, 0.16);
-		background: rgba(240, 239, 233, 0.06);
+		border-color: var(--ink-35);
+	}
+
+	.top-header :global(.bell-button) {
+		border-color: transparent;
+		background: transparent;
+		color: var(--text-secondary);
+	}
+
+	.top-header :global(.bell-button:hover) {
+		border-color: transparent;
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+	}
+
+	.top-header :global(.bell-button.open) {
+		border-color: transparent;
+		background: var(--amber-light);
+		color: var(--amber-dark);
 	}
 
 	.skip-link {
@@ -328,12 +428,67 @@
 	}
 
 	@media (max-width: 920px) {
-		.header-shell {
-			grid-template-columns: minmax(0, 1fr) auto;
+		:global(:root) {
+			--header-height: 68px;
 		}
 
-		.header-nav {
+		.app-rail {
 			display: none;
+		}
+
+		.top-header {
+			left: 0;
+			width: 100%;
+			background: var(--color-chrome);
+			color: var(--color-chrome-text);
+			border-bottom-color: var(--color-chrome-border);
+		}
+
+		.header-shell {
+			grid-template-columns: minmax(0, 1fr) auto;
+			padding: 0 clamp(var(--sp-4), 2vw, var(--sp-6));
+		}
+
+		.breadcrumb-parent,
+		.breadcrumb-separator {
+			display: none;
+		}
+
+		.breadcrumb-current {
+			font-family: var(--font-display);
+			font-size: 1.25rem;
+			font-weight: var(--font-weight-display);
+			letter-spacing: 0.02em;
+			text-transform: uppercase;
+			color: var(--color-chrome-text);
+		}
+
+		.header-feedback-button {
+			border-color: var(--color-chrome-border);
+			background: rgba(240, 239, 233, 0.03);
+			color: var(--color-chrome-text-muted);
+		}
+
+		.top-header :global(.bell-button) {
+			border-color: transparent;
+			background: rgba(240, 239, 233, 0.03);
+			color: var(--color-chrome-text-muted);
+		}
+
+		.top-header :global(.bell-button:hover) {
+			border-color: transparent;
+			background: rgba(240, 239, 233, 0.06);
+			color: var(--color-chrome-text);
+		}
+
+		.top-header :global(.bell-button.open) {
+			border-color: transparent;
+			background: rgba(var(--amber-rgb), 0.08);
+			color: var(--color-chrome-active);
+		}
+
+		.mobile-account-menu {
+			display: block;
 		}
 	}
 
@@ -355,38 +510,11 @@
 			gap: var(--sp-2);
 		}
 
-		.header-logotype {
-			font-size: 1.05rem;
-		}
-
-		.header-active-label {
-			display: none;
-		}
-
-		.header-org-block {
-			min-width: 0;
-			padding-left: var(--sp-2);
-		}
-
-		.header-org-kicker {
-			display: none;
-		}
-
-		.header-org-name {
-			font-size: var(--text-xs);
-		}
-
 		.header-right {
 			gap: var(--sp-1);
 		}
 
 		.header-feedback-button {
-			display: none;
-		}
-	}
-
-	@media (max-width: 480px) {
-		.header-org-block {
 			display: none;
 		}
 	}

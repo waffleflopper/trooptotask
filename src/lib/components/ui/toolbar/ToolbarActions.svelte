@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
 	import ToolbarAction from './ToolbarAction.svelte';
+	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import { computeToolbarActionLayout } from './toolbarLayout';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 	import type {
@@ -38,6 +39,7 @@
 	let measuredContainerWidth = $state<number | null>(null);
 	let measuredOverflowWidth = $state(40);
 	let measuredActions = $state<Record<string, ToolbarActionMeasurement>>({});
+	const coordinator = getToolbarCoordinator();
 
 	const resolvedActions = $derived<MeasuredToolbarAction[]>(
 		actions.map((action) => {
@@ -52,7 +54,8 @@
 
 	const layout = $derived(
 		computeToolbarActionLayout({
-			containerWidth: containerWidth ?? measuredContainerWidth ?? Number.MAX_SAFE_INTEGER,
+			containerWidth:
+				containerWidth ?? coordinator?.availableActionWidth ?? measuredContainerWidth ?? Number.MAX_SAFE_INTEGER,
 			actions: resolvedActions,
 			overflowWidth: measuredOverflowWidth,
 			gapWidth: 8
@@ -84,7 +87,8 @@
 		if (containerWidth !== undefined) {
 			return;
 		} else if (hostEl) {
-			measuredContainerWidth = findAvailableWidth();
+			const width = hostEl.getBoundingClientRect().width || hostEl.clientWidth;
+			measuredContainerWidth = width > 0 ? width : null;
 		}
 
 		if (!measureEl) return;
@@ -112,30 +116,6 @@
 		measuredOverflowWidth = overflowTrigger?.getBoundingClientRect().width || overflowTrigger?.clientWidth || 40;
 	}
 
-	function findAvailableWidth(): number | null {
-		if (!hostEl) return null;
-
-		const toolbarEl = hostEl.closest<HTMLElement>('[data-floating-page-toolbar]');
-		const leadingEl = toolbarEl?.querySelector<HTMLElement>('.floating-page-toolbar__leading');
-		const leadingContentEl =
-			leadingEl?.firstElementChild instanceof HTMLElement ? leadingEl.firstElementChild : leadingEl;
-
-		if (!toolbarEl || !leadingContentEl) {
-			const rectWidth = hostEl.getBoundingClientRect().width || hostEl.clientWidth;
-			return rectWidth > 0 ? rectWidth : null;
-		}
-
-		const toolbarRect = toolbarEl.getBoundingClientRect();
-		const leadingRect = leadingContentEl.getBoundingClientRect();
-		const styles = getComputedStyle(toolbarEl);
-		const paddingInline = (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0);
-		const gapWidth = Number.parseFloat(styles.columnGap || styles.gap || '0') || 0;
-		const leadingWidth = Math.max(leadingRect.width, leadingContentEl.scrollWidth);
-		const availableWidth = Math.max(0, toolbarRect.width - paddingInline - leadingWidth - gapWidth);
-
-		return toolbarRect.width > 0 || leadingRect.width > 0 ? availableWidth : null;
-	}
-
 	$effect(() => {
 		for (const warning of layout.warnings) {
 			console.warn(`[ToolbarActions] ${warning}`);
@@ -161,12 +141,7 @@
 						measureLayout();
 					});
 
-		const toolbarEl = hostEl?.closest<HTMLElement>('[data-floating-page-toolbar]');
-		const leadingEl = toolbarEl?.querySelector<HTMLElement>('.floating-page-toolbar__leading');
-		const leadingContentEl =
-			leadingEl?.firstElementChild instanceof HTMLElement ? leadingEl.firstElementChild : leadingEl;
-
-		for (const element of [hostEl, measureEl, toolbarEl, leadingEl, leadingContentEl]) {
+		for (const element of [hostEl, measureEl]) {
 			if (element) resizeObserver?.observe(element);
 		}
 

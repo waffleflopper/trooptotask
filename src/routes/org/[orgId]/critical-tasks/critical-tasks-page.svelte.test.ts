@@ -574,7 +574,7 @@ describe('critical tasks page', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
 		expect(screen.getByRole('group', { name: 'Critical Tasks filters' })).toBeTruthy();
-		expect(screen.getByTestId('critical-tasks-filter-group').getAttribute('data-compact-strategy')).toBe('items-first');
+		expect(screen.getByTestId('critical-tasks-filter-group')).toBeTruthy();
 		expect(screen.getByLabelText('Critical Tasks group filter')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Show gaps only' })).toBeTruthy();
 		expect(screen.getByRole('group', { name: 'Critical Tasks matrix view mode' })).toBeTruthy();

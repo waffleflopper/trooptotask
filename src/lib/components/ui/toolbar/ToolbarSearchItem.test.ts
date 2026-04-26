@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import ToolbarSearchItem from './ToolbarSearchItem.svelte';
 import ToolbarSearchItemTest from './ToolbarSearchItemTest.svelte';
 
 describe('ToolbarSearchItem', () => {
@@ -54,5 +55,17 @@ describe('ToolbarSearchItem', () => {
 			expect(screen.queryByRole('searchbox', { name: 'Search personnel' })).toBeNull();
 		});
 		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+	});
+
+	it('renders full search by default when auto mode has no toolbar coordinator', () => {
+		render(ToolbarSearchItem, {
+			props: {
+				ariaLabel: 'Search personnel',
+				mode: 'auto'
+			}
+		});
+
+		expect(screen.getByRole('searchbox', { name: 'Search personnel' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Search personnel' })).toBeNull();
 	});
 });

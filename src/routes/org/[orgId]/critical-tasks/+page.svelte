@@ -289,7 +289,6 @@
 							ariaLabel="Search by name, rank, MOS..."
 							placeholder="Search name, rank, MOS..."
 							width="wide"
-							
 							bind:value={personnelSearch}
 						/>
 					</div>

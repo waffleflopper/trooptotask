@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
+
+const { billingEnabledMock } = vi.hoisted(() => ({
+	billingEnabledMock: vi.fn(() => false)
+}));
 
 vi.mock('$app/forms', () => ({
 	enhance: () => () => {}
@@ -12,13 +16,16 @@ vi.mock('$features/groups/components/OrganizationMemberManager.svelte', () => ({
 }));
 
 vi.mock('$lib/config/billing', () => ({
-	isBillingEnabled: false
+	get isBillingEnabled() {
+		return billingEnabledMock();
+	}
 }));
 
 import Page from './+page.svelte';
 
 afterEach(() => {
 	cleanup();
+	billingEnabledMock.mockReturnValue(false);
 });
 
 const baseData = {
@@ -54,6 +61,28 @@ describe('org settings page', () => {
 		expect(screen.getByRole('link', { name: 'Switch Organization' }).getAttribute('href')).toBe('/dashboard?show=all');
 		expect(screen.queryByText('Pending Invites')).toBeNull();
 		expect(screen.queryByText('Active people with access to this organization')).toBeNull();
+	});
+
+	it('exposes organization settings actions as a named toolbar action group', () => {
+		billingEnabledMock.mockReturnValue(true);
+
+		render(Page, {
+			props: {
+				data: baseData as never,
+				form: null as never
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Organization settings controls' });
+		const actions = within(toolbar).getByRole('group', { name: 'Organization settings actions' });
+
+		expect(within(actions).getByRole('link', { name: 'Sign Out' }).getAttribute('href')).toBe('/auth/logout');
+		expect(within(actions).getByRole('link', { name: 'Switch Organization' }).getAttribute('href')).toBe(
+			'/dashboard?show=all'
+		);
+		expect(within(actions).getByRole('link', { name: 'Manage Billing' }).getAttribute('href')).toBe(
+			'/org/org-1/billing'
+		);
 	});
 
 	it('shows the organization-name success banner only for the rename action payload', () => {

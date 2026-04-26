@@ -184,6 +184,20 @@ describe('handleUseCaseRequest', () => {
 			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(result).toBe('ok');
 		});
+
+		it('allows explicitly exempted recovery mutations when org is read-only', async () => {
+			const t = buildTestCtx({ readOnly: true });
+
+			const config: RouteConfig<void, string> = {
+				permission: 'owner',
+				mutation: true,
+				allowReadOnlyMutation: true,
+				fn: async () => 'ok'
+			};
+
+			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			expect(result).toBe('ok');
+		});
 	});
 
 	describe('Zod input validation', () => {

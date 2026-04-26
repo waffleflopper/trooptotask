@@ -100,7 +100,7 @@
 
 	.toolbar-view-toggle__panel {
 		position: absolute;
-		z-index: 20;
+		z-index: var(--z-tooltip);
 		top: calc(100% + var(--sp-2));
 		left: 0;
 		padding: var(--sp-2);

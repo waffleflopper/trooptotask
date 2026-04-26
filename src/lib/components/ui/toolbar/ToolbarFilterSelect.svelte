@@ -108,7 +108,7 @@
 
 	.toolbar-filter-select__panel {
 		position: absolute;
-		z-index: 20;
+		z-index: var(--z-tooltip);
 		top: calc(100% + var(--sp-2));
 		left: 0;
 		width: min(18rem, calc(100vw - var(--sp-6)));

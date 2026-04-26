@@ -146,10 +146,14 @@
 
 <style>
 	.floating-page-toolbar {
-		display: grid;
-		grid-template-columns: minmax(min(var(--toolbar-leading-min), 100%), 1fr) auto;
+		display: flex;
 		align-items: center;
+		flex-wrap: nowrap;
 		gap: var(--sp-3);
+		box-sizing: border-box;
+		width: 100%;
+		min-height: 58px;
+		min-width: 0;
 		padding: var(--sp-3);
 		background: var(--surface-panel);
 		border: 1px solid var(--border-default);
@@ -161,25 +165,24 @@
 	.floating-page-toolbar__overflow {
 		display: flex;
 		align-items: center;
+		align-self: center;
 		flex-wrap: nowrap;
 		gap: var(--sp-2);
 		min-width: 0;
 	}
 
 	.floating-page-toolbar__leading {
+		flex: 1 1 auto;
 		justify-content: flex-start;
 	}
 
 	.floating-page-toolbar__actions {
+		flex: 0 0 auto;
 		justify-content: flex-end;
 	}
 
 	.floating-page-toolbar__overflow {
 		display: none;
 		justify-content: flex-end;
-	}
-
-	.floating-page-toolbar--has-overflow {
-		grid-template-columns: minmax(min(var(--toolbar-leading-min), 100%), 1fr) auto auto;
 	}
 </style>

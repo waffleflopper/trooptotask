@@ -84,8 +84,7 @@
 		if (containerWidth !== undefined) {
 			return;
 		} else if (hostEl) {
-			const rectWidth = hostEl.getBoundingClientRect().width || hostEl.clientWidth;
-			measuredContainerWidth = rectWidth > 0 ? rectWidth : null;
+			measuredContainerWidth = findAvailableWidth();
 		}
 
 		if (!measureEl) return;
@@ -113,6 +112,30 @@
 		measuredOverflowWidth = overflowTrigger?.getBoundingClientRect().width || overflowTrigger?.clientWidth || 40;
 	}
 
+	function findAvailableWidth(): number | null {
+		if (!hostEl) return null;
+
+		const toolbarEl = hostEl.closest<HTMLElement>('[data-floating-page-toolbar]');
+		const leadingEl = toolbarEl?.querySelector<HTMLElement>('.floating-page-toolbar__leading');
+		const leadingContentEl =
+			leadingEl?.firstElementChild instanceof HTMLElement ? leadingEl.firstElementChild : leadingEl;
+
+		if (!toolbarEl || !leadingContentEl) {
+			const rectWidth = hostEl.getBoundingClientRect().width || hostEl.clientWidth;
+			return rectWidth > 0 ? rectWidth : null;
+		}
+
+		const toolbarRect = toolbarEl.getBoundingClientRect();
+		const leadingRect = leadingContentEl.getBoundingClientRect();
+		const styles = getComputedStyle(toolbarEl);
+		const paddingInline = (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0);
+		const gapWidth = Number.parseFloat(styles.columnGap || styles.gap || '0') || 0;
+		const leadingWidth = Math.max(leadingRect.width, leadingContentEl.scrollWidth);
+		const availableWidth = Math.max(0, toolbarRect.width - paddingInline - leadingWidth - gapWidth);
+
+		return toolbarRect.width > 0 || leadingRect.width > 0 ? availableWidth : null;
+	}
+
 	$effect(() => {
 		for (const warning of layout.warnings) {
 			console.warn(`[ToolbarActions] ${warning}`);
@@ -138,8 +161,14 @@
 						measureLayout();
 					});
 
-		if (hostEl) resizeObserver?.observe(hostEl);
-		if (measureEl) resizeObserver?.observe(measureEl);
+		const toolbarEl = hostEl?.closest<HTMLElement>('[data-floating-page-toolbar]');
+		const leadingEl = toolbarEl?.querySelector<HTMLElement>('.floating-page-toolbar__leading');
+		const leadingContentEl =
+			leadingEl?.firstElementChild instanceof HTMLElement ? leadingEl.firstElementChild : leadingEl;
+
+		for (const element of [hostEl, measureEl, toolbarEl, leadingEl, leadingContentEl]) {
+			if (element) resizeObserver?.observe(element);
+		}
 
 		function handleResize() {
 			measureLayout();
@@ -198,8 +227,9 @@
 	}
 
 	.toolbar-actions__measure {
-		position: absolute;
-		inset: auto 0 0 auto;
+		position: fixed;
+		top: -1000px;
+		left: -1000px;
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);

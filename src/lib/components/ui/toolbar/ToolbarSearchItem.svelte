@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Search } from '@lucide/svelte';
+	import { onMount, tick } from 'svelte';
 	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
 	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import type { ToolbarSearchItemMode, ToolbarSearchPanelMode } from './toolbar.types';
@@ -30,7 +31,9 @@
 
 	const coordinator = getToolbarCoordinator();
 	const panelId = $derived(`search:${testId ?? ariaLabel}`);
+	let triggerEl: HTMLButtonElement | undefined = $state();
 	let localOpen = $state(false);
+	let panelStyle = $state('');
 
 	const active = $derived(value.trim().length > 0);
 	const compact = $derived(mode === 'compact' || (mode === 'auto' && coordinator?.compactPhase !== 'full'));
@@ -41,6 +44,11 @@
 		if (!compact) {
 			closePanel();
 		}
+	});
+
+	$effect(() => {
+		if (!open) return;
+		tick().then(positionPanel);
 	});
 
 	function togglePanel(): void {
@@ -82,6 +90,36 @@
 		event.preventDefault();
 		togglePanel();
 	}
+
+	function positionPanel(): void {
+		if (!triggerEl || typeof window === 'undefined') return;
+
+		const viewportInset = 12;
+		const triggerRect = triggerEl.getBoundingClientRect();
+		const panelWidth = Math.min(352, Math.max(0, window.innerWidth - viewportInset * 2));
+		const preferredLeft = triggerRect.left;
+		const maxLeft = Math.max(viewportInset, window.innerWidth - viewportInset - panelWidth);
+		const left = Math.min(Math.max(preferredLeft, viewportInset), maxLeft);
+		const top = triggerRect.bottom + 8;
+
+		panelStyle = `width: ${panelWidth}px; left: ${left}px; top: ${top}px;`;
+	}
+
+	onMount(() => {
+		if (typeof window === 'undefined') return;
+
+		function handleViewportChange(): void {
+			if (open) positionPanel();
+		}
+
+		window.addEventListener('resize', handleViewportChange);
+		window.addEventListener('scroll', handleViewportChange, true);
+
+		return () => {
+			window.removeEventListener('resize', handleViewportChange);
+			window.removeEventListener('scroll', handleViewportChange, true);
+		};
+	});
 </script>
 
 {#if !compact}
@@ -96,6 +134,7 @@
 			title={resolvedTriggerTitle}
 			aria-expanded={open}
 			data-search-active={active}
+			bind:this={triggerEl}
 			onclick={togglePanel}
 			onkeydown={handleTriggerKeydown}
 		>
@@ -103,7 +142,7 @@
 		</button>
 
 		{#if open}
-			<div class="toolbar-search-item__panel" data-testid={testId ? `${testId}-panel` : undefined}>
+			<div class="toolbar-search-item__panel" style={panelStyle} data-testid={testId ? `${testId}-panel` : undefined}>
 				<ToolbarSearch
 					{ariaLabel}
 					{placeholder}
@@ -149,11 +188,9 @@
 	}
 
 	.toolbar-search-item__panel {
-		position: absolute;
-		z-index: 20;
-		top: calc(100% + var(--sp-2));
-		left: 0;
-		width: min(22rem, calc(100vw - var(--sp-6)));
+		position: fixed;
+		z-index: var(--z-tooltip);
+		box-sizing: border-box;
 		padding: var(--sp-2);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
@@ -162,6 +199,8 @@
 	}
 
 	.toolbar-search-item__panel :global(.toolbar-search) {
+		box-sizing: border-box;
 		width: 100%;
+		max-width: none;
 	}
 </style>

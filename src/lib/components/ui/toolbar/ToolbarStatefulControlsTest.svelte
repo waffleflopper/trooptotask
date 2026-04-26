@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ToolbarFilterSelect from './ToolbarFilterSelect.svelte';
 	import ToolbarGroup from './ToolbarGroup.svelte';
+	import ToolbarToggle from './ToolbarToggle.svelte';
 	import ToolbarViewToggle from './ToolbarViewToggle.svelte';
 	import type { ToolbarGroupCompactStrategy, ToolbarStatefulControlMode } from './toolbar.types';
 
@@ -12,7 +13,7 @@
 	let { mode = 'full', compactStrategy = 'items-first' }: Props = $props();
 
 	let groupId = $state('');
-	let scope = $state('all');
+	let gapsOnly = $state(false);
 	let viewMode = $state('by-group');
 
 	const groupOptions = [
@@ -21,20 +22,15 @@
 		{ value: 'bravo', label: 'Bravo' }
 	];
 
-	const scopeOptions = [
-		{ value: 'all', label: 'All' },
-		{ value: 'gaps', label: 'Gaps' }
-	];
-
 	const viewOptions = [
 		{ value: 'alphabetical', label: 'A-Z', title: 'Show personnel alphabetically' },
 		{ value: 'by-group', label: 'By Group', title: 'Show personnel by group' }
 	];
 
-	const activeCount = $derived((groupId ? 1 : 0) + (scope === 'gaps' ? 1 : 0));
+	const activeCount = $derived((groupId ? 1 : 0) + (gapsOnly ? 1 : 0));
 </script>
 
-<p data-testid="state">{groupId || 'all'}|{scope}|{viewMode}|{activeCount}</p>
+<p data-testid="state">{groupId || 'all'}|{gapsOnly ? 'gaps' : 'all'}|{viewMode}|{activeCount}</p>
 
 <ToolbarGroup label="Filters" {activeCount} {compactStrategy} {mode} testId="filters-group">
 	{#snippet full()}
@@ -46,13 +42,7 @@
 			mode="full"
 			bind:value={groupId}
 		/>
-		<ToolbarFilterSelect
-			ariaLabel="Critical Tasks matrix scope"
-			options={scopeOptions}
-			defaultValue="all"
-			mode="full"
-			bind:value={scope}
-		/>
+		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
 		<ToolbarViewToggle
 			ariaLabel="Critical Tasks matrix view mode"
 			options={viewOptions}
@@ -70,13 +60,7 @@
 			mode="full"
 			bind:value={groupId}
 		/>
-		<ToolbarFilterSelect
-			ariaLabel="Critical Tasks matrix scope"
-			options={scopeOptions}
-			defaultValue="all"
-			mode="full"
-			bind:value={scope}
-		/>
+		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
 		<ToolbarViewToggle
 			ariaLabel="Critical Tasks matrix view mode"
 			options={viewOptions}

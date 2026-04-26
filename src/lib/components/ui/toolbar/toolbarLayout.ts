@@ -75,12 +75,17 @@ export function computeToolbarActionLayout({
 }: ComputeToolbarActionLayoutInput): ToolbarActionLayout {
 	const states: ToolbarActionState[] = actions.map((action) => ({
 		action,
-		mode: getToolbarActionDisplayMode(action) === 'compact' && actionCanCompact(action) ? 'compact' : 'full'
+		mode:
+			getToolbarActionOverflowPolicy(action) === 'always'
+				? 'overflow'
+				: getToolbarActionDisplayMode(action) === 'compact' && actionCanCompact(action)
+					? 'compact'
+					: 'full'
 	}));
 
 	if (containerWidth <= 0) {
 		for (const state of states) {
-			if (getToolbarActionOverflowPolicy(state.action) === 'auto') {
+			if (getToolbarActionOverflowPolicy(state.action) !== 'never') {
 				state.mode = 'overflow';
 			} else if (actionCanCompact(state.action)) {
 				state.mode = 'compact';
@@ -94,7 +99,9 @@ export function computeToolbarActionLayout({
 		};
 	}
 
-	for (const state of sortByYieldOrder(states).filter((item) => actionCanCompact(item.action))) {
+	for (const state of sortByYieldOrder(states).filter(
+		(item) => item.mode !== 'overflow' && actionCanCompact(item.action)
+	)) {
 		if (getVisibleWidth(states, overflowWidth, gapWidth) <= containerWidth) break;
 		state.mode = 'compact';
 	}

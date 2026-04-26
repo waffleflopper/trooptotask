@@ -100,4 +100,101 @@ describe('ToolbarActions', () => {
 		expect(ids.filter((id) => id === 'toolbar-action-record-reason')).toHaveLength(1);
 		expect(new Set(ids).size).toBe(ids.length);
 	});
+
+	it('renders dropdown actions and preserves toggle state in generated overflow', async () => {
+		render(ToolbarActions, {
+			props: {
+				actions: [
+					{
+						id: 'bulk-status',
+						label: 'Bulk Status',
+						menuItems: [
+							{ label: 'Add Bulk', href: '/calendar/bulk?tab=add' },
+							{ label: 'Remove Bulk', href: '/calendar/bulk?tab=remove' }
+						]
+					},
+					{
+						id: 'show-status-text',
+						label: 'Show Status Text',
+						onclick: vi.fn(),
+						toggle: true,
+						active: true,
+						priority: 'low'
+					}
+				],
+				ariaLabel: 'Calendar actions',
+				overflowAriaLabel: 'More Calendar actions',
+				containerWidth: 180,
+				actionMeasurements: {
+					'bulk-status': { fullWidth: 120, compactWidth: 120 },
+					'show-status-text': { fullWidth: 160, compactWidth: 160 }
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Bulk Status' }));
+		expect(screen.getByRole('menuitem', { name: 'Add Bulk' }).getAttribute('href')).toBe('/calendar/bulk?tab=add');
+		expect(screen.getByRole('button', { name: 'Bulk Status' }).querySelector('svg')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More Calendar actions' }));
+		const overflowMenu = screen.getByRole('menu');
+		expect(within(overflowMenu).getByRole('menuitem', { name: /Show Status Text/ }).textContent).toContain('✓');
+	});
+
+	it('flattens overflowed dropdown actions under one group header', async () => {
+		render(ToolbarActions, {
+			props: {
+				actions: [
+					{
+						id: 'bulk-status',
+						label: 'Bulk Status',
+						menuItems: [
+							{ label: 'Add Bulk', href: '/calendar/bulk?tab=add' },
+							{ label: 'Remove Bulk', href: '/calendar/bulk?tab=remove' },
+							{ label: 'Import CSV', href: '/calendar/bulk?tab=import' }
+						],
+						priority: 'low'
+					}
+				],
+				ariaLabel: 'Calendar actions',
+				overflowAriaLabel: 'More Calendar actions',
+				containerWidth: 40,
+				actionMeasurements: {
+					'bulk-status': { fullWidth: 120, compactWidth: 120 }
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More Calendar actions' }));
+		const menu = screen.getByRole('menu');
+
+		expect(within(menu).getAllByText('Bulk Status')).toHaveLength(1);
+		expect(within(menu).getByRole('menuitem', { name: 'Import CSV' })).toBeTruthy();
+	});
+
+	it('exposes disabled dropdown reasons to assistive technology', () => {
+		render(ToolbarActions, {
+			props: {
+				actions: [
+					{
+						id: 'bulk-status',
+						label: 'Bulk Status',
+						disabled: true,
+						disabledReason: 'Read-only mode',
+						menuItems: [{ label: 'Add Bulk', href: '/calendar/bulk?tab=add' }]
+					}
+				],
+				ariaLabel: 'Calendar actions',
+				overflowAriaLabel: 'More Calendar actions',
+				containerWidth: 320
+			}
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Bulk Status' });
+		const descriptionId = trigger.getAttribute('aria-describedby');
+
+		expect(trigger.hasAttribute('disabled')).toBe(true);
+		expect(descriptionId).toBeTruthy();
+		expect(document.getElementById(descriptionId!)?.textContent).toBe('Read-only mode');
+	});
 });

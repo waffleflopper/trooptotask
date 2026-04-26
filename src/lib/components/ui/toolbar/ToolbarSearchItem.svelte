@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search } from '@lucide/svelte';
 	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
+	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import type { ToolbarSearchItemMode, ToolbarSearchPanelMode } from './toolbar.types';
 
 	interface Props {
@@ -21,30 +22,49 @@
 		placeholder = 'Search...',
 		testId,
 		width = 'default',
-		mode = 'full',
+		mode = 'auto',
 		panelMode = 'inline',
 		triggerTitle,
 		onValueChange
 	}: Props = $props();
 
-	let open = $state(false);
+	const coordinator = getToolbarCoordinator();
+	const panelId = $derived(`search:${testId ?? ariaLabel}`);
+	let localOpen = $state(false);
 
 	const active = $derived(value.trim().length > 0);
-	const compact = $derived(mode === 'compact');
+	const compact = $derived(mode === 'compact' || (mode === 'auto' && coordinator?.compactPhase !== 'full'));
+	const open = $derived(coordinator ? coordinator.openPanelId === panelId : localOpen);
 	const resolvedTriggerTitle = $derived(triggerTitle ?? ariaLabel);
 
 	$effect(() => {
 		if (!compact) {
-			open = false;
+			closePanel();
 		}
 	});
 
 	function togglePanel(): void {
-		open = !open;
+		if (open) {
+			closePanel();
+		} else {
+			openPanel();
+		}
+	}
+
+	function openPanel(): void {
+		if (coordinator) {
+			coordinator.requestPanel(panelId, 'search');
+		} else {
+			localOpen = true;
+		}
 	}
 
 	function closePanel(): void {
-		open = false;
+		if (coordinator) {
+			coordinator.closePanel(panelId);
+		} else {
+			localOpen = false;
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {

@@ -2,6 +2,7 @@
 	import { SlidersHorizontal } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import { getToolbarCoordinator } from './toolbarCoordinator';
 	import type { ToolbarGroupCompactStrategy, ToolbarPanelMode, ToolbarStatefulControlMode } from './toolbar.types';
 
 	interface Props {
@@ -31,26 +32,43 @@
 	let open = $state(false);
 	let hostEl: HTMLElement | undefined = $state();
 	let measuredWidth = $state<number | null>(null);
+	const coordinator = getToolbarCoordinator();
+	const panelId = $derived(`group:${testId ?? label}`);
 
 	const active = $derived(activeCount > 0);
 	const compact = $derived(
-		(mode === 'compact' || (mode === 'auto' && measuredWidth !== null && measuredWidth < compactBreakpoint)) &&
+		(mode === 'compact' ||
+			(mode === 'auto' &&
+				(coordinator
+					? coordinator.compactPhase === 'group'
+					: measuredWidth !== null && measuredWidth < compactBreakpoint))) &&
 			compactStrategy !== 'never'
 	);
+	const panelOpen = $derived(coordinator ? coordinator.openPanelId === panelId : open);
 	const panelTestId = $derived(testId ? `${testId}-panel` : undefined);
 
 	$effect(() => {
 		if (!compact) {
-			open = false;
+			closePanel();
 		}
 	});
 
 	function togglePanel(): void {
-		open = !open;
+		if (panelOpen) {
+			closePanel();
+		} else if (coordinator) {
+			coordinator.requestPanel(panelId, 'group');
+		} else {
+			open = true;
+		}
 	}
 
 	function closePanel(): void {
-		open = false;
+		if (coordinator) {
+			coordinator.closePanel(panelId);
+		} else {
+			open = false;
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
@@ -111,7 +129,7 @@
 			class="toolbar-group__trigger btn btn-sm"
 			class:toolbar-group__trigger--active={active}
 			aria-label={label}
-			aria-expanded={open}
+			aria-expanded={panelOpen}
 			data-active-count={activeCount}
 			onclick={togglePanel}
 			onkeydown={handleKeydown}
@@ -123,7 +141,7 @@
 			{/if}
 		</button>
 
-		{#if open}
+		{#if panelOpen}
 			<div
 				class="toolbar-group__panel"
 				role="dialog"

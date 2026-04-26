@@ -3,7 +3,13 @@
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
+	import {
+		ToolbarActions,
+		ToolbarMetaItem,
+		ToolbarNavGroup,
+		type ToolbarActionConfig,
+		type ToolbarNavItem
+	} from '$lib/components/ui/toolbar';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -13,6 +19,57 @@
 	}
 
 	let { ctx }: Props = $props();
+
+	const onboardingNavItems = $derived.by<ToolbarNavItem[]>(() => {
+		return [{ label: 'History', href: ctx.historyUrl }];
+	});
+
+	const onboardingToolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
+		const actions: ToolbarActionConfig[] = [];
+		for (const item of ctx.overflowItems) {
+			if (item.href === ctx.templatesUrl || item.label === 'Manage Templates') continue;
+			actions.push({
+				id: item.label
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-|-$/g, ''),
+				label: item.label,
+				href: item.href,
+				onclick: item.onclick,
+				icon: item.label.toLowerCase().includes('report') ? 'chart' : undefined,
+				disabled: item.disabled,
+				disabledReason: item.disabledReason,
+				priority: 'normal'
+			});
+		}
+
+		if (ctx.canManageConfig) {
+			actions.push({
+				id: 'manage-templates',
+				label: 'Manage Templates',
+				href: ctx.templatesUrl,
+				icon: 'book-open',
+				disabled: ctx.readOnly,
+				disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
+				priority: 'high'
+			});
+		}
+
+		if (ctx.canEditOnboarding) {
+			actions.push({
+				id: 'start-onboarding',
+				label: 'Start Onboarding',
+				onclick: () => ctx.modals.open(MODAL_IDS.startOnboarding),
+				icon: 'clipboard-check',
+				disabled: !ctx.hasTemplateSteps || ctx.readOnly,
+				disabledReason: !ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : undefined,
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
+			});
+		}
+		return actions;
+	});
 </script>
 
 <div class="page">
@@ -25,30 +82,19 @@
 		<main class="page-content">
 			<FloatingPageToolbar ariaLabel="Onboarding controls" collapse="narrow">
 				{#snippet leading()}
-					<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
+					<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 				{/snippet}
 
-				{#if ctx.canEditOnboarding}
-					{#if ctx.canManageConfig}
-						<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
-							>Manage Templates</a
-						>
-					{/if}
-					<button
-						class="btn btn-primary btn-sm"
-						type="button"
-						onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
-						disabled={!ctx.hasTemplateSteps || ctx.readOnly}
-						title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
-					>
-						Start Onboarding
-					</button>
+				{#if onboardingToolbarActions.length > 0}
+					<ToolbarActions
+						actions={onboardingToolbarActions}
+						ariaLabel="Onboarding actions"
+						overflowAriaLabel="More onboarding actions"
+						overflowIconOnly
+					/>
 					{#if ctx.readOnly}
-						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
 					{/if}
-				{/if}
-				{#if ctx.overflowItems.length > 0}
-					<ToolbarOverflowMenu ariaLabel="More onboarding actions" items={ctx.overflowItems} />
 				{/if}
 			</FloatingPageToolbar>
 
@@ -384,15 +430,6 @@
 		gap: var(--sp-4);
 		overflow: auto;
 		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	[data-quiet-button] {
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
-	[data-quiet-button].disabled {
-		opacity: 0.5;
-		pointer-events: none;
 	}
 
 	.notice-label {

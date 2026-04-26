@@ -5,10 +5,13 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import ProgressiveToolbarActions from '$lib/components/ui/ProgressiveToolbarActions.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
-	import type { ProgressiveToolbarAction } from '$lib/components/ui/ProgressiveToolbarActions.types';
+	import {
+		ToolbarActions,
+		ToolbarMetaItem,
+		ToolbarSearchItem,
+		ToolbarViewToggle,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
@@ -28,7 +31,7 @@
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
 	const rosterViewOptions = [
 		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'By Group' }
+		{ value: 'by-group', label: 'Group' }
 	];
 
 	const awardTrackingOverrides = new SvelteMap<string, boolean>();
@@ -39,29 +42,34 @@
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canManageRoster = $derived(ctx.canAddPersonnel);
 
-	const personnelActionItems = $derived.by<ProgressiveToolbarAction[]>(() => {
-		const items: ProgressiveToolbarAction[] = [];
+	const personnelActionItems = $derived.by<ToolbarActionConfig[]>(() => {
+		const items: ToolbarActionConfig[] = [];
 		if (canManageRoster) {
 			items.push({
 				id: 'bulk-import',
-				label: 'Bulk Import',
+				label: 'Import',
 				onclick: () => ctx.openBulkManager(),
+				icon: 'upload',
 				disabled: readOnly,
-				className: 'btn btn-sm'
+				priority: 'low'
 			});
 			items.push({
 				id: 'manage-groups',
 				label: 'Manage Groups',
 				onclick: () => ctx.openGroupManager(),
+				icon: 'book-open',
 				disabled: readOnly,
-				className: 'btn btn-sm btn-secondary'
+				variant: 'secondary'
 			});
 			items.push({
 				id: 'add-person',
 				label: 'Add Person',
 				onclick: () => ctx.handleAdd(),
+				icon: 'clipboard-check',
 				disabled: readOnly,
-				className: 'btn btn-sm btn-primary'
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
 			});
 		}
 		return items;
@@ -183,13 +191,14 @@
 			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="0" collapse="narrow">
 				{#snippet leading()}
 					<div class="roster-controls" aria-label="Roster filters">
-						<SegmentedControl
+						<ToolbarViewToggle
 							ariaLabel="Roster sort mode"
 							options={rosterViewOptions}
 							value={ctx.viewMode}
+							mode="full"
 							onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
 						/>
-						<ToolbarSearch
+						<ToolbarSearchItem
 							testId="personnel-search"
 							ariaLabel="Search by name, rank, MOS, role, or group"
 							placeholder="Search name, rank, MOS, role, or group..."
@@ -200,13 +209,14 @@
 				{/snippet}
 
 				{#if personnelActionItems.length > 0}
-					<ProgressiveToolbarActions
-						items={personnelActionItems}
+					<ToolbarActions
+						actions={personnelActionItems}
+						ariaLabel="Personnel actions"
 						overflowAriaLabel="More personnel actions"
 						overflowIconOnly
 					/>
 					{#if readOnly}
-						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
 					{/if}
 				{/if}
 			</FloatingPageToolbar>

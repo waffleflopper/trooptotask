@@ -1,6 +1,7 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+
+	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -211,16 +212,33 @@
 				return 'Expiration date varies per person';
 		}
 	}
+
+	const toolbarActions = $derived.by<ToolbarActionConfig[]>(() =>
+		canMutate
+			? [
+					{
+						id: 'new-training-type',
+						label: '+ New Type',
+						onclick: startCreate,
+						disabled: creating || editing,
+						disabledReason: creating || editing ? 'Finish the current edit first' : undefined,
+						icon: 'settings',
+						priority: 'critical',
+						variant: 'primary'
+					}
+				]
+			: []
+	);
 </script>
 
 <main class="types-page">
-	<FloatingPageToolbar ariaLabel="Training type controls" collapse="narrow" leadingMin="18rem">
-		{#if canMutate}
-			<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
-				+ New Type
-			</button>
-		{/if}
-	</FloatingPageToolbar>
+	<Toolbar ariaLabel="Training type controls" collapse="narrow" leadingMin="18rem">
+		<ToolbarActions
+			actions={toolbarActions}
+			ariaLabel="Training type actions"
+			overflowAriaLabel="More training type actions"
+		/>
+	</Toolbar>
 
 	<div class="types-layout">
 		<!-- Left panel: Type list -->

@@ -610,6 +610,7 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
         ToolbarActions,
         ToolbarFilterSelect,
         ToolbarGroup,
+        ToolbarMultiSelectFilter,
         ToolbarSearchItem,
         ToolbarViewToggle,
         type ToolbarActionConfig
@@ -669,6 +670,14 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
             mode="full"
             bind:value={viewMode}
         />
+        <ToolbarMultiSelectFilter
+            ariaLabel="Filter by training type"
+            label="Training types"
+            options={trainingTypeOptions}
+            value={selectedTrainingTypeIds}
+            mode="full"
+            onChange={setSelectedTrainingTypeIds}
+        />
     {/snippet}
 </ToolbarGroup>
 ```
@@ -684,6 +693,7 @@ Public components:
 | `ToolbarNavGroup.svelte`   | Renders related navigation links, including active state, without command overflow. |
 | `ToolbarMetaItem.svelte`   | Renders passive status/count/date text as non-command toolbar content.      |
 | `ToolbarFilterSelect.svelte` | Renders a select filter as a full select or compact trigger/panel.        |
+| `ToolbarMultiSelectFilter.svelte` | Renders a multi-select filter as tag input or compact active-count panel. |
 | `ToolbarViewToggle.svelte` | Renders a segmented mode switch as a full control or compact trigger/panel. |
 | `toolbarLayout.ts`         | Pure deterministic layout utility for full/compact/overflow states.         |
 
@@ -707,9 +717,11 @@ Policy fields:
 
 `ToolbarMetaItem` keeps passive toolbar content from masquerading as a command. Use it for counts, dates, retention notes, pending state, and read-only notices. It renders as status text, not a button or link.
 
-`ToolbarFilterSelect` preserves ordinary select behavior in full mode and exposes active state in compact mode when `value !== defaultValue`. `ToolbarViewToggle` preserves segmented-control behavior and keeps the current mode in the compact trigger label, `aria-label`, and `title`.
+`ToolbarFilterSelect` preserves ordinary select behavior in full mode and exposes active state in compact mode when `value !== defaultValue`. `ToolbarMultiSelectFilter` wraps `MultiTagSelect` for toolbar-owned filter clusters; compact mode shows an active selected-count trigger and opens the same tag selector in an inline panel. `ToolbarViewToggle` preserves segmented-control behavior and keeps the current mode in the compact trigger label, `aria-label`, and `title`.
 
-Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `book-open`, `chart`, and `clipboard-check`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
+Use `ToolbarMultiSelectFilter maxWidth` when a tag input should grow inside the toolbar but stop before crowding the action zone. In full mode, the control flexes up to that width and keeps selected tags on one line so the toolbar row stays stable.
+
+Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `settings`, `calendar-days`, `book-open`, `chart`, `clipboard-check`, and `clipboard-list`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
 
 Migration notes:
 

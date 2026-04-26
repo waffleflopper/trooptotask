@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import SubNav from '$lib/components/ui/SubNav.svelte';
+	import { ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -65,6 +65,7 @@
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
 	const allPersonnelFlat = $derived(scopedPBG.flatMap((g) => g.personnel));
+	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }]);
 
 	// ---- Callbacks for child components ----
 	async function handleBulkApply(
@@ -96,11 +97,17 @@
 	<FloatingPageToolbar ariaLabel="Bulk status controls" collapse="narrow" leadingMin="24rem">
 		{#snippet leading()}
 			{#if canMutate}
-				<SubNav tabs={TABS} active={activeTab} onChange={(tab) => switchTab(tab as Tab)} />
+				<ToolbarViewToggle
+					ariaLabel="Bulk status sections"
+					options={TABS}
+					mode="full"
+					value={activeTab}
+					onValueChange={(tab) => switchTab(tab as Tab)}
+				/>
 			{/if}
 		{/snippet}
 
-		<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Calendar</a>
+		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
 	</FloatingPageToolbar>
 
 	{#if !canMutate}

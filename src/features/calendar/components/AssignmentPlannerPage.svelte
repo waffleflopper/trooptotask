@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import { ToolbarNavGroup } from '$lib/components/ui/toolbar';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -40,6 +41,10 @@
 		})
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const relatedLinks = $derived([
+		{ label: 'Duty Roster', href: `/org/${org.orgId}/calendar/duty-roster` },
+		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
+	]);
 </script>
 
 <div class="assignment-planner-page">
@@ -48,8 +53,7 @@
 			<span class="toolbar-context">Manual monthly coverage planning</span>
 		{/snippet}
 
-		<a href={`/org/${org.orgId}/calendar/duty-roster`} class="btn btn-secondary btn-sm">Duty Roster</a>
-		<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Calendar</a>
+		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
 	</FloatingPageToolbar>
 
 	{#if !canMutate}

@@ -7,7 +7,7 @@
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import { ToolbarFilterSelect, ToolbarNavGroup } from '$lib/components/ui/toolbar';
 
 	interface Props {
 		orgId: string;
@@ -33,15 +33,23 @@
 		{ value: 'assignment-coverage', label: 'Assignment Coverage' },
 		{ value: 'group-readiness', label: 'Group/Section Readiness' }
 	];
+	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgId}/calendar` }]);
 </script>
 
 <div class="reports-page">
 	<FloatingPageToolbar ariaLabel="Calendar report controls" collapse="narrow" leadingMin="20rem">
 		{#snippet leading()}
-			<ToolbarSelect ariaLabel="Report type" options={reportOptions} bind:value={selectedReport} width="wide" />
+			<ToolbarFilterSelect
+				ariaLabel="Report type"
+				options={reportOptions}
+				defaultValue="status-days"
+				mode="full"
+				bind:value={selectedReport}
+				width="wide"
+			/>
 		{/snippet}
 
-		<a href="/org/{orgId}/calendar" class="btn btn-sm">Calendar</a>
+		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
 	</FloatingPageToolbar>
 
 	{#if selectedReport === 'status-days'}

@@ -6,11 +6,9 @@
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import { ToolbarActions, ToolbarFilterSelect, ToolbarSearchItem } from '$lib/components/ui/toolbar';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -104,27 +102,33 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<FloatingPageToolbar ariaLabel="Calendar controls" leadingMin="29rem">
+				<FloatingPageToolbar ariaLabel="Calendar controls" leadingMin="29rem" searchCompactAt={1180}>
 					{#snippet leading()}
 						<div class="filter-cluster" aria-label="Calendar filters">
-							<ToolbarSelect
+							<ToolbarFilterSelect
 								ariaLabel="Calendar group filter"
 								options={groupFilterOptions}
 								value={ctx.calendarGroupFilter}
+								defaultValue=""
+								mode="full"
+								width="wide"
 								onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
 							/>
-							<ToolbarSearch
+							<ToolbarSearchItem
 								ariaLabel="Search by name, rank, MOS, role, or group"
 								placeholder="Search name, rank, MOS, role, or group..."
 								value={ctx.calendarPersonnelSearch}
+								width="wide"
 								onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
 							/>
 						</div>
 					{/snippet}
 
-					<div class="toolbar-actions">
-						<SmartToolbar items={toolbarItems} />
-					</div>
+					<ToolbarActions
+						actions={toolbarItems}
+						ariaLabel="Calendar actions"
+						overflowAriaLabel="More Calendar actions"
+					/>
 				</FloatingPageToolbar>
 
 				{#if ctx.viewMode === '3-month'}
@@ -240,8 +244,7 @@
 		overflow: visible;
 	}
 
-	.filter-cluster,
-	.toolbar-actions {
+	.filter-cluster {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
@@ -250,22 +253,6 @@
 
 	.filter-cluster {
 		flex-wrap: nowrap;
-	}
-
-	.toolbar-actions {
-		justify-content: flex-end;
-	}
-
-	:global(.calendar-section .smart-toolbar-shell) {
-		gap: var(--sp-2);
-	}
-
-	:global(.calendar-section .smart-toolbar) {
-		margin-left: 0;
-	}
-
-	:global(.calendar-section .toolbar-btn) {
-		min-height: 34px;
 	}
 
 	.loading-kicker {
@@ -307,14 +294,6 @@
 		max-width: 44ch;
 		font-family: var(--font-body);
 		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 1180px) {
-		.filter-cluster,
-		.toolbar-actions {
-			flex-wrap: wrap;
-			justify-content: flex-start;
-		}
 	}
 
 	@media (max-width: 640px) {

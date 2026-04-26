@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
+	import ToolbarOverflowMenu from '$lib/components/ui/ToolbarOverflowMenu.svelte';
 	import ToolbarIcon from './ToolbarIcon.svelte';
 	import { getLayoutModeClass } from './toolbarLayout';
 	import { getToolbarActionVariant, type ToolbarAction, type ToolbarActionLayoutMode } from './toolbar.types';
@@ -35,13 +36,30 @@
 		if (!dev) return;
 		if (action.href && action.onclick) {
 			console.warn(`[ToolbarAction] ${action.id} must use either href or onclick, not both.`);
-		} else if (!action.href && !action.onclick) {
+		} else if (!action.href && !action.onclick && !action.menuItems?.length) {
 			console.warn(`[ToolbarAction] ${action.id} must provide either href or onclick.`);
 		}
 	});
 </script>
 
-{#if action.href}
+{#if action.menuItems?.length}
+	<div class="toolbar-action-menu">
+		<ToolbarOverflowMenu
+			ariaLabel={action.label}
+			label={action.label}
+			icon={action.icon}
+			idSeed={`toolbar-action-menu-${action.id}${descriptionIdSuffix}`}
+			iconOnly={compact}
+			disabled={action.disabled}
+			disabledReason={action.disabledReason}
+			items={action.menuItems.map((item) => ({
+				...item,
+				disabled: action.disabled || item.disabled,
+				disabledReason: action.disabledReason ?? item.disabledReason
+			}))}
+		/>
+	</div>
+{:else if action.href}
 	<a
 		class={actionClass}
 		class:disabled={action.disabled}
@@ -86,6 +104,10 @@
 <style>
 	.toolbar-action {
 		position: relative;
+	}
+
+	.toolbar-action-menu {
+		display: inline-flex;
 	}
 
 	.toolbar-action.disabled {

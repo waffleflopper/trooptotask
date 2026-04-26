@@ -13,6 +13,8 @@
 		leadingMin?: string;
 		collapse?: 'wide' | 'medium' | 'narrow';
 		containerWidth?: number;
+		searchCompactAt?: number;
+		groupCompactAt?: number;
 		leading?: Snippet;
 		children?: Snippet;
 		overflow?: Snippet;
@@ -23,6 +25,8 @@
 		leadingMin = '18rem',
 		collapse = 'wide',
 		containerWidth,
+		searchCompactAt = 840,
+		groupCompactAt = 640,
 		leading,
 		children,
 		overflow
@@ -37,9 +41,9 @@
 	let openPanelId = $state<string | null>(null);
 	const resolvedContainerWidth = $derived(containerWidth ?? measuredContainerWidth);
 	const compactPhase = $derived<ToolbarCompactPhase>(
-		resolvedContainerWidth === null || resolvedContainerWidth >= 840
+		resolvedContainerWidth === null || resolvedContainerWidth >= searchCompactAt
 			? 'full'
-			: resolvedContainerWidth >= 640
+			: resolvedContainerWidth >= groupCompactAt
 				? 'search'
 				: 'group'
 	);

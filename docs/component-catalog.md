@@ -507,6 +507,13 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
     ariaLabel="Critical Tasks actions"
     overflowAriaLabel="More Critical Tasks actions"
 />
+
+<ToolbarSearchItem
+    mode="compact"
+    ariaLabel="Search personnel"
+    placeholder="Search name, rank, or MOS..."
+    bind:value={personnelSearch}
+/>
 ```
 
 Public components:
@@ -515,6 +522,7 @@ Public components:
 | ----------------------- | ------------------------------------------------------------------ |
 | `ToolbarActions.svelte` | Measures and renders the action zone with generated overflow.      |
 | `ToolbarAction.svelte`  | Renders one anchor or button action in full or compact mode.        |
+| `ToolbarSearchItem.svelte` | Renders page-owned search as a full input or compact trigger with an inline panel. |
 | `toolbarLayout.ts`      | Pure deterministic layout utility for full/compact/overflow states. |
 
 Policy fields:
@@ -529,13 +537,15 @@ Policy fields:
 
 `ToolbarAction` accepts either `href` or `onclick`. In development it warns when both are supplied, or when neither is supplied. Compact icon actions keep their accessible name through `aria-label` and `title`.
 
+`ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use `mode="full"` when the search should render directly and `mode="compact"` when constrained toolbar space should show a search trigger. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
+
 Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `book-open`, `chart`, and `clipboard-check`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
 
 Migration notes:
 
 - Keep existing leading controls in place until they are migrated deliberately. For mixed toolbars, wrap `ToolbarActions` inside the existing `FloatingPageToolbar` actions zone.
 - Prefer `ToolbarActions` over `ProgressiveToolbarActions` when actions need priorities, protected visibility, compact icon rendering, disabled reasons, or deterministic overflow tests.
-- Keep `ToolbarSearch`, `ToolbarSelect`, and `ToolbarIconButton` for existing leading/filter controls in this phase.
+- Prefer `ToolbarSearchItem` for leading search controls that need compact trigger/panel behavior. Keep `ToolbarSelect` and `ToolbarIconButton` for existing filter controls in this phase.
 - Deferred: true sheet-mode compact panels and a shared tooltip primitive.
 
 ---

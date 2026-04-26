@@ -1,5 +1,6 @@
 export { default as ToolbarAction } from './ToolbarAction.svelte';
 export { default as ToolbarActions } from './ToolbarActions.svelte';
+export { default as ToolbarSearchItem } from './ToolbarSearchItem.svelte';
 export { computeToolbarActionLayout } from './toolbarLayout';
 export type {
 	MeasuredToolbarAction,
@@ -11,5 +12,7 @@ export type {
 	ToolbarActionOverflowPolicy,
 	ToolbarActionPriority,
 	ToolbarActionState,
-	ToolbarActionVariant
+	ToolbarActionVariant,
+	ToolbarSearchItemMode,
+	ToolbarSearchPanelMode
 } from './toolbar.types';

@@ -6,6 +6,9 @@ export type ToolbarActionIcon = 'book-open' | 'chart' | 'clipboard-check' | 'dow
 export type ToolbarActionLayoutMode = 'full' | 'compact' | 'overflow';
 export type ToolbarSearchItemMode = 'full' | 'compact';
 export type ToolbarSearchPanelMode = 'inline';
+export type ToolbarGroupCompactStrategy = 'items-first' | 'group-trigger' | 'never';
+export type ToolbarPanelMode = 'inline';
+export type ToolbarStatefulControlMode = 'auto' | 'full' | 'compact';
 
 export interface ToolbarAction {
 	id: string;

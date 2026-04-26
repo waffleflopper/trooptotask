@@ -2,10 +2,14 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import { ToolbarActions, ToolbarSearchItem } from '$lib/components/ui/toolbar';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import {
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarSearchItem,
+		ToolbarViewToggle
+	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -72,6 +76,7 @@
 		{ value: 'all', label: 'All' },
 		{ value: 'gaps', label: 'Gaps' }
 	];
+	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0));
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
@@ -245,31 +250,72 @@
 			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="narrow" leadingMin="0">
 				{#snippet leading()}
 					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
-						<ToolbarSelect
-							ariaLabel="Critical Tasks group filter"
-							options={groupFilterOptions}
-							value={selectedGroupId}
-							width="wide"
-							onValueChange={(value) => (selectedGroupId = value)}
-						/>
+						<ToolbarGroup
+							label="Critical Tasks filters"
+							activeCount={activeFilterCount}
+							compactStrategy="items-first"
+							testId="critical-tasks-filter-group"
+						>
+							{#snippet full()}
+								<ToolbarFilterSelect
+									ariaLabel="Critical Tasks group filter"
+									options={groupFilterOptions}
+									defaultValue=""
+									value={selectedGroupId}
+									width="wide"
+									mode="full"
+									onValueChange={(value) => (selectedGroupId = value)}
+								/>
+								<ToolbarViewToggle
+									ariaLabel="Critical Tasks matrix view mode"
+									options={matrixViewOptions}
+									value={viewMode}
+									mode="full"
+									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+								/>
+								<ToolbarFilterSelect
+									ariaLabel="Critical Tasks matrix scope"
+									options={matrixScopeOptions}
+									defaultValue="all"
+									value={gapsOnly ? 'gaps' : 'all'}
+									mode="full"
+									onValueChange={(value) => (gapsOnly = value === 'gaps')}
+								/>
+							{/snippet}
+
+							{#snippet panel()}
+								<ToolbarFilterSelect
+									ariaLabel="Critical Tasks group filter"
+									options={groupFilterOptions}
+									defaultValue=""
+									value={selectedGroupId}
+									width="wide"
+									mode="full"
+									onValueChange={(value) => (selectedGroupId = value)}
+								/>
+								<ToolbarViewToggle
+									ariaLabel="Critical Tasks matrix view mode"
+									options={matrixViewOptions}
+									value={viewMode}
+									mode="full"
+									onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+								/>
+								<ToolbarFilterSelect
+									ariaLabel="Critical Tasks matrix scope"
+									options={matrixScopeOptions}
+									defaultValue="all"
+									value={gapsOnly ? 'gaps' : 'all'}
+									mode="full"
+									onValueChange={(value) => (gapsOnly = value === 'gaps')}
+								/>
+							{/snippet}
+						</ToolbarGroup>
 						<ToolbarSearchItem
 							testId="critical-tasks-search"
 							ariaLabel="Search by name, rank, or MOS"
 							placeholder="Search name, rank, or MOS..."
 							width="wide"
 							bind:value={personnelSearch}
-						/>
-						<SegmentedControl
-							ariaLabel="Critical Tasks matrix view mode"
-							options={matrixViewOptions}
-							value={viewMode}
-							onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-						/>
-						<SegmentedControl
-							ariaLabel="Critical Tasks matrix scope"
-							options={matrixScopeOptions}
-							value={gapsOnly ? 'gaps' : 'all'}
-							onValueChange={(value) => (gapsOnly = value === 'gaps')}
 						/>
 					</div>
 				{/snippet}
@@ -407,7 +453,7 @@
 
 	.matrix-toolbar-controls {
 		display: grid;
-		grid-template-columns: minmax(10rem, 14rem) minmax(12rem, 24rem) max-content;
+		grid-template-columns: minmax(18rem, max-content) minmax(12rem, 24rem);
 		align-items: center;
 		gap: var(--sp-2);
 		width: 100%;
@@ -433,7 +479,7 @@
 
 	@media (max-width: 900px) {
 		.matrix-toolbar-controls {
-			grid-template-columns: minmax(9.5rem, 12rem) minmax(10rem, 1fr) max-content;
+			grid-template-columns: minmax(0, 1fr) max-content;
 		}
 	}
 

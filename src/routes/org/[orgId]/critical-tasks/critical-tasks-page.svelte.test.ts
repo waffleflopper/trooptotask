@@ -298,7 +298,7 @@ describe('critical tasks page', () => {
 			);
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Gaps' }));
+		await fireEvent.change(screen.getByLabelText('Critical Tasks matrix scope'), { target: { value: 'gaps' } });
 		await waitFor(() => {
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
 				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones&gapsOnly=true'
@@ -492,6 +492,12 @@ describe('critical tasks page', () => {
 		expect(screen.getByText('Jones, Jane')).toBeTruthy();
 
 		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
+		expect(screen.getByRole('group', { name: 'Critical Tasks filters' })).toBeTruthy();
+		expect(screen.getByTestId('critical-tasks-filter-group').getAttribute('data-compact-strategy')).toBe('items-first');
+		expect(screen.getByLabelText('Critical Tasks group filter')).toBeTruthy();
+		expect(screen.getByLabelText('Critical Tasks matrix scope')).toBeTruthy();
+		expect(screen.getByRole('group', { name: 'Critical Tasks matrix view mode' })).toBeTruthy();
+		expect(screen.getByTestId('critical-tasks-search')).toBeTruthy();
 		expect(screen.queryByText('Readiness 75%')).toBeNull();
 		expect(screen.queryByRole('checkbox', { name: 'Gaps only' })).toBeNull();
 		expect(screen.queryByLabelText('Critical Tasks matrix totals')).toBeNull();

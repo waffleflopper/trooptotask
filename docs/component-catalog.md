@@ -478,7 +478,14 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
 
 ```svelte
 <script lang="ts">
-    import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+    import {
+        ToolbarActions,
+        ToolbarFilterSelect,
+        ToolbarGroup,
+        ToolbarSearchItem,
+        ToolbarViewToggle,
+        type ToolbarActionConfig
+    } from '$lib/components/ui/toolbar';
 
     const actions: ToolbarActionConfig[] = [
         {
@@ -514,16 +521,41 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
     placeholder="Search name, rank, or MOS..."
     bind:value={personnelSearch}
 />
+
+<ToolbarGroup
+    label="Critical Tasks filters"
+    activeCount={activeFilterCount}
+    compactStrategy="items-first"
+>
+    {#snippet full()}
+        <ToolbarFilterSelect
+            ariaLabel="Critical Tasks group filter"
+            options={groupFilterOptions}
+            defaultValue=""
+            mode="full"
+            bind:value={selectedGroupId}
+        />
+        <ToolbarViewToggle
+            ariaLabel="Critical Tasks matrix view mode"
+            options={matrixViewOptions}
+            mode="full"
+            bind:value={viewMode}
+        />
+    {/snippet}
+</ToolbarGroup>
 ```
 
 Public components:
 
-| Component               | Purpose                                                            |
-| ----------------------- | ------------------------------------------------------------------ |
-| `ToolbarActions.svelte` | Measures and renders the action zone with generated overflow.      |
-| `ToolbarAction.svelte`  | Renders one anchor or button action in full or compact mode.        |
+| Component                  | Purpose                                                                    |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `ToolbarActions.svelte`    | Measures and renders the action zone with generated overflow.              |
+| `ToolbarAction.svelte`     | Renders one anchor or button action in full or compact mode.                |
 | `ToolbarSearchItem.svelte` | Renders page-owned search as a full input or compact trigger with an inline panel. |
-| `toolbarLayout.ts`      | Pure deterministic layout utility for full/compact/overflow states. |
+| `ToolbarGroup.svelte`      | Renders a stateful-control group boundary, active count, compact trigger, and panel. |
+| `ToolbarFilterSelect.svelte` | Renders a select filter as a full select or compact trigger/panel.        |
+| `ToolbarViewToggle.svelte` | Renders a segmented mode switch as a full control or compact trigger/panel. |
+| `toolbarLayout.ts`         | Pure deterministic layout utility for full/compact/overflow states.         |
 
 Policy fields:
 
@@ -539,13 +571,17 @@ Policy fields:
 
 `ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use `mode="full"` when the search should render directly and `mode="compact"` when constrained toolbar space should show a search trigger. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
 
+`ToolbarGroup` keeps stateful controls out of command overflow. Use it for filter and view groups that should collapse into a trigger plus panel instead of moving into `ToolbarOverflowMenu`. `compactStrategy` supports `items-first`, `group-trigger`, and `never`; `items-first` is the Critical Tasks default. `activeCount` should count active filters in the group, while search activity stays visually separate through `ToolbarSearchItem`.
+
+`ToolbarFilterSelect` preserves ordinary select behavior in full mode and exposes active state in compact mode when `value !== defaultValue`. `ToolbarViewToggle` preserves segmented-control behavior and keeps the current mode in the compact trigger label, `aria-label`, and `title`.
+
 Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `book-open`, `chart`, and `clipboard-check`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
 
 Migration notes:
 
-- Keep existing leading controls in place until they are migrated deliberately. For mixed toolbars, wrap `ToolbarActions` inside the existing `FloatingPageToolbar` actions zone.
+- Keep existing leading controls in place until they are migrated deliberately. For mixed toolbars, wrap `ToolbarActions` and `ToolbarGroup` inside the existing `FloatingPageToolbar` zones.
 - Prefer `ToolbarActions` over `ProgressiveToolbarActions` when actions need priorities, protected visibility, compact icon rendering, disabled reasons, or deterministic overflow tests.
-- Prefer `ToolbarSearchItem` for leading search controls that need compact trigger/panel behavior. Keep `ToolbarSelect` and `ToolbarIconButton` for existing filter controls in this phase.
+- Prefer `ToolbarSearchItem`, `ToolbarFilterSelect`, and `ToolbarViewToggle` for leading stateful controls that need compact trigger/panel behavior. Keep older `ToolbarSelect`, `SegmentedControl`, and `ToolbarIconButton` where a page has not migrated yet.
 - Deferred: true sheet-mode compact panels and a shared tooltip primitive.
 
 ---

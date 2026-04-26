@@ -1,0 +1,70 @@
+<script lang="ts">
+	import ToolbarFilterSelect from './ToolbarFilterSelect.svelte';
+	import ToolbarGroup from './ToolbarGroup.svelte';
+	import ToolbarToggle from './ToolbarToggle.svelte';
+	import ToolbarViewToggle from './ToolbarViewToggle.svelte';
+	import type { ToolbarStatefulControlMode } from './toolbar.types';
+
+	interface Props {
+		mode?: ToolbarStatefulControlMode;
+	}
+
+	let { mode = 'full' }: Props = $props();
+
+	let groupId = $state('');
+	let gapsOnly = $state(false);
+	let viewMode = $state('by-group');
+
+	const groupOptions = [
+		{ value: '', label: 'Group: All' },
+		{ value: 'alpha', label: 'Alpha' },
+		{ value: 'bravo', label: 'Bravo' }
+	];
+
+	const viewOptions = [
+		{ value: 'alphabetical', label: 'A-Z', title: 'Show personnel alphabetically' },
+		{ value: 'by-group', label: 'By Group', title: 'Show personnel by group' }
+	];
+
+	const activeCount = $derived((groupId ? 1 : 0) + (gapsOnly ? 1 : 0));
+</script>
+
+<p data-testid="state">{groupId || 'all'}|{gapsOnly ? 'gaps' : 'all'}|{viewMode}|{activeCount}</p>
+
+<ToolbarGroup label="Filters" {activeCount} {mode} testId="filters-group">
+	{#snippet full()}
+		<ToolbarFilterSelect
+			ariaLabel="Group filter"
+			options={groupOptions}
+			defaultValue=""
+			width="wide"
+			mode="full"
+			bind:value={groupId}
+		/>
+		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
+		<ToolbarViewToggle
+			ariaLabel="Critical Tasks matrix view mode"
+			options={viewOptions}
+			mode="full"
+			bind:value={viewMode}
+		/>
+	{/snippet}
+
+	{#snippet panel()}
+		<ToolbarFilterSelect
+			ariaLabel="Group filter"
+			options={groupOptions}
+			defaultValue=""
+			width="wide"
+			mode="full"
+			bind:value={groupId}
+		/>
+		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
+		<ToolbarViewToggle
+			ariaLabel="Critical Tasks matrix view mode"
+			options={viewOptions}
+			mode="full"
+			bind:value={viewMode}
+		/>
+	{/snippet}
+</ToolbarGroup>

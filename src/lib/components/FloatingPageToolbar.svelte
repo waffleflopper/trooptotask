@@ -221,7 +221,6 @@
 	}
 
 	.floating-page-toolbar__overflow {
-		display: none;
 		justify-content: flex-end;
 	}
 </style>

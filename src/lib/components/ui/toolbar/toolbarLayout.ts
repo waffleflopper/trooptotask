@@ -53,9 +53,14 @@ function buildProtectedWarning(
 	const protectedStates = states.filter(
 		(state) => state.mode !== 'overflow' && getToolbarActionOverflowPolicy(state.action) === 'never'
 	);
-	const protectedWidth = getVisibleWidth(protectedStates, overflowWidth, gapWidth);
+	if (protectedStates.length === 0) return null;
 
-	if (protectedWidth <= containerWidth) return null;
+	const protectedWidth = protectedStates.reduce((sum, state) => sum + getActionWidth(state), 0);
+	const protectedGaps = protectedStates.length > 1 ? gapWidth * (protectedStates.length - 1) : 0;
+	const overflowTriggerWidth = states.some((state) => state.mode === 'overflow') ? overflowWidth + gapWidth : 0;
+	const requiredWidth = protectedWidth + protectedGaps + overflowTriggerWidth;
+
+	if (requiredWidth <= containerWidth) return null;
 
 	return `Toolbar protected actions cannot fit within ${containerWidth}px: ${protectedStates
 		.map((state) => `${state.action.id} requires ${getActionWidth(state)}px`)

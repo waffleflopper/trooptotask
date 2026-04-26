@@ -48,4 +48,32 @@ describe('stateful toolbar controls', () => {
 		expect(screen.getByRole('button', { name: 'Show gaps only' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
 	});
+
+	it('keeps keyboard focus inside the compact group dialog and returns focus on close', async () => {
+		render(ToolbarStatefulControlsTest, { props: { mode: 'compact' } });
+
+		const trigger = screen.getByRole('button', { name: 'Filters' });
+		await fireEvent.click(trigger);
+
+		const panel = await screen.findByTestId('filters-group-panel');
+		const groupFilter = screen.getByLabelText('Group filter');
+		const lastViewButton = screen.getByRole('button', { name: 'By Group' });
+
+		await waitFor(() => {
+			expect(document.activeElement).toBe(groupFilter);
+		});
+
+		lastViewButton.focus();
+		await fireEvent.keyDown(panel, { key: 'Tab' });
+		expect(document.activeElement).toBe(groupFilter);
+
+		await fireEvent.keyDown(panel, { key: 'Tab', shiftKey: true });
+		expect(document.activeElement).toBe(lastViewButton);
+
+		await fireEvent.keyDown(panel, { key: 'Escape' });
+		await waitFor(() => {
+			expect(screen.queryByTestId('filters-group-panel')).toBeNull();
+		});
+		expect(document.activeElement).toBe(trigger);
+	});
 });

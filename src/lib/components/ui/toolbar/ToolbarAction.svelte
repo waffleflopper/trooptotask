@@ -46,6 +46,8 @@
 		class={actionClass}
 		class:disabled={action.disabled}
 		href={action.disabled ? undefined : action.href}
+		role={action.disabled ? 'link' : undefined}
+		tabindex={action.disabled ? 0 : undefined}
 		aria-label={compact ? action.label : undefined}
 		aria-disabled={action.disabled || undefined}
 		aria-describedby={labelledById}

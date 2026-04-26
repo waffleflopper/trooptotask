@@ -1,18 +1,21 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
+
+let orgReadOnly = false;
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
 		orgId: 'org-1',
-		readOnly: false
+		readOnly: orgReadOnly
 	})
 }));
 
 afterEach(() => {
 	cleanup();
+	orgReadOnly = false;
 });
 
 function renderTemplatesPage({
@@ -59,11 +62,30 @@ describe('onboarding templates page', () => {
 		renderTemplatesPage();
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
-		expect(within(toolbar).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe(
-			'/org/org-1/onboarding'
-		);
+		const nav = within(toolbar).getByRole('navigation', { name: 'Onboarding sections' });
+		expect(within(nav).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
 		expect(within(toolbar).getByRole('button', { name: 'Add Template' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Manage Templates' })).toBeNull();
+	});
+
+	it('preserves add template disabled state while adding', async () => {
+		renderTemplatesPage();
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
+		const addTemplate = within(toolbar).getByRole('button', { name: 'Add Template' });
+
+		await fireEvent.click(addTemplate);
+
+		expect(within(toolbar).getByRole('button', { name: 'Add Template' }).hasAttribute('disabled')).toBe(true);
+	});
+
+	it('hides template creation when the organization is read-only', () => {
+		orgReadOnly = true;
+
+		renderTemplatesPage();
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
+		expect(within(toolbar).queryByRole('button', { name: 'Add Template' })).toBeNull();
 	});
 
 	it('does not render redundant template summary cards above the editor', () => {

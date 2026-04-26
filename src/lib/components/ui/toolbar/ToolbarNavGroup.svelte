@@ -3,6 +3,8 @@
 		label: string;
 		href: string;
 		active?: boolean;
+		disabled?: boolean;
+		disabledReason?: string;
 	}
 
 	interface Props {
@@ -12,18 +14,32 @@
 	}
 
 	let { ariaLabel, items, compact = false }: Props = $props();
+
+	function getDisabledReasonId(item: ToolbarNavItem, index: number): string {
+		return `toolbar-nav-${item.href.replace(/[^a-zA-Z0-9_-]+/g, '-')}-${index}-reason`;
+	}
 </script>
 
 <nav class="toolbar-nav-group" class:toolbar-nav-group--compact={compact} aria-label={ariaLabel} data-compact={compact}>
-	{#each items as item (item.href)}
+	{#each items as item, index (item.href)}
+		{@const disabledReasonId = item.disabledReason ? getDisabledReasonId(item, index) : undefined}
 		<a
 			class="toolbar-nav-group__item"
 			class:active={item.active}
-			href={item.href}
+			class:disabled={item.disabled}
+			href={item.disabled ? undefined : item.href}
+			role={item.disabled ? 'link' : undefined}
+			tabindex={item.disabled ? 0 : undefined}
 			aria-current={item.active ? 'page' : undefined}
+			aria-disabled={item.disabled || undefined}
+			aria-describedby={disabledReasonId}
+			title={item.disabledReason}
 		>
 			{item.label}
 		</a>
+		{#if item.disabledReason}
+			<span id={disabledReasonId} class="toolbar-nav-group__reason">{item.disabledReason}</span>
+		{/if}
 	{/each}
 </nav>
 
@@ -67,6 +83,16 @@
 		color: var(--text-strong);
 	}
 
+	.toolbar-nav-group__item.disabled {
+		color: var(--text-tertiary);
+		cursor: not-allowed;
+		opacity: var(--opacity-heavy);
+	}
+
+	.toolbar-nav-group__item.disabled:hover {
+		color: var(--text-tertiary);
+	}
+
 	.toolbar-nav-group__item:focus-visible {
 		outline: var(--focus-outline);
 		outline-offset: calc(var(--focus-outline-offset) * -1);
@@ -75,6 +101,18 @@
 	.toolbar-nav-group__item.active {
 		color: var(--text-strong);
 		background: var(--surface-panel);
+	}
+
+	.toolbar-nav-group__reason {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 
 	.toolbar-nav-group--compact {

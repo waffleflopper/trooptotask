@@ -138,7 +138,52 @@ describe('PersonnelPageView', () => {
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
 		expect(within(toolbar).getByRole('button', { name: 'Manage Groups' })).toBeTruthy();
 		expect(within(toolbar).getByRole('button', { name: 'Add Person' })).toBeTruthy();
-		expect(within(toolbar).getByRole('button', { name: 'Bulk Import' })).toBeTruthy();
+		expect(within(toolbar).getByRole('button', { name: 'Import' })).toBeTruthy();
+		expect(within(toolbar).queryByRole('button', { name: 'Bulk Import' })).toBeNull();
+	});
+
+	it('filters the roster from the toolbar search item', async () => {
+		personnelStore.load(
+			[
+				...personnel,
+				{
+					id: 'person-2',
+					rank: 'SPC',
+					lastName: 'Garcia',
+					firstName: 'Luis',
+					mos: '11B',
+					clinicRole: 'Rifleman',
+					groupId: 'group-2',
+					groupName: 'Bravo',
+					archivedAt: null,
+					ets: null,
+					deros: null
+				}
+			],
+			'org-1'
+		);
+		const ctx = makeCtx();
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: viewOnlyPermissions }
+		});
+
+		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Garcia' } });
+
+		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
+		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	it('updates the roster view mode from the toolbar view toggle', async () => {
+		const ctx = makeCtx();
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: viewOnlyPermissions }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+
+		expect(ctx.viewMode).toBe('by-group');
 	});
 
 	describe('upcoming-loss indicators', () => {

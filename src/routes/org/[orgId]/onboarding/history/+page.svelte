@@ -12,6 +12,7 @@
 		STEP_TYPE_LABELS
 	} from '$features/onboarding/contexts/OnboardingPageContext.svelte';
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import { ToolbarNavGroup, type ToolbarNavItem } from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -21,6 +22,9 @@
 
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
+	const onboardingNavItems = $derived<ToolbarNavItem[]>([
+		{ label: 'Onboarding', href: `/org/${data.orgId}/onboarding` }
+	]);
 
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
@@ -44,7 +48,7 @@
 	<main class="page-content">
 		<FloatingPageToolbar ariaLabel="Onboarding history controls" collapse="narrow" leadingMin="18rem">
 			{#snippet leading()}
-				<a href={`/org/${data.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Onboarding</a>
+				<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 			{/snippet}
 		</FloatingPageToolbar>
 
@@ -193,10 +197,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--surface-page);
-	}
-
-	[data-quiet-button] {
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
 	.page-content {

@@ -2,7 +2,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ToolbarActions from './ToolbarActions.svelte';
-import type { ToolbarAction } from './toolbar.types';
+import ToolbarActionsCoordinatorTest from './ToolbarActionsCoordinatorTest.svelte';
+import type { ToolbarAction, ToolbarActionMeasurement } from './toolbar.types';
 
 const actions: ToolbarAction[] = [
 	{ id: 'export', label: 'Export CSV', href: '/export.csv', icon: 'download', priority: 'low' },
@@ -196,5 +197,93 @@ describe('ToolbarActions', () => {
 		expect(trigger.hasAttribute('disabled')).toBe(true);
 		expect(descriptionId).toBeTruthy();
 		expect(document.getElementById(descriptionId!)?.textContent).toBe('Read-only mode');
+	});
+
+	it('uses the toolbar coordinator as the available width and re-expands when that width returns', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const getBoundingClientRect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+		getBoundingClientRect.mockImplementation(function (this: HTMLElement) {
+			if (this.classList.contains('toolbar-actions')) {
+				return { width: 320, height: 40, top: 0, left: 0, right: 320, bottom: 40, x: 0, y: 0, toJSON: () => ({}) };
+			}
+			return { width: 40, height: 40, top: 0, left: 0, right: 40, bottom: 40, x: 0, y: 0, toJSON: () => ({}) };
+		});
+
+		const props: {
+			availableActionWidth: number;
+			actions: ToolbarAction[];
+			actionMeasurements: Record<string, ToolbarActionMeasurement>;
+		} = {
+			availableActionWidth: 80,
+			actions: [
+				{ id: 'export', label: 'Export', href: '/export.csv', icon: 'download', priority: 'low' },
+				{
+					id: 'record',
+					label: 'Record Training',
+					icon: 'clipboard-check',
+					priority: 'critical',
+					overflow: 'never',
+					onclick: vi.fn()
+				}
+			],
+			actionMeasurements: {
+				export: { fullWidth: 92, compactWidth: 40 },
+				record: { fullWidth: 132, compactWidth: 40 }
+			}
+		};
+
+		const { rerender } = render(ToolbarActionsCoordinatorTest, {
+			props: {
+				...props
+			}
+		});
+
+		expect(screen.queryByRole('link', { name: 'Export' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'More measured actions' })).toBeTruthy();
+
+		await rerender({ ...props, availableActionWidth: 320 });
+
+		expect(await screen.findByRole('link', { name: 'Export' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Record Training' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'More measured actions' })).toBeNull();
+	});
+
+	it('renders full actions when the coordinator reserves the published full footprint', () => {
+		const actionMeasurements = {
+			'clear-filters': { fullWidth: 116, compactWidth: 116 },
+			export: { fullWidth: 104, compactWidth: 40 }
+		};
+
+		render(ToolbarActionsCoordinatorTest, {
+			props: {
+				availableActionWidth: 228,
+				actions: [
+					{ id: 'clear-filters', label: 'Clear filters', onclick: vi.fn(), priority: 'normal' },
+					{ id: 'export', label: 'Export', href: '/export.csv', icon: 'download', priority: 'critical' }
+				],
+				actionMeasurements
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Clear filters' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Export' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'More measured actions' })).toBeNull();
+	});
+
+	it('exposes a stable full-width footprint for parent toolbar fit checks', () => {
+		render(ToolbarActions, {
+			props: {
+				actions: [actions[0], actions[2]],
+				ariaLabel: 'Measured actions',
+				overflowAriaLabel: 'More measured actions',
+				containerWidth: 320,
+				actionMeasurements: {
+					export: { fullWidth: 92, compactWidth: 40 },
+					library: { fullWidth: 128, compactWidth: 40 }
+				}
+			}
+		});
+
+		expect(screen.getByRole('group', { name: 'Measured actions' }).dataset.toolbarActionsRequiredWidth).toBe('228');
 	});
 });

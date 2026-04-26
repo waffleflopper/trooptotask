@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingPageView from './TrainingPageView.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -154,6 +154,40 @@ describe('TrainingPageView', () => {
 		expect(screen.getByLabelText('Training view filter')).toBeTruthy();
 		expect(screen.getByLabelText('Training group filter')).toBeTruthy();
 		expect(screen.getByRole('group', { name: 'Training matrix view mode' })).toBeTruthy();
+	});
+
+	it('orders training toolbar controls and actions for the hub workflow', () => {
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group') as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Training controls' });
+		const toggle = within(toolbar).getByRole('group', { name: 'Training matrix view mode' });
+		const viewFilter = within(toolbar).getByLabelText('Training view filter');
+		const groupFilter = within(toolbar).getByLabelText('Training group filter');
+
+		expect(within(toggle).getByRole('button', { name: 'A-Z' })).toBeTruthy();
+		expect(within(toggle).getByRole('button', { name: 'Group' })).toBeTruthy();
+		expect(toggle.compareDocumentPosition(viewFilter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(viewFilter.compareDocumentPosition(groupFilter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+		const actionGroup = within(toolbar).getByRole('group', { name: 'Training actions' });
+		const importAction = within(actionGroup).getByRole('button', { name: 'Import' });
+		const manageViewsAction = within(actionGroup).getByRole('button', { name: 'Manage Views' });
+		const signInRostersAction = within(actionGroup).getByRole('button', { name: 'Sign-In Rosters' });
+		const reportsAction = within(actionGroup).getByRole('link', { name: 'Reports' });
+		const manageTypesAction = within(actionGroup).getByRole('link', { name: 'Manage Types' });
+
+		expect(importAction.compareDocumentPosition(manageViewsAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(
+			manageViewsAction.compareDocumentPosition(signInRostersAction) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+		expect(signInRostersAction.compareDocumentPosition(reportsAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(reportsAction.compareDocumentPosition(manageTypesAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(manageTypesAction.classList.contains('btn-primary')).toBe(true);
 	});
 
 	it('keeps the loading skeleton while another orgs training stores are still on screen', () => {

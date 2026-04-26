@@ -1,19 +1,22 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
-import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
 
-const { loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock } = vi.hoisted(() => ({
-	loadCalendarRangeMock: vi.fn(),
-	mergeCalendarRangeIntoStoresMock: vi.fn()
-}));
+const { exportMonthToCSVMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
+	vi.hoisted(() => ({
+		exportMonthToCSVMock: vi.fn(),
+		loadCalendarRangeMock: vi.fn(),
+		mergeCalendarRangeIntoStoresMock: vi.fn(),
+		printMonthCalendarMock: vi.fn()
+	}));
 
-vi.mock('$features/calendar/components/CalendarPageView.svelte', () => ({
-	default: VisibleStub
+vi.mock('$features/calendar/utils/calendarExport', () => ({
+	exportMonthToCSV: exportMonthToCSVMock,
+	printMonthCalendar: printMonthCalendarMock
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -49,6 +52,30 @@ vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	mergeCalendarRangeIntoStores: mergeCalendarRangeIntoStoresMock
 }));
 
+vi.mock('$features/calendar/stores/availability.svelte', () => ({
+	availabilityStore: { items: [], loading: false, load: vi.fn() }
+}));
+
+vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
+	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
+}));
+
+vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
+	specialDaysStore: { items: [], loading: false, load: vi.fn() }
+}));
+
+vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
+	statusTypesStore: { items: [], loading: false, load: vi.fn() }
+}));
+
+vi.mock('$lib/stores/groups.svelte', () => ({
+	groupsStore: { items: [], loading: false, names: [] }
+}));
+
+vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
+	pinnedGroupsStore: { list: [] }
+}));
+
 import Page from './+page.svelte';
 
 function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
@@ -63,8 +90,32 @@ function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
 			dailyAssignments: [],
 			pinnedGroups: [],
 			advancedDutyEvents: [],
-			personnel: [],
-			groups: [],
+			personnel: [
+				{
+					id: 'p1',
+					firstName: 'Alice',
+					lastName: 'Smith',
+					rank: 'SGT',
+					groupId: 'g1',
+					groupName: 'Alpha',
+					clinicRole: '',
+					mos: '11B'
+				},
+				{
+					id: 'p2',
+					firstName: 'Bob',
+					lastName: 'Jones',
+					rank: 'SSG',
+					groupId: 'g2',
+					groupName: 'Bravo',
+					clinicRole: 'Medic',
+					mos: '68W'
+				}
+			],
+			groups: [
+				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+			],
 			statusTypes: [],
 			activeOnboardingPersonnelIds: [],
 			lossWarningWindowDays: 180
@@ -155,7 +206,7 @@ describe('calendar page', () => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 		});
 
-		expect(screen.getByTestId('visible-stub')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 		expect(screen.getByText('Loading additional calendar dates...')).toBeTruthy();
 
 		resolveRange?.({
@@ -202,7 +253,7 @@ describe('calendar page', () => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 		});
 
-		expect(screen.getByTestId('visible-stub')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 		await waitFor(() => {
 			expect(screen.getByText('Additional calendar data is temporarily unavailable.')).toBeTruthy();
 		});
@@ -216,6 +267,72 @@ describe('calendar page', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(2);
 		});
+	});
+
+	it('smokes the migrated calendar toolbar through the route component', async () => {
+		exportMonthToCSVMock.mockClear();
+		printMonthCalendarMock.mockClear();
+		printMonthCalendarMock.mockResolvedValue(undefined);
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					userId: 'user-1',
+					permissions: {
+						canViewCalendar: true,
+						canEditCalendar: true
+					},
+					calendar: {
+						data: makeBootstrap()
+					}
+				}
+			}
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Calendar controls' });
+
+		await fireEvent.change(within(toolbar).getByRole('combobox', { name: 'Calendar group filter' }), {
+			target: { value: 'g2' }
+		});
+		await fireEvent.input(
+			within(toolbar).getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }),
+			{
+				target: { value: 'medic' }
+			}
+		);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Bulk Status' }));
+		expect(screen.getByRole('menuitem', { name: 'Add Bulk' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/bulk?tab=add'
+		);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Planning' }));
+		expect(screen.getByRole('menuitem', { name: 'Duty Roster' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/duty-roster'
+		);
+		expect(screen.getByRole('menuitem', { name: 'Assignment Planner' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/assignments'
+		);
+
+		expect(within(toolbar).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/settings'
+		);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Export to Excel' }));
+		expect(exportMonthToCSVMock).toHaveBeenCalledTimes(1);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Print / PDF' }));
+		expect(printMonthCalendarMock).toHaveBeenCalledTimes(1);
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: /Show Status Text/ }));
+
+		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
+		expect(screen.getByRole('menuitem', { name: /Show Status Text/ }).textContent).toContain('✓');
 	});
 
 	it('stores the viewed calendar month as a bootstrap anchor cookie for future requests', async () => {

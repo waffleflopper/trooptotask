@@ -63,13 +63,28 @@
 	);
 	const visibleStates = $derived(layout.states.filter(isVisibleState));
 	const overflowItems = $derived(
-		layout.overflowActions.map<OverflowItem>((action) => ({
-			label: action.label,
-			href: action.href,
-			onclick: action.onclick,
-			disabled: action.disabled,
-			disabledReason: action.disabledReason
-		}))
+		layout.overflowActions.flatMap<OverflowItem>((action) => {
+			if (action.menuItems?.length) {
+				return action.menuItems.map((item, index) => ({
+					...item,
+					group: item.group ?? (index === 0 ? action.label : undefined),
+					disabled: action.disabled || item.disabled,
+					disabledReason: action.disabledReason ?? item.disabledReason
+				}));
+			}
+
+			return [
+				{
+					label: action.label,
+					href: action.href,
+					onclick: action.onclick,
+					toggle: action.toggle,
+					active: action.active,
+					disabled: action.disabled,
+					disabledReason: action.disabledReason
+				}
+			];
+		})
 	);
 
 	function getFallbackMeasurement(action: ToolbarActionConfig): ToolbarActionMeasurement {

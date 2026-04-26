@@ -12,6 +12,7 @@
 		withOverflow?: boolean;
 		withCoordinatedControls?: boolean;
 		containerWidth?: number;
+		searchCompactAt?: number;
 	}
 
 	let {
@@ -20,7 +21,8 @@
 		withActions = true,
 		withOverflow = false,
 		withCoordinatedControls = false,
-		containerWidth
+		containerWidth,
+		searchCompactAt
 	}: Props = $props();
 
 	const overflowItems = [{ label: 'Add', onclick: () => undefined }];
@@ -34,7 +36,7 @@
 </script>
 
 {#if withCoordinatedControls}
-	<FloatingPageToolbar ariaLabel="Test controls" {collapse} {leadingMin} {containerWidth}>
+	<FloatingPageToolbar ariaLabel="Test controls" {collapse} {leadingMin} {containerWidth} {searchCompactAt}>
 		{#snippet leading()}
 			<p data-testid="coordinated-state">{search}|{groupId || 'all'}|{actionClicked}</p>
 			<ToolbarGroup label="Filters" activeCount={groupId ? 1 : 0} testId="filters-group">

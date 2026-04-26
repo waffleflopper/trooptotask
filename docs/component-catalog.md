@@ -179,16 +179,24 @@ Toolbar actions use explicit layout policy fields:
 ```ts
 type ToolbarActionPriority = 'low' | 'normal' | 'high' | 'critical';
 type ToolbarActionDisplayMode = 'auto' | 'full' | 'compact';
-type ToolbarActionOverflowPolicy = 'auto' | 'never';
+type ToolbarActionOverflowPolicy = 'auto' | 'always' | 'never';
 type ToolbarActionVariant = 'default' | 'primary' | 'secondary' | 'danger';
-type ToolbarActionIcon = 'book-open' | 'chart' | 'clipboard-check' | 'download' | 'upload';
+type ToolbarActionIcon =
+    | 'book-open'
+    | 'calendar-days'
+    | 'chart'
+    | 'clipboard-check'
+    | 'clipboard-list'
+    | 'download'
+    | 'settings'
+    | 'upload';
 ```
 
 Defaults are `priority: 'normal'`, `displayMode: 'auto'`, `overflow: 'auto'`, and `variant: 'default'`.
 
 - `priority` controls yield order. Lower-priority actions compact and overflow before higher-priority actions.
 - `displayMode="auto"` renders full when space allows and compact when needed, if the action has an icon. `displayMode="full"` skips compact rendering. `displayMode="compact"` prefers compact rendering.
-- `overflow="auto"` allows command overflow. `overflow="never"` keeps the action visible and emits a development warning if the protected action cannot fit.
+- `overflow="auto"` allows command overflow. `overflow="always"` keeps low-frequency commands in generated overflow. `overflow="never"` keeps the action visible and emits a development warning if the protected action cannot fit.
 - `variant` is visual only. Do not use `variant="primary"` to imply layout priority.
 - Overflow menu entries preserve author order, even when yield order is determined by priority.
 
@@ -209,6 +217,9 @@ Group policies:
     label: string;
     href?: string;
     onclick?: () => void;
+    menuItems?: OverflowItem[];
+    toggle?: boolean;
+    active?: boolean;
     disabled?: boolean;
     disabledReason?: string;
     icon?: ToolbarActionIcon;
@@ -219,7 +230,9 @@ Group policies:
 }
 ```
 
-- Provide either `href` or `onclick`, not both.
+- Provide one of `href`, `onclick`, or `menuItems`.
+- Use `menuItems` for grouped toolbar commands that need their own dropdown while still flattening into command overflow when constrained.
+- Use `toggle` plus `active` for overflow commands that represent visible page state.
 - Use `disabledReason` whenever a disabled action depends on page state. The reason is preserved for compact and overflow render paths.
 - Use `overflow="never"` only for the main workflow action that must remain reachable, such as Critical Tasks `Record Training`.
 - Use the built-in toolbar icon names instead of route-local SVGs. The family owns lucide sizing, `aria-hidden`, labels, and compact rendering.
@@ -680,11 +693,11 @@ Policy fields:
 | ---------------- | -------------------------------------------- | ------------------------------------------------------------------ |
 | `priority?`      | `'low' \| 'normal' \| 'high' \| 'critical'`  | Layout yield order only; it does not change color or emphasis.     |
 | `displayMode?`   | `'auto' \| 'full' \| 'compact'`              | `auto` allows icon-capable actions to compact before overflowing.   |
-| `overflow?`      | `'auto' \| 'never'`                          | `never` keeps protected actions visible and warns if impossible.    |
+| `overflow?`      | `'auto' \| 'always' \| 'never'`              | `always` keeps commands in generated overflow; `never` keeps protected actions visible and warns if impossible. |
 | `variant?`       | `'default' \| 'primary' \| 'secondary' \| 'danger'` | Visual style only; keep this separate from priority.        |
 | `disabledReason?` | `string`                                    | Rendered through full, compact, and overflow paths for assistive tech and menu context. |
 
-`ToolbarAction` accepts either `href` or `onclick`. In development it warns when both are supplied, or when neither is supplied. Compact icon actions keep their accessible name through `aria-label` and `title`.
+`ToolbarAction` accepts `href`, `onclick`, or `menuItems`. In development it warns when both `href` and `onclick` are supplied, or when none of those command targets are supplied. Compact icon actions keep their accessible name through `aria-label` and `title`.
 
 `ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use `mode="full"` when the search should render directly and `mode="compact"` when constrained toolbar space should show a search trigger. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
 

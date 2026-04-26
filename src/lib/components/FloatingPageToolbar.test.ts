@@ -85,4 +85,13 @@ describe('FloatingPageToolbar', () => {
 		expect(screen.getByLabelText('Group filter')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Filters' })).toBeNull();
 	});
+
+	it('allows wide toolbars to compact search earlier when leading controls need more room', () => {
+		render(FloatingPageToolbarTest, {
+			props: { containerWidth: 1100, searchCompactAt: 1180, withCoordinatedControls: true }
+		});
+
+		expect(screen.getByRole('button', { name: 'Search personnel' })).toBeTruthy();
+		expect(screen.getByLabelText('Group filter')).toBeTruthy();
+	});
 });

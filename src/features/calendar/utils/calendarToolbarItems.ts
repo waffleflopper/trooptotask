@@ -1,6 +1,4 @@
-import type { SmartToolbarItem } from '$lib/components/ui/SmartToolbar.types';
-
-const SETTINGS_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-1.93 1.46l-.34 1.26a2 2 0 0 1-1.3 1.37l-1.22.42a2 2 0 0 1-1.84-.26l-1.1-.74a2 2 0 0 0-2.57.25l-.31.31a2 2 0 0 0-.25 2.57l.74 1.1a2 2 0 0 1 .26 1.84l-.42 1.22a2 2 0 0 1-1.37 1.3l-1.26.34A2 2 0 0 0 2 11.78v.44a2 2 0 0 0 1.46 1.93l1.26.34a2 2 0 0 1 1.37 1.3l.42 1.22a2 2 0 0 1-.26 1.84l-.74 1.1a2 2 0 0 0 .25 2.57l.31.31a2 2 0 0 0 2.57.25l1.1-.74a2 2 0 0 1 1.84-.26l1.22.42a2 2 0 0 1 1.3 1.37l.34 1.26A2 2 0 0 0 11.78 22h.44a2 2 0 0 0 1.93-1.46l.34-1.26a2 2 0 0 1 1.3-1.37l1.22-.42a2 2 0 0 1 1.84.26l1.1.74a2 2 0 0 0 2.57-.25l.31-.31a2 2 0 0 0 .25-2.57l-.74-1.1a2 2 0 0 1-.26-1.84l.42-1.22a2 2 0 0 1 1.37-1.3l1.26-.34A2 2 0 0 0 22 12.22v-.44a2 2 0 0 0-1.46-1.93l-1.26-.34a2 2 0 0 1-1.37-1.3l-.42-1.22a2 2 0 0 1 .26-1.84l.74-1.1a2 2 0 0 0-.25-2.57l-.31-.31a2 2 0 0 0-2.57-.25l-1.1.74a2 2 0 0 1-1.84.26l-1.22-.42a2 2 0 0 1-1.3-1.37l-.34-1.26A2 2 0 0 0 12.22 2z"/><circle cx="12" cy="12" r="3"/></svg>`;
+import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
 
 export interface CalendarToolbarInput {
 	orgId: string;
@@ -21,72 +19,126 @@ export interface CalendarToolbarInput {
 	onExportPDF: () => void;
 }
 
-export function buildCalendarToolbarItems(input: CalendarToolbarInput): SmartToolbarItem[] {
-	const items: SmartToolbarItem[] = [];
+function overflowToggle(id: string, label: string, active: boolean, onclick: () => void): ToolbarActionConfig {
+	return {
+		id,
+		label,
+		onclick,
+		toggle: true,
+		active,
+		priority: 'low',
+		overflow: 'always'
+	};
+}
+
+export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarActionConfig[] {
+	const items: ToolbarActionConfig[] = [];
+	const readOnlyReason = input.readOnly ? 'Read-only mode' : undefined;
 
 	if (input.canEditCalendar && input.canManageConfig) {
 		items.push({
-			type: 'dropdown',
+			id: 'bulk-status',
 			label: 'Bulk Status',
+			icon: 'clipboard-list',
+			displayMode: 'full',
 			disabled: input.readOnly,
-			items: [
-				{ label: 'Add Bulk', href: `/org/${input.orgId}/calendar/bulk?tab=add`, disabled: input.readOnly },
-				{ label: 'Remove Bulk', href: `/org/${input.orgId}/calendar/bulk?tab=remove`, disabled: input.readOnly },
-				{ label: 'Import CSV', href: `/org/${input.orgId}/calendar/bulk?tab=import`, disabled: input.readOnly }
+			disabledReason: readOnlyReason,
+			menuItems: [
+				{
+					label: 'Add Bulk',
+					href: `/org/${input.orgId}/calendar/bulk?tab=add`,
+					disabled: input.readOnly,
+					disabledReason: readOnlyReason
+				},
+				{
+					label: 'Remove Bulk',
+					href: `/org/${input.orgId}/calendar/bulk?tab=remove`,
+					disabled: input.readOnly,
+					disabledReason: readOnlyReason
+				},
+				{
+					label: 'Import CSV',
+					href: `/org/${input.orgId}/calendar/bulk?tab=import`,
+					disabled: input.readOnly,
+					disabledReason: readOnlyReason
+				}
 			]
 		});
 
 		items.push({
-			type: 'dropdown',
+			id: 'planning',
 			label: 'Planning',
+			icon: 'calendar-days',
+			displayMode: 'full',
 			disabled: input.readOnly,
-			items: [
-				{ label: 'Duty Roster', href: `/org/${input.orgId}/calendar/duty-roster`, disabled: input.readOnly },
-				{ label: 'Assignment Planner', href: `/org/${input.orgId}/calendar/assignments`, disabled: input.readOnly }
+			disabledReason: readOnlyReason,
+			menuItems: [
+				{
+					label: 'Duty Roster',
+					href: `/org/${input.orgId}/calendar/duty-roster`,
+					disabled: input.readOnly,
+					disabledReason: readOnlyReason
+				},
+				{
+					label: 'Assignment Planner',
+					href: `/org/${input.orgId}/calendar/assignments`,
+					disabled: input.readOnly,
+					disabledReason: readOnlyReason
+				}
 			]
 		});
 	}
 
 	if (input.canManageConfig) {
 		items.push({
-			type: 'icon-button',
-			label: 'Calendar Settings',
+			id: 'calendar-settings',
+			label: 'Settings',
 			href: `/org/${input.orgId}/calendar/settings`,
-			icon: SETTINGS_ICON
+			icon: 'settings',
+			priority: 'low',
+			variant: 'secondary'
 		});
 	}
 
-	// Overflow items — exports only shown in month view (3-month view has its own export buttons)
 	if (input.viewMode !== '3-month') {
 		items.push(
-			{ type: 'overflow', label: 'Export to Excel', onclick: input.onExportCSV },
-			{ type: 'overflow', label: 'Print / PDF', onclick: input.onExportPDF }
+			{
+				id: 'export-excel',
+				label: 'Export to Excel',
+				onclick: input.onExportCSV,
+				priority: 'low',
+				overflow: 'always'
+			},
+			{
+				id: 'print-pdf',
+				label: 'Print / PDF',
+				onclick: input.onExportPDF,
+				priority: 'low',
+				overflow: 'always'
+			}
 		);
 	}
 
 	if (input.showOnboardingToggle) {
-		items.push({
-			type: 'overflow',
-			label: 'Show Onboarding',
-			onclick: input.onToggleHighlightOnboarding,
-			active: input.highlightOnboarding
-		});
+		items.push(
+			overflowToggle('show-onboarding', 'Show Onboarding', input.highlightOnboarding, input.onToggleHighlightOnboarding)
+		);
 	}
 
 	items.push(
-		{ type: 'overflow', label: 'Show Status Text', onclick: input.onToggleStatusText, active: input.showStatusText },
-		{
-			type: 'overflow',
-			label: 'Show Personnel Roles',
-			onclick: input.onTogglePersonnelRoles,
-			active: input.showPersonnelRoles
-		},
-		{
-			type: 'overflow',
-			label: 'Duty: Start Day Only',
-			onclick: input.onToggleDutyStartDayOnly,
-			active: input.dutyStartDayOnly
-		}
+		overflowToggle('show-status-text', 'Show Status Text', input.showStatusText, input.onToggleStatusText),
+		overflowToggle(
+			'show-personnel-roles',
+			'Show Personnel Roles',
+			input.showPersonnelRoles,
+			input.onTogglePersonnelRoles
+		),
+		overflowToggle(
+			'duty-start-day-only',
+			'Duty: Start Day Only',
+			input.dutyStartDayOnly,
+			input.onToggleDutyStartDayOnly
+		)
 	);
 
 	return items;

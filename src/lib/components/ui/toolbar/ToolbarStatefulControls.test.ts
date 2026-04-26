@@ -76,4 +76,17 @@ describe('stateful toolbar controls', () => {
 		});
 		expect(document.activeElement).toBe(trigger);
 	});
+
+	it('closes the compact group panel when clicking outside it', async () => {
+		render(ToolbarStatefulControlsTest, { props: { mode: 'compact' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+		expect(await screen.findByTestId('filters-group-panel')).toBeTruthy();
+
+		await fireEvent.mouseDown(document.body);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId('filters-group-panel')).toBeNull();
+		});
+	});
 });

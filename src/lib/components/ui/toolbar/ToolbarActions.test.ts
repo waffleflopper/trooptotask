@@ -83,4 +83,21 @@ describe('ToolbarActions', () => {
 			'[ToolbarActions] Toolbar protected actions cannot fit within 24px: record requires 92px.'
 		);
 	});
+
+	it('keeps measurement-only disabled reason IDs distinct from visible actions', () => {
+		render(ToolbarActions, {
+			props: {
+				actions,
+				ariaLabel: 'Critical Tasks actions',
+				overflowAriaLabel: 'More Critical Tasks actions',
+				containerWidth: 320
+			}
+		});
+
+		const ids = Array.from(document.querySelectorAll<HTMLElement>('[id]')).map((element) => element.id);
+
+		expect(ids.filter((id) => id === 'toolbar-action-import-reason')).toHaveLength(1);
+		expect(ids.filter((id) => id === 'toolbar-action-record-reason')).toHaveLength(1);
+		expect(new Set(ids).size).toBe(ids.length);
+	});
 });

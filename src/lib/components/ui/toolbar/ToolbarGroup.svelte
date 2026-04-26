@@ -127,6 +127,13 @@
 		}
 	}
 
+	function handleDocumentMouseDown(event: MouseEvent): void {
+		if (!panelOpen || !hostEl) return;
+		const target = event.target;
+		if (!(target instanceof Node) || hostEl.contains(target)) return;
+		closePanel();
+	}
+
 	function measure(): void {
 		if (!hostEl || mode !== 'auto') return;
 		const width = hostEl.getBoundingClientRect().width || hostEl.clientWidth;
@@ -144,10 +151,12 @@
 					});
 
 		if (hostEl) resizeObserver?.observe(hostEl);
+		document.addEventListener('mousedown', handleDocumentMouseDown);
 		window.requestAnimationFrame(measure);
 
 		return () => {
 			resizeObserver?.disconnect();
+			document.removeEventListener('mousedown', handleDocumentMouseDown);
 		};
 	});
 </script>

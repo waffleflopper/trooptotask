@@ -177,10 +177,10 @@
 		{#each actions as action (action.id)}
 			<div data-measure-action={action.id}>
 				<span data-measure-full class="toolbar-actions__measure-action">
-					<ToolbarAction {action} mode="full" />
+					<ToolbarAction {action} mode="full" descriptionIdSuffix="-measure-full" />
 				</span>
 				<span data-measure-compact class="toolbar-actions__measure-action">
-					<ToolbarAction {action} mode={action.icon ? 'compact' : 'full'} />
+					<ToolbarAction {action} mode={action.icon ? 'compact' : 'full'} descriptionIdSuffix="-measure-compact" />
 				</span>
 			</div>
 		{/each}

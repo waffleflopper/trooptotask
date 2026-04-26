@@ -7,12 +7,15 @@
 	interface Props {
 		action: ToolbarAction;
 		mode: Exclude<ToolbarActionLayoutMode, 'overflow'>;
+		descriptionIdSuffix?: string;
 	}
 
-	let { action, mode }: Props = $props();
+	let { action, mode, descriptionIdSuffix = '' }: Props = $props();
 
 	const compact = $derived(mode === 'compact');
-	const labelledById = $derived(action.disabledReason ? `toolbar-action-${action.id}-reason` : undefined);
+	const labelledById = $derived(
+		action.disabledReason ? `toolbar-action-${action.id}${descriptionIdSuffix}-reason` : undefined
+	);
 	const actionClass = $derived(
 		[
 			'toolbar-action',

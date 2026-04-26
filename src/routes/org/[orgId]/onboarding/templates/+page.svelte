@@ -1,5 +1,11 @@
 <script lang="ts">
 	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
+	import {
+		ToolbarActions,
+		ToolbarNavGroup,
+		type ToolbarActionConfig,
+		type ToolbarNavItem
+	} from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -63,6 +69,23 @@
 	const trainingTypes: TrainingType[] = $derived(data.trainingTypes ?? []);
 
 	const canMutate = $derived(!org.readOnly);
+	const onboardingNavItems = $derived<ToolbarNavItem[]>([
+		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
+	]);
+	const templateToolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
+		if (!canMutate) return [];
+		return [
+			{
+				id: 'add-template',
+				label: 'Add Template',
+				onclick: () => (addingTemplate = true),
+				disabled: addingTemplate,
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
+			}
+		];
+	});
 
 	// --- Step type config ---
 	const STEP_TYPE_COLORS: Record<OnboardingStepType, string> = {
@@ -278,13 +301,16 @@
 <div class="templates-page">
 	<FloatingPageToolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
 		{#snippet leading()}
-			<a href={`/org/${org.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Onboarding</a>
+			<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 		{/snippet}
 
-		{#if canMutate}
-			<button class="btn btn-primary btn-sm" onclick={() => (addingTemplate = true)} disabled={addingTemplate}>
-				Add Template
-			</button>
+		{#if templateToolbarActions.length > 0}
+			<ToolbarActions
+				actions={templateToolbarActions}
+				ariaLabel="Onboarding template actions"
+				overflowAriaLabel="More onboarding template actions"
+				overflowIconOnly
+			/>
 		{/if}
 	</FloatingPageToolbar>
 
@@ -666,10 +692,6 @@
 {/snippet}
 
 <style>
-	[data-quiet-button] {
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
 	.templates-page {
 		display: flex;
 		flex-direction: column;

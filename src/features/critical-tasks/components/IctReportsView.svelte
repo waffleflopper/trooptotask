@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarMultiSelectFilter,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -40,9 +45,18 @@
 	const availableMosOptions = $derived(availableMos.map((mos) => ({ value: mos, label: mos })));
 	const availableRoles = $derived([...new Set(personnel.map((person) => person.clinicRole).filter(Boolean))].sort());
 	const availableRanks = $derived([...new Set(personnel.map((person) => person.rank).filter(Boolean))].sort());
-	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
-	const rankOptions = $derived(availableRanks.map((rank) => ({ value: rank, label: rank })));
-	const roleOptions = $derived(availableRoles.map((role) => ({ value: role, label: role })));
+	const groupOptions = $derived([
+		{ value: '', label: 'All Groups' },
+		...groups.map((group) => ({ value: group.id, label: group.name }))
+	]);
+	const rankOptions = $derived([
+		{ value: '', label: 'All Ranks' },
+		...availableRanks.map((rank) => ({ value: rank, label: rank }))
+	]);
+	const roleOptions = $derived([
+		{ value: '', label: 'All Duty Roles' },
+		...availableRoles.map((role) => ({ value: role, label: role }))
+	]);
 	const hasActiveTasks = $derived(tasks.some((task) => !task.archivedAt));
 	const hasActiveFilters = $derived(!!filterGroupId || filterMosValues.length > 0 || !!filterRole || !!filterRank);
 	const reportQuery = $derived.by(() => {
@@ -62,6 +76,35 @@
 	const summaryHref = $derived.by(() => {
 		const query = reportQuery;
 		return `/org/${orgId}/api/critical-tasks/reports/summary${query ? `?${query}` : ''}`;
+	});
+	const activeFilterCount = $derived(
+		(filterGroupId ? 1 : 0) + filterMosValues.length + (filterRole ? 1 : 0) + (filterRank ? 1 : 0)
+	);
+	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
+		const items: ToolbarActionConfig[] = [];
+
+		if (hasActiveFilters) {
+			items.push({
+				id: 'clear-filters',
+				label: 'Clear filters',
+				onclick: clearFilters,
+				disabled: loading,
+				priority: 'normal',
+				variant: 'secondary'
+			});
+		}
+
+		items.push({
+			id: 'export-csv',
+			label: 'Export CSV',
+			href: exportHref,
+			icon: 'download',
+			priority: 'critical',
+			overflow: 'never',
+			variant: 'primary'
+		});
+
+		return items;
 	});
 
 	function clearFilters() {
@@ -114,65 +157,63 @@
 </script>
 
 <div class="reports-page-shell">
-	<FloatingPageToolbar ariaLabel="Critical task report controls" collapse="wide" leadingMin="52rem">
+	<Toolbar ariaLabel="Critical task report controls" collapse="wide" leadingMin="52rem">
 		{#snippet leading()}
-			<div class="report-filter-row" aria-label="Critical task report filters">
-				<div class="filter-select">
-					<SearchSelect
+			<ToolbarGroup label="Critical task report filters" activeCount={activeFilterCount} testId="ict-report-filters">
+				{#snippet full()}
+					<ToolbarFilterSelect
 						options={groupOptions}
 						value={filterGroupId}
-						placeholder="All Groups"
 						ariaLabel="Filter by group"
+						defaultValue=""
+						width="wide"
+						mode="full"
 						disabled={loading}
-						compact
-						onchange={(value) => (filterGroupId = value)}
+						onValueChange={(value) => (filterGroupId = value)}
 					/>
-				</div>
 
-				<div class="filter-select">
-					<SearchSelect
+					<ToolbarFilterSelect
 						options={rankOptions}
 						value={filterRank}
-						placeholder="All Ranks"
 						ariaLabel="Filter by rank"
+						defaultValue=""
+						width="wide"
+						mode="full"
 						disabled={loading}
-						compact
-						onchange={(value) => (filterRank = value)}
+						onValueChange={(value) => (filterRank = value)}
 					/>
-				</div>
 
-				<div class="filter-multi">
-					<MultiTagSelect
+					<ToolbarMultiSelectFilter
 						options={availableMosOptions}
 						value={filterMosValues}
+						label="MOS"
 						placeholder="All MOS"
 						ariaLabel="Filter by MOS"
 						disabled={loading}
+						mode="full"
 						onChange={(values) => (filterMosValues = values)}
 					/>
-				</div>
 
-				<div class="filter-select filter-select-role">
-					<SearchSelect
+					<ToolbarFilterSelect
 						options={roleOptions}
 						value={filterRole}
-						placeholder="All Duty Roles"
 						ariaLabel="Filter by duty role"
+						defaultValue=""
+						width="wide"
+						mode="full"
 						disabled={loading}
-						compact
-						onchange={(value) => (filterRole = value)}
+						onValueChange={(value) => (filterRole = value)}
 					/>
-				</div>
-			</div>
+				{/snippet}
+			</ToolbarGroup>
 		{/snippet}
 
-		{#if hasActiveFilters}
-			<button class="btn btn-secondary btn-sm" type="button" disabled={loading} onclick={clearFilters}
-				>Clear filters</button
-			>
-		{/if}
-		<a class="btn btn-primary btn-sm" href={exportHref}>Export CSV</a>
-	</FloatingPageToolbar>
+		<ToolbarActions
+			actions={toolbarActionItems}
+			ariaLabel="Critical task report actions"
+			overflowAriaLabel="More critical task report actions"
+		/>
+	</Toolbar>
 
 	{#if dashboardError}
 		<p class="report-error" role="alert">{dashboardError}</p>
@@ -242,99 +283,6 @@
 		border-radius: var(--radius-sm);
 	}
 
-	.report-filter-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		align-items: center;
-	}
-
-	.filter-select {
-		flex: 0 1 9.5rem;
-		width: 9.5rem;
-		min-width: 9.5rem;
-		max-width: 12rem;
-	}
-
-	.filter-select-role {
-		flex-basis: 12rem;
-		width: 12rem;
-		min-width: 12rem;
-		max-width: 14rem;
-	}
-
-	.filter-multi {
-		flex: 0 1 17.5rem;
-		width: 17.5rem;
-		min-width: 17.5rem;
-		max-width: 20rem;
-	}
-
-	.report-filter-row :global(.input-wrapper),
-	.report-filter-row :global(.mts-control) {
-		min-height: 34px;
-		border-color: color-mix(in srgb, var(--border-default) 82%, var(--text-primary) 18%);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		box-shadow: none;
-	}
-
-	.report-filter-row :global(.display-btn),
-	.report-filter-row :global(.search-input),
-	.report-filter-row :global(.mts-input) {
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.report-filter-row :global(.display-btn) {
-		min-height: 32px;
-		padding: 7px 28px 7px 12px;
-		white-space: nowrap;
-	}
-
-	.report-filter-row :global(.display-icon) {
-		width: 12px;
-		height: 12px;
-	}
-
-	.report-filter-row :global(.mts-control) {
-		padding: 5px 8px;
-	}
-
-	.filter-multi :global(.mts-control) {
-		height: 34px;
-		flex-wrap: nowrap;
-		overflow-x: auto;
-		overflow-y: hidden;
-		scrollbar-width: thin;
-	}
-
-	.filter-multi :global(.mts-control::-webkit-scrollbar) {
-		height: 4px;
-	}
-
-	.filter-multi :global(.mts-control::-webkit-scrollbar-thumb) {
-		background: color-mix(in srgb, var(--text-tertiary) 42%, transparent);
-		border-radius: var(--radius-sm);
-	}
-
-	.report-filter-row :global(.mts-tag) {
-		flex: 0 0 auto;
-		max-width: 5.5rem;
-		padding: 2px 4px 2px 6px;
-		font-size: 0.625rem;
-	}
-
-	.filter-multi :global(.mts-input) {
-		flex: 0 0 4rem;
-		min-width: 4rem;
-	}
-
-	.filter-multi :global(.mts-input:placeholder-shown) {
-		flex-basis: 100%;
-	}
-
 	.report-error {
 		margin: 0;
 		color: var(--danger);
@@ -363,18 +311,6 @@
 	@media (max-width: 640px) {
 		.reports-page-shell {
 			padding: var(--sp-2);
-		}
-
-		.filter-select {
-			width: 100%;
-			min-width: 0;
-			max-width: none;
-		}
-
-		.filter-multi {
-			width: 100%;
-			min-width: 0;
-			max-width: none;
 		}
 	}
 </style>

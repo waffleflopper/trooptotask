@@ -36,5 +36,6 @@ describe('critical tasks personnel history page server load', () => {
 		);
 		expect(fetchHistory).toHaveBeenCalledWith(expect.anything(), 'p-1');
 		expect(result.criticalTasksPersonnelHistory.personnel.lastName).toBe('Smith');
+		expect(result.breadcrumbLabel).toBe('SGT Smith, Jane');
 	});
 });

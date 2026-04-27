@@ -1,8 +1,7 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
 
 	let { data } = $props();
@@ -202,14 +201,14 @@
 <div class="page">
 	<main class="page-content">
 		{#if billingToolbarActions.length > 0}
-			<FloatingPageToolbar ariaLabel="Billing controls" leadingMin="0" collapse="narrow">
+			<Toolbar ariaLabel="Billing controls" leadingMin="0" collapse="narrow">
 				<ToolbarActions
 					actions={billingToolbarActions}
 					ariaLabel="Billing actions"
 					overflowAriaLabel="More billing actions"
 					overflowIconOnly
 				/>
-			</FloatingPageToolbar>
+			</Toolbar>
 		{/if}
 
 		{#if isReadOnly}

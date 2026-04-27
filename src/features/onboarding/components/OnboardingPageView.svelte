@@ -2,8 +2,8 @@
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import {
+		Toolbar,
 		ToolbarActions,
 		ToolbarMetaItem,
 		ToolbarNavGroup,
@@ -80,7 +80,7 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			<FloatingPageToolbar ariaLabel="Onboarding controls" collapse="narrow">
+			<Toolbar ariaLabel="Onboarding controls" collapse="narrow">
 				{#snippet leading()}
 					<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 				{/snippet}
@@ -96,7 +96,7 @@
 						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
 					{/if}
 				{/if}
-			</FloatingPageToolbar>
+			</Toolbar>
 
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="notice-banner notice-banner--warning">

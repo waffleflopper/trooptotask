@@ -1,6 +1,5 @@
 <script lang="ts">
 	import SegmentedControl from './SegmentedControl.svelte';
-	import ToolbarIconButton from './ToolbarIconButton.svelte';
 	import ToolbarOverflowMenu from './ToolbarOverflowMenu.svelte';
 	import ToolbarSearch from './ToolbarSearch.svelte';
 	import ToolbarSelect from './ToolbarSelect.svelte';
@@ -10,7 +9,6 @@
 		onSearchChange?: (value: string) => void;
 		onSelectChange?: (value: string) => void;
 		onSegmentChange?: (value: string) => void;
-		onIconClick?: () => void;
 		onOverflowClick?: () => void;
 		iconOnlyOverflow?: boolean;
 	}
@@ -19,7 +17,6 @@
 		onSearchChange = () => undefined,
 		onSelectChange = () => undefined,
 		onSegmentChange = () => undefined,
-		onIconClick = () => undefined,
 		onOverflowClick = () => undefined,
 		iconOnlyOverflow = false
 	}: Props = $props();
@@ -62,9 +59,5 @@
 	bind:value={viewValue}
 	onValueChange={onSegmentChange}
 />
-
-<ToolbarIconButton label="Export roster" onclick={onIconClick}>
-	<span aria-hidden="true">E</span>
-</ToolbarIconButton>
 
 <ToolbarOverflowMenu ariaLabel="More roster actions" items={overflowItems} iconOnly={iconOnlyOverflow} />

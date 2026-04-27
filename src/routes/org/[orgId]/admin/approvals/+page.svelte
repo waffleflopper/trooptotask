@@ -2,11 +2,9 @@
 	import { page } from '$app/stores';
 	import { invalidateAll } from '$app/navigation';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarGroup, ToolbarMetaItem, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
@@ -29,6 +27,7 @@
 	];
 
 	let statusFilter = $state('pending');
+	const activeFilterCount = $derived(statusFilter === 'pending' ? 0 : 1);
 
 	const filteredRequests = $derived(
 		statusFilter === 'all'
@@ -101,12 +100,29 @@
 </svelte:head>
 
 <div class="approvals-page">
-	<FloatingPageToolbar ariaLabel="Approval request filters" leadingMin="0" collapse="narrow">
+	<Toolbar ariaLabel="Approval request filters" leadingMin="0" collapse="narrow">
 		{#snippet leading()}
-			<SegmentedControl ariaLabel="Approval status filter" options={filters} bind:value={statusFilter} />
+			<ToolbarGroup label="Approval filters" activeCount={activeFilterCount} testId="approval-filters">
+				{#snippet full()}
+					<ToolbarViewToggle
+						ariaLabel="Approval status filter"
+						options={filters}
+						bind:value={statusFilter}
+						mode="full"
+					/>
+				{/snippet}
+				{#snippet panel()}
+					<ToolbarViewToggle
+						ariaLabel="Approval status filter"
+						options={filters}
+						bind:value={statusFilter}
+						mode="full"
+					/>
+				{/snippet}
+			</ToolbarGroup>
 			<ToolbarMetaItem label={`${filteredRequests.length} shown`} />
 		{/snippet}
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	<div class="table-shell">
 		<DataTable

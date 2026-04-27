@@ -113,7 +113,7 @@ Toolbar guidance:
 
 Use the shared route toolbar for dense authenticated workspaces after the app shell has already identified the page through breadcrumbs. The toolbar should stay a single resting row, compact stateful controls before it overflows commands, and keep filters, search, view modes, toggles, nav, and passive metadata out of command overflow.
 
-Import the shell and items from `$lib/components/ui/toolbar`. Newly migrated route-level toolbars must use `Toolbar`; do not wrap them in `FloatingPageToolbar`, `PageToolbar`, or `SmartToolbar`.
+Import the shell and items from `$lib/components/ui/toolbar`. Authenticated route-level toolbars use `Toolbar` as the shared measurement shell.
 
 ```svelte
 <script lang="ts">
@@ -208,7 +208,7 @@ Broken shapes to avoid:
 - Do not wrap `ToolbarGroup` and `ToolbarSearchItem` in route-local flex containers just to force one row. Extra wrappers change what the toolbar measures and make collapse behavior harder to reason about.
 - Do not put filters, search, view toggles, or toggles into `ToolbarActions` or command overflow. Commands overflow; stateful controls compact.
 - Do not force route-level action `displayMode="compact"` to solve crowding. Let `ToolbarActions` calculate full, compact, and overflow states from measured width.
-- Do not preserve old toolbar shells while migrating a route. Replacing `PageToolbar`, `FloatingPageToolbar`, and `SmartToolbar` means removing those wrappers from the migrated surface.
+- Do not preserve route-local toolbar shells or wrapper components around a migrated toolbar surface.
 
 ### Public Components
 
@@ -311,15 +311,16 @@ Search, filter, toggle, and view state belong to the page. Compact panels render
 - Use command overflow for secondary, lower-frequency, or configuration actions. Do not put stateful filters/search/view controls into command overflow.
 - Avoid decorative stat boxes that repeat visible table/list counts. Keep compact stats only when they drive action.
 
-### Migration Notes
+### Final Route API
 
-The shared toolbar family is the target API for dense authenticated routes. Existing primitives remain as migration bridges only for routes that have not been migrated yet.
+The shared toolbar family is the target API for dense authenticated routes.
 
-- Prefer `ToolbarActions` over `ProgressiveToolbarActions` for new shared toolbar work.
-- Prefer `ToolbarSearchItem` over route-local `ToolbarSearch` composition when search must compact.
-- Prefer `ToolbarFilterSelect`, `ToolbarViewToggle`, `ToolbarToggle`, and `ToolbarGroup` over hand-built leading control layouts.
-- Keep `ToolbarOverflowMenu` as the command overflow surface, normally through `ToolbarActions`.
-- Keep `ToolbarIconButton` only for simple standalone icon buttons that are not part of the shared toolbar family.
+- Use `Toolbar` as the route-level shell.
+- Use `ToolbarActions` for command actions and generated command overflow.
+- Use `ToolbarSearchItem`, `ToolbarFilterSelect`, `ToolbarViewToggle`, `ToolbarToggle`, `ToolbarMultiSelectFilter`, and `ToolbarGroup` for leading stateful controls.
+- Use `ToolbarNavGroup`, `ToolbarMetaItem`, and `ToolbarMetricGroup` for non-command toolbar content.
+- Keep `ToolbarSearch` and `ToolbarSelect` as low-level implementation building blocks behind the shared family, not as route-level imports.
+- Keep `ToolbarOverflowMenu` as the command overflow surface behind `ToolbarActions` and `ToolbarAction` menu items.
 - If a route toolbar does not fit these primitives cleanly, design a reusable toolbar primitive or policy extension. Do not force route-local hacks into the toolbar.
 
 Known deferred work: true mobile sheet panel mode and a shared tooltip primitive.
@@ -600,50 +601,6 @@ Props: `filePath: string | null`, `uploadUrl: string`, `downloadUrl: string`, `r
 
 ---
 
-## `ui/SmartToolbar.svelte`
-
-Declarative action toolbar that renders buttons, icon-buttons, dropdown menus, and an overflow "More" menu. In `narrow` mode all items collapse into the overflow menu.
-
-```svelte
-<SmartToolbar
-    items={[
-        { type: 'button', label: 'Export', onclick: handleExport },
-        { type: 'icon-button', label: 'Settings', icon: settingsIconSvg, onclick: openSettings },
-        {
-            type: 'dropdown',
-            label: 'Add',
-            items: [
-                { label: 'Single', onclick: addOne },
-                { label: 'Bulk Import', href: '/import' }
-            ]
-        },
-        { type: 'overflow', label: 'Archive', onclick: handleArchive }
-    ]}
-    narrow={isMobile}
-/>
-```
-
-Props: `items: SmartToolbarItem[]`, `narrow?: boolean` (default `false`)
-
-`SmartToolbarItem` shape:
-
-| Field       | Type                                                    | Description                                                         |
-| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
-| `type`      | `'button' \| 'dropdown' \| 'icon-button' \| 'overflow'` | Render style                                                        |
-| `label`     | `string`                                                | Button text or aria-label for icon-buttons                          |
-| `id?`       | `string`                                                | Key for dropdown open/close tracking (defaults to label)            |
-| `icon?`     | `string`                                                | SVG markup (use `{@html}` internally — must be trusted app content) |
-| `href?`     | `string`                                                | Renders as `<a>` instead of `<button>`                              |
-| `onclick?`  | `() => void`                                            | Click handler                                                       |
-| `disabled?` | `boolean`                                               |                                                                     |
-| `items?`    | `DropdownItem[]`                                        | Sub-items for `type: 'dropdown'`                                    |
-
-`type: 'overflow'` items always appear in the "More" dropdown. In `narrow` mode, all non-overflow items also collapse into it.
-
-Import types: `import type { SmartToolbarItem, DropdownItem } from '$lib/components/ui/SmartToolbar.svelte'`
-
----
-
 ## `ui/toolbar`
 
 Typed shared-toolbar package for page-level control and command zones. Use it when a route needs deterministic full, compact, and overflow states without mixing visual style with layout priority.
@@ -774,19 +731,20 @@ Use `ToolbarMultiSelectFilter maxWidth` when a tag input should grow inside the 
 
 Icon names are intentionally small and map to lucide icons: `download`, `upload`, `settings`, `calendar-days`, `book-open`, `chart`, `clipboard-check`, `clipboard-list`, and `printer`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
 
-Migration notes:
+Final route API:
 
-- Migrate route-level toolbars to the shared `Toolbar` shell. Do not keep `FloatingPageToolbar`, `PageToolbar`, or `SmartToolbar` as route-level wrappers for newly migrated surfaces.
-- Prefer `ToolbarActions` over `ProgressiveToolbarActions` when actions need priorities, protected visibility, compact icon rendering, disabled reasons, or deterministic overflow tests.
-- Prefer `ToolbarSearchItem`, `ToolbarFilterSelect`, and `ToolbarViewToggle` for leading stateful controls that need compact trigger/panel behavior. Keep older `ToolbarSelect`, `SegmentedControl`, and `ToolbarIconButton` where a page has not migrated yet.
-- Do not add route-local flex wrappers around `ToolbarGroup` and `ToolbarSearchItem` to force a one-line layout. If the shared primitives cannot express the route, add or extend a reusable toolbar primitive.
+- Route-level toolbars use the shared `Toolbar` shell.
+- Route commands use `ToolbarActions`; action overflow is generated by the shared family.
+- Leading route state uses `ToolbarSearchItem`, `ToolbarFilterSelect`, `ToolbarViewToggle`, `ToolbarToggle`, `ToolbarMultiSelectFilter`, and `ToolbarGroup`.
+- Navigation, status, and metrics use `ToolbarNavGroup`, `ToolbarMetaItem`, and `ToolbarMetricGroup`.
+- `ToolbarSearch` and `ToolbarSelect` remain low-level implementation building blocks for the shared family.
 - Deferred: true sheet-mode compact panels and a shared tooltip primitive.
 
 ---
 
 ## `ui/OverflowMenu.svelte`
 
-Controlled dropdown menu. Used as an escape hatch when SmartToolbar doesn't fit (e.g. per-row menus in a table). The parent manages `open` state.
+Controlled dropdown menu. Used as an escape hatch for per-row menus and other local menu surfaces. The parent manages `open` state.
 
 ```svelte
 <script>

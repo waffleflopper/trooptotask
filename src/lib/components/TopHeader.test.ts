@@ -144,4 +144,16 @@ describe('TopHeader', () => {
 		expect(breadcrumb.textContent).toContain('CPT Hayes, Emma');
 		expect(breadcrumb.textContent).not.toContain('Person');
 	});
+
+	it('uses a route-provided breadcrumb label as the dashboard date crumb', () => {
+		pageStore.setPath('/org/org-1', { breadcrumbLabel: 'Sunday, Apr 26 2026' });
+
+		renderHeader();
+
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(breadcrumb.textContent).toContain('Test Org');
+		expect(breadcrumb.textContent).toContain('Dashboard');
+		expect(breadcrumb.textContent).toContain('Sunday, Apr 26 2026');
+		expect(within(breadcrumb).getByRole('link', { name: 'Dashboard' }).getAttribute('href')).toBe('/org/org-1');
+	});
 });

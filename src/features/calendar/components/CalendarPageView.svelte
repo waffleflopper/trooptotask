@@ -5,10 +5,15 @@
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import { ToolbarActions, ToolbarFilterSelect, ToolbarSearchItem } from '$lib/components/ui/toolbar';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarSearchItem
+	} from '$lib/components/ui/toolbar';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -75,6 +80,9 @@
 			label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
 		}))
 	);
+	const activeCalendarFilterCount = $derived(
+		(ctx.calendarGroupFilter ? 1 : 0) + (ctx.calendarPersonnelSearch.trim() ? 1 : 0)
+	);
 </script>
 
 <svelte:head>
@@ -102,26 +110,47 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<FloatingPageToolbar ariaLabel="Calendar controls" leadingMin="29rem" searchCompactAt={1180}>
+				<Toolbar ariaLabel="Calendar controls" leadingMin="29rem" searchCompactAt={1180}>
 					{#snippet leading()}
-						<div class="filter-cluster" aria-label="Calendar filters">
-							<ToolbarFilterSelect
-								ariaLabel="Calendar group filter"
-								options={groupFilterOptions}
-								value={ctx.calendarGroupFilter}
-								defaultValue=""
-								mode="full"
-								width="wide"
-								onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-							/>
-							<ToolbarSearchItem
-								ariaLabel="Search by name, rank, MOS, role, or group"
-								placeholder="Search name, rank, MOS, role, or group..."
-								value={ctx.calendarPersonnelSearch}
-								width="wide"
-								onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-							/>
-						</div>
+						<ToolbarGroup label="Calendar filters" activeCount={activeCalendarFilterCount} testId="calendar-filters">
+							{#snippet full()}
+								<ToolbarFilterSelect
+									ariaLabel="Calendar group filter"
+									options={groupFilterOptions}
+									value={ctx.calendarGroupFilter}
+									defaultValue=""
+									mode="full"
+									width="wide"
+									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
+								/>
+								<ToolbarSearchItem
+									ariaLabel="Search by name, rank, MOS, role, or group"
+									placeholder="Search name, rank, MOS, role, or group..."
+									value={ctx.calendarPersonnelSearch}
+									width="wide"
+									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
+								/>
+							{/snippet}
+							{#snippet panel()}
+								<ToolbarFilterSelect
+									ariaLabel="Calendar group filter"
+									options={groupFilterOptions}
+									value={ctx.calendarGroupFilter}
+									defaultValue=""
+									mode="full"
+									width="wide"
+									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
+								/>
+								<ToolbarSearchItem
+									ariaLabel="Search by name, rank, MOS, role, or group"
+									placeholder="Search name, rank, MOS, role, or group..."
+									value={ctx.calendarPersonnelSearch}
+									width="wide"
+									mode="full"
+									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
+								/>
+							{/snippet}
+						</ToolbarGroup>
 					{/snippet}
 
 					<ToolbarActions
@@ -129,7 +158,7 @@
 						ariaLabel="Calendar actions"
 						overflowAriaLabel="More Calendar actions"
 					/>
-				</FloatingPageToolbar>
+				</Toolbar>
 
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
@@ -242,17 +271,6 @@
 
 	.calendar-section--loading {
 		overflow: visible;
-	}
-
-	.filter-cluster {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.filter-cluster {
-		flex-wrap: nowrap;
 	}
 
 	.loading-kicker {

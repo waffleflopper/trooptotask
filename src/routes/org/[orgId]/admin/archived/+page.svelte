@@ -6,8 +6,7 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import { addMonths } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -125,11 +124,11 @@
 
 <div class="archived-page">
 	<main class="page-content">
-		<FloatingPageToolbar ariaLabel="Archived personnel status" leadingMin="0" collapse="narrow">
+		<Toolbar ariaLabel="Archived personnel status" leadingMin="0" collapse="narrow">
 			{#snippet leading()}
 				<ToolbarMetaItem label={`Retention: ${data.retentionMonths} mo`} />
 			{/snippet}
-		</FloatingPageToolbar>
+		</Toolbar>
 
 		<div class="table-shell">
 			<p class="header-description">

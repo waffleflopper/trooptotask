@@ -1,6 +1,6 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import {
+		Toolbar,
 		ToolbarActions,
 		ToolbarNavGroup,
 		type ToolbarActionConfig,
@@ -299,7 +299,7 @@
 </script>
 
 <div class="templates-page">
-	<FloatingPageToolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
+	<Toolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
 		{#snippet leading()}
 			<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 		{/snippet}
@@ -312,7 +312,7 @@
 				overflowIconOnly
 			/>
 		{/if}
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	<div class="templates-layout">
 		<!-- Left panel: Template list -->

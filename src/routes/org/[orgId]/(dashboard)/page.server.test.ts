@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 
@@ -51,6 +51,8 @@ const ORG_ID = '11111111-1111-1111-1111-111111111111';
 
 describe('dashboard page server load', () => {
 	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(2026, 3, 26, 9));
 		vi.clearAllMocks();
 		buildLayoutContextMock.mockResolvedValue(mockCtx);
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
@@ -59,6 +61,10 @@ describe('dashboard page server load', () => {
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
@@ -84,6 +90,7 @@ describe('dashboard page server load', () => {
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(depends).toHaveBeenCalledWith('app:dashboard-data');
+		expect(result.breadcrumbLabel).toBe('Sunday, Apr 26 2026');
 		expect(result.summary).toBeInstanceOf(Promise);
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
 		expect(findManyWithCountMock).not.toHaveBeenCalled();

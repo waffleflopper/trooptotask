@@ -1,61 +1,22 @@
 <script lang="ts">
 	import { dashboardTabStore } from '../stores/dashboardTabStore.svelte';
-	import type { DashboardPermissions, DashboardTabId } from '../dashboard.types';
-	import { hasDashboardPermission } from '../dashboard.types';
-
-	interface Tab {
-		id: DashboardTabId;
-		label: string;
-	}
-
-	interface QuickAction {
-		label: string;
-		href: string;
-		permission?: import('../dashboard.types').DashboardPermission;
-	}
+	import { DASHBOARD_TABS } from '../utils/dashboardToolbarActions';
 
 	interface Props {
 		orgId: string;
-		permissions: DashboardPermissions;
 	}
 
-	let { orgId, permissions }: Props = $props();
+	let { orgId }: Props = $props();
 
-	const TABS: Tab[] = [
-		{ id: 'unit-readiness', label: 'Unit Readiness' },
-		{ id: 'people-duty', label: 'People & Duty' },
-		{ id: 'training-evals', label: 'Training & Evals' }
-	];
-
-	const quickActions = $derived<Record<DashboardTabId, QuickAction[]>>({
-		'unit-readiness': [{ label: 'Add Calendar Entry', href: `/org/${orgId}/calendar`, permission: 'canViewCalendar' }],
-		'people-duty': [
-			{ label: 'Onboard Soldier', href: `/org/${orgId}/onboarding`, permission: 'canViewOnboarding' },
-			{ label: 'Duty Roster', href: `/org/${orgId}/calendar/duty-roster`, permission: 'canViewCalendar' },
-			{ label: 'Add Leave', href: `/org/${orgId}/calendar`, permission: 'canViewCalendar' }
-		],
-		'training-evals': [
-			{ label: 'Record Training', href: `/org/${orgId}/training`, permission: 'canViewTraining' },
-			{
-				label: 'Add Eval',
-				href: `/org/${orgId}/evals`,
-				permission: 'canViewRatingScheme'
-			}
-		]
-	});
-
-	const activeActions = $derived(
-		quickActions[dashboardTabStore.activeTab].filter((a) => hasDashboardPermission(permissions, a.permission))
-	);
 	const activeTabLabel = $derived(
-		TABS.find((tab) => tab.id === dashboardTabStore.activeTab)?.label ?? 'dashboard view'
+		DASHBOARD_TABS.find((tab) => tab.id === dashboardTabStore.activeTab)?.label ?? 'dashboard view'
 	);
 </script>
 
-<!-- Desktop tab bar (rendered in PageToolbar's below slot) -->
+<!-- Desktop tab bar (rendered in the shared route toolbar) -->
 <div class="tabs-shell">
 	<nav class="dashboard-tab-bar" aria-label="Dashboard views">
-		{#each TABS as tab (tab.id)}
+		{#each DASHBOARD_TABS as tab (tab.id)}
 			<button
 				type="button"
 				class="dash-tab"
@@ -83,19 +44,11 @@
 	{#if dashboardTabStore.error}
 		<p class="tab-error" role="status">{dashboardTabStore.error}</p>
 	{/if}
-
-	{#if activeActions.length > 0}
-		<div class="quick-actions" aria-label="Quick actions">
-			{#each activeActions as action (action.label)}
-				<a href={action.href} class="quick-action">{action.label}</a>
-			{/each}
-		</div>
-	{/if}
 </div>
 
 <!-- Mobile pill switcher (rendered inline in content area) -->
 <div class="pill-switcher-wrapper" role="group" aria-label="Dashboard views">
-	{#each TABS as tab (tab.id)}
+	{#each DASHBOARD_TABS as tab (tab.id)}
 		<button
 			type="button"
 			class="pill"
@@ -106,14 +59,6 @@
 		</button>
 	{/each}
 </div>
-
-{#if activeActions.length > 0}
-	<div class="quick-actions-mobile" aria-label="Quick actions">
-		{#each activeActions as action (action.label)}
-			<a href={action.href} class="quick-action">{action.label}</a>
-		{/each}
-	</div>
-{/if}
 
 <style>
 	/* ── Desktop tab bar ──────────────────────────────────── */
@@ -207,62 +152,8 @@
 		color: var(--danger);
 	}
 
-	/* Quick actions strip (desktop) */
-	.quick-actions {
-		display: flex;
-		align-items: center;
-		overflow-x: auto;
-		scrollbar-width: none;
-		padding: var(--sp-2) 0;
-		border-bottom: 1px solid var(--border-rule);
-	}
-
-	.quick-actions::-webkit-scrollbar {
-		display: none;
-	}
-
-	.quick-action {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--sp-1) var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		text-decoration: none;
-		border-radius: var(--radius-sm);
-		white-space: nowrap;
-		flex-shrink: 0;
-		transition: background var(--transition-fast);
-	}
-
-	.quick-action:hover {
-		background: var(--amber-light);
-	}
-
-	.quick-action + .quick-action {
-		position: relative;
-	}
-
-	.quick-action + .quick-action::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 1px;
-		height: 10px;
-		background: var(--ink-15);
-	}
-
 	/* ── Mobile pill switcher ─────────────────────────────── */
 	.pill-switcher-wrapper {
-		display: none;
-	}
-
-	.quick-actions-mobile {
 		display: none;
 	}
 
@@ -312,40 +203,6 @@
 		.pill:focus-visible {
 			outline: var(--focus-outline);
 			outline-offset: var(--focus-outline-offset);
-		}
-
-		.quick-actions-mobile {
-			display: flex;
-			align-items: center;
-			overflow-x: auto;
-			scrollbar-width: none;
-			padding: var(--sp-2) 0 0;
-			margin-top: var(--sp-2);
-		}
-
-		.quick-actions-mobile::-webkit-scrollbar {
-			display: none;
-		}
-
-		.quick-actions-mobile .quick-action {
-			display: inline-flex;
-			align-items: center;
-			padding: var(--sp-1) var(--sp-3);
-			font-family: var(--font-mono);
-			font-size: var(--text-xs);
-			font-weight: var(--font-weight-medium);
-			letter-spacing: var(--letter-spacing-mono);
-			text-transform: uppercase;
-			color: var(--amber-dark);
-			text-decoration: none;
-			border-radius: var(--radius-sm);
-			white-space: nowrap;
-			flex-shrink: 0;
-			transition: background var(--transition-fast);
-		}
-
-		.quick-actions-mobile .quick-action:hover {
-			background: var(--amber-light);
 		}
 	}
 </style>

@@ -3,5 +3,5 @@
 </script>
 
 <Layout>
-	<p>Admin content</p>
+	<p>Settings content</p>
 </Layout>

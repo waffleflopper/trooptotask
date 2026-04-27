@@ -38,6 +38,7 @@ export interface AuditLogQueryInput {
 export interface AuditLogQueryResult {
 	logs: AuditLogEntry[];
 	totalCount: number;
+	last30DaysCount: number;
 	page: number;
 	limit: number;
 	actionFilter: string;
@@ -154,6 +155,10 @@ export async function fetchAuditLogs(
 
 	// Collect available actions before action filter
 	const availableActions = [...new Set(filtered.map((log) => log.action as string))].sort();
+	const last30DaysCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+	const last30DaysCount = filtered.filter(
+		(log) => new Date(log.timestamp as string).getTime() >= last30DaysCutoff
+	).length;
 
 	// Apply action filter
 	if (action) {
@@ -200,6 +205,7 @@ export async function fetchAuditLogs(
 	return {
 		logs,
 		totalCount,
+		last30DaysCount,
 		page,
 		limit,
 		actionFilter: action,

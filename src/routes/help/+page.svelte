@@ -328,12 +328,12 @@
 				{
 					title: 'Role Hierarchy',
 					content:
-						'There are three roles: Owner, Admin, and Member. The Owner has full access including transferring ownership and deleting the organization. Admins have full access plus the Admin Hub, but cannot transfer or delete. Members have access controlled by individual permission toggles.'
+						'There are three roles: Owner, Admin, and Member. The Owner has full access including transferring ownership and deleting the organization. Admins have full access plus Organization Settings governance sections, but cannot transfer or delete. Members have access controlled by individual permission toggles.'
 				},
 				{
 					title: 'Permission Presets',
 					content:
-						'Admin: full access + admin hub. Full Editor: all 11 permission toggles on — can edit everything and access type managers, bulk operations, and export. Team Leader: scoped to a specific group with edit permissions for that group. Viewer: can see everything but cannot make changes. Custom: pick individual toggles.'
+						'Admin: full access + Organization Settings governance. Full Editor: all 11 permission toggles on — can edit everything and access type managers, bulk operations, and export. Team Leader: scoped to a specific group with edit permissions for that group. Viewer: can see everything but cannot make changes. Custom: pick individual toggles.'
 				},
 				{
 					title: 'Group Scoping',
@@ -343,12 +343,12 @@
 				{
 					title: 'What Full Editor Unlocks',
 					content:
-						'A member with all 11 permission toggles on is detected as a "Full Editor." This unlocks access to type managers (status types, training types, etc.), bulk operations (bulk status, bulk import/delete), data export, and the duty roster generator — everything except the Admin Hub and destructive operations.'
+						'A member with all 11 permission toggles on is detected as a "Full Editor." This unlocks access to type managers (status types, training types, etc.), bulk operations (bulk status, bulk import/delete), data export, and the duty roster generator — everything except Organization Settings governance and destructive operations.'
 				},
 				{
 					title: 'Deletion Approvals',
 					content:
-						'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from the Admin Hub.'
+						'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
 				},
 				{
 					content:
@@ -364,7 +364,7 @@
 		},
 		{
 			id: 'admin-hub',
-			title: 'Admin Hub',
+			title: 'Organization Settings Governance',
 			icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
 			items: [
 				{
@@ -378,7 +378,8 @@
 						'View a chronological log of all actions taken in the organization — personnel changes, training updates, membership modifications, and more. Use this for accountability and compliance tracking.'
 				},
 				{
-					content: 'The Admin Hub is only visible to admins and owners. Access it from the avatar menu.',
+					content:
+						'Organization governance settings are only visible to admins and owners. Access them from Organization Settings in the avatar menu.',
 					role: 'admin'
 				}
 			]

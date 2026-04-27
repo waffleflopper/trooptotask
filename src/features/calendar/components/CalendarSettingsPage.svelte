@@ -1,6 +1,5 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup } from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
@@ -214,13 +213,13 @@
 </script>
 
 <div class="settings-page">
-	<FloatingPageToolbar ariaLabel="Calendar settings controls" collapse="medium" leadingMin="27rem">
+	<Toolbar ariaLabel="Calendar settings controls" collapse="medium" leadingMin="27rem">
 		{#snippet leading()}
 			<ToolbarNavGroup ariaLabel="Calendar settings sections" items={settingsLinks} />
 		{/snippet}
 
 		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	{#if !canManageConfig}
 		<section class="settings-hero">

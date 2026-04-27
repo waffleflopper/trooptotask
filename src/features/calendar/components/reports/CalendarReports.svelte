@@ -6,8 +6,7 @@
 	import PersonnelTempo from './PersonnelTempo.svelte';
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarFilterSelect, ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarFilterSelect, ToolbarNavGroup } from '$lib/components/ui/toolbar';
 
 	interface Props {
 		orgId: string;
@@ -37,7 +36,7 @@
 </script>
 
 <div class="reports-page">
-	<FloatingPageToolbar ariaLabel="Calendar report controls" collapse="narrow" leadingMin="20rem">
+	<Toolbar ariaLabel="Calendar report controls" collapse="narrow" leadingMin="20rem">
 		{#snippet leading()}
 			<ToolbarFilterSelect
 				ariaLabel="Report type"
@@ -50,7 +49,7 @@
 		{/snippet}
 
 		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	{#if selectedReport === 'status-days'}
 		<StatusDaysSummary {orgId} {personnel} {statusTypes} {groups} />

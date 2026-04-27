@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import type { DashboardContext } from '../contexts/DashboardContext.svelte';
+import { dashboardTabStore } from '../stores/dashboardTabStore.svelte';
 
 beforeEach(() => {
 	global.fetch = vi.fn(async () => new Response(JSON.stringify({ config: { version: 3, widgets: [] } })));
@@ -10,6 +11,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	dashboardTabStore.setTab('unit-readiness');
 	vi.restoreAllMocks();
 });
 
@@ -129,8 +131,29 @@ describe('DashboardPageView', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Dashboard controls' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Test Unit' })).toBeNull();
-		expect(screen.getByRole('status', { name: 'Thursday, Apr 2 2026' })).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Thursday, Apr 2 2026' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Thursday, Apr 2 2026' })).toBeNull();
+	});
+
+	it('renders active dashboard quick actions in the toolbar action area', () => {
+		dashboardTabStore.setTab('training-evals');
+		const ctx = makeCtx({
+			data: {
+				permissions: {
+					canViewTraining: true,
+					canViewRatingScheme: true
+				}
+			}
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Dashboard controls' });
+		expect(screen.getByRole('group', { name: 'Dashboard quick actions' })).toBeTruthy();
+		expect(within(toolbar).getByRole('link', { name: 'Record Training' }).getAttribute('href')).toBe(
+			'/org/org-1/training'
+		);
+		expect(within(toolbar).getByRole('link', { name: 'Add Eval' }).getAttribute('href')).toBe('/org/org-1/evals');
 	});
 
 	it('renders the three dashboard tab buttons', () => {

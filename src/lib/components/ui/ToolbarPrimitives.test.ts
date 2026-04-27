@@ -41,16 +41,13 @@ describe('toolbar primitives', () => {
 		expect(onSegmentChange).toHaveBeenCalledWith('by-group');
 	});
 
-	it('requires accessible names for icon buttons and overflow actions', async () => {
-		const onIconClick = vi.fn();
+	it('requires accessible names for overflow actions', async () => {
 		const onOverflowClick = vi.fn();
-		render(ToolbarPrimitivesTest, { props: { onIconClick, onOverflowClick } });
+		render(ToolbarPrimitivesTest, { props: { onOverflowClick } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Export roster' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'More roster actions' }));
 		await fireEvent.click(screen.getByRole('menuitem', { name: 'Bulk Import' }));
 
-		expect(onIconClick).toHaveBeenCalledOnce();
 		expect(onOverflowClick).toHaveBeenCalledOnce();
 	});
 

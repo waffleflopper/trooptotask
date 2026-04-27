@@ -173,6 +173,12 @@ export function getOrgBreadcrumbs(
 	if (!activeItem) return breadcrumbs;
 
 	const itemPath = activeItem.href.split('?')[0];
+	if (activeItem.id === 'dashboard' && pathname === itemPath && routeLeafLabel) {
+		breadcrumbs[1].href = activeItem.href;
+		breadcrumbs.push({ label: routeLeafLabel });
+		return breadcrumbs;
+	}
+
 	if (pathname === itemPath || !pathname.startsWith(`${itemPath}/`)) {
 		return breadcrumbs;
 	}

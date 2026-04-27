@@ -2,8 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import { Toolbar, ToolbarFilterSelect, ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -64,21 +63,22 @@
 </svelte:head>
 
 <div class="audit-page">
-	<FloatingPageToolbar ariaLabel="Audit log filters" leadingMin="0" collapse="narrow">
+	<Toolbar ariaLabel="Audit log filters" leadingMin="0" collapse="narrow">
 		{#snippet leading()}
-			<ToolbarSelect
+			<ToolbarFilterSelect
 				ariaLabel="Audit action filter"
 				width="wide"
 				value={data.actionFilter ?? ''}
+				defaultValue=""
 				options={[
 					{ value: '', label: 'All Actions' },
 					...data.availableActions.map((action) => ({ value: action, label: formatAction(action) }))
 				]}
 				onValueChange={(value) => setParam('action', value)}
 			/>
-			<span class="toolbar-count">{data.totalCount} entries</span>
+			<ToolbarMetaItem label={`${data.totalCount} entries`} />
 		{/snippet}
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	<div class="table-shell">
 		<DataTable data={data.logs} {columns} ariaLabel="Audit log" emptyMessage="No audit log entries yet">
@@ -147,12 +147,6 @@
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
-	}
-
-	.toolbar-count {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		white-space: nowrap;
 	}
 
 	.timestamp {

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup } from '$lib/components/ui/toolbar';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -48,13 +47,13 @@
 </script>
 
 <div class="assignment-planner-page">
-	<FloatingPageToolbar ariaLabel="Assignment planner controls" collapse="narrow" leadingMin="18rem">
+	<Toolbar ariaLabel="Assignment planner controls" collapse="narrow" leadingMin="18rem">
 		{#snippet leading()}
 			<span class="toolbar-context">Manual monthly coverage planning</span>
 		{/snippet}
 
 		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	{#if !canMutate}
 		<section class="restricted-hero">

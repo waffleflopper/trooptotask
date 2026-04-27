@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import BannerStackTest from './BannerStackTest.svelte';
+
+const bannerStackSource = readFileSync('src/lib/components/BannerStack.svelte', 'utf8');
 
 // Mock ResizeObserver since happy-dom doesn't have it
 const mockObserve = vi.fn();
@@ -36,6 +39,12 @@ describe('BannerStack', () => {
 	it('should render children inside the stack', () => {
 		const { container } = render(BannerStackTest);
 		expect(container.querySelector('[data-testid="test-banner"]')).toBeTruthy();
+	});
+
+	it('should offset the fixed stack by the desktop app rail', () => {
+		expect(bannerStackSource).toContain('left: var(--app-rail-width, 0px);');
+		expect(bannerStackSource).toContain('@media (max-width: 920px)');
+		expect(bannerStackSource).toContain('left: 0;');
 	});
 
 	it('should disconnect ResizeObserver on unmount', () => {

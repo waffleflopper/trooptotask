@@ -4,6 +4,8 @@ import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuer
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
+import { formatDate } from '$lib/utils/dates';
+import { formatDashboardDisplayDate } from '$features/dashboard/utils/dashboardDate';
 
 export interface DashboardPageSummaryData {
 	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'];
@@ -43,6 +45,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	});
 
 	return {
+		breadcrumbLabel: formatDashboardDisplayDate(formatDate(new Date())),
 		summary
 	};
 };

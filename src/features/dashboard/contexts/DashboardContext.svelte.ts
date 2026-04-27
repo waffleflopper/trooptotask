@@ -1,7 +1,8 @@
 import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate } from '$lib/utils/dates';
+import { formatDashboardDisplayDate } from '$features/dashboard/utils/dashboardDate';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 import {
@@ -168,10 +169,7 @@ export class DashboardContext {
 	// Derived: todayDisplay
 	// ---------------------------------------------------------------------------
 	get todayDisplay(): string {
-		const d = parseDate(this.today);
-		const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
+		return formatDashboardDisplayDate(this.today);
 	}
 
 	// ---------------------------------------------------------------------------

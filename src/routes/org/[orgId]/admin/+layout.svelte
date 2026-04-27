@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup, type ToolbarNavItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup, type ToolbarNavItem } from '$lib/components/ui/toolbar';
 
 	let { children } = $props();
 	const currentPath = $derived($page.url.pathname);
@@ -31,11 +30,11 @@
 </script>
 
 <div class="admin-layout">
-	<FloatingPageToolbar ariaLabel="Admin sections" leadingMin="0" collapse="narrow">
+	<Toolbar ariaLabel="Admin sections" leadingMin="0" collapse="narrow">
 		{#snippet leading()}
 			<ToolbarNavGroup ariaLabel="Admin sections" items={adminSections} />
 		{/snippet}
-	</FloatingPageToolbar>
+	</Toolbar>
 	<div class="admin-content">
 		{@render children()}
 	</div>

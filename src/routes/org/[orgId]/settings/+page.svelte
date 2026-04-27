@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import OrganizationMemberManager from '$features/groups/components/OrganizationMemberManager.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import { isBillingEnabled } from '$lib/config/billing';
 
 	let { data, form } = $props();
@@ -139,14 +138,14 @@
 
 <div class="page">
 	<main class="page-content">
-		<FloatingPageToolbar ariaLabel="Organization settings controls" leadingMin="0" collapse="medium">
+		<Toolbar ariaLabel="Organization settings controls" leadingMin="0" collapse="medium">
 			<ToolbarActions
 				actions={settingsToolbarActions}
 				ariaLabel="Organization settings actions"
 				overflowAriaLabel="More organization settings actions"
 				overflowIconOnly
 			/>
-		</FloatingPageToolbar>
+		</Toolbar>
 
 		<div class="settings-card">
 			<div class="section-heading">

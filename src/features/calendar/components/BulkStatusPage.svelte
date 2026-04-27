@@ -1,6 +1,5 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -94,7 +93,7 @@
 </script>
 
 <div class="bulk-page">
-	<FloatingPageToolbar ariaLabel="Bulk status controls" collapse="narrow" leadingMin="24rem">
+	<Toolbar ariaLabel="Bulk status controls" collapse="narrow" leadingMin="24rem">
 		{#snippet leading()}
 			{#if canMutate}
 				<ToolbarViewToggle
@@ -108,7 +107,7 @@
 		{/snippet}
 
 		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	{#if !canMutate}
 		<section class="restricted-hero">

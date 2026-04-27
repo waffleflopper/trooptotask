@@ -7,7 +7,8 @@ import type { OrganizationMemberPermissions } from '$lib/types';
 
 const { pageStore } = vi.hoisted(() => {
 	let current = {
-		url: new URL('https://example.test/org/org-1/personnel')
+		url: new URL('https://example.test/org/org-1/personnel'),
+		data: {} as Record<string, unknown>
 	};
 	const subscribers = new Set<(value: typeof current) => void>();
 
@@ -18,9 +19,10 @@ const { pageStore } = vi.hoisted(() => {
 				fn(current);
 				return () => subscribers.delete(fn);
 			},
-			setPath(pathname: string) {
+			setPath(pathname: string, data: Record<string, unknown> = {}) {
 				current = {
-					url: new URL(`https://example.test${pathname}`)
+					url: new URL(`https://example.test${pathname}`),
+					data
 				};
 				for (const subscriber of subscribers) subscriber(current);
 			}
@@ -125,5 +127,21 @@ describe('TopHeader', () => {
 		expect(within(breadcrumb).getByRole('link', { name: 'Test Org' }).getAttribute('href')).toBe('/org/org-1');
 		expect(within(breadcrumb).getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(within(breadcrumb).queryByRole('link', { name: 'Settings' })).toBeNull();
+	});
+
+	it('uses a route-provided breadcrumb label for personnel records', () => {
+		pageStore.setPath('/org/org-1/critical-tasks/person-1', { breadcrumbLabel: 'CPT Hayes, Emma' });
+
+		renderHeader({
+			permissions: {
+				...basePermissions,
+				canViewCriticalTasks: true
+			}
+		});
+
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(breadcrumb.textContent).toContain('Critical Tasks');
+		expect(breadcrumb.textContent).toContain('CPT Hayes, Emma');
+		expect(breadcrumb.textContent).not.toContain('Person');
 	});
 });

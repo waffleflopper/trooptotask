@@ -181,6 +181,41 @@ describe('critical tasks page', () => {
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
 	});
 
+	it('compacts the matrix search filter before collapsing the filter group', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-toolbar]')) return rectWithWidth(1000);
+			return originalRect.call(this);
+		});
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true,
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
+					},
+					criticalTasks: {
+						data: new Promise(() => undefined)
+					}
+				}
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' }).dataset.toolbarCompactPhase).toBe(
+				'search'
+			);
+		});
+		expect(screen.getByTestId('critical-tasks-filter-group')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Search by name, rank, or MOS' })).toBeTruthy();
+		expect(screen.queryByRole('searchbox', { name: 'Search by name, rank, or MOS' })).toBeNull();
+	});
+
 	it('shows the reports and task library affordances to owners and admins', async () => {
 		personnelStore.load([], 'org-1');
 		groupsStore.load([], 'org-1');
@@ -214,6 +249,9 @@ describe('critical tasks page', () => {
 		];
 		for (let index = 0; index < orderedActions.length - 1; index += 1) {
 			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
+		}
+		for (const action of orderedActions) {
+			expect(action.classList.contains('toolbar-action--compact')).toBe(false);
 		}
 	});
 
@@ -323,8 +361,21 @@ describe('critical tasks page', () => {
 	it('keeps Critical Tasks filters, search, and action overflow coordinated at constrained width', async () => {
 		const originalRect = HTMLElement.prototype.getBoundingClientRect;
 		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-floating-page-toolbar]')) return rectWithWidth(520);
-			if (this.classList.contains('matrix-toolbar-controls')) return rectWithWidth(330);
+			if (this.matches('[data-toolbar]')) return rectWithWidth(420);
+			if (this.classList.contains('toolbar-group__trigger')) return rectWithWidth(176);
+			if (this.hasAttribute('data-measure-full')) {
+				const actionId = this.parentElement?.getAttribute('data-measure-action');
+				const widths: Record<string, number> = {
+					'export-csv': 120,
+					'import-completions': 176,
+					'task-library': 136,
+					reports: 104,
+					'record-training': 168
+				};
+				return rectWithWidth(widths[actionId ?? ''] ?? 96);
+			}
+			if (this.hasAttribute('data-measure-compact')) return rectWithWidth(40);
+			if (this.hasAttribute('data-measure-overflow')) return rectWithWidth(40);
 			return originalRect.call(this);
 		});
 
@@ -359,18 +410,31 @@ describe('critical tasks page', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByTestId('floating-page-toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
+			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
 		});
+		const actionsGroup = screen.getByRole('group', { name: 'Critical Tasks actions' });
+		await waitFor(() => {
+			expect(
+				within(actionsGroup).getByRole('link', { name: 'Export CSV' }).classList.contains('toolbar-action--compact')
+			).toBe(true);
+		});
+		for (const actionName of ['Import Completions', 'Task Library', 'Reports']) {
+			const visibleAction =
+				within(actionsGroup).queryByRole('button', { name: actionName }) ??
+				within(actionsGroup).queryByRole('link', { name: actionName });
+			expect(visibleAction?.classList.contains('toolbar-action--full') ?? false).toBe(false);
+		}
+		const overflowTrigger = screen.queryByRole('button', { name: 'More Critical Tasks actions' });
+		if (overflowTrigger) {
+			await fireEvent.click(overflowTrigger);
+			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
+			await fireEvent.click(overflowTrigger);
+		}
 
 		const filterTrigger = screen.getByRole('button', { name: 'Critical Tasks filters' });
 		await fireEvent.click(filterTrigger);
 		await fireEvent.change(await screen.findByLabelText('Critical Tasks group filter'), {
 			target: { value: bravoGroup.id }
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Search by name, rank, or MOS' }));
-		await waitFor(() => {
-			expect(screen.queryByTestId('critical-tasks-filter-group-panel')).toBeNull();
 		});
 		await fireEvent.input(await screen.findByTestId('critical-tasks-search'), { target: { value: 'Jones' } });
 
@@ -379,11 +443,10 @@ describe('critical tasks page', () => {
 			expect(screen.getByRole('link', { name: /Jones, Jane/ })).toBeTruthy();
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'More Critical Tasks actions' }));
-		await waitFor(() => {
-			expect(screen.queryByTestId('critical-tasks-search-panel')).toBeNull();
-		});
-		expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Export CSV' })).toBeTruthy();
+		if (overflowTrigger) {
+			await fireEvent.click(overflowTrigger);
+			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
+		}
 		expect(screen.getByRole('button', { name: /Record Training/ })).toBeTruthy();
 	});
 

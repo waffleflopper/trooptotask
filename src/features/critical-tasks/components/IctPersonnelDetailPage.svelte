@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { SvelteDate } from 'svelte/reactivity';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
-	import ToolbarSelect from '$lib/components/ui/ToolbarSelect.svelte';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarSearchItem,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -129,17 +134,24 @@
 	const canInputTask = $derived(
 		!!permissions.canViewCriticalTasks && canEditCriticalTasks && applicableTaskOptions.length > 0
 	);
-	const mosRoleLabel = $derived(
-		[history.personnel.mos ? `MOS ${history.personnel.mos}` : 'No MOS', history.personnel.clinicRole || null]
-			.filter(Boolean)
-			.join(' · ')
+	const activeFilterCount = $derived(
+		(statusFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (taskSearch.trim() ? 1 : 0)
 	);
-	const separationLabel = $derived.by(() => {
-		if (history.personnel.deros) return `DEROS ${formatRecordDate(history.personnel.deros)}`;
-		if (history.personnel.ets) return `ETS ${formatRecordDate(history.personnel.ets)}`;
-		return null;
-	});
+	const recordContextItems = $derived.by(() => {
+		const items = [
+			history.personnel.mos ? `MOS ${history.personnel.mos}` : 'No MOS',
+			history.personnel.clinicRole || null,
+			history.personnel.groupName || null
+		];
 
+		if (history.personnel.deros) {
+			items.push(`DEROS ${formatRecordDate(history.personnel.deros)}`);
+		} else if (history.personnel.ets) {
+			items.push(`ETS ${formatRecordDate(history.personnel.ets)}`);
+		}
+
+		return items.filter((item): item is string => Boolean(item));
+	});
 	const statusLabels = {
 		current: 'Current',
 		'expiring-soon': 'Expiring Soon',
@@ -344,6 +356,34 @@
 		activeEditorRow = null;
 		showTaskInputModal = true;
 	}
+
+	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
+		const items: ToolbarActionConfig[] = [];
+
+		items.push({
+			id: 'print-record',
+			label: 'Print Record',
+			icon: 'printer',
+			onclick: handlePrint,
+			priority: 'normal',
+			variant: 'default'
+		});
+
+		if (canEditCriticalTasks) {
+			items.push({
+				id: 'input-task',
+				label: 'Input Task',
+				icon: 'clipboard-check',
+				onclick: handleTaskInput,
+				disabled: !canInputTask,
+				priority: 'critical',
+				overflow: 'never',
+				variant: 'primary'
+			});
+		}
+
+		return items;
+	});
 </script>
 
 <svelte:head>
@@ -351,52 +391,79 @@
 </svelte:head>
 
 <main class="record-page">
-	<FloatingPageToolbar ariaLabel="Personnel critical task controls" collapse="wide" leadingMin="54rem">
+	<Toolbar ariaLabel="Personnel critical task controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
 		{#snippet leading()}
-			<div class="person-record-toolbar" aria-label={personnelName}>
-				<div class="person-record-identity">
-					<span class="person-name">{personnelName}</span>
-					<span>{mosRoleLabel}</span>
-					{#if history.personnel.groupName}
-						<span>{history.personnel.groupName}</span>
-					{/if}
-					{#if separationLabel}
-						<span>{separationLabel}</span>
-					{/if}
-				</div>
-				<div class="record-filter-controls" aria-label="Applicable task filters">
-					<ToolbarSearch
+			<ToolbarGroup label="Applicable task filters" activeCount={activeFilterCount} testId="ict-detail-filters">
+				{#snippet full()}
+					<ToolbarFilterSelect
+						ariaLabel="Status"
+						options={statusFilterOptions}
+						value={statusFilter}
+						defaultValue="all"
+						width="wide"
+						mode="full"
+						onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
+					/>
+					<ToolbarFilterSelect
+						ariaLabel="Category"
+						options={categoryFilterOptions}
+						value={categoryFilter}
+						defaultValue="all"
+						width="wide"
+						mode="full"
+						onValueChange={(value) => (categoryFilter = value)}
+					/>
+					<ToolbarSearchItem
 						ariaLabel="Filter by task ID or name"
 						placeholder="Filter by task ID or name..."
 						width="wide"
 						bind:value={taskSearch}
 					/>
-					<ToolbarSelect
+				{/snippet}
+				{#snippet panel()}
+					<ToolbarFilterSelect
 						ariaLabel="Status"
 						options={statusFilterOptions}
 						value={statusFilter}
+						defaultValue="all"
 						width="wide"
+						mode="full"
 						onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
 					/>
-					<ToolbarSelect
+					<ToolbarFilterSelect
 						ariaLabel="Category"
 						options={categoryFilterOptions}
 						value={categoryFilter}
+						defaultValue="all"
 						width="wide"
+						mode="full"
 						onValueChange={(value) => (categoryFilter = value)}
 					/>
-					<span class="toolbar-right">Sorted: Expiring first</span>
-				</div>
-			</div>
+					<ToolbarSearchItem
+						ariaLabel="Filter by task ID or name"
+						placeholder="Filter by task ID or name..."
+						width="wide"
+						mode="full"
+						bind:value={taskSearch}
+					/>
+				{/snippet}
+			</ToolbarGroup>
 		{/snippet}
 
-		{#if canEditCriticalTasks}
-			<button class="btn btn-primary btn-sm" type="button" onclick={handleTaskInput} disabled={!canInputTask}>
-				Input Task
-			</button>
-		{/if}
-		<button class="btn btn-sm" type="button" onclick={handlePrint}>Print Record</button>
-	</FloatingPageToolbar>
+		<ToolbarActions
+			actions={toolbarActionItems}
+			ariaLabel="Personnel critical task actions"
+			overflowAriaLabel="More personnel critical task actions"
+		/>
+	</Toolbar>
+
+	{#if recordContextItems.length > 0}
+		<section class="record-context" aria-label="Personnel record context">
+			{#each recordContextItems as item (item)}
+				<span>{item}</span>
+			{/each}
+		</section>
+	{/if}
 
 	<section class="summary" aria-label="Individual critical tasks summary">
 		<article class="summary-card readiness-card">
@@ -646,42 +713,22 @@
 		text-transform: uppercase;
 	}
 
-	.person-record-toolbar {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.person-record-identity,
-	.record-filter-controls {
+	.record-context {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-	}
-
-	.person-record-identity {
 		gap: var(--sp-2);
 		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		letter-spacing: 0.04em;
-	}
-
-	.person-record-identity > span + span::before {
-		color: var(--text-tertiary);
-		content: '·';
-		margin-right: var(--sp-2);
-	}
-
-	.person-name {
-		color: var(--text-primary);
-		font-weight: var(--font-weight-semibold);
 		text-transform: uppercase;
 	}
 
-	.record-filter-controls {
-		gap: var(--sp-2);
+	.record-context span + span::before {
+		color: var(--text-tertiary);
+		content: '·';
+		margin-right: var(--sp-2);
 	}
 
 	.summary {
@@ -848,18 +895,6 @@
 		flex: none;
 		color: var(--text-secondary);
 		font-size: 0.625rem;
-	}
-
-	.toolbar-right {
-		display: inline-flex;
-		align-items: center;
-		min-height: 34px;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		white-space: nowrap;
 	}
 
 	.table-frame {

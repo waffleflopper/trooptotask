@@ -1,7 +1,7 @@
 # Component Catalog & CSS Design System
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
-Layout components (Modal, PageToolbar, FloatingPageToolbar) live in `src/lib/components/`. Import via `$lib/components/...`.
+Layout components (Modal and legacy page toolbar shells) live in `src/lib/components/`. Import via `$lib/components/...`.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
 ---
@@ -109,16 +109,16 @@ Toolbar guidance:
 
 ---
 
-## Floating Page Toolbar Family
+## Shared Route Toolbar
 
-Use the floating toolbar family for dense authenticated route workspaces after the app shell has already identified the page through breadcrumbs. The toolbar should stay a single resting row, compact controls before it overflows commands, and keep stateful controls out of command overflow.
+Use the shared route toolbar for dense authenticated workspaces after the app shell has already identified the page through breadcrumbs. The toolbar should stay a single resting row, compact stateful controls before it overflows commands, and keep filters, search, view modes, toggles, nav, and passive metadata out of command overflow.
 
-Import the shell from `$lib/components/FloatingPageToolbar.svelte`. Import toolbar items from `$lib/components/ui/toolbar`.
+Import the shell and items from `$lib/components/ui/toolbar`. Newly migrated route-level toolbars must use `Toolbar`; do not wrap them in `FloatingPageToolbar`, `PageToolbar`, or `SmartToolbar`.
 
 ```svelte
 <script lang="ts">
-    import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
     import {
+        Toolbar,
         ToolbarActions,
         ToolbarFilterSelect,
         ToolbarGroup,
@@ -144,28 +144,78 @@ Import the shell from `$lib/components/FloatingPageToolbar.svelte`. Import toolb
     ];
 </script>
 
-<FloatingPageToolbar ariaLabel="Critical Tasks controls" leadingMin="0" collapse="narrow">
+<Toolbar ariaLabel="Critical Tasks controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
     {#snippet leading()}
-        <ToolbarGroup label="Critical Tasks filters" activeCount={activeFilterCount}>
+        <ToolbarGroup label="Critical Tasks filters" activeCount={activeFilterCount} testId="critical-tasks-filter-group">
             {#snippet full()}
                 <ToolbarViewToggle ariaLabel="Critical Tasks matrix view mode" options={viewOptions} bind:value={viewMode} />
-                <ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
                 <ToolbarFilterSelect ariaLabel="Critical Tasks group filter" options={groupOptions} bind:value={groupId} width="wide" />
+                <ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
+                <ToolbarSearchItem ariaLabel="Search by name, rank, or MOS" width="wide" bind:value={personnelSearch} />
+            {/snippet}
+            {#snippet panel()}
+                <ToolbarViewToggle ariaLabel="Critical Tasks matrix view mode" options={viewOptions} bind:value={viewMode} mode="full" />
+                <ToolbarFilterSelect ariaLabel="Critical Tasks group filter" options={groupOptions} bind:value={groupId} width="wide" mode="full" />
+                <ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
+                <ToolbarSearchItem ariaLabel="Search by name, rank, or MOS" width="wide" mode="full" bind:value={personnelSearch} />
             {/snippet}
         </ToolbarGroup>
-        <ToolbarSearchItem ariaLabel="Search by name, rank, or MOS" width="wide" bind:value={personnelSearch} />
     {/snippet}
 
     <ToolbarActions actions={actions} ariaLabel="Critical Tasks actions" overflowAriaLabel="More Critical Tasks actions" />
-</FloatingPageToolbar>
+</Toolbar>
 ```
+
+### Correct Route Shape
+
+The shared toolbar measures the `leading` slot and `ToolbarActions` slot to decide exactly when controls compact. Keep route markup close to this shape:
+
+```svelte
+<Toolbar ariaLabel="Training controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
+    {#snippet leading()}
+        <ToolbarGroup label="Training filters" activeCount={activeFilterCount}>
+            {#snippet full()}
+                <ToolbarViewToggle ... />
+                <ToolbarFilterSelect ... />
+                <ToolbarSearchItem ... />
+            {/snippet}
+            {#snippet panel()}
+                <ToolbarViewToggle mode="full" ... />
+                <ToolbarFilterSelect mode="full" ... />
+                <ToolbarSearchItem mode="full" ... />
+            {/snippet}
+        </ToolbarGroup>
+    {/snippet}
+
+    <ToolbarActions actions={toolbarActions} ariaLabel="Training actions" overflowAriaLabel="More training actions" />
+</Toolbar>
+```
+
+Shape rules:
+
+- Put the route shell, leading content, and actions inside the same `<Toolbar>` component. The toolbar coordinator (shared context that tells child controls when to compact) only works for descendants.
+- Put related filters, view toggles, boolean toggles, and same-workflow search inside a `ToolbarGroup` when they should collapse together into one filter trigger.
+- Put `ToolbarActions` as the direct child action slot of `Toolbar`, not inside `leading` and not inside a route-local wrapper.
+- Use default `ToolbarSearchItem` mode in the `full` snippet when the search should collapse into its own magnifying-glass trigger during the `search` phase.
+- Add an explicit `panel` snippet with `ToolbarSearchItem mode="full"` when the same search also lives inside a compacting `ToolbarGroup`; the opened filter panel should contain a real search input, not another search trigger.
+- Use `searchCompactAt` to make text search compact before the whole filter group collapses. Use `compactLeadingWhenCrowded` only for routes where measured leading content should force the whole leading group into its filter trigger.
+- Count active filters accurately in `activeCount`, including search text when search lives inside the filter group.
+- Keep passive context, record identity, and page breadcrumbs outside the toolbar unless they are compact toolbar metadata (`ToolbarMetaItem` / `ToolbarMetricGroup`).
+
+Broken shapes to avoid:
+
+- Do not define a reusable route snippet outside the toolbar and render it into both `full` and `panel` unless there is a specific shared component need. Prefer snippets inside `ToolbarGroup`; if search is auto in `full`, provide a `panel` snippet that makes panel controls full mode.
+- Do not wrap `ToolbarGroup` and `ToolbarSearchItem` in route-local flex containers just to force one row. Extra wrappers change what the toolbar measures and make collapse behavior harder to reason about.
+- Do not put filters, search, view toggles, or toggles into `ToolbarActions` or command overflow. Commands overflow; stateful controls compact.
+- Do not force route-level action `displayMode="compact"` to solve crowding. Let `ToolbarActions` calculate full, compact, and overflow states from measured width.
+- Do not preserve old toolbar shells while migrating a route. Replacing `PageToolbar`, `FloatingPageToolbar`, and `SmartToolbar` means removing those wrappers from the migrated surface.
 
 ### Public Components
 
-- `FloatingPageToolbar`: shared shell and compact-panel coordinator. Props: `ariaLabel: string`, `leadingMin?: string`, `collapse?: 'wide' | 'medium' | 'narrow'`, `containerWidth?: number`, `leading?: Snippet`, `children?: Snippet`, `overflow?: Snippet`.
+- `Toolbar`: shared shell, measurement boundary, and compact-panel coordinator. Props: `ariaLabel: string`, `leadingMin?: string`, `collapse?: 'wide' | 'medium' | 'narrow'`, `containerWidth?: number`, `searchCompactAt?: number`, `groupCompactAt?: number`, `compactLeadingWhenCrowded?: boolean`, `leading?: Snippet`, `children?: Snippet`, `overflow?: Snippet`.
 - `ToolbarActions`: measured action group that renders `ToolbarAction` items and generated command overflow. Props: `actions: ToolbarActionConfig[]`, `ariaLabel: string`, `overflowAriaLabel: string`, `overflowLabel?: string`, `overflowIconOnly?: boolean`, `containerWidth?: number`, `actionMeasurements?: Record<string, ToolbarActionMeasurement>`.
 - `ToolbarAction`: low-level action renderer for `ToolbarActions`. Prefer `ToolbarActions` at route level.
-- `ToolbarGroup`: first-class group boundary for related stateful controls. Props: `label: string`, `activeCount?: number`, `compactStrategy?: 'items-first' | 'group-trigger' | 'never'`, `mode?: 'auto' | 'full' | 'compact'`, `compactBreakpoint?: number`, `panelMode?: 'inline'`, `testId?: string`, `full?: Snippet`, `panel?: Snippet`.
+- `ToolbarGroup`: first-class group boundary for related stateful controls. Props: `label: string`, `activeCount?: number`, `mode?: 'auto' | 'full' | 'compact'`, `compactBreakpoint?: number`, `panelMode?: 'inline'`, `testId?: string`, `full?: Snippet`, `panel?: Snippet`.
 - `ToolbarSearchItem`: search input that renders full width when possible and compacts to a viewport-safe trigger/panel when constrained.
 - `ToolbarFilterSelect`: select-style filter primitive for stateful filters.
 - `ToolbarViewToggle`: segmented view-mode control with compact trigger/panel behavior.
@@ -188,6 +238,7 @@ type ToolbarActionIcon =
     | 'clipboard-check'
     | 'clipboard-list'
     | 'download'
+    | 'printer'
     | 'settings'
     | 'upload';
 ```
@@ -199,13 +250,6 @@ Defaults are `priority: 'normal'`, `displayMode: 'auto'`, `overflow: 'auto'`, an
 - `overflow="auto"` allows command overflow. `overflow="always"` keeps low-frequency commands in generated overflow. `overflow="never"` keeps the action visible and emits a development warning if the protected action cannot fit.
 - `variant` is visual only. Do not use `variant="primary"` to imply layout priority.
 - Overflow menu entries preserve author order, even when yield order is determined by priority.
-
-Group policies:
-
-- `compactStrategy="items-first"` lets controls compact before the whole group becomes one trigger.
-- `compactStrategy="group-trigger"` jumps directly to the group trigger under constraint.
-- `compactStrategy="never"` keeps the group full-size and should be reserved for small, protected controls.
-- Current panel mode is `inline`. True sheet behavior is deferred.
 
 ### Action Guidance
 
@@ -247,7 +291,7 @@ Use stateful primitives for page state, not command overflow:
 - `ToolbarToggle`: boolean state. Use for on/off filters that are not semantically dropdowns.
 - `ToolbarGroup`: related stateful controls, active count, group trigger, and panel.
 
-Search, filter, toggle, and view state belongs to the page. Compact panels render against the same controlled state instead of moving live DOM instances between containers.
+Search, filter, toggle, and view state belong to the page. Compact panels render against the same controlled state instead of moving live DOM instances between containers.
 
 ### Accessibility
 
@@ -262,23 +306,23 @@ Search, filter, toggle, and view state belongs to the page. Compact panels rende
 ### Authenticated Route Anatomy
 
 - The app shell owns the route label through breadcrumbs, normally `Organization Name > Page`. Do not repeat the same page name as a large in-body route title.
-- Start dense workspace content with `FloatingPageToolbar` when the page has filters, modes, page navigation, or page actions.
+- Start dense workspace content with `Toolbar` when the page has filters, modes, page navigation, or page actions.
 - Keep primary workflow controls visible when there is room: common filters, search, view modes, and the main create/manage action.
 - Use command overflow for secondary, lower-frequency, or configuration actions. Do not put stateful filters/search/view controls into command overflow.
 - Avoid decorative stat boxes that repeat visible table/list counts. Keep compact stats only when they drive action.
 
 ### Migration Notes
 
-The new toolbar family is the target API for dense authenticated routes. Existing primitives remain as migration bridges while issue #655 plans the full route-by-route changeover.
+The shared toolbar family is the target API for dense authenticated routes. Existing primitives remain as migration bridges only for routes that have not been migrated yet.
 
-- Prefer `ToolbarActions` over `ProgressiveToolbarActions` for new floating toolbar work.
+- Prefer `ToolbarActions` over `ProgressiveToolbarActions` for new shared toolbar work.
 - Prefer `ToolbarSearchItem` over route-local `ToolbarSearch` composition when search must compact.
 - Prefer `ToolbarFilterSelect`, `ToolbarViewToggle`, `ToolbarToggle`, and `ToolbarGroup` over hand-built leading control layouts.
 - Keep `ToolbarOverflowMenu` as the command overflow surface, normally through `ToolbarActions`.
-- Keep `ToolbarIconButton` only for simple standalone icon buttons that are not part of the floating toolbar family.
+- Keep `ToolbarIconButton` only for simple standalone icon buttons that are not part of the shared toolbar family.
 - If a route toolbar does not fit these primitives cleanly, design a reusable toolbar primitive or policy extension. Do not force route-local hacks into the toolbar.
 
-Known deferred work: true mobile sheet panel mode, a shared tooltip primitive, and the full authenticated-route migration plan in #655.
+Known deferred work: true mobile sheet panel mode and a shared tooltip primitive.
 
 ---
 
@@ -602,11 +646,12 @@ Import types: `import type { SmartToolbarItem, DropdownItem } from '$lib/compone
 
 ## `ui/toolbar`
 
-Typed floating-toolbar action package for page-level command zones. Use it for action groups that need deterministic full, compact, and overflow states without mixing visual style with layout priority.
+Typed shared-toolbar package for page-level control and command zones. Use it when a route needs deterministic full, compact, and overflow states without mixing visual style with layout priority.
 
 ```svelte
 <script lang="ts">
     import {
+        Toolbar,
         ToolbarActions,
         ToolbarFilterSelect,
         ToolbarGroup,
@@ -638,63 +683,65 @@ Typed floating-toolbar action package for page-level command zones. Use it for a
     ];
 </script>
 
-<ToolbarActions
-    {actions}
-    ariaLabel="Critical Tasks actions"
-    overflowAriaLabel="More Critical Tasks actions"
-/>
-
-<ToolbarSearchItem
-    mode="compact"
-    ariaLabel="Search personnel"
-    placeholder="Search name, rank, or MOS..."
-    bind:value={personnelSearch}
-/>
-
-<ToolbarGroup
-    label="Critical Tasks filters"
-    activeCount={activeFilterCount}
-    compactStrategy="items-first"
->
-    {#snippet full()}
-        <ToolbarFilterSelect
-            ariaLabel="Critical Tasks group filter"
-            options={groupFilterOptions}
-            defaultValue=""
-            mode="full"
-            bind:value={selectedGroupId}
-        />
-        <ToolbarViewToggle
-            ariaLabel="Critical Tasks matrix view mode"
-            options={matrixViewOptions}
-            mode="full"
-            bind:value={viewMode}
-        />
-        <ToolbarMultiSelectFilter
-            ariaLabel="Filter by training type"
-            label="Training types"
-            options={trainingTypeOptions}
-            value={selectedTrainingTypeIds}
-            mode="full"
-            onChange={setSelectedTrainingTypeIds}
-        />
+<Toolbar ariaLabel="Critical Tasks controls" collapse="medium" leadingMin="34rem" compactLeadingWhenCrowded>
+    {#snippet leading()}
+        <ToolbarGroup label="Critical Tasks filters" activeCount={activeFilterCount}>
+            {#snippet full()}
+                <ToolbarViewToggle
+                    ariaLabel="Critical Tasks matrix view mode"
+                    options={matrixViewOptions}
+                    mode="full"
+                    bind:value={viewMode}
+                />
+                <ToolbarFilterSelect
+                    ariaLabel="Critical Tasks group filter"
+                    options={groupFilterOptions}
+                    defaultValue=""
+                    mode="full"
+                    bind:value={selectedGroupId}
+                />
+                <ToolbarSearchItem
+                    mode="full"
+                    ariaLabel="Search personnel"
+                    placeholder="Search name, rank, or MOS..."
+                    bind:value={personnelSearch}
+                />
+                <ToolbarMultiSelectFilter
+                    ariaLabel="Filter by training type"
+                    label="Training types"
+                    options={trainingTypeOptions}
+                    value={selectedTrainingTypeIds}
+                    mode="full"
+                    onChange={setSelectedTrainingTypeIds}
+                />
+            {/snippet}
+        </ToolbarGroup>
     {/snippet}
-</ToolbarGroup>
+
+    <ToolbarActions
+        {actions}
+        ariaLabel="Critical Tasks actions"
+        overflowAriaLabel="More Critical Tasks actions"
+    />
+</Toolbar>
 ```
 
 Public components:
 
 | Component                  | Purpose                                                                    |
 | -------------------------- | -------------------------------------------------------------------------- |
+| `Toolbar.svelte`           | Provides the route toolbar shell, measurement boundary, and compact-panel coordination. |
 | `ToolbarActions.svelte`    | Measures and renders the action zone with generated overflow.              |
 | `ToolbarAction.svelte`     | Renders one anchor or button action in full or compact mode.                |
 | `ToolbarSearchItem.svelte` | Renders page-owned search as a full input or compact trigger with an inline panel. |
 | `ToolbarGroup.svelte`      | Renders a stateful-control group boundary, active count, compact trigger, and panel. |
 | `ToolbarNavGroup.svelte`   | Renders related navigation links, including active state, without command overflow. |
 | `ToolbarMetaItem.svelte`   | Renders passive status/count/date text as non-command toolbar content.      |
+| `ToolbarMetricGroup.svelte` | Renders passive compact metric summaries as non-command toolbar content.   |
 | `ToolbarFilterSelect.svelte` | Renders a select filter as a full select or compact trigger/panel.        |
 | `ToolbarMultiSelectFilter.svelte` | Renders a multi-select filter as tag input or compact active-count panel. |
 | `ToolbarViewToggle.svelte` | Renders a segmented mode switch as a full control or compact trigger/panel. |
+| `ToolbarToggle.svelte`     | Renders a boolean state toggle for compact toolbar filter groups.          |
 | `toolbarLayout.ts`         | Pure deterministic layout utility for full/compact/overflow states.         |
 
 Policy fields:
@@ -709,25 +756,30 @@ Policy fields:
 
 `ToolbarAction` accepts `href`, `onclick`, or `menuItems`. In development it warns when both `href` and `onclick` are supplied, or when none of those command targets are supplied. Compact icon actions keep their accessible name through `aria-label` and `title`.
 
-`ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use `mode="full"` when the search should render directly and `mode="compact"` when constrained toolbar space should show a search trigger. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
+`Toolbar` owns the measurement boundary. Keep stateful controls in its `leading` snippet and route actions in its child action slot. Use `searchCompactAt` when search should become an icon before the entire filter group collapses. Use `compactLeadingWhenCrowded` for single-row workspaces where the leading group should collapse based on measured width before actions overlap.
 
-`ToolbarGroup` keeps stateful controls out of command overflow. Use it for filter and view groups that should collapse into a trigger plus panel instead of moving into `ToolbarOverflowMenu`. `compactStrategy` supports `items-first`, `group-trigger`, and `never`; `items-first` is the Critical Tasks default. `activeCount` should count active filters in the group, while search activity stays visually separate through `ToolbarSearchItem`.
+`ToolbarSearchItem` keeps search state page-owned through `bind:value`. Use default `mode="auto"` in a toolbar row when search should become its own compact search trigger, and use `mode="full"` in a `ToolbarGroup` panel so the opened panel contains an editable input. Compact mode opens an inline panel by default, keeps the same search binding, exposes active trigger hooks through `data-search-active` and `toolbar-search-item__trigger--active`, and closes with Escape.
+
+`ToolbarGroup` keeps stateful controls out of command overflow. Use it for filter, search, toggle, and view groups that should collapse into a trigger plus panel instead of moving into `ToolbarOverflowMenu`. `activeCount` should count active state inside the group, including search text when search lives in the group.
 
 `ToolbarNavGroup` keeps tab, back, and related-page navigation as links. Use it for route navigation that should remain keyboard-accessible and should not collapse into command overflow. Mark the current item with `active`; the component renders `aria-current="page"`.
 
 `ToolbarMetaItem` keeps passive toolbar content from masquerading as a command. Use it for counts, dates, retention notes, pending state, and read-only notices. It renders as status text, not a button or link.
 
+`ToolbarMetricGroup` keeps compact status ledgers out of command overflow. Use it for small read-only metric clusters such as overdue/due-soon evaluation counts where each metric needs a value, label, and optional semantic color.
+
 `ToolbarFilterSelect` preserves ordinary select behavior in full mode and exposes active state in compact mode when `value !== defaultValue`. `ToolbarMultiSelectFilter` wraps `MultiTagSelect` for toolbar-owned filter clusters; compact mode shows an active selected-count trigger and opens the same tag selector in an inline panel. `ToolbarViewToggle` preserves segmented-control behavior and keeps the current mode in the compact trigger label, `aria-label`, and `title`.
 
 Use `ToolbarMultiSelectFilter maxWidth` when a tag input should grow inside the toolbar but stop before crowding the action zone. In full mode, the control flexes up to that width and keeps selected tags on one line so the toolbar row stays stable.
 
-Icon names are intentionally small in Phase 1 and map to lucide icons: `download`, `upload`, `settings`, `calendar-days`, `book-open`, `chart`, `clipboard-check`, and `clipboard-list`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
+Icon names are intentionally small and map to lucide icons: `download`, `upload`, `settings`, `calendar-days`, `book-open`, `chart`, `clipboard-check`, `clipboard-list`, and `printer`. Add new names in `ToolbarIcon.svelte` when a migration needs them.
 
 Migration notes:
 
-- Keep existing leading controls in place until they are migrated deliberately. For mixed toolbars, wrap `ToolbarActions` and `ToolbarGroup` inside the existing `FloatingPageToolbar` zones.
+- Migrate route-level toolbars to the shared `Toolbar` shell. Do not keep `FloatingPageToolbar`, `PageToolbar`, or `SmartToolbar` as route-level wrappers for newly migrated surfaces.
 - Prefer `ToolbarActions` over `ProgressiveToolbarActions` when actions need priorities, protected visibility, compact icon rendering, disabled reasons, or deterministic overflow tests.
 - Prefer `ToolbarSearchItem`, `ToolbarFilterSelect`, and `ToolbarViewToggle` for leading stateful controls that need compact trigger/panel behavior. Keep older `ToolbarSelect`, `SegmentedControl`, and `ToolbarIconButton` where a page has not migrated yet.
+- Do not add route-local flex wrappers around `ToolbarGroup` and `ToolbarSearchItem` to force a one-line layout. If the shared primitives cannot express the route, add or extend a reusable toolbar primitive.
 - Deferred: true sheet-mode compact panels and a shared tooltip primitive.
 
 ---

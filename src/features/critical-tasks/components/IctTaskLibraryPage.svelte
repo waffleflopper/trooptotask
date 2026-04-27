@@ -1,11 +1,16 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import ToolbarSearch from '$lib/components/ui/ToolbarSearch.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import {
+		Toolbar,
+		ToolbarActions,
+		ToolbarFilterSelect,
+		ToolbarGroup,
+		ToolbarSearchItem,
+		ToolbarViewToggle,
+		type ToolbarActionConfig
+	} from '$lib/components/ui/toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -75,14 +80,13 @@
 			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
 			.map((mos) => ({ value: mos, label: mos }));
 	});
-	const filtersActive = $derived(Boolean(taskSearch.trim() || selectedMos));
+	const toolbarMosFilterOptions = $derived([{ value: '', label: 'All MOS' }, ...mosFilterOptions]);
+	const filtersActive = $derived(Boolean(taskSearch.trim() || selectedMos || taskStatusFilter !== 'active'));
+	const toolbarActiveFilterCount = $derived(
+		(taskStatusFilter !== 'active' ? 1 : 0) + (selectedMos ? 1 : 0) + (taskSearch.trim() ? 1 : 0)
+	);
 	const filteredTasks = $derived(
 		visibleTasks.filter((task) => matchesTaskSearch(task, taskSearch) && matchesSelectedMos(task))
-	);
-	const taskListMeta = $derived(
-		filtersActive
-			? `${filteredTasks.length} of ${visibleTasks.length} shown`
-			: `${visibleTasks.length} ${taskStatusFilter === 'active' ? 'configured' : 'archived'}`
 	);
 	const taskStatusOptions = [
 		{ value: 'active', label: 'Active' },
@@ -91,6 +95,45 @@
 	const canReorderTasks = $derived(
 		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
 	);
+	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
+		const items: ToolbarActionConfig[] = [];
+
+		if (filtersActive) {
+			items.push({
+				id: 'clear-filters',
+				label: 'Clear filters',
+				onclick: clearTaskFilters,
+				priority: 'normal',
+				variant: 'default'
+			});
+		}
+
+		if (canManage) {
+			items.push(
+				{
+					id: 'import-csv',
+					label: 'Import CSV',
+					onclick: startImport,
+					icon: 'upload',
+					disabled: creating || editing || importingTasks,
+					priority: 'normal',
+					variant: 'default'
+				},
+				{
+					id: 'new-task',
+					label: 'New Task',
+					onclick: startCreate,
+					icon: 'clipboard-check',
+					disabled: creating || editing || importingTasks,
+					priority: 'critical',
+					overflow: 'never',
+					variant: 'primary'
+				}
+			);
+		}
+
+		return items;
+	});
 
 	$effect(() => {
 		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
@@ -124,6 +167,7 @@
 	}
 
 	function clearTaskFilters() {
+		taskStatusFilter = 'active';
 		taskSearch = '';
 		selectedMos = '';
 	}
@@ -298,53 +342,71 @@
 	</section>
 {:else}
 	<div class="library-page-shell">
-		<FloatingPageToolbar ariaLabel="ICT task library controls" collapse="wide" leadingMin="50rem">
+		<Toolbar ariaLabel="ICT task library controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
 			{#snippet leading()}
-				<div class="library-toolbar-controls" aria-label="ICT task library filters">
-					<SegmentedControl
-						ariaLabel="Filter ICT tasks by status"
-						options={taskStatusOptions}
-						value={taskStatusFilter}
-						onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
-					/>
-					<ToolbarSearch
-						ariaLabel="Search"
-						placeholder="Search task number or title..."
-						width="wide"
-						bind:value={taskSearch}
-					/>
-					<div class="toolbar-search-select">
-						<SearchSelect
-							options={mosFilterOptions}
-							bind:value={selectedMos}
-							placeholder="All MOSs"
-							ariaLabel="MOS"
-							compact
+				<ToolbarGroup
+					label="ICT task library filters"
+					activeCount={toolbarActiveFilterCount}
+					testId="ict-library-filters"
+				>
+					{#snippet full()}
+						<ToolbarViewToggle
+							ariaLabel="Filter ICT tasks by status"
+							options={taskStatusOptions}
+							value={taskStatusFilter}
+							mode="full"
+							onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
 						/>
-					</div>
-					{#if filtersActive}
-						<span class="filter-result-meta">{taskListMeta}</span>
-					{/if}
-				</div>
+						<ToolbarFilterSelect
+							ariaLabel="MOS"
+							options={toolbarMosFilterOptions}
+							value={selectedMos}
+							defaultValue=""
+							width="wide"
+							mode="full"
+							onValueChange={(value) => (selectedMos = value)}
+						/>
+						<ToolbarSearchItem
+							ariaLabel="Search"
+							placeholder="Search task number or title..."
+							width="wide"
+							bind:value={taskSearch}
+						/>
+					{/snippet}
+					{#snippet panel()}
+						<ToolbarViewToggle
+							ariaLabel="Filter ICT tasks by status"
+							options={taskStatusOptions}
+							value={taskStatusFilter}
+							mode="full"
+							onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
+						/>
+						<ToolbarFilterSelect
+							ariaLabel="MOS"
+							options={toolbarMosFilterOptions}
+							value={selectedMos}
+							defaultValue=""
+							width="wide"
+							mode="full"
+							onValueChange={(value) => (selectedMos = value)}
+						/>
+						<ToolbarSearchItem
+							ariaLabel="Search"
+							placeholder="Search task number or title..."
+							width="wide"
+							mode="full"
+							bind:value={taskSearch}
+						/>
+					{/snippet}
+				</ToolbarGroup>
 			{/snippet}
 
-			{#if filtersActive}
-				<button class="btn btn-sm" type="button" onclick={clearTaskFilters}>Clear filters</button>
-			{/if}
-			{#if canManage}
-				<button class="btn btn-sm" type="button" onclick={startImport} disabled={creating || editing || importingTasks}>
-					Import CSV
-				</button>
-				<button
-					class="btn btn-primary btn-sm"
-					type="button"
-					onclick={startCreate}
-					disabled={creating || editing || importingTasks}
-				>
-					New Task
-				</button>
-			{/if}
-		</FloatingPageToolbar>
+			<ToolbarActions
+				actions={toolbarActionItems}
+				ariaLabel="ICT task library actions"
+				overflowAriaLabel="More ICT task library actions"
+			/>
+		</Toolbar>
 
 		{#if loading}
 			<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
@@ -613,36 +675,6 @@
 		padding: var(--sp-4);
 	}
 
-	.library-toolbar-controls {
-		display: flex;
-		flex-wrap: nowrap;
-		align-items: center;
-		gap: var(--sp-2);
-		width: 100%;
-		min-width: 0;
-	}
-
-	.library-toolbar-controls :global(.toolbar-search) {
-		flex: 1 1 18rem;
-		width: auto;
-		min-width: 16rem;
-	}
-
-	.toolbar-search-select {
-		flex: 0 0 10rem;
-		width: 10rem;
-		min-width: 10rem;
-	}
-
-	.filter-result-meta {
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
 	.import-route-workspace {
 		padding: 0;
 	}
@@ -860,21 +892,6 @@
 	@media (max-width: 820px) {
 		.library-layout {
 			grid-template-columns: 1fr;
-		}
-
-		.library-toolbar-controls {
-			flex-wrap: wrap;
-		}
-
-		.library-toolbar-controls :global(.toolbar-search) {
-			flex-basis: 100%;
-			width: 100%;
-			min-width: 0;
-		}
-
-		.toolbar-search-select {
-			width: 100%;
-			min-width: 0;
 		}
 
 		.form-grid,

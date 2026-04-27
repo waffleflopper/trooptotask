@@ -89,4 +89,10 @@ describe('stateful toolbar controls', () => {
 			expect(screen.queryByTestId('filters-group-panel')).toBeNull();
 		});
 	});
+
+	it('passes disabled state through shared filter selects', () => {
+		render(ToolbarStatefulControlsTest, { props: { disabledFilter: true } });
+
+		expect((screen.getByLabelText('Group filter') as HTMLSelectElement).disabled).toBe(true);
+	});
 });

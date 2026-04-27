@@ -4,6 +4,7 @@ export { default as ToolbarActions } from './ToolbarActions.svelte';
 export { default as ToolbarFilterSelect } from './ToolbarFilterSelect.svelte';
 export { default as ToolbarGroup } from './ToolbarGroup.svelte';
 export { default as ToolbarMetaItem } from './ToolbarMetaItem.svelte';
+export { default as ToolbarMetricGroup } from './ToolbarMetricGroup.svelte';
 export { default as ToolbarMultiSelectFilter } from './ToolbarMultiSelectFilter.svelte';
 export { default as ToolbarNavGroup } from './ToolbarNavGroup.svelte';
 export { default as ToolbarSearchItem } from './ToolbarSearchItem.svelte';
@@ -27,4 +28,5 @@ export type {
 	ToolbarStatefulControlMode
 } from './toolbar.types';
 export type { ToolbarMetaTone } from './ToolbarMetaItem.svelte';
+export type { ToolbarMetricItem } from './ToolbarMetricGroup.svelte';
 export type { ToolbarNavItem } from './ToolbarNavGroup.svelte';

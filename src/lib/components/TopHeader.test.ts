@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import TopHeader from './TopHeader.svelte';
 import type { OrganizationMemberPermissions } from '$lib/types';
@@ -57,6 +57,7 @@ const basePermissions: OrganizationMemberPermissions = {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
 });
 
@@ -145,15 +146,16 @@ describe('TopHeader', () => {
 		expect(breadcrumb.textContent).not.toContain('Person');
 	});
 
-	it('uses a route-provided breadcrumb label as the dashboard date crumb', () => {
-		pageStore.setPath('/org/org-1', { breadcrumbLabel: 'Sunday, Apr 26 2026' });
+	it('uses a client-local dashboard date crumb for the dashboard root', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(2026, 3, 26, 9));
+		pageStore.setPath('/org/org-1', { breadcrumbLabel: 'Server Date Should Not Render' });
 
 		renderHeader();
 
 		const breadcrumb = screen.getByLabelText('Current section');
-		expect(breadcrumb.textContent).toContain('Test Org');
-		expect(breadcrumb.textContent).toContain('Dashboard');
-		expect(breadcrumb.textContent).toContain('Sunday, Apr 26 2026');
+		await waitFor(() => expect(breadcrumb.textContent).toContain('Sunday, Apr 26 2026'));
+		expect(breadcrumb.textContent).not.toContain('Server Date Should Not Render');
 		expect(within(breadcrumb).getByRole('link', { name: 'Dashboard' }).getAttribute('href')).toBe('/org/org-1');
 	});
 });

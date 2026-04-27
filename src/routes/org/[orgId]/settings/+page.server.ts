@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
@@ -49,9 +49,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const parentData = await parent();
 	const { orgName, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
-	if (userRole !== 'owner' && userRole !== 'admin') {
-		throw error(403, 'Only organization owners and admins can access organization settings');
-	}
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'privileged',

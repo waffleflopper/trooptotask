@@ -13,6 +13,7 @@
 	import { getPermissionPreset } from '$lib/types';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import { addMonths, formatRelativeDate } from '$lib/utils/dates';
+	import { downloadBlob } from './settingsDownloads';
 
 	let { data, form } = $props();
 	const orgId = $derived($page.params.orgId);
@@ -458,14 +459,7 @@
 			const disposition = res.headers.get('Content-Disposition');
 			const filenameMatch = disposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] ?? fallbackName;
-			const url = URL.createObjectURL(blob);
-			const anchor = document.createElement('a');
-			anchor.href = url;
-			anchor.download = filename;
-			document.body.appendChild(anchor);
-			anchor.click();
-			document.body.removeChild(anchor);
-			URL.revokeObjectURL(url);
+			downloadBlob(blob, filename);
 			exportSuccess = true;
 		} catch {
 			exportError = 'Export failed. Please try again.';
@@ -519,12 +513,7 @@
 			const res = await fetch(`/org/${orgId}/api/personnel/${id}/export`);
 			if (!res.ok) throw new Error();
 			const blob = await res.blob();
-			const url = URL.createObjectURL(blob);
-			const anchor = document.createElement('a');
-			anchor.href = url;
-			anchor.download = `${name}-records.xlsx`;
-			anchor.click();
-			URL.revokeObjectURL(url);
+			downloadBlob(blob, `${name}-records.xlsx`);
 		} catch {
 			toastStore.error('Failed to export records');
 		} finally {

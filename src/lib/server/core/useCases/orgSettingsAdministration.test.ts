@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	deleteOrganization,
+	renameOrganization,
 	transferOrganizationOwnership,
 	type OrganizationSettingsAdministrationPort
 } from './orgSettingsAdministration';
@@ -10,22 +11,30 @@ function createOrganizationSettingsAdministrationPort(
 	options: {
 		organizationName?: string | null;
 		lookupOrganizationError?: string | null;
+		renameOrganizationError?: string | null;
 		transferOwnershipError?: string | null;
 		deleteOrganizationError?: string | null;
 	} = {}
 ): OrganizationSettingsAdministrationPort & {
+	renameRequests: Array<{ orgId: string; name: string }>;
 	transferRequests: Array<{ orgId: string; newOwnerId: string }>;
 	organizationLookups: string[];
 	deletedOrganizations: string[];
 } {
+	const renameRequests: Array<{ orgId: string; name: string }> = [];
 	const transferRequests: Array<{ orgId: string; newOwnerId: string }> = [];
 	const organizationLookups: string[] = [];
 	const deletedOrganizations: string[] = [];
 
 	return {
+		renameRequests,
 		transferRequests,
 		organizationLookups,
 		deletedOrganizations,
+		async renameOrganization(orgId, name) {
+			renameRequests.push({ orgId, name });
+			return options.renameOrganizationError ?? null;
+		},
 		async transferOwnership(orgId, newOwnerId) {
 			transferRequests.push({ orgId, newOwnerId });
 			return options.transferOwnershipError ?? null;
@@ -43,6 +52,72 @@ function createOrganizationSettingsAdministrationPort(
 		}
 	};
 }
+
+describe('renameOrganization', () => {
+	it('normalizes the organization name before persisting and auditing', async () => {
+		const requireManageMembers = vi.fn();
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				requireManageMembers
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		const result = await renameOrganization(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{ name: '  Alpha   Company  ' }
+		);
+
+		expect(result).toEqual({ nameSuccess: true });
+		expect(requireManageMembers).toHaveBeenCalled();
+		expect(port.renameRequests).toEqual([{ orgId: 'org-1', name: 'Alpha Company' }]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.renamed',
+				resourceType: 'organization',
+				details: { name: 'Alpha Company' }
+			}
+		]);
+	});
+
+	it('rejects empty organization names before provider work starts', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsAdministrationPort();
+
+		await expect(
+			renameOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ name: '   ' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Organization name is required'
+		});
+
+		expect(port.renameRequests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('preserves provider failures without auditing', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsAdministrationPort({
+			renameOrganizationError: 'rename failed'
+		});
+
+		await expect(
+			renameOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ name: 'Alpha Company' }
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'rename failed'
+		});
+
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+});
 
 describe('transferOrganizationOwnership', () => {
 	it('rejects invalid target user ids before transfer provider work starts', async () => {

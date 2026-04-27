@@ -37,7 +37,7 @@ Each entry separates:
   - many server paths already use ports, adapters, entities, and use cases
   - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
   - billing cancellation now acknowledges successful Stripe cancellation even if the immediate local organization reset fails, relying on the existing Stripe deleted-subscription webhook as the documented reconciliation path in `#637`
-  - multiple non-adapter routes still depend directly on `locals.supabase`, especially organization rename, admin/platform operations, and some layout helpers
+  - multiple non-adapter routes still depend directly on `locals.supabase`, especially admin/platform operations and some layout helpers
 - Intended direction:
   - outside auth and adapter edges, business logic should be provider-agnostic
 - Why this matters:
@@ -45,7 +45,7 @@ Each entry separates:
 - Guardrail until fixed:
   - do not add new direct provider business logic outside approved remediation
 - Recommended next slice:
-  - isolate the remaining org-settings rename and admin/platform `locals.supabase` clusters behind app-owned use cases and adapters
+  - isolate the remaining admin/platform `locals.supabase` clusters behind app-owned use cases and adapters
 
 ## D-03 Critical Tasks Permission Coupling (Resolved In #621)
 
@@ -136,14 +136,15 @@ Each entry separates:
 - Recommended next slice:
   - continue prioritized deep-module reviews using `improve-codebase-architecture`, especially for remaining calendar, duty-roster, personnel, and training orchestration seams; the current calendar and duty-roster helpers reduce D-07 but do not resolve it
 
-## D-08 Route-Level Membership And Settings Logic
+## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 
 - Current-state truth:
   - organization creation bootstrap now runs through an app-owned provisioning use case and Supabase adapter in `#618` while preserving the current default seeds and owner bootstrap behavior
   - dashboard invitation acceptance and membership creation moved behind an app-owned use case and adapter in `#616`
   - org settings invitation create/delete, member removal, and permission updates moved behind an app-owned use case and adapter in `#617`
   - org settings ownership transfer and delete flows moved behind an app-owned use case and Supabase adapter in `#626`
-  - organization settings still keeps organization rename in route-local provider orchestration
+  - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
+  - organization governance pages now live under `/org/[orgId]/settings/*`; legacy `/org/[orgId]/admin/*` organization URLs redirect to those settings subroutes
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:
@@ -151,7 +152,7 @@ Each entry separates:
 - Guardrail until fixed:
   - do not copy those shapes into new surfaces
 - Recommended next slice:
-  - move organization rename behind an app-owned boundary in organization settings
+  - keep any future organization-governance additions under `/org/[orgId]/settings/*` and behind app-owned use cases/adapters when they perform business work
 
 ## D-09 Missing Repo Governance Automation
 

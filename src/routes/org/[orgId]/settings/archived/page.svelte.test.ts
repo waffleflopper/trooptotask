@@ -17,7 +17,7 @@ vi.mock('$app/navigation', () => ({
 
 import Page from './+page.svelte';
 
-describe('admin archived personnel page toolbar', () => {
+describe('settings archived personnel page toolbar', () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();

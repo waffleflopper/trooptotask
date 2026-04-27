@@ -14,7 +14,7 @@ vi.mock('$app/stores', () => ({
 
 import Page from './+page.svelte';
 
-describe('admin settings page', () => {
+describe('organization policies page', () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			'fetch',
@@ -44,7 +44,7 @@ describe('admin settings page', () => {
 			}
 		});
 
-		expect(screen.getByRole('toolbar', { name: 'Admin settings status' })).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Organization policy status' })).toBeTruthy();
 		expect(screen.getByRole('status', { name: 'Saved' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Saved' })).toBeNull();
 		expect(screen.queryByText('Change State')).toBeNull();

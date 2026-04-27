@@ -1,15 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
+import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
-import { buildLayoutContext, buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { GroupEntity } from '$lib/server/entities/group';
-import { sanitizeString } from '$lib/server/validation';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { getAdminClient } from '$lib/server/supabase';
+import { fetchAuditLogs } from '$lib/server/core/useCases/auditLogQuery';
 import {
 	deleteOrganization as deleteOrganizationUseCase,
+	renameOrganization,
 	transferOrganizationOwnership
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
@@ -19,22 +24,67 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 
+interface OrganizationSettingsRow {
+	archive_retention_months?: number | null;
+	loss_warning_window_days?: number | null;
+	critical_tasks_default_expiration_months?: number | null;
+	critical_tasks_expiring_soon_warning_days?: number | null;
+}
+
+type DeletionRequestStatus = 'pending' | 'approved' | 'denied';
+
+interface DeletionRequestRow {
+	id: string;
+	status: DeletionRequestStatus;
+	requester_email: string | null;
+	resource_description: string | null;
+	resource_type: string;
+	resource_url: string | null;
+	created_at: string;
+	denial_reason: string | null;
+}
+
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const parentData = await parent();
-	const { orgName, userRole, allOrgs, isAdmin } = parentData;
+	const { orgName, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
+
 	return loadWithContext(locals, cookies, orgId, {
-		permission: 'manageMembers',
+		permission: 'privileged',
 		fn: async (ctx) => {
-			const [membershipRows, invitationRows, groupRows] = await Promise.all([
+			const adminStore = createSupabaseDataStore(getAdminClient());
+			const [
+				membershipRows,
+				invitationRows,
+				groupRows,
+				organizationSettings,
+				archivedPersonnelRows,
+				approvalRequests,
+				auditLog
+			] = await Promise.all([
 				ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
 				ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
 					status: 'pending'
 				}),
 				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
-				})
+				}),
+				ctx.rawStore.findOne<OrganizationSettingsRow>(
+					'organizations',
+					ctx.auth.orgId,
+					{},
+					'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+				),
+				ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+					select: PersonnelEntity.select,
+					isNull: { archived_at: false },
+					orderBy: [{ column: 'archived_at', ascending: false }]
+				}),
+				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
+					orderBy: [{ column: 'created_at', ascending: false }]
+				}),
+				fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 })
 			]);
 
 			const members = membershipRows.map((m) => ({
@@ -108,45 +158,72 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				};
 			}
 
+			const retentionMonths = organizationSettings?.archive_retention_months ?? 36;
+			const archivedPersonnel = PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
+				id: p.id,
+				rank: p.rank,
+				firstName: p.firstName,
+				lastName: p.lastName,
+				mos: p.mos,
+				groupName: p.groupName,
+				archivedAt: p.archivedAt as string,
+				groupId: p.groupId
+			}));
+			const pendingApprovalsCount = approvalRequests.filter((request) => request.status === 'pending').length;
+
 			return {
 				orgId,
 				orgName,
+				effectiveTier,
 				permissions,
 				allOrgs,
 				members,
 				invitations,
 				isOwner: userRole === 'owner',
 				isAdmin,
-				canManageMembers: permissions.canManageMembers,
+				canManageMembers: userRole === 'owner' || userRole === 'admin' || permissions.canManageMembers,
 				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
-				exportInfo
+				exportInfo,
+				policies: {
+					retentionMonths,
+					lossWarningWindowDays: organizationSettings?.loss_warning_window_days ?? 180,
+					criticalTasksSettings: normalizeCriticalTasksSettings({
+						defaultExpirationMonths: organizationSettings?.critical_tasks_default_expiration_months ?? null,
+						expiringSoonWarningDays: organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
+					})
+				},
+				archivedPersonnel,
+				approvalRequests,
+				pendingApprovalsCount,
+				auditLog
 			};
 		}
 	});
 };
 
 export const actions: Actions = {
-	updateName: async ({ params, request, locals, cookies }) => {
+	updateName: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireManageMembers();
 		const formData = await request.formData();
-		const name = sanitizeString(formData.get('name') as string, 100);
-
-		if (!name) {
-			return fail(400, { error: 'Organization name is required' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await renameOrganization(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				},
+				{
+					name: (formData.get('name') as string) ?? ''
+				}
+			);
+		} catch (error) {
+			return toActionFailure('error', error);
 		}
-
-		const { error } = await locals.supabase.from('organizations').update({ name }).eq('id', orgId);
-
-		if (error) {
-			return fail(500, { error: error.message });
-		}
-
-		return { nameSuccess: true };
 	},
 
 	invite: async (event) => {

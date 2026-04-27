@@ -11,14 +11,14 @@ describe('toolbar nav and meta primitives', () => {
 	it('renders navigation items as keyboard-accessible links with active state', () => {
 		render(ToolbarNavMetaTest);
 
-		const nav = screen.getByRole('navigation', { name: 'Admin sections' });
+		const nav = screen.getByRole('navigation', { name: 'Organization settings sections' });
 		const approvals = screen.getByRole('link', { name: 'Approvals' });
 		const archived = screen.getByRole('link', { name: 'Archived Personnel' });
 
 		expect(nav.contains(approvals)).toBe(true);
-		expect(approvals.getAttribute('href')).toBe('/org/org-1/admin/approvals');
+		expect(approvals.getAttribute('href')).toBe('/org/org-1/settings/approvals');
 		expect(approvals.getAttribute('aria-current')).toBe('page');
-		expect(archived.getAttribute('href')).toBe('/org/org-1/admin/archived');
+		expect(archived.getAttribute('href')).toBe('/org/org-1/settings/archived');
 		expect(archived.getAttribute('aria-current')).toBeNull();
 	});
 
@@ -33,7 +33,7 @@ describe('toolbar nav and meta primitives', () => {
 	it('keeps nav available in compact mode without moving links into command overflow', () => {
 		render(ToolbarNavMetaTest, { props: { compact: true } });
 
-		const nav = screen.getByRole('navigation', { name: 'Admin sections' });
+		const nav = screen.getByRole('navigation', { name: 'Organization settings sections' });
 
 		expect(nav.getAttribute('data-compact')).toBe('true');
 		expect(screen.getByRole('link', { name: 'Approvals' })).toBeTruthy();

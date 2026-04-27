@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	buildLayoutContextMock,
 	buildRouteContextMock,
+	createSupabaseDataStoreMock,
 	createSupabaseOrgSettingsAdministrationPortMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
+	fetchAuditLogsMock,
+	getAdminClientMock,
 	inviteOrganizationMemberMock,
+	loadWithContextMock,
 	renameOrganizationMock,
 	revokeOrganizationInvitationMock,
 	removeOrganizationMemberMock,
@@ -15,10 +19,14 @@ const {
 } = vi.hoisted(() => ({
 	buildLayoutContextMock: vi.fn(),
 	buildRouteContextMock: vi.fn(),
+	createSupabaseDataStoreMock: vi.fn(),
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
+	fetchAuditLogsMock: vi.fn(),
+	getAdminClientMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
+	loadWithContextMock: vi.fn(),
 	renameOrganizationMock: vi.fn(),
 	revokeOrganizationInvitationMock: vi.fn(),
 	removeOrganizationMemberMock: vi.fn(),
@@ -34,9 +42,22 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	return {
 		...actual,
 		buildLayoutContext: buildLayoutContextMock,
-		buildRouteContext: buildRouteContextMock
+		buildRouteContext: buildRouteContextMock,
+		loadWithContext: loadWithContextMock
 	};
 });
+
+vi.mock('$lib/server/adapters/supabaseDataStore', () => ({
+	createSupabaseDataStore: createSupabaseDataStoreMock
+}));
+
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: getAdminClientMock
+}));
+
+vi.mock('$lib/server/core/useCases/auditLogQuery', () => ({
+	fetchAuditLogs: fetchAuditLogsMock
+}));
 
 vi.mock('$lib/server/adapters/supabaseOrgSettingsMemberManagement', () => ({
 	createSupabaseOrgSettingsMemberManagementPort: createSupabaseOrgSettingsMemberManagementPortMock
@@ -73,7 +94,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 	};
 });
 
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 describe('org settings page server actions', () => {
 	beforeEach(() => {
@@ -86,6 +107,84 @@ describe('org settings page server actions', () => {
 			audit: { kind: 'audit' },
 			notifications: { kind: 'notifications' }
 		});
+		getAdminClientMock.mockReturnValue({ kind: 'admin-client' });
+		createSupabaseDataStoreMock.mockReturnValue({ kind: 'admin-store' });
+		fetchAuditLogsMock.mockResolvedValue({
+			logs: [{ id: 'audit-1', action: 'organization.rename', createdAt: '2026-04-26T12:00:00Z' }],
+			totalCount: 1,
+			last30DaysCount: 1,
+			page: 1,
+			limit: 100,
+			actionFilter: '',
+			availableActions: ['organization.rename']
+		});
+		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1' },
+				store: {
+					findMany: vi.fn(async (table: string) => {
+						if (table === 'organization_memberships') {
+							return [
+								{
+									id: 'membership-1',
+									user_id: 'user-1',
+									email: 'owner@example.com',
+									role: 'owner',
+									scoped_group_id: null,
+									created_at: '2026-04-26T12:00:00Z',
+									can_view_calendar: true,
+									can_edit_calendar: true,
+									can_view_personnel: true,
+									can_edit_personnel: true,
+									can_view_training: true,
+									can_edit_training: true,
+									can_view_critical_tasks: true,
+									can_edit_critical_tasks: true,
+									can_view_onboarding: true,
+									can_edit_onboarding: true,
+									can_view_rating_scheme: true,
+									can_edit_rating_scheme: true,
+									can_view_leaders_book: true,
+									can_edit_leaders_book: true,
+									can_manage_members: true
+								}
+							];
+						}
+						if (table === 'organization_invitations') return [{ id: 'invite-1', email: 'new@example.com' }];
+						if (table === 'groups') return [{ id: 'group-1', name: 'HQ', organization_id: 'org-1' }];
+						if (table === 'personnel') {
+							return [
+								{
+									id: 'person-1',
+									organization_id: 'org-1',
+									first_name: 'Avery',
+									last_name: 'Jones',
+									rank: 'SGT',
+									mos: '11B',
+									group_id: 'group-1',
+									group_name: 'HQ',
+									archived_at: '2026-04-01T12:00:00Z'
+								}
+							];
+						}
+						if (table === 'deletion_requests') return [{ id: 'request-1', status: 'pending' }];
+						return [];
+					})
+				},
+				rawStore: {
+					findOne: vi.fn(async () => ({
+						archive_retention_months: 42,
+						loss_warning_window_days: 150,
+						critical_tasks_default_expiration_months: 18,
+						critical_tasks_expiring_soon_warning_days: 45
+					}))
+				},
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
 		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
@@ -95,6 +194,74 @@ describe('org settings page server actions', () => {
 		renameOrganizationMock.mockResolvedValue({ nameSuccess: true });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		updateOrganizationMemberPermissionsMock.mockResolvedValue({ permissionSuccess: true });
+	});
+
+	it('loads a consolidated admin settings workspace payload', async () => {
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgName: 'Test Org',
+				userRole: 'admin',
+				allOrgs: [],
+				isAdmin: true,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: Infinity,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			{},
+			{},
+			'org-1',
+			expect.objectContaining({ permission: 'privileged' })
+		);
+		expect(result).toMatchObject({
+			orgId: 'org-1',
+			orgName: 'Test Org',
+			effectiveTier: {
+				tier: 'unit',
+				source: 'subscription',
+				personnelCount: 4,
+				personnelCap: Infinity,
+				isReadOnly: false,
+				giftExpiresAt: null,
+				giftTier: null
+			},
+			members: [{ email: 'owner@example.com' }],
+			invitations: [{ id: 'invite-1' }],
+			groups: [{ id: 'group-1', name: 'HQ' }],
+			policies: {
+				retentionMonths: 42,
+				lossWarningWindowDays: 150,
+				criticalTasksSettings: {
+					defaultExpirationMonths: 18,
+					expiringSoonWarningDays: 45
+				}
+			},
+			archivedPersonnel: [{ id: 'person-1' }],
+			approvalRequests: [{ id: 'request-1', status: 'pending' }],
+			pendingApprovalsCount: 1,
+			auditLog: {
+				totalCount: 1,
+				last30DaysCount: 1,
+				availableActions: ['organization.rename']
+			}
+		});
+		expect(fetchAuditLogsMock).toHaveBeenCalledWith(
+			expect.anything(),
+			{ kind: 'admin-store' },
+			{ page: 1, limit: 100 }
+		);
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {

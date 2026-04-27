@@ -1,12 +1,17 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
+import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { GroupEntity } from '$lib/server/entities/group';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { getAdminClient } from '$lib/server/supabase';
+import { fetchAuditLogs } from '$lib/server/core/useCases/auditLogQuery';
 import {
 	deleteOrganization as deleteOrganizationUseCase,
 	renameOrganization,
@@ -19,31 +24,71 @@ import {
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 
+interface OrganizationSettingsRow {
+	archive_retention_months?: number | null;
+	loss_warning_window_days?: number | null;
+	critical_tasks_default_expiration_months?: number | null;
+	critical_tasks_expiring_soon_warning_days?: number | null;
+}
+
+type DeletionRequestStatus = 'pending' | 'approved' | 'denied';
+
+interface DeletionRequestRow {
+	id: string;
+	status: DeletionRequestStatus;
+	requester_email: string | null;
+	resource_description: string | null;
+	resource_type: string;
+	resource_url: string | null;
+	created_at: string;
+	denial_reason: string | null;
+}
+
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const parentData = await parent();
-	const { orgName, userRole, allOrgs, isAdmin } = parentData;
+	const { orgName, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
-	return loadWithContext(locals, cookies, orgId, {
-		permission: 'none',
-		fn: async (ctx) => {
-			const canManageMembers = permissions.canManageMembers;
-			const shouldLoadGovernanceData = userRole === 'owner' || userRole === 'admin' || canManageMembers;
-			let membershipRows: Record<string, unknown>[] = [];
-			let invitationRows: Record<string, unknown>[] = [];
-			let groupRows: Record<string, unknown>[] = [];
+	if (userRole !== 'owner' && userRole !== 'admin') {
+		throw error(403, 'Only organization owners and admins can access organization settings');
+	}
 
-			if (shouldLoadGovernanceData) {
-				[membershipRows, invitationRows, groupRows] = await Promise.all([
-					ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
-					ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
-						status: 'pending'
-					}),
-					ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					})
-				]);
-			}
+	return loadWithContext(locals, cookies, orgId, {
+		permission: 'privileged',
+		fn: async (ctx) => {
+			const adminStore = createSupabaseDataStore(getAdminClient());
+			const [
+				membershipRows,
+				invitationRows,
+				groupRows,
+				organizationSettings,
+				archivedPersonnelRows,
+				approvalRequests,
+				auditLog
+			] = await Promise.all([
+				ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
+				ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
+					status: 'pending'
+				}),
+				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				ctx.rawStore.findOne<OrganizationSettingsRow>(
+					'organizations',
+					ctx.auth.orgId,
+					{},
+					'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+				),
+				ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+					select: PersonnelEntity.select,
+					isNull: { archived_at: false },
+					orderBy: [{ column: 'archived_at', ascending: false }]
+				}),
+				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
+					orderBy: [{ column: 'created_at', ascending: false }]
+				}),
+				fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 })
+			]);
 
 			const members = membershipRows.map((m) => ({
 				id: m.id as string,
@@ -103,7 +148,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				isLimited: false
 			};
 
-			if (shouldLoadGovernanceData && isBillingEnabled) {
+			if (isBillingEnabled) {
 				const [tier, exportCount] = await Promise.all([
 					ctx.subscription.getEffectiveTier(),
 					ctx.subscription.getMonthlyExportCount()
@@ -116,18 +161,44 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				};
 			}
 
+			const retentionMonths = organizationSettings?.archive_retention_months ?? 36;
+			const archivedPersonnel = PersonnelEntity.fromDbArray(archivedPersonnelRows).map((p) => ({
+				id: p.id,
+				rank: p.rank,
+				firstName: p.firstName,
+				lastName: p.lastName,
+				mos: p.mos,
+				groupName: p.groupName,
+				archivedAt: p.archivedAt as string,
+				groupId: p.groupId
+			}));
+			const pendingApprovalsCount = approvalRequests.filter((request) => request.status === 'pending').length;
+
 			return {
 				orgId,
 				orgName,
+				effectiveTier,
 				permissions,
 				allOrgs,
 				members,
 				invitations,
 				isOwner: userRole === 'owner',
 				isAdmin,
-				canManageMembers,
+				canManageMembers: userRole === 'owner' || userRole === 'admin' || permissions.canManageMembers,
 				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
-				exportInfo
+				exportInfo,
+				policies: {
+					retentionMonths,
+					lossWarningWindowDays: organizationSettings?.loss_warning_window_days ?? 180,
+					criticalTasksSettings: normalizeCriticalTasksSettings({
+						defaultExpirationMonths: organizationSettings?.critical_tasks_default_expiration_months ?? null,
+						expiringSoonWarningDays: organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
+					})
+				},
+				archivedPersonnel,
+				approvalRequests,
+				pendingApprovalsCount,
+				auditLog
 			};
 		}
 	});

@@ -10,39 +10,16 @@ afterEach(() => {
 });
 
 describe('DashboardTabs', () => {
-	it('routes Add Eval through the first-class Evals route when the member can view rating scheme', () => {
+	it('renders only the dashboard view controls', () => {
 		dashboardTabStore.setTab('training-evals');
 
 		render(DashboardTabs, {
 			props: {
-				orgId: 'org-1',
-				permissions: {
-					canViewTraining: true,
-					canViewRatingScheme: true
-				}
+				orgId: 'org-1'
 			}
 		});
 
-		expect(
-			screen
-				.getAllByRole('link', { name: 'Add Eval' })
-				.every((link) => link.getAttribute('href') === '/org/org-1/evals')
-		).toBe(true);
-	});
-
-	it('hides Add Eval when the member lacks rating-scheme view access', () => {
-		dashboardTabStore.setTab('training-evals');
-
-		render(DashboardTabs, {
-			props: {
-				orgId: 'org-1',
-				permissions: {
-					canViewTraining: true,
-					canViewRatingScheme: false
-				}
-			}
-		});
-
+		expect(screen.getAllByRole('button', { name: 'Training & Evals' }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole('link', { name: 'Add Eval' })).toBeNull();
 	});
 });

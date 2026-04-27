@@ -11,8 +11,7 @@
 		getTemplateDisplayName,
 		STEP_TYPE_LABELS
 	} from '$features/onboarding/contexts/OnboardingPageContext.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup, type ToolbarNavItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup, type ToolbarNavItem } from '$lib/components/ui/toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -46,11 +45,11 @@
 
 <div class="page">
 	<main class="page-content">
-		<FloatingPageToolbar ariaLabel="Onboarding history controls" collapse="narrow" leadingMin="18rem">
+		<Toolbar ariaLabel="Onboarding history controls" collapse="narrow" leadingMin="18rem">
 			{#snippet leading()}
 				<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
 			{/snippet}
-		</FloatingPageToolbar>
+		</Toolbar>
 
 		{#if historyOnboardings.length === 0}
 			<EmptyState message="No completed or cancelled onboardings yet." />

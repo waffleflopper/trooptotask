@@ -37,11 +37,17 @@
 	.banner-stack {
 		position: fixed;
 		top: var(--header-height, 56px);
-		left: 0;
+		left: var(--app-rail-width, 0px);
 		right: 0;
 		z-index: 90;
 		display: flex;
 		flex-direction: column;
 		background: transparent;
+	}
+
+	@media (max-width: 920px) {
+		.banner-stack {
+			left: 0;
+		}
 	}
 </style>

@@ -128,6 +128,7 @@ describe('RatingSchemePageView', () => {
 		expect(within(summary).getByText('Overdue')).toBeTruthy();
 		expect(within(summary).getByText('60d')).toBeTruthy();
 		expect(within(summary).getByText('30d')).toBeTruthy();
+		expect(screen.getByText('2 of 2 shown')).toBeTruthy();
 		expect(within(summary).queryByText('Entries')).toBeNull();
 		expect(within(summary).queryByText('Current')).toBeNull();
 		expect(within(summary).queryByText('Due Soon')).toBeNull();
@@ -148,6 +149,7 @@ describe('RatingSchemePageView', () => {
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Evaluation controls' });
+		expect(within(toolbar).getByRole('group', { name: 'Evaluation view mode' })).toBeTruthy();
 		const typeFilter = within(toolbar).getByLabelText('Evaluation type filter') as HTMLSelectElement;
 		expect(within(toolbar).getByLabelText('Evaluation status filter')).toBeTruthy();
 		expect(within(toolbar).getByLabelText('Evaluation workflow filter')).toBeTruthy();
@@ -195,7 +197,7 @@ describe('RatingSchemePageView', () => {
 		expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
 	});
 
-	it('collapses evaluation filters from measured content before actions overlap', async () => {
+	it('collapses evaluation view and filters together at the shared group breakpoint', async () => {
 		const originalRect = HTMLElement.prototype.getBoundingClientRect;
 
 		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -203,23 +205,10 @@ describe('RatingSchemePageView', () => {
 				return {
 					x: 0,
 					y: 0,
-					width: 760,
+					width: 520,
 					height: 34,
 					top: 0,
-					right: 760,
-					bottom: 34,
-					left: 0,
-					toJSON: () => ({})
-				} as DOMRect;
-			}
-			if (this.classList.contains('evals-toolbar-leading')) {
-				return {
-					x: 0,
-					y: 0,
-					width: 560,
-					height: 34,
-					top: 0,
-					right: 560,
+					right: 520,
 					bottom: 34,
 					left: 0,
 					toJSON: () => ({})
@@ -242,6 +231,10 @@ describe('RatingSchemePageView', () => {
 			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
 		});
 		expect(screen.getByRole('button', { name: 'Evaluation filters' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Table' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Evaluation filters' }));
+		expect(screen.getByRole('button', { name: 'Table' })).toBeTruthy();
 	});
 });

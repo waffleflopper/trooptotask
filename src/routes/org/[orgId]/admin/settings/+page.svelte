@@ -1,8 +1,7 @@
 <script lang="ts">
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarMetaItem } from '$lib/components/ui/toolbar';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 
@@ -108,14 +107,14 @@
 
 <div class="settings-page">
 	<main class="page-content">
-		<FloatingPageToolbar ariaLabel="Admin settings status" leadingMin="0" collapse="narrow">
+		<Toolbar ariaLabel="Admin settings status" leadingMin="0" collapse="narrow">
 			{#snippet leading()}
 				<ToolbarMetaItem
 					label={hasPendingChanges ? 'Unsaved changes' : 'Saved'}
 					tone={hasPendingChanges ? 'warning' : 'default'}
 				/>
 			{/snippet}
-		</FloatingPageToolbar>
+		</Toolbar>
 
 		<section class="settings-section">
 			<div class="section-heading">

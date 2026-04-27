@@ -3,10 +3,11 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import {
+		Toolbar,
 		ToolbarActions,
+		ToolbarGroup,
 		ToolbarMetaItem,
 		ToolbarSearchItem,
 		ToolbarViewToggle,
@@ -128,6 +129,7 @@
 	});
 
 	let rosterSearch = $state('');
+	const activeRosterFilterCount = $derived((ctx.viewMode !== 'alphabetical' ? 1 : 0) + (rosterSearch.trim() ? 1 : 0));
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
@@ -188,24 +190,43 @@
 		</div>
 	{:else}
 		<main class="page-content roster-content">
-			<FloatingPageToolbar ariaLabel="Personnel controls" leadingMin="0" collapse="narrow">
+			<Toolbar ariaLabel="Personnel controls" leadingMin="28rem" collapse="narrow" searchCompactAt={960}>
 				{#snippet leading()}
-					<div class="roster-controls" aria-label="Roster filters">
-						<ToolbarViewToggle
-							ariaLabel="Roster sort mode"
-							options={rosterViewOptions}
-							value={ctx.viewMode}
-							mode="full"
-							onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
-						/>
-						<ToolbarSearchItem
-							testId="personnel-search"
-							ariaLabel="Search by name, rank, MOS, role, or group"
-							placeholder="Search name, rank, MOS, role, or group..."
-							width="wide"
-							bind:value={rosterSearch}
-						/>
-					</div>
+					<ToolbarGroup label="Roster filters" activeCount={activeRosterFilterCount} testId="personnel-roster-filters">
+						{#snippet full()}
+							<ToolbarViewToggle
+								ariaLabel="Roster sort mode"
+								options={rosterViewOptions}
+								value={ctx.viewMode}
+								mode="full"
+								onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
+							/>
+							<ToolbarSearchItem
+								testId="personnel-search"
+								ariaLabel="Search by name, rank, MOS, role, or group"
+								placeholder="Search name, rank, MOS, role, or group..."
+								width="wide"
+								bind:value={rosterSearch}
+							/>
+						{/snippet}
+						{#snippet panel()}
+							<ToolbarViewToggle
+								ariaLabel="Roster sort mode"
+								options={rosterViewOptions}
+								value={ctx.viewMode}
+								mode="full"
+								onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
+							/>
+							<ToolbarSearchItem
+								testId="personnel-search-panel"
+								ariaLabel="Search by name, rank, MOS, role, or group"
+								placeholder="Search name, rank, MOS, role, or group..."
+								width="wide"
+								mode="full"
+								bind:value={rosterSearch}
+							/>
+						{/snippet}
+					</ToolbarGroup>
 				{/snippet}
 
 				{#if personnelActionItems.length > 0}
@@ -219,7 +240,7 @@
 						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
 					{/if}
 				{/if}
-			</FloatingPageToolbar>
+			</Toolbar>
 
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
@@ -355,18 +376,6 @@
 		gap: var(--sp-4);
 		overflow: hidden;
 		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.roster-controls {
-		display: flex;
-		align-items: center;
-		flex-wrap: nowrap;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.roster-controls {
-		justify-content: flex-start;
 	}
 
 	.roster-table-region {
@@ -596,11 +605,6 @@
 			padding: var(--sp-3);
 		}
 
-		.roster-controls {
-			flex-wrap: wrap;
-			justify-content: flex-start;
-		}
-
 		.roster-scale-guard {
 			flex-direction: column;
 			align-items: stretch;
@@ -618,8 +622,5 @@
 	}
 
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.roster-controls {
-			justify-content: flex-start;
-		}
 	}
 </style>

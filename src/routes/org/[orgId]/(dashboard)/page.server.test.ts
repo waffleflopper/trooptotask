@@ -84,6 +84,7 @@ describe('dashboard page server load', () => {
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(depends).toHaveBeenCalledWith('app:dashboard-data');
+		expect(result).not.toHaveProperty('breadcrumbLabel');
 		expect(result.summary).toBeInstanceOf(Promise);
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
 		expect(findManyWithCountMock).not.toHaveBeenCalled();

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
-	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS } from '$features/rating-scheme/rating-scheme.types';
+	import {
+		RATING_STATUS_COLORS,
+		WORKFLOW_STATUS_OPTIONS,
+		type WorkflowStatus
+	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -45,6 +49,9 @@
 		{ value: 'all', label: 'Workflow: All' },
 		...WORKFLOW_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
 	]);
+	const setWorkflowFilter = (value: string) => {
+		ctx.workflowFilter = value as WorkflowStatus | 'all';
+	};
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRatingScheme = $derived(ctx.canViewRatingScheme);
 	const canEditRatingScheme = $derived(ctx.canEditRatingScheme);
@@ -149,10 +156,7 @@
 										defaultValue="all"
 										width="wide"
 										mode="full"
-										onValueChange={(value) =>
-											(ctx.workflowFilter = value as
-												| import('$features/rating-scheme/rating-scheme.types').WorkflowStatus
-												| 'all')}
+										onValueChange={setWorkflowFilter}
 									/>
 								{/if}
 							{/snippet}
@@ -190,10 +194,7 @@
 										defaultValue="all"
 										width="wide"
 										mode="full"
-										onValueChange={(value) =>
-											(ctx.workflowFilter = value as
-												| import('$features/rating-scheme/rating-scheme.types').WorkflowStatus
-												| 'all')}
+										onValueChange={setWorkflowFilter}
 									/>
 								{/if}
 							{/snippet}

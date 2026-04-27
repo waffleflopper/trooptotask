@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 import { formatDate } from '$lib/utils/dates';
-import { formatDashboardDisplayDate } from '$features/dashboard/utils/dashboardDate';
+import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 import {

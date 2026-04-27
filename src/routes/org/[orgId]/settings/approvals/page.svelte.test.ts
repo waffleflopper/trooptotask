@@ -17,7 +17,7 @@ vi.mock('$app/navigation', () => ({
 
 import Page from './+page.svelte';
 
-describe('admin approvals page toolbar', () => {
+describe('settings approvals page toolbar', () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();

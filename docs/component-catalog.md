@@ -538,7 +538,7 @@ Secondary tab navigation with badge counts. Styling is underline-driven and prod
         { label: 'Archived', value: 'archived' }
     ]}
     active={currentTab}
-    onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
+    onChange={(tab) => goto(`/org/${orgId}/settings/${tab}`)}
 />
 ```
 

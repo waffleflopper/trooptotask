@@ -211,17 +211,17 @@ describe('getOrgBreadcrumbs', () => {
 		]);
 	});
 
-	it('uses linked Admin breadcrumbs for admin subroutes outside primary navigation', () => {
+	it('uses linked Settings breadcrumbs for organization governance subroutes outside primary navigation', () => {
 		const nav = getOrgNavigation('org-1', basePermissions);
 
-		expect(getOrgBreadcrumbs('/org/org-1/admin/audit', 'Test Org', nav)).toEqual([
+		expect(getOrgBreadcrumbs('/org/org-1/settings/audit', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Admin', href: '/org/org-1/admin' },
+			{ label: 'Settings', href: '/org/org-1/settings' },
 			{ label: 'Audit' }
 		]);
-		expect(getOrgBreadcrumbs('/org/org-1/admin/approvals', 'Test Org', nav)).toEqual([
+		expect(getOrgBreadcrumbs('/org/org-1/settings/approvals', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Admin', href: '/org/org-1/admin' },
+			{ label: 'Settings', href: '/org/org-1/settings' },
 			{ label: 'Approvals' }
 		]);
 	});

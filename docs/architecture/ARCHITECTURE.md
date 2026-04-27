@@ -60,11 +60,9 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Many server flows already go through ports and adapters.
 - Direct provider coupling still exists in route and utility code, especially around:
   - auth flows and MFA endpoints
-  - organization settings/member management
-  - billing routes
   - admin/platform utilities
-  - export routes
   - some org layout settings fetches
+  - auth, billing, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
 - Service-role Supabase usage also exists for platform admin, audit writes, notifications, cleanup jobs, demo/sandbox paths, and webhook processing.
 
 ### Product surface reality

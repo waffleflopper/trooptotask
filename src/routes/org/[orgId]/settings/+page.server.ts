@@ -3,13 +3,13 @@ import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
-import { buildLayoutContext, buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { GroupEntity } from '$lib/server/entities/group';
-import { sanitizeString } from '$lib/server/validation';
 import {
 	deleteOrganization as deleteOrganizationUseCase,
+	renameOrganization,
 	transferOrganizationOwnership
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
@@ -25,17 +25,25 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const { orgName, userRole, allOrgs, isAdmin } = parentData;
 	const permissions = parentData.permissions!;
 	return loadWithContext(locals, cookies, orgId, {
-		permission: 'manageMembers',
+		permission: 'none',
 		fn: async (ctx) => {
-			const [membershipRows, invitationRows, groupRows] = await Promise.all([
-				ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
-				ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
-					status: 'pending'
-				}),
-				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				})
-			]);
+			const canManageMembers = permissions.canManageMembers;
+			const shouldLoadGovernanceData = userRole === 'owner' || userRole === 'admin' || canManageMembers;
+			let membershipRows: Record<string, unknown>[] = [];
+			let invitationRows: Record<string, unknown>[] = [];
+			let groupRows: Record<string, unknown>[] = [];
+
+			if (shouldLoadGovernanceData) {
+				[membershipRows, invitationRows, groupRows] = await Promise.all([
+					ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
+					ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
+						status: 'pending'
+					}),
+					ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					})
+				]);
+			}
 
 			const members = membershipRows.map((m) => ({
 				id: m.id as string,
@@ -95,7 +103,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				isLimited: false
 			};
 
-			if (isBillingEnabled) {
+			if (shouldLoadGovernanceData && isBillingEnabled) {
 				const [tier, exportCount] = await Promise.all([
 					ctx.subscription.getEffectiveTier(),
 					ctx.subscription.getMonthlyExportCount()
@@ -117,7 +125,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				invitations,
 				isOwner: userRole === 'owner',
 				isAdmin,
-				canManageMembers: permissions.canManageMembers,
+				canManageMembers,
 				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
 				exportInfo
 			};
@@ -126,27 +134,28 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 };
 
 export const actions: Actions = {
-	updateName: async ({ params, request, locals, cookies }) => {
+	updateName: async (event) => {
+		const { request, locals } = event;
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
-		const { orgId } = params;
-		const ctx = await buildLayoutContext(locals, cookies, orgId);
-		ctx.auth.requireManageMembers();
 		const formData = await request.formData();
-		const name = sanitizeString(formData.get('name') as string, 100);
-
-		if (!name) {
-			return fail(400, { error: 'Organization name is required' });
+		try {
+			const ctx = await buildRouteContext(event);
+			return await renameOrganization(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				},
+				{
+					name: (formData.get('name') as string) ?? ''
+				}
+			);
+		} catch (error) {
+			return toActionFailure('error', error);
 		}
-
-		const { error } = await locals.supabase.from('organizations').update({ name }).eq('id', orgId);
-
-		if (error) {
-			return fail(500, { error: error.message });
-		}
-
-		return { nameSuccess: true };
 	},
 
 	invite: async (event) => {

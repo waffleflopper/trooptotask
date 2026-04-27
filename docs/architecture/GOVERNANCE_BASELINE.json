@@ -122,34 +122,10 @@
 			"reason": "Password reset exchange remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/org/[orgId]/admin/approvals/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Admin approvals still read directly through the provider in route code.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/admin/archived/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Archived admin queries still run directly in the route layer.",
-			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/admin/settings/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Admin settings still use direct route-level provider queries.",
-			"driftIds": ["D-02"]
-		},
-		{
 			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Critical Tasks layout still queries directly in route code.",
 			"driftIds": ["D-02"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Organization settings still performs direct route-level provider work for organization rename.",
-			"driftIds": ["D-02", "D-08"]
 		},
 		{
 			"path": "src/routes/suspended/+page.server.ts",

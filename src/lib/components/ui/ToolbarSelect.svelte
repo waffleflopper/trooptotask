@@ -10,10 +10,18 @@
 		options: ToolbarSelectOption[];
 		value?: string;
 		width?: 'default' | 'wide';
+		disabled?: boolean;
 		onValueChange?: (value: string) => void;
 	}
 
-	let { ariaLabel, options, value = $bindable(''), width = 'default', onValueChange }: Props = $props();
+	let {
+		ariaLabel,
+		options,
+		value = $bindable(''),
+		width = 'default',
+		disabled = false,
+		onValueChange
+	}: Props = $props();
 
 	const selectClass = $derived(['toolbar-select', `toolbar-select--${width}`].join(' '));
 
@@ -23,7 +31,7 @@
 	}
 </script>
 
-<select class={selectClass} aria-label={ariaLabel} bind:value onchange={handleChange}>
+<select class={selectClass} aria-label={ariaLabel} {disabled} bind:value onchange={handleChange}>
 	{#each options as option (option.value)}
 		<option value={option.value} disabled={option.disabled}>{option.label}</option>
 	{/each}
@@ -81,5 +89,10 @@
 		outline: var(--focus-outline);
 		outline-offset: var(--focus-outline-offset);
 		box-shadow: var(--focus-ring);
+	}
+
+	.toolbar-select:disabled {
+		cursor: not-allowed;
+		opacity: 0.62;
 	}
 </style>

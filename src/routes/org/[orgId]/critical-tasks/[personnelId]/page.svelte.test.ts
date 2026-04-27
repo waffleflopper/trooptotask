@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -52,6 +52,18 @@ const activeTask: IctTask = {
 	createdAt: '2026-04-01T12:00:00Z'
 };
 
+const secondaryTask: IctTask = {
+	id: 'task-2',
+	taskCode: '181-105-1003',
+	title: 'Airway management',
+	description: null,
+	mos: ['68W'],
+	expirationMonths: 12,
+	sortOrder: 1,
+	archivedAt: null,
+	createdAt: '2026-04-01T12:00:00Z'
+};
+
 const activeCompletion: PersonnelIctCompletion = {
 	id: 'completion-1',
 	personnelId: 'person-1',
@@ -82,6 +94,7 @@ describe('critical tasks personnel detail route', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
+					breadcrumbLabel: 'SGT Smith, Jane',
 					criticalTasksPersonnelHistory: {
 						personnel: {
 							id: 'person-1',
@@ -112,6 +125,7 @@ describe('critical tasks personnel detail route', () => {
 			props: {
 				data: {
 					orgId: 'org-1',
+					breadcrumbLabel: 'SGT Smith, Jane',
 					criticalTasksSettings: {
 						defaultExpirationMonths: 12,
 						expiringSoonWarningDays: 60
@@ -135,5 +149,60 @@ describe('critical tasks personnel detail route', () => {
 
 		expect(screen.getByText('Applicable Critical Tasks')).toBeTruthy();
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
+	});
+
+	it('wires personnel detail toolbar search, filters, and actions through the route', async () => {
+		ictTasksStore.load([activeTask, secondaryTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+		vi.spyOn(window, 'print').mockImplementation(() => undefined);
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					breadcrumbLabel: 'SGT Smith, Jane',
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					},
+					criticalTasksPersonnelHistory: {
+						personnel: {
+							id: 'person-1',
+							rank: 'SGT',
+							firstName: 'Jane',
+							lastName: 'Smith',
+							mos: '68W',
+							clinicRole: 'Medic',
+							groupId: 'group-alpha',
+							groupName: 'Alpha'
+						},
+						rows: []
+					}
+				}
+			}
+		});
+
+		const taskTable = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(within(taskTable).getByText('Perform tactical combat casualty care')).toBeTruthy();
+		expect(within(taskTable).getByText('Airway management')).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Filter by task ID or name'), { target: { value: 'airway' } });
+		await waitFor(() => {
+			expect(within(taskTable).queryByText('Perform tactical combat casualty care')).toBeNull();
+			expect(within(taskTable).getByText('Airway management')).toBeTruthy();
+		});
+
+		await fireEvent.input(screen.getByLabelText('Filter by task ID or name'), { target: { value: '' } });
+		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'not-recorded' } });
+		await waitFor(() => {
+			expect(within(taskTable).queryByText('Perform tactical combat casualty care')).toBeNull();
+			expect(within(taskTable).getByText('Airway management')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
+		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Print Record' }));
+		expect(window.print).toHaveBeenCalled();
 	});
 });

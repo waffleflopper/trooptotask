@@ -92,6 +92,20 @@ const completions = [
 	{ id: 'c2', ictTaskId: 'task-1' }
 ] as PersonnelIctCompletion[];
 
+function rectWithWidth(width: number): DOMRect {
+	return {
+		x: 0,
+		y: 0,
+		width,
+		height: 34,
+		top: 0,
+		right: width,
+		bottom: 34,
+		left: 0,
+		toJSON: () => ({})
+	} as DOMRect;
+}
+
 describe('IctTaskLibraryPage', () => {
 	beforeEach(() => {
 		orgContextMock.current = orgContextMock.ownerContext();
@@ -110,11 +124,71 @@ describe('IctTaskLibraryPage', () => {
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
 		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
+		expect(screen.getByLabelText('MOS').querySelector('option[value=""]')?.textContent).toBe('All MOS');
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(
 			within(screen.getByRole('list', { name: 'ICT task library' })).getByText('Casualty Care / 68W')
 		).toBeTruthy();
 		expect(screen.queryByText('181-105-9999')).toBeNull();
+	});
+
+	it('orders library filters before search', () => {
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		const activeToggle = screen.getByRole('button', { name: 'Active' });
+		const mosFilter = screen.getByLabelText('MOS');
+		const search = screen.getByLabelText('Search');
+
+		expect(activeToggle.compareDocumentPosition(mosFilter) & 4).toBeTruthy();
+		expect(mosFilter.compareDocumentPosition(search) & 4).toBeTruthy();
+	});
+
+	it('compacts the library search filter before collapsing library filters', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-toolbar]')) return rectWithWidth(1000);
+			return originalRect.call(this);
+		});
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		await waitFor(() => {
+			expect(screen.getByRole('toolbar', { name: 'ICT task library controls' }).dataset.toolbarCompactPhase).toBe(
+				'search'
+			);
+		});
+		expect(screen.getByTestId('ict-library-filters')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
+		expect(screen.queryByRole('searchbox', { name: 'Search' })).toBeNull();
+	});
+
+	it('marks archived as an active filter when library controls compact', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-toolbar]')) return rectWithWidth(520);
+			return originalRect.call(this);
+		});
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		const filterTrigger = screen.getByRole('button', { name: 'ICT task library filters' });
+		expect(filterTrigger.getAttribute('data-active-count')).toBe('0');
+
+		await fireEvent.click(filterTrigger);
+		await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
+
+		expect(filterTrigger.getAttribute('data-active-count')).toBe('1');
+		expect(within(filterTrigger).getByText('1 active')).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Search'), { target: { value: '9999' } });
+
+		expect(filterTrigger.getAttribute('data-active-count')).toBe('2');
+		expect(within(filterTrigger).getByText('2 active')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+		expect(filterTrigger.getAttribute('data-active-count')).toBe('0');
+		expect(screen.getByRole('button', { name: 'Active' }).getAttribute('aria-pressed')).toBe('true');
 	});
 
 	it('hides import and edit actions for read-only users', () => {
@@ -150,13 +224,12 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.input(screen.getByLabelText('Search'), {
 			target: { value: '' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
-		await fireEvent.mouseDown(within(screen.getByRole('listbox')).getByText('68W'));
+		await fireEvent.change(screen.getByLabelText('MOS'), { target: { value: '68W' } });
 
 		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
 		expect(within(taskList()).getByText('Submit readiness report')).toBeTruthy();
 		expect(within(taskList()).queryByText('React to contact')).toBeNull();
-		expect(screen.getByText('2 of 3 shown')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Clear filters' })).toBeTruthy();
 
 		await fireEvent.input(screen.getByLabelText('Search'), {
 			target: { value: '181 care' }

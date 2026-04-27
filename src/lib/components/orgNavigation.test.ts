@@ -189,6 +189,19 @@ describe('getOrgBreadcrumbs', () => {
 		]);
 	});
 
+	it('uses a route-provided personnel label for Critical Tasks person records', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCriticalTasks: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/person-1', 'Test Org', nav, 'CPT Hayes, Emma')).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'CPT Hayes, Emma' }
+		]);
+	});
+
 	it('uses support route breadcrumbs for Settings routes outside primary navigation', () => {
 		const nav = getOrgNavigation('org-1', basePermissions);
 

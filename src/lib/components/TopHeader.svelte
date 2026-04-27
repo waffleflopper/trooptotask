@@ -39,8 +39,11 @@
 	}: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
+	const routeLeafLabel = $derived(
+		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
+	);
 	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
-	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems));
+	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems, routeLeafLabel));
 </script>
 
 <aside class="app-rail" aria-label="Primary navigation">

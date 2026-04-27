@@ -7,9 +7,10 @@
 
 	interface Props {
 		mode?: ToolbarStatefulControlMode;
+		disabledFilter?: boolean;
 	}
 
-	let { mode = 'full' }: Props = $props();
+	let { mode = 'full', disabledFilter = false }: Props = $props();
 
 	let groupId = $state('');
 	let gapsOnly = $state(false);
@@ -39,6 +40,7 @@
 			defaultValue=""
 			width="wide"
 			mode="full"
+			disabled={disabledFilter}
 			bind:value={groupId}
 		/>
 		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />
@@ -57,6 +59,7 @@
 			defaultValue=""
 			width="wide"
 			mode="full"
+			disabled={disabledFilter}
 			bind:value={groupId}
 		/>
 		<ToolbarToggle label="Show gaps only" bind:pressed={gapsOnly} />

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import {
+		Toolbar,
 		ToolbarActions,
 		ToolbarFilterSelect,
 		ToolbarGroup,
@@ -73,7 +73,7 @@
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }
 	];
-	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0));
+	const activeFilterCount = $derived((selectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0) + (personnelSearch.trim() ? 1 : 0));
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
@@ -244,54 +244,75 @@
 		</section>
 	{:else}
 		<main class="page-content">
-			{#snippet criticalTasksFilterControls()}
-				<ToolbarViewToggle
-					ariaLabel="Critical Tasks matrix view mode"
-					options={matrixViewOptions}
-					value={viewMode}
-					mode="full"
-					onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-				/>
-				<ToolbarToggle
-					label="Show gaps only"
-					title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-					bind:pressed={gapsOnly}
-				/>
-				<ToolbarFilterSelect
-					ariaLabel="Critical Tasks group filter"
-					options={groupFilterOptions}
-					defaultValue=""
-					value={selectedGroupId}
-					width="wide"
-					mode="full"
-					onValueChange={(value) => (selectedGroupId = value)}
-				/>
-			{/snippet}
-
-			<FloatingPageToolbar ariaLabel="Critical Tasks controls" collapse="narrow" leadingMin="0">
+			<Toolbar ariaLabel="Critical Tasks controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
 				{#snippet leading()}
-					<div class="matrix-toolbar-controls" aria-label="Critical Tasks matrix filters">
-						<ToolbarGroup
-							label="Critical Tasks filters"
-							activeCount={activeFilterCount}
-							testId="critical-tasks-filter-group"
-						>
-							{#snippet full()}
-								{@render criticalTasksFilterControls()}
-							{/snippet}
-
-							{#snippet panel()}
-								{@render criticalTasksFilterControls()}
-							{/snippet}
-						</ToolbarGroup>
-						<ToolbarSearchItem
-							testId="critical-tasks-search"
-							ariaLabel="Search by name, rank, or MOS"
-							placeholder="Search name, rank, MOS..."
-							width="wide"
-							bind:value={personnelSearch}
-						/>
-					</div>
+					<ToolbarGroup
+						label="Critical Tasks filters"
+						activeCount={activeFilterCount}
+						testId="critical-tasks-filter-group"
+					>
+						{#snippet full()}
+							<ToolbarViewToggle
+								ariaLabel="Critical Tasks matrix view mode"
+								options={matrixViewOptions}
+								value={viewMode}
+								mode="full"
+								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Critical Tasks group filter"
+								options={groupFilterOptions}
+								defaultValue=""
+								value={selectedGroupId}
+								width="wide"
+								mode="full"
+								onValueChange={(value) => (selectedGroupId = value)}
+							/>
+							<ToolbarToggle
+								label="Show gaps only"
+								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+								bind:pressed={gapsOnly}
+							/>
+							<ToolbarSearchItem
+								testId="critical-tasks-search"
+								ariaLabel="Search by name, rank, or MOS"
+								placeholder="Search name, rank, MOS..."
+								width="wide"
+								bind:value={personnelSearch}
+							/>
+						{/snippet}
+						{#snippet panel()}
+							<ToolbarViewToggle
+								ariaLabel="Critical Tasks matrix view mode"
+								options={matrixViewOptions}
+								value={viewMode}
+								mode="full"
+								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
+							/>
+							<ToolbarFilterSelect
+								ariaLabel="Critical Tasks group filter"
+								options={groupFilterOptions}
+								defaultValue=""
+								value={selectedGroupId}
+								width="wide"
+								mode="full"
+								onValueChange={(value) => (selectedGroupId = value)}
+							/>
+							<ToolbarToggle
+								label="Show gaps only"
+								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+								bind:pressed={gapsOnly}
+							/>
+							<ToolbarSearchItem
+								testId="critical-tasks-search"
+								ariaLabel="Search by name, rank, or MOS"
+								placeholder="Search name, rank, MOS..."
+								width="wide"
+								mode="full"
+								bind:value={personnelSearch}
+							/>
+						{/snippet}
+					</ToolbarGroup>
 				{/snippet}
 
 				<ToolbarActions
@@ -300,7 +321,7 @@
 					overflowAriaLabel="More Critical Tasks actions"
 					overflowIconOnly
 				/>
-			</FloatingPageToolbar>
+			</Toolbar>
 
 			{#if loading}
 				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
@@ -423,29 +444,6 @@
 	.page-message p {
 		margin: 0;
 		color: var(--text-secondary);
-	}
-
-	.matrix-toolbar-controls {
-		display: flex;
-		flex-wrap: nowrap;
-		align-items: center;
-		gap: var(--sp-2);
-		width: auto;
-		min-width: 0;
-	}
-
-	.matrix-toolbar-controls :global(.toolbar-select) {
-		width: auto;
-	}
-
-	.matrix-toolbar-controls :global(.toolbar-search) {
-		flex: 0 1 18rem;
-		width: min(18rem, 100%);
-		min-width: 0;
-	}
-
-	.matrix-toolbar-controls :global(.segmented-control) {
-		flex: 0 0 auto;
 	}
 
 	/* ── Responsive ─────────────────────────────────────────── */

@@ -13,6 +13,7 @@
 		width?: 'default' | 'wide';
 		mode?: ToolbarStatefulControlMode;
 		panelMode?: ToolbarPanelMode;
+		disabled?: boolean;
 		title?: string;
 		onValueChange?: (value: string) => void;
 	}
@@ -25,6 +26,7 @@
 		width = 'default',
 		mode = 'compact',
 		panelMode = 'inline',
+		disabled = false,
 		title,
 		onValueChange
 	}: Props = $props();
@@ -46,6 +48,7 @@
 	});
 
 	function togglePanel(): void {
+		if (disabled) return;
 		open = !open;
 	}
 
@@ -60,7 +63,7 @@
 </script>
 
 {#if !compact}
-	<ToolbarSelect {ariaLabel} {options} {width} bind:value {onValueChange} />
+	<ToolbarSelect {ariaLabel} {options} {width} {disabled} bind:value {onValueChange} />
 {:else}
 	<div class="toolbar-filter-select" data-panel-mode={panelMode}>
 		<button
@@ -71,6 +74,7 @@
 			title={resolvedTitle}
 			aria-expanded={open}
 			data-filter-active={active}
+			{disabled}
 			onclick={togglePanel}
 			onkeydown={handleKeydown}
 		>
@@ -86,7 +90,7 @@
 				tabindex="-1"
 				onkeydown={handleKeydown}
 			>
-				<ToolbarSelect {ariaLabel} {options} width="wide" bind:value {onValueChange} />
+				<ToolbarSelect {ariaLabel} {options} width="wide" {disabled} bind:value {onValueChange} />
 			</div>
 		{/if}
 	</div>

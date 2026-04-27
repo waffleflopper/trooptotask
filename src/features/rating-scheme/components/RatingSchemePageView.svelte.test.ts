@@ -1,12 +1,20 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+
+const { exportRatingSchemeMock } = vi.hoisted(() => ({
+	exportRatingSchemeMock: vi.fn(async () => undefined)
+}));
+
+vi.mock('$features/rating-scheme/utils/ratingSchemeExport', () => ({
+	exportRatingScheme: exportRatingSchemeMock
+}));
 
 const entries: RatingSchemeEntry[] = [
 	{
@@ -95,11 +103,13 @@ function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
 
 describe('RatingSchemePageView', () => {
 	beforeEach(() => {
+		exportRatingSchemeMock.mockClear();
 		ratingSchemeStore.load(entries, 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
+		vi.restoreAllMocks();
 		ratingSchemeStore.load([], 'org-test-reset');
 	});
 
@@ -162,5 +172,76 @@ describe('RatingSchemePageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Entry' }));
 
 		expect(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal')?.entry).toBeNull();
+	});
+
+	it('preserves evaluation view and export actions in the shared toolbar', async () => {
+		const ctx = makeContext();
+		const personnelLookup = [
+			{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
+			{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
+		];
+
+		render(RatingSchemePageView, {
+			props: {
+				ctx,
+				personnelLookup
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+		expect(ctx.ratingViewMode).toBe('table');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
+	});
+
+	it('collapses evaluation filters from measured content before actions overlap', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-toolbar]')) {
+				return {
+					x: 0,
+					y: 0,
+					width: 760,
+					height: 34,
+					top: 0,
+					right: 760,
+					bottom: 34,
+					left: 0,
+					toJSON: () => ({})
+				} as DOMRect;
+			}
+			if (this.classList.contains('evals-toolbar-leading')) {
+				return {
+					x: 0,
+					y: 0,
+					width: 560,
+					height: 34,
+					top: 0,
+					right: 560,
+					bottom: 34,
+					left: 0,
+					toJSON: () => ({})
+				} as DOMRect;
+			}
+			return originalRect.call(this);
+		});
+
+		render(RatingSchemePageView, {
+			props: {
+				ctx: makeContext(),
+				personnelLookup: [
+					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
+					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
+				]
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
+		});
+		expect(screen.getByRole('button', { name: 'Evaluation filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
 	});
 });

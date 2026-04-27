@@ -3,6 +3,7 @@ import { fail } from '$lib/server/core/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 
 export interface OrganizationSettingsAdministrationPort {
+	renameOrganization(orgId: string, name: string): Promise<string | null>;
 	transferOwnership(orgId: string, newOwnerId: string): Promise<string | null>;
 	lookupOrganization(orgId: string): Promise<{ name: string | null; errorMessage: string | null }>;
 	deleteOrganization(orgId: string): Promise<string | null>;
@@ -21,6 +22,35 @@ interface TransferOrganizationOwnershipInput {
 
 interface DeleteOrganizationInput {
 	confirmName: string;
+}
+
+interface RenameOrganizationInput {
+	name: string;
+}
+
+export async function renameOrganization(
+	ports: OrganizationSettingsAdministrationPorts,
+	input: RenameOrganizationInput
+): Promise<{ nameSuccess: true }> {
+	ports.auth.requireManageMembers();
+
+	const name = sanitizeString(input.name, 100);
+	if (!name) {
+		fail(400, 'Organization name is required');
+	}
+
+	const errorMessage = await ports.administration.renameOrganization(ports.auth.orgId, name);
+	if (errorMessage) {
+		fail(500, errorMessage);
+	}
+
+	ports.audit.log({
+		action: 'org.renamed',
+		resourceType: 'organization',
+		details: { name }
+	});
+
+	return { nameSuccess: true };
 }
 
 export async function transferOrganizationOwnership(

@@ -97,10 +97,10 @@ Focus entries:
 
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
-  - org settings ownership transfer and delete now run behind an app-owned use case and Supabase adapter
+  - org settings rename, ownership transfer, and delete now run behind an app-owned use case and Supabase adapter
   - billing organization-state reads and writes plus the shared export-record lifecycle now run through app-owned store-backed helpers in `#619`
   - billing cancellation now documents the two-phase provider reality by treating post-Stripe local reset failures as deferred reconciliation through the Stripe deleted-subscription webhook in `#637`
-  - organization rename plus several admin/platform routes remain route-local drift
+  - several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
   - provider swap blast radius is still too large
 - Intended v1 direction:
@@ -109,7 +109,7 @@ Focus entries:
   - current auth-provider integration
   - working production flows
 - Open questions:
-  - which remaining route clusters should move first after org rename and admin/platform operations
+  - which remaining route clusters should move first after admin/platform operations
   - what intermediate adapter shapes make the migration safest
 - Suggested next skill or planning mode:
   - `safe-provider-boundary-change`

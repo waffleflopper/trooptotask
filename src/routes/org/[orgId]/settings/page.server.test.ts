@@ -7,6 +7,7 @@ const {
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
 	inviteOrganizationMemberMock,
+	renameOrganizationMock,
 	revokeOrganizationInvitationMock,
 	removeOrganizationMemberMock,
 	transferOrganizationOwnershipMock,
@@ -18,6 +19,7 @@ const {
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
+	renameOrganizationMock: vi.fn(),
 	revokeOrganizationInvitationMock: vi.fn(),
 	removeOrganizationMemberMock: vi.fn(),
 	transferOrganizationOwnershipMock: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 
 	return {
 		...actual,
+		renameOrganization: renameOrganizationMock,
 		transferOrganizationOwnership: transferOrganizationOwnershipMock,
 		deleteOrganization: deleteOrganizationUseCaseMock
 	};
@@ -89,15 +92,12 @@ describe('org settings page server actions', () => {
 		inviteOrganizationMemberMock.mockResolvedValue({ inviteSuccess: true });
 		revokeOrganizationInvitationMock.mockResolvedValue({ success: true });
 		removeOrganizationMemberMock.mockResolvedValue({ success: true });
+		renameOrganizationMock.mockResolvedValue({ nameSuccess: true });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		updateOrganizationMemberPermissionsMock.mockResolvedValue({ permissionSuccess: true });
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {
-		const eqMock = vi.fn().mockResolvedValue({ error: null });
-		const updateMock = vi.fn().mockReturnValue({ eq: eqMock });
-		const fromMock = vi.fn().mockReturnValue({ update: updateMock });
-
 		const result = await actions.updateName({
 			request: new Request('http://localhost/org/org-1/settings?/updateName', {
 				method: 'POST',
@@ -106,16 +106,23 @@ describe('org settings page server actions', () => {
 			}),
 			locals: {
 				user: { id: 'user-1', email: 'user@example.com' },
-				supabase: { from: fromMock }
+				supabase: {}
 			},
 			params: { orgId: 'org-1' },
-			cookies: {}
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
 		} as never);
 
 		expect(result).toEqual({ nameSuccess: true });
-		expect(fromMock).toHaveBeenCalledWith('organizations');
-		expect(updateMock).toHaveBeenCalledWith({ name: 'Renamed Org' });
-		expect(eqMock).toHaveBeenCalledWith('id', 'org-1');
+		expect(renameOrganizationMock).toHaveBeenCalledWith(
+			{
+				auth: { kind: 'auth' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				administration: { kind: 'admin-port' }
+			},
+			{ name: 'Renamed Org' }
+		);
 	});
 
 	it('delegates ownership transfer to the org administration use case', async () => {

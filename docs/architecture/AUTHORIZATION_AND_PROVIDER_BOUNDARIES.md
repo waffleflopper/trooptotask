@@ -39,7 +39,7 @@ This document separates what v1 authorization and provider ownership look like t
   - rating-scheme-only members can use that Evals route without Personnel access
   - its record model remains distinct from counseling and development-goal records
 - `Leader's Book` is currently hidden from primary nav and its route redirects during redesign, but its permissions and compatibility surfaces still exist in settings, help, dashboard actions, exports, and plans.
-- Some settings and admin actions still bypass use-case boundaries; the remaining org settings route-local provider work is now limited to organization rename.
+- Some settings and admin actions still bypass use-case boundaries, but organization settings rename now runs through an app-owned use case and Supabase adapter.
 
 ### Current provider-boundary drift
 
@@ -47,7 +47,6 @@ This document separates what v1 authorization and provider ownership look like t
 - Even so, direct `locals.supabase` usage still leaks into multiple non-adapter surfaces.
 - Billing organization-state reads and writes now run through app-owned store-backed helpers, including cancellation-state reconciliation when Stripe cancellation succeeds before a local org update failure, and the shared `data_exports` lifecycle no longer passes provider clients through export routes.
 - The largest route-level drift clusters today are:
-  - organization settings organization rename action
   - admin/platform operations
   - some critical-tasks and settings layout helpers
 - Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, webhooks, and demo/sandbox flows.
@@ -182,7 +181,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - route files using direct `locals.supabase` for business logic
 - service-role utilities that still carry business rules rather than pure provider operations
-- org settings rename plus admin/platform routes that still mix route orchestration with provider-specific persistence
+- admin/platform routes that still mix route orchestration with provider-specific persistence
 
 ## What Counts As Good Change Here
 

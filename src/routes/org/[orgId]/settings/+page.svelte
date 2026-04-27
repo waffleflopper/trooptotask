@@ -187,16 +187,18 @@
 			{/if}
 		</div>
 
-		<OrganizationMemberManager
-			orgId={data.orgId}
-			members={data.members}
-			invitations={data.invitations}
-			isOwner={data.isOwner ?? false}
-			isAdmin={data.isAdmin ?? false}
-			canManageMembers={data.canManageMembers ?? false}
-			groups={data.groups}
-			form={form ?? undefined}
-		/>
+		{#if data.canManageMembers}
+			<OrganizationMemberManager
+				orgId={data.orgId}
+				members={data.members}
+				invitations={data.invitations}
+				isOwner={data.isOwner ?? false}
+				isAdmin={data.isAdmin ?? false}
+				canManageMembers={data.canManageMembers ?? false}
+				groups={data.groups}
+				form={form ?? undefined}
+			/>
+		{/if}
 
 		{#if data.isOwner || data.isAdmin || data.permissions?.canManageMembers}
 			<div class="settings-card">

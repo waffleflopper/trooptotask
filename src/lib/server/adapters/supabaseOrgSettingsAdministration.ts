@@ -10,6 +10,12 @@ export function createSupabaseOrgSettingsAdministrationPort(
 	const supabase = locals.supabase;
 
 	return {
+		async renameOrganization(orgId, name) {
+			const { error } = await supabase.from('organizations').update({ name }).eq('id', orgId);
+
+			return error?.message ?? null;
+		},
+
 		async transferOwnership(orgId, newOwnerId) {
 			const { error } = await supabase.rpc('transfer_org_ownership', {
 				p_organization_id: orgId,

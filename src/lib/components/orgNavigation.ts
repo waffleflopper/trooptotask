@@ -152,7 +152,12 @@ export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean 
 	return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
-export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: OrgNavItem[]): OrgBreadcrumb[] {
+export function getOrgBreadcrumbs(
+	pathname: string,
+	orgName: string,
+	navItems: OrgNavItem[],
+	routeLeafLabel?: string | null
+): OrgBreadcrumb[] {
 	const dashboardItem = navItems.find((item) => item.id === 'dashboard') ?? navItems[0];
 	const orgCrumb: OrgBreadcrumb = { label: orgName, href: dashboardItem?.href };
 	const supportBreadcrumbs = getSupportRouteBreadcrumbs(pathname, orgCrumb);
@@ -176,7 +181,7 @@ export function getOrgBreadcrumbs(pathname: string, orgName: string, navItems: O
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
-		(activeItem.id === 'critical-tasks' && childSegment ? 'Person' : undefined);
+		(activeItem.id === 'critical-tasks' && childSegment ? (routeLeafLabel ?? 'Person') : undefined);
 	if (childLabel) {
 		breadcrumbs.push({ label: childLabel });
 	}

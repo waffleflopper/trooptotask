@@ -11,6 +11,7 @@ export type ToolbarActionIcon =
 	| 'clipboard-check'
 	| 'clipboard-list'
 	| 'download'
+	| 'printer'
 	| 'settings'
 	| 'upload';
 export type ToolbarActionLayoutMode = 'full' | 'compact' | 'overflow';

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ToolbarTest from './ToolbarTest.svelte';
 
 describe('Toolbar', () => {
@@ -94,4 +94,37 @@ describe('Toolbar', () => {
 		expect(screen.getByRole('button', { name: 'Search personnel' })).toBeTruthy();
 		expect(screen.getByLabelText('Group filter')).toBeTruthy();
 	});
+
+	it('uses overflowing leading content width when calculating action compaction', async () => {
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			if (this.matches('[data-toolbar]')) return rectWithWidth(568);
+			if (this.classList.contains('toolbar-group')) return rectWithWidth(260);
+			if (this.classList.contains('toolbar-select')) return rectWithWidth(120);
+			if (this.classList.contains('toolbar-search')) return rectWithWidth(360);
+			if (this.hasAttribute('data-measure-overflow')) return rectWithWidth(40);
+			return originalRect.call(this);
+		});
+
+		render(ToolbarTest, { props: { containerWidth: 568, groupCompactAt: 300, withMeasuredActions: true } });
+
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: 'Export CSV' }).className).toContain('toolbar-action--compact');
+		});
+		expect(screen.getByRole('button', { name: 'Record Training' }).className).toContain('toolbar-action--compact');
+	});
 });
+
+function rectWithWidth(width: number): DOMRect {
+	return {
+		width,
+		height: 40,
+		x: 0,
+		y: 0,
+		top: 0,
+		right: width,
+		bottom: 40,
+		left: 0,
+		toJSON: () => ({})
+	} as DOMRect;
+}

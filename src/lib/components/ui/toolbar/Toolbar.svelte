@@ -157,15 +157,13 @@
 			return;
 		}
 
+		const measuredLeadingWidth = Math.max(leadingWidth, leadingContentWidth);
 		const availableActionSlotWidth = Math.max(
 			0,
-			toolbarWidth - paddingInline - leadingWidth - overflowWidth - gapTotal
+			toolbarWidth - paddingInline - measuredLeadingWidth - overflowWidth - gapTotal
 		);
 		const measuredAvailableActionWidth = Math.max(0, availableActionSlotWidth - actionSlotMetrics.nonToolbarWidth);
-		availableActionWidth =
-			compactLeadingWhenCrowded && !nextLeadingContentCrowded
-				? Math.max(measuredAvailableActionWidth, actionSlotMetrics.toolbarActionRequiredWidth)
-				: measuredAvailableActionWidth;
+		availableActionWidth = measuredAvailableActionWidth;
 	}
 
 	function measureActionSlot(): {
@@ -210,10 +208,6 @@
 
 	function measureFlexContentWidth(element: HTMLElement): number {
 		const styles = getComputedStyle(element);
-		if (!styles.display.includes('flex')) {
-			return measureElementWidth(element);
-		}
-
 		const children = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
 		if (children.length === 0) {
 			return measureElementWidth(element);
@@ -234,7 +228,12 @@
 			return total + (childCanStretch ? measureFlexContentWidth(child) : measureElementWidth(child));
 		}, 0);
 
-		return childWidth + gapTotal;
+		const measuredChildWidth = childWidth + gapTotal;
+		if (!styles.display.includes('flex')) {
+			return Math.max(measureElementWidth(element), measuredChildWidth);
+		}
+
+		return measuredChildWidth;
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {

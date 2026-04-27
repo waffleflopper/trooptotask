@@ -6,6 +6,7 @@
 		ClipboardCheck,
 		ClipboardList,
 		Download,
+		Printer,
 		Settings,
 		Upload
 	} from '@lucide/svelte';
@@ -20,6 +21,8 @@
 
 {#if icon === 'download'}
 	<Download size={16} strokeWidth={2} aria-hidden="true" />
+{:else if icon === 'printer'}
+	<Printer size={16} strokeWidth={2} aria-hidden="true" />
 {:else if icon === 'upload'}
 	<Upload size={16} strokeWidth={2} aria-hidden="true" />
 {:else if icon === 'settings'}

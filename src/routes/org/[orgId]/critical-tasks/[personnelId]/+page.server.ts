@@ -18,13 +18,17 @@ export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasks
 	return async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
 		depends('app:critical-tasks-personnel-history');
 		const { orgId, personnelId } = params;
+		const criticalTasksPersonnelHistory = await loadWithContextFn(locals, cookies, orgId, {
+			permission: 'critical-tasks',
+			fn: (ctx) => fetchHistoryFn(ctx, personnelId)
+		});
+		const person = criticalTasksPersonnelHistory.personnel;
+		const breadcrumbLabel = [person.rank, `${person.lastName}, ${person.firstName}`].filter(Boolean).join(' ');
 
 		return {
 			orgId,
-			criticalTasksPersonnelHistory: await loadWithContextFn(locals, cookies, orgId, {
-				permission: 'critical-tasks',
-				fn: (ctx) => fetchHistoryFn(ctx, personnelId)
-			})
+			breadcrumbLabel,
+			criticalTasksPersonnelHistory
 		};
 	};
 }

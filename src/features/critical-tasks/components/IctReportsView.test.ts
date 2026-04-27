@@ -299,20 +299,43 @@ const filteredDashboard: IctReportDashboard = {
 	readinessDistribution: readinessDistribution('68W', ['68W', '11B'])
 };
 
+let measuredToolbarWidth = 960;
+
 describe('IctReportsView', () => {
 	beforeEach(() => {
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-			x: 0,
-			y: 0,
-			width: 720,
-			height: 320,
-			top: 0,
-			right: 720,
-			bottom: 320,
-			left: 0,
-			toJSON: () => ({})
-		} as DOMRect);
-		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(720);
+		measuredToolbarWidth = 960;
+
+		function measuredWidth(element: HTMLElement): number {
+			if (element.matches('[data-toolbar]')) return measuredToolbarWidth;
+			if (element.classList.contains('toolbar__leading')) return 580;
+			if (element.classList.contains('toolbar__actions')) return 180;
+			if (element.hasAttribute('data-toolbar-actions')) return 160;
+			if (element.hasAttribute('data-measure-full')) return 112;
+			if (element.hasAttribute('data-measure-compact')) return 40;
+			if (element.classList.contains('toolbar-action--full')) return 112;
+			if (element.classList.contains('toolbar-action--compact')) return 40;
+			if (element.classList.contains('toolbar-overflow-menu__button')) return 40;
+			if (element.classList.contains('toolbar-group')) return 560;
+			return 720;
+		}
+
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+			const width = measuredWidth(this);
+			return {
+				x: 0,
+				y: 0,
+				width,
+				height: 320,
+				top: 0,
+				right: width,
+				bottom: 320,
+				left: 0,
+				toJSON: () => ({})
+			} as DOMRect;
+		});
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+			return measuredWidth(this);
+		});
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(360);
 		vi.stubGlobal(
 			'fetch',
@@ -459,7 +482,7 @@ describe('IctReportsView', () => {
 		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
 	});
 
-	it('uses searchable single-select controls for group, rank, and role filters', async () => {
+	it('updates report filters through shared toolbar select controls', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
@@ -470,20 +493,11 @@ describe('IctReportsView', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Filter by group' }));
-		const groupFilter = screen.getByRole('combobox', { name: 'Filter by group' });
-		await fireEvent.input(groupFilter, { target: { value: 'Bra' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Bravo' }));
+		await fireEvent.change(screen.getByLabelText('Filter by group'), { target: { value: 'group-bravo' } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Filter by rank' }));
-		const rankFilter = screen.getByRole('combobox', { name: 'Filter by rank' });
-		await fireEvent.input(rankFilter, { target: { value: 'SG' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT' }));
+		await fireEvent.change(screen.getByLabelText('Filter by rank'), { target: { value: 'SGT' } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Filter by duty role' }));
-		const roleFilter = screen.getByRole('combobox', { name: 'Filter by duty role' });
-		await fireEvent.input(roleFilter, { target: { value: 'Rifle' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Rifleman' }));
+		await fireEvent.change(screen.getByLabelText('Filter by duty role'), { target: { value: 'Rifleman' } });
 
 		await waitFor(() => {
 			expect(fetch).toHaveBeenCalledWith(
@@ -494,5 +508,25 @@ describe('IctReportsView', () => {
 				'/org/org-1/api/critical-tasks/reports/export?groupId=group-bravo&role=Rifleman&rank=SGT'
 			);
 		});
+	});
+
+	it('collapses report filters at the shared group breakpoint', async () => {
+		measuredToolbarWidth = 580;
+
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic, infantry],
+				groups: [alpha, bravo],
+				tasks: [medicTask, commonTask],
+				initialDashboard
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
+		});
+		expect(screen.getByRole('button', { name: 'Critical task report filters' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 	});
 });

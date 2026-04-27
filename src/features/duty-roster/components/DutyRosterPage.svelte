@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
-	import { ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -440,7 +439,7 @@
 </script>
 
 <div class="duty-roster-page">
-	<FloatingPageToolbar ariaLabel="Duty roster controls" collapse="medium" leadingMin="24rem">
+	<Toolbar ariaLabel="Duty roster controls" collapse="medium" leadingMin="24rem">
 		{#snippet leading()}
 			{#if canMutate}
 				<ToolbarViewToggle
@@ -454,7 +453,7 @@
 		{/snippet}
 
 		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</FloatingPageToolbar>
+	</Toolbar>
 
 	{#if !canMutate}
 		<section class="restricted-hero">

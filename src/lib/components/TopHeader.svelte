@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import type { OrganizationMemberPermissions } from '$lib/types';
+	import { formatDate } from '$lib/utils/dates';
+	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 	import AvatarMenu from './ui/AvatarMenu.svelte';
 	import NotificationBell from './ui/NotificationBell.svelte';
 	import OrgNavIcon from './OrgNavIcon.svelte';
@@ -38,12 +41,23 @@
 		onWhatsNew
 	}: Props = $props();
 
+	let clientDashboardDateLabel = $state<string | null>(null);
 	const pathname = $derived($page.url.pathname);
+	const dashboardPath = $derived(`/org/${orgId}`);
+	const isDashboardRoot = $derived(pathname === dashboardPath);
 	const routeLeafLabel = $derived(
-		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
+		isDashboardRoot
+			? clientDashboardDateLabel
+			: typeof $page.data?.breadcrumbLabel === 'string'
+				? $page.data.breadcrumbLabel
+				: undefined
 	);
 	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems, routeLeafLabel));
+
+	onMount(() => {
+		clientDashboardDateLabel = formatDashboardDisplayDate(formatDate(new Date()));
+	});
 </script>
 
 <aside class="app-rail" aria-label="Primary navigation">

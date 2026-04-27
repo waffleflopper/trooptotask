@@ -1,20 +1,24 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import FloatingPageToolbar from '$lib/components/FloatingPageToolbar.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import { ToolbarMetaItem } from '$lib/components/ui/toolbar';
+	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
 	import DashboardTabs from './DashboardTabs.svelte';
 	import UnitReadinessTab from './tabs/UnitReadinessTab.svelte';
 	import PeopleDutyTab from './tabs/PeopleDutyTab.svelte';
 	import TrainingEvalsTab from './tabs/TrainingEvalsTab.svelte';
 	import { dashboardTabStore } from '../stores/dashboardTabStore.svelte';
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
+	import { getDashboardToolbarActions } from '../utils/dashboardToolbarActions';
 
 	let { ctx }: { ctx: DashboardContext } = $props();
 
 	onMount(() => {
 		dashboardTabStore.init(ctx.data.orgId);
 	});
+
+	const dashboardToolbarActions = $derived<ToolbarActionConfig[]>(
+		getDashboardToolbarActions(ctx.data.orgId, ctx.data.permissions, dashboardTabStore.activeTab)
+	);
 </script>
 
 <svelte:head>
@@ -23,15 +27,19 @@
 
 <div class="dashboard-page">
 	<div class="dashboard-toolbar">
-		<FloatingPageToolbar ariaLabel="Dashboard controls" collapse="narrow" leadingMin="0">
+		<Toolbar ariaLabel="Dashboard controls" collapse="narrow" leadingMin="0">
 			{#snippet leading()}
-				<DashboardTabs orgId={ctx.data.orgId} permissions={ctx.data.permissions} />
+				<DashboardTabs orgId={ctx.data.orgId} />
 			{/snippet}
 
-			<div class="dashboard-toolbar__meta">
-				<ToolbarMetaItem label={ctx.todayDisplay} />
-			</div>
-		</FloatingPageToolbar>
+			{#if dashboardToolbarActions.length > 0}
+				<ToolbarActions
+					actions={dashboardToolbarActions}
+					ariaLabel="Dashboard quick actions"
+					overflowAriaLabel="More dashboard actions"
+				/>
+			{/if}
+		</Toolbar>
 	</div>
 
 	<main class="dashboard-canvas page-scroll" id="main-content">
@@ -47,15 +55,12 @@
 					<SkeletonBlock height="220px" />
 				</div>
 			</div>
-		{:else}
-			<!-- Mobile pill switcher + quick actions render inside tab components -->
-			{#if dashboardTabStore.activeTab === 'unit-readiness'}
-				<UnitReadinessTab {ctx} />
-			{:else if dashboardTabStore.activeTab === 'people-duty'}
-				<PeopleDutyTab {ctx} />
-			{:else if dashboardTabStore.activeTab === 'training-evals'}
-				<TrainingEvalsTab {ctx} />
-			{/if}
+		{:else if dashboardTabStore.activeTab === 'unit-readiness'}
+			<UnitReadinessTab {ctx} />
+		{:else if dashboardTabStore.activeTab === 'people-duty'}
+			<PeopleDutyTab {ctx} />
+		{:else if dashboardTabStore.activeTab === 'training-evals'}
+			<TrainingEvalsTab {ctx} />
 		{/if}
 	</main>
 </div>
@@ -97,10 +102,6 @@
 		grid-template-columns: 1fr 1fr 1fr;
 	}
 
-	.dashboard-toolbar__meta {
-		display: contents;
-	}
-
 	@media (max-width: 720px) {
 		.dashboard-toolbar {
 			padding: var(--sp-3) var(--sp-3) 0;
@@ -112,12 +113,6 @@
 
 		.skeleton-row--2 {
 			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 600px) {
-		.dashboard-toolbar__meta {
-			display: none;
 		}
 	}
 </style>

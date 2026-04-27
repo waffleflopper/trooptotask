@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { downloadBlob } from './settingsDownloads';
 
 const { billingEnabledMock } = vi.hoisted(() => ({
 	billingEnabledMock: vi.fn(() => false)
@@ -20,6 +21,8 @@ import Page from './+page.svelte';
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 	billingEnabledMock.mockReturnValue(false);
 });
 
@@ -301,6 +304,45 @@ describe('org settings page', () => {
 		expect(within(archivedTable).getAllByRole('button', { name: 'Delete' })).toHaveLength(2);
 		expect(screen.queryByText('Bulk Restore')).toBeNull();
 		expect(screen.queryByText('Bulk Export')).toBeNull();
+	});
+
+	it('attaches download anchors before triggering the download', () => {
+		const createObjectURL = vi.fn(() => 'blob:archived-personnel');
+		const revokeObjectURL = vi.fn();
+		vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL);
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURL);
+
+		const appendSpy = vi.spyOn(document.body, 'appendChild');
+		const removeSpy = vi.spyOn(document.body, 'removeChild');
+		const createdAnchors: HTMLAnchorElement[] = [];
+		const anchorClick = vi.fn(() => {
+			const anchor = createdAnchors[0];
+			expect(anchor).toBeDefined();
+			if (!anchor) throw new Error('Expected download anchor to be created');
+			expect(document.body.contains(anchor)).toBe(true);
+		});
+		const createElement = document.createElement.bind(document);
+		vi.spyOn(document, 'createElement').mockImplementation((tagName: string, options?: ElementCreationOptions) => {
+			const element = createElement(tagName, options);
+			if (tagName === 'a') {
+				createdAnchors.push(element as HTMLAnchorElement);
+				Object.defineProperty(element, 'click', { value: anchorClick, configurable: true });
+			}
+			return element;
+		});
+
+		downloadBlob(new Blob(['archived personnel export']), 'PV2-Abbott-records.xlsx');
+
+		const anchor = createdAnchors[0];
+		expect(anchor).toBeInstanceOf(HTMLAnchorElement);
+		if (!anchor) throw new Error('Expected download anchor to be created');
+		expect(anchor.href).toBe('blob:archived-personnel');
+		expect(anchor.download).toBe('PV2-Abbott-records.xlsx');
+		expect(appendSpy).toHaveBeenCalledWith(anchor);
+		expect(anchorClick).toHaveBeenCalledTimes(1);
+		expect(removeSpy).toHaveBeenCalledWith(anchor);
+		expect(revokeObjectURL).toHaveBeenCalledWith('blob:archived-personnel');
+		expect(document.body.contains(anchor)).toBe(false);
 	});
 
 	it('renders data and export as a backup workspace with supported actions', async () => {

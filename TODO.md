@@ -29,3 +29,4 @@ This file tracks intentional follow-ups that should not be lost when a plan defe
   - Avoid exposing raw A/D/U codes as the primary user language.
 - Harden shared rank/pay-grade ordering beyond the first DA6 implementation if other Personnel, leader book, report, or export workflows need canonical military ordering.
 - Build the sitewide export module so feature-owned export models can produce XLSX/PDF/CSV/print-ready output.
+  - Current marker: `src/features/duty-roster/export/dutyRosterBrowserExport.ts` is a temporary browser adapter that should be retired once the shared export module owns final formatting and download behavior.

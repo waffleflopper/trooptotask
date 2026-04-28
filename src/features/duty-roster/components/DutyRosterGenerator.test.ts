@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import type { AssignmentType, Personnel } from '$lib/types';
 import type { DutyEvent } from '../duty-roster.types';
+import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/svelte';
 import DutyRosterGenerator from './DutyRosterGenerator.svelte';
@@ -230,6 +231,57 @@ describe('DutyRosterGenerator', () => {
 		expect(screen.getByText('No eligible personnel available')).toBeTruthy();
 	});
 
+	it('keeps the generated preview bound to the snapshot when setup inputs change afterward', async () => {
+		renderGenerator();
+
+		await generateSimpleRoster('2026-04-10');
+		expect(screen.getByText('Apr 10')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+		await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-04-12' } });
+		await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-04-12' } });
+
+		expect(screen.getByRole('heading', { name: 'Generate Duty Roster' })).toBeTruthy();
+		expect(screen.queryByText('Apr 12')).toBeNull();
+	});
+
+	it('replaces the active snapshot when generating again', async () => {
+		renderGenerator();
+
+		await generateSimpleRoster('2026-04-10');
+		await fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+		await generateSimpleRoster('2026-04-12');
+
+		expect(screen.queryByText('Apr 10')).toBeNull();
+		expect(screen.getByText('Apr 12')).toBeTruthy();
+	});
+
+	it('renders DA6 preview rows from the run snapshot order', async () => {
+		renderGenerator({
+			personnelByGroup: [
+				{
+					group: 'HQ',
+					personnel: [
+						makePersonnel({ id: 'junior', rank: 'SPC', firstName: 'Jamie', lastName: 'Alpha' }),
+						makePersonnel({ id: 'senior', rank: 'SSG', firstName: 'Taylor', lastName: 'Zebra' })
+					]
+				}
+			]
+		});
+
+		await generateSimpleRoster('2026-04-10');
+		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Order' }));
+
+		const da6Rows = screen
+			.getAllByRole('row')
+			.slice(1)
+			.map((row) => row.textContent ?? '');
+		expect(da6Rows[0]).toContain('SSG');
+		expect(da6Rows[0]).toContain('Zebra');
+		expect(da6Rows[1]).toContain('SPC');
+		expect(da6Rows[1]).toContain('Alpha');
+	});
+
 	it('skips excluded holidays and org closures when generating a simple roster', async () => {
 		renderGenerator({
 			specialDays: [
@@ -260,5 +312,98 @@ describe('DutyRosterGenerator', () => {
 		expect(screen.queryByText('Apr 10')).toBeNull();
 		expect(screen.queryByText('Apr 11')).toBeNull();
 		expect(screen.getByText('Apr 12')).toBeTruthy();
+	});
+
+	it('does not save history when applying the calendar payload fails', async () => {
+		const onApplyRoster = vi.fn(async () => false);
+		const onSaveRoster = vi.fn(async (): Promise<RosterHistoryItem | null> => null);
+		renderGenerator({ onApplyRoster, onSaveRoster });
+
+		await generateSimpleRoster();
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply to Calendar' }));
+
+		await waitFor(() =>
+			expect(screen.getByText('The roster could not be applied to the calendar. Nothing was changed.')).toBeTruthy()
+		);
+		expect(onApplyRoster).toHaveBeenCalledOnce();
+		expect(onSaveRoster).not.toHaveBeenCalled();
+	});
+
+	it('leaves a partial-success snapshot available for retry save without re-applying calendar assignments', async () => {
+		const onApplyRoster = vi.fn(async () => true);
+		const onSaveRoster = vi.fn(async (): Promise<RosterHistoryItem | null> => null);
+		renderGenerator({ onApplyRoster, onSaveRoster });
+
+		await generateSimpleRoster();
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply to Calendar' }));
+
+		await waitFor(() =>
+			expect(screen.getByText('Roster applied to the calendar. History could not be saved.')).toBeTruthy()
+		);
+		expect(screen.getByRole('button', { name: 'Retry History Save' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Snapshot' })).toBeTruthy();
+
+		onSaveRoster.mockResolvedValueOnce({
+			id: 'history-1',
+			assignmentTypeId: 'at-1',
+			name: 'Staff Duty – Apr 10, 2026 to Apr 10, 2026',
+			startDate: '2026-04-10',
+			endDate: '2026-04-10',
+			roster: [],
+			config: {},
+			createdAt: '2026-04-10T00:00:00.000Z'
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry History Save' }));
+
+		await waitFor(() => expect(screen.getByText('Roster history saved.')).toBeTruthy());
+		expect(onApplyRoster).toHaveBeenCalledOnce();
+		expect(onSaveRoster).toHaveBeenCalledTimes(2);
+	});
+
+	it('exports the active snapshot from the partial-success fallback action', async () => {
+		const createObjectURL = vi.fn((_blob: Blob | MediaSource) => 'blob:roster-export');
+		const revokeObjectURL = vi.fn();
+		const click = vi.fn();
+		const originalCreateObjectURL = URL.createObjectURL;
+		const originalRevokeObjectURL = URL.revokeObjectURL;
+		const originalCreateElement = document.createElement.bind(document);
+		let exportedBlob: Blob | undefined;
+
+		URL.createObjectURL = vi.fn((blob: Blob) => {
+			exportedBlob = blob;
+			return createObjectURL(blob);
+		}) as unknown as typeof URL.createObjectURL;
+		URL.revokeObjectURL = revokeObjectURL;
+		const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+			const element = originalCreateElement(tagName);
+			if (tagName === 'a') {
+				element.click = click;
+			}
+			return element;
+		});
+
+		try {
+			renderGenerator({
+				onApplyRoster: async () => true,
+				onSaveRoster: async () => null
+			});
+
+			await generateSimpleRoster('2026-04-10');
+			await fireEvent.click(screen.getByRole('button', { name: 'Apply to Calendar' }));
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Export Snapshot' })).toBeTruthy());
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Snapshot' }));
+
+			expect(click).toHaveBeenCalledOnce();
+			if (!exportedBlob) {
+				throw new Error('Expected export to create a roster blob.');
+			}
+			const html = await exportedBlob.text();
+			expect(html).toContain('Period: Apr 10, 2026 - Apr 10, 2026');
+			expect(html).toContain('Nolan, Casey');
+		} finally {
+			createElementSpy.mockRestore();
+			URL.createObjectURL = originalCreateObjectURL;
+			URL.revokeObjectURL = originalRevokeObjectURL;
+		}
 	});
 });

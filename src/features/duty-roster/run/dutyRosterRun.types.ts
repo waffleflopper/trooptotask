@@ -4,6 +4,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, Spe
 export type DutyRosterRunDuration = 'daily' | 'weekly' | 'monthly';
 export type DutyRosterNumberingMode = 'single-sequence' | 'separate-weekend-holiday';
 export type DutyRosterSequenceKind = 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday';
+export type DutyRosterSequenceKey = 'single' | 'weekday' | 'weekend-holiday';
 
 export type Da6CellCode =
 	| 'assigned'
@@ -63,7 +64,10 @@ export interface DutyRosterRow {
 export interface Da6Column {
 	date: string;
 	sequenceKind: DutyRosterSequenceKind;
+	sequenceKey: DutyRosterSequenceKey;
 	specialDayIds: string[];
+	chargeSequenceStart: number | null;
+	chargeableCount: number;
 }
 
 export interface Da6Cell {
@@ -95,8 +99,48 @@ export interface DutyRosterExportModel {
 	assignmentType: DutyRosterRunAssignmentTypeSnapshot;
 	startDate: string;
 	endDate: string;
+	numberingMode: DutyRosterNumberingMode;
 	rosterRows: DutyRosterRow[];
 	da6: Da6Matrix;
+	sequencePeriods: DutyRosterExportSequencePeriod[];
+}
+
+export interface DutyRosterExportSequencePeriod {
+	date: string;
+	sequenceKind: DutyRosterSequenceKind;
+	sequenceKey: DutyRosterSequenceKey;
+	isWeekendOrHoliday: boolean;
+	specialDayIds: string[];
+}
+
+export interface DutyRosterApplyPayloadRow {
+	date: string;
+	assignmentTypeId: string;
+	assigneeId: string;
+}
+
+export interface DutyRosterHistoryEntry {
+	date: string;
+	assigneeId: string | null;
+	assigneeName: string | null;
+	assigneeRank: string | null;
+	assigneeGroup: string | null;
+	reason?: string;
+}
+
+export interface DutyRosterHistoryDa6Data {
+	personnel: { id: string; name: string; rank: string; group: string }[];
+	dates: { date: string; positions: (number | null)[] }[];
+}
+
+export interface DutyRosterHistoryPayload {
+	assignmentTypeId: string;
+	name: string;
+	startDate: string;
+	endDate: string;
+	roster: DutyRosterHistoryEntry[];
+	da6?: DutyRosterHistoryDa6Data;
+	config: Record<string, unknown>;
 }
 
 export interface DutyRosterRunSnapshot {

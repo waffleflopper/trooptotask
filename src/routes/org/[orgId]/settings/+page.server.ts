@@ -11,7 +11,7 @@ import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapt
 import { GroupEntity } from '$lib/server/entities/group';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { getAdminClient } from '$lib/server/supabase';
-import { fetchAuditLogs } from '$lib/server/core/useCases/auditLogQuery';
+import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
 import {
 	deleteOrganization as deleteOrganizationUseCase,
 	renameOrganization,
@@ -23,26 +23,7 @@ import {
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
-
-interface OrganizationSettingsRow {
-	archive_retention_months?: number | null;
-	loss_warning_window_days?: number | null;
-	critical_tasks_default_expiration_months?: number | null;
-	critical_tasks_expiring_soon_warning_days?: number | null;
-}
-
-type DeletionRequestStatus = 'pending' | 'approved' | 'denied';
-
-interface DeletionRequestRow {
-	id: string;
-	status: DeletionRequestStatus;
-	requester_email: string | null;
-	resource_description: string | null;
-	resource_type: string;
-	resource_url: string | null;
-	created_at: string;
-	denial_reason: string | null;
-}
+import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
@@ -84,7 +65,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
 					orderBy: [{ column: 'created_at', ascending: false }]
 				}),
-				fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 })
+				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			]);
 
 			const members = membershipRows.map((m) => ({

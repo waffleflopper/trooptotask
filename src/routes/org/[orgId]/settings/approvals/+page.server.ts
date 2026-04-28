@@ -1,18 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-
-type DeletionRequestStatus = 'pending' | 'approved' | 'denied';
-
-interface DeletionRequestRow {
-	id: string;
-	status: DeletionRequestStatus;
-	requester_email: string | null;
-	resource_description: string | null;
-	resource_type: string;
-	resource_url: string | null;
-	created_at: string;
-	denial_reason: string | null;
-}
+import type { DeletionRequestRow } from '../settingsRows.server';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	return loadWithContext(locals, cookies, params.orgId, {

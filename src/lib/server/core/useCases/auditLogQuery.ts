@@ -45,6 +45,10 @@ export interface AuditLogQueryResult {
 	availableActions: string[];
 }
 
+export interface AuditLogPreviewInput {
+	limit?: number;
+}
+
 function collectIds(logs: Record<string, unknown>[], key: string): string[] {
 	const ids = new Set<string>();
 	for (const log of logs) {
@@ -134,6 +138,88 @@ async function resolveActorEmails(
 	return map;
 }
 
+async function hydrateAuditLogRows(
+	adminStore: DataStore,
+	orgId: string,
+	rows: Record<string, unknown>[]
+): Promise<AuditLogEntry[]> {
+	const personnelIds = collectIds(rows, 'personnel_id');
+	const trainingTypeIds = collectIds(rows, 'training_type_id');
+	const statusTypeIds = collectIds(rows, 'status_type_id');
+	const actorUserIds = [
+		...new Set(rows.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))
+	];
+
+	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
+		resolveNames(adminStore, 'personnel', personnelIds, orgId),
+		resolveNames(adminStore, 'training_types', trainingTypeIds, orgId),
+		resolveNames(adminStore, 'status_types', statusTypeIds, orgId),
+		resolveActorEmails(adminStore, actorUserIds, orgId)
+	]);
+
+	return rows.map((log) => ({
+		id: log.id as string,
+		userId: (log.user_id as string | null) ?? null,
+		actor:
+			(typeof (log.details as Record<string, unknown> | null)?.actor === 'string'
+				? ((log.details as Record<string, unknown>).actor as string)
+				: actorEmails.get(log.user_id as string)) ?? null,
+		action: log.action as string,
+		resourceType: (log.resource_type as string | null) ?? null,
+		resourceId: (log.resource_id as string | null) ?? null,
+		details: enrichDetails(
+			log.details as Record<string, unknown> | null,
+			personnelNames,
+			trainingTypeNames,
+			statusTypeNames
+		),
+		createdAt: log.timestamp as string
+	}));
+}
+
+export async function fetchAuditLogPreview(
+	ctx: QueryPorts,
+	adminStore: DataStore,
+	input: AuditLogPreviewInput = {}
+): Promise<AuditLogQueryResult> {
+	const orgId = ctx.auth.orgId;
+	const limit = input.limit ?? 9;
+	const last30DaysCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	const baseOptions = {
+		notInFilters: { action: EXCLUDED_ACTIONS },
+		select: 'id, user_id, action, resource_type, resource_id, details, timestamp'
+	};
+
+	const [rows, total, last30Days] = await Promise.all([
+		adminStore.findMany<Record<string, unknown>>('audit_logs', orgId, undefined, {
+			...baseOptions,
+			orderBy: [{ column: 'timestamp', ascending: false }],
+			limit
+		}),
+		adminStore.findManyWithCount<Record<string, unknown>>('audit_logs', orgId, undefined, {
+			...baseOptions,
+			limit: 0,
+			count: 'exact'
+		}),
+		adminStore.findManyWithCount<Record<string, unknown>>('audit_logs', orgId, undefined, {
+			...baseOptions,
+			rangeFilters: [{ column: 'timestamp', op: 'gte', value: last30DaysCutoff }],
+			limit: 0,
+			count: 'exact'
+		})
+	]);
+
+	return {
+		logs: await hydrateAuditLogRows(adminStore, orgId, rows),
+		totalCount: total.count ?? 0,
+		last30DaysCount: last30Days.count ?? 0,
+		page: 1,
+		limit,
+		actionFilter: '',
+		availableActions: []
+	};
+}
+
 export async function fetchAuditLogs(
 	ctx: QueryPorts,
 	adminStore: DataStore,
@@ -168,39 +254,7 @@ export async function fetchAuditLogs(
 	const totalCount = filtered.length;
 	const paged = filtered.slice(offset, offset + limit);
 
-	// Batch-resolve UUIDs to human-readable names
-	const personnelIds = collectIds(paged, 'personnel_id');
-	const trainingTypeIds = collectIds(paged, 'training_type_id');
-	const statusTypeIds = collectIds(paged, 'status_type_id');
-	const actorUserIds = [
-		...new Set(paged.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))
-	];
-
-	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
-		resolveNames(adminStore, 'personnel', personnelIds, orgId),
-		resolveNames(adminStore, 'training_types', trainingTypeIds, orgId),
-		resolveNames(adminStore, 'status_types', statusTypeIds, orgId),
-		resolveActorEmails(adminStore, actorUserIds, orgId)
-	]);
-
-	const logs: AuditLogEntry[] = paged.map((log) => ({
-		id: log.id as string,
-		userId: (log.user_id as string | null) ?? null,
-		actor:
-			(typeof (log.details as Record<string, unknown> | null)?.actor === 'string'
-				? ((log.details as Record<string, unknown>).actor as string)
-				: actorEmails.get(log.user_id as string)) ?? null,
-		action: log.action as string,
-		resourceType: (log.resource_type as string | null) ?? null,
-		resourceId: (log.resource_id as string | null) ?? null,
-		details: enrichDetails(
-			log.details as Record<string, unknown> | null,
-			personnelNames,
-			trainingTypeNames,
-			statusTypeNames
-		),
-		createdAt: log.timestamp as string
-	}));
+	const logs = await hydrateAuditLogRows(adminStore, orgId, paged);
 
 	return {
 		logs,

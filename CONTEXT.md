@@ -128,6 +128,18 @@ _Avoid_: Calendar color only
 The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.
 _Avoid_: Status type, DA6 code, color
 
+**Advanced Duty Run**:
+One generated team-duty run for a selected advanced duty template and event date pattern.
+_Avoid_: DA6 run, regenerated apply payload
+
+**Advanced Run Snapshot**:
+The immutable inputs and outputs produced by an **Advanced Duty Run** preview.
+_Avoid_: Current template state, recomputed preview
+
+**Snapshot Custody**:
+The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.
+_Avoid_: Signed client payload, browser-owned run state
+
 **Personnel**:
 The feature for roster management and personnel records.
 _Avoid_: Member manager
@@ -208,6 +220,11 @@ _Avoid_: Training type
 - Existing **Status Types** may be backfilled by conservative name matching for common seeded labels, while custom or unclear names should default to no **DA6 Availability Treatment**.
 - **Duty Roster Runs** should consume **DA6 Availability Treatment** from **Status Types** instead of asking users to redefine excluded statuses per run.
 - When multiple **Availability Statuses** overlap on one duty date, **Authorized Absence** takes precedence over **Other Duty** because approved leave or another authorized absence is nonchargeable; future **Misconduct Unavailable** takes precedence once enabled.
+- An **Advanced Duty Run** produces exactly one draft **Advanced Run Snapshot** during preview.
+- **Snapshot Custody** keeps the draft **Advanced Run Snapshot** server-side so apply, retry, and export can reference the same previewed run.
+- An unapplied **Advanced Run Snapshot** may produce a preview-only team duty packet export, but it is not a final applied record.
+- A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
+- Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
 
 ## Example Dialogue
 

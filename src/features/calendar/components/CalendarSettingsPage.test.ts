@@ -1,14 +1,21 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
+import type { StatusType } from '$lib/types';
 
-const { orgContextMock } = vi.hoisted(() => ({
+const { orgContextMock, statusTypesStoreMock } = vi.hoisted(() => ({
 	orgContextMock: {
 		orgId: 'org-1',
 		isPrivileged: true,
 		isFullEditor: true,
 		readOnly: false
+	},
+	statusTypesStoreMock: {
+		items: [] as StatusType[],
+		add: vi.fn(),
+		update: vi.fn(),
+		remove: vi.fn()
 	}
 }));
 
@@ -17,12 +24,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 }));
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
-	statusTypesStore: {
-		items: [],
-		add: vi.fn(),
-		update: vi.fn(),
-		remove: vi.fn()
-	}
+	statusTypesStore: statusTypesStoreMock
 }));
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
@@ -53,6 +55,11 @@ describe('CalendarSettingsPage', () => {
 		cleanup();
 		orgContextMock.isPrivileged = true;
 		orgContextMock.isFullEditor = true;
+		orgContextMock.readOnly = false;
+		statusTypesStoreMock.items = [];
+		statusTypesStoreMock.add.mockReset();
+		statusTypesStoreMock.update.mockReset();
+		statusTypesStoreMock.remove.mockReset();
 	});
 
 	it('uses shared toolbar navigation for settings sections and related calendar link', () => {
@@ -78,5 +85,41 @@ describe('CalendarSettingsPage', () => {
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+	});
+
+	it('surfaces DA6 duty roster treatment controls for status types', async () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: 'authorized-absence'
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		expect(screen.getAllByText('Authorized absence, nonchargeable').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByRole('button', { name: 'Duty roster treatment help' })).toBeTruthy();
+
+		const newTreatment = screen.getByLabelText('Duty roster treatment');
+		(newTreatment as HTMLSelectElement).value = 'other-duty';
+		await fireEvent.change(newTreatment);
+		await fireEvent.input(screen.getByPlaceholderText('Status name (e.g., Leave, TDY)'), {
+			target: { value: 'Detail' }
+		});
+		const addButton = screen
+			.getAllByRole('button', { name: '+ Add' })
+			.find((button) => !button.hasAttribute('disabled'));
+		expect(addButton).toBeTruthy();
+		await fireEvent.click(addButton!);
+
+		expect(statusTypesStoreMock.add).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: 'Detail',
+				da6AvailabilityTreatment: 'other-duty'
+			})
+		);
 	});
 });

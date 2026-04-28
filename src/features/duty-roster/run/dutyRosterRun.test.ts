@@ -43,7 +43,15 @@ function baseInput(overrides: Partial<DutyRosterRunInput> = {}): DutyRosterRunIn
 		assignments: [],
 		advancedDutyEvents: [],
 		availabilityEntries: [],
-		statusTypes: [{ id: 'leave', name: 'Leave', color: '#008000', textColor: '#fff' }],
+		statusTypes: [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#008000',
+				textColor: '#fff',
+				da6AvailabilityTreatment: 'authorized-absence'
+			}
+		],
 		specialDays: [],
 		config: {
 			startDate: '2026-05-01',
@@ -239,6 +247,126 @@ describe('buildDutyRosterRunSnapshot', () => {
 			queuePosition: 3,
 			sequenceNumber: 3
 		});
+	});
+
+	it('uses DA6 status treatments instead of treating every selected status as authorized absence', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' }),
+					person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+				],
+				statusTypes: [
+					{
+						id: 'appointment',
+						name: 'Appointment',
+						color: '#ed8936',
+						textColor: '#fff',
+						da6AvailabilityTreatment: null
+					},
+					{
+						id: 'detail',
+						name: 'Other Duty / Detail',
+						color: '#a0522d',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'other-duty'
+					}
+				],
+				availabilityEntries: [
+					{
+						id: 'appointment-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'appointment',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					},
+					{
+						id: 'detail-bravo',
+						personnelId: 'bravo',
+						statusTypeId: 'detail',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					}
+				],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-01',
+					dutyDuration: 'daily',
+					excludedStatusIds: ['appointment', 'detail'],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		const cells = snapshot.da6.rows.map((row) => row.cells[0]);
+		expect(cells[0]).toMatchObject({
+			personnelId: 'alpha',
+			code: 'assigned',
+			chargeable: true,
+			queuePosition: 1
+		});
+		expect(cells[1]).toMatchObject({
+			personnelId: 'bravo',
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			queuePosition: 2,
+			sequenceNumber: 2
+		});
+	});
+
+	it('lets authorized absence win over other-duty status when statuses overlap', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' })
+				],
+				statusTypes: [
+					{
+						id: 'leave',
+						name: 'Leave',
+						color: '#008000',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'authorized-absence'
+					},
+					{
+						id: 'detail',
+						name: 'Other Duty / Detail',
+						color: '#a0522d',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'other-duty'
+					}
+				],
+				availabilityEntries: [
+					{
+						id: 'leave-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'leave',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					},
+					{
+						id: 'detail-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'detail',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					}
+				]
+			})
+		);
+
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'authorized-absence',
+			da6Code: 'A',
+			chargeable: false,
+			queuePosition: null
+		});
+		expect(snapshot.rosterRows[0].assigneeId).toBe('bravo');
 	});
 
 	it('classifies dates and records unfilled explanations when no Soldier can be selected', () => {

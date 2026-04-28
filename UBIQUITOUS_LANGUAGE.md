@@ -46,15 +46,16 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Calendar Planning
 
-| Term                    | Definition                                                                                                                     | Aliases to avoid                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| **Availability Status** | A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.                       | Event, appointment when status matters |
-| **Status Type**         | An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.      | Calendar color only                    |
-| **Status Legend**       | The visual key that explains **Status Types** on the calendar surface.                                                         | Filter bar, status picker              |
-| **Bulk Status Update**  | A workflow for applying or removing an **Availability Status** across multiple people or dates.                                | Mass edit, batch event                 |
-| **Planning Control**    | A page-level calendar control that changes planning scope, filters, visible date range, or update mode.                        | Stat badge, dashboard metric           |
-| **Conflict Indicator**  | A signal that a calendar status or assignment overlaps in a way that needs review.                                             | Error if it is only a review condition |
-| **Readiness Signal**    | A compact visual or data cue that helps leaders interpret availability, training, evaluation, or personnel state under review. | Decorative badge, vanity metric        |
+| Term                           | Definition                                                                                                                     | Aliases to avoid                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| **Availability Status**        | A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.                       | Event, appointment when status matters |
+| **Status Type**                | An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.      | Calendar color only                    |
+| **DA6 Availability Treatment** | The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.                       | Status type, DA6 code, color           |
+| **Status Legend**              | The visual key that explains **Status Types** on the calendar surface.                                                         | Filter bar, status picker              |
+| **Bulk Status Update**         | A workflow for applying or removing an **Availability Status** across multiple people or dates.                                | Mass edit, batch event                 |
+| **Planning Control**           | A page-level calendar control that changes planning scope, filters, visible date range, or update mode.                        | Stat badge, dashboard metric           |
+| **Conflict Indicator**         | A signal that a calendar status or assignment overlaps in a way that needs review.                                             | Error if it is only a review condition |
+| **Readiness Signal**           | A compact visual or data cue that helps leaders interpret availability, training, evaluation, or personnel state under review. | Decorative badge, vanity metric        |
 
 ## Duty Rosters
 
@@ -138,6 +139,14 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Evals** is the route and **Primary Nav** label for **Rating Scheme**; it does not create a separate domain concept.
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**, and the **Status Legend** explains those statuses.
+- A **Status Type** may have no **DA6 Availability Treatment** when it should not affect duty-roster generation.
+- A **DA6 Availability Treatment** can map a **Status Type** to **Authorized Absence**, **Other Duty**, or future **Misconduct Unavailable** semantics without making the **Status Type** itself a **DA6 Code**.
+- Default Calendar status semantics treat leave, school, TDY, and sick as **Authorized Absence**; CQ/SD as **Other Duty**; and appointment-style statuses as having no **DA6 Availability Treatment**.
+- The **Status Type** management UI should explain **DA6 Availability Treatment** with a concise help affordance so users understand which treatments continue DA Form 6 numbering and which interrupt it.
+- **Misconduct Unavailable** should be visible as a future **DA6 Availability Treatment** but unavailable for routine selection until the product has an explicit misconduct/AWOL workflow.
+- Existing **Status Types** may be backfilled by conservative name matching for common seeded labels, while custom or unclear names should default to no **DA6 Availability Treatment**.
+- **Duty Roster Runs** should consume **DA6 Availability Treatment** from **Status Types** instead of asking users to redefine excluded statuses per run.
+- When multiple **Availability Statuses** overlap on one duty date, **Authorized Absence** takes precedence over **Other Duty** because approved leave or another authorized absence is nonchargeable; future **Misconduct Unavailable** takes precedence once enabled.
 - A **Bulk Status Update** creates, changes, or removes **Availability Status** values across multiple dates or people.
 - A **Duty Roster** belongs to **Calendar** and assigns **Soldiers** from the **Roster** to duty dates.
 - A **Duty Roster Run** produces exactly one **Run Snapshot**.
@@ -209,6 +218,12 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Roster View Mode** and **Personnel Search** are view controls over the **Roster**, not separate roster states.
 - **Personnel Filter** selects one **Personnel Record**; **Personnel Search** narrows by typed text and may match many records.
 - **Availability Status** and **Status Type** are related but distinct: a status type is the category, while an availability status is the applied calendar state for a person and date range.
+- **DA6 Availability Treatment** and **DA6 Code** are related but distinct: the treatment is the human-readable Calendar configuration, while the code is the DA Form 6 marker generated from it.
+- **Sick Call** is unit-dependent: it may have no **DA6 Availability Treatment** when used like an appointment, or **Authorized Absence** when it means unavailable for duty.
+- **Field/Training** is overloaded and should be split before defaulting: training that is an authorized absence belongs under **Authorized Absence**, while another duty/detail that blocks selection belongs under **Other Duty**.
+- Prefer clearer split labels such as **Training / TDY** for **Authorized Absence** and **Other Duty / Detail** for **Other Duty** instead of reusing overloaded **Field/Training** language.
+- Do not let a normal **Status Type** be casually configured as **Misconduct Unavailable** before the product has an honest misconduct/AWOL workflow.
+- Do not treat per-run excluded-status selection as the durable source of DA Form 6 availability truth once **DA6 Availability Treatment** exists on **Status Types**.
 - **Duty Roster** is a Calendar workflow, not the same concept as the **Roster** of **Personnel Records**.
 - **Run Snapshot** must mean frozen generated truth; do not use it for current, recomputed, or live Personnel data.
 - **Authorized Absence**, **Other Duty**, and **Misconduct Unavailable** are DA6 semantic categories; do not collapse them into generic unavailable status.

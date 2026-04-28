@@ -7,6 +7,7 @@
 	import { buildDutyRosterApplyPayload, buildDutyRosterHistoryPayload, buildDutyRosterRunSnapshot } from '../run';
 	import type { DutyRosterRunSnapshot, DutyRosterSnapshotPersonnel } from '../run';
 	import { exportDutyRosterForBrowser } from '../export/dutyRosterBrowserExport';
+	import { formatDa6AvailabilityTreatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
@@ -74,7 +75,6 @@
 	let startDate = $state(getMonthStart());
 	let endDate = $state(getMonthEnd());
 	let draftExemptIds = new SvelteSet<string>();
-	let excludeStatuses = $state<string[]>([]);
 	let excludeWeekends = $state(false);
 	let excludeHolidays = $state(false);
 	let excludeOrgClosures = $state(false);
@@ -111,6 +111,8 @@
 
 	const eligiblePersonnel = $derived(availableRosterPool);
 
+	const da6TreatedStatusTypes = $derived(statusTypes.filter((status) => status.da6AvailabilityTreatment));
+
 	const hasExemptionChanges = $derived.by(() => {
 		if (currentExemptIds.length !== draftExemptIds.size) return true;
 		return currentExemptIds.some((id) => !draftExemptIds.has(id));
@@ -134,7 +136,7 @@
 				startDate,
 				endDate,
 				dutyDuration,
-				excludedStatusIds: excludeStatuses,
+				excludedStatusIds: da6TreatedStatusTypes.map((status) => status.id),
 				excludeWeekends,
 				excludeHolidays,
 				excludeOrgClosures,
@@ -294,14 +296,6 @@
 		});
 	}
 
-	function toggleExcludeStatus(statusId: string) {
-		if (excludeStatuses.includes(statusId)) {
-			excludeStatuses = excludeStatuses.filter((s) => s !== statusId);
-		} else {
-			excludeStatuses = [...excludeStatuses, statusId];
-		}
-	}
-
 	function replaceDraftExemptIds(ids: Iterable<string>) {
 		draftExemptIds.clear();
 		for (const id of ids) {
@@ -321,13 +315,6 @@
 			isSavingExemptions = false;
 		}
 	}
-
-	// Default to all statuses excluded — users click off the ones they want to allow
-	$effect(() => {
-		if (excludeStatuses.length === 0 && statusTypes.length > 0) {
-			excludeStatuses = statusTypes.map((s) => s.id);
-		}
-	});
 
 	$effect(() => {
 		const currentScope = `${selectedAssignmentTypeId}:${[...currentExemptIds].sort().join(',')}`;
@@ -693,24 +680,27 @@
 					<div class="panel-header">
 						<div>
 							<p class="pane-eyebrow">Availability Rules</p>
-							<h3>Unavailable Statuses</h3>
-							<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
+							<h3>DA6 Status Treatments</h3>
+							<p class="hint">
+								Status Types with a duty roster treatment automatically affect DA6 availability and numbering.
+							</p>
 						</div>
 					</div>
 
-					<div class="chip-list">
-						{#each statusTypes as status (status.id)}
-							<button
-								class="chip status-chip"
-								class:selected={excludeStatuses.includes(status.id)}
-								aria-pressed={excludeStatuses.includes(status.id)}
-								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-								onclick={() => toggleExcludeStatus(status.id)}
-							>
-								{status.name}
-							</button>
-						{/each}
-					</div>
+					{#if da6TreatedStatusTypes.length > 0}
+						<div class="treatment-list">
+							{#each da6TreatedStatusTypes as status (status.id)}
+								<div class="treatment-row">
+									<mark class="status-swatch" style="--chip-color: {status.color}; --chip-text: {status.textColor}">
+										{status.name}
+									</mark>
+									<span>{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="empty-note">No status types currently affect DA6 duty roster generation.</p>
+					{/if}
 				</section>
 
 				{#if selectedAssignmentTypeId}
@@ -887,12 +877,6 @@
 		margin-bottom: 0;
 	}
 
-	.chip-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
 	.pane-eyebrow {
 		margin: 0 0 var(--sp-1);
 		font-family: var(--font-mono);
@@ -903,41 +887,43 @@
 		color: var(--amber-dark);
 	}
 
-	.chip {
-		appearance: none;
-		padding: 4px 8px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+	.treatment-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.treatment-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding: var(--sp-2) var(--sp-3);
 		border: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		border-radius: var(--radius-sm);
+		background: var(--surface-page);
 		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
+		font-size: var(--text-ui-sm);
 	}
 
-	.chip:hover {
-		border-color: var(--ink-35);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-	}
-
-	.chip.selected {
-		background: var(--amber-light);
-		border-color: var(--amber);
-		color: var(--amber-dark);
-	}
-
-	.chip.status-chip.selected {
+	.status-swatch {
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
+		max-width: 16rem;
+		padding: 0.2rem 0.45rem;
+		border-radius: var(--radius-xs);
 		background: var(--chip-color);
-		border-color: var(--chip-color);
 		color: var(--chip-text);
+		font-size: var(--text-xs);
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.empty-note {
+		margin: 0;
+		color: var(--text-tertiary);
+		font-size: var(--text-ui-sm);
 	}
 
 	.history-panel,

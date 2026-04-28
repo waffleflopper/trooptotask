@@ -1,4 +1,5 @@
 import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
+import { highestPriorityDa6Treatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { Personnel, SpecialDay } from '$lib/types';
 import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
@@ -239,6 +240,21 @@ function classifyAvailability(
 	input: DutyRosterRunInput,
 	config: DutyRosterRunSnapshot['config']
 ): AvailabilityClassification {
+	const statusEntries = input.availabilityEntries.filter(
+		(entry) => entry.personnelId === personnelId && date >= entry.startDate && date <= entry.endDate
+	);
+	const statusTreatment = highestPriorityDa6Treatment(
+		input.statusTypes,
+		statusEntries.map((entry) => entry.statusTypeId)
+	);
+	const statusNames = statusEntries
+		.filter((entry) => {
+			const statusType = input.statusTypes.find((status) => status.id === entry.statusTypeId);
+			return statusType?.da6AvailabilityTreatment === statusTreatment;
+		})
+		.map((entry) => input.statusTypes.find((status) => status.id === entry.statusTypeId)?.name)
+		.filter((name): name is string => Boolean(name));
+
 	if (config.misconductUnavailablePersonnelDates[personnelId]?.includes(date)) {
 		return {
 			selectable: false,
@@ -247,6 +263,28 @@ function classifyAvailability(
 			chargeable: true,
 			reason: 'Unavailable due to misconduct/AWOL-style status',
 			reasonCode: 'misconduct-unavailable'
+		};
+	}
+
+	if (statusTreatment === 'misconduct-unavailable') {
+		return {
+			selectable: false,
+			code: 'misconduct-unavailable',
+			da6Code: 'U',
+			chargeable: true,
+			reason: `Misconduct unavailable: ${statusNames.join(', ') || 'status'}`,
+			reasonCode: 'misconduct-unavailable'
+		};
+	}
+
+	if (statusTreatment === 'authorized-absence') {
+		return {
+			selectable: false,
+			code: 'authorized-absence',
+			da6Code: 'A',
+			chargeable: false,
+			reason: `Authorized absence: ${statusNames.join(', ') || 'status'}`,
+			reasonCode: 'authorized-absence'
 		};
 	}
 
@@ -265,22 +303,14 @@ function classifyAvailability(
 		};
 	}
 
-	const statusEntry = input.availabilityEntries.find(
-		(entry) =>
-			entry.personnelId === personnelId &&
-			date >= entry.startDate &&
-			date <= entry.endDate &&
-			config.excludedStatusIds.includes(entry.statusTypeId)
-	);
-	if (statusEntry) {
-		const statusName = input.statusTypes.find((status) => status.id === statusEntry.statusTypeId)?.name ?? 'status';
+	if (statusTreatment === 'other-duty') {
 		return {
 			selectable: false,
-			code: 'authorized-absence',
-			da6Code: 'A',
-			chargeable: false,
-			reason: `Authorized absence: ${statusName}`,
-			reasonCode: 'authorized-absence'
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			reason: `Other duty: ${statusNames.join(', ') || 'status'}`,
+			reasonCode: 'other-duty-status'
 		};
 	}
 

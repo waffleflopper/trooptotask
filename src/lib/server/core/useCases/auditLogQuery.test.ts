@@ -222,4 +222,44 @@ describe('fetchAuditLogPreview', () => {
 
 		vi.useRealTimers();
 	});
+
+	it('does not use the limited preview rows as the total-count fallback', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+		const originalFindManyWithCount = adminStore.findManyWithCount.bind(adminStore);
+
+		adminStore.findManyWithCount = (async (...args: Parameters<typeof originalFindManyWithCount>) => {
+			const result = await originalFindManyWithCount(...args);
+			return { ...result, count: null };
+		}) as typeof adminStore.findManyWithCount;
+
+		adminStore.seed('audit_logs', [
+			{
+				id: 'log-1',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'organization.rename',
+				resource_type: 'organization',
+				resource_id: ORG,
+				details: null,
+				timestamp: '2026-04-27T11:59:00Z'
+			},
+			{
+				id: 'log-2',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'organization.policy_update',
+				resource_type: 'organization',
+				resource_id: ORG,
+				details: null,
+				timestamp: '2026-04-27T11:58:00Z'
+			}
+		]);
+
+		const result = await fetchAuditLogPreview(ctx, adminStore, { limit: 2 });
+
+		expect(result.logs).toHaveLength(2);
+		expect(result.totalCount).toBe(0);
+		expect(result.last30DaysCount).toBe(0);
+	});
 });

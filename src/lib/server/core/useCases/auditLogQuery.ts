@@ -211,7 +211,7 @@ export async function fetchAuditLogPreview(
 
 	return {
 		logs: await hydrateAuditLogRows(adminStore, orgId, rows),
-		totalCount: total.count ?? rows.length,
+		totalCount: total.count ?? 0,
 		last30DaysCount: last30Days.count ?? 0,
 		page: 1,
 		limit,

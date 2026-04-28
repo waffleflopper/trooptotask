@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildDutyRosterRunSnapshot } from './dutyRosterRun';
+import {
+	buildDutyRosterApplyPayload,
+	buildDutyRosterExportModel,
+	buildDutyRosterHistoryPayload,
+	buildDutyRosterRunSnapshot
+} from './dutyRosterRun';
 import type { DutyRosterRunInput } from './dutyRosterRun.types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { AssignmentType, DailyAssignment, Personnel } from '$lib/types';
@@ -270,6 +275,100 @@ describe('buildDutyRosterRunSnapshot', () => {
 		]);
 	});
 
+	it('keeps weekend and holiday charge counters separate from weekday counters when configured', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' })
+				],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-04',
+					dutyDuration: 'daily',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false,
+					numberingMode: 'separate-weekend-holiday'
+				},
+				specialDays: [{ id: 'holiday', date: '2026-05-04', name: 'Training Holiday', type: 'federal-holiday' }]
+			})
+		);
+
+		expect(snapshot.da6.numberingMode).toBe('separate-weekend-holiday');
+		expect(
+			snapshot.da6.columns.map(({ date, sequenceKind, sequenceKey, chargeSequenceStart, chargeableCount }) => ({
+				date,
+				sequenceKind,
+				sequenceKey,
+				chargeSequenceStart,
+				chargeableCount
+			}))
+		).toEqual([
+			{
+				date: '2026-05-01',
+				sequenceKind: 'weekday',
+				sequenceKey: 'weekday',
+				chargeSequenceStart: 1,
+				chargeableCount: 2
+			},
+			{
+				date: '2026-05-02',
+				sequenceKind: 'weekend',
+				sequenceKey: 'weekend-holiday',
+				chargeSequenceStart: 1,
+				chargeableCount: 2
+			},
+			{
+				date: '2026-05-03',
+				sequenceKind: 'weekend',
+				sequenceKey: 'weekend-holiday',
+				chargeSequenceStart: 3,
+				chargeableCount: 2
+			},
+			{
+				date: '2026-05-04',
+				sequenceKind: 'holiday',
+				sequenceKey: 'weekend-holiday',
+				chargeSequenceStart: 5,
+				chargeableCount: 2
+			}
+		]);
+		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 6]);
+		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 4, 5]);
+		expect(snapshot.exportModel.sequencePeriods).toEqual([
+			{
+				date: '2026-05-01',
+				sequenceKind: 'weekday',
+				sequenceKey: 'weekday',
+				isWeekendOrHoliday: false,
+				specialDayIds: []
+			},
+			{
+				date: '2026-05-02',
+				sequenceKind: 'weekend',
+				sequenceKey: 'weekend-holiday',
+				isWeekendOrHoliday: true,
+				specialDayIds: []
+			},
+			{
+				date: '2026-05-03',
+				sequenceKind: 'weekend',
+				sequenceKey: 'weekend-holiday',
+				isWeekendOrHoliday: true,
+				specialDayIds: []
+			},
+			{
+				date: '2026-05-04',
+				sequenceKind: 'holiday',
+				sequenceKey: 'weekend-holiday',
+				isWeekendOrHoliday: true,
+				specialDayIds: ['holiday']
+			}
+		]);
+	});
+
 	it('captures display fields immutably and represents future misconduct U cells without selecting them', () => {
 		const alpha = person({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
 		const snapshot = buildDutyRosterRunSnapshot(
@@ -299,6 +398,86 @@ describe('buildDutyRosterRunSnapshot', () => {
 			da6Code: 'U',
 			chargeable: true,
 			queuePosition: 1
+		});
+	});
+
+	it('derives apply payload from assigned rows in the active snapshot', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-02',
+					dutyDuration: 'daily',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		expect(buildDutyRosterApplyPayload(snapshot)).toEqual([
+			{ date: '2026-05-01', assignmentTypeId: 'staff-duty', assigneeId: 'alpha' },
+			{ date: '2026-05-02', assignmentTypeId: 'staff-duty', assigneeId: 'bravo' }
+		]);
+	});
+
+	it('derives history payload from snapshot display fields and generation config', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [person({ id: 'alpha', rank: 'SSG', lastName: 'Able', firstName: 'Avery', groupName: 'HQ' })],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-01',
+					dutyDuration: 'weekly',
+					excludedStatusIds: ['leave'],
+					excludeWeekends: true,
+					excludeHolidays: true,
+					excludeOrgClosures: false,
+					exemptPersonnelIds: ['exempt-soldier']
+				}
+			})
+		);
+
+		expect(buildDutyRosterHistoryPayload(snapshot)).toMatchObject({
+			assignmentTypeId: 'staff-duty',
+			name: 'Staff Duty – May 1, 2026 to May 1, 2026',
+			startDate: '2026-05-01',
+			endDate: '2026-05-01',
+			roster: [
+				{
+					date: '2026-05-01',
+					assigneeId: 'alpha',
+					assigneeName: 'Able, Avery',
+					assigneeRank: 'SSG',
+					assigneeGroup: 'HQ'
+				}
+			],
+			config: {
+				dutyDuration: 'weekly',
+				assignmentTypeName: 'Staff Duty',
+				exemptPersonnelIds: ['exempt-soldier'],
+				excludeStatuses: ['leave'],
+				excludeWeekends: true,
+				excludeHolidays: true,
+				excludeOrgClosures: false
+			}
+		});
+	});
+
+	it('derives export model from the active snapshot without rebuilding from live inputs', () => {
+		const input = baseInput();
+		const snapshot = buildDutyRosterRunSnapshot(input);
+
+		input.assignmentType.name = 'Changed Duty';
+		input.personnel[0].lastName = 'Changed';
+		input.config.startDate = '2026-06-01';
+
+		expect(buildDutyRosterExportModel(snapshot)).toEqual(snapshot.exportModel);
+		expect(buildDutyRosterExportModel(snapshot)).toMatchObject({
+			assignmentType: { name: 'Staff Duty' },
+			startDate: '2026-05-01',
+			rosterRows: [{ date: '2026-05-01', assigneeId: 'alpha' }]
 		});
 	});
 });

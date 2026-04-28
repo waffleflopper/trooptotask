@@ -6,9 +6,15 @@ import type {
 	Da6Cell,
 	Da6CellCode,
 	Da6Column,
+	DutyRosterApplyPayloadRow,
+	DutyRosterExportModel,
+	DutyRosterExportSequencePeriod,
+	DutyRosterHistoryDa6Data,
+	DutyRosterHistoryPayload,
 	DutyRosterRunConfig,
 	DutyRosterRunInput,
 	DutyRosterRunSnapshot,
+	DutyRosterSequenceKey,
 	DutyRosterSequenceKind,
 	DutyRosterSnapshotPersonnel
 } from './dutyRosterRun.types';
@@ -136,11 +142,23 @@ function classifySequenceKind(date: string, specialDays: SpecialDay[]): DutyRost
 	return 'weekday';
 }
 
-function buildColumns(dates: string[], specialDays: SpecialDay[]): Da6Column[] {
-	return dates.map((date) => ({
-		date,
-		sequenceKind: classifySequenceKind(date, specialDays),
-		specialDayIds: specialDays.filter((day) => day.date === date).map((day) => day.id)
+function getSequenceKey(
+	numberingMode: DutyRosterRunSnapshot['config']['numberingMode'],
+	sequenceKind: DutyRosterSequenceKind
+): DutyRosterSequenceKey {
+	if (numberingMode === 'single-sequence') {
+		return 'single';
+	}
+	return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
+}
+
+function buildExportSequencePeriods(columns: Da6Column[]): DutyRosterExportSequencePeriod[] {
+	return columns.map((column) => ({
+		date: column.date,
+		sequenceKind: column.sequenceKind,
+		sequenceKey: column.sequenceKey,
+		isWeekendOrHoliday: column.sequenceKey === 'weekend-holiday',
+		specialDayIds: [...column.specialDayIds]
 	}));
 }
 
@@ -298,6 +316,78 @@ function buildCell(
 	};
 }
 
+function formatDisplayDate(date: string): string {
+	return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	});
+}
+
+export function buildDutyRosterApplyPayload(snapshot: DutyRosterRunSnapshot): DutyRosterApplyPayloadRow[] {
+	return snapshot.rosterRows
+		.filter((row) => row.assigneeId !== null)
+		.map((row) => ({
+			date: row.date,
+			assignmentTypeId: snapshot.assignmentType.id,
+			assigneeId: row.assigneeId!
+		}));
+}
+
+export function buildDutyRosterHistoryDa6Data(snapshot: DutyRosterRunSnapshot): DutyRosterHistoryDa6Data {
+	return {
+		personnel: snapshot.da6.rows.map((row) => ({
+			id: row.personnelId,
+			name: `${row.display.lastName}, ${row.display.firstName}`,
+			rank: row.display.rank,
+			group: row.display.groupName
+		})),
+		dates: snapshot.da6.columns.map((column, columnIndex) => ({
+			date: column.date,
+			positions: snapshot.da6.rows.map((row) => {
+				const cell = row.cells[columnIndex];
+				if (!cell) return null;
+				return cell.assigned ? 1 : cell.queuePosition;
+			})
+		}))
+	};
+}
+
+export function buildDutyRosterHistoryPayload(snapshot: DutyRosterRunSnapshot): DutyRosterHistoryPayload {
+	const personnelById = new Map(snapshot.personnel.map((person) => [person.id, person]));
+	return {
+		assignmentTypeId: snapshot.assignmentType.id,
+		name: `${snapshot.assignmentType.name} – ${formatDisplayDate(snapshot.config.startDate)} to ${formatDisplayDate(snapshot.config.endDate)}`,
+		startDate: snapshot.config.startDate,
+		endDate: snapshot.config.endDate,
+		roster: snapshot.rosterRows.map((row) => {
+			const assignee = row.assigneeId ? (personnelById.get(row.assigneeId) ?? null) : null;
+			return {
+				date: row.date,
+				assigneeId: row.assigneeId,
+				assigneeName: assignee ? `${assignee.lastName}, ${assignee.firstName}` : null,
+				assigneeRank: assignee?.rank ?? null,
+				assigneeGroup: assignee?.groupName ?? null,
+				reason: row.reason
+			};
+		}),
+		da6: buildDutyRosterHistoryDa6Data(snapshot),
+		config: {
+			dutyDuration: snapshot.config.dutyDuration,
+			assignmentTypeName: snapshot.assignmentType.name,
+			exemptPersonnelIds: [...snapshot.config.exemptPersonnelIds],
+			excludeStatuses: [...snapshot.config.excludedStatusIds],
+			excludeWeekends: snapshot.config.excludeWeekends,
+			excludeHolidays: snapshot.config.excludeHolidays,
+			excludeOrgClosures: snapshot.config.excludeOrgClosures
+		}
+	};
+}
+
+export function buildDutyRosterExportModel(snapshot: DutyRosterRunSnapshot): DutyRosterExportModel {
+	return snapshot.exportModel;
+}
+
 export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRosterRunSnapshot {
 	const config = normalizeConfig(input.config);
 	const exemptIds = new Set([...input.assignmentType.exemptPersonnelIds, ...config.exemptPersonnelIds]);
@@ -308,9 +398,17 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const dutyDates = buildDutyDates(config, input.specialDays);
 	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(personnel.map((person) => [person.id, []]));
+	const columns: Da6Column[] = [];
+	const chargeSequenceCounters = new Map<DutyRosterSequenceKey, number>([
+		['single', 0],
+		['weekday', 0],
+		['weekend-holiday', 0]
+	]);
 	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
 
 	for (const date of dutyDates) {
+		const sequenceKind = classifySequenceKind(date, input.specialDays);
+		const sequenceKey = getSequenceKey(config.numberingMode, sequenceKind);
 		const classifications = new Map(
 			personnel.map((person) => [person.id, classifyAvailability(person.id, date, input, config)])
 		);
@@ -323,6 +421,16 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		});
 		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);
 		const assigned = rankedPersonnel.find((person) => classifications.get(person.id)?.selectable) ?? null;
+		const chargeSequenceStart = queue.length > 0 ? (chargeSequenceCounters.get(sequenceKey) ?? 0) + 1 : null;
+
+		columns.push({
+			date,
+			sequenceKind,
+			sequenceKey,
+			specialDayIds: input.specialDays.filter((day) => day.date === date).map((day) => day.id),
+			chargeSequenceStart,
+			chargeableCount: queue.length
+		});
 
 		rosterRows.push(
 			assigned
@@ -339,15 +447,19 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 			const queueIndex = queue.findIndex((candidate) => candidate.id === person.id);
 			const queuePosition = queueIndex === -1 ? null : queueIndex + 1;
 			const isAssigned = assigned?.id === person.id;
+			const sequenceNumber =
+				chargeSequenceStart !== null && queuePosition !== null ? chargeSequenceStart + queuePosition - 1 : null;
 			cellsByPersonnelId
 				.get(person.id)!
-				.push(buildCell(person.id, date, classification, queuePosition, queuePosition, isAssigned));
+				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber, isAssigned));
 		}
+
+		chargeSequenceCounters.set(sequenceKey, (chargeSequenceCounters.get(sequenceKey) ?? 0) + queue.length);
 	}
 
 	const da6 = {
 		numberingMode: config.numberingMode,
-		columns: buildColumns(dutyDates, input.specialDays),
+		columns,
 		rows: personnel.map((person) => ({
 			personnelId: person.id,
 			display: { ...person },
@@ -371,8 +483,10 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 			assignmentType,
 			startDate: config.startDate,
 			endDate: config.endDate,
+			numberingMode: config.numberingMode,
 			rosterRows,
-			da6
+			da6,
+			sequencePeriods: buildExportSequencePeriods(columns)
 		},
 		warnings: []
 	};

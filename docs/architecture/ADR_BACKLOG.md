@@ -15,6 +15,8 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-02 Provider Boundary Contract
 
+- Status:
+  - Accepted in [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
 - Why:
   - make provider ownership explicit so business logic no longer leaks direct Supabase usage outside approved edges
 - Should cover:
@@ -53,6 +55,8 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-05 Demo And Sandbox Decommissioning
 
+- Status:
+  - Accepted in [ADR 0005](adrs/0005-demo-and-sandbox-decommissioning.md)
 - Why:
   - demo/sandbox code should stop shaping the main architecture
 - Should cover:
@@ -65,6 +69,8 @@ The repo now has ADR guidance and a template under `docs/architecture/adrs/`, bu
 
 ### ADR-06 Legacy Terminology Compatibility Policy
 
+- Status:
+  - Accepted in [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
 - Why:
   - clinic-era names still exist and need a consistent migration policy
   - issue `#624` applies the first doc-and-copy cleanup wave without renaming runtime or schema fields

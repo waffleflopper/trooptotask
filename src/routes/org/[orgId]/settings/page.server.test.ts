@@ -7,7 +7,7 @@ const {
 	createSupabaseOrgSettingsAdministrationPortMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	deleteOrganizationUseCaseMock,
-	fetchAuditLogsMock,
+	fetchAuditLogPreviewMock,
 	getAdminClientMock,
 	inviteOrganizationMemberMock,
 	loadWithContextMock,
@@ -23,7 +23,7 @@ const {
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
-	fetchAuditLogsMock: vi.fn(),
+	fetchAuditLogPreviewMock: vi.fn(),
 	getAdminClientMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
@@ -56,7 +56,7 @@ vi.mock('$lib/server/supabase', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/auditLogQuery', () => ({
-	fetchAuditLogs: fetchAuditLogsMock
+	fetchAuditLogPreview: fetchAuditLogPreviewMock
 }));
 
 vi.mock('$lib/server/adapters/supabaseOrgSettingsMemberManagement', () => ({
@@ -109,14 +109,14 @@ describe('org settings page server actions', () => {
 		});
 		getAdminClientMock.mockReturnValue({ kind: 'admin-client' });
 		createSupabaseDataStoreMock.mockReturnValue({ kind: 'admin-store' });
-		fetchAuditLogsMock.mockResolvedValue({
+		fetchAuditLogPreviewMock.mockResolvedValue({
 			logs: [{ id: 'audit-1', action: 'organization.rename', createdAt: '2026-04-26T12:00:00Z' }],
 			totalCount: 1,
 			last30DaysCount: 1,
 			page: 1,
-			limit: 100,
+			limit: 9,
 			actionFilter: '',
-			availableActions: ['organization.rename']
+			availableActions: []
 		});
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
@@ -254,14 +254,10 @@ describe('org settings page server actions', () => {
 			auditLog: {
 				totalCount: 1,
 				last30DaysCount: 1,
-				availableActions: ['organization.rename']
+				availableActions: []
 			}
 		});
-		expect(fetchAuditLogsMock).toHaveBeenCalledWith(
-			expect.anything(),
-			{ kind: 'admin-store' },
-			{ page: 1, limit: 100 }
-		);
+		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {

@@ -14,6 +14,7 @@ export interface FindOptions {
 	orderBy?: Array<{ column: string; ascending: boolean }>;
 	filters?: Record<string, unknown>;
 	inFilters?: Record<string, unknown[]>;
+	notInFilters?: Record<string, unknown[]>;
 	select?: string;
 	limit?: number;
 	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */

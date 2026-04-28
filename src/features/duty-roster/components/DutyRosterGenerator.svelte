@@ -4,7 +4,13 @@
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '../duty-roster.types';
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
-	import { buildDutyRosterApplyPayload, buildDutyRosterHistoryPayload, buildDutyRosterRunSnapshot } from '../run';
+	import {
+		buildDutyRosterApplyPayload,
+		buildDutyRosterHistoryPayload,
+		buildDutyRosterRunSnapshot,
+		buildManualHistoryImportPayload,
+		isManualHistoryImport
+	} from '../run';
 	import type { DutyRosterRunSnapshot, DutyRosterSnapshotPersonnel } from '../run';
 	import { exportDutyRosterForBrowser } from '../export/dutyRosterBrowserExport';
 	import { formatDa6AvailabilityTreatment } from '$features/calendar/utils/da6AvailabilityTreatment';
@@ -90,6 +96,13 @@
 	let previewTab = $state<'roster' | 'da6'>('roster');
 	let applyFeedback = $state<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null);
 	let partialSuccessSnapshot = $state<DutyRosterRunSnapshot | null>(null);
+	let localRosterHistory = $derived(rosterHistory);
+	let isManualHistoryFormOpen = $state(false);
+	let manualHistoryDate = $state('');
+	let manualHistoryAssignmentTypeId = $state('');
+	let manualHistoryAssigneeId = $state('');
+	let manualHistorySourceNote = $state('');
+	let isSavingManualHistory = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 
@@ -128,6 +141,7 @@
 			assignmentType: selectedAssignmentType,
 			personnel: allPersonnel,
 			assignments,
+			rosterHistory: localRosterHistory,
 			advancedDutyEvents,
 			availabilityEntries,
 			statusTypes,
@@ -160,6 +174,49 @@
 
 	async function saveSnapshotHistory(snapshot: DutyRosterRunSnapshot): Promise<RosterHistoryItem | null> {
 		return onSaveRoster(buildDutyRosterHistoryPayload(snapshot));
+	}
+
+	function openManualHistoryForm() {
+		manualHistoryAssignmentTypeId = selectedAssignmentTypeId || personnelAssignmentTypes[0]?.id || '';
+		manualHistoryDate = '';
+		manualHistoryAssigneeId = '';
+		manualHistorySourceNote = '';
+		isManualHistoryFormOpen = true;
+	}
+
+	async function saveManualHistoryImport(event: SubmitEvent) {
+		event.preventDefault();
+		const formData = new FormData(event.currentTarget as HTMLFormElement);
+		const assignmentTypeId = String(formData.get('assignmentTypeId') ?? '');
+		const dutyDate = String(formData.get('dutyDate') ?? '');
+		const assigneeId = String(formData.get('assigneeId') ?? '');
+		const sourceNote = String(formData.get('sourceNote') ?? '');
+		const assignmentType = assignmentTypes.find((type) => type.id === assignmentTypeId);
+		const assignee = allPersonnel.find((person) => person.id === assigneeId);
+		if (!assignmentType || !assignee || !dutyDate || !sourceNote.trim()) {
+			return;
+		}
+
+		isSavingManualHistory = true;
+		try {
+			const saved = await onSaveRoster(
+				buildManualHistoryImportPayload({
+					assignmentType,
+					assignee,
+					dutyDate,
+					sourceNote
+				})
+			);
+			if (!saved) {
+				toastStore.error('Failed to save manual history import');
+				return;
+			}
+			localRosterHistory = [saved, ...localRosterHistory.filter((item) => item.id !== saved.id)];
+			isManualHistoryFormOpen = false;
+			toastStore.success('Manual history import saved');
+		} finally {
+			isSavingManualHistory = false;
+		}
 	}
 
 	// Apply roster to calendar and save to history
@@ -360,7 +417,7 @@
 		</div>
 		{#if view !== 'history'}
 			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')}>
-				View History{rosterHistory.length > 0 ? ` (${rosterHistory.length})` : ''}
+				View History{localRosterHistory.length > 0 ? ` (${localRosterHistory.length})` : ''}
 			</button>
 		{/if}
 	</div>
@@ -395,21 +452,102 @@
 						<h3>Roster History</h3>
 						<p class="hint">Past rosters, most recent first.</p>
 					</div>
-					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'setup')}>Back to Setup</button>
+					<div class="panel-actions">
+						<button class="btn btn-secondary btn-sm" onclick={openManualHistoryForm}>Add Manual History</button>
+						<button class="btn btn-secondary btn-sm" onclick={() => (view = 'setup')}>Back to Setup</button>
+					</div>
 				</div>
 
-				{#if rosterHistory.length === 0}
+				{#if isManualHistoryFormOpen}
+					<form class="manual-history-form" onsubmit={saveManualHistoryImport}>
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="manualHistoryAssignmentType">Duty Type</label>
+								<select
+									id="manualHistoryAssignmentType"
+									name="assignmentTypeId"
+									class="select"
+									bind:value={manualHistoryAssignmentTypeId}
+								>
+									{#each personnelAssignmentTypes as type (type.id)}
+										<option value={type.id}>{type.name}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<label class="label" for="manualHistoryDate">Manual Duty Date</label>
+								<input
+									id="manualHistoryDate"
+									name="dutyDate"
+									type="date"
+									class="input"
+									value={manualHistoryDate}
+									oninput={(event) => (manualHistoryDate = event.currentTarget.value)}
+								/>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="manualHistoryAssignee">Charged Soldier</label>
+								<select
+									id="manualHistoryAssignee"
+									name="assigneeId"
+									class="select"
+									value={manualHistoryAssigneeId}
+									onchange={(event) => (manualHistoryAssigneeId = event.currentTarget.value)}
+								>
+									<option value="">Select Soldier...</option>
+									{#each allPersonnel as person (person.id)}
+										<option value={person.id}>{person.rank} {person.lastName}, {person.firstName}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<label class="label" for="manualHistorySourceNote">Source Note</label>
+								<input
+									id="manualHistorySourceNote"
+									name="sourceNote"
+									class="input"
+									value={manualHistorySourceNote}
+									oninput={(event) => (manualHistorySourceNote = event.currentTarget.value)}
+									placeholder="Copied from signed DA6, memo, or other source..."
+								/>
+							</div>
+						</div>
+						<div class="panel-actions">
+							<button
+								type="button"
+								class="btn btn-secondary btn-sm"
+								onclick={() => (isManualHistoryFormOpen = false)}
+								disabled={isSavingManualHistory}
+							>
+								Cancel
+							</button>
+							<button type="submit" class="btn btn-primary btn-sm" disabled={isSavingManualHistory}>
+								{isSavingManualHistory ? 'Saving...' : 'Save Manual History'}
+							</button>
+						</div>
+					</form>
+				{/if}
+
+				{#if localRosterHistory.length === 0}
 					<div class="empty-state">
 						<p>No roster history yet. Generate and apply a roster to save it here.</p>
 					</div>
 				{:else}
 					<div class="history-list">
-						{#each rosterHistory as item (item.id)}
+						{#each localRosterHistory as item (item.id)}
 							{@const filled = item.roster.filter((r) => r.assigneeId).length}
 							{@const total = item.roster.length}
+							{@const manualImport = isManualHistoryImport(item.config)}
 							<div class="history-card">
 								<div class="history-card-info">
-									<div class="history-card-name">{item.name}</div>
+									<div class="history-card-name">
+										{item.name}
+										{#if manualImport}
+											<span class="history-source-badge">Manual history import</span>
+										{/if}
+									</div>
 									<div class="history-card-meta">
 										{formatDisplayDate(item.startDate)} – {formatDisplayDate(item.endDate)}
 										&nbsp;·&nbsp;
@@ -442,6 +580,7 @@
 										class="btn btn-secondary btn-xs"
 										onclick={() => reApplyHistoryRoster(item)}
 										title="Re-apply to calendar"
+										disabled={manualImport}
 									>
 										Re-apply
 									</button>
@@ -939,6 +1078,16 @@
 		gap: var(--sp-2);
 	}
 
+	.manual-history-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-page);
+	}
+
 	.history-card {
 		display: flex;
 		align-items: flex-start;
@@ -956,12 +1105,24 @@
 	}
 
 	.history-card-name {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-2);
 		font-size: var(--text-ui-sm);
 		font-weight: 600;
 		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	}
+
+	.history-source-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.1rem 0.4rem;
+		border-radius: var(--radius-xs);
+		background: #fef3c7;
+		color: #92400e;
+		font-size: var(--text-xs);
+		font-weight: 700;
 	}
 
 	.history-card-meta {

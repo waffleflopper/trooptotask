@@ -31,6 +31,7 @@ export interface DutyRosterRunInput {
 	assignmentType: AssignmentType;
 	personnel: Personnel[];
 	assignments: DailyAssignment[];
+	rosterHistory?: DutyRosterContinuationHistoryItem[];
 	advancedDutyEvents: DutyEvent[];
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
@@ -140,6 +141,14 @@ export interface DutyRosterHistoryPayload {
 	endDate: string;
 	roster: DutyRosterHistoryEntry[];
 	da6?: DutyRosterHistoryDa6Data;
+	config: Record<string, unknown>;
+}
+
+export interface DutyRosterContinuationHistoryItem {
+	assignmentTypeId: string;
+	startDate: string;
+	endDate: string;
+	roster: DutyRosterHistoryEntry[];
 	config: Record<string, unknown>;
 }
 

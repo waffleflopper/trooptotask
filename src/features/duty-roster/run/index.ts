@@ -5,6 +5,11 @@ export {
 	buildDutyRosterHistoryPayload,
 	buildDutyRosterRunSnapshot
 } from './dutyRosterRun';
+export {
+	buildManualHistoryImportPayload,
+	isManualHistoryImport,
+	MANUAL_HISTORY_IMPORT_SOURCE
+} from './dutyRosterHistoryModel';
 export type {
 	Da6Cell,
 	Da6CellCode,
@@ -17,6 +22,7 @@ export type {
 	DutyRosterHistoryDa6Data,
 	DutyRosterHistoryEntry,
 	DutyRosterHistoryPayload,
+	DutyRosterContinuationHistoryItem,
 	DutyRosterNumberingMode,
 	DutyRosterRow,
 	DutyRosterRunConfig,

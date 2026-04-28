@@ -162,6 +162,37 @@ describe('buildDutyRosterRunSnapshot', () => {
 		expect(snapshot.da6.rows.map((row) => row.personnelId)).toEqual(['senior-a', 'senior-b', 'junior']);
 	});
 
+	it('uses manual history imports as continuation history without assignment type counter state', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				rosterHistory: [
+					{
+						assignmentTypeId: 'staff-duty',
+						startDate: '2026-04-30',
+						endDate: '2026-04-30',
+						roster: [
+							{
+								date: '2026-04-30',
+								assigneeId: 'alpha',
+								assigneeName: 'Alpha, Avery',
+								assigneeRank: 'SGT',
+								assigneeGroup: 'Alpha'
+							}
+						],
+						config: {
+							historySource: 'manual-history-import',
+							sourceNote: 'Copied from signed DA6.'
+						}
+					}
+				]
+			})
+		);
+
+		expect(snapshot.rosterRows[0]).toMatchObject({ date: '2026-05-01', assigneeId: 'bravo' });
+		expect(snapshot.assignmentType).not.toHaveProperty('counter');
+		expect(snapshot.assignmentType).not.toHaveProperty('startingCounter');
+	});
+
 	it('records authorized absence as nonchargeable A cells that interrupt queue numbering', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({

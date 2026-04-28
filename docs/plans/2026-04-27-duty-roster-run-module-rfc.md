@@ -345,13 +345,43 @@ Harden the shared rank/pay-grade ordering helper beyond the first DA6 needs if a
 
 Add a controlled manual adjustment model for:
 
-- correcting DA6 cells after the fact
-- editing starting counters when prior history is incomplete
 - importing or manually entering recent manual DA6 history so future generation can continue from an honest baseline
+- entering a direct baseline only when recent history is incomplete or unavailable
+- correcting the final assigned Soldier after the fact
 - recording why a manual change was made
 - preserving both generated proposal and final applied state
 
 This is important for full DA6 maturity but should be built as an explicit workflow, not hidden inside the first extraction. The preferred future source for continuation is saved roster history / run snapshots. Assignment types describe what the duty is; they should not own mutable DA6 counter state. Future simple duty templates may provide defaults, but historical continuation should come from saved roster history.
+
+Manual DA6 continuation should use a hybrid onboarding workflow:
+
+- Preferred path: create **Manual History Import** records from recent manual DA6 duty outcomes.
+- Fallback path: create a direct **Manual DA6 Baseline** only when recent history is incomplete or unavailable.
+- Manual history import requires actual charged duty outcomes: duty date, duty type, assigned/charged Soldier, source note, and reason.
+- Optional manual history detail may include available DA6 context such as authorized absence, other-duty skip, holiday/weekend sequence kind, or correction notes.
+- Manual history imports must be visibly labeled as manually entered history, not system-generated runs.
+- Both manual history imports and generated run snapshots may feed future continuation logic.
+
+Manual adjustments should preserve the generated proposal and the human-final state:
+
+- Any human change to generated output is flagged as a **Manual Adjustment**.
+- Manual adjustments require who, when, and why audit metadata.
+- Pre-apply manual adjustments preserve the generated proposal and record the final applied state.
+- Post-apply corrections are allowed because real units may need to reflect events that happen after the roster was saved, such as emergency leave.
+- Post-apply corrections should be append-only: keep the original generated/applied state, then add a correction record.
+- The first correction workflow should only change the final assigned Soldier for a duty date.
+- Corrections may capture a structured reason category and free-text note, but they should not silently change DA6 chargeability or require editing every DA6 cell.
+- Future Duty Roster Runs should derive continuation from the corrected final assignment state while keeping the original proposal and applied state available for audit.
+
+### Manual DA6 Follow-Up Slices
+
+Split manual DA6 continuation into follow-up AFK slices after the run snapshot module exists:
+
+1. **Manual History Import Model**: add a record type for manually entered/imported DA6 duty outcomes, clearly labeled as not system-generated, with required charged-duty fields and audit metadata.
+2. **Manual DA6 Baseline Fallback**: add a direct baseline entry workflow for incomplete history, requiring a reason and keeping the baseline out of assignment types.
+3. **Manual Adjustment And Correction Model**: add append-only adjustment records that preserve generated proposal, original applied state, corrected final state, actor, timestamp, and reason.
+4. **Continuation Read Model**: teach future Duty Roster Runs to derive starting history from generated snapshots, manual history imports, baseline fallbacks, and corrected final assignments.
+5. **Manual DA6 UI Workflow**: expose import, baseline fallback, and correction flows with labels that distinguish system-generated history from manual history.
 
 ## Settled Implementation Decisions
 
@@ -359,8 +389,11 @@ These questions were settled during RFC review.
 
 1. Canonical rank/pay-grade ordering lives in a shared personnel/domain utility. Duty rosters consume that utility but do not own the military rank precedence model.
 2. Sequence mode starts as a module-level option used by tests and future UI. The first implementation does not expose a sequence-mode setting to users.
-3. Manual counter baselines are deferred. Future continuation should come from saved roster history / run snapshots, with possible support for importing recent manual DA6 history or manually entering prior duties. Assignment types should not own mutable DA6 counter state.
+3. Manual DA6 continuation uses recent manual history import as the preferred onboarding path, with direct baseline entry only as a fallback when history is incomplete or unavailable. Assignment types should not own mutable DA6 counter state.
 4. The first implementation adds an explicit "export snapshot" recovery action for partial success when calendar apply succeeds but history save fails.
+5. Manual history imports are distinct from generated run snapshots and must be visibly labeled as entered after the fact.
+6. Manual adjustments preserve both generated proposal and final applied state, including append-only post-apply corrections.
+7. The first post-apply correction workflow changes the final assigned Soldier for a duty date and records the reason, but does not silently change DA6 chargeability.
 
 ## Recommended First Implementation Thread
 

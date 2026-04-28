@@ -45,7 +45,7 @@ function buildPostgrestAndFilter(filters: Record<string, unknown>): string {
 /**
  * Applies filtering, ordering, range and limit constraints to a Supabase query builder.
  *
- * Applies equality filters from `filters` and `options.filters`; `in` filters from `options.inFilters`; null checks from `options.isNull`; case-insensitive pattern matches from `options.ilikeFilters`; range comparisons from `options.rangeFilters`; ordering from `options.orderBy`; result range from `options.range`; and a row limit from `options.limit`.
+ * Applies equality filters from `filters` and `options.filters`; `in` filters from `options.inFilters`; `not in` filters from `options.notInFilters`; null checks from `options.isNull`; case-insensitive pattern matches from `options.ilikeFilters`; range comparisons from `options.rangeFilters`; ordering from `options.orderBy`; result range from `options.range`; and a row limit from `options.limit`.
  *
  * @param query - Supabase query builder to modify
  * @param filters - Key/value pairs to apply as equality (`eq`) conditions
@@ -69,6 +69,12 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 	if (options?.inFilters) {
 		for (const [key, values] of Object.entries(options.inFilters)) {
 			query = query.in(key, values);
+		}
+	}
+
+	if (options?.notInFilters) {
+		for (const [key, values] of Object.entries(options.notInFilters)) {
+			query = query.not(key, 'in', `(${values.map(formatPostgrestFilterValue).join(',')})`);
 		}
 	}
 

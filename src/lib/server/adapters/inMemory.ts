@@ -94,6 +94,12 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			}
 		}
 
+		if (options?.notInFilters) {
+			for (const [key, values] of Object.entries(options.notInFilters)) {
+				results = results.filter((row) => !values.includes(row[key]));
+			}
+		}
+
 		if (options?.isNull) {
 			for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
 				results = results.filter((row) => (shouldBeNull ? row[key] == null : row[key] != null));

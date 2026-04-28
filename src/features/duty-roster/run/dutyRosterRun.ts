@@ -181,6 +181,23 @@ function getLastDutyDates(
 			dates.set(assignment.assigneeId, assignment.date);
 		}
 	}
+	for (const historyItem of input.rosterHistory ?? []) {
+		if (historyItem.assignmentTypeId !== input.assignmentType.id) {
+			continue;
+		}
+		for (const row of historyItem.roster) {
+			if (!row.assigneeId || row.date >= startDate) {
+				continue;
+			}
+			const current = dates.get(row.assigneeId);
+			if (current === undefined) {
+				continue;
+			}
+			if (current === null || row.date > current) {
+				dates.set(row.assigneeId, row.date);
+			}
+		}
+	}
 	return dates;
 }
 

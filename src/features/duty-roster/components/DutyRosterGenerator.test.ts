@@ -221,6 +221,59 @@ describe('DutyRosterGenerator', () => {
 		expect(screen.queryByText('No eligible personnel available')).toBeNull();
 	});
 
+	it('imports manual history as non-generated history and uses it for future selection', async () => {
+		const firstSoldier = makePersonnel({ id: 'person-1', firstName: 'Casey', lastName: 'Nolan', rank: 'SGT' });
+		const nextSoldier = makePersonnel({ id: 'person-2', firstName: 'Alex', lastName: 'Rivera', rank: 'SGT' });
+		const onSaveRoster = vi.fn(
+			async (payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem> => ({
+				id: 'manual-history-1',
+				createdAt: '2026-04-09T18:00:00.000Z',
+				...payload
+			})
+		);
+		renderGenerator({
+			personnelByGroup: [{ group: 'Headquarters', personnel: [firstSoldier, nextSoldier] }],
+			onSaveRoster
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'View History' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Manual History' }));
+		await fireEvent.input(screen.getByLabelText('Manual Duty Date'), { target: { value: '2026-04-09' } });
+		await fireEvent.input(screen.getByLabelText('Charged Soldier'), { target: { value: 'person-1' } });
+		await fireEvent.input(screen.getByLabelText('Source Note'), {
+			target: { value: 'Copied from the signed DA6.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Manual History' }));
+
+		await waitFor(() =>
+			expect(onSaveRoster).toHaveBeenCalledWith(
+				expect.objectContaining({
+					assignmentTypeId: 'at-1',
+					startDate: '2026-04-09',
+					endDate: '2026-04-09',
+					roster: [
+						expect.objectContaining({
+							date: '2026-04-09',
+							assigneeId: 'person-1',
+							assigneeName: 'Nolan, Casey'
+						})
+					],
+					config: expect.objectContaining({
+						historySource: 'manual-history-import',
+						sourceNote: 'Copied from the signed DA6.'
+					})
+				})
+			)
+		);
+		expect(screen.getByText('Manual history import')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Back to Setup' }));
+		await generateSimpleRoster('2026-04-10');
+
+		expect(screen.getByText(/Rivera, Alex/)).toBeTruthy();
+		expect(screen.queryByText(/Nolan, Casey/)).toBeNull();
+	});
+
 	it('shows a conflict in preview when a soldier is assigned to a blocking advanced duty slot', async () => {
 		renderGenerator({
 			advancedDutyEvents: [makeDutyEvent()]

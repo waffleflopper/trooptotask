@@ -78,7 +78,10 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Numbering Mode**           | The rule for whether a **Duty Roster Run** uses one DA6 sequence or separate weekday and weekend-holiday sequences.                                    | Sort mode, view mode                                |
 | **Sequence Kind**            | The DA6 sequence category for a duty date, such as weekday, weekend, holiday, or weekend-holiday.                                                      | Date type when rotation semantics matter            |
 | **Duty Roster Export Model** | The formatting-neutral snapshot data used by a future export module to produce DA Form 6-style output.                                                 | Excel HTML, download payload, generated spreadsheet |
-| **Manual Adjustment**        | A user-recorded correction to a **Run Snapshot** or DA6 counter when generated history needs command judgment.                                         | Override when no audit/counter meaning is intended  |
+| **Manual History Import**    | Manually entered or imported DA Form 6 duty outcomes from a prior manual record, labeled as not system-generated, used to continue future duty runs.   | Generated run, hidden counter seed                  |
+| **Manual DA6 Baseline**      | A fallback starting point entered when recent manual history is incomplete or unavailable, with a required reason and audit trail.                     | Assignment type counter, silent starting value      |
+| **Manual Adjustment**        | A user-recorded change to generated duty output that preserves the generated proposal and final human-applied state.                                   | Override when no audit/counter meaning is intended  |
+| **Post-Apply Correction**    | An append-only **Manual Adjustment** recorded after a duty roster was applied or saved, used when real-world events change who actually pulled duty.   | Editing history in place, silent correction         |
 
 ## Authorization And Governance
 
@@ -156,6 +159,10 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Authorized Absence** creates a **Nonchargeable Day**, while **Other Duty** and **Misconduct Unavailable** create **Chargeable Days**.
 - A **Duty Exemption** removes a **Personnel Record** from that specific **Duty Roster** rather than marking the person as absent.
 - **Numbering Mode** controls whether **Sequence Kinds** share one sequence or keep separate weekday and weekend-holiday sequences.
+- **Manual History Imports** are the preferred way to continue from an existing manual DA Form 6 because they preserve actual charged duty outcomes as history.
+- A **Manual DA6 Baseline** is a fallback when recent manual history is incomplete or unavailable; it must not live as mutable counter state on an assignment type.
+- A **Manual Adjustment** must be visible as human judgment and must preserve both the generated proposal and the final applied state.
+- A **Post-Apply Correction** should be append-only. The first correction workflow changes the final assigned **Soldier** for a duty date, records the reason, and does not silently change DA6 chargeability.
 - **Planning Controls** belong in the **Page Toolbar** or **Command Strip** when they change the working scope of a feature surface.
 - During the current transition, hidden or missing primary nav does not by itself mean a **Feature Lane** no longer exists.
 - The **App Shell** is shared product infrastructure; it should not redefine feature ownership.

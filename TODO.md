@@ -21,12 +21,17 @@ This file tracks intentional follow-ups that should not be lost when a plan defe
   - Add a user-facing workflow for `separate-weekend-holiday` only when the labels, saved settings, and export behavior are clear.
 - Add manual DA6 counter baseline support.
   - Support units that need to continue from a current manual DA6 counter.
-  - Consider importing or manually entering the last 1-2 months of duties so future generation can build from real saved history.
-  - Prefer saved roster history / run snapshots as the long-term continuation source.
+  - Prefer importing or manually entering the last 1-2 months of charged duty outcomes as manual history imports so future generation can build from real saved history.
+  - Use direct baseline entry only as a fallback when recent history is incomplete or unavailable, and require a reason.
+  - Prefer saved roster history, manual history imports, corrected final assignments, and run snapshots as the long-term continuation source.
   - Do not put mutable counter state on assignment types.
-- Add Calendar status semantics for DA6 behavior.
-  - Use human-readable labels that map to authorized/nonchargeable absence, other-duty/chargeable unavailable, and misconduct/chargeable unavailable.
-  - Avoid exposing raw A/D/U codes as the primary user language.
+- Add manual adjustment and post-apply correction support.
+  - Flag every human change to generated duty output as manually adjusted.
+  - Preserve generated proposal, original applied state, corrected final state, actor, timestamp, and reason.
+  - Start by allowing correction of the final assigned Soldier for a duty date without silently changing DA6 chargeability.
+- Add an explicit misconduct / AWOL workflow before enabling misconduct-unavailable calendar status treatment.
+  - The status treatment option exists for domain completeness but remains disabled until commanders have a deliberate workflow for applying it.
+  - Preserve human-readable labels in the UI; do not make users choose raw DA6 A/D/U codes.
 - Harden shared rank/pay-grade ordering beyond the first DA6 implementation if other Personnel, leader book, report, or export workflows need canonical military ordering.
 - Build the sitewide export module so feature-owned export models can produce XLSX/PDF/CSV/print-ready output.
   - Current marker: `src/features/duty-roster/export/dutyRosterBrowserExport.ts` is a temporary browser adapter that should be retired once the shared export module owns final formatting and download behavior.

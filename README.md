@@ -7,7 +7,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 ### Dashboard
 
 - Organization overview with key metrics at a glance
-- Customizable dashboard widgets
+- Focused readiness, people/duty, and training/evaluation views
 - Quick access to all features
 
 ### Calendar & Availability
@@ -69,7 +69,6 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Mobile responsive with bottom tab navigation
 - Multi-organization support
 - Subscription tiers (Free, Team, Unit) with personnel-count gating
-- Demo mode with sandbox environment
 - What's New changelog for users
 - Feedback submission system
 
@@ -159,7 +158,7 @@ src/
     calendar/                # Calendar views, availability, status, assignments
     counseling/              # Counseling records, rating schemes, leader's book
     onboarding/              # Onboarding workflows, templates
-    dashboard/               # Dashboard widgets and overview
+    dashboard/               # Readiness, people/duty, and training/evaluation overview
     duty-roster/             # Duty roster generation
     sign-in-rosters/         # Sign-in roster generation
     groups/                  # Group and member management
@@ -179,13 +178,6 @@ src/
 ```
 
 Each feature module contains its own `components/`, `stores/`, `utils/`, and types. Features are imported via `$features/feature-name/...`.
-
-## Demo
-
-A demo account is available to explore the application with sample data:
-
-- Visit the login page and click "Try Demo"
-- No account creation required
 
 ## License
 

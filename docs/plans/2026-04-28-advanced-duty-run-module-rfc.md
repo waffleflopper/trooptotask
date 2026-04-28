@@ -78,18 +78,39 @@ An advanced apply should persist the same event/date/slot results that the opera
 
 Changing template settings, personnel fields, status entries, special days, existing duty events, or candidate selection after preview should not silently mutate the approved run. The user should refresh/regenerate the preview if they want new source data considered.
 
-### Snapshot Custody Needs A Small HITL Decision
+### Snapshot Custody
 
 Because advanced generation runs server-side, the app needs an explicit way to carry the preview snapshot into apply.
 
-Two viable options:
+Decision: advanced preview snapshots are persisted server-side as draft **Advanced Run Snapshots** and applied by snapshot identity.
 
-1. Persist a draft advanced run snapshot server-side and apply by snapshot id.
-2. Return a signed snapshot payload/fingerprint to the client and require apply to send it back.
+Decision record: `docs/architecture/adrs/0007-advanced-duty-snapshot-custody.md`.
 
-The recommended default is **persisted draft snapshot**, because it avoids very large signed payloads, supports multi-step review, and leaves a better seam for retry/export/reopen behavior. The tradeoff is a schema/storage cleanup slice.
+Follow-on slices should implement this as:
 
-This decision should be settled before implementing snapshot-bound apply.
+- preview creates a draft server-side snapshot
+- draft snapshots are stored in `advanced_duty_run_snapshots`
+- preview returns a snapshot id and fingerprint/version metadata
+- apply requires `snapshotId` and `snapshotFingerprint`
+- apply verifies snapshot status, expiration, organization, actor permission, template id, date pattern, and submitted override state before persisting events
+- draft snapshots expire after 24 hours
+- cleanup may remove expired draft snapshots
+- unapplied draft snapshots may be exported as preview-only team duty packets
+- snapshots are finalized/consumed after successful apply and cannot be normally re-applied
+- an unexpired draft snapshot may be retried only when apply fails before persistence begins
+- partial failure recovery must be explicit and idempotent rather than a generic apply retry
+- stale, missing, expired, or mismatched snapshots require the user to regenerate the preview
+- signed client snapshot payloads are rejected as the primary custody model
+
+Rationale: persisted draft snapshots avoid very large signed payloads, support multi-step review, and leave a better seam for retry, export, and reopen behavior. The tradeoff is a schema/storage cleanup slice, so implementation must not require production migration work before the migration has been reviewed by the user.
+
+Preview exports from unapplied draft snapshots must be clearly labeled as preview/not applied output. They are review artifacts, not final applied records.
+
+After successful apply, the snapshot becomes finalized/consumed. Normal apply cannot be repeated from the same snapshot because that could duplicate operational duty events. If apply fails before persistence begins, the same unexpired draft can be retried. If apply partially succeeds, recovery must be explicit and safe to repeat without duplicating events.
+
+The apply contract is `snapshotId` plus `snapshotFingerprint`. The snapshot id identifies the persisted draft; the fingerprint proves the client is applying the same preview response the operator reviewed. Apply must also validate snapshot status, expiration, organization boundary, actor permission, template id, date pattern, and submitted override state. If any check fails, the user must regenerate the preview instead of applying silently changed data.
+
+The draft storage table is `advanced_duty_run_snapshots`. It stores the snapshot lifecycle status, `snapshot_fingerprint`, `snapshot_version`, 24-hour `expires_at`, reviewed input/snapshot/preview payloads, optional export model, apply error text, and an applied run link when one exists. Draft snapshot RLS is intentionally owner/admin-only rather than Calendar-view readable because draft previews can include full candidate and override details.
 
 ### Existing Event Records Stay First-Class
 
@@ -149,15 +170,16 @@ Blocked by: None
 
 What to settle:
 
-- Whether advanced preview snapshots are persisted server-side or carried back as signed client payloads.
-- Snapshot lifetime and cleanup expectations.
-- Whether apply should require a snapshot id/fingerprint.
-- Whether export/retry should be allowed from an unapplied preview snapshot.
+- Persisted draft advanced run snapshots are the chosen custody model.
+- Draft snapshots expire after 24 hours, and cleanup may remove expired drafts.
+- Apply requires `snapshotId` plus `snapshotFingerprint` validation.
+- Unapplied draft snapshots may be exported as preview-only team duty packets.
+- Retry is allowed only before persistence starts; successful snapshots cannot be normally re-applied, and partial failures need explicit idempotent recovery.
 
 Acceptance criteria:
 
-- The decision is documented in this RFC or a short ADR.
-- Follow-on slices know exactly how preview hands a snapshot to apply.
+- Follow-on slices know preview creates a persisted draft snapshot and hands apply a snapshot id plus fingerprint/version metadata.
+- Draft snapshot storage is defined by `advanced_duty_run_snapshots` before preview/apply implementation begins.
 - The chosen path does not require production migration work before the migration has been reviewed by the user.
 
 ### Slice 2: Extract Advanced Run Snapshot Builder

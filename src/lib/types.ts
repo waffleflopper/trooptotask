@@ -214,7 +214,12 @@ export interface StatusType {
 	name: string;
 	color: string;
 	textColor: string;
+	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
 }
+
+export const DA6_AVAILABILITY_TREATMENTS = ['authorized-absence', 'other-duty', 'misconduct-unavailable'] as const;
+
+export type Da6AvailabilityTreatment = (typeof DA6_AVAILABILITY_TREATMENTS)[number];
 
 export interface AvailabilityEntry {
 	id: string;
@@ -250,12 +255,42 @@ export interface DailyAssignment {
 }
 
 export const DEFAULT_STATUS_TYPES: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
-	{ id: 'school', name: 'School', color: '#4299e1', textColor: '#ffffff' },
-	{ id: 'field', name: 'Field/Training', color: '#a0522d', textColor: '#ffffff' },
-	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' },
-	{ id: 'appointment', name: 'Appointment', color: '#ed8936', textColor: '#ffffff' },
-	{ id: 'sick', name: 'Sick', color: '#e53e3e', textColor: '#ffffff' }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#48bb78',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{
+		id: 'school',
+		name: 'School',
+		color: '#4299e1',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{
+		id: 'training-tdy',
+		name: 'Training / TDY',
+		color: '#9f7aea',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{ id: 'appointment', name: 'Appointment', color: '#ed8936', textColor: '#ffffff', da6AvailabilityTreatment: null },
+	{
+		id: 'sick',
+		name: 'Sick',
+		color: '#e53e3e',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{
+		id: 'other-duty',
+		name: 'Other Duty / Detail',
+		color: '#a0522d',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: 'other-duty'
+	}
 ];
 
 // ============================================================

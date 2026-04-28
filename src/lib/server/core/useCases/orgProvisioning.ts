@@ -1,6 +1,7 @@
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
+import type { Da6AvailabilityTreatment } from '$lib/types';
 
 export interface OrgProvisioningAvailability {
 	allowed: boolean;
@@ -22,6 +23,7 @@ export interface OrgProvisioningStatusTypeSeed {
 	color: string;
 	textColor: string;
 	sortOrder: number;
+	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
 }
 
 export interface OrgProvisioningAssignmentTypeSeed {
@@ -67,23 +69,55 @@ const DEFAULT_GROUPS: OrgProvisioningGroupSeed[] = [
 ];
 
 const DEFAULT_STATUS_TYPES: OrgProvisioningStatusTypeSeed[] = [
-	{ name: 'Leave', color: '#48bb78', textColor: '#ffffff', sortOrder: 0 },
-	{ name: 'School', color: '#4299e1', textColor: '#ffffff', sortOrder: 1 },
 	{
-		name: 'Field/Training',
-		color: '#a0522d',
+		name: 'Leave',
+		color: '#48bb78',
 		textColor: '#ffffff',
-		sortOrder: 2
+		sortOrder: 0,
+		da6AvailabilityTreatment: 'authorized-absence'
 	},
-	{ name: 'TDY', color: '#9f7aea', textColor: '#ffffff', sortOrder: 3 },
+	{
+		name: 'School',
+		color: '#4299e1',
+		textColor: '#ffffff',
+		sortOrder: 1,
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{
+		name: 'Training / TDY',
+		color: '#9f7aea',
+		textColor: '#ffffff',
+		sortOrder: 2,
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
 	{
 		name: 'Appointment',
 		color: '#ed8936',
 		textColor: '#ffffff',
-		sortOrder: 4
+		sortOrder: 3,
+		da6AvailabilityTreatment: null
 	},
-	{ name: 'Sick', color: '#e53e3e', textColor: '#ffffff', sortOrder: 5 },
-	{ name: 'CQ/SD', color: '#dc2626', textColor: '#ffffff', sortOrder: 6 }
+	{
+		name: 'Sick',
+		color: '#e53e3e',
+		textColor: '#ffffff',
+		sortOrder: 4,
+		da6AvailabilityTreatment: 'authorized-absence'
+	},
+	{
+		name: 'Other Duty / Detail',
+		color: '#a0522d',
+		textColor: '#ffffff',
+		sortOrder: 5,
+		da6AvailabilityTreatment: 'other-duty'
+	},
+	{
+		name: 'CQ/SD',
+		color: '#dc2626',
+		textColor: '#ffffff',
+		sortOrder: 6,
+		da6AvailabilityTreatment: 'other-duty'
+	}
 ];
 
 const DEFAULT_ASSIGNMENT_TYPES: OrgProvisioningAssignmentTypeSeed[] = [

@@ -9,6 +9,14 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import {
+		DA6_AVAILABILITY_HELP,
+		DA6_AVAILABILITY_TREATMENT_OPTIONS,
+		DA6_TREATMENT_NONE,
+		formatDa6AvailabilityTreatment,
+		toDa6AvailabilityTreatment,
+		type Da6AvailabilityTreatmentOption
+	} from '$features/calendar/utils/da6AvailabilityTreatment';
 	import { formatDate } from '$lib/utils/dates';
 	import type { StatusType, AssignmentType, SpecialDay } from '$lib/types';
 	import { fly } from 'svelte/transition';
@@ -26,10 +34,12 @@
 	let newStatusName = $state('');
 	let newStatusColor = $state('#4a4a47');
 	let newStatusTextColor = $state('#f8f7f4');
+	let newStatusDa6Treatment = $state<Da6AvailabilityTreatmentOption>(DA6_TREATMENT_NONE);
 	let editingStatus = $state<StatusType | null>(null);
 	let editStatusName = $state('');
 	let editStatusColor = $state('');
 	let editStatusTextColor = $state('');
+	let editStatusDa6Treatment = $state<Da6AvailabilityTreatmentOption>(DA6_TREATMENT_NONE);
 	let confirmDeleteStatus = $state<StatusType | null>(null);
 
 	function startEditStatus(s: StatusType) {
@@ -37,10 +47,19 @@
 		editStatusName = s.name;
 		editStatusColor = s.color;
 		editStatusTextColor = s.textColor;
+		editStatusDa6Treatment = s.da6AvailabilityTreatment ?? DA6_TREATMENT_NONE;
 	}
 
 	function cancelEditStatus() {
 		editingStatus = null;
+	}
+
+	function handleNewDa6TreatmentChange(event: Event) {
+		newStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
+	}
+
+	function handleEditDa6TreatmentChange(event: Event) {
+		editStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
 	}
 
 	async function saveEditStatus() {
@@ -48,7 +67,8 @@
 		await statusTypesStore.update(editingStatus.id, {
 			name: editStatusName.trim(),
 			color: editStatusColor,
-			textColor: editStatusTextColor
+			textColor: editStatusTextColor,
+			da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment)
 		});
 		editingStatus = null;
 	}
@@ -56,10 +76,16 @@
 	async function addStatus() {
 		if (!canMutate) return;
 		if (!newStatusName.trim()) return;
-		await statusTypesStore.add({ name: newStatusName.trim(), color: newStatusColor, textColor: newStatusTextColor });
+		await statusTypesStore.add({
+			name: newStatusName.trim(),
+			color: newStatusColor,
+			textColor: newStatusTextColor,
+			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment)
+		});
 		newStatusName = '';
 		newStatusColor = '#4a4a47';
 		newStatusTextColor = '#f8f7f4';
+		newStatusDa6Treatment = DA6_TREATMENT_NONE;
 	}
 
 	async function deleteStatus(s: StatusType) {
@@ -263,6 +289,33 @@
 					{#if newStatusName.trim()}
 						<Badge label={newStatusName} color={newStatusColor} textColor={newStatusTextColor} />
 					{/if}
+					<div class="treatment-field">
+						<div class="treatment-label-row">
+							<label class="treatment-label" for="new-status-da6-treatment">Duty roster treatment</label>
+							<span class="help-wrapper">
+								<button class="help-icon" type="button" aria-label="Duty roster treatment help">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+										<path
+											d="M12 6.75c-1.8 0-3 1.01-3 2.52h1.73c0-.69.52-1.1 1.22-1.1.76 0 1.29.44 1.29 1.11 0 .62-.34.93-1.08 1.38-.95.57-1.66 1.19-1.66 2.59v.38h1.72v-.25c0-.84.37-1.18 1.19-1.68.88-.53 1.57-1.19 1.57-2.52 0-1.76-1.39-2.43-2.98-2.43Z"
+										/>
+										<circle cx="12" cy="17.35" r="1" fill="currentColor" stroke="none" />
+									</svg>
+								</button>
+								<span class="help-tooltip" role="tooltip">{DA6_AVAILABILITY_HELP}</span>
+							</span>
+						</div>
+						<select
+							id="new-status-da6-treatment"
+							class="select"
+							value={newStatusDa6Treatment}
+							onchange={handleNewDa6TreatmentChange}
+							disabled={!canMutate}
+						>
+							{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+								<option value={option.value} disabled={option.disabled}>{option.label}</option>
+							{/each}
+						</select>
+					</div>
 					<button class="btn btn-primary btn-sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>
 						+ Add
 					</button>
@@ -289,6 +342,20 @@
 										<input type="color" bind:value={editStatusTextColor} />
 									</label>
 									<Badge label={editStatusName || 'Preview'} color={editStatusColor} textColor={editStatusTextColor} />
+									<div class="treatment-field">
+										<label class="treatment-label" for="edit-status-da6-treatment">Duty roster treatment</label>
+										<select
+											id="edit-status-da6-treatment"
+											class="select"
+											value={editStatusDa6Treatment}
+											onchange={handleEditDa6TreatmentChange}
+											disabled={!canMutate}
+										>
+											{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+												<option value={option.value} disabled={option.disabled}>{option.label}</option>
+											{/each}
+										</select>
+									</div>
 									<button
 										class="btn btn-primary btn-sm"
 										onclick={saveEditStatus}
@@ -297,7 +364,12 @@
 									<button class="btn btn-sm" onclick={cancelEditStatus}>Cancel</button>
 								</div>
 							{:else}
-								<Badge label={status.name} color={status.color} textColor={status.textColor} />
+								<div class="status-display">
+									<Badge label={status.name} color={status.color} textColor={status.textColor} />
+									<span class="treatment-summary">
+										{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}
+									</span>
+								</div>
 								<div class="item-actions">
 									{#if canMutate}
 										<button
@@ -775,6 +847,94 @@
 	.inline-edit .input {
 		flex: 1;
 		min-width: 120px;
+	}
+
+	.status-display {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+
+	.treatment-summary {
+		color: var(--text-tertiary);
+		font-size: var(--text-xs);
+	}
+
+	.treatment-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		min-width: min(100%, 18rem);
+	}
+
+	.treatment-label-row {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-1);
+	}
+
+	.treatment-label {
+		display: inline-flex;
+		align-items: center;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.help-wrapper {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.help-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 1px solid var(--border-default);
+		border-radius: 999px;
+		background: var(--surface-panel);
+		color: var(--text-tertiary);
+		cursor: help;
+	}
+
+	.help-icon svg {
+		width: 0.85rem;
+		height: 0.85rem;
+	}
+
+	.help-tooltip {
+		position: absolute;
+		left: 50%;
+		bottom: calc(100% + var(--sp-2));
+		z-index: var(--z-tooltip);
+		width: min(18rem, 80vw);
+		padding: var(--sp-2);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		box-shadow: var(--shadow-md);
+		color: var(--text-primary);
+		font-family: var(--font-sans);
+		font-size: var(--text-xs);
+		font-weight: 500;
+		letter-spacing: 0;
+		line-height: 1.35;
+		text-transform: none;
+		transform: translateX(-50%);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity var(--transition-fast);
+	}
+
+	.help-wrapper:hover .help-tooltip,
+	.help-wrapper:focus-within .help-tooltip {
+		opacity: 1;
 	}
 
 	.item-name {

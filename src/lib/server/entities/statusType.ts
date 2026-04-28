@@ -5,7 +5,7 @@
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { StatusType } from '$lib/types';
+import { DA6_AVAILABILITY_TREATMENTS, type StatusType } from '$lib/types';
 
 export const StatusTypeEntity = defineEntity<StatusType>({
 	table: 'status_types',
@@ -19,6 +19,10 @@ export const StatusTypeEntity = defineEntity<StatusType>({
 		name: field(z.string().min(1).max(100)),
 		color: field(z.string(), { insertDefault: '#6b7280' }),
 		textColor: field(z.string(), { column: 'text_color', insertDefault: '#ffffff' }),
+		da6AvailabilityTreatment: field(z.enum(DA6_AVAILABILITY_TREATMENTS).nullable(), {
+			column: 'da6_availability_treatment',
+			insertDefault: null
+		}),
 		sortOrder: field(z.number().int(), { column: 'sort_order', insertDefault: 0 })
 	}
 });

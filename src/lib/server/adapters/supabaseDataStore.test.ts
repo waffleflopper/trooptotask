@@ -19,6 +19,7 @@ function createMockQueryBuilder(returnData: unknown = null, returnError: unknown
 		eq: track('eq'),
 		or: track('or'),
 		in: track('in'),
+		not: track('not'),
 		order: track('order'),
 		range: track('range'),
 		limit: track('limit'),
@@ -157,6 +158,22 @@ describe('SupabaseDataStore', () => {
 
 			const inCalls = calls.filter((c) => c.method === 'in');
 			expect(inCalls).toContainEqual({ method: 'in', args: ['id', ['p-1', 'p-3']] });
+		});
+
+		it('applies notInFilters using .not()', async () => {
+			const { builder, calls } = createMockQueryBuilder([]);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.findMany('records', 'org-1', undefined, {
+				notInFilters: { action: ['auth.login_success', 'security.rate_limit_violation'] }
+			});
+
+			const notCalls = calls.filter((c) => c.method === 'not');
+			expect(notCalls).toContainEqual({
+				method: 'not',
+				args: ['action', 'in', '(auth.login_success,security.rate_limit_violation)']
+			});
 		});
 
 		it('applies orderBy', async () => {

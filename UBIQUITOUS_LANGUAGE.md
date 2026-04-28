@@ -56,6 +56,29 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Conflict Indicator**  | A signal that a calendar status or assignment overlaps in a way that needs review.                                             | Error if it is only a review condition |
 | **Readiness Signal**    | A compact visual or data cue that helps leaders interpret availability, training, evaluation, or personnel state under review. | Decorative badge, vanity metric        |
 
+## Duty Rosters
+
+| Term                         | Definition                                                                                                                                             | Aliases to avoid                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| **Duty Roster**              | A **Calendar** workflow for equitably assigning **Soldiers** to a recurring duty using DA Form 6-style rotation rules.                                 | Schedule, rota, duty list                           |
+| **Duty Roster Run**          | One generated roster for a selected duty, date range, and rule configuration.                                                                          | Generation, batch, run job                          |
+| **Run Snapshot**             | The immutable inputs and outputs produced by a **Duty Roster Run**.                                                                                    | Current roster data, regenerated history            |
+| **Roster Row**               | The operational outcome for one duty date in a **Duty Roster Run**, either an assigned **Soldier** or an unfilled reason.                              | DA6 row, assignment row                             |
+| **DA Form 6**                | The Army duty roster form used to record duty performance and support equitable future assignments.                                                    | DA6 when formal document clarity matters            |
+| **DA6 Matrix**               | The structured row-by-date representation of a **DA Form 6**, including assigned, available, chargeable, and nonchargeable cells.                      | Export table, spreadsheet                           |
+| **DA6 Cell**                 | One **Soldier** and one duty date inside a **DA6 Matrix**.                                                                                             | Table value, display cell                           |
+| **DA6 Code**                 | A duty-roster availability marker such as assigned, `A`, `D`, or future `U`.                                                                           | Status type, absence type                           |
+| **Chargeable Day**           | A duty date that continues a **Soldier**'s DA6 numbering sequence even when the Soldier is not selected.                                               | Counted absence, penalty day                        |
+| **Nonchargeable Day**        | A duty date that interrupts a **Soldier**'s DA6 numbering sequence because the Soldier is in an authorized absence.                                    | Free day, ignored day                               |
+| **Authorized Absence**       | A nonchargeable reason a **Soldier** is unavailable for duty, represented as `A` in DA Form 6 language.                                                | Leave status when the DA6 meaning matters           |
+| **Other Duty**               | A chargeable reason a **Soldier** is unavailable because another duty or duty recovery window blocks selection, represented as `D` in DA Form 6 terms. | Blocked, conflict, cooldown without DA6 semantics   |
+| **Misconduct Unavailable**   | A future chargeable unavailable state for absence or misconduct reasons, represented as `U` in DA Form 6 terms.                                        | AWOL status as a general calendar concept           |
+| **Duty Exemption**           | A rule that removes a **Personnel Record** from a specific **Duty Roster** because the person should not perform that duty.                            | Authorized absence, unavailability                  |
+| **Numbering Mode**           | The rule for whether a **Duty Roster Run** uses one DA6 sequence or separate weekday and weekend-holiday sequences.                                    | Sort mode, view mode                                |
+| **Sequence Kind**            | The DA6 sequence category for a duty date, such as weekday, weekend, holiday, or weekend-holiday.                                                      | Date type when rotation semantics matter            |
+| **Duty Roster Export Model** | The formatting-neutral snapshot data used by a future export module to produce DA Form 6-style output.                                                 | Excel HTML, download payload, generated spreadsheet |
+| **Manual Adjustment**        | A user-recorded correction to a **Run Snapshot** or DA6 counter when generated history needs command judgment.                                         | Override when no audit/counter meaning is intended  |
+
 ## Authorization And Governance
 
 | Term                               | Definition                                                                                                                                  | Aliases to avoid         |
@@ -116,6 +139,14 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**, and the **Status Legend** explains those statuses.
 - A **Bulk Status Update** creates, changes, or removes **Availability Status** values across multiple dates or people.
+- A **Duty Roster** belongs to **Calendar** and assigns **Soldiers** from the **Roster** to duty dates.
+- A **Duty Roster Run** produces exactly one **Run Snapshot**.
+- A **Run Snapshot** contains **Roster Rows**, a **DA6 Matrix**, and a **Duty Roster Export Model**.
+- A **DA6 Matrix** contains one **DA6 Cell** per rostered **Soldier** per duty date.
+- A **DA6 Cell** can represent an **Authorized Absence**, **Other Duty**, **Misconduct Unavailable**, assignment, or available-not-selected state.
+- **Authorized Absence** creates a **Nonchargeable Day**, while **Other Duty** and **Misconduct Unavailable** create **Chargeable Days**.
+- A **Duty Exemption** removes a **Personnel Record** from that specific **Duty Roster** rather than marking the person as absent.
+- **Numbering Mode** controls whether **Sequence Kinds** share one sequence or keep separate weekday and weekend-holiday sequences.
 - **Planning Controls** belong in the **Page Toolbar** or **Command Strip** when they change the working scope of a feature surface.
 - During the current transition, hidden or missing primary nav does not by itself mean a **Feature Lane** no longer exists.
 - The **App Shell** is shared product infrastructure; it should not redefine feature ownership.
@@ -138,6 +169,18 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 > **Dev:** "So should **Planning Controls** live near dashboard stats?"
 >
 > **Domain expert:** "No. Dashboard stats summarize. **Planning Controls** belong in the **Page Toolbar** or **Command Strip** because they change the working scope of the page."
+>
+> **Dev:** "If a **Soldier** is on leave during a **Duty Roster Run**, do we remove them from the **DA6 Matrix**?"
+>
+> **Domain expert:** "No. Leave is an **Authorized Absence**, so the **DA6 Cell** uses `A` and creates a **Nonchargeable Day**. A **Duty Exemption** is what removes a person from that specific **Duty Roster**."
+>
+> **Dev:** "If the Soldier is blocked by another duty or cooldown, is that also `A`?"
+>
+> **Domain expert:** "No. That is **Other Duty**, so the cell is chargeable and the DA6 numbering continues."
+>
+> **Dev:** "Should a saved roster export use current Personnel data?"
+>
+> **Domain expert:** "No. It uses the **Run Snapshot** so the **Duty Roster Export Model** reflects what was generated and applied at the time."
 
 ## Flagged Ambiguities
 
@@ -166,3 +209,10 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Roster View Mode** and **Personnel Search** are view controls over the **Roster**, not separate roster states.
 - **Personnel Filter** selects one **Personnel Record**; **Personnel Search** narrows by typed text and may match many records.
 - **Availability Status** and **Status Type** are related but distinct: a status type is the category, while an availability status is the applied calendar state for a person and date range.
+- **Duty Roster** is a Calendar workflow, not the same concept as the **Roster** of **Personnel Records**.
+- **Run Snapshot** must mean frozen generated truth; do not use it for current, recomputed, or live Personnel data.
+- **Authorized Absence**, **Other Duty**, and **Misconduct Unavailable** are DA6 semantic categories; do not collapse them into generic unavailable status.
+- **Duty Exemption** is not an **Authorized Absence**. It removes someone from that duty roster instead of marking a DA6 `A`.
+- **DA6 Code** is not the same thing as a **Status Type**. A future Calendar status semantic may map a **Status Type** to a DA6 category, but the terms should stay distinct.
+- **Numbering Mode** is a duty-rotation rule, not a display preference or **Roster View Mode**.
+- **Duty Roster Export Model** is not an Excel file. It is snapshot data a future export module can format.

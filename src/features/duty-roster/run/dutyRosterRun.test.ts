@@ -1,0 +1,304 @@
+import { describe, expect, it } from 'vitest';
+import { buildDutyRosterRunSnapshot } from './dutyRosterRun';
+import type { DutyRosterRunInput } from './dutyRosterRun.types';
+import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+import type { AssignmentType, DailyAssignment, Personnel } from '$lib/types';
+
+const assignmentType: AssignmentType = {
+	id: 'staff-duty',
+	name: 'Staff Duty',
+	shortName: 'SD',
+	assignTo: 'personnel',
+	color: '#111827',
+	exemptPersonnelIds: [],
+	showInDateHeader: true
+};
+
+function person(overrides: Partial<Personnel>): Personnel {
+	return {
+		id: overrides.id ?? 'person',
+		rank: overrides.rank ?? 'SGT',
+		lastName: overrides.lastName ?? 'Soldier',
+		firstName: overrides.firstName ?? 'Sam',
+		mos: '11B',
+		clinicRole: 'Duty Role',
+		groupId: 'group-a',
+		groupName: 'Alpha',
+		...overrides
+	};
+}
+
+function baseInput(overrides: Partial<DutyRosterRunInput> = {}): DutyRosterRunInput {
+	return {
+		assignmentType,
+		personnel: [
+			person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha', firstName: 'Avery' }),
+			person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo', firstName: 'Blake' })
+		],
+		assignments: [],
+		advancedDutyEvents: [],
+		availabilityEntries: [],
+		statusTypes: [{ id: 'leave', name: 'Leave', color: '#008000', textColor: '#fff' }],
+		specialDays: [],
+		config: {
+			startDate: '2026-05-01',
+			endDate: '2026-05-01',
+			dutyDuration: 'daily',
+			excludedStatusIds: ['leave'],
+			excludeWeekends: false,
+			excludeHolidays: false,
+			excludeOrgClosures: false
+		},
+		generatedAt: '2026-04-28T00:00:00.000Z',
+		...overrides
+	};
+}
+
+function daily(overrides: Partial<DailyAssignment>): DailyAssignment {
+	return {
+		id: overrides.id ?? 'assignment',
+		date: overrides.date ?? '2026-04-01',
+		assignmentTypeId: overrides.assignmentTypeId ?? 'staff-duty',
+		assigneeId: overrides.assigneeId ?? 'alpha'
+	};
+}
+
+function advancedDuty(overrides: Partial<DutyEvent>): DutyEvent {
+	return {
+		id: overrides.id ?? 'advanced-duty',
+		orgId: 'org',
+		runId: null,
+		templateId: 'template',
+		templateName: 'CQ',
+		eventDate: '2026-05-01',
+		coverageMode: 'all-day',
+		coverageStart: overrides.coverageStart ?? '2026-05-01T00:00:00',
+		coverageEnd: overrides.coverageEnd ?? '2026-05-01T23:59:59',
+		isBlocking: overrides.isBlocking ?? true,
+		cooldownHours: overrides.cooldownHours ?? 0,
+		rulesSnapshot: {
+			templateId: 'template',
+			templateName: 'CQ',
+			templateStatus: 'active',
+			coverageMode: 'all-day',
+			startTime: null,
+			endTime: null,
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			isBlocking: true,
+			cooldownHours: 0,
+			slots: [
+				{
+					templateSlotId: 'slot',
+					roleLabel: 'Runner',
+					quantity: 1,
+					allowedRanks: [],
+					allowedGroupIds: [],
+					preferredGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: [],
+					rotationPoolKey: 'runner',
+					blockingMode: 'inherit',
+					sortOrder: 0
+				}
+			]
+		},
+		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+		collisionSummary: { hasConflicts: false, conflicts: [] },
+		originalProposal: null,
+		createdAt: '2026-04-28T00:00:00.000Z',
+		updatedAt: '2026-04-28T00:00:00.000Z',
+		slotInstances: [
+			{
+				id: 'slot-instance',
+				dutyEventId: 'advanced-duty',
+				templateSlotId: 'slot',
+				roleLabel: 'Runner',
+				slotIndex: 0,
+				assigneeId: 'alpha',
+				assignmentSource: 'generated',
+				warningState: 'none',
+				fairnessConfidence: 'high',
+				selectionReason: null,
+				unfilledReason: null,
+				sortOrder: 0
+			}
+		],
+		...overrides
+	};
+}
+
+describe('buildDutyRosterRunSnapshot', () => {
+	it('selects the Soldier with the longest break and uses DA6 roster order as the tie-breaker', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'junior', rank: 'SPC', lastName: 'Alpha' }),
+					person({ id: 'senior-b', rank: 'SSG', lastName: 'Bravo' }),
+					person({ id: 'senior-a', rank: 'SSG', lastName: 'Able' })
+				],
+				assignments: [
+					daily({ id: 'junior-old', assigneeId: 'junior', date: '2026-01-01' }),
+					daily({ id: 'senior-a-new', assigneeId: 'senior-a', date: '2026-04-20' }),
+					daily({ id: 'senior-b-old', assigneeId: 'senior-b', date: '2026-02-01' })
+				]
+			})
+		);
+
+		expect(snapshot.rosterRows[0]).toMatchObject({ date: '2026-05-01', assigneeId: 'junior' });
+		expect(snapshot.da6.rows.map((row) => row.personnelId)).toEqual(['senior-a', 'senior-b', 'junior']);
+	});
+
+	it('records authorized absence as nonchargeable A cells that interrupt queue numbering', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' }),
+					person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+				],
+				availabilityEntries: [
+					{
+						id: 'leave-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'leave',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					}
+				]
+			})
+		);
+
+		const cells = snapshot.da6.rows.map((row) => row.cells[0]);
+		expect(cells[0]).toMatchObject({
+			personnelId: 'alpha',
+			code: 'authorized-absence',
+			da6Code: 'A',
+			chargeable: false,
+			queuePosition: null
+		});
+		expect(cells[1]).toMatchObject({
+			personnelId: 'bravo',
+			code: 'assigned',
+			chargeable: true,
+			queuePosition: 1,
+			sequenceNumber: 1
+		});
+		expect(cells[2]).toMatchObject({
+			personnelId: 'charlie',
+			code: 'available-not-selected',
+			chargeable: true,
+			queuePosition: 2,
+			sequenceNumber: 2
+		});
+	});
+
+	it('records advanced duty overlap and cooldown as chargeable D cells that keep numbering moving', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' }),
+					person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+				],
+				advancedDutyEvents: [
+					advancedDuty({ id: 'overlap', slotInstances: [advancedDuty({}).slotInstances[0]] }),
+					advancedDuty({
+						id: 'cooldown',
+						coverageStart: '2026-04-30T08:00:00',
+						coverageEnd: '2026-04-30T20:00:00',
+						cooldownHours: 12,
+						slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'slot-instance-2', assigneeId: 'bravo' }]
+					})
+				]
+			})
+		);
+
+		const cells = snapshot.da6.rows.map((row) => row.cells[0]);
+		expect(cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			queuePosition: 1,
+			sequenceNumber: 1
+		});
+		expect(cells[1]).toMatchObject({
+			code: 'blocked-by-cooldown',
+			da6Code: 'D',
+			chargeable: true,
+			queuePosition: 2,
+			sequenceNumber: 2
+		});
+		expect(cells[2]).toMatchObject({
+			code: 'assigned',
+			queuePosition: 3,
+			sequenceNumber: 3
+		});
+	});
+
+	it('classifies dates and records unfilled explanations when no Soldier can be selected', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' })],
+				config: {
+					startDate: '2026-07-03',
+					endDate: '2026-07-05',
+					dutyDuration: 'daily',
+					excludedStatusIds: ['leave'],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false,
+					exemptPersonnelIds: ['alpha']
+				},
+				specialDays: [
+					{ id: 'holiday', date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' },
+					{ id: 'closure', date: '2026-07-05', name: 'Training Stand-down', type: 'org-closure' }
+				]
+			})
+		);
+
+		expect(snapshot.da6.columns.map((column) => [column.date, column.sequenceKind])).toEqual([
+			['2026-07-03', 'holiday'],
+			['2026-07-04', 'weekend'],
+			['2026-07-05', 'weekend-holiday']
+		]);
+		expect(snapshot.da6.rows).toEqual([]);
+		expect(snapshot.rosterRows).toEqual([
+			{ date: '2026-07-03', assigneeId: null, reason: 'No eligible personnel available' },
+			{ date: '2026-07-04', assigneeId: null, reason: 'No eligible personnel available' },
+			{ date: '2026-07-05', assigneeId: null, reason: 'No eligible personnel available' }
+		]);
+	});
+
+	it('captures display fields immutably and represents future misconduct U cells without selecting them', () => {
+		const alpha = person({ id: 'alpha', rank: 'SGT', lastName: 'Able' });
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [alpha, person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' })],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-01',
+					dutyDuration: 'daily',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false,
+					misconductUnavailablePersonnelDates: { alpha: ['2026-05-01'] }
+				}
+			})
+		);
+		alpha.lastName = 'Changed';
+
+		expect(snapshot.personnel.find((item) => item.id === 'alpha')).toMatchObject({ lastName: 'Able' });
+		expect(Object.isFrozen(snapshot)).toBe(true);
+		expect(Object.isFrozen(snapshot.da6.rows[0].cells[0])).toBe(true);
+		expect(snapshot.rosterRows[0].assigneeId).toBe('bravo');
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			personnelId: 'alpha',
+			code: 'misconduct-unavailable',
+			da6Code: 'U',
+			chargeable: true,
+			queuePosition: 1
+		});
+	});
+});

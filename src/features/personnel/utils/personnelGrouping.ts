@@ -1,4 +1,5 @@
 import type { Personnel } from '$lib/types';
+import { comparePersonnelByRankThenName, PERSONNEL_RANK_ORDER } from '$lib/domain/personnelRank';
 
 export interface PersonnelGroup {
 	group: string;
@@ -6,39 +7,7 @@ export interface PersonnelGroup {
 }
 
 // Military rank order (highest to lowest)
-export const RANK_ORDER = [
-	'GEN',
-	'LTG',
-	'MG',
-	'BG',
-	'COL',
-	'LTC',
-	'MAJ',
-	'CPT',
-	'1LT',
-	'2LT',
-	'CW5',
-	'CW4',
-	'CW3',
-	'CW2',
-	'WO1',
-	'CSM',
-	'SGM',
-	'1SG',
-	'MSG',
-	'SFC',
-	'SSG',
-	'SGT',
-	'CPL',
-	'SPC',
-	'PFC',
-	'PV2',
-	'PV1',
-	'CIV'
-] as const;
-
-// Pre-compute rank index map for O(1) lookups during sorting
-const RANK_INDEX: Map<string, number> = new Map(RANK_ORDER.map((rank, index) => [rank, index]));
+export const RANK_ORDER = PERSONNEL_RANK_ORDER;
 
 export interface GroupSortOptions {
 	/** Groups that appear first (in order). Used for pinned groups. */
@@ -77,18 +46,7 @@ export function groupAndSortPersonnel(
 
 	// Sort each group's personnel by rank (highest first) then alphabetically
 	for (const people of groupMap.values()) {
-		people.sort((a, b) => {
-			// Use pre-computed index map for O(1) rank lookup
-			const rankA = RANK_INDEX.get(a.rank) ?? RANK_ORDER.length;
-			const rankB = RANK_INDEX.get(b.rank) ?? RANK_ORDER.length;
-			const rankDiff = rankA - rankB;
-			if (rankDiff !== 0) return rankDiff;
-
-			const lastNameDiff = a.lastName.localeCompare(b.lastName);
-			if (lastNameDiff !== 0) return lastNameDiff;
-
-			return a.firstName.localeCompare(b.firstName);
-		});
+		people.sort(comparePersonnelByRankThenName);
 	}
 
 	// Sort groups based on options

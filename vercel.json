@@ -1,4 +1,6 @@
 {
+	"installCommand": "npx npm@11.12.1 ci",
+	"buildCommand": "npm run build",
 	"rewrites": [
 		{
 			"source": "/:path*",

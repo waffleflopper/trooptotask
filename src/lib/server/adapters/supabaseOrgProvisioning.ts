@@ -92,6 +92,7 @@ function serializeStatusTypeSeed(organizationId: string, statusType: OrgProvisio
 		name: statusType.name,
 		color: statusType.color,
 		text_color: statusType.textColor,
+		da6_availability_treatment: statusType.da6AvailabilityTreatment ?? null,
 		sort_order: statusType.sortOrder
 	};
 }

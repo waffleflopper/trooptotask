@@ -124,6 +124,26 @@ _Avoid_: Event, appointment when status matters
 An organization-defined calendar status category such as leave, school, training, appointment, sick, CQ/SD, or sick call.
 _Avoid_: Calendar color only
 
+**DA6 Availability Treatment**:
+The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.
+_Avoid_: Status type, DA6 code, color
+
+**Advanced Duty Run**:
+One generated team-duty run for a selected advanced duty template and event date pattern.
+_Avoid_: DA6 run, regenerated apply payload
+
+**Advanced Run Snapshot**:
+The immutable inputs and outputs produced by an **Advanced Duty Run** preview.
+_Avoid_: Current template state, recomputed preview
+
+**Snapshot Custody**:
+The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.
+_Avoid_: Signed client payload, browser-owned run state
+
+**Advanced Duty Workspace**:
+The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.
+_Avoid_: Wizard redesign, stacked preview cards
+
 **Personnel**:
 The feature for roster management and personnel records.
 _Avoid_: Member manager
@@ -196,6 +216,20 @@ _Avoid_: Training type
 - **Evals** is the route and primary navigation label for **Rating Scheme**; it does not create a separate domain concept.
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**.
+- A **Status Type** may have no **DA6 Availability Treatment** when it should not affect duty-roster generation.
+- A **DA6 Availability Treatment** can map a **Status Type** to **Authorized Absence**, **Other Duty**, or future **Misconduct Unavailable** semantics without making the **Status Type** itself a **DA6 Code**.
+- Default Calendar status semantics treat leave, school, TDY, and sick as **Authorized Absence**; CQ/SD as **Other Duty**; and appointment-style statuses as having no **DA6 Availability Treatment**.
+- The **Status Type** management UI should explain **DA6 Availability Treatment** with a concise help affordance so users understand which treatments continue DA Form 6 numbering and which interrupt it.
+- **Misconduct Unavailable** should be visible as a future **DA6 Availability Treatment** but unavailable for routine selection until the product has an explicit misconduct/AWOL workflow.
+- Existing **Status Types** may be backfilled by conservative name matching for common seeded labels, while custom or unclear names should default to no **DA6 Availability Treatment**.
+- **Duty Roster Runs** should consume **DA6 Availability Treatment** from **Status Types** instead of asking users to redefine excluded statuses per run.
+- When multiple **Availability Statuses** overlap on one duty date, **Authorized Absence** takes precedence over **Other Duty** because approved leave or another authorized absence is nonchargeable; future **Misconduct Unavailable** takes precedence once enabled.
+- An **Advanced Duty Run** produces exactly one draft **Advanced Run Snapshot** during preview.
+- **Snapshot Custody** keeps the draft **Advanced Run Snapshot** server-side so apply, retry, and export can reference the same previewed run.
+- An unapplied **Advanced Run Snapshot** may produce a preview-only team duty packet export, but it is not a final applied record.
+- A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
+- Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
+- The **Advanced Duty Workspace** should keep the active run review primary while moving applied-event inspection to a reachable but separate view.
 
 ## Example Dialogue
 
@@ -228,3 +262,8 @@ _Avoid_: Training type
 - **Lane Ownership** is not the same thing as route placement or nav treatment.
 - **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows.
 - **Evals** is a navigation and route label, not the canonical domain term for the records.
+- **Sick Call** is unit-dependent: it may have no **DA6 Availability Treatment** when used like an appointment, or **Authorized Absence** when it means unavailable for duty.
+- **Field/Training** is overloaded and should be split before defaulting: training that is an authorized absence belongs under **Authorized Absence**, while another duty/detail that blocks selection belongs under **Other Duty**.
+- Prefer clearer split labels such as **Training / TDY** for **Authorized Absence** and **Other Duty / Detail** for **Other Duty** instead of reusing overloaded **Field/Training** language.
+- Do not let a normal **Status Type** be casually configured as **Misconduct Unavailable** before the product has an honest misconduct/AWOL workflow.
+- Do not treat per-run excluded-status selection as the durable source of DA Form 6 availability truth once **DA6 Availability Treatment** exists on **Status Types**.

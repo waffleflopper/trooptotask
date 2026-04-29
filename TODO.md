@@ -35,3 +35,18 @@ This file tracks intentional follow-ups that should not be lost when a plan defe
 - Harden shared rank/pay-grade ordering beyond the first DA6 implementation if other Personnel, leader book, report, or export workflows need canonical military ordering.
 - Build the sitewide export module so feature-owned export models can produce XLSX/PDF/CSV/print-ready output.
   - Current marker: `src/features/duty-roster/export/dutyRosterBrowserExport.ts` is a temporary browser adapter that should be retired once the shared export module owns final formatting and download behavior.
+
+## Advanced Duty Run Module
+
+- Add event-level regeneration for applied advanced duty events.
+  - Regeneration should preserve the original Advanced Run Snapshot, show what changed, and require explicit operator approval before replacing a team.
+  - Do not silently recompute from current template, personnel, status, or collision data during edit flows.
+- Add advanced duty correction history.
+  - Preserve the generated proposal, the original applied state, corrected final state, actor, timestamp, and reason.
+  - Keep the correction model separate from normal snapshot apply so successful draft snapshots remain finalized and non-replayable.
+- Move team duty packet output into the sitewide export module.
+  - Current marker: `src/features/duty-roster/components/dutyRosterWizard.helpers.ts` contains `buildDutyPacketMarkup` as a temporary browser adapter over the Team Duty Packet Export Model.
+  - Preserve preview/not-applied labeling for draft Advanced Run Snapshots and distinguish applied packet output from preview-only packet output.
+- Review advanced duty status-treatment follow-ups after the shared availability/blocking vocabulary settles.
+  - Keep advanced status exemptions plain-language and team-duty oriented.
+  - Do not expose simple-lane DA Form 6 `A`/`D`/`U` labels in advanced duty UX unless a later product decision explicitly asks for it.

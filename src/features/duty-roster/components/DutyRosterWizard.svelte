@@ -380,11 +380,15 @@
 	async function handleApplyAdvancedSeries() {
 		isApplyingAdvancedSeries = true;
 		try {
+			const approvedPreview = advancedSeriesPreview;
+			if (!approvedPreview) return;
 			if (advancedPreviewMode === 'single') {
 				const input = simpleEventInput();
 				if (!input) return;
 				const result = await props.onApplyAdvancedEvent({
 					...input,
+					snapshotId: approvedPreview.snapshotId,
+					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
 				if (result)
@@ -397,6 +401,8 @@
 				if (!input) return;
 				const result = await props.onApplyAdvancedSeries({
 					...input,
+					snapshotId: approvedPreview.snapshotId,
+					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
 				if (result)

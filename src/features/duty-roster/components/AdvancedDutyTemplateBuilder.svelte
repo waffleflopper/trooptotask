@@ -359,6 +359,7 @@
 				{isCreatingNew}
 				{showArchivedTemplates}
 				onToggleShowArchived={(value) => (showArchivedTemplates = value)}
+				onCreateNew={resetForNew}
 				onLoadTemplate={loadTemplate}
 			/>
 

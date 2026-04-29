@@ -234,6 +234,28 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
+	it('lets managers start a new template when existing advanced templates are already loaded', async () => {
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [makeTemplate()],
+				groups,
+				statusTypes,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
+			}
+		});
+
+		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Battalion Staff Duty');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
+
+		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
+		expect(screen.getByRole('button', { name: /Build from Blank/ })).toBeTruthy();
+	});
+
 	it('lets a slot override the template conflict policy before save', async () => {
 		const created = makeTemplate({ id: 'tmpl-created', name: 'Company CQ', slots: [] });
 		const onCreateTemplate = vi.fn().mockResolvedValue(created);

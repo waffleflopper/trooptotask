@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { fail } from '$lib/server/core/errors';
 import type { AdvancedDutyPersistencePort, QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { AdvancedDutyRunSnapshotEntity } from '$lib/server/entities/advancedDutyRunSnapshot';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { DutyEventEntity } from '$lib/server/entities/dutyEvent';
 import { DutyEventRunEntity } from '$lib/server/entities/dutyEventRun';
 import { DutyEventSlotEntity } from '$lib/server/entities/dutyEventSlot';
@@ -9,7 +10,8 @@ import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { Personnel } from '$lib/types';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
 import { findDutyCoverageConflicts } from './dutyAvailability';
 import {
@@ -69,6 +71,8 @@ interface TransientPreviewEvent {
 
 interface ResolvedPreviewData {
 	allPersonnel?: Personnel[];
+	availabilityEntries?: AvailabilityEntry[];
+	statusTypes?: StatusType[];
 	holidayClosureDates?: Set<string>;
 	templateHistoryRows?: Record<string, unknown>[];
 	templateHistorySlotRows?: Record<string, unknown>[];
@@ -556,6 +560,14 @@ async function buildSingleDutyEventPreviewSnapshot(
 	const allPersonnel = resolvedData.allPersonnel ?? (await listPersonnel(ctx));
 	const holidayClosureDates = resolvedData.holidayClosureDates ?? (await listHolidayClosureDateSet(ctx));
 	const coverage = buildAdvancedDutyCoverage(template, eventDate);
+	const availabilityEntries =
+		resolvedData.availabilityEntries ??
+		(await listAvailabilityEntriesForCoverage(
+			ctx,
+			coverage.coverageStart.slice(0, 10),
+			coverage.coverageEnd.slice(0, 10)
+		));
+	const statusTypes = resolvedData.statusTypes ?? (await listStatusTypes(ctx));
 	const statusExemptPersonnelDates = await listStatusExemptPersonnelDatesForCoverage(
 		ctx,
 		coverage.coverageStart.slice(0, 10),
@@ -571,6 +583,8 @@ async function buildSingleDutyEventPreviewSnapshot(
 		holidayClosureDates,
 		historyEvents,
 		statusExemptPersonnelDatesByEventDate: new Map([[eventDate, statusExemptPersonnelDates]]),
+		availabilityEntries,
+		statusTypes,
 		candidatePersonnelIds,
 		slotOverridesByEventDate: new Map([[eventDate, slotOverrides]]),
 		buildCollisionSummary: async (collisionInput) =>
@@ -643,6 +657,10 @@ async function buildAdvancedRunHistoryEvents(
 	return eventRows.map((row) => ({
 		id: String(row.id),
 		eventDate: String(row.event_date),
+		coverageStart: String(row.coverage_start),
+		coverageEnd: String(row.coverage_end),
+		cooldownHours: Number(row.cooldown_hours ?? 0),
+		isBlocking: Boolean(row.is_blocking),
 		rulesSnapshot: row.rules_snapshot as AdvancedRunHistoryEvent['rulesSnapshot'],
 		slotInstances: (slotsByEventId.get(String(row.id)) ?? []).map((slotRow) => ({
 			templateSlotId: slotRow.template_slot_id == null ? null : String(slotRow.template_slot_id),
@@ -991,6 +1009,29 @@ function hydrateDutyEvent(
 					),
 		run: event.runId ? (runById.get(event.runId) ?? null) : null
 	};
+}
+
+async function listStatusTypes(ctx: QueryPorts): Promise<StatusType[]> {
+	const rows = await ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
+		select: StatusTypeEntity.select,
+		orderBy: [{ column: 'sort_order', ascending: true }]
+	});
+	return StatusTypeEntity.fromDbArray(rows);
+}
+
+async function listAvailabilityEntriesForCoverage(
+	ctx: QueryPorts,
+	coverageStartDate: string,
+	coverageEndDate: string
+): Promise<AvailabilityEntry[]> {
+	const rows = await ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+		select: AvailabilityEntryEntity.select,
+		rangeFilters: [
+			{ column: 'start_date', op: 'lte', value: coverageEndDate },
+			{ column: 'end_date', op: 'gte', value: coverageStartDate }
+		]
+	});
+	return AvailabilityEntryEntity.fromDbArray(rows);
 }
 
 async function loadDutyEventRunsByIds(ctx: QueryPorts, runIds: string[]): Promise<Map<string, DutyEventRunRecord>> {
@@ -1666,8 +1707,17 @@ export async function previewDutyEventSeriesFromTemplate(
 		existingEventRows.map((row) => [row.event_date as string, row.id as string])
 	);
 	const templateHistoryIds = existingEventRows.map((row) => String(row.id));
+	const seriesCoverages = eventDates.map((eventDate) => buildAdvancedDutyCoverage(template, eventDate));
+	const coverageStartDate = seriesCoverages
+		.map((coverage) => coverage.coverageStart.slice(0, 10))
+		.sort((a, b) => a.localeCompare(b))[0];
+	const coverageEndDate = seriesCoverages
+		.map((coverage) => coverage.coverageEnd.slice(0, 10))
+		.sort((a, b) => b.localeCompare(a))[0];
 	const resolvedPreviewData: ResolvedPreviewData = {
 		allPersonnel: await listPersonnel(ctx),
+		availabilityEntries: await listAvailabilityEntriesForCoverage(ctx, coverageStartDate, coverageEndDate),
+		statusTypes: await listStatusTypes(ctx),
 		holidayClosureDates: await listHolidayClosureDateSet(ctx),
 		templateHistoryRows: existingEventRows,
 		templateHistorySlotRows:
@@ -1709,6 +1759,8 @@ export async function previewDutyEventSeriesFromTemplate(
 		historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 		excludedHistoryEventIdsByEventDate,
 		statusExemptPersonnelDatesByEventDate,
+		availabilityEntries: resolvedPreviewData.availabilityEntries,
+		statusTypes: resolvedPreviewData.statusTypes,
 		candidatePersonnelIds: input.candidatePersonnelIds,
 		slotOverridesByEventDate,
 		buildCollisionSummary: async (collisionInput) =>
@@ -1734,6 +1786,8 @@ export async function previewDutyEventSeriesFromTemplate(
 			historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 			excludedHistoryEventIdsByEventDate,
 			statusExemptPersonnelDatesByEventDate,
+			availabilityEntries: resolvedPreviewData.availabilityEntries,
+			statusTypes: resolvedPreviewData.statusTypes,
 			candidatePersonnelIds: input.candidatePersonnelIds,
 			slotOverridesByEventDate: new Map(eventDates.map((eventDate) => [eventDate, undefined])),
 			buildCollisionSummary: async (collisionInput) =>

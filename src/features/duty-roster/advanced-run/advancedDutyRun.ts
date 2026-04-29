@@ -1,4 +1,5 @@
 import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
+import { highestPriorityDa6Treatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 import {
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder,
@@ -14,7 +15,7 @@ import {
 	type DutyTemplateSlot,
 	type SoftPreferenceConfig
 } from '$features/duty-roster/duty-roster.types';
-import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, Da6AvailabilityTreatment, Personnel, StatusType } from '$lib/types';
 
 interface PoolHistorySummary {
 	lastServedDate: string | null;
@@ -25,14 +26,20 @@ interface PoolHistorySummary {
 export interface AdvancedRunHistoryEvent {
 	id: string;
 	eventDate: string;
+	coverageStart?: string;
+	coverageEnd?: string;
+	cooldownHours?: number;
+	isBlocking?: boolean;
 	slotInstances: Array<{
 		templateSlotId: string | null;
 		assigneeId: string | null;
+		isBlocking?: boolean;
 	}>;
 	rulesSnapshot?: {
 		slots?: Array<{
 			templateSlotId?: string | null;
 			rotationPoolKey?: string | null;
+			blockingMode?: DutyTemplateSlot['blockingMode'];
 		}>;
 	};
 }
@@ -56,6 +63,56 @@ type AdvancedSlotProposal = DutyEventPreviewSlotInstance & {
 	isBlocking: boolean;
 };
 
+export type TeamDutyPacketExportStatus = 'preview' | 'applied';
+
+export interface TeamDutyPacketSlotAssignment {
+	templateSlotId: string | null;
+	roleLabel: string;
+	slotIndex: number;
+	assignee: {
+		id: string;
+		label: string;
+		displayName: string;
+		rank: string;
+		firstName: string;
+		lastName: string;
+	} | null;
+	assignmentSource: DutyEventPreviewSlotInstance['assignmentSource'];
+	warningState: DutyEventPreviewSlotInstance['warningState'];
+	warnings: string[];
+	explanations: string[];
+}
+
+export interface TeamDutyPacketExportModel {
+	status: TeamDutyPacketExportStatus;
+	statusLabel: string;
+	templateName: string;
+	eventDate: string;
+	coverage: {
+		mode: DutyTemplate['coverageMode'];
+		start: string;
+		end: string;
+		label: string;
+	};
+	isBlocking: boolean;
+	fillSummary: DutyEventFillSummary;
+	slotAssignments: TeamDutyPacketSlotAssignment[];
+	collisionNotes: string[];
+}
+
+type TeamDutyPacketSlotSource = Pick<
+	DutyEventPreviewSlotInstance,
+	| 'templateSlotId'
+	| 'roleLabel'
+	| 'slotIndex'
+	| 'assigneeId'
+	| 'assignmentSource'
+	| 'warningState'
+	| 'selectionReason'
+	| 'unfilledReason'
+	| 'overrideMessages'
+>;
+
 export interface AdvancedEventSnapshot {
 	eventDate: string;
 	coverageStart: string;
@@ -63,6 +120,27 @@ export interface AdvancedEventSnapshot {
 	preview: DutyEventPreview;
 	slotProposals: AdvancedSlotProposal[];
 	blockingConflicts: string[];
+	availabilityClassifications: AdvancedAvailabilityClassification[];
+	exportModel: TeamDutyPacketExportModel;
+}
+
+export type AdvancedAvailabilityReasonCode =
+	| 'authorized-absence'
+	| 'other-duty-status'
+	| 'misconduct-unavailable'
+	| 'advanced-duty-overlap'
+	| 'advanced-duty-cooldown'
+	| 'status-exemption'
+	| 'template-exemption';
+
+export interface AdvancedAvailabilityClassification {
+	personnelId: string;
+	selectable: boolean;
+	chargeable: boolean;
+	treatment: Da6AvailabilityTreatment | 'template-exemption' | null;
+	statusNames: string[];
+	reason: string | null;
+	reasonCode: AdvancedAvailabilityReasonCode | null;
 }
 
 export interface AdvancedRunPersonnelSnapshot {
@@ -113,6 +191,9 @@ export interface AdvancedRunSnapshotInput {
 	historyEvents: AdvancedRunHistoryEvent[];
 	excludedHistoryEventIdsByEventDate?: Map<string, string[]>;
 	statusExemptPersonnelDatesByEventDate: Map<string, Map<string, string>>;
+	availabilityEntries?: AvailabilityEntry[];
+	statusTypes?: StatusType[];
+	misconductUnavailablePersonnelDates?: Record<string, string[]>;
 	candidatePersonnelIds?: string[];
 	slotOverridesByEventDate?: Map<string, DutyEventSlotOverrideInput[] | undefined>;
 	buildCollisionSummary?: (input: AdvancedRunEventCollisionInput) => Promise<AdvancedRunCollisionResult>;
@@ -281,6 +362,275 @@ function buildGeneratedSelectionReason(
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
 	const person = personnelById.get(personId);
 	return person ? `${person.rank} ${person.lastName}` : personId;
+}
+
+function formatAdvancedStatusTreatment(value: Da6AvailabilityTreatment): string {
+	switch (value) {
+		case 'authorized-absence':
+			return 'authorized absence';
+		case 'other-duty':
+			return 'other duty';
+		case 'misconduct-unavailable':
+			return 'misconduct-unavailable';
+	}
+}
+
+function hasDateOverlap(
+	entry: Pick<AvailabilityEntry, 'startDate' | 'endDate'>,
+	coverageStartDate: string,
+	coverageEndDate: string
+): boolean {
+	return entry.startDate <= coverageEndDate && entry.endDate >= coverageStartDate;
+}
+
+function addHours(dateTime: string, hours: number): string {
+	const value = new Date(dateTime);
+	value.setHours(value.getHours() + hours);
+	const year = value.getFullYear();
+	const month = String(value.getMonth() + 1).padStart(2, '0');
+	const day = String(value.getDate()).padStart(2, '0');
+	const hour = String(value.getHours()).padStart(2, '0');
+	const minute = String(value.getMinutes()).padStart(2, '0');
+	const second = String(value.getSeconds()).padStart(2, '0');
+	return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+}
+
+function historyEventBlocksPersonnel(event: AdvancedRunHistoryEvent, personnelId: string): boolean {
+	return event.slotInstances.some((slot) => {
+		if (slot.assigneeId !== personnelId) {
+			return false;
+		}
+		if (typeof slot.isBlocking === 'boolean') {
+			return slot.isBlocking;
+		}
+		const snapshotSlot = event.rulesSnapshot?.slots?.find(
+			(candidate) => candidate.templateSlotId === slot.templateSlotId
+		);
+		return resolveSlotBlockingMode(event.isBlocking ?? true, snapshotSlot?.blockingMode);
+	});
+}
+
+function classifyAdvancedDutyBlock(input: {
+	personnelId: string;
+	coverageStart: string;
+	coverageEnd: string;
+	historyEvents: AdvancedRunHistoryEvent[];
+	excludedHistoryEventIds: Set<string>;
+}): 'advanced-duty-overlap' | 'advanced-duty-cooldown' | null {
+	for (const event of input.historyEvents) {
+		if (
+			input.excludedHistoryEventIds.has(event.id) ||
+			!event.coverageStart ||
+			!event.coverageEnd ||
+			!historyEventBlocksPersonnel(event, input.personnelId)
+		) {
+			continue;
+		}
+
+		if (event.coverageStart < input.coverageEnd && event.coverageEnd > input.coverageStart) {
+			return 'advanced-duty-overlap';
+		}
+
+		if (
+			event.coverageEnd <= input.coverageStart &&
+			addHours(event.coverageEnd, event.cooldownHours ?? 0) > input.coverageStart
+		) {
+			return 'advanced-duty-cooldown';
+		}
+	}
+
+	return null;
+}
+
+function classifyAdvancedAvailability(input: {
+	personnel: Personnel[];
+	personnelById: Map<string, Personnel>;
+	template: DutyTemplate;
+	eventDate: string;
+	coverageStart: string;
+	coverageEnd: string;
+	statusExemptPersonnelDates: Map<string, string>;
+	availabilityEntries: AvailabilityEntry[];
+	statusTypes: StatusType[];
+	misconductUnavailablePersonnelDates: Record<string, string[]>;
+	historyEvents: AdvancedRunHistoryEvent[];
+	excludedHistoryEventIds: Set<string>;
+}): AdvancedAvailabilityClassification[] {
+	const permanentExemptIds = new Set(input.template.exemptPersonnelIds ?? []);
+	const coverageStartDate = input.coverageStart.slice(0, 10);
+	const coverageEndDate = input.coverageEnd.slice(0, 10);
+
+	return input.personnel.map((person) => {
+		if (permanentExemptIds.has(person.id)) {
+			return {
+				personnelId: person.id,
+				selectable: false,
+				chargeable: false,
+				treatment: 'template-exemption',
+				statusNames: [],
+				reason: `${formatPersonLabel(input.personnelById, person.id)} is exempt from this duty template and cannot be manually assigned.`,
+				reasonCode: 'template-exemption'
+			};
+		}
+
+		const matchingEntries = input.availabilityEntries.filter(
+			(entry) => entry.personnelId === person.id && hasDateOverlap(entry, coverageStartDate, coverageEndDate)
+		);
+		const statusTreatment = highestPriorityDa6Treatment(
+			input.statusTypes,
+			matchingEntries.map((entry) => entry.statusTypeId)
+		);
+		const statusNames = matchingEntries
+			.filter((entry) => {
+				const statusType = input.statusTypes.find((status) => status.id === entry.statusTypeId);
+				return statusType?.da6AvailabilityTreatment === statusTreatment;
+			})
+			.map((entry) => input.statusTypes.find((status) => status.id === entry.statusTypeId)?.name)
+			.filter((name): name is string => !!name);
+
+		if (input.misconductUnavailablePersonnelDates[person.id]?.includes(input.eventDate)) {
+			return {
+				personnelId: person.id,
+				selectable: false,
+				chargeable: true,
+				treatment: 'misconduct-unavailable',
+				statusNames: [],
+				reason: `${formatPersonLabel(input.personnelById, person.id)} is unavailable due to a misconduct/AWOL-style status.`,
+				reasonCode: 'misconduct-unavailable'
+			};
+		}
+
+		if (statusTreatment) {
+			const reasonCode: AdvancedAvailabilityReasonCode =
+				statusTreatment === 'other-duty' ? 'other-duty-status' : statusTreatment;
+			return {
+				personnelId: person.id,
+				selectable: false,
+				chargeable: statusTreatment !== 'authorized-absence',
+				treatment: statusTreatment,
+				statusNames,
+				reason: `${formatPersonLabel(input.personnelById, person.id)} has ${formatAdvancedStatusTreatment(statusTreatment)} status${statusNames.length > 0 ? ` (${statusNames.join(', ')})` : ''} during this duty window.`,
+				reasonCode
+			};
+		}
+
+		if (input.statusExemptPersonnelDates.has(person.id)) {
+			return {
+				personnelId: person.id,
+				selectable: false,
+				chargeable: false,
+				treatment: 'authorized-absence',
+				statusNames: [],
+				reason: `${formatPersonLabel(input.personnelById, person.id)} has an exempt status for ${input.statusExemptPersonnelDates.get(person.id) ?? input.eventDate} and cannot be manually assigned.`,
+				reasonCode: 'status-exemption'
+			};
+		}
+
+		const advancedDutyBlock = classifyAdvancedDutyBlock({
+			personnelId: person.id,
+			coverageStart: input.coverageStart,
+			coverageEnd: input.coverageEnd,
+			historyEvents: input.historyEvents,
+			excludedHistoryEventIds: input.excludedHistoryEventIds
+		});
+		if (advancedDutyBlock) {
+			return {
+				personnelId: person.id,
+				selectable: true,
+				chargeable: true,
+				treatment: null,
+				statusNames: [],
+				reason:
+					advancedDutyBlock === 'advanced-duty-overlap'
+						? `${formatPersonLabel(input.personnelById, person.id)} is already assigned to blocking advanced duty coverage.`
+						: `${formatPersonLabel(input.personnelById, person.id)} is in cooldown from blocking advanced duty coverage.`,
+				reasonCode: advancedDutyBlock
+			};
+		}
+
+		return {
+			personnelId: person.id,
+			selectable: true,
+			chargeable: true,
+			treatment: null,
+			statusNames: [],
+			reason: null,
+			reasonCode: null
+		};
+	});
+}
+
+function formatCoverageTimeLabel(dateTime: string): string {
+	return dateTime.slice(11, 16).replace(':', '');
+}
+
+function formatExportCoverageLabel(
+	event: Pick<DutyEventPreview, 'coverageMode' | 'coverageStart' | 'coverageEnd'>
+): string {
+	if (event.coverageMode === 'all-day') return 'All day';
+	const startsOn = event.coverageStart.slice(0, 10);
+	const endsOn = event.coverageEnd.slice(0, 10);
+	const start = formatCoverageTimeLabel(event.coverageStart);
+	const end = formatCoverageTimeLabel(event.coverageEnd);
+	return startsOn === endsOn ? `${start}-${end}` : `${start}-${end} next day`;
+}
+
+function buildSlotExplanations(slot: TeamDutyPacketSlotSource): string[] {
+	return [...new Set([slot.selectionReason, slot.unfilledReason].filter((line): line is string => !!line))];
+}
+
+export function buildTeamDutyPacketExportModel(input: {
+	templateName: string;
+	event: DutyEventPreview;
+	slotAssignments?: TeamDutyPacketSlotSource[];
+	collisionNotes?: string[];
+	personnelById: Map<string, Personnel>;
+	status?: TeamDutyPacketExportStatus;
+}): TeamDutyPacketExportModel {
+	const status = input.status ?? 'preview';
+	const slotAssignments = input.slotAssignments ?? input.event.slotInstances;
+	const collisionNotes = [
+		...input.event.collisionSummary.conflicts,
+		...(input.collisionNotes ?? []),
+		...slotAssignments.flatMap((slot) => slot.overrideMessages ?? [])
+	];
+	return {
+		status,
+		statusLabel: status === 'preview' ? 'Preview - not applied' : 'Applied',
+		templateName: input.templateName,
+		eventDate: input.event.eventDate,
+		coverage: {
+			mode: input.event.coverageMode,
+			start: input.event.coverageStart,
+			end: input.event.coverageEnd,
+			label: formatExportCoverageLabel(input.event)
+		},
+		isBlocking: input.event.isBlocking,
+		fillSummary: input.event.fillSummary,
+		slotAssignments: slotAssignments.map((slot) => {
+			const assignee = slot.assigneeId ? input.personnelById.get(slot.assigneeId) : null;
+			return {
+				templateSlotId: slot.templateSlotId,
+				roleLabel: slot.roleLabel,
+				slotIndex: slot.slotIndex,
+				assignee: assignee
+					? {
+							id: assignee.id,
+							label: `${assignee.rank} ${assignee.lastName}`,
+							displayName: `${assignee.rank} ${assignee.lastName}, ${assignee.firstName}`,
+							rank: assignee.rank,
+							firstName: assignee.firstName,
+							lastName: assignee.lastName
+						}
+					: null,
+				assignmentSource: slot.assignmentSource,
+				warningState: slot.warningState,
+				warnings: [...(slot.overrideMessages ?? [])],
+				explanations: buildSlotExplanations(slot)
+			};
+		}),
+		collisionNotes: [...new Set(collisionNotes)]
+	};
 }
 
 function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
@@ -533,6 +883,7 @@ function generateSlotInstances(input: {
 	eventDate: string;
 	holidayClosureDates: Set<string>;
 	statusExemptPersonnelDates: Map<string, string>;
+	availabilityClassifications: AdvancedAvailabilityClassification[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
 }): AdvancedSlotProposal[] {
 	const overrideMap = normalizeSlotOverrides(input.slotOverrides);
@@ -541,12 +892,20 @@ function generateSlotInstances(input: {
 	);
 	const matchedOverrideKeys = new Set<string>();
 	const slotInstances: AdvancedSlotProposal[] = [];
-	const permanentExemptIds = new Set(input.template.exemptPersonnelIds ?? []);
-	const hasAnyExemptions = permanentExemptIds.size > 0 || input.statusExemptPersonnelDates.size > 0;
-	const eligiblePersonnel = hasAnyExemptions
-		? input.personnel.filter(
-				(person) => !permanentExemptIds.has(person.id) && !input.statusExemptPersonnelDates.has(person.id)
-			)
+	const availabilityByPersonnelId = new Map(
+		input.availabilityClassifications.map((classification) => [classification.personnelId, classification])
+	);
+	const hasAnyUnselectableClassifications = input.availabilityClassifications.some(
+		(classification) => !classification.selectable
+	);
+	const hasAvailabilityBlocks = input.availabilityClassifications.some(
+		(classification) =>
+			!classification.selectable &&
+			classification.reasonCode !== 'template-exemption' &&
+			classification.reasonCode !== 'status-exemption'
+	);
+	const eligiblePersonnel = hasAnyUnselectableClassifications
+		? input.personnel.filter((person) => availabilityByPersonnelId.get(person.id)?.selectable ?? true)
 		: input.personnel;
 
 	type WorkItem = {
@@ -624,14 +983,12 @@ function generateSlotInstances(input: {
 				if (!overridePerson) {
 					throw new Error('Slot override assignee was not found.');
 				}
-				if (permanentExemptIds.has(overridePerson.id)) {
+				const overrideAvailability = availabilityByPersonnelId.get(overridePerson.id);
+				if (overrideAvailability && !overrideAvailability.selectable) {
 					warningState = 'conflict';
-					const message = `${formatPersonLabel(input.personnelById, override.assigneeId)} is exempt from this duty template and cannot be manually assigned.`;
-					overrideMessages.push(message);
-					blockingMessages.push(message);
-				} else if (input.statusExemptPersonnelDates.has(overridePerson.id)) {
-					warningState = 'conflict';
-					const message = `${formatPersonLabel(input.personnelById, override.assigneeId)} has an exempt status for ${input.statusExemptPersonnelDates.get(overridePerson.id) ?? input.eventDate} and cannot be manually assigned.`;
+					const message =
+						overrideAvailability.reason ??
+						`${formatPersonLabel(input.personnelById, override.assigneeId)} is unavailable for this duty window and cannot be manually assigned.`;
 					overrideMessages.push(message);
 					blockingMessages.push(message);
 				} else if (!matchesSlot(overridePerson, input.template, item.slot)) {
@@ -691,7 +1048,9 @@ function generateSlotInstances(input: {
 			unfilledReason: assignee
 				? null
 				: item.eligibleCandidates.length === 0
-					? 'No personnel matched this slot eligibility rules.'
+					? hasAvailabilityBlocks
+						? 'No eligible Soldier remained after availability and blocking checks.'
+						: 'No personnel matched this slot eligibility rules.'
 					: 'Every eligible person was already assigned elsewhere in this duty event.',
 			overrideMessages: [],
 			blockingMessages: [],
@@ -735,18 +1094,36 @@ async function buildAdvancedEventSnapshot(input: {
 	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
 	buildCollisionSummary?: (input: AdvancedRunEventCollisionInput) => Promise<AdvancedRunCollisionResult>;
+	availabilityEntries?: AvailabilityEntry[];
+	statusTypes?: StatusType[];
+	misconductUnavailablePersonnelDates?: Record<string, string[]>;
 }): Promise<AdvancedEventSnapshot> {
 	const allPersonnelById = new Map(input.personnel.map((person) => [person.id, person]));
 	const candidatePersonnel = input.candidatePersonnelIds?.length
 		? input.personnel.filter((person) => input.candidatePersonnelIds?.includes(person.id))
 		: input.personnel;
 	const coverage = buildAdvancedDutyCoverage(input.template, input.eventDate);
+	const excludedHistoryEventIds = new Set(input.excludedHistoryEventIdsByEventDate?.get(input.eventDate) ?? []);
+	const availabilityClassifications = classifyAdvancedAvailability({
+		personnel: candidatePersonnel,
+		personnelById: allPersonnelById,
+		template: input.template,
+		eventDate: input.eventDate,
+		coverageStart: coverage.coverageStart,
+		coverageEnd: coverage.coverageEnd,
+		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
+		availabilityEntries: input.availabilityEntries ?? [],
+		statusTypes: input.statusTypes ?? [],
+		misconductUnavailablePersonnelDates: input.misconductUnavailablePersonnelDates ?? {},
+		historyEvents: input.historyEvents,
+		excludedHistoryEventIds
+	});
 	const historyByPoolPerson = buildPoolHistoryIndex(
 		input.template,
 		input.eventDate,
 		input.holidayClosureDates,
 		input.historyEvents,
-		new Set(input.excludedHistoryEventIdsByEventDate?.get(input.eventDate) ?? []),
+		excludedHistoryEventIds,
 		input.transientEvents
 	);
 	const baseSlotProposals = generateSlotInstances({
@@ -757,6 +1134,7 @@ async function buildAdvancedEventSnapshot(input: {
 		eventDate: input.eventDate,
 		holidayClosureDates: input.holidayClosureDates,
 		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
+		availabilityClassifications,
 		slotOverrides: input.slotOverrides
 	});
 	const collisionCheck = input.buildCollisionSummary
@@ -791,6 +1169,9 @@ async function buildAdvancedEventSnapshot(input: {
 		collisionSummary: collisionCheck.summary,
 		slotInstances: slotProposals.map(toPublicSlotProposal)
 	};
+	const blockingConflicts = [
+		...new Set([...collisionCheck.blockingConflicts, ...slotProposals.flatMap((slot) => slot.blockingMessages)])
+	];
 
 	return {
 		eventDate: input.eventDate,
@@ -798,9 +1179,15 @@ async function buildAdvancedEventSnapshot(input: {
 		coverageEnd: coverage.coverageEnd,
 		preview,
 		slotProposals,
-		blockingConflicts: [
-			...new Set([...collisionCheck.blockingConflicts, ...slotProposals.flatMap((slot) => slot.blockingMessages)])
-		]
+		blockingConflicts,
+		availabilityClassifications,
+		exportModel: buildTeamDutyPacketExportModel({
+			templateName: input.template.name,
+			event: preview,
+			slotAssignments: slotProposals,
+			collisionNotes: blockingConflicts,
+			personnelById: allPersonnelById
+		})
 	};
 }
 
@@ -836,7 +1223,10 @@ export async function buildAdvancedRunSnapshot(input: AdvancedRunSnapshotInput):
 			transientEvents,
 			candidatePersonnelIds: input.candidatePersonnelIds,
 			slotOverrides: input.slotOverridesByEventDate?.get(eventDate),
-			buildCollisionSummary: input.buildCollisionSummary
+			buildCollisionSummary: input.buildCollisionSummary,
+			availabilityEntries: input.availabilityEntries,
+			statusTypes: input.statusTypes,
+			misconductUnavailablePersonnelDates: input.misconductUnavailablePersonnelDates
 		});
 		events.push(event);
 		transientEvents.push({

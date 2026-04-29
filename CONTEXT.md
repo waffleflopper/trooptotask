@@ -140,6 +140,10 @@ _Avoid_: Current template state, recomputed preview
 The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.
 _Avoid_: Signed client payload, browser-owned run state
 
+**Advanced Duty Workspace**:
+The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.
+_Avoid_: Wizard redesign, stacked preview cards
+
 **Personnel**:
 The feature for roster management and personnel records.
 _Avoid_: Member manager
@@ -225,6 +229,7 @@ _Avoid_: Training type
 - An unapplied **Advanced Run Snapshot** may produce a preview-only team duty packet export, but it is not a final applied record.
 - A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
 - Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
+- The **Advanced Duty Workspace** should keep the active run review primary while moving applied-event inspection to a reachable but separate view.
 
 ## Example Dialogue
 

@@ -1,4 +1,5 @@
 import type { Personnel } from '$lib/types';
+import type { TeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
 import type {
 	DutyEvent,
 	DutyEventApplyInput,
@@ -230,32 +231,30 @@ function escapePacketHtml(value: string): string {
 		.replaceAll("'", '&#39;');
 }
 
-export function buildDutyPacketMarkup(
-	event: DutyEvent,
-	preview: DutyEventPreview,
-	personnelLookup: Map<string, Personnel>
-): string {
-	const slotSections = preview.slotInstances
+export function buildDutyPacketMarkup(exportModel: TeamDutyPacketExportModel): string {
+	const slotSections = exportModel.slotAssignments
 		.map((slot) => {
-			const explanationMarkup = getSlotExplanationSections(slot)
+			const explanationLines = [...slot.explanations, ...slot.warnings];
+			const explanationMarkup = explanationLines
 				.map(
-					(section) => `
-			<div class="slot-section"><p><strong>${escapePacketHtml(section.label)}</strong></p><ul>${section.lines.map((line: string) => `<li>${escapePacketHtml(line)}</li>`).join('')}</ul></div>`
+					(line) => `
+			<li>${escapePacketHtml(line)}</li>`
 				)
 				.join('');
-			return `<section class="slot-card"><div class="slot-heading"><h3>${escapePacketHtml(`${slot.roleLabel} #${slot.slotIndex + 1}`)}</h3><p>${escapePacketHtml(formatSlotAssignee(slot.assigneeId, personnelLookup))}</p></div><p class="slot-meta">Source: ${escapePacketHtml(slot.assignmentSource)}${slot.warningState !== 'none' ? ` · ${escapePacketHtml(slot.warningState)}` : ''}</p>${explanationMarkup || '<p>No extra explanation recorded for this slot.</p>'}</section>`;
+			return `<section class="slot-card"><div class="slot-heading"><h3>${escapePacketHtml(`${slot.roleLabel} #${slot.slotIndex + 1}`)}</h3><p>${escapePacketHtml(slot.assignee?.label ?? 'Unfilled')}</p></div><p class="slot-meta">Source: ${escapePacketHtml(slot.assignmentSource)}${slot.warningState !== 'none' ? ` · ${escapePacketHtml(slot.warningState)}` : ''}</p>${explanationMarkup ? `<ul>${explanationMarkup}</ul>` : '<p>No extra explanation recorded for this slot.</p>'}</section>`;
 		})
 		.join('');
 	const rosterLine =
-		preview.slotInstances
-			.map((slot) => slot.assigneeId)
-			.filter((id): id is string => Boolean(id))
-			.map((id) => personnelLookup.get(id))
-			.filter((person): person is Personnel => Boolean(person))
-			.map((p) => `${p.rank} ${p.lastName}`)
+		exportModel.slotAssignments
+			.map((slot) => slot.assignee?.label)
+			.filter((label): label is string => Boolean(label))
 			.sort((a, b) => a.localeCompare(b))
 			.join(', ') || 'No Soldier assigned yet';
-	return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>${escapePacketHtml(`${event.templateName} Team Duty Packet`)}</title><style>body{font-family:Georgia,"Times New Roman",serif;margin:32px;color:#1f2937;}h1,h2,h3,p{margin:0;}header,section{margin-bottom:24px;}.meta-grid{display:grid;gap:8px;margin-top:12px;}.roster-line{margin-top:12px;font-weight:600;}.slot-grid{display:grid;gap:16px;}.slot-card{border:1px solid #d6d3d1;border-radius:12px;padding:16px;background:#fafaf9;}.slot-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}.slot-meta{margin-top:6px;color:#57534e;font-size:14px;}ul{margin:12px 0 0 18px;padding:0;}li+li{margin-top:6px;}</style></head><body><header><p>Team Duty Packet</p><h1>${escapePacketHtml(event.templateName)}</h1><div class="meta-grid"><p>Date: ${escapePacketHtml(formatDisplayDate(preview.eventDate))}</p><p>Coverage: ${escapePacketHtml(formatCoverageLabel(preview))}</p><p>Fill: ${escapePacketHtml(`${preview.fillSummary.filledSlots}/${preview.fillSummary.totalSlots} filled`)}</p><p>Blocking: ${escapePacketHtml(preview.isBlocking ? 'Yes' : 'No')}</p></div><p class="roster-line">Assigned team: ${escapePacketHtml(rosterLine)}</p></header><section><h2>Duty team</h2><div class="slot-grid">${slotSections}</div></section></body></html>`;
+	const collisionSection =
+		exportModel.collisionNotes.length > 0
+			? `<section><h2>Collision notes</h2><ul>${exportModel.collisionNotes.map((note) => `<li>${escapePacketHtml(note)}</li>`).join('')}</ul></section>`
+			: '';
+	return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>${escapePacketHtml(`${exportModel.templateName} Team Duty Packet`)}</title><style>body{font-family:Georgia,"Times New Roman",serif;margin:32px;color:#1f2937;}h1,h2,h3,p{margin:0;}header,section{margin-bottom:24px;}.meta-grid{display:grid;gap:8px;margin-top:12px;}.roster-line{margin-top:12px;font-weight:600;}.slot-grid{display:grid;gap:16px;}.slot-card{border:1px solid #d6d3d1;border-radius:12px;padding:16px;background:#fafaf9;}.slot-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}.slot-meta{margin-top:6px;color:#57534e;font-size:14px;}ul{margin:12px 0 0 18px;padding:0;}li+li{margin-top:6px;}</style></head><body><header><p>Team Duty Packet</p><h1>${escapePacketHtml(exportModel.templateName)}</h1><div class="meta-grid"><p>Status: ${escapePacketHtml(exportModel.statusLabel)}</p><p>Date: ${escapePacketHtml(formatDisplayDate(exportModel.eventDate))}</p><p>Coverage: ${escapePacketHtml(exportModel.coverage.label)}</p><p>Fill: ${escapePacketHtml(`${exportModel.fillSummary.filledSlots}/${exportModel.fillSummary.totalSlots} filled`)}</p><p>Blocking: ${escapePacketHtml(exportModel.isBlocking ? 'Yes' : 'No')}</p></div><p class="roster-line">Assigned team: ${escapePacketHtml(rosterLine)}</p></header><section><h2>Duty team</h2><div class="slot-grid">${slotSections}</div></section>${collisionSection}</body></html>`;
 }
 
 export function patternNeedsRange(pattern: DutyEventSeriesPattern): boolean {

@@ -310,6 +310,9 @@ export interface DutyEventSeriesEventOverrideInput {
 }
 
 export interface DutyEventPreview {
+	snapshotId?: string;
+	snapshotFingerprint?: string;
+	snapshotVersion?: number;
 	templateId: string;
 	templateName: string;
 	eventDate: string;
@@ -337,6 +340,9 @@ export interface DutyEventSeriesInput {
 }
 
 export interface DutyEventSeriesPreview {
+	snapshotId?: string;
+	snapshotFingerprint?: string;
+	snapshotVersion?: number;
 	templateId: string;
 	templateName: string;
 	pattern: DutyEventSeriesPattern;

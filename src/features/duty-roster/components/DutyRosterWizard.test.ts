@@ -529,7 +529,9 @@ describe('DutyRosterWizard', () => {
 
 			expect(createObjectUrl).toHaveBeenCalled();
 			expect(anchorClick).toHaveBeenCalled();
-			expect(revokeObjectUrl).toHaveBeenCalledWith('blob:test-roster');
+			await waitFor(() => {
+				expect(revokeObjectUrl).toHaveBeenCalledWith('blob:test-roster');
+			});
 		} finally {
 			URL.createObjectURL = originalCreateObjectURL;
 			URL.revokeObjectURL = originalRevokeObjectURL;

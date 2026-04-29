@@ -87,10 +87,20 @@ function addHours(dateTime: string, hours: number): string {
 	return formatDateTime(value);
 }
 
+function addMonthsPreservingAnchor(value: Date, months: number, anchorDay: number): Date {
+	const next = new Date(value);
+	next.setDate(1);
+	next.setMonth(next.getMonth() + months);
+	const lastDayOfMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+	next.setDate(Math.min(anchorDay, lastDayOfMonth));
+	return next;
+}
+
 function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: SpecialDay[]): string[] {
 	const dates: string[] = [];
 	const start = new Date(`${config.startDate}T00:00:00`);
 	const end = new Date(`${config.endDate}T00:00:00`);
+	const monthlyAnchorDay = start.getDate();
 	const excludedSpecialDays = new Set(
 		specialDays
 			.filter(
@@ -118,7 +128,7 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 				current.setDate(current.getDate() + 7);
 				break;
 			case 'monthly':
-				current.setMonth(current.getMonth() + 1);
+				current.setTime(addMonthsPreservingAnchor(current, 1, monthlyAnchorDay).getTime());
 				break;
 		}
 	}
@@ -394,8 +404,9 @@ export function buildDutyRosterHistoryDa6Data(snapshot: DutyRosterRunSnapshot): 
 			positions: snapshot.da6.rows.map((row) => {
 				const cell = row.cells[columnIndex];
 				if (!cell) return null;
-				return cell.assigned ? 1 : cell.queuePosition;
-			})
+				return cell.queuePosition;
+			}),
+			assigned: snapshot.da6.rows.map((row) => Boolean(row.cells[columnIndex]?.assigned))
 		}))
 	};
 }

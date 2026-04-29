@@ -60,8 +60,9 @@ function buildDa6Data(da6: Da6Matrix | DA6Data | undefined): DA6Data | null {
 			positions: da6.rows.map((row) => {
 				const cell = row.cells[columnIndex];
 				if (!cell) return null;
-				return cell.assigned ? 1 : cell.queuePosition;
-			})
+				return cell.queuePosition;
+			}),
+			assigned: da6.rows.map((row) => Boolean(row.cells[columnIndex]?.assigned))
 		}))
 	};
 }
@@ -135,10 +136,11 @@ function renderDa6Grid(da6: DA6Data | null): string {
 			const cells = da6.dates
 				.map((date) => {
 					const position = date.positions[index];
+					const assigned = date.assigned?.[index] ?? position === 1;
 					if (position === null) {
 						return '<td class="da6-unavail">&mdash;</td>';
 					}
-					if (position === 1) {
+					if (assigned) {
 						return '<td class="da6-assigned">X</td>';
 					}
 					return `<td class="da6-position">${position}</td>`;
@@ -225,6 +227,8 @@ export function exportDutyRosterForBrowser(input: BrowserExportInput): void {
 
 	link.href = url;
 	link.download = `${typeName.replace(/\s+/g, '_')}_Roster_${startDate}_to_${endDate}.xls`;
+	document.body.appendChild(link);
 	link.click();
-	URL.revokeObjectURL(url);
+	document.body.removeChild(link);
+	setTimeout(() => URL.revokeObjectURL(url), 0);
 }

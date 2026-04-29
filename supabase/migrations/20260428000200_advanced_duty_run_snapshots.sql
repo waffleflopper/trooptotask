@@ -56,6 +56,12 @@ CREATE INDEX "advanced_duty_run_snapshots_template_idx" ON "public"."advanced_du
 
 CREATE INDEX "advanced_duty_run_snapshots_cleanup_idx" ON "public"."advanced_duty_run_snapshots" USING "btree" ("expires_at") WHERE ("status" = 'draft'::"text");
 
+CREATE INDEX "advanced_duty_run_snapshots_applying_recovery_idx" ON "public"."advanced_duty_run_snapshots" USING "btree" ("organization_id", "updated_at") WHERE ("status" = 'applying'::"text");
+
+CREATE OR REPLACE TRIGGER "advanced_duty_run_snapshots_updated_at"
+  BEFORE UPDATE ON "public"."advanced_duty_run_snapshots"
+  FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
 ALTER TABLE "public"."advanced_duty_run_snapshots" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Org admins can manage advanced duty run snapshots" ON "public"."advanced_duty_run_snapshots";

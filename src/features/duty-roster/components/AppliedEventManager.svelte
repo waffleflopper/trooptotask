@@ -3,6 +3,7 @@
 	import AppliedEventsSection from './AppliedEventsSection.svelte';
 	import AppliedEventEditorModal from './AppliedEventEditorModal.svelte';
 	import type { Personnel } from '$lib/types';
+	import { buildTeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
 	import type {
 		DutyEvent,
 		DutyEventPreview,
@@ -70,7 +71,14 @@
 
 	function exportAppliedDutyPacket() {
 		if (!selectedAppliedEvent || !appliedEventPreview) return;
-		const packetMarkup = buildDutyPacketMarkup(selectedAppliedEvent, appliedEventPreview, personnelById);
+		const packetMarkup = buildDutyPacketMarkup(
+			buildTeamDutyPacketExportModel({
+				templateName: selectedAppliedEvent.templateName,
+				event: appliedEventPreview,
+				personnelById,
+				status: 'applied'
+			})
+		);
 		const fileDate = appliedEventPreview.eventDate.replaceAll('-', '');
 		const blob = new Blob([packetMarkup], { type: 'text/html;charset=utf-8' });
 		const url = URL.createObjectURL(blob);

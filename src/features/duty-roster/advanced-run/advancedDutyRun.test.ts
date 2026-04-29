@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildAdvancedRunSnapshot } from './advancedDutyRun';
 import type { DutyTemplate } from '../duty-roster.types';
-import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 
 const template: DutyTemplate = {
 	id: 'template-staff-duty',
@@ -202,5 +202,282 @@ describe('advanced duty run snapshots', () => {
 		for (const assigneeId of dayOneAssignees) {
 			expect(dayTwoAssignees).not.toContain(assigneeId);
 		}
+	});
+
+	it('captures shared status availability treatments without exposing DA6 labels in advanced previews', async () => {
+		const statusTypes: StatusType[] = [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#008000',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: 'authorized-absence'
+			},
+			{
+				id: 'other-duty',
+				name: 'Other Duty / Detail',
+				color: '#a0522d',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: 'other-duty'
+			}
+		];
+		const availabilityEntries: AvailabilityEntry[] = [
+			{
+				id: 'leave-nco',
+				personnelId: 'person-nco',
+				statusTypeId: 'leave',
+				startDate: '2026-04-10',
+				endDate: '2026-04-10'
+			},
+			{
+				id: 'detail-baker',
+				personnelId: 'person-baker',
+				statusTypeId: 'other-duty',
+				startDate: '2026-04-10',
+				endDate: '2026-04-10'
+			}
+		];
+
+		const snapshot = await buildAdvancedRunSnapshot({
+			template,
+			eventDates: ['2026-04-10'],
+			personnel,
+			holidayClosureDates: new Set(),
+			historyEvents: [],
+			statusExemptPersonnelDatesByEventDate: new Map(),
+			availabilityEntries,
+			statusTypes,
+			misconductUnavailablePersonnelDates: { 'person-chen': ['2026-04-10'] }
+		});
+
+		const event = snapshot.events[0];
+
+		expect(event.availabilityClassifications).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					personnelId: 'person-nco',
+					reasonCode: 'authorized-absence',
+					statusNames: ['Leave'],
+					selectable: false,
+					chargeable: false
+				}),
+				expect.objectContaining({
+					personnelId: 'person-baker',
+					reasonCode: 'other-duty-status',
+					statusNames: ['Other Duty / Detail'],
+					selectable: false,
+					chargeable: true
+				}),
+				expect.objectContaining({
+					personnelId: 'person-chen',
+					reasonCode: 'misconduct-unavailable',
+					selectable: false,
+					chargeable: true
+				})
+			])
+		);
+		expect(event.preview.slotInstances.every((slot) => slot.assigneeId === null)).toBe(true);
+		expect(event.preview.slotInstances[0].unfilledReason).toBe(
+			'No eligible Soldier remained after availability and blocking checks.'
+		);
+		expect(JSON.stringify(event.preview)).not.toContain('"A"');
+		expect(JSON.stringify(event.preview)).not.toContain('"D"');
+		expect(JSON.stringify(event.preview)).not.toContain('"U"');
+	});
+
+	it('captures blocking advanced duty overlap and cooldown classifications in the preview snapshot', async () => {
+		const snapshot = await buildAdvancedRunSnapshot({
+			template,
+			eventDates: ['2026-04-10'],
+			personnel,
+			holidayClosureDates: new Set(),
+			historyEvents: [
+				{
+					id: 'event-overlap',
+					eventDate: '2026-04-10',
+					coverageStart: '2026-04-10T08:00:00',
+					coverageEnd: '2026-04-10T20:00:00',
+					cooldownHours: 0,
+					isBlocking: true,
+					rulesSnapshot: {
+						slots: [{ templateSlotId: 'slot-general', rotationPoolKey: 'general', blockingMode: 'inherit' }]
+					},
+					slotInstances: [{ templateSlotId: 'slot-general', assigneeId: 'person-baker' }]
+				},
+				{
+					id: 'event-cooldown',
+					eventDate: '2026-04-09',
+					coverageStart: '2026-04-09T20:00:00',
+					coverageEnd: '2026-04-10T07:00:00',
+					cooldownHours: 2,
+					isBlocking: true,
+					rulesSnapshot: {
+						slots: [{ templateSlotId: 'slot-general', rotationPoolKey: 'general', blockingMode: 'inherit' }]
+					},
+					slotInstances: [{ templateSlotId: 'slot-general', assigneeId: 'person-nco' }]
+				}
+			],
+			statusExemptPersonnelDatesByEventDate: new Map()
+		});
+
+		const event = snapshot.events[0];
+
+		expect(event.availabilityClassifications).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					personnelId: 'person-baker',
+					reasonCode: 'advanced-duty-overlap',
+					selectable: true,
+					chargeable: true
+				}),
+				expect.objectContaining({
+					personnelId: 'person-nco',
+					reasonCode: 'advanced-duty-cooldown',
+					selectable: true,
+					chargeable: true
+				}),
+				expect.objectContaining({
+					personnelId: 'person-chen',
+					selectable: true
+				})
+			])
+		);
+		expect(event.preview.slotInstances.map((slot) => slot.assigneeId)).toEqual(['person-chen', 'person-nco']);
+	});
+
+	it('exposes a preview team duty packet export model for generated, overridden, locked, cleared, and unfilled slots', async () => {
+		const packetTemplate: DutyTemplate = {
+			...template,
+			name: 'Battalion Staff Duty',
+			slots: [
+				{
+					...template.slots[0],
+					id: 'slot-generated',
+					roleLabel: 'Generated Runner',
+					rotationPoolKey: 'generated'
+				},
+				{
+					...template.slots[0],
+					id: 'slot-manual',
+					roleLabel: 'Manual Runner',
+					rotationPoolKey: 'manual'
+				},
+				{
+					...template.slots[0],
+					id: 'slot-locked',
+					roleLabel: 'Locked Runner',
+					rotationPoolKey: 'locked'
+				},
+				{
+					...template.slots[0],
+					id: 'slot-cleared',
+					roleLabel: 'Cleared Runner',
+					rotationPoolKey: 'cleared'
+				},
+				{
+					...template.slots[0],
+					id: 'slot-unfilled',
+					roleLabel: 'Unfilled NCO',
+					allowedRanks: ['CPT'],
+					rotationPoolKey: 'unfilled'
+				}
+			]
+		};
+
+		const snapshot = await buildAdvancedRunSnapshot({
+			template: packetTemplate,
+			eventDates: ['2026-04-10'],
+			personnel,
+			holidayClosureDates: new Set(),
+			historyEvents: [],
+			statusExemptPersonnelDatesByEventDate: new Map(),
+			slotOverridesByEventDate: new Map([
+				[
+					'2026-04-10',
+					[
+						{
+							templateSlotId: 'slot-manual',
+							slotIndex: 0,
+							assigneeId: 'person-chen',
+							assignmentSource: 'manual'
+						},
+						{
+							templateSlotId: 'slot-locked',
+							slotIndex: 0,
+							assigneeId: 'person-baker',
+							assignmentSource: 'locked'
+						},
+						{
+							templateSlotId: 'slot-cleared',
+							slotIndex: 0,
+							assigneeId: null,
+							assignmentSource: 'manual'
+						}
+					]
+				]
+			]),
+			buildCollisionSummary: async ({ slotProposals }) => ({
+				summary: { hasConflicts: true, conflicts: ['Staff Duty overlaps CQ.'] },
+				slotMessages: new Map(
+					slotProposals
+						.filter((slot) => slot.templateSlotId === 'slot-locked')
+						.map((slot) => [`${slot.templateSlotId}::${slot.slotIndex}`, ['SPC Baker has an overlapping duty.']])
+				),
+				blockingConflicts: ['SPC Baker has an overlapping duty.']
+			})
+		});
+
+		const exportModel = snapshot.events[0].exportModel;
+
+		expect(exportModel).toMatchObject({
+			status: 'preview',
+			statusLabel: 'Preview - not applied',
+			templateName: 'Battalion Staff Duty',
+			eventDate: '2026-04-10',
+			coverage: {
+				mode: 'timed',
+				start: '2026-04-10T08:00:00',
+				end: '2026-04-10T20:00:00',
+				label: '0800-2000'
+			},
+			fillSummary: { totalSlots: 5, filledSlots: 3, unfilledSlots: 2 },
+			collisionNotes: ['Staff Duty overlaps CQ.', 'SPC Baker has an overlapping duty.']
+		});
+		expect(exportModel.slotAssignments).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					roleLabel: 'Generated Runner',
+					assignmentSource: 'generated',
+					assignee: expect.objectContaining({ id: expect.any(String) }),
+					warnings: expect.any(Array),
+					explanations: expect.arrayContaining([expect.stringContaining('Selected by longest break')])
+				}),
+				expect.objectContaining({
+					roleLabel: 'Manual Runner',
+					assignmentSource: 'manual',
+					assignee: expect.objectContaining({ id: 'person-chen', label: 'PFC Chen' }),
+					explanations: expect.arrayContaining(['Assignment was manually overridden in preview.'])
+				}),
+				expect.objectContaining({
+					roleLabel: 'Locked Runner',
+					assignmentSource: 'locked',
+					assignee: expect.objectContaining({ id: 'person-baker', label: 'SPC Baker' }),
+					warnings: expect.arrayContaining(['SPC Baker has an overlapping duty.']),
+					explanations: expect.arrayContaining(['Assignment was locked in preview.'])
+				}),
+				expect.objectContaining({
+					roleLabel: 'Cleared Runner',
+					assignmentSource: 'manual',
+					assignee: null,
+					explanations: expect.arrayContaining(['Assignment was cleared in preview.'])
+				}),
+				expect.objectContaining({
+					roleLabel: 'Unfilled NCO',
+					assignmentSource: 'generated',
+					assignee: null,
+					explanations: expect.arrayContaining(['No personnel matched this slot eligibility rules.'])
+				})
+			])
+		);
 	});
 });

@@ -85,6 +85,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Advanced Duty Run**             | One generated team-duty run for a selected advanced duty template and event date pattern.                                                              | DA6 run, regenerated apply payload                  |
 | **Advanced Run Snapshot**         | The immutable inputs and outputs produced by an **Advanced Duty Run** preview.                                                                         | Current template state, recomputed preview          |
 | **Snapshot Custody**              | The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.    | Signed client payload, browser-owned run state      |
+| **Advanced Duty Workspace**       | The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.                                          | Wizard redesign, stacked preview cards              |
 | **Team Duty Packet Export Model** | The formatting-neutral snapshot data used by a future export module to produce staff duty, CQ, or team-duty packet output.                             | Browser markup, DA6 matrix                          |
 
 ## Authorization And Governance
@@ -172,6 +173,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - An unapplied **Advanced Run Snapshot** may produce a preview-only **Team Duty Packet Export Model**, but it is not a final applied record.
 - A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
 - Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
+- The **Advanced Duty Workspace** keeps active run review primary and moves applied-event inspection to a reachable but separate view.
 - A **Team Duty Packet Export Model** belongs to the advanced team-duty lane and must not force advanced duties into **DA Form 6** output.
 - **Planning Controls** belong in the **Page Toolbar** or **Command Strip** when they change the working scope of a feature surface.
 - During the current transition, hidden or missing primary nav does not by itself mean a **Feature Lane** no longer exists.

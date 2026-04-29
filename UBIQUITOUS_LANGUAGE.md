@@ -85,7 +85,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Advanced Duty Run**             | One generated team-duty run for a selected advanced duty template and event date pattern.                                                              | DA6 run, regenerated apply payload                  |
 | **Advanced Run Snapshot**         | The immutable inputs and outputs produced by an **Advanced Duty Run** preview.                                                                         | Current template state, recomputed preview          |
 | **Snapshot Custody**              | The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.    | Signed client payload, browser-owned run state      |
-| **Advanced Duty Workspace**       | The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.                                          | Wizard redesign, stacked preview cards              |
+| **Advanced Duty Workspace**       | The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.                                         | Wizard redesign, stacked preview cards              |
 | **Team Duty Packet Export Model** | The formatting-neutral snapshot data used by a future export module to produce staff duty, CQ, or team-duty packet output.                             | Browser markup, DA6 matrix                          |
 
 ## Authorization And Governance

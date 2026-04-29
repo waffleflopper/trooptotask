@@ -42,7 +42,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin subscriptions query failed:', orgsError);
 		}
 
-		const tierCaps: Record<string, number | null> = { free: 15, team: 80, unit: null };
+		const tierCaps: Record<string, number | null> = { free: 20, team: 80, unit: 500 };
 
 		const enrichedOrgs = await Promise.all(
 			(orgs ?? []).map(async (org) => {

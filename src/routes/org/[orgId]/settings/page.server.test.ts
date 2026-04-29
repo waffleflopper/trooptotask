@@ -210,7 +210,7 @@ describe('org settings page server actions', () => {
 					tier: 'unit',
 					source: 'subscription',
 					personnelCount: 4,
-					personnelCap: Infinity,
+					personnelCap: 500,
 					isReadOnly: false,
 					giftExpiresAt: null,
 					giftTier: null
@@ -232,7 +232,7 @@ describe('org settings page server actions', () => {
 				tier: 'unit',
 				source: 'subscription',
 				personnelCount: 4,
-				personnelCap: Infinity,
+				personnelCap: 500,
 				isReadOnly: false,
 				giftExpiresAt: null,
 				giftTier: null

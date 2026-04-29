@@ -26,7 +26,7 @@ const baseData = {
 		{
 			tier: 'free',
 			name: 'Free',
-			personnelCap: 15,
+			personnelCap: 20,
 			maxOrgsOwned: 1,
 			bulkExportsPerMonth: 1,
 			priceMonthly: 0
@@ -34,18 +34,18 @@ const baseData = {
 		{
 			tier: 'team',
 			name: 'Team',
-			personnelCap: 75,
-			maxOrgsOwned: 3,
-			bulkExportsPerMonth: 10,
-			priceMonthly: 2900
+			personnelCap: 80,
+			maxOrgsOwned: 1,
+			bulkExportsPerMonth: null,
+			priceMonthly: 500
 		},
 		{
 			tier: 'unit',
 			name: 'Unit',
-			personnelCap: null,
-			maxOrgsOwned: null,
+			personnelCap: 500,
+			maxOrgsOwned: 3,
 			bulkExportsPerMonth: null,
-			priceMonthly: 7900
+			priceMonthly: 1200
 		}
 	]
 };

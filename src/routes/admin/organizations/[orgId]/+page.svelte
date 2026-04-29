@@ -15,9 +15,9 @@
 	let { data } = $props();
 
 	const PERSONNEL_CAPS: Record<string, string> = {
-		free: '15',
+		free: '20',
 		team: '80',
-		unit: 'Unlimited'
+		unit: '500'
 	};
 
 	let showSuspendModal = $state(false);

@@ -33,7 +33,9 @@
 		<div class="pricing-tier__name">{name}</div>
 		<div class="pricing-tier__price">
 			{price}
-			<span>{priceNote}</span>
+			{#if priceNote}
+				<span>{priceNote}</span>
+			{/if}
 		</div>
 		<p class="pricing-tier__description">{description}</p>
 	</div>

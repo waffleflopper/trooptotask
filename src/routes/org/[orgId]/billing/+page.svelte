@@ -17,7 +17,7 @@
 		tier: 'free',
 		source: 'default',
 		personnelCount: 0,
-		personnelCap: 15,
+		personnelCap: 20,
 		isReadOnly: false,
 		giftExpiresAt: null,
 		giftTier: null
@@ -223,7 +223,7 @@
 					<p>
 						You have <strong>{personnelCount}</strong> personnel but your plan allows
 						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Subscribe to a higher tier or
-						remove personnel to restore full access.
+						contact support for enterprise access, or remove personnel to restore full access.
 					</p>
 				</div>
 			</div>

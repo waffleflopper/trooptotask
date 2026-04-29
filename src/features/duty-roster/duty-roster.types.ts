@@ -290,6 +290,8 @@ export interface DutyEventSlotOverrideInput {
 export interface DutyEventApplyInput {
 	templateId: string;
 	eventDate: string;
+	snapshotId?: string;
+	snapshotFingerprint?: string;
 	collisionReviewConfirmed?: boolean;
 	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
@@ -332,6 +334,8 @@ export interface DutyEventSeriesInput {
 	startDate?: string;
 	endDate?: string;
 	pattern: DutyEventSeriesPattern;
+	snapshotId?: string;
+	snapshotFingerprint?: string;
 	selectedWeekdays?: number[];
 	customDates?: string[];
 	collisionReviewConfirmed?: boolean;

@@ -26,11 +26,13 @@ import type {
 	DutyEventRunPattern,
 	DutyEventRunRecord,
 	DutyEventRunDeleteResult,
+	DutyEventFillSummary,
 	DutyEventSeriesPreview,
 	DutyEventCollisionSummary,
 	DutyEventPreview,
 	DutyEventPreviewSlotInstance,
 	DutyEventRulesSnapshot,
+	AdvancedDutyRunSnapshotRecord,
 	DutyEventSlotOverrideInput,
 	DutyEventSlotInstance,
 	DutyEventPersistedFairnessConfidence,
@@ -80,6 +82,16 @@ type RankedSlotPreviewInstance = DutyEventPreviewSlotInstance & {
 type InternalDutyEventPreview = Omit<DutyEventPreview, 'slotInstances'> & {
 	slotInstances: RankedSlotPreviewInstance[];
 	blockingConflicts: string[];
+};
+
+interface SnapshotOriginalProposal {
+	fillSummary: DutyEventFillSummary;
+	collisionSummary: DutyEventCollisionSummary;
+	slotInstances: DutyEventPreviewSlotInstance[];
+}
+
+type AdvancedRunSnapshotPayload = AdvancedRunSnapshot & {
+	originalProposalsByEventDate?: Record<string, SnapshotOriginalProposal>;
 };
 
 function addDays(date: string, days: number): string {
@@ -154,6 +166,176 @@ function buildSnapshotFingerprint(payload: Record<string, unknown>): string {
 	return createHash('sha256').update(stableStringify(payload)).digest('hex');
 }
 
+function normalizeSlotOverridesForSnapshotCompare(
+	slotOverrides: DutyEventSlotOverrideInput[] | undefined
+): DutyEventSlotOverrideInput[] {
+	return (slotOverrides ?? [])
+		.map((slot) => ({
+			templateSlotId: slot.templateSlotId,
+			slotIndex: slot.slotIndex,
+			assigneeId: slot.assigneeId,
+			...(slot.assignmentSource ? { assignmentSource: slot.assignmentSource } : {})
+		}))
+		.sort(
+			(left, right) =>
+				String(left.templateSlotId ?? '').localeCompare(String(right.templateSlotId ?? '')) ||
+				left.slotIndex - right.slotIndex
+		);
+}
+
+function normalizeCandidatePersonnelIdsForSnapshotCompare(values: string[] | undefined): string[] {
+	return [...new Set(values ?? [])].sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeSingleApplyInputForSnapshotCompare(input: DutyEventApplyInput): Record<string, unknown> {
+	return {
+		templateId: input.templateId,
+		eventDate: input.eventDate,
+		candidatePersonnelIds: normalizeCandidatePersonnelIdsForSnapshotCompare(input.candidatePersonnelIds),
+		slotOverrides: normalizeSlotOverridesForSnapshotCompare(input.slotOverrides)
+	};
+}
+
+function normalizeSeriesApplyInputForSnapshotCompare(input: DutyEventSeriesInput): Record<string, unknown> {
+	return {
+		templateId: input.templateId,
+		startDate: input.startDate,
+		endDate: input.endDate,
+		pattern: input.pattern,
+		selectedWeekdays: [...new Set(input.selectedWeekdays ?? [])].sort((left, right) => left - right),
+		customDates: normalizeDates(input.customDates ?? []),
+		candidatePersonnelIds: normalizeCandidatePersonnelIdsForSnapshotCompare(input.candidatePersonnelIds),
+		eventOverrides: (input.eventOverrides ?? [])
+			.map((eventOverride) => ({
+				eventDate: eventOverride.eventDate,
+				slotOverrides: normalizeSlotOverridesForSnapshotCompare(eventOverride.slotOverrides)
+			}))
+			.sort((left, right) => left.eventDate.localeCompare(right.eventDate))
+	};
+}
+
+function getRegeneratePreviewMessage(): string {
+	return 'Regenerate the advanced duty preview before applying.';
+}
+
+function requireSnapshotMetadata(input: { snapshotId?: string; snapshotFingerprint?: string }): {
+	snapshotId: string;
+	snapshotFingerprint: string;
+} {
+	if (!input.snapshotId || !input.snapshotFingerprint) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+	return { snapshotId: input.snapshotId, snapshotFingerprint: input.snapshotFingerprint };
+}
+
+async function loadApprovedAdvancedRunSnapshot(
+	ctx: QueryPorts,
+	input: { snapshotId?: string; snapshotFingerprint?: string }
+): Promise<AdvancedDutyRunSnapshotRecord> {
+	const { snapshotId, snapshotFingerprint } = requireSnapshotMetadata(input);
+	const snapshotRow = await ctx.store.findOne<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		{ id: snapshotId }
+	);
+	if (!snapshotRow) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+
+	const snapshot = AdvancedDutyRunSnapshotEntity.fromDb(snapshotRow);
+	if (
+		snapshot.status !== 'draft' ||
+		snapshot.snapshotFingerprint !== snapshotFingerprint ||
+		snapshot.expiresAt <= new Date().toISOString()
+	) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+
+	return snapshot;
+}
+
+function assertSnapshotInputMatches(
+	snapshot: AdvancedDutyRunSnapshotRecord,
+	currentInput: Record<string, unknown>,
+	storedInput: Record<string, unknown>
+): void {
+	if (stableStringify(currentInput) !== stableStringify(storedInput)) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+}
+
+function getSnapshotEvent(snapshot: AdvancedDutyRunSnapshotRecord, eventDate: string) {
+	const snapshotPayload = snapshot.snapshotPayload as unknown as AdvancedRunSnapshot;
+	const snapshotEvent = snapshotPayload.events.find((event) => event.eventDate === eventDate);
+	if (!snapshotEvent) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+	return snapshotEvent;
+}
+
+function getSnapshotPublicPreview(snapshot: AdvancedDutyRunSnapshotRecord, eventDate: string): DutyEventPreview {
+	const previewPayload = snapshot.previewPayload as unknown as DutyEventPreview | DutyEventSeriesPreview;
+	if ('events' in previewPayload) {
+		const preview = previewPayload.events.find((event) => event.eventDate === eventDate);
+		if (!preview) {
+			fail(400, getRegeneratePreviewMessage());
+		}
+		return preview;
+	}
+	if (previewPayload.eventDate !== eventDate) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+	return previewPayload;
+}
+
+function buildInternalPreviewFromSnapshot(
+	snapshot: AdvancedDutyRunSnapshotRecord,
+	eventDate: string
+): InternalDutyEventPreview {
+	const snapshotEvent = getSnapshotEvent(snapshot, eventDate);
+	const publicPreview = getSnapshotPublicPreview(snapshot, eventDate);
+	return {
+		...publicPreview,
+		slotInstances: snapshotEvent.slotProposals.map((slot) => ({
+			...slot,
+			overrideMessages:
+				publicPreview.slotInstances.find(
+					(publicSlot) => publicSlot.templateSlotId === slot.templateSlotId && publicSlot.slotIndex === slot.slotIndex
+				)?.overrideMessages ?? slot.overrideMessages
+		})),
+		blockingConflicts: snapshotEvent.blockingConflicts
+	};
+}
+
+function buildOriginalProposalFromPreview(preview: InternalDutyEventPreview) {
+	return {
+		fillSummary: preview.fillSummary,
+		collisionSummary: preview.collisionSummary,
+		slotInstances: toPublicDutyEventPreview(preview).slotInstances
+	};
+}
+
+function getOriginalProposalFromSnapshot(snapshot: AdvancedDutyRunSnapshotRecord, eventDate: string) {
+	const snapshotPayload = snapshot.snapshotPayload as unknown as AdvancedRunSnapshotPayload;
+	return snapshotPayload.originalProposalsByEventDate?.[eventDate] ?? null;
+}
+
+async function markAdvancedRunSnapshotPartialFailure(
+	ctx: WritePorts,
+	snapshotId: string,
+	error: unknown
+): Promise<void> {
+	try {
+		await ctx.store.update<Record<string, unknown>>(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, snapshotId, {
+			status: 'partial-failure',
+			apply_error: error instanceof Error ? error.message : 'Advanced duty apply failed.',
+			updated_at: new Date().toISOString()
+		});
+	} catch {
+		// Best effort only; the original persistence error remains the useful failure.
+	}
+}
+
 async function persistDraftAdvancedRunSnapshot(
 	ctx: QueryPorts,
 	input: {
@@ -163,7 +345,7 @@ async function persistDraftAdvancedRunSnapshot(
 		eventDates: string[];
 		candidatePersonnelIds?: string[];
 		inputPayload: Record<string, unknown>;
-		snapshotPayload: AdvancedRunSnapshot;
+		snapshotPayload: AdvancedRunSnapshotPayload;
 		previewPayload: Record<string, unknown>;
 	}
 ): Promise<{ snapshotId: string; snapshotFingerprint: string; snapshotVersion: number }> {
@@ -337,27 +519,6 @@ function normalizeSoftPreferencesForRanking(
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
 	const person = personnelById.get(personId);
 	return person ? `${person.rank} ${person.lastName}` : personId;
-}
-
-async function buildDutyEventPreview(
-	ctx: QueryPorts,
-	input: DutyEventApplyInput,
-	_transientEvents: TransientPreviewEvent[] = [],
-	excludeDutyEventIds: string[] = [],
-	resolvedData: ResolvedPreviewData = {}
-): Promise<InternalDutyEventPreview> {
-	const template = await getTemplate(ctx, input.templateId);
-	requireActiveAdvancedDutyTemplate(template);
-	return buildDutyEventPreviewFromResolvedTemplate(
-		ctx,
-		template,
-		input.eventDate,
-		input.candidatePersonnelIds,
-		input.slotOverrides,
-		_transientEvents,
-		excludeDutyEventIds,
-		resolvedData
-	);
 }
 
 async function buildDutyEventPreviewFromResolvedTemplate(
@@ -1127,7 +1288,7 @@ async function listStatusExemptPersonnelDatesForCoverage(
 
 export async function applyDutyEventFromTemplate(
 	ctx: WritePorts,
-	input: DutyEventApplyInput & { runId?: string }
+	input: DutyEventApplyInput & { runId?: string; approvedSnapshot?: AdvancedDutyRunSnapshotRecord }
 ): Promise<DutyEvent> {
 	requireAdvancedDutyAccess(ctx.auth);
 
@@ -1136,35 +1297,36 @@ export async function applyDutyEventFromTemplate(
 		fail(403, 'Organization is in read-only mode');
 	}
 
+	const approvedSnapshot = input.approvedSnapshot ?? (await loadApprovedAdvancedRunSnapshot(ctx, input));
+	if (!input.approvedSnapshot && approvedSnapshot.pattern !== 'single') {
+		fail(400, getRegeneratePreviewMessage());
+	}
+	if (!input.approvedSnapshot) {
+		assertSnapshotInputMatches(
+			approvedSnapshot,
+			normalizeSingleApplyInputForSnapshotCompare(input),
+			normalizeSingleApplyInputForSnapshotCompare(approvedSnapshot.inputPayload as unknown as DutyEventApplyInput)
+		);
+	}
+	if (approvedSnapshot.templateId !== input.templateId || !approvedSnapshot.eventDates.includes(input.eventDate)) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+
 	const template = await getTemplate(ctx, input.templateId);
 
 	// Look up any existing event for this template + date BEFORE building the preview so we can
 	// exclude it from the collision check — otherwise its own stored assignments would show as
 	// blocking conflicts against themselves.
 	const existingEventRow = await findExistingTemplateDutyEvent(ctx, input.templateId, input.eventDate);
-	const excludeIds = existingEventRow ? [existingEventRow.id as string] : [];
 	const replacementCollisionMessage = existingEventRow
 		? buildReplacementCollisionMessage(template.name, input.eventDate)
 		: null;
 
-	const generatedPreview = await buildDutyEventPreview(
-		ctx,
-		{
-			templateId: input.templateId,
-			eventDate: input.eventDate,
-			candidatePersonnelIds: input.candidatePersonnelIds
-		},
-		[],
-		excludeIds
-	);
-	const originalProposal = {
-		fillSummary: generatedPreview.fillSummary,
-		collisionSummary: generatedPreview.collisionSummary,
-		slotInstances: toPublicDutyEventPreview(generatedPreview).slotInstances
-	};
-	const preview = input.slotOverrides?.length
-		? await buildDutyEventPreview(ctx, input, [], excludeIds)
-		: generatedPreview;
+	const generatedPreview = buildInternalPreviewFromSnapshot(approvedSnapshot, input.eventDate);
+	const originalProposal =
+		getOriginalProposalFromSnapshot(approvedSnapshot, input.eventDate) ??
+		buildOriginalProposalFromPreview(generatedPreview);
+	const preview = generatedPreview;
 	const collisionReviewPreview = replacementCollisionMessage
 		? withCollisionMessage(preview, replacementCollisionMessage)
 		: preview;
@@ -1238,6 +1400,17 @@ export async function applyDutyEventFromTemplate(
 
 	let insertedSlotRows: Record<string, unknown>[] = [];
 	try {
+		if (!input.approvedSnapshot) {
+			await ctx.store.update<Record<string, unknown>>(
+				AdvancedDutyRunSnapshotEntity.table,
+				ctx.auth.orgId,
+				approvedSnapshot.id,
+				{
+					status: 'applying',
+					updated_at: now
+				}
+			);
+		}
 		insertedSlotRows = await insertDutyEventSlots(ctx, {
 			dutyEventId: eventRow.id as string,
 			slotInstances: preview.slotInstances,
@@ -1278,6 +1451,9 @@ export async function applyDutyEventFromTemplate(
 				console.error('Failed to restore duty event after slot persistence error', restoreError);
 			}
 		}
+		if (!input.approvedSnapshot) {
+			await markAdvancedRunSnapshotPartialFailure(ctx, approvedSnapshot.id, error);
+		}
 		throw error;
 	}
 
@@ -1285,6 +1461,19 @@ export async function applyDutyEventFromTemplate(
 		await reconcileDutyEventRunBestEffort(ctx, previousRunId);
 	}
 	await reconcileDutyEventRunBestEffort(ctx, runId);
+	if (!input.approvedSnapshot) {
+		await ctx.store.update<Record<string, unknown>>(
+			AdvancedDutyRunSnapshotEntity.table,
+			ctx.auth.orgId,
+			approvedSnapshot.id,
+			{
+				status: 'applied',
+				applied_run_id: runId ?? null,
+				applied_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			}
+		);
+	}
 
 	ctx.audit.log({
 		action: existingEventRow ? 'duty_event.updated' : 'duty_event.applied',
@@ -1317,6 +1506,22 @@ export async function previewDutyEventFromTemplate(
 		input.slotOverrides,
 		existingEventRow ? [String(existingEventRow.id)] : []
 	);
+	const originalProposal = input.slotOverrides?.length
+		? buildOriginalProposalFromPreview(
+				toInternalDutyEventPreview(
+					(
+						await buildSingleDutyEventPreviewSnapshot(
+							ctx,
+							template,
+							input.eventDate,
+							input.candidatePersonnelIds,
+							undefined,
+							existingEventRow ? [String(existingEventRow.id)] : []
+						)
+					).events[0]
+				)
+			)
+		: null;
 	const preview = toInternalDutyEventPreview(snapshot.events[0]);
 	const publicPreview = toPublicDutyEventPreview(
 		existingEventRow
@@ -1330,7 +1535,14 @@ export async function previewDutyEventFromTemplate(
 		eventDates: [input.eventDate],
 		candidatePersonnelIds: input.candidatePersonnelIds,
 		inputPayload: input as unknown as Record<string, unknown>,
-		snapshotPayload: snapshot,
+		snapshotPayload: originalProposal
+			? {
+					...snapshot,
+					originalProposalsByEventDate: {
+						[input.eventDate]: originalProposal
+					}
+				}
+			: snapshot,
 		previewPayload: publicPreview as unknown as Record<string, unknown>
 	});
 
@@ -1512,6 +1724,40 @@ export async function previewDutyEventSeriesFromTemplate(
 				existingIdByDate.get(collisionInput.eventDate) ? [existingIdByDate.get(collisionInput.eventDate)!] : []
 			)
 	});
+	const originalProposalsByEventDate: Record<string, ReturnType<typeof buildOriginalProposalFromPreview>> = {};
+	if ((input.eventOverrides ?? []).length > 0) {
+		const originalSnapshot = await buildAdvancedRunSnapshot({
+			template,
+			eventDates,
+			personnel: allPersonnel,
+			holidayClosureDates: resolvedPreviewData.holidayClosureDates ?? new Set(),
+			historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
+			excludedHistoryEventIdsByEventDate,
+			statusExemptPersonnelDatesByEventDate,
+			candidatePersonnelIds: input.candidatePersonnelIds,
+			slotOverridesByEventDate: new Map(eventDates.map((eventDate) => [eventDate, undefined])),
+			buildCollisionSummary: async (collisionInput) =>
+				buildCollisionSummary(
+					ctx,
+					collisionInput.slotProposals,
+					collisionInput.eventDate,
+					collisionInput.coverageStart,
+					collisionInput.coverageEnd,
+					collisionInput.cooldownHours,
+					personnelById,
+					collisionInput.transientEvents,
+					existingIdByDate.get(collisionInput.eventDate) ? [existingIdByDate.get(collisionInput.eventDate)!] : []
+				)
+		});
+		for (const eventOverride of input.eventOverrides ?? []) {
+			const event = originalSnapshot.events.find((item) => item.eventDate === eventOverride.eventDate);
+			if (event) {
+				originalProposalsByEventDate[eventOverride.eventDate] = buildOriginalProposalFromPreview(
+					toInternalDutyEventPreview(event)
+				);
+			}
+		}
+	}
 	const events = snapshot.events.map((event) => {
 		const internalPreview = toInternalDutyEventPreview(event);
 		const existingId = existingIdByDate.get(event.eventDate);
@@ -1539,7 +1785,13 @@ export async function previewDutyEventSeriesFromTemplate(
 		eventDates,
 		candidatePersonnelIds: input.candidatePersonnelIds,
 		inputPayload: input as unknown as Record<string, unknown>,
-		snapshotPayload: snapshot,
+		snapshotPayload:
+			Object.keys(originalProposalsByEventDate).length > 0
+				? {
+						...snapshot,
+						originalProposalsByEventDate
+					}
+				: snapshot,
 		previewPayload: publicPreview as unknown as Record<string, unknown>
 	});
 
@@ -1564,9 +1816,32 @@ export async function applyDutyEventSeriesFromTemplate(
 	if (eventDates.length === 0) {
 		fail(400, 'No dates matched the selected pattern.');
 	}
+	const approvedSnapshot = await loadApprovedAdvancedRunSnapshot(ctx, input);
+	if (
+		approvedSnapshot.pattern !== input.pattern ||
+		approvedSnapshot.templateId !== input.templateId ||
+		stableStringify(approvedSnapshot.eventDates) !== stableStringify(eventDates)
+	) {
+		fail(400, getRegeneratePreviewMessage());
+	}
+	assertSnapshotInputMatches(
+		approvedSnapshot,
+		normalizeSeriesApplyInputForSnapshotCompare(input),
+		normalizeSeriesApplyInputForSnapshotCompare(approvedSnapshot.inputPayload as unknown as DutyEventSeriesInput)
+	);
+
 	const template = await getTemplate(ctx, input.templateId);
 	let run: DutyEventRunRecord | null = null;
 	try {
+		await ctx.store.update<Record<string, unknown>>(
+			AdvancedDutyRunSnapshotEntity.table,
+			ctx.auth.orgId,
+			approvedSnapshot.id,
+			{
+				status: 'applying',
+				updated_at: new Date().toISOString()
+			}
+		);
 		run = await createDutyEventRun(ctx, {
 			template,
 			pattern: input.pattern,
@@ -1582,7 +1857,8 @@ export async function applyDutyEventSeriesFromTemplate(
 					eventDate,
 					collisionReviewConfirmed: input.collisionReviewConfirmed,
 					candidatePersonnelIds: input.candidatePersonnelIds,
-					slotOverrides: getEventSlotOverrides(input, eventDate)
+					slotOverrides: getEventSlotOverrides(input, eventDate),
+					approvedSnapshot
 				})
 			);
 		}
@@ -1599,6 +1875,17 @@ export async function applyDutyEventSeriesFromTemplate(
 		} catch {
 			// Keep the originally created run payload if post-write refresh fails.
 		}
+		await ctx.store.update<Record<string, unknown>>(
+			AdvancedDutyRunSnapshotEntity.table,
+			ctx.auth.orgId,
+			approvedSnapshot.id,
+			{
+				status: 'applied',
+				applied_run_id: resolvedRun.id,
+				applied_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			}
+		);
 
 		return {
 			run: resolvedRun,
@@ -1610,6 +1897,19 @@ export async function applyDutyEventSeriesFromTemplate(
 		};
 	} catch (error) {
 		await cleanupDutyEventRunBestEffort(ctx, run?.id);
+		if (error instanceof Error && error.message === 'Collision review is required before applying this duty event.') {
+			await ctx.store.update<Record<string, unknown>>(
+				AdvancedDutyRunSnapshotEntity.table,
+				ctx.auth.orgId,
+				approvedSnapshot.id,
+				{
+					status: 'draft',
+					updated_at: new Date().toISOString()
+				}
+			);
+			fail(400, 'Collision review is required before applying this duty series.');
+		}
+		await markAdvancedRunSnapshotPartialFailure(ctx, approvedSnapshot.id, error);
 		throw error;
 	}
 }

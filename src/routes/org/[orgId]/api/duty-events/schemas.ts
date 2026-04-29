@@ -56,6 +56,11 @@ export const dutyEventApplyInputSchema = z.object({
 	slotOverrides: z.array(slotOverrideSchema).optional()
 });
 
+export const dutyEventSnapshotApplyInputSchema = dutyEventApplyInputSchema.extend({
+	snapshotId: uuidField('Snapshot ID'),
+	snapshotFingerprint: stringField('Snapshot fingerprint')
+});
+
 export const existingDutyEventInputSchema = z.object({
 	dutyEventId: uuidField('Duty event ID'),
 	slotOverrides: z.array(slotOverrideSchema).optional()
@@ -83,6 +88,11 @@ export const dutyEventSeriesInputSchema = z.object({
 	collisionReviewConfirmed: z.boolean().optional(),
 	candidatePersonnelIds: z.array(uuidField('Candidate personnel ID')).optional(),
 	eventOverrides: z.array(eventOverrideSchema).optional()
+});
+
+export const dutyEventSeriesSnapshotApplyInputSchema = dutyEventSeriesInputSchema.extend({
+	snapshotId: uuidField('Snapshot ID'),
+	snapshotFingerprint: stringField('Snapshot fingerprint')
 });
 
 export const dutyEventIdInputSchema = z.object({

@@ -72,6 +72,30 @@ async function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
 	});
 }
 
+async function buildApplyPayload(
+	ctx: ReturnType<typeof createTestContext>,
+	payload: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+	const preview = await handleUseCaseRequest(previewConfig, ctx, payload);
+	return {
+		...payload,
+		snapshotId: preview.snapshotId,
+		snapshotFingerprint: preview.snapshotFingerprint
+	};
+}
+
+async function buildSeriesApplyPayload(
+	ctx: ReturnType<typeof createTestContext>,
+	payload: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+	const preview = await handleUseCaseRequest(previewSeriesConfig, ctx, payload);
+	return {
+		...payload,
+		snapshotId: preview.snapshotId,
+		snapshotFingerprint: preview.snapshotFingerprint
+	};
+}
+
 describe('POST /api/duty-events/preview', () => {
 	it('exports a calendar preview route config', () => {
 		expect(previewConfig.permission).toBe('calendar');
@@ -156,10 +180,14 @@ describe('POST /api/duty-events', () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
 
-		const result = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const result = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		expect(result).toMatchObject({
 			templateId: template.id,
@@ -192,10 +220,14 @@ describe('POST /api/duty-events', () => {
 			await templateCtx.rawStore.findMany('duty_template_rotation_baselines', templateCtx.auth.orgId)
 		);
 
-		const result = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const result = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		expect(result).toMatchObject({
 			templateId: template.id
@@ -220,11 +252,15 @@ describe('POST /api/duty-events', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10',
-			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
-		});
+		const result = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10',
+				slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
+			})
+		);
 
 		expect(result.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
@@ -257,10 +293,14 @@ describe('POST /api/duty-events', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(applyConfig, ctx, {
-				templateId: template.id,
-				eventDate: '2026-04-10'
-			})
+			handleUseCaseRequest(
+				applyConfig,
+				ctx,
+				await buildApplyPayload(ctx, {
+					templateId: template.id,
+					eventDate: '2026-04-10'
+				})
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Collision review is required before applying this duty event.'
@@ -277,10 +317,14 @@ describe('POST /api/duty-events/[eventId]/preview', () => {
 	it('reopens an applied advanced duty event for editing', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
-		const applied = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const applied = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		const result = await handleUseCaseRequest(previewExistingConfig, ctx, {
 			dutyEventId: applied.id
@@ -307,10 +351,14 @@ describe('PUT /api/duty-events/[eventId]', () => {
 	it('updates an applied advanced duty event in place', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
-		const applied = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const applied = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		ctx.store.seed('personnel', [
 			{
@@ -345,10 +393,14 @@ describe('PUT /api/duty-events/[eventId]', () => {
 	it('blocks update at the route layer until collision review is confirmed', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
-		const applied = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const applied = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		ctx.store.seed('daily_assignments', [
 			{
@@ -465,11 +517,15 @@ describe('POST /api/duty-events/series', () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
 
-		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
-			templateId: template.id,
-			pattern: 'custom-dates',
-			customDates: ['2026-04-04', '2026-04-10']
-		});
+		const result = await handleUseCaseRequest(
+			applySeriesConfig,
+			ctx,
+			await buildSeriesApplyPayload(ctx, {
+				templateId: template.id,
+				pattern: 'custom-dates',
+				customDates: ['2026-04-04', '2026-04-10']
+			})
+		);
 
 		expect(result.eventDates).toEqual(['2026-04-04', '2026-04-10']);
 		expect(result.events).toHaveLength(2);
@@ -495,11 +551,15 @@ describe('POST /api/duty-events/series', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(applySeriesConfig, ctx, {
-				templateId: template.id,
-				pattern: 'custom-dates',
-				customDates: ['2026-04-10']
-			})
+			handleUseCaseRequest(
+				applySeriesConfig,
+				ctx,
+				await buildSeriesApplyPayload(ctx, {
+					templateId: template.id,
+					pattern: 'custom-dates',
+					customDates: ['2026-04-10']
+				})
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Collision review is required before applying this duty series.'
@@ -524,23 +584,27 @@ describe('POST /api/duty-events/series', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
-			templateId: template.id,
-			pattern: 'custom-dates',
-			customDates: ['2026-04-10'],
-			eventOverrides: [
-				{
-					eventDate: '2026-04-10',
-					slotOverrides: [
-						{
-							templateSlotId: template.slots[0]?.id ?? null,
-							slotIndex: 0,
-							assigneeId: PERSON_ALT_NCO_ID
-						}
-					]
-				}
-			]
-		});
+		const result = await handleUseCaseRequest(
+			applySeriesConfig,
+			ctx,
+			await buildSeriesApplyPayload(ctx, {
+				templateId: template.id,
+				pattern: 'custom-dates',
+				customDates: ['2026-04-10'],
+				eventOverrides: [
+					{
+						eventDate: '2026-04-10',
+						slotOverrides: [
+							{
+								templateSlotId: template.slots[0]?.id ?? null,
+								slotIndex: 0,
+								assigneeId: PERSON_ALT_NCO_ID
+							}
+						]
+					}
+				]
+			})
+		);
 
 		expect(result.events[0]?.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
@@ -563,10 +627,14 @@ describe('DELETE /api/duty-events/[eventId]', () => {
 	it('deletes one applied duty event', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
-		const applied = await handleUseCaseRequest(applyConfig, ctx, {
-			templateId: template.id,
-			eventDate: '2026-04-10'
-		});
+		const applied = await handleUseCaseRequest(
+			applyConfig,
+			ctx,
+			await buildApplyPayload(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		);
 
 		const result = await handleUseCaseRequest(deleteEventConfig, ctx, {
 			dutyEventId: applied.id
@@ -595,11 +663,15 @@ describe('DELETE /api/duty-events/runs/[runId]', () => {
 	it('deletes a full run and cascades all of its events', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
-		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
-			templateId: template.id,
-			pattern: 'custom-dates',
-			customDates: ['2026-04-04', '2026-04-10']
-		});
+		const result = await handleUseCaseRequest(
+			applySeriesConfig,
+			ctx,
+			await buildSeriesApplyPayload(ctx, {
+				templateId: template.id,
+				pattern: 'custom-dates',
+				customDates: ['2026-04-04', '2026-04-10']
+			})
+		);
 
 		const deleted = await handleUseCaseRequest(deleteRunConfig, ctx, {
 			runId: result.run.id

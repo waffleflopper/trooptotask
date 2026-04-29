@@ -4,7 +4,14 @@ import type { StatusType } from '$lib/types';
 
 describe('StatusTypeEntity', () => {
 	it('fromDb produces correct StatusType shape (snake_case → camelCase)', () => {
-		const row = { id: 'st-1', name: 'Leave', color: '#22c55e', text_color: '#ffffff', sort_order: 2 };
+		const row = {
+			id: 'st-1',
+			name: 'Leave',
+			color: '#22c55e',
+			text_color: '#ffffff',
+			da6_availability_treatment: 'authorized-absence',
+			sort_order: 2
+		};
 		const result = StatusTypeEntity.fromDb(row) as StatusType & { sortOrder: number };
 
 		expect(result).toEqual({
@@ -12,6 +19,7 @@ describe('StatusTypeEntity', () => {
 			name: 'Leave',
 			color: '#22c55e',
 			textColor: '#ffffff',
+			da6AvailabilityTreatment: 'authorized-absence',
 			sortOrder: 2
 		});
 	});
@@ -37,13 +45,20 @@ describe('StatusTypeEntity', () => {
 			name: 'Sick Call',
 			color: '#6b7280',
 			text_color: '#ffffff',
+			da6_availability_treatment: null,
 			sort_order: 0
 		});
 	});
 
 	it('toDbInsert allows explicit values to override defaults', () => {
 		const result = StatusTypeEntity.toDbInsert(
-			{ name: 'Leave', color: '#22c55e', textColor: '#000000', sortOrder: 5 },
+			{
+				name: 'Leave',
+				color: '#22c55e',
+				textColor: '#000000',
+				da6AvailabilityTreatment: 'authorized-absence',
+				sortOrder: 5
+			},
 			'org-1'
 		);
 
@@ -52,20 +67,27 @@ describe('StatusTypeEntity', () => {
 			name: 'Leave',
 			color: '#22c55e',
 			text_color: '#000000',
+			da6_availability_treatment: 'authorized-absence',
 			sort_order: 5
 		});
 	});
 
 	it('toDbUpdate maps camelCase to snake_case correctly', () => {
-		const result = StatusTypeEntity.toDbUpdate({ id: 'st-1', textColor: '#000000', name: 'Updated' });
+		const result = StatusTypeEntity.toDbUpdate({
+			id: 'st-1',
+			textColor: '#000000',
+			name: 'Updated',
+			da6AvailabilityTreatment: 'other-duty'
+		});
 
 		expect(result).toEqual({
 			text_color: '#000000',
-			name: 'Updated'
+			name: 'Updated',
+			da6_availability_treatment: 'other-duty'
 		});
 	});
 
-	it('createSchema requires name, makes color/textColor/sortOrder optional', () => {
+	it('createSchema requires name, makes color/textColor/treatment/sortOrder optional', () => {
 		const valid = StatusTypeEntity.createSchema.safeParse({ name: 'Leave' });
 		expect(valid.success).toBe(true);
 
@@ -76,9 +98,16 @@ describe('StatusTypeEntity', () => {
 			name: 'TDY',
 			color: '#3b82f6',
 			textColor: '#000000',
+			da6AvailabilityTreatment: 'authorized-absence',
 			sortOrder: 2
 		});
 		expect(withOptionals.success).toBe(true);
+
+		const invalidTreatment = StatusTypeEntity.createSchema.safeParse({
+			name: 'Mystery',
+			da6AvailabilityTreatment: 'chargeable-maybe'
+		});
+		expect(invalidTreatment.success).toBe(false);
 	});
 
 	it('has groupScope set to none', () => {

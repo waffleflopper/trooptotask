@@ -26,6 +26,20 @@ Project-local pi resources live under `.pi/`.
 - `/feature`, `/bugfix`, `/ui-pass`, `/ship-pass` — reusable prompt templates
 - `/skill:trooptotask-feature`, `/skill:safe-supabase-change`, `/skill:ui-consistency-pass` — force a specific repo workflow when needed
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `waffleflopper/trooptotask`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo with `CONTEXT.md` at the root and ADRs under `docs/architecture/adrs/`. See `docs/agents/domain.md`.
+
 ---
 
 ## Core Priorities

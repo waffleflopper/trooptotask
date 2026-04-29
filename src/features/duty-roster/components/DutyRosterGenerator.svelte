@@ -3,15 +3,24 @@
 	import type { AvailabilityEntry, SpecialDay, StatusType } from '$lib/types';
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '../duty-roster.types';
-	import { resolveSlotBlockingMode } from '../blockingMode';
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
+	import {
+		buildDutyRosterApplyPayload,
+		buildDutyRosterHistoryPayload,
+		buildDutyRosterRunSnapshot,
+		buildManualHistoryImportPayload,
+		isManualHistoryImport
+	} from '../run';
+	import type { DutyRosterRunSnapshot, DutyRosterSnapshotPersonnel } from '../run';
+	import { exportDutyRosterForBrowser } from '../export/dutyRosterBrowserExport';
+	import { formatDa6AvailabilityTreatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import WizardStepper from './WizardStepper.svelte';
 	import DutyRosterProgressModal from './DutyRosterProgressModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		initialAssignmentTypeId?: string;
@@ -57,6 +66,7 @@
 	}
 
 	type DutyRosterView = 'setup' | 'preview' | 'history';
+	type GeneratedRosterEntry = { date: string; assignee: DutyRosterSnapshotPersonnel | null; reason?: string };
 
 	const WIZARD_STEPS = [
 		{ id: 'setup', label: 'Setup' },
@@ -71,7 +81,6 @@
 	let startDate = $state(getMonthStart());
 	let endDate = $state(getMonthEnd());
 	let draftExemptIds = new SvelteSet<string>();
-	let excludeStatuses = $state<string[]>([]);
 	let excludeWeekends = $state(false);
 	let excludeHolidays = $state(false);
 	let excludeOrgClosures = $state(false);
@@ -79,12 +88,21 @@
 	let lastSyncedExemptionScope = '';
 
 	// Generated roster state
-	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
-	let generatedDA6 = $state<DA6Data | null>(null);
+	let activeRunSnapshot = $state<DutyRosterRunSnapshot | null>(null);
+	let generatedRoster = $state<GeneratedRosterEntry[]>([]);
 	let isGenerating = $state(false);
 	let isApplying = $state(false);
+	let isRetryingHistory = $state(false);
 	let previewTab = $state<'roster' | 'da6'>('roster');
-	let applyFeedback = $state<{ tone: 'success' | 'error'; message: string } | null>(null);
+	let applyFeedback = $state<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null);
+	let partialSuccessSnapshot = $state<DutyRosterRunSnapshot | null>(null);
+	let localRosterHistory = $derived(rosterHistory);
+	let isManualHistoryFormOpen = $state(false);
+	let manualHistoryDate = $state('');
+	let manualHistoryAssignmentTypeId = $state('');
+	let manualHistoryAssigneeId = $state('');
+	let manualHistorySourceNote = $state('');
+	let isSavingManualHistory = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 
@@ -106,247 +124,112 @@
 
 	const eligiblePersonnel = $derived(availableRosterPool);
 
+	const da6TreatedStatusTypes = $derived(statusTypes.filter((status) => status.da6AvailabilityTreatment));
+
 	const hasExemptionChanges = $derived.by(() => {
 		if (currentExemptIds.length !== draftExemptIds.size) return true;
 		return currentExemptIds.some((id) => !draftExemptIds.has(id));
 	});
 
-	// Calculate duty counts from existing assignments
-	function getDutyCounts(assignmentTypeId: string): Map<string, number> {
-		const counts = new SvelteMap<string, number>();
-
-		// Initialize all eligible personnel with 0
-		eligiblePersonnel.forEach((p) => counts.set(p.id, 0));
-
-		// Count existing assignments of this type
-		assignments
-			.filter((a) => a.assignmentTypeId === assignmentTypeId)
-			.forEach((a) => {
-				const current = counts.get(a.assigneeId) ?? 0;
-				counts.set(a.assigneeId, current + 1);
-			});
-
-		return counts;
-	}
-
-	// Get last duty date per person for tiebreaker.
-	// Only considers assignments BEFORE the generation period start date so that
-	// future assignments (e.g. March already generated) don't corrupt a past period
-	// (e.g. generating February retroactively).
-	function getLastDutyDates(assignmentTypeId: string, beforeDate: string): Map<string, string | null> {
-		const lastDates = new SvelteMap<string, string | null>();
-		eligiblePersonnel.forEach((p) => lastDates.set(p.id, null));
-
-		assignments
-			.filter((a) => a.assignmentTypeId === assignmentTypeId && a.date < beforeDate)
-			.forEach((a) => {
-				const current = lastDates.get(a.assigneeId) ?? null;
-				if (current === null || a.date > current) {
-					lastDates.set(a.assigneeId, a.date);
-				}
-			});
-
-		return lastDates;
-	}
-
-	// Check if person is available on a given date
-	function formatDateTime(value: Date): string {
-		const year = value.getFullYear();
-		const month = String(value.getMonth() + 1).padStart(2, '0');
-		const day = String(value.getDate()).padStart(2, '0');
-		const hours = String(value.getHours()).padStart(2, '0');
-		const minutes = String(value.getMinutes()).padStart(2, '0');
-		const seconds = String(value.getSeconds()).padStart(2, '0');
-		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-	}
-
-	function addHours(dateTime: string, hours: number): string {
-		const value = new SvelteDate(dateTime);
-		value.setHours(value.getHours() + hours);
-		return formatDateTime(value);
-	}
-
-	function hasBlockingAdvancedDuty(personnelId: string, date: string): boolean {
-		const dayStart = `${date}T00:00:00`;
-		const dayEnd = `${date}T23:59:59`;
-		return advancedDutyEvents.some((event) => {
-			const hasBlockingAssignee = event.slotInstances.some((slot) => {
-				if (slot.assigneeId !== personnelId) {
-					return false;
-				}
-
-				const snapshotSlot = event.rulesSnapshot.slots.find(
-					(candidate) => candidate.templateSlotId === slot.templateSlotId
-				);
-				return resolveSlotBlockingMode(event.isBlocking, snapshotSlot?.blockingMode);
-			});
-			if (!hasBlockingAssignee) return false;
-			const overlaps = event.coverageStart < dayEnd && event.coverageEnd > dayStart;
-			const cooldownBlocks =
-				event.coverageEnd <= dayStart && addHours(event.coverageEnd, event.cooldownHours) > dayStart;
-			return overlaps || cooldownBlocks;
-		});
-	}
-
-	function isPersonAvailable(person: Personnel, date: string): boolean {
-		if (hasBlockingAdvancedDuty(person.id, date)) {
-			return false;
-		}
-
-		const entries = availabilityEntries.filter(
-			(e) => e.personnelId === person.id && date >= e.startDate && date <= e.endDate
-		);
-
-		if (entries.length === 0) return true;
-
-		for (const entry of entries) {
-			if (excludeStatuses.includes(entry.statusTypeId)) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	// Build set of excluded special day dates based on toggles
-	const excludedSpecialDays = $derived.by(() => {
-		const dates = new SvelteSet<string>();
-		for (const day of specialDays) {
-			if (excludeHolidays && day.type === 'federal-holiday') dates.add(day.date);
-			if (excludeOrgClosures && day.type === 'org-closure') dates.add(day.date);
-		}
-		return dates;
-	});
-
-	// Get dates based on duration, filtering out excluded days
-	function getDutyDates(start: string, end: string, duration: 'daily' | 'weekly' | 'monthly'): string[] {
-		const dates: string[] = [];
-		const startD = new Date(start + 'T00:00:00');
-		const endD = new Date(end + 'T00:00:00');
-
-		let current = new SvelteDate(startD);
-
-		while (current <= endD) {
-			const dayOfWeek = current.getDay();
-			const dateStr = formatDate(current);
-			const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-			if (!(excludeWeekends && isWeekend) && !excludedSpecialDays.has(dateStr)) {
-				dates.push(dateStr);
-			}
-
-			switch (duration) {
-				case 'daily':
-					current.setDate(current.getDate() + 1);
-					break;
-				case 'weekly':
-					current.setDate(current.getDate() + 7);
-					break;
-				case 'monthly':
-					current.setMonth(current.getMonth() + 1);
-					break;
-			}
-		}
-
-		return dates;
-	}
-
-	// DA6-style roster generation algorithm with last-duty tiebreaker
+	// Generate the preview from an immutable run snapshot while the page owns form state/rendering.
 	function generateRoster() {
-		if (!selectedAssignmentTypeId || !startDate || !endDate) return;
+		if (!selectedAssignmentType || !startDate || !endDate) return;
 
 		isGenerating = true;
 
-		const dutyDates = getDutyDates(startDate, endDate, dutyDuration);
-		const dutyCounts = getDutyCounts(selectedAssignmentTypeId);
-		const roster: { date: string; assignee: Personnel | null; reason?: string }[] = [];
+		const snapshot = buildDutyRosterRunSnapshot({
+			assignmentType: selectedAssignmentType,
+			personnel: allPersonnel,
+			assignments,
+			rosterHistory: localRosterHistory,
+			advancedDutyEvents,
+			availabilityEntries,
+			statusTypes,
+			specialDays,
+			config: {
+				startDate,
+				endDate,
+				dutyDuration,
+				excludedStatusIds: da6TreatedStatusTypes.map((status) => status.id),
+				excludeWeekends,
+				excludeHolidays,
+				excludeOrgClosures,
+				exemptPersonnelIds: [...draftExemptIds]
+			},
+			generatedAt: new Date().toISOString()
+		});
+		const personnelById = new Map(snapshot.personnel.map((person) => [person.id, person]));
 
-		// Working copies for this generation run.
-		// Pass startDate so only assignments BEFORE this period influence initial ordering.
-		const workingCounts = new SvelteMap(dutyCounts);
-		const initialLastDutyDates = getLastDutyDates(selectedAssignmentTypeId, startDate);
-		const workingLastDutyDates = new SvelteMap(initialLastDutyDates);
-
-		// DA6 capture: build personnel list sorted alphabetically for stable row order
-		const da6Personnel = [...eligiblePersonnel]
-			.sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`))
-			.map((p) => ({ id: p.id, name: `${p.lastName}, ${p.firstName}`, rank: p.rank, group: p.groupName }));
-		const da6Dates: DA6Data['dates'] = [];
-
-		for (const date of dutyDates) {
-			// Get available personnel for this date
-			const available = eligiblePersonnel.filter((p) => isPersonAvailable(p, date));
-
-			if (available.length === 0) {
-				roster.push({ date, assignee: null, reason: 'No eligible personnel available' });
-				// DA6: everyone unavailable
-				da6Dates.push({ date, positions: da6Personnel.map(() => null) });
-				continue;
-			}
-
-			// DA Form 6 rule: whoever went longest since last duty goes next.
-			// Never done duty (null) → oldest last date → alphabetical tiebreaker.
-			available.sort((a, b) => {
-				const aLast = workingLastDutyDates.get(a.id) ?? null;
-				const bLast = workingLastDutyDates.get(b.id) ?? null;
-				if (aLast !== bLast) {
-					if (aLast === null) return -1; // never assigned → goes first
-					if (bLast === null) return 1;
-					return aLast.localeCompare(bLast); // older date first
-				}
-				return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`);
-			});
-
-			const assigned = available[0];
-
-			roster.push({ date, assignee: assigned });
-
-			// DA6: capture each person's queue position for this date
-			const positions = da6Personnel.map((dp) => {
-				const availIdx = available.findIndex((a) => a.id === dp.id);
-				return availIdx >= 0 ? availIdx + 1 : null; // null = unavailable, 1 = assigned
-			});
-			da6Dates.push({ date, positions });
-
-			workingCounts.set(assigned.id, (workingCounts.get(assigned.id) ?? 0) + 1);
-			workingLastDutyDates.set(assigned.id, date);
-		}
-
-		generatedRoster = roster;
-		generatedDA6 = { personnel: da6Personnel, dates: da6Dates };
+		activeRunSnapshot = snapshot;
+		partialSuccessSnapshot = null;
+		generatedRoster = snapshot.rosterRows.map((row) => ({
+			date: row.date,
+			assignee: row.assigneeId ? (personnelById.get(row.assigneeId) ?? null) : null,
+			reason: row.reason
+		}));
 		previewTab = 'roster';
 		view = 'preview';
 		isGenerating = false;
 	}
 
+	async function saveSnapshotHistory(snapshot: DutyRosterRunSnapshot): Promise<RosterHistoryItem | null> {
+		return onSaveRoster(buildDutyRosterHistoryPayload(snapshot));
+	}
+
+	function openManualHistoryForm() {
+		manualHistoryAssignmentTypeId = selectedAssignmentTypeId || personnelAssignmentTypes[0]?.id || '';
+		manualHistoryDate = '';
+		manualHistoryAssigneeId = '';
+		manualHistorySourceNote = '';
+		isManualHistoryFormOpen = true;
+	}
+
+	async function saveManualHistoryImport(event: SubmitEvent) {
+		event.preventDefault();
+		const formData = new FormData(event.currentTarget as HTMLFormElement);
+		const assignmentTypeId = String(formData.get('assignmentTypeId') ?? '');
+		const dutyDate = String(formData.get('dutyDate') ?? '');
+		const assigneeId = String(formData.get('assigneeId') ?? '');
+		const sourceNote = String(formData.get('sourceNote') ?? '');
+		const assignmentType = assignmentTypes.find((type) => type.id === assignmentTypeId);
+		const assignee = allPersonnel.find((person) => person.id === assigneeId);
+		if (!assignmentType || !assignee || !dutyDate || !sourceNote.trim()) {
+			return;
+		}
+
+		isSavingManualHistory = true;
+		try {
+			const saved = await onSaveRoster(
+				buildManualHistoryImportPayload({
+					assignmentType,
+					assignee,
+					dutyDate,
+					sourceNote
+				})
+			);
+			if (!saved) {
+				toastStore.error('Failed to save manual history import');
+				return;
+			}
+			localRosterHistory = [saved, ...localRosterHistory.filter((item) => item.id !== saved.id)];
+			isManualHistoryFormOpen = false;
+			toastStore.success('Manual history import saved');
+		} finally {
+			isSavingManualHistory = false;
+		}
+	}
+
 	// Apply roster to calendar and save to history
 	async function applyRoster() {
-		if (generatedRoster.length === 0) return;
+		const snapshot = activeRunSnapshot;
+		if (!snapshot || generatedRoster.length === 0) return;
 
 		isApplying = true;
 		applyFeedback = null;
-
-		const assignmentsToCreate = generatedRoster
-			.filter((r) => r.assignee !== null)
-			.map((r) => ({
-				date: r.date,
-				assignmentTypeId: selectedAssignmentTypeId,
-				assigneeId: r.assignee!.id
-			}));
-
-		const assignmentType = assignmentTypes.find((t) => t.id === selectedAssignmentTypeId);
-		const typeName = assignmentType?.name ?? 'Duty';
-		const historyRoster: RosterHistoryEntry[] = generatedRoster.map((r) => ({
-			date: r.date,
-			assigneeId: r.assignee?.id ?? null,
-			assigneeName: r.assignee ? `${r.assignee.lastName}, ${r.assignee.firstName}` : null,
-			assigneeRank: r.assignee?.rank ?? null,
-			assigneeGroup: r.assignee?.groupName ?? null,
-			reason: r.reason
-		}));
+		partialSuccessSnapshot = null;
 
 		try {
-			const applied = await onApplyRoster(assignmentsToCreate);
+			const applied = await onApplyRoster(buildDutyRosterApplyPayload(snapshot));
 			if (!applied) {
 				applyFeedback = {
 					tone: 'error',
@@ -355,29 +238,21 @@
 				return;
 			}
 
-			const saved = await onSaveRoster({
-				assignmentTypeId: selectedAssignmentTypeId,
-				name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
-				startDate,
-				endDate,
-				roster: historyRoster,
-				da6: generatedDA6 ?? undefined,
-				config: {
-					dutyDuration,
-					assignmentTypeName: typeName,
-					exemptPersonnelIds: [...draftExemptIds],
-					excludeStatuses,
-					excludeWeekends,
-					excludeHolidays,
-					excludeOrgClosures
-				}
-			});
+			const saved = await saveSnapshotHistory(snapshot);
+
+			if (!saved) {
+				partialSuccessSnapshot = snapshot;
+				applyFeedback = {
+					tone: 'warning',
+					message: 'Roster applied to the calendar. History could not be saved.'
+				};
+				view = 'preview';
+				return;
+			}
 
 			applyFeedback = {
 				tone: 'success',
-				message: saved
-					? 'Roster applied to the calendar and saved to history.'
-					: 'Roster applied to the calendar. History could not be saved.'
+				message: 'Roster applied to the calendar and saved to history.'
 			};
 			view = 'history';
 		} catch (error) {
@@ -393,7 +268,38 @@
 		}
 	}
 
-	// Export to Excel (HTML table format) — accepts optional overrides for re-export from history
+	async function retryHistorySave() {
+		const snapshot = partialSuccessSnapshot;
+		if (!snapshot) return;
+
+		isRetryingHistory = true;
+		applyFeedback = null;
+		try {
+			const saved = await saveSnapshotHistory(snapshot);
+			if (!saved) {
+				applyFeedback = {
+					tone: 'warning',
+					message: 'History could not be saved. The snapshot is still available to retry or export.'
+				};
+				return;
+			}
+			partialSuccessSnapshot = null;
+			applyFeedback = {
+				tone: 'success',
+				message: 'Roster history saved.'
+			};
+			view = 'history';
+		} catch (error) {
+			applyFeedback = {
+				tone: 'error',
+				message: error instanceof Error ? error.message : 'History could not be saved.'
+			};
+		} finally {
+			isRetryingHistory = false;
+		}
+	}
+
+	// Temporary browser download adapter; formatting stays isolated outside the run module.
 	function exportToExcel(opts?: {
 		roster: RosterHistoryEntry[];
 		typeName: string;
@@ -401,149 +307,12 @@
 		endDate: string;
 		da6?: DA6Data;
 	}) {
-		const isHistory = !!opts;
-		const typeName = opts?.typeName ?? assignmentTypes.find((t) => t.id === selectedAssignmentTypeId)?.name ?? 'Duty';
-		const sd = opts?.startDate ?? startDate;
-		const ed = opts?.endDate ?? endDate;
-		const da6 = opts?.da6 ?? generatedDA6;
-
-		let html = `
-			<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-			<head>
-				<meta charset="utf-8">
-				<style>
-					table { border-collapse: collapse; margin-bottom: 24px; }
-					th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-					th { background-color: #4a5568; color: white; font-weight: bold; }
-					.unavailable { background-color: #fed7d7; color: #c53030; }
-					.da6-assigned { background-color: #c6f6d5; font-weight: bold; text-align: center; }
-					.da6-position { text-align: center; color: #718096; }
-					.da6-unavail { text-align: center; color: #a0aec0; background-color: #f7fafc; }
-				</style>
-			</head>
-			<body>
-				<h2>${typeName} Roster</h2>
-				<p>Generated: ${new Date().toLocaleDateString()}</p>
-				<p>Period: ${formatDisplayDate(sd)} - ${formatDisplayDate(ed)}</p>
-				<table>
-					<tr>
-						<th>Date</th>
-						<th>Day</th>
-						<th>Assigned</th>
-						<th>Rank</th>
-						<th>Group</th>
-						<th>Notes</th>
-					</tr>
-		`;
-
-		if (isHistory && opts) {
-			for (const entry of opts.roster) {
-				const date = new Date(entry.date + 'T00:00:00');
-				const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-				const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-				if (entry.assigneeId) {
-					html += `
-						<tr>
-							<td>${displayDate}</td>
-							<td>${dayName}</td>
-							<td>${entry.assigneeName ?? ''}</td>
-							<td>${entry.assigneeRank ?? ''}</td>
-							<td>${entry.assigneeGroup ?? ''}</td>
-							<td></td>
-						</tr>
-					`;
-				} else {
-					html += `
-						<tr class="unavailable">
-							<td>${displayDate}</td>
-							<td>${dayName}</td>
-							<td colspan="3">UNFILLED</td>
-							<td>${entry.reason ?? ''}</td>
-						</tr>
-					`;
-				}
-			}
-		} else {
-			for (const entry of generatedRoster) {
-				const date = new Date(entry.date + 'T00:00:00');
-				const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-				const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-				if (entry.assignee) {
-					html += `
-						<tr>
-							<td>${displayDate}</td>
-							<td>${dayName}</td>
-							<td>${entry.assignee.lastName}, ${entry.assignee.firstName}</td>
-							<td>${entry.assignee.rank}</td>
-							<td>${entry.assignee.groupName}</td>
-							<td></td>
-						</tr>
-					`;
-				} else {
-					html += `
-						<tr class="unavailable">
-							<td>${displayDate}</td>
-							<td>${dayName}</td>
-							<td colspan="3">UNFILLED</td>
-							<td>${entry.reason ?? ''}</td>
-						</tr>
-					`;
-				}
-			}
+		if (opts) {
+			exportDutyRosterForBrowser({ history: opts });
+			return;
 		}
-
-		html += '</table>';
-
-		// DA6 Reference Grid — shows each person's queue position per date
-		if (da6 && da6.dates.length > 0) {
-			html += `
-				<h2>DA Form 6 Reference</h2>
-				<p>Queue position per date. <b>X</b> = assigned duty, number = queue position, <b>—</b> = unavailable.</p>
-				<table>
-					<tr>
-						<th>Rank</th>
-						<th>Name</th>
-			`;
-
-			for (const d of da6.dates) {
-				const date = new Date(d.date + 'T00:00:00');
-				html += `<th>${date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th>`;
-			}
-
-			html += '</tr>';
-
-			for (let i = 0; i < da6.personnel.length; i++) {
-				const person = da6.personnel[i];
-				html += `<tr><td>${person.rank}</td><td>${person.name}</td>`;
-
-				for (const d of da6.dates) {
-					const pos = d.positions[i];
-					if (pos === null) {
-						html += '<td class="da6-unavail">&mdash;</td>';
-					} else if (pos === 1) {
-						html += '<td class="da6-assigned">X</td>';
-					} else {
-						html += `<td class="da6-position">${pos}</td>`;
-					}
-				}
-
-				html += '</tr>';
-			}
-
-			html += '</table>';
-		}
-
-		html += '</body></html>';
-
-		const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `${typeName.replace(/\s+/g, '_')}_Roster_${sd}_to_${ed}.xls`;
-		a.click();
-		URL.revokeObjectURL(url);
+		if (!activeRunSnapshot) return;
+		exportDutyRosterForBrowser({ model: activeRunSnapshot.exportModel, da6: activeRunSnapshot.da6 });
 	}
 
 	let reApplyItem = $state<RosterHistoryItem | null>(null);
@@ -584,14 +353,6 @@
 		});
 	}
 
-	function toggleExcludeStatus(statusId: string) {
-		if (excludeStatuses.includes(statusId)) {
-			excludeStatuses = excludeStatuses.filter((s) => s !== statusId);
-		} else {
-			excludeStatuses = [...excludeStatuses, statusId];
-		}
-	}
-
 	function replaceDraftExemptIds(ids: Iterable<string>) {
 		draftExemptIds.clear();
 		for (const id of ids) {
@@ -611,13 +372,6 @@
 			isSavingExemptions = false;
 		}
 	}
-
-	// Default to all statuses excluded — users click off the ones they want to allow
-	$effect(() => {
-		if (excludeStatuses.length === 0 && statusTypes.length > 0) {
-			excludeStatuses = statusTypes.map((s) => s.id);
-		}
-	});
 
 	$effect(() => {
 		const currentScope = `${selectedAssignmentTypeId}:${[...currentExemptIds].sort().join(',')}`;
@@ -663,14 +417,26 @@
 		</div>
 		{#if view !== 'history'}
 			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')}>
-				View History{rosterHistory.length > 0 ? ` (${rosterHistory.length})` : ''}
+				View History{localRosterHistory.length > 0 ? ` (${localRosterHistory.length})` : ''}
 			</button>
 		{/if}
 	</div>
 
 	{#if applyFeedback}
-		<div class="feedback-banner" class:error={applyFeedback.tone === 'error'}>
-			{applyFeedback.message}
+		<div
+			class="feedback-banner"
+			class:error={applyFeedback.tone === 'error'}
+			class:warning={applyFeedback.tone === 'warning'}
+		>
+			<span>{applyFeedback.message}</span>
+			{#if partialSuccessSnapshot}
+				<div class="feedback-actions">
+					<button class="btn btn-secondary btn-xs" onclick={retryHistorySave} disabled={isRetryingHistory}>
+						{isRetryingHistory ? 'Saving...' : 'Retry History Save'}
+					</button>
+					<button class="btn btn-secondary btn-xs" onclick={() => exportToExcel()}>Export Snapshot</button>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -686,21 +452,102 @@
 						<h3>Roster History</h3>
 						<p class="hint">Past rosters, most recent first.</p>
 					</div>
-					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'setup')}>Back to Setup</button>
+					<div class="panel-actions">
+						<button class="btn btn-secondary btn-sm" onclick={openManualHistoryForm}>Add Manual History</button>
+						<button class="btn btn-secondary btn-sm" onclick={() => (view = 'setup')}>Back to Setup</button>
+					</div>
 				</div>
 
-				{#if rosterHistory.length === 0}
+				{#if isManualHistoryFormOpen}
+					<form class="manual-history-form" onsubmit={saveManualHistoryImport}>
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="manualHistoryAssignmentType">Duty Type</label>
+								<select
+									id="manualHistoryAssignmentType"
+									name="assignmentTypeId"
+									class="select"
+									bind:value={manualHistoryAssignmentTypeId}
+								>
+									{#each personnelAssignmentTypes as type (type.id)}
+										<option value={type.id}>{type.name}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<label class="label" for="manualHistoryDate">Manual Duty Date</label>
+								<input
+									id="manualHistoryDate"
+									name="dutyDate"
+									type="date"
+									class="input"
+									value={manualHistoryDate}
+									oninput={(event) => (manualHistoryDate = event.currentTarget.value)}
+								/>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="manualHistoryAssignee">Charged Soldier</label>
+								<select
+									id="manualHistoryAssignee"
+									name="assigneeId"
+									class="select"
+									value={manualHistoryAssigneeId}
+									onchange={(event) => (manualHistoryAssigneeId = event.currentTarget.value)}
+								>
+									<option value="">Select Soldier...</option>
+									{#each allPersonnel as person (person.id)}
+										<option value={person.id}>{person.rank} {person.lastName}, {person.firstName}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<label class="label" for="manualHistorySourceNote">Source Note</label>
+								<input
+									id="manualHistorySourceNote"
+									name="sourceNote"
+									class="input"
+									value={manualHistorySourceNote}
+									oninput={(event) => (manualHistorySourceNote = event.currentTarget.value)}
+									placeholder="Copied from signed DA6, memo, or other source..."
+								/>
+							</div>
+						</div>
+						<div class="panel-actions">
+							<button
+								type="button"
+								class="btn btn-secondary btn-sm"
+								onclick={() => (isManualHistoryFormOpen = false)}
+								disabled={isSavingManualHistory}
+							>
+								Cancel
+							</button>
+							<button type="submit" class="btn btn-primary btn-sm" disabled={isSavingManualHistory}>
+								{isSavingManualHistory ? 'Saving...' : 'Save Manual History'}
+							</button>
+						</div>
+					</form>
+				{/if}
+
+				{#if localRosterHistory.length === 0}
 					<div class="empty-state">
 						<p>No roster history yet. Generate and apply a roster to save it here.</p>
 					</div>
 				{:else}
 					<div class="history-list">
-						{#each rosterHistory as item (item.id)}
+						{#each localRosterHistory as item (item.id)}
 							{@const filled = item.roster.filter((r) => r.assigneeId).length}
 							{@const total = item.roster.length}
+							{@const manualImport = isManualHistoryImport(item.config)}
 							<div class="history-card">
 								<div class="history-card-info">
-									<div class="history-card-name">{item.name}</div>
+									<div class="history-card-name">
+										{item.name}
+										{#if manualImport}
+											<span class="history-source-badge">Manual history import</span>
+										{/if}
+									</div>
 									<div class="history-card-meta">
 										{formatDisplayDate(item.startDate)} – {formatDisplayDate(item.endDate)}
 										&nbsp;·&nbsp;
@@ -733,6 +580,7 @@
 										class="btn btn-secondary btn-xs"
 										onclick={() => reApplyHistoryRoster(item)}
 										title="Re-apply to calendar"
+										disabled={manualImport}
 									>
 										Re-apply
 									</button>
@@ -809,7 +657,7 @@
 					</button>
 				</div>
 
-				{#if previewTab === 'da6' && generatedDA6}
+				{#if previewTab === 'da6' && activeRunSnapshot}
 					<p class="hint">
 						<strong>X</strong> = assigned duty &nbsp; # = queue position &nbsp; <strong>&mdash;</strong> = unavailable
 					</p>
@@ -828,8 +676,8 @@
 								<thead>
 									<tr>
 										<th class="da6-sticky-col">Name</th>
-										{#each generatedDA6.dates as d (d.date)}
-											{@const date = new Date(d.date + 'T00:00:00')}
+										{#each activeRunSnapshot.da6.columns as column (column.date)}
+											{@const date = new Date(column.date + 'T00:00:00')}
 											<th class="da6-date-col"
 												>{date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th
 											>
@@ -837,20 +685,20 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each generatedDA6.personnel as person, i (person.id)}
+									{#each activeRunSnapshot.da6.rows as row (row.personnelId)}
 										<tr>
 											<td class="da6-sticky-col da6-name-cell">
-												<span class="assignee-rank">{person.rank}</span>
-												{person.name}
+												<span class="assignee-rank">{row.display.rank}</span>
+												{row.display.lastName}, {row.display.firstName}
 											</td>
-											{#each generatedDA6.dates as d (d.date)}
-												{@const pos = d.positions[i]}
-												{#if pos === null}
+											{#each activeRunSnapshot.da6.columns as column, columnIndex (column.date)}
+												{@const cell = row.cells[columnIndex]}
+												{#if !cell || cell.queuePosition === null}
 													<td class="da6-cell da6-unavail">&mdash;</td>
-												{:else if pos === 1}
+												{:else if cell.assigned}
 													<td class="da6-cell da6-assigned">X</td>
 												{:else}
-													<td class="da6-cell da6-queue">{pos}</td>
+													<td class="da6-cell da6-queue">{cell.queuePosition}</td>
 												{/if}
 											{/each}
 										</tr>
@@ -971,24 +819,27 @@
 					<div class="panel-header">
 						<div>
 							<p class="pane-eyebrow">Availability Rules</p>
-							<h3>Unavailable Statuses</h3>
-							<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
+							<h3>DA6 Status Treatments</h3>
+							<p class="hint">
+								Status Types with a duty roster treatment automatically affect DA6 availability and numbering.
+							</p>
 						</div>
 					</div>
 
-					<div class="chip-list">
-						{#each statusTypes as status (status.id)}
-							<button
-								class="chip status-chip"
-								class:selected={excludeStatuses.includes(status.id)}
-								aria-pressed={excludeStatuses.includes(status.id)}
-								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-								onclick={() => toggleExcludeStatus(status.id)}
-							>
-								{status.name}
-							</button>
-						{/each}
-					</div>
+					{#if da6TreatedStatusTypes.length > 0}
+						<div class="treatment-list">
+							{#each da6TreatedStatusTypes as status (status.id)}
+								<div class="treatment-row">
+									<mark class="status-swatch" style="--chip-color: {status.color}; --chip-text: {status.textColor}">
+										{status.name}
+									</mark>
+									<span>{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="empty-note">No status types currently affect DA6 duty roster generation.</p>
+					{/if}
 				</section>
 
 				{#if selectedAssignmentTypeId}
@@ -1099,6 +950,10 @@
 	}
 
 	.feedback-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
 		padding: var(--sp-2) var(--sp-4);
 		border-radius: var(--radius-md);
 		border: 1px solid #166534;
@@ -1108,10 +963,22 @@
 		font-weight: 600;
 	}
 
+	.feedback-banner.warning {
+		border-color: #a16207;
+		background: #fefce8;
+		color: #854d0e;
+	}
+
 	.feedback-banner.error {
 		border-color: #b91c1c;
 		background: #fef2f2;
 		color: #b91c1c;
+	}
+
+	.feedback-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.wizard-step {
@@ -1149,12 +1016,6 @@
 		margin-bottom: 0;
 	}
 
-	.chip-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
 	.pane-eyebrow {
 		margin: 0 0 var(--sp-1);
 		font-family: var(--font-mono);
@@ -1165,41 +1026,43 @@
 		color: var(--amber-dark);
 	}
 
-	.chip {
-		appearance: none;
-		padding: 4px 8px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+	.treatment-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.treatment-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding: var(--sp-2) var(--sp-3);
 		border: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		border-radius: var(--radius-sm);
+		background: var(--surface-page);
 		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
+		font-size: var(--text-ui-sm);
 	}
 
-	.chip:hover {
-		border-color: var(--ink-35);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-	}
-
-	.chip.selected {
-		background: var(--amber-light);
-		border-color: var(--amber);
-		color: var(--amber-dark);
-	}
-
-	.chip.status-chip.selected {
+	.status-swatch {
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
+		max-width: 16rem;
+		padding: 0.2rem 0.45rem;
+		border-radius: var(--radius-xs);
 		background: var(--chip-color);
-		border-color: var(--chip-color);
 		color: var(--chip-text);
+		font-size: var(--text-xs);
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.empty-note {
+		margin: 0;
+		color: var(--text-tertiary);
+		font-size: var(--text-ui-sm);
 	}
 
 	.history-panel,
@@ -1213,6 +1076,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-2);
+	}
+
+	.manual-history-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-page);
 	}
 
 	.history-card {
@@ -1232,12 +1105,24 @@
 	}
 
 	.history-card-name {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-2);
 		font-size: var(--text-ui-sm);
 		font-weight: 600;
 		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	}
+
+	.history-source-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.1rem 0.4rem;
+		border-radius: var(--radius-xs);
+		background: #fef3c7;
+		color: #92400e;
+		font-size: var(--text-xs);
+		font-weight: 700;
 	}
 
 	.history-card-meta {

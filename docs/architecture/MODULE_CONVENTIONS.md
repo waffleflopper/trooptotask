@@ -69,10 +69,15 @@ A client read model should:
 
 This pattern is appropriate for dashboard-style surfaces where components should mostly render stable rows, counts, sections, and labels instead of re-deriving business-facing screen state. It is not a reason to move provider access or route permissions into frontend modules.
 
-Calendar and duty-roster have two current examples of this direction:
+Calendar and duty-roster have several current examples of this direction:
 
 - `CalendarRangeCoordinator` owns client-side calendar range expansion, request de-duping, range-store merging, retry state, and advanced duty event merging for the calendar page.
 - `advancedDutyCollections` owns duty-roster template normalization and applied-duty timeline update rules so the page component does not repeat collection ordering and replacement rules inside every handler.
+- `DutyRosterRun` owns simple-duty run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and the formatting-neutral export model. `DutyRosterGenerator.svelte` should stay mostly form state, rendering, callbacks, and feedback orchestration.
+- `dutyRosterBrowserExport` is a temporary browser download adapter for the current Excel-compatible HTML export. It may format and download an existing run export model or saved history record, but it must not rebuild selection, DA6 numbering, apply payloads, or history payloads.
+- The `Advanced Duty Run Module` lives in `src/features/duty-roster/advanced-run/`. It owns advanced team-duty generation decisions, draft Advanced Run Snapshots, availability/blocking classifications, slot proposals, snapshot-derived apply payloads, and the Team Duty Packet Export Model. `dutyEventCrud.ts` should load authorized data, enforce apply contracts, persist records, and call this module instead of rebuilding generation rules inline. The snapshot custody contract is recorded in ADR 0007.
+- Advanced duty route files and Svelte components should stay in request glue, wizard state, rendering, manual override controls, and feedback orchestration. They may carry `snapshotId` plus `snapshotFingerprint`, but they must not decide slot selection, transient series fairness, collision semantics, status-treatment behavior, or export-model content.
+- `buildDutyPacketMarkup` and similar browser adapters are temporary formatting adapters for an existing Team Duty Packet Export Model. They may format, label, and download preview or applied packet output, but they must not rebuild advanced generation, explanations, warnings, conflicts, or assignment-source decisions.
 
 These are feature-owned client orchestration boundaries. They should not grow into provider access, permission evaluation, or new duty-roster product behavior.
 

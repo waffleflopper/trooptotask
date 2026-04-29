@@ -131,6 +131,7 @@ describe('createSupabaseOrgProvisioningPort', () => {
 				name: 'Leave',
 				color: '#48bb78',
 				text_color: '#ffffff',
+				da6_availability_treatment: null,
 				sort_order: 0
 			}
 		]);

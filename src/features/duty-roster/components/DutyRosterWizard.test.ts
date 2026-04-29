@@ -87,6 +87,9 @@ function makeAdvancedTemplate(overrides: Partial<DutyTemplate> = {}): DutyTempla
 
 function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPreview {
 	return {
+		snapshotId: 'snapshot-single-1',
+		snapshotFingerprint: 'fingerprint-single-1',
+		snapshotVersion: 1,
 		templateId: 'tmpl-staff-duty',
 		templateName: 'Battalion Staff Duty',
 		eventDate: '2026-04-10',
@@ -219,6 +222,9 @@ function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 
 function makeSeriesPreview(overrides: Partial<DutyEventSeriesPreview> = {}): DutyEventSeriesPreview {
 	return {
+		snapshotId: 'snapshot-series-1',
+		snapshotFingerprint: 'fingerprint-series-1',
+		snapshotVersion: 1,
 		templateId: 'tmpl-staff-duty',
 		templateName: 'Battalion Staff Duty',
 		pattern: 'selected-weekdays',
@@ -523,7 +529,9 @@ describe('DutyRosterWizard', () => {
 
 			expect(createObjectUrl).toHaveBeenCalled();
 			expect(anchorClick).toHaveBeenCalled();
-			expect(revokeObjectUrl).toHaveBeenCalledWith('blob:test-roster');
+			await waitFor(() => {
+				expect(revokeObjectUrl).toHaveBeenCalledWith('blob:test-roster');
+			});
 		} finally {
 			URL.createObjectURL = originalCreateObjectURL;
 			URL.revokeObjectURL = originalRevokeObjectURL;

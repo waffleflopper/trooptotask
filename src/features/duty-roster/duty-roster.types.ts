@@ -245,6 +245,41 @@ export interface DutyEventRunRecord {
 	updatedAt: string;
 }
 
+export type AdvancedDutyRunSnapshotStatus =
+	| 'draft'
+	| 'applying'
+	| 'applied'
+	| 'apply-failed'
+	| 'partial-failure'
+	| 'expired';
+
+export interface AdvancedDutyRunSnapshotRecord {
+	id: string;
+	orgId: string;
+	templateId: string;
+	templateName: string;
+	pattern: DutyEventRunPattern;
+	startDate: string;
+	endDate: string;
+	eventCount: number;
+	eventDates: string[];
+	candidatePersonnelIds: string[];
+	snapshotFingerprint: string;
+	snapshotVersion: number;
+	status: AdvancedDutyRunSnapshotStatus;
+	inputPayload: Record<string, unknown>;
+	snapshotPayload: Record<string, unknown>;
+	previewPayload: Record<string, unknown>;
+	exportModel: Record<string, unknown> | null;
+	createdByUserId: string | null;
+	appliedRunId: string | null;
+	applyError: string | null;
+	expiresAt: string;
+	appliedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export interface DutyEventSlotOverrideInput {
 	templateSlotId: string | null;
 	slotIndex: number;
@@ -255,6 +290,8 @@ export interface DutyEventSlotOverrideInput {
 export interface DutyEventApplyInput {
 	templateId: string;
 	eventDate: string;
+	snapshotId?: string;
+	snapshotFingerprint?: string;
 	collisionReviewConfirmed?: boolean;
 	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
@@ -275,6 +312,9 @@ export interface DutyEventSeriesEventOverrideInput {
 }
 
 export interface DutyEventPreview {
+	snapshotId?: string;
+	snapshotFingerprint?: string;
+	snapshotVersion?: number;
 	templateId: string;
 	templateName: string;
 	eventDate: string;
@@ -294,6 +334,8 @@ export interface DutyEventSeriesInput {
 	startDate?: string;
 	endDate?: string;
 	pattern: DutyEventSeriesPattern;
+	snapshotId?: string;
+	snapshotFingerprint?: string;
 	selectedWeekdays?: number[];
 	customDates?: string[];
 	collisionReviewConfirmed?: boolean;
@@ -302,6 +344,9 @@ export interface DutyEventSeriesInput {
 }
 
 export interface DutyEventSeriesPreview {
+	snapshotId?: string;
+	snapshotFingerprint?: string;
+	snapshotVersion?: number;
 	templateId: string;
 	templateName: string;
 	pattern: DutyEventSeriesPattern;

@@ -9,6 +9,7 @@
 		isCreatingNew: boolean;
 		showArchivedTemplates: boolean;
 		onToggleShowArchived: (value: boolean) => void;
+		onCreateNew: () => void;
 		onLoadTemplate: (template: DutyTemplate) => void;
 	}
 
@@ -18,6 +19,7 @@
 		isCreatingNew,
 		showArchivedTemplates,
 		onToggleShowArchived,
+		onCreateNew,
 		onLoadTemplate
 	}: Props = $props();
 </script>
@@ -33,6 +35,9 @@
 			/><span>Show archived</span></label
 		>
 	</div>
+	<button type="button" class="new-template-button" class:active={isCreatingNew} onclick={onCreateNew}>
+		New Template
+	</button>
 	{#if visibleTemplates.length === 0}
 		<EmptyState
 			message="No advanced duty templates yet. Start with a draft so you can shape the policy before generation exists."
@@ -80,6 +85,19 @@
 		background: var(--surface-subtle);
 	}
 	.template-chip.active {
+		border-color: var(--amber);
+		background: color-mix(in srgb, var(--amber-light) 22%, var(--surface-panel));
+	}
+	.new-template-button {
+		padding: var(--sp-3);
+		border: 1px dashed var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+		font-weight: var(--font-weight-semibold);
+		text-align: left;
+	}
+	.new-template-button.active {
 		border-color: var(--amber);
 		background: color-mix(in srgb, var(--amber-light) 22%, var(--surface-panel));
 	}

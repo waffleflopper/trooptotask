@@ -434,6 +434,29 @@ describe('buildDutyRosterRunSnapshot', () => {
 		]);
 	});
 
+	it('advances monthly duty dates without drifting from month-end starts', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				config: {
+					startDate: '2026-01-31',
+					endDate: '2026-04-30',
+					dutyDuration: 'monthly',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		expect(snapshot.rosterRows.map((row) => row.date)).toEqual([
+			'2026-01-31',
+			'2026-02-28',
+			'2026-03-31',
+			'2026-04-30'
+		]);
+	});
+
 	it('keeps weekend and holiday charge counters separate from weekday counters when configured', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({
@@ -621,6 +644,50 @@ describe('buildDutyRosterRunSnapshot', () => {
 				excludeHolidays: true,
 				excludeOrgClosures: false
 			}
+		});
+	});
+
+	it('preserves assigned markers separately from DA6 queue positions in history payloads', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' })
+				],
+				statusTypes: [
+					{
+						id: 'detail',
+						name: 'Detail',
+						color: '#111827',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'other-duty'
+					}
+				],
+				availabilityEntries: [
+					{
+						id: 'detail-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'detail',
+						startDate: '2026-05-01',
+						endDate: '2026-05-01'
+					}
+				],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-01',
+					dutyDuration: 'daily',
+					excludedStatusIds: ['detail'],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		expect(buildDutyRosterHistoryPayload(snapshot).da6?.dates[0]).toEqual({
+			date: '2026-05-01',
+			positions: [1, 2],
+			assigned: [false, true]
 		});
 	});
 

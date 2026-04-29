@@ -536,6 +536,7 @@ function classifyAdvancedAvailability(input: {
 		if (advancedDutyBlock) {
 			return {
 				personnelId: person.id,
+				// Advanced runs allow conflict-with-warning manual overrides; simple DA6 runs block these.
 				selectable: true,
 				chargeable: true,
 				treatment: null,

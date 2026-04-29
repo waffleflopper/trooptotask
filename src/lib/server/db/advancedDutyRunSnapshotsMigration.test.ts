@@ -43,4 +43,16 @@ describe('Advanced Duty Run snapshot migration', () => {
 		expect(normalized).not.toContain('can_view_calendar');
 		expect(normalized).toContain('revoke all on table "public"."advanced_duty_run_snapshots" from "anon"');
 	});
+
+	it('supports lifecycle recovery with updated_at maintenance and applying lookup index', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain(
+			'create or replace trigger "advanced_duty_run_snapshots_updated_at" before update on "public"."advanced_duty_run_snapshots"'
+		);
+		expect(normalized).toContain('execute function "public"."update_updated_at_column"()');
+		expect(normalized).toContain(
+			'create index "advanced_duty_run_snapshots_applying_recovery_idx" on "public"."advanced_duty_run_snapshots" using "btree" ("organization_id", "updated_at") where ("status" = \'applying\'::"text")'
+		);
+	});
 });

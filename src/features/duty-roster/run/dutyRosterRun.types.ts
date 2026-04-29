@@ -131,7 +131,7 @@ export interface DutyRosterHistoryEntry {
 
 export interface DutyRosterHistoryDa6Data {
 	personnel: { id: string; name: string; rank: string; group: string }[];
-	dates: { date: string; positions: (number | null)[] }[];
+	dates: { date: string; positions: (number | null)[]; assigned: boolean[] }[];
 }
 
 export interface DutyRosterHistoryPayload {

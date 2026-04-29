@@ -50,13 +50,11 @@ BEGIN
   WHERE organization_id = p_org_id
     AND archived_at IS NULL;
 
-  -- Determine cap. Existing unit-tier organizations already above 500 keep
-  -- their current working capacity so this migration does not force them
-  -- read-only before an enterprise arrangement can be handled.
+  -- Determine cap
   v_cap := CASE v_tier
     WHEN 'free' THEN 20
     WHEN 'team' THEN 80
-    WHEN 'unit' THEN greatest(500, v_personnel_count)
+    WHEN 'unit' THEN 500
     ELSE 20
   END;
 

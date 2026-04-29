@@ -17,7 +17,7 @@ describe('subscription tier caps migration', () => {
 		expect(normalized).toContain('create or replace function "public"."get_effective_tier"');
 		expect(normalized).toContain("when 'free' then 20");
 		expect(normalized).toContain("when 'team' then 80");
-		expect(normalized).toContain("when 'unit' then greatest(500, v_personnel_count)");
+		expect(normalized).toContain("when 'unit' then 500");
 		expect(normalized).toContain('v_is_read_only := v_personnel_count > v_cap');
 	});
 });

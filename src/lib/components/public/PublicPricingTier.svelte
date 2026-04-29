@@ -3,6 +3,7 @@
 		name: string;
 		price: string;
 		priceNote?: string;
+		showPriceNote?: boolean;
 		description: string;
 		features: string[];
 		ctaHref: string;
@@ -15,6 +16,7 @@
 		name,
 		price,
 		priceNote = '/mo',
+		showPriceNote = true,
 		description,
 		features,
 		ctaHref,
@@ -33,7 +35,7 @@
 		<div class="pricing-tier__name">{name}</div>
 		<div class="pricing-tier__price">
 			{price}
-			{#if priceNote}
+			{#if showPriceNote && priceNote}
 				<span>{priceNote}</span>
 			{/if}
 		</div>

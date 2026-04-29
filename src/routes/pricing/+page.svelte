@@ -48,11 +48,11 @@
 		{
 			name: 'Enterprise',
 			price: 'Contact us',
-			priceNote: '',
-			description: 'For larger formations that need higher capacity, onboarding support, or a custom billing path.',
+			showPriceNote: false,
+			description: 'For larger formations that need a capacity review, onboarding support, or a custom billing path.',
 			features: [
-				'More than 500 personnel',
-				'More than 3 organizations',
+				'Capacity review for larger formations',
+				'Multi-organization planning',
 				'Unlimited exports',
 				'Custom capacity and support terms'
 			],

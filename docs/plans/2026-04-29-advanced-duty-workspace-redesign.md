@@ -58,7 +58,7 @@ The physical scene is an NCO or staff leader reviewing CQ or staff-duty coverage
 
 The duty roster route should keep a clear top-level split:
 
-- **Simple Roster**: the existing simple duty roster run workflow.
+- **Assignments / Taskings**: the existing daily assignment and tasking workflow.
 - **Advanced Workspace**: the default advanced duty run workspace described here.
 - **Advanced Templates**: template management for users who can manage advanced templates.
 
@@ -248,7 +248,7 @@ Replace the advanced wizard default layout with an Advanced Workspace shell whil
 
 Acceptance criteria:
 
-- The duty roster page exposes Simple Roster, Advanced Workspace, and Advanced Templates where authorized.
+- The duty roster page exposes Assignments / Taskings, Advanced Workspace, and Advanced Templates where authorized.
 - Advanced Workspace has Active Run and Applied Events views.
 - Applied Events no longer renders permanently under the active-run flow.
 - Existing advanced template selection, date pattern, candidate review, preview, apply, and applied-event actions remain reachable.

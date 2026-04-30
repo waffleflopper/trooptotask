@@ -368,6 +368,13 @@
 		color: var(--text-primary);
 	}
 
+	.display-btn:focus-visible,
+	.clear-btn:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
+	}
+
 	.display-copy {
 		min-width: 0;
 		display: grid;

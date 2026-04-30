@@ -196,9 +196,18 @@ describe('advanced duty run snapshots', () => {
 		const dayTwoAssignees = snapshot.events[1].slotProposals
 			.map((slot) => slot.assigneeId)
 			.filter((id): id is string => !!id);
+		const dayOneSlots = snapshot.events[0].slotProposals;
 
 		expect(dayOneAssignees).toHaveLength(2);
 		expect(dayTwoAssignees).toHaveLength(2);
+		expect(dayOneSlots[0].candidateRankings?.[0]).toEqual({
+			personnelId: dayOneSlots[0].assigneeId,
+			rank: 1
+		});
+		expect(dayOneSlots[0].candidateRankings?.map((candidate) => candidate.rank)).toEqual([1, 2, 3, 4]);
+		expect(dayOneSlots[1].candidateRankings?.map((candidate) => candidate.personnelId)).not.toContain(
+			dayOneSlots[0].assigneeId
+		);
 		for (const assigneeId of dayOneAssignees) {
 			expect(dayTwoAssignees).not.toContain(assigneeId);
 		}

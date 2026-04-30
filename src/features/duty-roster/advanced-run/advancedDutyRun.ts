@@ -8,6 +8,7 @@ import {
 	type DutyEventFillSummary,
 	type DutyEventPreview,
 	type DutyEventPreviewSlotInstance,
+	type DutyEventSlotCandidateRanking,
 	type DutyEventRulesSnapshot,
 	type DutyEventSlotInstance,
 	type DutyEventSlotOverrideInput,
@@ -881,6 +882,13 @@ function buildFillSummary(slotInstances: Array<{ assigneeId: string | null }>): 
 	};
 }
 
+function buildCandidateRankings(candidates: Personnel[]): DutyEventSlotCandidateRanking[] {
+	return candidates.map((person, index) => ({
+		personnelId: person.id,
+		rank: index + 1
+	}));
+}
+
 function generateSlotInstances(input: {
 	template: DutyTemplate;
 	personnel: Personnel[];
@@ -968,6 +976,7 @@ function generateSlotInstances(input: {
 		);
 		const assignee = availableCandidates[0] ?? null;
 		const recommendedAssignee = recommendedCandidates[0] ?? null;
+		const candidateRankings = buildCandidateRankings(recommendedCandidates);
 
 		if (override) {
 			matchedOverrideKeys.add(override.key);
@@ -1023,6 +1032,7 @@ function generateSlotInstances(input: {
 				selectionReason,
 				unfilledReason,
 				overrideMessages,
+				candidateRankings,
 				blockingMessages,
 				isBlocking,
 				sortOrder: item.displayOrder
@@ -1059,6 +1069,7 @@ function generateSlotInstances(input: {
 						: 'No personnel matched this slot eligibility rules.'
 					: 'Every eligible person was already assigned elsewhere in this duty event.',
 			overrideMessages: [],
+			candidateRankings,
 			blockingMessages: [],
 			isBlocking,
 			sortOrder: item.displayOrder
@@ -1084,6 +1095,7 @@ function toPublicSlotProposal(slot: AdvancedSlotProposal): DutyEventPreviewSlotI
 		selectionReason: slot.selectionReason,
 		unfilledReason: slot.unfilledReason,
 		overrideMessages: slot.overrideMessages,
+		candidateRankings: slot.candidateRankings,
 		sortOrder: slot.sortOrder
 	};
 }

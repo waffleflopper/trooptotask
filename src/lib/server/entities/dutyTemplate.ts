@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import { cloneDefaultSoftPreferences, type DutyTemplateRecord } from '$features/duty-roster/duty-roster.types';
+import {
+	PERSISTED_SOFT_PREFERENCE_TYPES,
+	cloneDefaultSoftPreferences,
+	type DutyTemplateRecord
+} from '$features/duty-roster/duty-roster.types';
 
 const softPreferenceConfigSchema = z.object({
-	type: z.enum(['longest-break', 'holiday-closure', 'weekend', 'preferred-group']),
+	type: z.enum(PERSISTED_SOFT_PREFERENCE_TYPES),
 	enabled: z.boolean()
 });
 

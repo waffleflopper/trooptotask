@@ -116,6 +116,10 @@ _Avoid_: Broken permissions
 The feature for availability, assignments, special days, and duty visibility.
 _Avoid_: Leave tracker
 
+**DONSA**:
+A day of no scheduled activities, often used for training holidays and similar unit non-duty days. The current schema may still store these as `org-closure` special days, but duty-roster UX copy should prefer **DONSA** over closure language.
+_Avoid_: Closure, org closure in user-facing duty-roster copy
+
 **Availability Status**:
 A calendar state that marks a person's availability, duty limitation, or absence over one or more dates.
 _Avoid_: Event, appointment when status matters
@@ -216,6 +220,7 @@ _Avoid_: Training type
 - **Evals** is the route and primary navigation label for **Rating Scheme**; it does not create a separate domain concept.
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**.
+- **DONSAs** are Calendar special days and may still use `org-closure` as a compatibility storage value while product language phases out clinic-era closure wording.
 - A **Status Type** may have no **DA6 Availability Treatment** when it should not affect duty-roster generation.
 - A **DA6 Availability Treatment** can map a **Status Type** to **Authorized Absence**, **Other Duty**, or future **Misconduct Unavailable** semantics without making the **Status Type** itself a **DA6 Code**.
 - Default Calendar status semantics treat leave, school, TDY, and sick as **Authorized Absence**; CQ/SD as **Other Duty**; and appointment-style statuses as having no **DA6 Availability Treatment**.
@@ -265,5 +270,6 @@ _Avoid_: Training type
 - **Sick Call** is unit-dependent: it may have no **DA6 Availability Treatment** when used like an appointment, or **Authorized Absence** when it means unavailable for duty.
 - **Field/Training** is overloaded and should be split before defaulting: training that is an authorized absence belongs under **Authorized Absence**, while another duty/detail that blocks selection belongs under **Other Duty**.
 - Prefer clearer split labels such as **Training / TDY** for **Authorized Absence** and **Other Duty / Detail** for **Other Duty** instead of reusing overloaded **Field/Training** language.
+- Prefer **DONSA** or **Training Holiday** in military-facing UX copy. Treat **closure** and **org closure** as legacy compatibility wording to phase out across the site.
 - Do not let a normal **Status Type** be casually configured as **Misconduct Unavailable** before the product has an honest misconduct/AWOL workflow.
 - Do not treat per-run excluded-status selection as the durable source of DA Form 6 availability truth once **DA6 Availability Treatment** exists on **Status Types**.

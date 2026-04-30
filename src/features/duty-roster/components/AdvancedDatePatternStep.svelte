@@ -64,7 +64,7 @@
 				><option value="daily">Daily</option><option value="weekday-only">Weekdays Only</option><option
 					value="weekend-only">Weekends Only</option
 				><option value="selected-weekdays">Selected Weekdays</option><option value="holiday-closure-only"
-					>Holiday/Closure Only</option
+					>Holiday/DONSA Only</option
 				><option value="custom-dates">Custom Dates</option></select
 			></label
 		>

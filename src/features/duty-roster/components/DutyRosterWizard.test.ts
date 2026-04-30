@@ -2159,15 +2159,14 @@ describe('DutyRosterWizard', () => {
 		expect(screen.queryByText('Why this pick')).toBeNull();
 	});
 
-	it('renders the active soft-preference order as a numbered list in the policy summary step', async () => {
+	it('renders the active DA6 ranking policy in the policy summary step', async () => {
 		renderWizard({
 			advancedDutyTemplates: [
 				makeAdvancedTemplate({
 					softPreferences: [
 						{ type: 'longest-break', enabled: true },
-						{ type: 'holiday-closure', enabled: false },
-						{ type: 'weekend', enabled: true },
-						{ type: 'preferred-group', enabled: false }
+						{ type: 'separate-weekend-da6', enabled: true },
+						{ type: 'include-holiday-donsa-da6', enabled: false }
 					]
 				})
 			]
@@ -2175,11 +2174,8 @@ describe('DutyRosterWizard', () => {
 
 		await openAdvancedPolicyReview();
 
-		// Only enabled preferences should appear, in order
-		expect(screen.getByText(/Ranking: longest break, weekend volunteers/)).toBeTruthy();
-		// Disabled preferences should not appear
-		expect(screen.queryByText(/holiday volunteers/)).toBeNull();
-		expect(screen.queryByText(/Preferred group/)).toBeNull();
+		expect(screen.getByText(/DA6 ranking: Separate weekend DA6 sequence/)).toBeTruthy();
+		expect(screen.queryByText(/preferred group/i)).toBeNull();
 	});
 
 	it('shows a fairness baseline notice when the template has no rotation baselines', async () => {

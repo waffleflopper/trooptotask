@@ -212,6 +212,10 @@
 		];
 	}
 
+	function usesWeekendHolidaySequence(event: DutyEventSeriesPreview['events'][number]) {
+		return event.advancedDa6SequenceKey === 'weekend-holiday';
+	}
+
 	function handleTableViewportKeydown(event: KeyboardEvent) {
 		const viewport = event.currentTarget as HTMLElement;
 		if (event.key === 'ArrowRight') {
@@ -358,8 +362,13 @@
 				{#each filteredRows as row (`${row.event.eventDate}-${row.slot.roleLabel}-${row.slot.slotIndex}`)}
 					{@const hasOverride = hasSeriesSlotOverride(row.event.eventDate, row.slot)}
 					{@const explanationSections = getExplanationSections(row.slot)}
-					<tr>
-						<td class="date-cell">{row.event.eventDate}</td>
+					<tr class:sequence-weekend-holiday={usesWeekendHolidaySequence(row.event)}>
+						<td class="date-cell">
+							<span>{row.event.eventDate}</span>
+							{#if usesWeekendHolidaySequence(row.event)}
+								<span class="sequence-label">{row.event.advancedDa6SequenceLabel ?? 'Separate weekend DA6'}</span>
+							{/if}
+						</td>
 						<td>{formatCoverageLabel(row.event)}</td>
 						<td>
 							<div class="slot-cell">
@@ -665,9 +674,24 @@
 		border-bottom: 0;
 	}
 
+	.review-table tbody tr.sequence-weekend-holiday td {
+		background: color-mix(in srgb, var(--amber-light) 28%, var(--surface-panel) 72%);
+	}
+
 	.date-cell {
+		display: grid;
+		gap: 2px;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
+	}
+
+	.sequence-label {
+		width: max-content;
+		max-width: 17ch;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--amber-dark);
 	}
 
 	.slot-cell,

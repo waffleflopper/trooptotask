@@ -14,10 +14,14 @@ import type {
 	DutyTemplateWriteInput,
 	SoftPreferenceConfig
 } from '$features/duty-roster/duty-roster.types';
-import { DEFAULT_SOFT_PREFERENCE_ORDER, cloneDefaultSoftPreferences } from '$features/duty-roster/duty-roster.types';
+import {
+	DEFAULT_SOFT_PREFERENCE_ORDER,
+	PERSISTED_SOFT_PREFERENCE_TYPES,
+	cloneDefaultSoftPreferences
+} from '$features/duty-roster/duty-roster.types';
 
 const softPreferenceConfigSchema = z.object({
-	type: z.enum(DEFAULT_SOFT_PREFERENCE_ORDER),
+	type: z.enum(PERSISTED_SOFT_PREFERENCE_TYPES),
 	enabled: z.boolean()
 });
 
@@ -106,7 +110,7 @@ function normalizeSlots(slots: DutyTemplateSlotInput[]): Omit<DutyTemplateSlot, 
 			quantity: slot.quantity,
 			allowedRanks: normalizeList(slot.allowedRanks ?? []),
 			allowedGroupIds: normalizeList(slot.allowedGroupIds ?? []),
-			preferredGroupIds: normalizeList(slot.preferredGroupIds ?? []),
+			preferredGroupIds: [],
 			allowedMosValues: normalizeList(slot.allowedMosValues ?? []),
 			allowedRoleValues: normalizeList(slot.allowedRoleValues ?? []),
 			rotationPoolKey: slot.rotationPoolKey?.trim() || `slot-${index + 1}`,
@@ -136,27 +140,46 @@ function normalizeRotationBaselines(
 
 function normalizeSoftPreferences(values: SoftPreferenceConfig[] | undefined): SoftPreferenceConfig[] {
 	const provided = values ?? cloneDefaultSoftPreferences();
-	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>();
-	const orderedTypes: SoftPreferenceConfig['type'][] = [];
+	const defaults = cloneDefaultSoftPreferences();
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
+	);
+	const hasCurrentWeekendPolicy = provided.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = provided.some((preference) => preference.type === 'include-holiday-donsa-da6');
 
 	for (const preference of provided) {
-		if (byType.has(preference.type)) {
-			byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
-			continue;
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
 		}
-		orderedTypes.push(preference.type);
-		byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
 	}
 
-	for (const type of DEFAULT_SOFT_PREFERENCE_ORDER) {
-		if (byType.has(type)) {
-			continue;
-		}
-		orderedTypes.push(type);
-		byType.set(type, { type, enabled: true });
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
 	}
 
-	return orderedTypes.map((type) => byType.get(type) as SoftPreferenceConfig);
+	return DEFAULT_SOFT_PREFERENCE_ORDER.map((type) => byType.get(type) ?? defaults.find((item) => item.type === type)!);
 }
 
 function normalizeTemplateInput(

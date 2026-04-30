@@ -115,14 +115,13 @@ describe('DutyRosterWizard step components', () => {
 		render(AdvancedPolicyReviewStep, {
 			props: {
 				template: makeTemplate(),
-				enabledSoftPrefs: [{ type: 'longest-break', enabled: true }],
 				hasRotationBaselines: false,
 				onBack: vi.fn(),
 				onEditTemplate: vi.fn(),
 				onContinue
 			}
 		});
-		expect(screen.getByText(/Ranking: longest break/)).toBeTruthy();
+		expect(screen.getByText(/DA6 ranking: Single DA6 sequence/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Set Date Pattern' }));
 		expect(onContinue).toHaveBeenCalled();
 	});

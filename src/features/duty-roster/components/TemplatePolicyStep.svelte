@@ -1,7 +1,8 @@
 <script lang="ts">
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import type { SetupMode, SoftPreferenceOption } from './advancedDutyTemplateBuilder.helpers';
+	import { isDa6RankingPreferenceEnabled, type SetupMode } from './advancedDutyTemplateBuilder.helpers';
+	import type { SoftPreferenceConfig } from '../duty-roster.types';
 
 	interface Props {
 		setupMode: SetupMode;
@@ -16,8 +17,7 @@
 		cooldownHours: number;
 		groupTagOptions: TagOption[];
 		personnelTagOptions: TagOption[];
-		draftSoftPreferences: Array<{ type: string; enabled: boolean }>;
-		softPreferenceOptions: SoftPreferenceOption[];
+		draftSoftPreferences: SoftPreferenceConfig[];
 		onScopeTypeChange: (value: 'organization' | 'groups') => void;
 		onScopeGroupIdsChange: (value: string[]) => void;
 		onExemptPersonnelIdsChange: (value: string[]) => void;
@@ -27,13 +27,18 @@
 		onSpansMidnightChange: (value: boolean) => void;
 		onIsBlockingChange: (value: boolean) => void;
 		onCooldownHoursChange: (value: number) => void;
-		onMoveSoftPreference: (type: string, direction: -1 | 1) => void;
 		onUpdateSoftPreference: (type: string, enabled: boolean) => void;
 		onBack: () => void;
 		onNext: () => void;
 	}
 
 	let props: Props = $props();
+	const usesSeparateWeekendDa6 = $derived(
+		isDa6RankingPreferenceEnabled(props.draftSoftPreferences, 'separate-weekend-da6')
+	);
+	const includesHolidayDonsa = $derived(
+		isDa6RankingPreferenceEnabled(props.draftSoftPreferences, 'include-holiday-donsa-da6')
+	);
 </script>
 
 <section class="builder-card">
@@ -147,46 +152,34 @@
 		<section class="preference-section">
 			<div class="section-header">
 				<div>
-					<p class="eyebrow">Tie Breakers</p>
-					<h3>Preference order</h3>
+					<p class="eyebrow">DA6 Ranking</p>
+					<h3>Sequence policy</h3>
 				</div>
 			</div>
-			<div class="slot-list">
-				{#each props.draftSoftPreferences as preference, index (preference.type)}
-					<article class="preference-row">
-						<div class="slot-header">
-							<div>
-								<h4>
-									{props.softPreferenceOptions.find((option) => option.type === preference.type)?.label ??
-										preference.type}
-								</h4>
-							</div>
-							<div class="slot-actions">
-								<button
-									class="btn btn-sm"
-									type="button"
-									disabled={index === 0}
-									onclick={() => props.onMoveSoftPreference(preference.type, -1)}>Move Up</button
-								>
-								<button
-									class="btn btn-sm"
-									type="button"
-									disabled={index === props.draftSoftPreferences.length - 1}
-									onclick={() => props.onMoveSoftPreference(preference.type, 1)}>Move Down</button
-								>
-							</div>
-						</div>
-						<label class="field field-checkbox">
-							<input
-								type="checkbox"
-								checked={preference.enabled}
-								onchange={(e) =>
-									props.onUpdateSoftPreference(preference.type, (e.currentTarget as HTMLInputElement).checked)}
-							/>
-							<span>Enabled</span>
-						</label>
-					</article>
-				{/each}
+			<div class="da6-policy">
+				<label class="field field-checkbox">
+					<input
+						type="checkbox"
+						checked={usesSeparateWeekendDa6}
+						onchange={(e) =>
+							props.onUpdateSoftPreference('separate-weekend-da6', (e.currentTarget as HTMLInputElement).checked)}
+					/>
+					<span>Use separate weekend DA6 ranking</span>
+				</label>
+				{#if usesSeparateWeekendDa6}
+					<label class="field field-checkbox nested-toggle">
+						<input
+							type="checkbox"
+							checked={includesHolidayDonsa}
+							onchange={(e) =>
+								props.onUpdateSoftPreference(
+									'include-holiday-donsa-da6',
+									(e.currentTarget as HTMLInputElement).checked
+								)}
+						/>
+						<span>Include holidays and DONSAs</span>
+					</label>
+				{/if}
 			</div>
 		</section>
 	{/if}
@@ -240,22 +233,18 @@
 		margin: var(--sp-1) 0 0;
 		color: var(--text-secondary);
 	}
-	.section-header,
-	.slot-header {
+	.section-header {
 		display: flex;
 		justify-content: space-between;
 		gap: var(--sp-4);
 	}
-	.slot-list {
-		display: grid;
-		gap: var(--sp-3);
+	.da6-policy {
 		margin-top: var(--sp-4);
 	}
-	.preference-row {
-		padding: var(--sp-3) 0;
-		border-top: 1px solid var(--border-subtle);
+	.nested-toggle {
+		margin-top: var(--sp-3);
+		padding-left: var(--sp-5);
 	}
-	.slot-actions,
 	.step-actions {
 		display: flex;
 		gap: var(--sp-3);
@@ -264,8 +253,7 @@
 	.step-actions {
 		margin-top: var(--sp-4);
 	}
-	h3,
-	h4 {
+	h3 {
 		margin: 0;
 	}
 </style>

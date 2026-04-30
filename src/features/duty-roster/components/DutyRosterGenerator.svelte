@@ -786,7 +786,7 @@
 
 					<label class="toggle-row">
 						<input type="checkbox" bind:checked={excludeOrgClosures} />
-						<span>Skip org closures</span>
+						<span>Skip DONSAs</span>
 					</label>
 				</div>
 

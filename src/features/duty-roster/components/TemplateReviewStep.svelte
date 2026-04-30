@@ -71,7 +71,7 @@
 			<dd>From status settings</dd>
 		</div>
 		<div class="summary-wide">
-			<dt>Tie Breakers</dt>
+			<dt>DA6 Ranking</dt>
 			<dd>{props.enabledSoftPreferenceSummary}</dd>
 		</div>
 	</dl>

@@ -83,7 +83,6 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				groupTagOptions: [],
 				personnelTagOptions: [],
 				draftSoftPreferences: [],
-				softPreferenceOptions: [],
 				onScopeTypeChange: vi.fn(),
 				onScopeGroupIdsChange: vi.fn(),
 				onExemptPersonnelIdsChange: vi.fn(),
@@ -93,7 +92,6 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				onSpansMidnightChange: vi.fn(),
 				onIsBlockingChange: vi.fn(),
 				onCooldownHoursChange: vi.fn(),
-				onMoveSoftPreference: vi.fn(),
 				onUpdateSoftPreference: vi.fn(),
 				onBack: vi.fn(),
 				onNext

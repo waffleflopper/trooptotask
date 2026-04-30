@@ -138,7 +138,7 @@ describe('duty template CRUD use cases', () => {
 		expect(created.name).toBe('Battalion Staff Duty');
 	});
 
-	it('persists rotation pools, preferred groups, and manual fairness baselines on advanced templates', async () => {
+	it('persists rotation pools, DA6 ranking policy, and manual fairness baselines on advanced templates', async () => {
 		const ctx = createTestContext();
 
 		const result = await createDutyTemplate(
@@ -174,10 +174,9 @@ describe('duty template CRUD use cases', () => {
 					}
 				],
 				softPreferences: [
-					{ type: 'preferred-group', enabled: true },
 					{ type: 'longest-break', enabled: true },
-					{ type: 'holiday-closure', enabled: true },
-					{ type: 'weekend', enabled: false }
+					{ type: 'separate-weekend-da6', enabled: true },
+					{ type: 'include-holiday-donsa-da6', enabled: true }
 				]
 			})
 		);
@@ -187,12 +186,12 @@ describe('duty template CRUD use cases', () => {
 				expect.objectContaining({
 					roleLabel: 'NCO',
 					rotationPoolKey: 'staff-duty-primary',
-					preferredGroupIds: ['group-alpha']
+					preferredGroupIds: []
 				}),
 				expect.objectContaining({
 					roleLabel: 'Runner',
 					rotationPoolKey: 'staff-duty-primary',
-					preferredGroupIds: ['group-hq']
+					preferredGroupIds: []
 				})
 			])
 		);
@@ -204,10 +203,9 @@ describe('duty template CRUD use cases', () => {
 			})
 		]);
 		expect(result.softPreferences).toEqual([
-			{ type: 'preferred-group', enabled: true },
 			{ type: 'longest-break', enabled: true },
-			{ type: 'holiday-closure', enabled: true },
-			{ type: 'weekend', enabled: false }
+			{ type: 'separate-weekend-da6', enabled: true },
+			{ type: 'include-holiday-donsa-da6', enabled: true }
 		]);
 	});
 

@@ -182,7 +182,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText(/^Rotation group/), {
 			target: { value: 'staff-duty-primary' }
 		});
-		await selectMultiTagOptions('Preferred groups', ['Alpha']);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Baseline' }));
 		await fireEvent.input(screen.getAllByLabelText(/^Rotation group/)[1], {
 			target: { value: 'staff-duty-primary' }
@@ -209,7 +208,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 							quantity: 1,
 							allowedMosValues: ['11B', '68W'],
 							allowedRoleValues: ['Medic', 'Squad Leader'],
-							preferredGroupIds: ['group-alpha'],
+							preferredGroupIds: [],
 							rotationPoolKey: 'staff-duty-primary',
 							sortOrder: 0
 						})
@@ -293,7 +292,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
-	it('lets full configuration reorder and disable soft preferences before save', async () => {
+	it('lets full configuration turn on separate weekend DA6 ranking before save', async () => {
 		const existing = makeTemplate();
 		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);
 
@@ -310,8 +309,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 
 		await goToPolicyStep();
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Move Down' })[0]);
-		await fireEvent.click(screen.getAllByLabelText('Enabled')[2]);
+		await fireEvent.click(screen.getByLabelText('Use separate weekend DA6 ranking'));
+		await fireEvent.click(screen.getByLabelText('Include holidays and DONSAs'));
 		await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
@@ -321,10 +320,9 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				expect.objectContaining({
 					id: 'tmpl-1',
 					softPreferences: [
-						{ type: 'holiday-closure', enabled: true },
 						{ type: 'longest-break', enabled: true },
-						{ type: 'weekend', enabled: false },
-						{ type: 'preferred-group', enabled: true }
+						{ type: 'separate-weekend-da6', enabled: true },
+						{ type: 'include-holiday-donsa-da6', enabled: true }
 					]
 				})
 			);

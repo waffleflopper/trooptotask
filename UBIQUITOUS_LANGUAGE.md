@@ -82,6 +82,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Manual DA6 Baseline**           | A fallback starting point entered when recent manual history is incomplete or unavailable, with a required reason and audit trail.                     | Assignment type counter, silent starting value      |
 | **Manual Adjustment**             | A user-recorded change to generated duty output that preserves the generated proposal and final human-applied state.                                   | Override when no audit/counter meaning is intended  |
 | **Post-Apply Correction**         | An append-only **Manual Adjustment** recorded after a duty roster was applied or saved, used when real-world events change who actually pulled duty.   | Editing history in place, silent correction         |
+| **DONSA**                         | A day of no scheduled activities, often used for training holidays and similar unit non-duty days; legacy storage may still call these `org-closure`.  | Closure, org closure in duty-roster UX copy         |
 | **Advanced Duty Run**             | One generated team-duty run for a selected advanced duty template and event date pattern.                                                              | DA6 run, regenerated apply payload                  |
 | **Advanced Run Snapshot**         | The immutable inputs and outputs produced by an **Advanced Duty Run** preview.                                                                         | Current template state, recomputed preview          |
 | **Snapshot Custody**              | The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.    | Signed client payload, browser-owned run state      |
@@ -164,6 +165,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Authorized Absence** creates a **Nonchargeable Day**, while **Other Duty** and **Misconduct Unavailable** create **Chargeable Days**.
 - A **Duty Exemption** removes a **Personnel Record** from that specific **Duty Roster** rather than marking the person as absent.
 - **Numbering Mode** controls whether **Sequence Kinds** share one sequence or keep separate weekday and weekend-holiday sequences.
+- Prefer **DONSA** or **Training Holiday** in military-facing duty-roster language. Treat **closure** and **org closure** as legacy compatibility wording to phase out across the site.
 - **Manual History Imports** are the preferred way to continue from an existing manual DA Form 6 because they preserve actual charged duty outcomes as history.
 - A **Manual DA6 Baseline** is a fallback when recent manual history is incomplete or unavailable; it must not live as mutable counter state on an assignment type.
 - A **Manual Adjustment** must be visible as human judgment and must preserve both the generated proposal and the final applied state.

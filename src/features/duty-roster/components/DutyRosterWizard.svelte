@@ -136,7 +136,6 @@
 	const selectedAdvancedTemplate = $derived(
 		activeAdvancedTemplates.find((template) => template.id === selectedAdvancedTemplateId) ?? null
 	);
-	const enabledSoftPrefs = $derived((selectedAdvancedTemplate?.softPreferences ?? []).filter((pref) => pref.enabled));
 	const hasRotationBaselines = $derived((selectedAdvancedTemplate?.rotationBaselines.length ?? 0) > 0);
 	const previewCollisionMessages = $derived.by(() =>
 		advancedSeriesPreview
@@ -603,7 +602,6 @@
 			<section class="advanced-review-workspace" aria-label="Advanced duty review workspace">
 				{#if view === 'advanced-policy-review'}<AdvancedPolicyReviewStep
 						template={selectedAdvancedTemplate}
-						{enabledSoftPrefs}
 						{hasRotationBaselines}
 						onBack={() => (view = 'advanced-template-list')}
 						onEditTemplate={props.onManageAdvancedTemplates}

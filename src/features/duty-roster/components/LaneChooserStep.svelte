@@ -11,9 +11,9 @@
 
 <div class="lane-grid">
 	<article class="lane-card card card-flat">
-		<p class="eyebrow">Automatic Assignment</p>
-		<h3>Reuse an existing one-person assignment type.</h3>
-		<p class="lane-copy">Bridge current assignment types into the new flow without migrating legacy calendar data.</p>
+		<p class="eyebrow">Assignments / Taskings</p>
+		<h3>One-person assignment types.</h3>
+		<p class="lane-copy">Use current assignment types without DA6 policy setup.</p>
 		<button class="btn btn-primary" type="button" onclick={onChooseSimple}>Use Automatic Assignment Generator</button>
 	</article>
 
@@ -22,8 +22,8 @@
 			<p class="eyebrow">Advanced</p>
 			<Badge label="Beta" />
 		</div>
-		<h3>Build toward team-based duties.</h3>
-		<p class="lane-copy">Select a template, preview a recurring team series, and apply first-class duty events.</p>
+		<h3>Team-based duty templates.</h3>
+		<p class="lane-copy">Preview and apply recurring duty series.</p>
 		<button class="btn btn-secondary" type="button" disabled={!canManageAdvancedTemplates} onclick={onChooseAdvanced}
 			>Use Advanced Duty</button
 		>

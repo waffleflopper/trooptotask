@@ -132,7 +132,6 @@ export type AdvancedAvailabilityReasonCode =
 	| 'misconduct-unavailable'
 	| 'advanced-duty-overlap'
 	| 'advanced-duty-cooldown'
-	| 'status-exemption'
 	| 'template-exemption';
 
 export interface AdvancedAvailabilityClassification {
@@ -192,7 +191,6 @@ export interface AdvancedRunSnapshotInput {
 	holidayClosureDates: Set<string>;
 	historyEvents: AdvancedRunHistoryEvent[];
 	excludedHistoryEventIdsByEventDate?: Map<string, string[]>;
-	statusExemptPersonnelDatesByEventDate: Map<string, Map<string, string>>;
 	availabilityEntries?: AvailabilityEntry[];
 	statusTypes?: StatusType[];
 	misconductUnavailablePersonnelDates?: Record<string, string[]>;
@@ -451,7 +449,6 @@ function classifyAdvancedAvailability(input: {
 	eventDate: string;
 	coverageStart: string;
 	coverageEnd: string;
-	statusExemptPersonnelDates: Map<string, string>;
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	misconductUnavailablePersonnelDates: Record<string, string[]>;
@@ -513,18 +510,6 @@ function classifyAdvancedAvailability(input: {
 				statusNames,
 				reason: `${formatPersonLabel(input.personnelById, person.id)} has ${formatAdvancedStatusTreatment(statusTreatment)} status${statusNames.length > 0 ? ` (${statusNames.join(', ')})` : ''} during this duty window.`,
 				reasonCode
-			};
-		}
-
-		if (input.statusExemptPersonnelDates.has(person.id)) {
-			return {
-				personnelId: person.id,
-				selectable: false,
-				chargeable: false,
-				treatment: 'authorized-absence',
-				statusNames: [],
-				reason: `${formatPersonLabel(input.personnelById, person.id)} has an exempt status for ${input.statusExemptPersonnelDates.get(person.id) ?? input.eventDate} and cannot be manually assigned.`,
-				reasonCode: 'status-exemption'
 			};
 		}
 
@@ -647,7 +632,7 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 		scopeType: template.scopeType,
 		scopeGroupIds: [...template.scopeGroupIds],
 		exemptPersonnelIds: [...(template.exemptPersonnelIds ?? [])],
-		exemptStatusTypeIds: [...(template.exemptStatusTypeIds ?? [])],
+		exemptStatusTypeIds: [],
 		isBlocking: template.isBlocking,
 		cooldownHours: template.cooldownHours,
 		softPreferences: normalizeSoftPreferencesForRanking(template.softPreferences),
@@ -896,7 +881,6 @@ function generateSlotInstances(input: {
 	historyByPoolPerson: Map<string, PoolHistorySummary>;
 	eventDate: string;
 	holidayClosureDates: Set<string>;
-	statusExemptPersonnelDates: Map<string, string>;
 	availabilityClassifications: AdvancedAvailabilityClassification[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
 }): AdvancedSlotProposal[] {
@@ -913,10 +897,7 @@ function generateSlotInstances(input: {
 		(classification) => !classification.selectable
 	);
 	const hasAvailabilityBlocks = input.availabilityClassifications.some(
-		(classification) =>
-			!classification.selectable &&
-			classification.reasonCode !== 'template-exemption' &&
-			classification.reasonCode !== 'status-exemption'
+		(classification) => !classification.selectable && classification.reasonCode !== 'template-exemption'
 	);
 	const eligiblePersonnel = hasAnyUnselectableClassifications
 		? input.personnel.filter((person) => availabilityByPersonnelId.get(person.id)?.selectable ?? true)
@@ -1107,7 +1088,6 @@ async function buildAdvancedEventSnapshot(input: {
 	holidayClosureDates: Set<string>;
 	historyEvents: AdvancedRunHistoryEvent[];
 	excludedHistoryEventIdsByEventDate?: Map<string, string[]>;
-	statusExemptPersonnelDates: Map<string, string>;
 	transientEvents: AdvancedRunTransientEvent[];
 	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
@@ -1129,7 +1109,6 @@ async function buildAdvancedEventSnapshot(input: {
 		eventDate: input.eventDate,
 		coverageStart: coverage.coverageStart,
 		coverageEnd: coverage.coverageEnd,
-		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
 		availabilityEntries: input.availabilityEntries ?? [],
 		statusTypes: input.statusTypes ?? [],
 		misconductUnavailablePersonnelDates: input.misconductUnavailablePersonnelDates ?? {},
@@ -1151,7 +1130,6 @@ async function buildAdvancedEventSnapshot(input: {
 		historyByPoolPerson,
 		eventDate: input.eventDate,
 		holidayClosureDates: input.holidayClosureDates,
-		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
 		availabilityClassifications,
 		slotOverrides: input.slotOverrides
 	});
@@ -1236,8 +1214,6 @@ export async function buildAdvancedRunSnapshot(input: AdvancedRunSnapshotInput):
 			holidayClosureDates: input.holidayClosureDates,
 			historyEvents: input.historyEvents,
 			excludedHistoryEventIdsByEventDate: input.excludedHistoryEventIdsByEventDate,
-			statusExemptPersonnelDates:
-				input.statusExemptPersonnelDatesByEventDate.get(eventDate) ?? new Map<string, string>(),
 			transientEvents,
 			candidatePersonnelIds: input.candidatePersonnelIds,
 			slotOverrides: input.slotOverridesByEventDate?.get(eventDate),

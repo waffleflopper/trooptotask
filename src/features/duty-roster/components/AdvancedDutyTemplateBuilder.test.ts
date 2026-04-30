@@ -30,11 +30,6 @@ const personnel = [
 	}
 ];
 
-const statusTypes = [
-	{ id: 'st-leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
-	{ id: 'st-tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
-];
-
 function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 	return {
 		id: 'tmpl-1',
@@ -90,17 +85,17 @@ async function selectMultiTagOptions(ariaLabel: string, labels: string[]) {
 }
 
 async function goToPolicyStep() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Policy' }));
 }
 
 async function goToSeriesStep() {
 	await goToPolicyStep();
-	await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
 }
 
 async function goToReviewStep() {
 	await goToSeriesStep();
-	await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 }
 
 describe('AdvancedDutyTemplateBuilder', () => {
@@ -113,7 +108,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: false,
 				onCreateTemplate: vi.fn(),
@@ -131,7 +125,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -140,22 +133,22 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
-		expect(screen.getByText(/Choose a starting point/)).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Use Battalion Staff Duty Preset/ })).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Build from Blank/ })).toBeTruthy();
+		expect(screen.getByText('Start From')).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Battalion Staff Duty/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Blank/ })).toBeTruthy();
 
-		await fireEvent.click(screen.getByRole('button', { name: /Use Battalion Staff Duty Preset/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Battalion Staff Duty/ }));
 
 		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Battalion Staff Duty');
-		expect(screen.getByText('Quick Setup')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Quick' })).toBeTruthy();
 		expect(screen.queryByLabelText('MOS filter')).toBeNull();
-		expect(screen.queryByText('Rotation Starting Points')).toBeNull();
+		expect(screen.queryByText('Baselines')).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Full' }));
 		await goToSeriesStep();
 
 		expect(screen.getAllByLabelText('MOS filter').length).toBeGreaterThan(0);
-		expect(screen.getByText('Rotation Starting Points')).toBeTruthy();
+		expect(screen.getByText('Baselines')).toBeTruthy();
 	});
 
 	it('creates a new advanced template from the builder form', async () => {
@@ -166,7 +159,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate,
@@ -175,11 +167,11 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /Build from Blank/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Blank/ }));
 		await fireEvent.input(screen.getByLabelText('Name'), {
 			target: { value: 'Company CQ' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Full' }));
 		await goToSeriesStep();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Slot' }));
 		await fireEvent.input(screen.getByLabelText('Role label'), {
@@ -201,7 +193,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText('Last served date'), {
 			target: { value: '2026-03-10' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -239,7 +231,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [makeTemplate()],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -250,10 +241,10 @@ describe('AdvancedDutyTemplateBuilder', () => {
 
 		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Battalion Staff Duty');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New' }));
 
 		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
-		expect(screen.getByRole('button', { name: /Build from Blank/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Blank/ })).toBeTruthy();
 	});
 
 	it('lets a slot override the template conflict policy before save', async () => {
@@ -264,7 +255,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate,
@@ -273,11 +263,11 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /Build from Blank/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Blank/ }));
 		await fireEvent.input(screen.getByLabelText('Name'), {
 			target: { value: 'Company CQ' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Full' }));
 		await goToSeriesStep();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Slot' }));
 		await fireEvent.input(screen.getByLabelText('Role label'), {
@@ -286,7 +276,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.change(screen.getByLabelText('Conflict behavior for this slot'), {
 			target: { value: 'non-blocking' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -311,7 +301,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [existing],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -323,8 +312,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await goToPolicyStep();
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Move Down' })[0]);
 		await fireEvent.click(screen.getAllByLabelText('Enabled')[2]);
-		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -342,7 +331,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
-	it('persists status-based exemption selections in template payloads', async () => {
+	it('leaves status availability to Calendar status treatments when saving templates', async () => {
 		const existing = makeTemplate();
 		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);
 
@@ -350,7 +339,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [existing],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -360,17 +348,19 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 
 		await goToPolicyStep();
-		await fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'TDY' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		expect(screen.getByText('Status availability')).toBeTruthy();
+		expect(screen.getByText('Handled by Calendar status treatments.')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+		expect(screen.getByText('Status Availability')).toBeTruthy();
+		expect(screen.getByText('From status settings')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
 			expect(onUpdateTemplate).toHaveBeenCalledWith(
 				expect.objectContaining({
 					id: 'tmpl-1',
-					exemptStatusTypeIds: ['st-leave', 'st-tdy']
+					exemptStatusTypeIds: []
 				})
 			);
 		});
@@ -381,7 +371,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [makeTemplate()],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -390,9 +379,9 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
-		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Archive' })).toBeTruthy();
 		await goToReviewStep();
-		expect(screen.queryByRole('button', { name: 'Archive Template' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
 	});
 
 	it('uses plain-language copy for rotation groups and manual filters', async () => {
@@ -400,7 +389,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [makeTemplate()],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -413,10 +401,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		expect(screen.getByLabelText('MOS filter')).toBeTruthy();
 		expect(screen.getByLabelText('Personnel role filter')).toBeTruthy();
 		expect(screen.getByLabelText(/^Rotation group/)).toBeTruthy();
-		expect(
-			screen.getByText('Use the same rotation group on multiple slots when those positions should rotate together.')
-		).toBeTruthy();
-		expect(screen.getByText('Set a starting point when you do not have enough duty history yet.')).toBeTruthy();
+		expect(screen.getByText('Starting points')).toBeTruthy();
 	});
 
 	it('loads an existing template into the review panel and updates it', async () => {
@@ -427,7 +412,6 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [existing],
 				groups,
-				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),

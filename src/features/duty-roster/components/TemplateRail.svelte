@@ -26,7 +26,7 @@
 
 <aside class="template-rail" aria-label="Saved duty templates">
 	<div class="rail-header">
-		<p class="eyebrow">Saved templates</p>
+		<p class="eyebrow">Templates</p>
 		<label class="field field-checkbox"
 			><input
 				type="checkbox"
@@ -35,14 +35,9 @@
 			/><span>Show archived</span></label
 		>
 	</div>
-	<button type="button" class="new-template-button" class:active={isCreatingNew} onclick={onCreateNew}>
-		New Template
-	</button>
+	<button type="button" class="new-template-button" class:active={isCreatingNew} onclick={onCreateNew}> New </button>
 	{#if visibleTemplates.length === 0}
-		<EmptyState
-			message="No advanced duty templates yet. Start with a draft so you can shape the policy before generation exists."
-			variant="simple"
-		/>
+		<EmptyState message="No advanced duty templates yet." variant="simple" />
 	{:else}
 		{#each visibleTemplates as template (template.id)}
 			<button

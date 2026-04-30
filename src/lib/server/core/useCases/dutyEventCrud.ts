@@ -609,12 +609,6 @@ async function buildSingleDutyEventPreviewSnapshot(
 			coverage.coverageEnd.slice(0, 10)
 		));
 	const statusTypes = resolvedData.statusTypes ?? (await listStatusTypes(ctx));
-	const statusExemptPersonnelDates = await listStatusExemptPersonnelDatesForCoverage(
-		ctx,
-		coverage.coverageStart.slice(0, 10),
-		coverage.coverageEnd.slice(0, 10),
-		template.exemptStatusTypeIds ?? []
-	);
 	const templateHistoryRows =
 		resolvedData.templateHistoryRows ??
 		(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
@@ -643,7 +637,6 @@ async function buildSingleDutyEventPreviewSnapshot(
 		personnel: allPersonnel,
 		holidayClosureDates,
 		historyEvents,
-		statusExemptPersonnelDatesByEventDate: new Map([[eventDate, statusExemptPersonnelDates]]),
 		availabilityEntries,
 		statusTypes,
 		candidatePersonnelIds,
@@ -1379,39 +1372,6 @@ async function listPersonnel(ctx: QueryPorts): Promise<Personnel[]> {
 	return PersonnelEntity.fromDbArray(rows);
 }
 
-async function listStatusExemptPersonnelDatesForCoverage(
-	ctx: QueryPorts,
-	coverageStartDate: string,
-	coverageEndDate: string,
-	exemptStatusTypeIds: string[]
-): Promise<Map<string, string>> {
-	const statusTypeIds = [...new Set(exemptStatusTypeIds.map((statusTypeId) => statusTypeId.trim()).filter(Boolean))];
-	if (statusTypeIds.length === 0) {
-		return new Map();
-	}
-
-	const rows = await ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-		inFilters: { status_type_id: statusTypeIds },
-		rangeFilters: [
-			{ column: 'start_date', op: 'lte', value: coverageEndDate },
-			{ column: 'end_date', op: 'gte', value: coverageStartDate }
-		]
-	});
-
-	const personnelDates = new Map<string, string>();
-	for (const row of rows) {
-		const personnelId = row.personnel_id == null ? '' : String(row.personnel_id);
-		if (!personnelId || personnelDates.has(personnelId)) {
-			continue;
-		}
-
-		const statusStart = String(row.start_date);
-		personnelDates.set(personnelId, statusStart > coverageStartDate ? statusStart : coverageStartDate);
-	}
-
-	return personnelDates;
-}
-
 export async function applyDutyEventFromTemplate(
 	ctx: WritePorts,
 	input: DutyEventApplyInput & { runId?: string; approvedSnapshot?: AdvancedDutyRunSnapshotRecord }
@@ -1822,19 +1782,6 @@ export async function previewDutyEventSeriesFromTemplate(
 					})
 				: []
 	};
-	const statusExemptPersonnelDatesByEventDate = new Map<string, Map<string, string>>();
-	for (const eventDate of eventDates) {
-		const coverage = buildAdvancedDutyCoverage(template, eventDate);
-		statusExemptPersonnelDatesByEventDate.set(
-			eventDate,
-			await listStatusExemptPersonnelDatesForCoverage(
-				ctx,
-				coverage.coverageStart.slice(0, 10),
-				coverage.coverageEnd.slice(0, 10),
-				template.exemptStatusTypeIds ?? []
-			)
-		);
-	}
 	const allPersonnel = resolvedPreviewData.allPersonnel ?? [];
 	const personnelById = new Map(allPersonnel.map((person) => [person.id, person]));
 	const slotOverridesByEventDate = new Map<string, DutyEventSlotOverrideInput[] | undefined>(
@@ -1853,7 +1800,6 @@ export async function previewDutyEventSeriesFromTemplate(
 		holidayClosureDates: resolvedPreviewData.holidayClosureDates ?? new Set(),
 		historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 		excludedHistoryEventIdsByEventDate,
-		statusExemptPersonnelDatesByEventDate,
 		availabilityEntries: resolvedPreviewData.availabilityEntries,
 		statusTypes: resolvedPreviewData.statusTypes,
 		candidatePersonnelIds: input.candidatePersonnelIds,
@@ -1880,7 +1826,6 @@ export async function previewDutyEventSeriesFromTemplate(
 			holidayClosureDates: resolvedPreviewData.holidayClosureDates ?? new Set(),
 			historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 			excludedHistoryEventIdsByEventDate,
-			statusExemptPersonnelDatesByEventDate,
 			availabilityEntries: resolvedPreviewData.availabilityEntries,
 			statusTypes: resolvedPreviewData.statusTypes,
 			candidatePersonnelIds: input.candidatePersonnelIds,

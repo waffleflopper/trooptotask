@@ -94,7 +94,7 @@ describe('DutyRosterWizard step components', () => {
 				onChooseTemplate
 			}
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
 		expect(onChooseTemplate).toHaveBeenCalledWith('at-sd');
 	});
 
@@ -104,8 +104,8 @@ describe('DutyRosterWizard step components', () => {
 		render(AdvancedTemplateListStep, {
 			props: { activeAdvancedTemplates: [makeTemplate()], onBack: vi.fn(), onChooseTemplate, onBuildFromScratch }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Battalion Staff Duty' }));
 		expect(onBuildFromScratch).toHaveBeenCalled();
 		expect(onChooseTemplate).toHaveBeenCalledWith('tmpl-1');
 	});
@@ -117,7 +117,6 @@ describe('DutyRosterWizard step components', () => {
 				template: makeTemplate(),
 				enabledSoftPrefs: [{ type: 'longest-break', enabled: true }],
 				hasRotationBaselines: false,
-				statusTypeNameById: new Map(),
 				onBack: vi.fn(),
 				onEditTemplate: vi.fn(),
 				onContinue

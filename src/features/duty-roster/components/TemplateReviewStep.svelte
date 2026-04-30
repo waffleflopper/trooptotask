@@ -12,7 +12,6 @@
 		cooldownHours: number;
 		draftSlots: Array<{ key: string; quantity: number; roleLabel: string }>;
 		draftRotationBaselines: Array<{ key: string }>;
-		exemptStatusTypeIds: string[];
 		enabledSoftPreferenceSummary: string;
 		saveError: string;
 		isDirty: boolean;
@@ -31,58 +30,55 @@
 <section class="builder-card summary-card" aria-label="Template summary">
 	<p class="eyebrow">Review</p>
 	<h3>{props.templateName || 'Untitled advanced duty template'}</h3>
-	<p class="summary-line">Status: <strong>{props.templateStatus}</strong></p>
-	<p class="summary-line">
-		Scope: <strong
-			>{props.scopeType === 'organization'
-				? 'whole organization'
-				: `${props.scopeGroupIds.length} selected group${props.scopeGroupIds.length === 1 ? '' : 's'}`}</strong
-		>
-	</p>
-	<p class="summary-line">
-		Coverage: <strong
-			>{props.coverageMode === 'timed'
-				? `${props.startTime || '--:--'} to ${props.endTime || '--:--'}`
-				: 'all day'}</strong
-		>
-	</p>
-	<p class="summary-line">
-		Conflict policy: <strong>{props.isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong>
-	</p>
-	<p class="summary-line">
-		Cooldown: <strong>{props.cooldownHours} hour{props.cooldownHours === 1 ? '' : 's'}</strong>
-	</p>
-	<p class="summary-line">Slot definitions: <strong>{props.draftSlots.length}</strong></p>
-	<p class="summary-line">Rotation starting points: <strong>{props.draftRotationBaselines.length}</strong></p>
-	<p class="summary-line">Status-based exemptions: <strong>{props.exemptStatusTypeIds.length}</strong></p>
 
-	<div class="policy-summary">
-		<p class="eyebrow">Policy summary</p>
-		<p class="summary-line">Soft order: <strong>{props.enabledSoftPreferenceSummary}</strong></p>
-		<p class="summary-line">
-			Blocking duty: <strong
-				>{props.isBlocking
-					? 'People on this duty are treated as unavailable for overlapping duties.'
-					: 'This duty does not block overlapping assignments.'}</strong
-			>
-		</p>
-		<p class="summary-line">
-			Cooldown: <strong
-				>{props.cooldownHours > 0
-					? `After the shift ends, the same person stays protected for ${props.cooldownHours} hour${props.cooldownHours === 1 ? '' : 's'}.`
-					: 'No extra recovery window is enforced after the shift ends.'}</strong
-			>
-		</p>
-		<p class="summary-line">
-			Fairness confidence: <strong
-				>Low confidence means the queue is still learning because history or starting points are thin.</strong
-			>
-		</p>
-	</div>
+	<dl class="summary-grid">
+		<div>
+			<dt>Status</dt>
+			<dd>{props.templateStatus}</dd>
+		</div>
+		<div>
+			<dt>Scope</dt>
+			<dd>
+				{props.scopeType === 'organization'
+					? 'Whole organization'
+					: `${props.scopeGroupIds.length} selected group${props.scopeGroupIds.length === 1 ? '' : 's'}`}
+			</dd>
+		</div>
+		<div>
+			<dt>Coverage</dt>
+			<dd>
+				{props.coverageMode === 'timed' ? `${props.startTime || '--:--'} to ${props.endTime || '--:--'}` : 'All day'}
+			</dd>
+		</div>
+		<div>
+			<dt>Conflict</dt>
+			<dd>{props.isBlocking ? 'Blocking' : 'Non-blocking'}</dd>
+		</div>
+		<div>
+			<dt>Cooldown</dt>
+			<dd>{props.cooldownHours} hour{props.cooldownHours === 1 ? '' : 's'}</dd>
+		</div>
+		<div>
+			<dt>Slots</dt>
+			<dd>{props.draftSlots.length}</dd>
+		</div>
+		<div>
+			<dt>Baselines</dt>
+			<dd>{props.draftRotationBaselines.length}</dd>
+		</div>
+		<div>
+			<dt>Status Availability</dt>
+			<dd>From status settings</dd>
+		</div>
+		<div class="summary-wide">
+			<dt>Tie Breakers</dt>
+			<dd>{props.enabledSoftPreferenceSummary}</dd>
+		</div>
+	</dl>
 
 	{#if props.draftSlots.length === 0}
 		<p class="summary-empty">
-			No slot definitions — return to <strong>Slot Builder</strong> to add at least one slot before saving.
+			No slots yet. Return to <strong>Slot Builder</strong> before saving.
 		</p>
 	{:else}
 		<ul class="summary-slots">
@@ -126,18 +122,35 @@
 	h3 {
 		margin: 0;
 	}
-	.summary-line,
 	.summary-empty,
 	.unsaved-notice,
 	.error-message {
 		margin: var(--sp-2) 0 0;
 	}
-	.policy-summary {
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: var(--sp-3);
 		margin-top: var(--sp-4);
-		padding: var(--sp-4);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
+	}
+	.summary-grid div {
+		padding-top: var(--sp-2);
+		border-top: 1px solid var(--border-subtle);
+	}
+	.summary-grid dt {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+	.summary-grid dd {
+		margin: var(--sp-1) 0 0;
+		color: var(--text-primary);
+	}
+	.summary-wide {
+		grid-column: 1 / -1;
 	}
 	.summary-slots {
 		margin: var(--sp-3) 0 0;

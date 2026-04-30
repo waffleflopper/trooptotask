@@ -4,20 +4,11 @@
 		template: DutyTemplate;
 		enabledSoftPrefs: SoftPreferenceConfig[];
 		hasRotationBaselines: boolean;
-		statusTypeNameById: Map<string, string>;
 		onBack: () => void;
 		onEditTemplate: () => void;
 		onContinue: () => void;
 	}
-	let {
-		template,
-		enabledSoftPrefs,
-		hasRotationBaselines,
-		statusTypeNameById,
-		onBack,
-		onEditTemplate,
-		onContinue
-	}: Props = $props();
+	let { template, enabledSoftPrefs, hasRotationBaselines, onBack, onEditTemplate, onContinue }: Props = $props();
 </script>
 
 <section class="step-card card card-flat">
@@ -56,12 +47,8 @@
 			</dd>
 		</div>
 		<div class="policy-row">
-			<dt>Status exemptions</dt>
-			<dd>
-				{#if (template.exemptStatusTypeIds ?? []).length > 0}{(template.exemptStatusTypeIds ?? [])
-						.map((statusTypeId) => statusTypeNameById.get(statusTypeId) ?? statusTypeId)
-						.join(', ')}{:else}None{/if}
-			</dd>
+			<dt>Status availability</dt>
+			<dd>Handled by Calendar status treatments</dd>
 		</div>
 		<div class="policy-row">
 			<dt>Slots</dt>

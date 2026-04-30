@@ -3,6 +3,7 @@ import type { ComponentProps } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import DutyRosterWizard from './DutyRosterWizard.svelte';
+import AppliedEventManager from './AppliedEventManager.svelte';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 import {
@@ -340,6 +341,36 @@ function renderWizard(overrides: Partial<ComponentProps<typeof DutyRosterWizard>
 	});
 }
 
+function renderAppliedEventManager(overrides: Partial<ComponentProps<typeof AppliedEventManager>> = {}) {
+	const personnel = [
+		makePersonnel(),
+		makePersonnel({
+			id: 'person-alt',
+			firstName: 'Blake',
+			lastName: 'Zimmer'
+		}),
+		makePersonnel({
+			id: 'person-conflict',
+			firstName: 'Jordan',
+			lastName: 'Hayes'
+		})
+	];
+
+	return render(AppliedEventManager, {
+		props: {
+			advancedDutyEvents: [makeAppliedEvent()],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onPreviewExistingAdvancedEvent: vi.fn(async () => makePreview()),
+			onUpdateExistingAdvancedEvent: vi.fn(async () => makeAppliedEvent()),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => ({ deletedEvents: 1 })),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => ({ deletedEvents: 1 })),
+			...overrides
+		}
+	});
+}
+
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	let reject!: (reason?: unknown) => void;
@@ -603,11 +634,8 @@ describe('DutyRosterWizard', () => {
 			);
 		});
 
-		expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
-		expect(screen.getAllByText('Battalion Staff Duty').length).toBeGreaterThan(0);
-		expect(screen.getByText('2 applied events · Apr 7, 2026 to Apr 9, 2026')).toBeTruthy();
-		expect(screen.getByText('Apr 7, 2026')).toBeTruthy();
-		expect(screen.getAllByText('0800-0800 next day · 1/1 filled').length).toBeGreaterThan(0);
+		expect(screen.getByText('Select an existing template or build one from scratch.')).toBeTruthy();
+		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
 	});
 
@@ -658,7 +686,7 @@ describe('DutyRosterWizard', () => {
 
 		await waitFor(() => {
 			expect(screen.queryByRole('dialog', { name: 'Applying duty roster' })).toBeNull();
-			expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
+			expect(screen.getByText('Select an existing template or build one from scratch.')).toBeTruthy();
 		});
 	});
 
@@ -1515,7 +1543,7 @@ describe('DutyRosterWizard', () => {
 			updatedAt: '2026-04-04T12:00:00.000Z'
 		};
 
-		renderWizard({
+		renderAppliedEventManager({
 			advancedDutyEvents: [
 				makeAppliedEvent({
 					id: 'cq-event-1',
@@ -1596,7 +1624,7 @@ describe('DutyRosterWizard', () => {
 			})
 		);
 
-		renderWizard({
+		renderAppliedEventManager({
 			advancedDutyEvents: [makeAppliedEvent()],
 			onPreviewExistingAdvancedEvent: previewExistingHandler,
 			onUpdateExistingAdvancedEvent: updateExistingHandler
@@ -1654,7 +1682,7 @@ describe('DutyRosterWizard', () => {
 		HTMLAnchorElement.prototype.click = anchorClick;
 
 		try {
-			renderWizard({
+			renderAppliedEventManager({
 				advancedDutyEvents: [
 					makeAppliedEvent({
 						templateName: 'CQ',
@@ -1882,15 +1910,7 @@ describe('DutyRosterWizard', () => {
 			screen.getAllByText('SSG Hartney is already covering Staff Duty during this window.').length
 		).toBeGreaterThan(0);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
-
-		await waitFor(() => {
-			expect(screen.getByText('Edit applied duty event')).toBeTruthy();
-		});
-
-		expect(screen.getAllByText('Why this Soldier was selected').length).toBeGreaterThan(1);
-		expect(screen.getAllByText('Why others were skipped').length).toBeGreaterThan(1);
-		expect(screen.getAllByText('Why this slot stayed unfilled').length).toBeGreaterThan(1);
+		expect(screen.queryByRole('button', { name: 'Open Event Apr 10, 2026' })).toBeNull();
 	});
 
 	it('uses clearer explanation labels for skipped candidates and unfilled slots', async () => {
@@ -2045,20 +2065,17 @@ describe('DutyRosterWizard', () => {
 		expect(activeStepLabel?.textContent).toContain('Candidate Review');
 	});
 
-	it('hides the applied events ledger when the simple generator lane is active', async () => {
+	it('leaves applied event inspection outside the wizard lanes', async () => {
 		renderWizard();
 
-		// Before entering any lane, applied events section is visible
-		expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
+		expect(screen.queryByText('Applied advanced duty events')).toBeNull();
 
-		// Enter the simple generator lane
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
 		await waitFor(() => {
 			expect(screen.getByText('Duty planning')).toBeTruthy();
 		});
 
-		// Applied events section should be hidden
 		expect(screen.queryByText('Applied advanced duty events')).toBeNull();
 	});
 });

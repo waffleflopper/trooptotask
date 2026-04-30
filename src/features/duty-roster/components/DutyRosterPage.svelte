@@ -3,6 +3,7 @@
 	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
+	import AppliedEventManager from './AppliedEventManager.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -62,13 +63,17 @@
 
 	let { data }: Props = $props();
 
+	type DutyRosterSection = 'simple-roster' | 'advanced-workspace' | 'advanced-templates';
+	type AdvancedWorkspaceView = 'active-run' | 'applied-events';
+
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
 	const canAccessAdvancedDuty = $derived(!data.scopedGroupId && (org.isPrivileged || org.isFullEditor));
 	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
 	const workspaceData = $derived(data.calendar?.data ?? data);
-	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
+	let activeTab = $state<DutyRosterSection>('advanced-workspace');
+	let activeAdvancedWorkspaceView = $state<AdvancedWorkspaceView>('active-run');
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
 	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(
@@ -76,9 +81,16 @@
 	);
 
 	const dutyRosterTabs = $derived.by(() => {
-		const tabs: Array<{ label: string; value: 'wizard' | 'advanced-templates'; title?: string }> = [
-			{ label: 'Wizard', value: 'wizard' }
+		const tabs: Array<{ label: string; value: DutyRosterSection; title?: string }> = [
+			{ label: 'Simple Roster', value: 'simple-roster' }
 		];
+		if (canAccessAdvancedDuty) {
+			tabs.push({
+				label: 'Advanced Workspace',
+				value: 'advanced-workspace',
+				title: 'Configure, review, apply, and inspect advanced duty runs'
+			});
+		}
 		if (canManageAdvancedTemplates) {
 			tabs.push({
 				label: `Advanced Templates (${visibleAdvancedTemplateCount})`,
@@ -89,6 +101,11 @@
 		return tabs;
 	});
 
+	const advancedWorkspaceViews = [
+		{ label: 'Active Run', value: 'active-run' },
+		{ label: 'Applied Events', value: 'applied-events' }
+	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>;
+
 	const relatedLinks = $derived([
 		{ label: 'Assignments', href: `/org/${org.orgId}/calendar/assignments` },
 		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
@@ -96,7 +113,10 @@
 
 	$effect(() => {
 		if (!canManageAdvancedTemplates && activeTab === 'advanced-templates') {
-			activeTab = 'wizard';
+			activeTab = canAccessAdvancedDuty ? 'advanced-workspace' : 'simple-roster';
+		}
+		if (!canAccessAdvancedDuty && activeTab === 'advanced-workspace') {
+			activeTab = 'simple-roster';
 		}
 	});
 
@@ -114,6 +134,17 @@
 		})
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const personnelById = $derived.by(
+		() => new Map(scopedPBG.flatMap((group) => group.personnel.map((person) => [person.id, person] as const)))
+	);
+	const previewPersonnelOptions = $derived.by(() =>
+		[...personnelById.values()].sort(
+			(a, b) =>
+				a.lastName.localeCompare(b.lastName, 'en-US') ||
+				a.firstName.localeCompare(b.firstName, 'en-US') ||
+				a.id.localeCompare(b.id)
+		)
+	);
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
 		const raw = await res.text();
@@ -460,7 +491,7 @@
 			<h1>Access restricted.</h1>
 			<p>Only organization admins and full editors can manage duty rosters.</p>
 		</section>
-	{:else if activeTab === 'wizard'}
+	{:else if activeTab === 'simple-roster'}
 		<DutyRosterWizard
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
@@ -489,6 +520,60 @@
 			{canManageAdvancedTemplates}
 			onManageAdvancedTemplates={handleManageAdvancedTemplates}
 		/>
+	{:else if activeTab === 'advanced-workspace'}
+		<section class="advanced-workspace" aria-label="Advanced Duty Workspace">
+			<div class="advanced-workspace__bar">
+				<ToolbarViewToggle
+					ariaLabel="Advanced Duty Workspace views"
+					options={advancedWorkspaceViews}
+					mode="full"
+					value={activeAdvancedWorkspaceView}
+					onValueChange={(value) => (activeAdvancedWorkspaceView = value as AdvancedWorkspaceView)}
+				/>
+			</div>
+
+			{#if activeAdvancedWorkspaceView === 'active-run'}
+				<DutyRosterWizard
+					assignmentTypes={dailyAssignmentsStore.types}
+					assignments={dailyAssignmentsStore.assignments}
+					personnelByGroup={scopedPBG}
+					groups={groupsStore.names}
+					availabilityEntries={availabilityStore.items}
+					statusTypes={statusTypesStore.items}
+					specialDays={specialDaysStore.items}
+					rosterHistory={dutyRosterHistoryStore.items}
+					{advancedDutyTemplates}
+					{advancedDutyEvents}
+					onApplyRoster={handleApplyRoster}
+					onSaveRoster={handleSaveRoster}
+					onDeleteRoster={handleDeleteRoster}
+					onUpdateExemptions={handleUpdateExemptions}
+					onPreviewAdvancedEvent={handlePreviewAdvancedEvent}
+					onApplyAdvancedEvent={handleApplyAdvancedEvent}
+					onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
+					onApplyAdvancedSeries={handleApplyAdvancedSeries}
+					onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+					onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+					onDeleteAdvancedRun={handleDeleteAdvancedRun}
+					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
+					{canManageAdvancedTemplates}
+					onManageAdvancedTemplates={handleManageAdvancedTemplates}
+				/>
+			{:else}
+				<AppliedEventManager
+					{advancedDutyEvents}
+					{personnelById}
+					{previewPersonnelOptions}
+					onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+					onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+					onDeleteAdvancedRun={handleDeleteAdvancedRun}
+					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+				/>
+			{/if}
+		</section>
 	{:else}
 		<AdvancedDutyTemplateBuilder
 			templates={advancedDutyTemplates}
@@ -505,12 +590,25 @@
 
 <style>
 	.duty-roster-page {
-		max-width: 1200px;
+		max-width: 1500px;
 		margin: 0 auto;
 		padding: var(--sp-4) var(--sp-6) var(--sp-6);
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
+	}
+
+	.advanced-workspace {
+		display: grid;
+		gap: var(--sp-4);
+	}
+
+	.advanced-workspace__bar {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.restricted-hero {

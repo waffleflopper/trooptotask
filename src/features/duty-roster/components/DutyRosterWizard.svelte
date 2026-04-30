@@ -1,7 +1,6 @@
 <script lang="ts">
 	import DutyRosterGenerator from './DutyRosterGenerator.svelte';
 	import WizardStepper from './WizardStepper.svelte';
-	import AppliedEventManager from './AppliedEventManager.svelte';
 	import LaneChooserStep from './LaneChooserStep.svelte';
 	import SimpleTemplateListStep from './SimpleTemplateListStep.svelte';
 	import AdvancedTemplateListStep from './AdvancedTemplateListStep.svelte';
@@ -120,10 +119,6 @@
 	let isPreviewingAdvancedSeries = $state(false);
 	let isRefreshingAdvancedSeriesPreview = $state(false);
 	let isApplyingAdvancedSeries = $state(false);
-	let localAdvancedDutyEvents = $derived(
-		[...props.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
-	);
-
 	const simpleTemplates = $derived(getLegacySimpleTemplates(props.assignmentTypes));
 	const selectedSimpleTemplate = $derived(
 		simpleTemplates.find((template) => template.assignmentTypeId === selectedSimpleAssignmentTypeId) ?? null
@@ -385,31 +380,21 @@
 			if (advancedPreviewMode === 'single') {
 				const input = simpleEventInput();
 				if (!input) return;
-				const result = await props.onApplyAdvancedEvent({
+				await props.onApplyAdvancedEvent({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
-				if (result)
-					localAdvancedDutyEvents = [
-						result,
-						...localAdvancedDutyEvents.filter((existing) => existing.id !== result.id)
-					].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 			} else {
 				const input = seriesInput();
 				if (!input) return;
-				const result = await props.onApplyAdvancedSeries({
+				await props.onApplyAdvancedSeries({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
-				if (result)
-					localAdvancedDutyEvents = [
-						...result.events,
-						...localAdvancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
-					].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 			}
 			advancedPreviewMode = null;
 			advancedSeriesPreview = null;
@@ -555,18 +540,6 @@
 			onResetSlot={resetSeriesSlot}
 		/>{/if}
 
-	{#if view !== 'simple-template-list' && view !== 'simple-generator'}
-		<AppliedEventManager
-			advancedDutyEvents={localAdvancedDutyEvents}
-			{personnelById}
-			{previewPersonnelOptions}
-			onPreviewExistingAdvancedEvent={props.onPreviewExistingAdvancedEvent}
-			onUpdateExistingAdvancedEvent={props.onUpdateExistingAdvancedEvent}
-			onDeleteAdvancedEvent={props.onDeleteAdvancedEvent}
-			onDeleteAdvancedRun={props.onDeleteAdvancedRun}
-			onDeleteLegacyAdvancedGroup={props.onDeleteLegacyAdvancedGroup}
-		/>
-	{/if}
 	{#if progressMode}
 		<DutyRosterProgressModal mode={progressMode} eventCount={progressEventCount} />
 	{/if}

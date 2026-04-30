@@ -327,13 +327,13 @@ describe('advanced duty run snapshots', () => {
 				expect.objectContaining({
 					personnelId: 'person-baker',
 					reasonCode: 'advanced-duty-overlap',
-					selectable: true,
+					selectable: false,
 					chargeable: true
 				}),
 				expect.objectContaining({
 					personnelId: 'person-nco',
 					reasonCode: 'advanced-duty-cooldown',
-					selectable: true,
+					selectable: false,
 					chargeable: true
 				}),
 				expect.objectContaining({
@@ -342,7 +342,10 @@ describe('advanced duty run snapshots', () => {
 				})
 			])
 		);
-		expect(event.preview.slotInstances.map((slot) => slot.assigneeId)).toEqual(['person-chen', 'person-nco']);
+		expect(event.preview.slotInstances.map((slot) => slot.assigneeId)).toEqual(['person-chen', null]);
+		expect(event.preview.slotInstances[1].unfilledReason).toBe(
+			'No eligible Soldier remained after availability and blocking checks.'
+		);
 	});
 
 	it('exposes a preview team duty packet export model for generated, overridden, locked, cleared, and unfilled slots', async () => {

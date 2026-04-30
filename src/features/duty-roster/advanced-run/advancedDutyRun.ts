@@ -25,6 +25,7 @@ interface PoolHistorySummary {
 
 export interface AdvancedRunHistoryEvent {
 	id: string;
+	templateId?: string;
 	eventDate: string;
 	coverageStart?: string;
 	coverageEnd?: string;
@@ -536,8 +537,8 @@ function classifyAdvancedAvailability(input: {
 		if (advancedDutyBlock) {
 			return {
 				personnelId: person.id,
-				// Advanced runs allow conflict-with-warning manual overrides; simple DA6 runs block these.
-				selectable: true,
+				// Generated runs must respect blocking duty and cooldown. Manual overrides still surface this as a conflict.
+				selectable: false,
 				chargeable: true,
 				treatment: null,
 				statusNames: [],
@@ -727,7 +728,11 @@ function buildPoolHistoryIndex(
 	}
 
 	for (const event of historyEvents) {
-		if (event.eventDate > cutoffDate || excludedHistoryEventIds.has(event.id)) {
+		if (
+			event.eventDate > cutoffDate ||
+			excludedHistoryEventIds.has(event.id) ||
+			(event.templateId && event.templateId !== template.id)
+		) {
 			continue;
 		}
 		for (const slot of event.slotInstances) {

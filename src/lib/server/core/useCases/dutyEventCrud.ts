@@ -135,6 +135,8 @@ function toPublicDutyEventPreview(preview: InternalDutyEventPreview): DutyEventP
 		templateId: preview.templateId,
 		templateName: preview.templateName,
 		eventDate: preview.eventDate,
+		advancedDa6SequenceKey: preview.advancedDa6SequenceKey,
+		advancedDa6SequenceLabel: preview.advancedDa6SequenceLabel,
 		coverageMode: preview.coverageMode,
 		coverageStart: preview.coverageStart,
 		coverageEnd: preview.coverageEnd,
@@ -550,15 +552,47 @@ function normalizeSoftPreferencesForRanking(
 		return defaults;
 	}
 
-	const provided = new Map(softPreferences.map((preference) => [preference.type, preference]));
-	const orderedTypes = [
-		...softPreferences.map((preference) => preference.type),
-		...defaultSoftPreferenceOrder.filter((type) => !provided.has(type))
-	];
-
-	return [...new Set(orderedTypes)].map(
-		(type) => provided.get(type) ?? { type, enabled: defaults.find((item) => item.type === type)?.enabled ?? true }
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
 	);
+	const hasCurrentWeekendPolicy = softPreferences.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = softPreferences.some(
+		(preference) => preference.type === 'include-holiday-donsa-da6'
+	);
+
+	for (const preference of softPreferences) {
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
+		}
+	}
+
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
+	}
+
+	return defaultSoftPreferenceOrder.map((type) => byType.get(type) ?? defaults.find((item) => item.type === type)!);
 }
 
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
@@ -782,7 +816,7 @@ async function expandSeriesDates(ctx: QueryPorts, input: DutyEventSeriesInput): 
 		}
 		case 'holiday-closure-only':
 			if (!input.startDate || !input.endDate) {
-				fail(400, 'Holiday/closure runs require both a start date and end date.');
+				fail(400, 'Holiday/DONSA runs require both a start date and end date.');
 			}
 			return getHolidayClosureDates(ctx, input.startDate, input.endDate);
 	}
@@ -1008,10 +1042,28 @@ async function buildCollisionSummary(
 			inFilters: { assignee_id: assigneeIds, date: buildCoveredDates(coverageStart, coverageEnd) }
 		}
 	);
+	const assignmentTypeIds = [
+		...new Set(
+			dailyAssignmentRows
+				.map((row) => row.assignment_type_id)
+				.filter((id): id is string => typeof id === 'string' && id.length > 0)
+		)
+	];
+	const assignmentTypeRows =
+		assignmentTypeIds.length > 0
+			? await ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId, undefined, {
+					inFilters: { id: assignmentTypeIds }
+				})
+			: [];
+	const assignmentTypeNameById = new Map(
+		assignmentTypeRows.map((row) => [String(row.id), String(row.name ?? row.short_name ?? row.id)])
+	);
 
 	for (const row of dailyAssignmentRows) {
 		const assigneeId = String(row.assignee_id);
-		const message = `${formatPersonLabel(personnelById, assigneeId)} already has a daily assignment on ${String(row.date)}. Review this collision before apply.`;
+		const assignmentTypeId = typeof row.assignment_type_id === 'string' ? row.assignment_type_id : '';
+		const assignmentLabel = assignmentTypeNameById.get(assignmentTypeId) ?? 'a daily assignment';
+		const message = `${formatPersonLabel(personnelById, assigneeId)} already has ${assignmentLabel} on ${String(row.date)}. Review this collision before apply.`;
 		for (const slot of blockingSlotsByAssignee.get(assigneeId) ?? []) {
 			addSlotConflict(
 				slotMessages,

@@ -335,7 +335,7 @@ describe('DutyRosterGenerator', () => {
 		expect(da6Rows[1]).toContain('Alpha');
 	});
 
-	it('skips excluded holidays and org closures when generating a simple roster', async () => {
+	it('skips excluded holidays and DONSAs when generating a simple roster', async () => {
 		renderGenerator({
 			specialDays: [
 				{
@@ -356,7 +356,7 @@ describe('DutyRosterGenerator', () => {
 		await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-04-10' } });
 		await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-04-12' } });
 		await fireEvent.click(screen.getByLabelText('Skip federal holidays'));
-		await fireEvent.click(screen.getByLabelText('Skip org closures'));
+		await fireEvent.click(screen.getByLabelText('Skip DONSAs'));
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Roster' }));
 
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy());

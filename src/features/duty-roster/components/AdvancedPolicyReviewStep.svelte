@@ -1,14 +1,15 @@
 <script lang="ts">
-	import type { DutyTemplate, SoftPreferenceConfig } from '../duty-roster.types';
+	import type { DutyTemplate } from '../duty-roster.types';
+	import { enabledSoftPreferenceSummary } from './advancedDutyTemplateBuilder.helpers';
 	interface Props {
 		template: DutyTemplate;
-		enabledSoftPrefs: SoftPreferenceConfig[];
 		hasRotationBaselines: boolean;
 		onBack: () => void;
 		onEditTemplate: () => void;
 		onContinue: () => void;
 	}
-	let { template, enabledSoftPrefs, hasRotationBaselines, onBack, onEditTemplate, onContinue }: Props = $props();
+	let { template, hasRotationBaselines, onBack, onEditTemplate, onContinue }: Props = $props();
+	const da6RankingSummary = $derived(enabledSoftPreferenceSummary(template.softPreferences));
 </script>
 
 <section class="step-card card card-flat">
@@ -68,23 +69,9 @@
 		{/each}
 	</div>
 
-	{#if enabledSoftPrefs.length > 0 || !hasRotationBaselines}
+	{#if da6RankingSummary || !hasRotationBaselines}
 		<div class="policy-note">
-			{#if enabledSoftPrefs.length > 0}
-				<p>
-					Ranking: {enabledSoftPrefs
-						.map((pref) =>
-							pref.type === 'longest-break'
-								? 'longest break'
-								: pref.type === 'holiday-closure'
-									? 'holiday volunteers'
-									: pref.type === 'weekend'
-										? 'weekend volunteers'
-										: 'preferred group'
-						)
-						.join(', ')}.
-				</p>
-			{/if}
+			<p>DA6 ranking: {da6RankingSummary}.</p>
 			{#if !hasRotationBaselines}
 				<p>No baseline history yet. First-run ranking starts from equal freshness.</p>
 			{/if}

@@ -109,15 +109,6 @@
 							>
 							{#if props.setupMode === 'full'}
 								<label class="field"
-									><span>Preferred groups</span><MultiTagSelect
-										options={props.groupTagOptions}
-										value={slot.preferredGroupIds}
-										placeholder="Any group..."
-										ariaLabel="Preferred groups"
-										onChange={(ids) => props.onUpdateSlot(slot.key, { preferredGroupIds: ids })}
-									/></label
-								>
-								<label class="field"
 									><span>MOS filter</span><MultiTagSelect
 										options={props.mosTagOptions}
 										value={slot.allowedMosValues}

@@ -158,7 +158,7 @@ export function formatSeriesPatternLabel(pattern: DutyEventSeriesPattern): strin
 		case 'selected-weekdays':
 			return 'Selected weekdays';
 		case 'holiday-closure-only':
-			return 'Holiday/closure only';
+			return 'Holiday/DONSA only';
 		case 'custom-dates':
 			return 'Custom dates';
 	}

@@ -90,9 +90,8 @@ describe('advancedDutyCollections', () => {
 		expect(template.exemptStatusTypeIds).toEqual([]);
 		expect(template.softPreferences.map((preference) => preference.type)).toEqual([
 			'longest-break',
-			'holiday-closure',
-			'weekend',
-			'preferred-group'
+			'separate-weekend-da6',
+			'include-holiday-donsa-da6'
 		]);
 		expect(template.slots).toEqual([]);
 		expect(template.rotationBaselines).toEqual([]);

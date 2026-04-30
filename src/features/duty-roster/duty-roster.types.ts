@@ -3,7 +3,13 @@ export type DutyTemplateStatus = 'draft' | 'active' | 'archived';
 export type DutyTemplateScopeType = 'organization' | 'groups';
 export type DutyTemplateCoverageMode = 'all-day' | 'timed';
 export type DutyTemplateSlotBlockingMode = 'inherit' | 'blocking' | 'non-blocking';
-export type SoftPreferenceType = 'longest-break' | 'holiday-closure' | 'weekend' | 'preferred-group';
+export type SoftPreferenceType =
+	| 'longest-break'
+	| 'separate-weekend-da6'
+	| 'include-holiday-donsa-da6'
+	| 'holiday-closure'
+	| 'weekend'
+	| 'preferred-group';
 export type DutyEventSeriesPattern =
 	| 'daily'
 	| 'weekday-only'
@@ -18,15 +24,27 @@ export interface SoftPreferenceConfig {
 	enabled: boolean;
 }
 
-export const DEFAULT_SOFT_PREFERENCE_ORDER = [
+export const DEFAULT_SOFT_PREFERENCE_CONFIG = [
+	{ type: 'longest-break', enabled: true },
+	{ type: 'separate-weekend-da6', enabled: false },
+	{ type: 'include-holiday-donsa-da6', enabled: false }
+] as const satisfies readonly SoftPreferenceConfig[];
+
+export const DEFAULT_SOFT_PREFERENCE_ORDER = DEFAULT_SOFT_PREFERENCE_CONFIG.map((preference) => preference.type) as [
 	'longest-break',
+	'separate-weekend-da6',
+	'include-holiday-donsa-da6'
+];
+
+export const PERSISTED_SOFT_PREFERENCE_TYPES = [
+	...DEFAULT_SOFT_PREFERENCE_ORDER,
 	'holiday-closure',
 	'weekend',
 	'preferred-group'
 ] as const satisfies readonly SoftPreferenceType[];
 
 export function cloneDefaultSoftPreferences(): SoftPreferenceConfig[] {
-	return DEFAULT_SOFT_PREFERENCE_ORDER.map((type) => ({ type, enabled: true }));
+	return DEFAULT_SOFT_PREFERENCE_CONFIG.map((preference) => ({ ...preference }));
 }
 
 export interface DutyTemplateSlot {
@@ -324,6 +342,8 @@ export interface DutyEventPreview {
 	templateId: string;
 	templateName: string;
 	eventDate: string;
+	advancedDa6SequenceKey?: 'single' | 'weekday' | 'weekend-holiday';
+	advancedDa6SequenceLabel?: string;
 	coverageMode: DutyTemplateCoverageMode;
 	coverageStart: string;
 	coverageEnd: string;

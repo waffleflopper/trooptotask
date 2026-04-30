@@ -876,6 +876,15 @@ describe('duty event apply use case', () => {
 				assignee_id: 'person-nco'
 			}
 		]);
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-existing',
+				organization_id: ctx.auth.orgId,
+				name: 'Ammo Detail',
+				color: '#6b7280',
+				sort_order: 0
+			}
+		]);
 
 		const template = await createDutyTemplate(ctx, {
 			status: 'active',
@@ -906,7 +915,7 @@ describe('duty event apply use case', () => {
 
 		expect(preview.collisionSummary).toEqual({
 			hasConflicts: true,
-			conflicts: ['SGT Nolan already has a daily assignment on 2026-04-10. Review this collision before apply.']
+			conflicts: ['SGT Nolan already has Ammo Detail on 2026-04-10. Review this collision before apply.']
 		});
 
 		await expect(
@@ -1084,6 +1093,15 @@ describe('duty event apply use case', () => {
 				assignee_id: 'person-nco'
 			}
 		]);
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-existing',
+				organization_id: ctx.auth.orgId,
+				name: 'Range Detail',
+				color: '#6b7280',
+				sort_order: 0
+			}
+		]);
 
 		const template = await createDutyTemplate(ctx, {
 			status: 'active',
@@ -1114,7 +1132,7 @@ describe('duty event apply use case', () => {
 
 		expect(preview.collisionSummary).toEqual({
 			hasConflicts: true,
-			conflicts: ['SGT Nolan already has a daily assignment on 2026-04-11. Review this collision before apply.']
+			conflicts: ['SGT Nolan already has Range Detail on 2026-04-11. Review this collision before apply.']
 		});
 
 		await expect(
@@ -3120,7 +3138,7 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('prefers selected groups when longest-break history is otherwise tied', async () => {
+	it('uses DA6 roster order instead of preferred groups when longest-break history is tied', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3177,11 +3195,11 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.slotInstances[0]).toMatchObject({
-			assigneeId: 'person-preferred'
+			assigneeId: 'person-not-preferred'
 		});
 	});
 
-	it('avoids more recent weekend duty before applying the preferred-group tie-break', async () => {
+	it('uses the separate weekend DA6 sequence for weekend ranking when enabled', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3218,6 +3236,11 @@ describe('duty event apply use case', () => {
 			endTime: '08:00',
 			isBlocking: true,
 			cooldownHours: 24,
+			softPreferences: [
+				{ type: 'longest-break', enabled: true },
+				{ type: 'separate-weekend-da6', enabled: true },
+				{ type: 'include-holiday-donsa-da6', enabled: false }
+			],
 			slots: [
 				{
 					roleLabel: 'NCO',
@@ -3381,9 +3404,13 @@ describe('duty event apply use case', () => {
 		expect(preview.slotInstances[0]).toMatchObject({
 			assigneeId: 'person-weekend-rested'
 		});
+		expect(preview).toMatchObject({
+			advancedDa6SequenceKey: 'weekend-holiday',
+			advancedDa6SequenceLabel: 'separate weekend DA6 sequence'
+		});
 	});
 
-	it('uses the saved soft-preference order when preferred groups should outrank weekend spacing', async () => {
+	it('normalizes legacy soft preferences without restoring preferred-group ranking', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3519,11 +3546,11 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.slotInstances[0]).toMatchObject({
-			assigneeId: 'person-weekend-preferred'
+			assigneeId: 'person-weekend-rested'
 		});
 	});
 
-	it('avoids back-to-back holiday or closure duty before applying later soft preferences', async () => {
+	it('uses the weekend DA6 sequence for holidays and DONSAs when included', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('special_days', [
@@ -3584,6 +3611,11 @@ describe('duty event apply use case', () => {
 			endTime: '08:00',
 			isBlocking: true,
 			cooldownHours: 24,
+			softPreferences: [
+				{ type: 'longest-break', enabled: true },
+				{ type: 'separate-weekend-da6', enabled: true },
+				{ type: 'include-holiday-donsa-da6', enabled: true }
+			],
 			slots: [
 				{
 					roleLabel: 'NCO',
@@ -3746,6 +3778,10 @@ describe('duty event apply use case', () => {
 
 		expect(preview.slotInstances[0]).toMatchObject({
 			assigneeId: 'person-holiday-rested'
+		});
+		expect(preview).toMatchObject({
+			advancedDa6SequenceKey: 'weekend-holiday',
+			advancedDa6SequenceLabel: 'separate weekend, holiday, and DONSA DA6 sequence'
 		});
 	});
 

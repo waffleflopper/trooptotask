@@ -20,8 +20,12 @@ import type { AvailabilityEntry, Da6AvailabilityTreatment, Personnel, StatusType
 
 interface PoolHistorySummary {
 	lastServedDate: string | null;
-	lastWeekendDate: string | null;
-	lastHolidayClosureDate: string | null;
+	lastWeekendHolidayDate: string | null;
+}
+
+interface Da6RankingPolicy {
+	separateWeekendDa6: boolean;
+	includeHolidayDonsa: boolean;
 }
 
 export interface AdvancedRunHistoryEvent {
@@ -302,45 +306,105 @@ function normalizeSoftPreferencesForRanking(
 		return defaults;
 	}
 
-	const provided = new Map(softPreferences.map((preference) => [preference.type, preference]));
-	const orderedTypes = [
-		...softPreferences.map((preference) => preference.type),
-		...defaultSoftPreferenceOrder.filter((type) => !provided.has(type))
-	];
-
-	return [...new Set(orderedTypes)].map(
-		(type) => provided.get(type) ?? { type, enabled: defaults.find((item) => item.type === type)?.enabled ?? true }
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
 	);
-}
-
-function usesDefaultSoftPreferenceOrder(template: DutyTemplate): boolean {
-	const resolved = normalizeSoftPreferencesForRanking(template.softPreferences);
-	return resolved.every(
-		(preference, index) => preference.enabled === true && preference.type === defaultSoftPreferenceOrder[index]
+	const hasCurrentWeekendPolicy = softPreferences.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = softPreferences.some(
+		(preference) => preference.type === 'include-holiday-donsa-da6'
 	);
-}
 
-function describeSoftPreferenceOrder(template: DutyTemplate): string {
-	const enabled = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
-		(preference) => preference.enabled
-	);
-	if (enabled.length === 0) {
-		return 'eligibility rules and name tie-breakers only';
+	for (const preference of softPreferences) {
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
+		}
 	}
 
-	const labels: Record<SoftPreferenceConfig['type'], string> = {
-		'longest-break': 'longest break',
-		'holiday-closure': 'holiday and closure spacing',
-		weekend: 'weekend spacing',
-		'preferred-group': 'preferred groups'
-	};
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
+	}
 
-	return enabled.map((preference) => labels[preference.type]).join(', then ');
+	return defaultSoftPreferenceOrder.map((type) => byType.get(type) ?? defaults.find((item) => item.type === type)!);
+}
+
+function resolveDa6RankingPolicy(softPreferences: SoftPreferenceConfig[] | undefined): Da6RankingPolicy {
+	const resolved = normalizeSoftPreferencesForRanking(softPreferences);
+	const separateWeekendDa6 = resolved.some(
+		(preference) => preference.type === 'separate-weekend-da6' && preference.enabled
+	);
+	return {
+		separateWeekendDa6,
+		includeHolidayDonsa:
+			separateWeekendDa6 &&
+			resolved.some((preference) => preference.type === 'include-holiday-donsa-da6' && preference.enabled)
+	};
+}
+
+function isWeekendHolidaySequenceDate(date: string, holidayDonsaDates: Set<string>, policy: Da6RankingPolicy): boolean {
+	if (!policy.separateWeekendDa6) {
+		return false;
+	}
+	if (new Set([0, 6]).has(getDayOfWeek(date))) {
+		return true;
+	}
+	return policy.includeHolidayDonsa && holidayDonsaDates.has(date);
+}
+
+function describeDa6RankingPolicy(policy: Da6RankingPolicy, isWeekendHolidaySequence: boolean): string {
+	if (!policy.separateWeekendDa6) {
+		return 'single DA6 sequence';
+	}
+	return isWeekendHolidaySequence
+		? policy.includeHolidayDonsa
+			? 'separate weekend, holiday, and DONSA DA6 sequence'
+			: 'separate weekend DA6 sequence'
+		: 'weekday DA6 sequence';
+}
+
+function buildAdvancedDa6SequenceMetadata(
+	template: DutyTemplate,
+	eventDate: string,
+	holidayDonsaDates: Set<string>
+): Pick<DutyEventPreview, 'advancedDa6SequenceKey' | 'advancedDa6SequenceLabel'> {
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayDonsaDates, policy);
+	return {
+		advancedDa6SequenceKey: !policy.separateWeekendDa6
+			? 'single'
+			: isWeekendHolidaySequence
+				? 'weekend-holiday'
+				: 'weekday',
+		advancedDa6SequenceLabel: describeDa6RankingPolicy(policy, isWeekendHolidaySequence)
+	};
 }
 
 function buildGeneratedSelectionReason(
 	template: DutyTemplate,
 	slot: DutyTemplateSlot,
+	eventDate: string,
+	holidayDonsaDates: Set<string>,
 	fairnessConfidence: DutyEventFairnessConfidence,
 	missingHistoryCount: number,
 	eligibleCount: number
@@ -352,11 +416,9 @@ function buildGeneratedSelectionReason(
 		fairnessSuffix = ` Fairness confidence is medium: ${missingHistoryCount} of ${eligibleCount} eligible Soldier${eligibleCount === 1 ? '' : 's'} lack rotation history.`;
 	}
 
-	if (usesDefaultSoftPreferenceOrder(template)) {
-		return `Selected by longest break in rotation pool "${slot.rotationPoolKey}".${fairnessSuffix}`;
-	}
-
-	return `Selected using this template's soft-preference order for rotation pool "${slot.rotationPoolKey}": ${describeSoftPreferenceOrder(template)}.${fairnessSuffix}`;
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayDonsaDates, policy);
+	return `Selected by longest break in the ${describeDa6RankingPolicy(policy, isWeekendHolidaySequence)} for rotation pool "${slot.rotationPoolKey}".${fairnessSuffix}`;
 }
 
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
@@ -660,25 +722,25 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 function createEmptyPoolHistorySummary(): PoolHistorySummary {
 	return {
 		lastServedDate: null,
-		lastWeekendDate: null,
-		lastHolidayClosureDate: null
+		lastWeekendHolidayDate: null
 	};
 }
 
 function recordServiceDate(
 	summary: PoolHistorySummary,
 	date: string,
-	holidayClosureDates: Set<string>
+	holidayDonsaDates: Set<string>,
+	policy: Da6RankingPolicy
 ): PoolHistorySummary {
 	const next = { ...summary };
+	if (isWeekendHolidaySequenceDate(date, holidayDonsaDates, policy)) {
+		if (!next.lastWeekendHolidayDate || next.lastWeekendHolidayDate < date) {
+			next.lastWeekendHolidayDate = date;
+		}
+		return next;
+	}
 	if (!next.lastServedDate || next.lastServedDate < date) {
 		next.lastServedDate = date;
-	}
-	if (new Set([0, 6]).has(getDayOfWeek(date)) && (!next.lastWeekendDate || next.lastWeekendDate < date)) {
-		next.lastWeekendDate = date;
-	}
-	if (holidayClosureDates.has(date) && (!next.lastHolidayClosureDate || next.lastHolidayClosureDate < date)) {
-		next.lastHolidayClosureDate = date;
 	}
 	return next;
 }
@@ -700,6 +762,7 @@ function buildPoolHistoryIndex(
 	transientEvents: AdvancedRunTransientEvent[]
 ): Map<string, PoolHistorySummary> {
 	const historyByPoolPerson = new Map<string, PoolHistorySummary>();
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
 
 	for (const baseline of template.rotationBaselines) {
 		const key = `${baseline.rotationPoolKey}::${baseline.personId}`;
@@ -708,7 +771,8 @@ function buildPoolHistoryIndex(
 			recordServiceDate(
 				historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 				baseline.lastServedDate,
-				holidayClosureDates
+				holidayClosureDates,
+				policy
 			)
 		);
 	}
@@ -736,7 +800,8 @@ function buildPoolHistoryIndex(
 				recordServiceDate(
 					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 					event.eventDate,
-					holidayClosureDates
+					holidayClosureDates,
+					policy
 				)
 			);
 		}
@@ -763,7 +828,8 @@ function buildPoolHistoryIndex(
 				recordServiceDate(
 					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 					event.eventDate,
-					holidayClosureDates
+					holidayClosureDates,
+					policy
 				)
 			);
 		}
@@ -780,44 +846,15 @@ function rankCandidatesForSlot(
 	eventDate: string,
 	holidayClosureDates: Set<string>
 ): Personnel[] {
-	const isHolidayClosure = holidayClosureDates.has(eventDate);
-	const isWeekend = new Set([0, 6]).has(getDayOfWeek(eventDate));
-	const softPreferences = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
-		(preference) => preference.enabled
-	);
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayClosureDates, policy);
 	return [...personnel].sort((a, b) => {
 		const aSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${a.id}`) ?? createEmptyPoolHistorySummary();
 		const bSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${b.id}`) ?? createEmptyPoolHistorySummary();
-
-		for (const preference of softPreferences) {
-			switch (preference.type) {
-				case 'longest-break': {
-					const diff = compareOldestFirst(aSummary.lastServedDate, bSummary.lastServedDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'holiday-closure': {
-					if (!isHolidayClosure) break;
-					const diff = compareOldestFirst(aSummary.lastHolidayClosureDate, bSummary.lastHolidayClosureDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'weekend': {
-					if (!isWeekend) break;
-					const diff = compareOldestFirst(aSummary.lastWeekendDate, bSummary.lastWeekendDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'preferred-group': {
-					const aPreferred =
-						slot.preferredGroupIds.length > 0 && !!a.groupId && slot.preferredGroupIds.includes(a.groupId);
-					const bPreferred =
-						slot.preferredGroupIds.length > 0 && !!b.groupId && slot.preferredGroupIds.includes(b.groupId);
-					if (aPreferred !== bPreferred) return aPreferred ? -1 : 1;
-					break;
-				}
-			}
-		}
+		const aLastServed = isWeekendHolidaySequence ? aSummary.lastWeekendHolidayDate : aSummary.lastServedDate;
+		const bLastServed = isWeekendHolidaySequence ? bSummary.lastWeekendHolidayDate : bSummary.lastServedDate;
+		const diff = compareOldestFirst(aLastServed, bLastServed);
+		if (diff !== 0) return diff;
 
 		return sortPersonnel(a, b);
 	});
@@ -1037,6 +1074,8 @@ function generateSlotInstances(input: {
 				? buildGeneratedSelectionReason(
 						input.template,
 						item.slot,
+						input.eventDate,
+						input.holidayClosureDates,
 						item.fairnessConfidence,
 						item.missingHistoryCount,
 						item.eligibleCount
@@ -1155,6 +1194,7 @@ async function buildAdvancedEventSnapshot(input: {
 		templateId: input.template.id,
 		templateName: input.template.name,
 		eventDate: input.eventDate,
+		...buildAdvancedDa6SequenceMetadata(input.template, input.eventDate, input.holidayClosureDates),
 		coverageMode: input.template.coverageMode,
 		coverageStart: coverage.coverageStart,
 		coverageEnd: coverage.coverageEnd,

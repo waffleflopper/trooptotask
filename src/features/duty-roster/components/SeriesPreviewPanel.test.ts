@@ -34,7 +34,11 @@ function makeSlot(
 	};
 }
 
-function makeEvent(eventDate: string, slotInstances: DutyEventPreviewSlotInstance[]): DutyEventPreview {
+function makeEvent(
+	eventDate: string,
+	slotInstances: DutyEventPreviewSlotInstance[],
+	overrides: Partial<DutyEventPreview> = {}
+): DutyEventPreview {
 	return {
 		templateId: 'template-1',
 		templateName: 'Battalion Staff Duty',
@@ -64,7 +68,8 @@ function makeEvent(eventDate: string, slotInstances: DutyEventPreviewSlotInstanc
 			unfilledSlots: slotInstances.filter((slot) => !slot.assigneeId).length
 		},
 		collisionSummary: { hasConflicts: false, conflicts: [] },
-		slotInstances
+		slotInstances,
+		...overrides
 	};
 }
 
@@ -299,6 +304,36 @@ describe('SeriesPreviewPanel', () => {
 		expect(details?.open).toBe(true);
 		expect(screen.getAllByText('Fairness confidence')).toHaveLength(2);
 		expect(screen.getAllByText('SGT Nolan has the longest eligible break since last staff duty.')).toHaveLength(2);
+	});
+
+	it('marks weekend DA6 sequence rows with a subdued row treatment', () => {
+		renderPanel({
+			preview: {
+				...preview,
+				eventDates: ['2026-05-02'],
+				events: [
+					makeEvent(
+						'2026-05-02',
+						[
+							makeSlot({
+								roleLabel: 'NCO',
+								slotIndex: 0,
+								templateSlotId: 'slot-nco-0'
+							})
+						],
+						{
+							advancedDa6SequenceKey: 'weekend-holiday',
+							advancedDa6SequenceLabel: 'Separate weekend DA6 sequence'
+						}
+					)
+				]
+			}
+		});
+
+		const sequenceLabel = screen.getByText('Separate weekend DA6 sequence');
+		const weekendRow = sequenceLabel.closest('tr');
+		expect(weekendRow).toBeTruthy();
+		expect(weekendRow?.classList.contains('sequence-weekend-holiday')).toBe(true);
 	});
 
 	it('blocks apply until collision and unfilled slot review are acknowledged', async () => {

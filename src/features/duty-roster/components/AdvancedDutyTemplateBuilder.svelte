@@ -21,8 +21,8 @@
 		createTemplateStarterPresets,
 		enabledSoftPreferenceSummary,
 		formatPersonLabel,
+		setDa6RankingPreference,
 		slotSummaryLine,
-		softPreferenceOptions,
 		type BuilderFormState,
 		type BuilderStep,
 		type EditableBaseline,
@@ -107,9 +107,7 @@
 	const personnelTagOptions = $derived<TagOption[]>(
 		personnel.map((person) => ({ value: person.id, label: formatPersonLabel(person) }))
 	);
-	const enabledSoftPreferenceSummaryText = $derived(
-		enabledSoftPreferenceSummary(draftSoftPreferences, softPreferenceOptions)
-	);
+	const enabledSoftPreferenceSummaryText = $derived(enabledSoftPreferenceSummary(draftSoftPreferences));
 
 	function applyState(state: BuilderFormState) {
 		templateName = state.templateName;
@@ -228,21 +226,10 @@
 			baseline.key === key ? { ...baseline, ...patch } : baseline
 		);
 	}
-	function moveSoftPreference(type: string, direction: -1 | 1) {
-		const index = draftSoftPreferences.findIndex((preference) => preference.type === type);
-		const nextIndex = index + direction;
-		if (index === -1 || nextIndex < 0 || nextIndex >= draftSoftPreferences.length) return;
-		markDirty();
-		const next = [...draftSoftPreferences];
-		const [item] = next.splice(index, 1);
-		next.splice(nextIndex, 0, item);
-		draftSoftPreferences = next;
-	}
 	function updateSoftPreference(type: string, enabled: boolean) {
 		markDirty();
-		draftSoftPreferences = draftSoftPreferences.map((preference) =>
-			preference.type === type ? { ...preference, enabled } : preference
-		);
+		if (type !== 'separate-weekend-da6' && type !== 'include-holiday-donsa-da6') return;
+		draftSoftPreferences = setDa6RankingPreference(draftSoftPreferences, type, enabled);
 	}
 	async function handleSave(status: 'draft' | 'active' | 'archived' | null = null) {
 		if ((status === 'draft' && !canSaveDraft) || (status !== 'draft' && !canSave)) return;
@@ -390,7 +377,6 @@
 						{groupTagOptions}
 						{personnelTagOptions}
 						{draftSoftPreferences}
-						{softPreferenceOptions}
 						onScopeTypeChange={(value) => {
 							scopeType = value;
 							markDirty();
@@ -427,7 +413,6 @@
 							cooldownHours = value;
 							markDirty();
 						}}
-						onMoveSoftPreference={moveSoftPreference}
 						onUpdateSoftPreference={updateSoftPreference}
 						onBack={goToPreviousStep}
 						onNext={goToNextStep}

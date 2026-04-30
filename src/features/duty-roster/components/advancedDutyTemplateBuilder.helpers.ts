@@ -5,8 +5,7 @@ import {
 	type DutyTemplateSlotBlockingMode,
 	type DutyTemplateSlotInput,
 	type DutyTemplateWriteInput,
-	type SoftPreferenceConfig,
-	type SoftPreferenceType
+	type SoftPreferenceConfig
 } from '../duty-roster.types';
 
 export interface GroupOption {
@@ -65,12 +64,6 @@ export interface BuilderFormState {
 export type SetupMode = 'quick' | 'full';
 export type BuilderStep = 'basics' | 'policy' | 'series' | 'review';
 
-export interface SoftPreferenceOption {
-	type: SoftPreferenceType;
-	label: string;
-	description: string;
-}
-
 export interface TemplateStarterPreset {
 	id: string;
 	label: string;
@@ -96,29 +89,6 @@ export interface TemplateStarterPreset {
 		blockingMode: DutyTemplateSlotBlockingMode;
 	}>;
 }
-
-export const softPreferenceOptions: SoftPreferenceOption[] = [
-	{
-		type: 'longest-break',
-		label: 'Longest break',
-		description: 'Prefer whoever has gone the longest since this rotation group last served.'
-	},
-	{
-		type: 'holiday-closure',
-		label: 'Holiday / closure spacing',
-		description: 'On holidays or closures, avoid sending the same person back too soon.'
-	},
-	{
-		type: 'weekend',
-		label: 'Weekend spacing',
-		description: 'On weekends, avoid handing recent weekend duty back to the same person.'
-	},
-	{
-		type: 'preferred-group',
-		label: 'Preferred groups',
-		description: 'Use preferred groups as a soft tie-break instead of a hard eligibility rule.'
-	}
-];
 
 export const BUILDER_STEPS: Array<{ id: BuilderStep; label: string }> = [
 	{ id: 'basics', label: 'Template Basics' },
@@ -188,7 +158,7 @@ export function createTemplateStarterPresets(groups: GroupOption[]): TemplateSta
 					quantity: 1,
 					allowedRanks: ['SGT', 'SSG'],
 					allowedGroupIds: primaryGroupId ? [primaryGroupId] : [],
-					preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
+					preferredGroupIds: [],
 					allowedMosValues: [],
 					allowedRoleValues: [],
 					rotationPoolKey: 'cq-core',
@@ -199,7 +169,7 @@ export function createTemplateStarterPresets(groups: GroupOption[]): TemplateSta
 					quantity: 1,
 					allowedRanks: ['PFC', 'SPC', 'CPL'],
 					allowedGroupIds: primaryGroupId ? [primaryGroupId] : [],
-					preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
+					preferredGroupIds: [],
 					allowedMosValues: [],
 					allowedRoleValues: [],
 					rotationPoolKey: 'cq-core',
@@ -220,14 +190,90 @@ export function formatPersonLabel(person: PersonnelOption): string {
 	return person.id;
 }
 
-export function enabledSoftPreferenceSummary(
+export function normalizeDa6RankingPreferences(values: SoftPreferenceConfig[] | undefined): SoftPreferenceConfig[] {
+	const defaults = cloneDefaultSoftPreferences();
+	if (!values || values.length === 0) {
+		return defaults;
+	}
+
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
+	);
+	const hasCurrentWeekendPolicy = values.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = values.some((preference) => preference.type === 'include-holiday-donsa-da6');
+
+	for (const preference of values) {
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
+		}
+	}
+
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
+	}
+
+	return defaults.map((preference) => byType.get(preference.type) ?? preference);
+}
+
+export function isDa6RankingPreferenceEnabled(
 	draftSoftPreferences: SoftPreferenceConfig[],
-	options: SoftPreferenceOption[]
-): string {
-	const labels = draftSoftPreferences
-		.filter((preference) => preference.enabled)
-		.map((preference) => options.find((option) => option.type === preference.type)?.label ?? preference.type);
-	return labels.length > 0 ? labels.join(' -> ') : 'Eligibility rules and name tie-breakers only';
+	type: 'separate-weekend-da6' | 'include-holiday-donsa-da6'
+): boolean {
+	return normalizeDa6RankingPreferences(draftSoftPreferences).some(
+		(preference) => preference.type === type && preference.enabled
+	);
+}
+
+export function setDa6RankingPreference(
+	draftSoftPreferences: SoftPreferenceConfig[],
+	type: 'separate-weekend-da6' | 'include-holiday-donsa-da6',
+	enabled: boolean
+): SoftPreferenceConfig[] {
+	const next = normalizeDa6RankingPreferences(draftSoftPreferences).map((preference) =>
+		preference.type === type ? { ...preference, enabled } : preference
+	);
+	if (type === 'separate-weekend-da6' && !enabled) {
+		return next.map((preference) =>
+			preference.type === 'include-holiday-donsa-da6' ? { ...preference, enabled: false } : preference
+		);
+	}
+	return normalizeDa6RankingPreferences(next);
+}
+
+export function enabledSoftPreferenceSummary(draftSoftPreferences: SoftPreferenceConfig[]): string {
+	const normalized = normalizeDa6RankingPreferences(draftSoftPreferences);
+	const separateWeekendDa6 = normalized.some(
+		(preference) => preference.type === 'separate-weekend-da6' && preference.enabled
+	);
+	const includeHolidayDonsa = normalized.some(
+		(preference) => preference.type === 'include-holiday-donsa-da6' && preference.enabled
+	);
+	if (!separateWeekendDa6) {
+		return 'Single DA6 sequence';
+	}
+	return includeHolidayDonsa ? 'Separate weekend, holiday, and DONSA DA6 sequence' : 'Separate weekend DA6 sequence';
 }
 
 export function slotSummaryLine(slot: EditableSlot, groups: GroupOption[]): string {
@@ -285,7 +331,7 @@ export function createBlankBuilderState(): BuilderFormState {
 		spansMidnight: false,
 		isBlocking: false,
 		cooldownHours: 0,
-		draftSoftPreferences: cloneDefaultSoftPreferences(),
+		draftSoftPreferences: normalizeDa6RankingPreferences(undefined),
 		draftSlots: [],
 		draftRotationBaselines: []
 	};
@@ -307,15 +353,15 @@ export function createBuilderStateFromTemplate(template: DutyTemplate, nextKey: 
 		cooldownHours: template.cooldownHours,
 		draftSoftPreferences:
 			Array.isArray(template.softPreferences) && template.softPreferences.length > 0
-				? template.softPreferences.map((preference) => ({ type: preference.type, enabled: preference.enabled }))
-				: cloneDefaultSoftPreferences(),
+				? normalizeDa6RankingPreferences(template.softPreferences)
+				: normalizeDa6RankingPreferences(undefined),
 		draftSlots: (Array.isArray(template.slots) ? template.slots : []).map((slot) => ({
 			key: nextKey(),
 			roleLabel: slot.roleLabel,
 			quantity: slot.quantity,
 			allowedRanks: [...slot.allowedRanks],
 			allowedGroupIds: [...slot.allowedGroupIds],
-			preferredGroupIds: [...slot.preferredGroupIds],
+			preferredGroupIds: [],
 			allowedMosValues: [...slot.allowedMosValues],
 			allowedRoleValues: [...slot.allowedRoleValues],
 			rotationPoolKey: slot.rotationPoolKey,
@@ -346,7 +392,7 @@ export function createBuilderStateFromPreset(preset: TemplateStarterPreset, next
 		spansMidnight: false,
 		isBlocking: preset.isBlocking,
 		cooldownHours: preset.cooldownHours,
-		draftSoftPreferences: cloneDefaultSoftPreferences(),
+		draftSoftPreferences: normalizeDa6RankingPreferences(undefined),
 		draftSlots: preset.slots.map((slot) => ({ key: nextKey(), ...slot })),
 		draftRotationBaselines: []
 	};
@@ -374,7 +420,7 @@ export function buildPayload(state: {
 		quantity: slot.quantity,
 		allowedRanks: slot.allowedRanks,
 		allowedGroupIds: slot.allowedGroupIds,
-		preferredGroupIds: slot.preferredGroupIds,
+		preferredGroupIds: [],
 		allowedMosValues: slot.allowedMosValues,
 		allowedRoleValues: slot.allowedRoleValues,
 		rotationPoolKey: slot.rotationPoolKey.trim() || `slot-${index + 1}`,
@@ -404,7 +450,7 @@ export function buildPayload(state: {
 		spansMidnight: state.coverageMode === 'timed' ? state.spansMidnight : false,
 		isBlocking: state.isBlocking,
 		cooldownHours: state.cooldownHours,
-		softPreferences: state.draftSoftPreferences.map((preference) => ({
+		softPreferences: normalizeDa6RankingPreferences(state.draftSoftPreferences).map((preference) => ({
 			type: preference.type,
 			enabled: preference.enabled
 		})),

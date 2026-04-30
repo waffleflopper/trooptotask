@@ -72,7 +72,7 @@ const baseData = {
 		tier: 'unit',
 		source: 'subscription',
 		personnelCount: 4,
-		personnelCap: Infinity,
+		personnelCap: 500,
 		isReadOnly: false,
 		giftExpiresAt: null,
 		giftTier: null
@@ -428,8 +428,8 @@ describe('org settings page', () => {
 		});
 
 		expect(screen.getByRole('link', { name: 'Manage Billing' }).getAttribute('href')).toBe('/org/org-1/billing');
-		expect(screen.getByText('Unit tier · $30/mo')).toBeTruthy();
-		expect(screen.getByText('4 / UNLIMITED')).toBeTruthy();
+		expect(screen.getByText('Unit tier · $12/mo')).toBeTruthy();
+		expect(screen.getByText('4 / 500')).toBeTruthy();
 	});
 
 	it('collapses and restores the right activity panel without leaving the workspace', async () => {

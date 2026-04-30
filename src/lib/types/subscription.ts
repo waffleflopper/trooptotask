@@ -23,7 +23,7 @@ export interface TierConfig {
 export const TIER_CONFIG: Record<Tier, TierConfig> = {
 	free: {
 		name: 'Free',
-		personnelCap: 15,
+		personnelCap: 20,
 		maxOrgsOwned: 1,
 		bulkExportsPerMonth: 3,
 		priceMonthly: 0
@@ -33,13 +33,13 @@ export const TIER_CONFIG: Record<Tier, TierConfig> = {
 		personnelCap: 80,
 		maxOrgsOwned: 1,
 		bulkExportsPerMonth: Infinity,
-		priceMonthly: 1500 // cents
+		priceMonthly: 500 // cents
 	},
 	unit: {
 		name: 'Unit',
-		personnelCap: Infinity,
-		maxOrgsOwned: Infinity,
+		personnelCap: 500,
+		maxOrgsOwned: 3,
 		bulkExportsPerMonth: Infinity,
-		priceMonthly: 3000 // cents
+		priceMonthly: 1200 // cents
 	}
 };

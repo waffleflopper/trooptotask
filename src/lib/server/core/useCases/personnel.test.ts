@@ -58,7 +58,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('rejects create when subscription cap exceeded', async () => {
-		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (15)' });
+		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
 		const { create } = createPersonnelUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });

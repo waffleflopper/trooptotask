@@ -10,15 +10,16 @@
 		formatAdminLabel
 	} from '$lib/components/admin/adminTheme';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
 
-	const PERSONNEL_CAPS: Record<string, string> = {
-		free: '15',
-		team: '80',
-		unit: 'Unlimited'
-	};
+	function formatPersonnelCap(tier: string): string {
+		const config = TIER_CONFIG[tier as Tier];
+		if (!config) return '?';
+		return config.personnelCap === Infinity ? 'Unlimited' : String(config.personnelCap);
+	}
 
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
@@ -90,7 +91,7 @@
 			<p class="admin-overview-card__label">Personnel</p>
 			<p class="admin-overview-card__value">{data.personnelCount}</p>
 			<p class="admin-overview-card__meta">
-				{data.personnelCount} of {PERSONNEL_CAPS[data.org.effectiveTier] ?? '?'} slots currently used.
+				{data.personnelCount} of {formatPersonnelCap(data.org.effectiveTier)} slots currently used.
 			</p>
 		</div>
 		<div class="admin-overview-card">
@@ -126,7 +127,7 @@
 				</div>
 				<div>
 					<dt>Personnel Count</dt>
-					<dd>{data.personnelCount} / {PERSONNEL_CAPS[data.org.effectiveTier] ?? '?'}</dd>
+					<dd>{data.personnelCount} / {formatPersonnelCap(data.org.effectiveTier)}</dd>
 				</div>
 				<div>
 					<dt>Member Since</dt>

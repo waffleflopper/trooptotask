@@ -1187,16 +1187,15 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
-			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' })).toBeTruthy();
 		});
 
-		const assigneeSelect = screen.getByLabelText('Assignee for 2026-04-07 NCO #1') as HTMLSelectElement;
-		const optionLabels = Array.from(assigneeSelect.options).map((option) => option.textContent ?? '');
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' }));
 
-		expect(optionLabels).toContain('Leave Unfilled');
-		expect(optionLabels).not.toContain('SGT Nolan');
-		expect(optionLabels).toContain('SGT Hayes');
-		expect(optionLabels).toContain('SGT Zimmer');
+		expect(screen.getByRole('option', { name: 'Leave Unfilled' })).toBeTruthy();
+		expect(screen.queryByRole('option', { name: 'SGT Nolan' })).toBeNull();
+		expect(screen.getByRole('option', { name: 'SGT Hayes' })).toBeTruthy();
+		expect(screen.getByRole('option', { name: 'SGT Zimmer' })).toBeTruthy();
 	});
 
 	it('requires candidate review before previewing an advanced series from the date-pattern step', async () => {
@@ -1546,12 +1545,11 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
-			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' })).toBeTruthy();
 		});
 
-		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-07 NCO #1'), {
-			target: { value: 'person-alt' }
-		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' }));
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Zimmer' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenLastCalledWith(
@@ -1576,9 +1574,8 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText('Soft warning')).toBeTruthy();
 		expect(screen.getByText('Manual override bypasses the generator fairness order for this slot.')).toBeTruthy();
 
-		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-07 NCO #1'), {
-			target: { value: 'person-conflict' }
-		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' }));
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Hayes' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenLastCalledWith(

@@ -986,7 +986,7 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('treats a persisted blocking slot override as blocking even when the template is non-blocking', async () => {
+	it('treats a persisted blocking slot override as unavailable even when the template is non-blocking', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -1037,8 +1037,12 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.collisionSummary).toEqual({
-			hasConflicts: true,
-			conflicts: ['SGT Nolan is still in cooldown until 2026-04-11T17:00:00. Review this collision before apply.']
+			hasConflicts: false,
+			conflicts: []
+		});
+		expect(preview.slotInstances[0]).toMatchObject({
+			assigneeId: null,
+			unfilledReason: 'No eligible Soldier remained after availability and blocking checks.'
 		});
 	});
 
@@ -1195,10 +1199,12 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.collisionSummary).toEqual({
-			hasConflicts: true,
-			conflicts: [
-				'SGT Nolan is already assigned to duty coverage from 2026-04-10T06:00:00 to 2026-04-10T18:00:00. Review this collision before apply.'
-			]
+			hasConflicts: false,
+			conflicts: []
+		});
+		expect(preview.slotInstances[0]).toMatchObject({
+			assigneeId: null,
+			unfilledReason: 'No eligible Soldier remained after availability and blocking checks.'
 		});
 	});
 
@@ -4442,6 +4448,95 @@ describe('duty event apply use case', () => {
 			end_date: '2026-04-12',
 			event_count: 3
 		});
+	});
+
+	it('excludes Soldiers assigned or cooling down from other blocking templates during series preview', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Avery',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const blockingTemplate = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Template 1 Blocking Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '20:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+		const previewTemplate = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Template 2 Blocking Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '20:00',
+			isBlocking: true,
+			cooldownHours: 0,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: blockingTemplate.id,
+			eventDate: '2026-04-10'
+		});
+		expect(applied.slotInstances[0]).toMatchObject({ assigneeId: 'person-alpha' });
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: previewTemplate.id,
+			pattern: 'daily',
+			startDate: '2026-04-10',
+			endDate: '2026-04-11'
+		});
+
+		expect(preview.events.map((event) => event.slotInstances[0].assigneeId)).toEqual(['person-bravo', 'person-bravo']);
+		expect(preview.events[0].slotInstances[0].overrideMessages).toEqual([]);
+		expect(preview.events[1].slotInstances[0].overrideMessages).toEqual([]);
 	});
 });
 

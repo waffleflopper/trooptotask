@@ -8,6 +8,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, Spe
 import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 import {
 	cloneDefaultSoftPreferences,
+	type AdvancedDutyRunSnapshotRecord,
 	type DutyEvent,
 	type DutyEventPreview,
 	type DutyEventSeriesApplyResult,
@@ -242,6 +243,44 @@ function makeSeriesPreview(overrides: Partial<DutyEventSeriesPreview> = {}): Dut
 	};
 }
 
+function makeDraftSnapshot(overrides: Partial<AdvancedDutyRunSnapshotRecord> = {}): AdvancedDutyRunSnapshotRecord {
+	const preview = makeSeriesPreview();
+	return {
+		id: 'snapshot-series-1',
+		orgId: 'test-org',
+		templateId: 'tmpl-staff-duty',
+		templateName: 'Battalion Staff Duty',
+		pattern: 'selected-weekdays',
+		startDate: '2026-04-07',
+		endDate: '2026-04-09',
+		eventCount: 2,
+		eventDates: ['2026-04-07', '2026-04-09'],
+		candidatePersonnelIds: ['person-nco', 'person-alt'],
+		snapshotFingerprint: 'fingerprint-series-1',
+		snapshotVersion: 1,
+		status: 'draft',
+		inputPayload: {
+			templateId: 'tmpl-staff-duty',
+			startDate: '2026-04-07',
+			endDate: '2026-04-09',
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [2, 4],
+			candidatePersonnelIds: ['person-nco', 'person-alt']
+		},
+		snapshotPayload: {},
+		previewPayload: preview as unknown as Record<string, unknown>,
+		exportModel: null,
+		createdByUserId: 'user-1',
+		appliedRunId: null,
+		applyError: null,
+		expiresAt: '2026-04-08T12:00:00.000Z',
+		appliedAt: null,
+		createdAt: '2026-04-07T12:00:00.000Z',
+		updatedAt: '2026-04-07T12:00:00.000Z',
+		...overrides
+	};
+}
+
 function makeSeriesApplyResult(overrides: Partial<DutyEventSeriesApplyResult> = {}): DutyEventSeriesApplyResult {
 	const run = overrides.run ?? {
 		id: 'run-series-1',
@@ -383,25 +422,25 @@ function deferred<T>() {
 
 async function openAdvancedPolicyReview() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-	await fireEvent.click(screen.getByRole('button', { name: 'Use This Template' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Use Template' }));
 	await waitFor(() => {
-		expect(screen.getByText('Step 2 of 4 · Review policy')).toBeTruthy();
+		expect(screen.getByText('Template policy')).toBeTruthy();
 	});
 }
 
 async function openAdvancedDatePattern() {
 	await openAdvancedPolicyReview();
-	await fireEvent.click(screen.getByRole('button', { name: 'Looks Good — Set Date Pattern' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Set Date Pattern' }));
 	await waitFor(() => {
-		expect(screen.getByText('Step 3 of 4 · Date pattern')).toBeTruthy();
+		expect(screen.getByText('Run dates')).toBeTruthy();
 	});
 }
 
 async function openAdvancedCandidateReview() {
 	await openAdvancedDatePattern();
-	await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
 	await waitFor(() => {
-		expect(screen.getByText('Choose who can be considered for this run.')).toBeTruthy();
+		expect(screen.getAllByText('Candidate pool').length).toBeGreaterThan(0);
 	});
 }
 
@@ -439,12 +478,12 @@ describe('DutyRosterWizard', () => {
 
 		await openAdvancedPolicyReview();
 
-		expect(screen.getByText('Step 2 of 4 · Review policy')).toBeTruthy();
-		expect(screen.getByText(/Blocking duty/)).toBeTruthy();
+		expect(screen.getByText('Template policy')).toBeTruthy();
+		expect(screen.getByText(/Blocking/)).toBeTruthy();
 		expect(screen.getByText(/Cooldown/)).toBeTruthy();
-		expect(screen.getByText(/Positions to fill/)).toBeTruthy();
-		expect(screen.getByText(/Pool: staff-duty-primary/)).toBeTruthy();
-		expect(screen.getByText(/24 hours after the shift ends\./)).toBeTruthy();
+		expect(screen.getByText(/Slots/)).toBeTruthy();
+		expect(screen.getByText(/staff-duty-primary/)).toBeTruthy();
+		expect(screen.getByText(/24 hours/)).toBeTruthy();
 	});
 
 	it('shows existing templates plus a build-from-scratch entry on advanced step one', async () => {
@@ -456,13 +495,13 @@ describe('DutyRosterWizard', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
 
-		expect(screen.getByText('Step 1 of 4 · Choose template')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Use This Template' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Build from scratch' })).toBeTruthy();
+		expect(screen.getByText('Advanced duty')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Use Template' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'New Template' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Use Battalion Staff Duty' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Use Company CQ' })).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Build from scratch' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
 
 		expect(manageTemplates).toHaveBeenCalledTimes(1);
 	});
@@ -594,8 +633,8 @@ describe('DutyRosterWizard', () => {
 		});
 		await fireEvent.click(screen.getByLabelText('Tuesday'));
 		await fireEvent.click(screen.getByLabelText('Thursday'));
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Edit Candidate Pool' }).at(-1)!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenCalledWith(
@@ -634,7 +673,7 @@ describe('DutyRosterWizard', () => {
 			);
 		});
 
-		expect(screen.getByText('Select an existing template or build one from scratch.')).toBeTruthy();
+		expect(screen.getByText('Select a template')).toBeTruthy();
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
 	});
@@ -662,8 +701,8 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.input(screen.getByLabelText('End Date'), {
 			target: { value: '2026-04-10' }
 		});
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Edit Candidate Pool' }).at(-1)!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenCalledWith(
@@ -724,8 +763,8 @@ describe('DutyRosterWizard', () => {
 			await fireEvent.input(screen.getByLabelText('End Date'), {
 				target: { value: '2026-04-10' }
 			});
-			await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
-			await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Edit Candidate Pool' }).at(-1)!);
+			await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 			const actionBar = await screen.findByRole('region', { name: 'Advanced run actions and snapshot state' });
 			await fireEvent.click(within(actionBar).getByRole('button', { name: 'Export preview, not applied output' }));
@@ -764,8 +803,8 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedDatePattern();
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		expect(screen.getByRole('dialog', { name: 'Generating duty roster' })).toBeTruthy();
 		expect(screen.getByText('Building the duty roster.')).toBeTruthy();
@@ -788,8 +827,8 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedDatePattern();
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 		await waitFor(() => {
 			expect(screen.getByText('Series preview ready')).toBeTruthy();
 		});
@@ -803,7 +842,7 @@ describe('DutyRosterWizard', () => {
 
 		await waitFor(() => {
 			expect(screen.queryByRole('dialog', { name: 'Applying duty roster' })).toBeNull();
-			expect(screen.getByText('Select an existing template or build one from scratch.')).toBeTruthy();
+			expect(screen.getByText('Select a template')).toBeTruthy();
 		});
 	});
 
@@ -847,8 +886,8 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
 			target: { value: 'daily' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenCalledWith(
@@ -892,8 +931,8 @@ describe('DutyRosterWizard', () => {
 		});
 		await fireEvent.click(screen.getByLabelText('Tuesday'));
 		await fireEvent.click(screen.getByLabelText('Thursday'));
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('2 events · Selected weekdays')).toBeTruthy();
@@ -936,8 +975,8 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
 			target: { value: 'daily' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(
@@ -1017,8 +1056,8 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
 			target: { value: 'daily' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('Fill:')).toBeTruthy();
@@ -1078,8 +1117,8 @@ describe('DutyRosterWizard', () => {
 			target: { value: '2026-04-07' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview One-Time Event' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview One Date' }));
 
 		await waitFor(() => {
 			expect(previewEventHandler).toHaveBeenCalledWith(
@@ -1123,14 +1162,14 @@ describe('DutyRosterWizard', () => {
 			target: { value: '2026-04-07' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
 
 		await waitFor(() => {
-			expect(screen.getByText('Step 3 of 4 · Candidate review')).toBeTruthy();
+			expect(screen.getAllByText('Candidate pool').length).toBeGreaterThan(0);
 		});
 
 		await fireEvent.click(screen.getByLabelText('Include SGT Nolan, Casey in this run'));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenCalledWith(
@@ -1149,7 +1188,7 @@ describe('DutyRosterWizard', () => {
 		renderWizard();
 
 		await openAdvancedDatePattern();
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('3 of 3 candidates included')).toBeTruthy();
@@ -1182,9 +1221,9 @@ describe('DutyRosterWizard', () => {
 			target: { value: '2026-04-07' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Candidate Pool' }));
 		await fireEvent.click(screen.getByLabelText('Include SGT Nolan, Casey in this run'));
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' })).toBeTruthy();
@@ -1198,7 +1237,7 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByRole('option', { name: 'SGT Zimmer' })).toBeTruthy();
 	});
 
-	it('requires candidate review before previewing an advanced series from the date-pattern step', async () => {
+	it('previews an advanced series from the date-pattern step without forcing candidate review', async () => {
 		const previewHandler = vi.fn(async () => makeSeriesPreview());
 
 		renderWizard({
@@ -1214,15 +1253,7 @@ describe('DutyRosterWizard', () => {
 			target: { value: '2026-04-07' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
-
-		expect(previewHandler).not.toHaveBeenCalled();
-
-		await waitFor(() => {
-			expect(screen.getByText('Choose who can be considered for this run.')).toBeTruthy();
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(previewHandler).toHaveBeenCalledWith(
@@ -1234,6 +1265,22 @@ describe('DutyRosterWizard', () => {
 				})
 			);
 		});
+
+		expect(screen.queryByRole('table', { name: 'Candidate review table' })).toBeNull();
+		expect(screen.getByText('Series preview ready')).toBeTruthy();
+	});
+
+	it('resumes a draft snapshot into the advanced preview workspace', async () => {
+		renderWizard({
+			initialView: 'advanced-template-list',
+			resumeSnapshot: makeDraftSnapshot()
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+		expect(screen.getByRole('region', { name: 'Advanced run actions and snapshot state' })).toBeTruthy();
+		expect(screen.getByText('2026-04-07')).toBeTruthy();
 	});
 
 	it('lets users lock and clear previewed assignments before applying an advanced series', async () => {
@@ -1291,7 +1338,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
@@ -1453,7 +1500,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
@@ -1542,7 +1589,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByRole('button', { name: 'Assignee for 2026-04-07 NCO #1' })).toBeTruthy();
@@ -2003,7 +2050,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('Series preview ready')).toBeTruthy();
@@ -2068,7 +2115,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('Series preview ready')).toBeTruthy();
@@ -2103,7 +2150,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await openAdvancedCandidateReview();
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('Series preview ready')).toBeTruthy();
@@ -2130,10 +2177,9 @@ describe('DutyRosterWizard', () => {
 		await openAdvancedPolicyReview();
 
 		// Only enabled preferences should appear, in order
-		expect(screen.getByText(/Longest break since last duty/)).toBeTruthy();
-		expect(screen.getByText(/Weekend volunteers preferred/)).toBeTruthy();
+		expect(screen.getByText(/Ranking: longest break, weekend volunteers/)).toBeTruthy();
 		// Disabled preferences should not appear
-		expect(screen.queryByText(/Holiday or closure/)).toBeNull();
+		expect(screen.queryByText(/holiday volunteers/)).toBeNull();
 		expect(screen.queryByText(/Preferred group/)).toBeNull();
 	});
 
@@ -2144,7 +2190,7 @@ describe('DutyRosterWizard', () => {
 
 		await openAdvancedPolicyReview();
 
-		expect(screen.getByText(/No baseline duty history/i)).toBeTruthy();
+		expect(screen.getByText(/No baseline history yet/i)).toBeTruthy();
 	});
 
 	it('does not show a fairness baseline notice when the template has rotation baselines', async () => {
@@ -2166,17 +2212,17 @@ describe('DutyRosterWizard', () => {
 
 		await openAdvancedPolicyReview();
 
-		expect(screen.queryByText(/No baseline duty history/i)).toBeNull();
+		expect(screen.queryByText(/No baseline history yet/i)).toBeNull();
 	});
 
-	it('shows candidate review as a distinct labeled step in the wizard stepper', async () => {
+	it('shows candidate review as a distinct labeled workspace panel', async () => {
 		renderWizard();
 
 		await openAdvancedCandidateReview();
 
-		// The stepper should have a "Candidate Review" step and it should be active
-		const activeStepLabel = document.querySelector('.step-label[aria-current="step"]');
-		expect(activeStepLabel?.textContent).toContain('Candidate Review');
+		const workspace = screen.getByRole('region', { name: 'Advanced duty review workspace' });
+		expect(within(workspace).getByText('Candidate pool')).toBeTruthy();
+		expect(within(workspace).getByRole('table', { name: 'Candidate review table' })).toBeTruthy();
 	});
 
 	it('leaves applied event inspection outside the wizard lanes', async () => {

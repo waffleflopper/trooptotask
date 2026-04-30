@@ -4,6 +4,7 @@
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
 	import AppliedEventManager from './AppliedEventManager.svelte';
+	import AdvancedSnapshotList from './AdvancedSnapshotList.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -30,6 +31,7 @@
 		DutyEventSeriesPreview,
 		ExistingDutyEventInput,
 		ExistingDutyEventUpdateInput,
+		AdvancedDutyRunSnapshotRecord,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -58,13 +60,14 @@
 			rosterHistory: RosterHistoryItem[];
 			advancedDutyTemplates: DutyTemplate[];
 			advancedDutyEvents: DutyEvent[];
+			advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
 		};
 	}
 
 	let { data }: Props = $props();
 
 	type DutyRosterSection = 'simple-roster' | 'advanced-workspace' | 'advanced-templates';
-	type AdvancedWorkspaceView = 'active-run' | 'applied-events';
+	type AdvancedWorkspaceView = 'active-run' | 'draft-snapshots' | 'applied-events';
 
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
@@ -74,6 +77,9 @@
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<DutyRosterSection>('advanced-workspace');
 	let activeAdvancedWorkspaceView = $state<AdvancedWorkspaceView>('active-run');
+	let advancedDutySnapshots = $state<AdvancedDutyRunSnapshotRecord[]>([]);
+	let loadedSnapshotKey = $state('');
+	let resumeSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
 	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(
@@ -105,10 +111,11 @@
 		return tabs;
 	});
 
-	const advancedWorkspaceViews = [
+	const advancedWorkspaceViews = $derived([
 		{ label: 'Active Run', value: 'active-run' },
+		{ label: `Draft Snapshots (${advancedDutySnapshots.length})`, value: 'draft-snapshots' },
 		{ label: 'Applied Events', value: 'applied-events' }
-	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>;
+	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>);
 
 	const relatedLinks = $derived([
 		{ label: 'Assignments', href: `/org/${org.orgId}/calendar/assignments` },
@@ -122,6 +129,14 @@
 		if (!canAccessAdvancedDuty && activeTab === 'advanced-workspace') {
 			activeTab = 'simple-roster';
 		}
+	});
+
+	$effect(() => {
+		const snapshots = data.advancedDutySnapshots ?? [];
+		const nextKey = snapshots.map((snapshot) => `${snapshot.id}:${snapshot.updatedAt}`).join('|');
+		if (nextKey === loadedSnapshotKey) return;
+		loadedSnapshotKey = nextKey;
+		advancedDutySnapshots = snapshots;
 	});
 
 	// ---- Load roster history on mount ----
@@ -264,6 +279,60 @@
 		activeTab = 'advanced-templates';
 	}
 
+	function upsertDraftSnapshot(snapshot: AdvancedDutyRunSnapshotRecord | null) {
+		if (!snapshot) return;
+		advancedDutySnapshots = [snapshot, ...advancedDutySnapshots.filter((item) => item.id !== snapshot.id)];
+	}
+
+	function removeDraftSnapshot(snapshotId: string | undefined) {
+		if (!snapshotId) return;
+		advancedDutySnapshots = advancedDutySnapshots.filter((snapshot) => snapshot.id !== snapshotId);
+		if (resumeSnapshot?.id === snapshotId) {
+			resumeSnapshot = null;
+		}
+	}
+
+	function buildDraftSnapshotFromPreview(
+		input: DutyEventSeriesInput | DutyEventApplyInput,
+		preview: DutyEventSeriesPreview | DutyEventPreview
+	): AdvancedDutyRunSnapshotRecord | null {
+		if (!preview.snapshotId || !preview.snapshotFingerprint) return null;
+		const isSeriesPreview = 'events' in preview;
+		const eventDates = isSeriesPreview ? preview.eventDates : [preview.eventDate];
+		const now = new Date();
+		return {
+			id: preview.snapshotId,
+			orgId: org.orgId,
+			templateId: preview.templateId,
+			templateName: preview.templateName,
+			pattern: isSeriesPreview ? preview.pattern : 'single',
+			startDate: eventDates[0],
+			endDate: eventDates[eventDates.length - 1],
+			eventCount: eventDates.length,
+			eventDates,
+			candidatePersonnelIds: input.candidatePersonnelIds ?? [],
+			snapshotFingerprint: preview.snapshotFingerprint,
+			snapshotVersion: preview.snapshotVersion ?? 1,
+			status: 'draft',
+			inputPayload: input as unknown as Record<string, unknown>,
+			snapshotPayload: {},
+			previewPayload: preview as unknown as Record<string, unknown>,
+			exportModel: null,
+			createdByUserId: null,
+			appliedRunId: null,
+			applyError: null,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+			appliedAt: null,
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString()
+		};
+	}
+
+	function handleResumeSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
+		resumeSnapshot = snapshot;
+		activeAdvancedWorkspaceView = 'active-run';
+	}
+
 	async function handlePreviewAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEventPreview | null> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-events/preview`, {
@@ -276,7 +345,9 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty event'));
 			}
 
-			return (await res.json()) as DutyEventPreview;
+			const preview = (await res.json()) as DutyEventPreview;
+			upsertDraftSnapshot(buildDraftSnapshotFromPreview(payload, preview));
+			return preview;
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty event');
 			return null;
@@ -296,6 +367,7 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
+			removeDraftSnapshot(payload.snapshotId);
 			advancedDutyEvents = upsertDutyEventIntoTimeline(advancedDutyEvents, event);
 			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty event applied');
@@ -318,7 +390,9 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty series'));
 			}
 
-			return (await res.json()) as DutyEventSeriesPreview;
+			const preview = (await res.json()) as DutyEventSeriesPreview;
+			upsertDraftSnapshot(buildDraftSnapshotFromPreview(payload, preview));
+			return preview;
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty series');
 			return null;
@@ -338,6 +412,7 @@
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;
+			removeDraftSnapshot(payload.snapshotId);
 			advancedDutyEvents = mergeDutyEventsIntoTimeline(advancedDutyEvents, result.events);
 			await refreshAdvancedDutyData();
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
@@ -566,7 +641,10 @@
 					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
 					{canManageAdvancedTemplates}
 					onManageAdvancedTemplates={handleManageAdvancedTemplates}
+					{resumeSnapshot}
 				/>
+			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}
+				<AdvancedSnapshotList snapshots={advancedDutySnapshots} onResumeSnapshot={handleResumeSnapshot} />
 			{:else}
 				<AppliedEventManager
 					{advancedDutyEvents}

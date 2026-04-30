@@ -13,11 +13,11 @@
 <section class="step-card card card-flat">
 	<div class="list-header">
 		<div>
-			<p class="eyebrow">Advanced duty</p>
-			<h3>Select a template</h3>
+			<p class="eyebrow">Advanced</p>
+			<h3>Use a template</h3>
 		</div>
 		<div class="header-actions">
-			<button class="btn btn-secondary btn-sm" type="button" onclick={onBuildFromScratch}>New Template</button>
+			<button class="btn btn-secondary btn-sm" type="button" onclick={onBuildFromScratch}>New</button>
 			<button class="btn btn-secondary btn-sm" type="button" onclick={onBack}>Back</button>
 		</div>
 	</div>
@@ -30,19 +30,18 @@
 						{template.coverageMode === 'timed' ? `${template.startTime} to ${template.endTime}` : 'All day'} · {template
 							.slots.length} slot definition{template.slots.length === 1 ? '' : 's'}
 					</p>
-					{#if template.description}<p class="template-description">{template.description}</p>{/if}
 				</div>
-				<button class="btn btn-primary btn-sm" type="button" onclick={() => onChooseTemplate(template.id)}
-					>Use Template</button
+				<button
+					class="btn btn-primary btn-sm"
+					type="button"
+					aria-label={`Use ${template.name}`}
+					onclick={() => onChooseTemplate(template.id)}>Use</button
 				>
 			</article>
 		{/each}
 	</div>
 	{#if activeAdvancedTemplates.length === 0}
-		<EmptyState
-			message="No active advanced duty templates ready. Save and activate one in the template builder, then return here."
-			variant="simple"
-		/>
+		<EmptyState message="No active advanced templates yet." variant="simple" />
 	{/if}
 </section>
 
@@ -75,10 +74,8 @@
 		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
 		gap: var(--sp-3);
-		padding: var(--sp-3);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
+		padding: var(--sp-3) 0;
+		border-top: 1px solid var(--border-subtle);
 	}
 	.template-main {
 		min-width: 0;
@@ -92,8 +89,7 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 	}
-	.template-meta,
-	.template-description {
+	.template-meta {
 		margin: var(--sp-2) 0 0;
 		color: var(--text-secondary);
 	}

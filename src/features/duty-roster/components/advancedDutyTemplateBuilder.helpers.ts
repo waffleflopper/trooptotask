@@ -51,7 +51,6 @@ export interface BuilderFormState {
 	scopeType: 'organization' | 'groups';
 	scopeGroupIds: string[];
 	exemptPersonnelIds: string[];
-	exemptStatusTypeIds: string[];
 	coverageMode: 'all-day' | 'timed';
 	startTime: string;
 	endTime: string;
@@ -280,7 +279,6 @@ export function createBlankBuilderState(): BuilderFormState {
 		scopeType: 'organization',
 		scopeGroupIds: [],
 		exemptPersonnelIds: [],
-		exemptStatusTypeIds: [],
 		coverageMode: 'all-day',
 		startTime: '',
 		endTime: '',
@@ -301,7 +299,6 @@ export function createBuilderStateFromTemplate(template: DutyTemplate, nextKey: 
 		scopeType: template.scopeType,
 		scopeGroupIds: Array.isArray(template.scopeGroupIds) ? [...template.scopeGroupIds] : [],
 		exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? [...template.exemptPersonnelIds] : [],
-		exemptStatusTypeIds: Array.isArray(template.exemptStatusTypeIds) ? [...template.exemptStatusTypeIds] : [],
 		coverageMode: template.coverageMode,
 		startTime: template.startTime ?? '',
 		endTime: template.endTime ?? '',
@@ -343,7 +340,6 @@ export function createBuilderStateFromPreset(preset: TemplateStarterPreset, next
 		scopeType: preset.scopeType,
 		scopeGroupIds: [...preset.scopeGroupIds],
 		exemptPersonnelIds: [],
-		exemptStatusTypeIds: [],
 		coverageMode: preset.coverageMode,
 		startTime: preset.startTime,
 		endTime: preset.endTime,
@@ -363,7 +359,6 @@ export function buildPayload(state: {
 	scopeType: 'organization' | 'groups';
 	scopeGroupIds: string[];
 	exemptPersonnelIds: string[];
-	exemptStatusTypeIds: string[];
 	coverageMode: 'all-day' | 'timed';
 	startTime: string;
 	endTime: string;
@@ -402,7 +397,7 @@ export function buildPayload(state: {
 		scopeType: state.scopeType,
 		scopeGroupIds: state.scopeType === 'groups' ? state.scopeGroupIds : [],
 		exemptPersonnelIds: state.exemptPersonnelIds,
-		exemptStatusTypeIds: state.exemptStatusTypeIds,
+		exemptStatusTypeIds: [],
 		coverageMode: state.coverageMode,
 		startTime: state.coverageMode === 'timed' ? state.startTime || null : null,
 		endTime: state.coverageMode === 'timed' ? state.endTime || null : null,

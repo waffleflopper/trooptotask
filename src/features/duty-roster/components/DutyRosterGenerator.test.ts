@@ -126,7 +126,7 @@ function renderGenerator(overrides: Parameters<typeof render>[1]['props'] = {}) 
 async function generateSimpleRoster(date = '2026-04-10') {
 	await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: date } });
 	await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: date } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Preview Roster' }));
 	await waitFor(() => expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy());
 }
 
@@ -138,15 +138,15 @@ describe('DutyRosterGenerator', () => {
 	it('renders as a page section instead of a dialog shell', () => {
 		renderGenerator();
 
-		expect(screen.getByText('Duty planning')).toBeTruthy();
-		expect(screen.getByText('Setup')).toBeTruthy();
+		expect(screen.getByText('Assignments / Taskings')).toBeTruthy();
+		expect(screen.getByText('Roster Setup')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
-	it('shows Generate Roster in the setup panel header with no Personnel step', () => {
+	it('shows Preview Roster in the setup panel header with no Personnel step', () => {
 		renderGenerator();
 
-		expect(screen.getByRole('button', { name: 'Generate Roster' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Preview Roster' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Continue to Personnel/ })).toBeNull();
 	});
 
@@ -294,7 +294,7 @@ describe('DutyRosterGenerator', () => {
 		await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-04-12' } });
 		await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-04-12' } });
 
-		expect(screen.getByRole('heading', { name: 'Generate Duty Roster' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Build Roster' })).toBeTruthy();
 		expect(screen.queryByText('Apr 12')).toBeNull();
 	});
 
@@ -355,9 +355,9 @@ describe('DutyRosterGenerator', () => {
 
 		await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-04-10' } });
 		await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-04-12' } });
-		await fireEvent.click(screen.getByLabelText('Exclude federal holidays'));
-		await fireEvent.click(screen.getByLabelText('Exclude org closures'));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
+		await fireEvent.click(screen.getByLabelText('Skip federal holidays'));
+		await fireEvent.click(screen.getByLabelText('Skip org closures'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Roster' }));
 
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy());
 

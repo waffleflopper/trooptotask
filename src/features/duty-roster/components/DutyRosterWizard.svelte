@@ -170,9 +170,6 @@
 			? candidateReviewOptions
 			: candidateReviewOptions.filter((person) => new Set(selectedRunCandidateIds).has(person.id))
 	);
-	const statusTypeNameById = $derived.by(
-		() => new Map(props.statusTypes.map((statusType) => [statusType.id, statusType.name] as const))
-	);
 	const candidateReviewColumns: ColumnDef<Personnel>[] = [
 		{ key: 'include', header: 'Include', value: () => '', searchable: false },
 		{
@@ -608,7 +605,6 @@
 						template={selectedAdvancedTemplate}
 						{enabledSoftPrefs}
 						{hasRotationBaselines}
-						{statusTypeNameById}
 						onBack={() => (view = 'advanced-template-list')}
 						onEditTemplate={props.onManageAdvancedTemplates}
 						onContinue={goToDatePattern}

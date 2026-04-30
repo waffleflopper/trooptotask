@@ -663,7 +663,6 @@
 			templates={advancedDutyTemplates}
 			groups={groupsStore.items}
 			personnel={calendarPersonnel}
-			statusTypes={statusTypesStore.items}
 			canManageTemplates={canManageAdvancedTemplates}
 			onCreateTemplate={handleCreateAdvancedTemplate}
 			onUpdateTemplate={handleUpdateAdvancedTemplate}

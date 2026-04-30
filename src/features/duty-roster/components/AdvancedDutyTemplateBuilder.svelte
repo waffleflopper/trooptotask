@@ -1,9 +1,7 @@
 <script lang="ts">
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import WizardStepper from './WizardStepper.svelte';
 	import { ALL_RANKS } from '$lib/types';
-	import type { StatusType } from '$lib/types';
 	import { cloneDefaultSoftPreferences, type DutyTemplate, type DutyTemplateWriteInput } from '../duty-roster.types';
 	import { SvelteSet } from 'svelte/reactivity';
 	import TemplateStarterStep from './TemplateStarterStep.svelte';
@@ -38,7 +36,6 @@
 		templates: DutyTemplate[];
 		groups: GroupOption[];
 		personnel: PersonnelOption[];
-		statusTypes: StatusType[];
 		canManageTemplates: boolean;
 		onCreateTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		onUpdateTemplate: (payload: DutyTemplateWriteInput & { id: string }) => Promise<DutyTemplate | null>;
@@ -49,7 +46,6 @@
 		templates,
 		groups,
 		personnel,
-		statusTypes,
 		canManageTemplates,
 		onCreateTemplate,
 		onUpdateTemplate,
@@ -75,7 +71,6 @@
 	let scopeType = $state<'organization' | 'groups'>('organization');
 	let scopeGroupIds = $state<string[]>([]);
 	let exemptPersonnelIds = $state<string[]>([]);
-	let exemptStatusTypeIds = $state<string[]>([]);
 	let coverageMode = $state<'all-day' | 'timed'>('all-day');
 	let startTime = $state('');
 	let endTime = $state('');
@@ -123,7 +118,6 @@
 		scopeType = state.scopeType;
 		scopeGroupIds = state.scopeGroupIds;
 		exemptPersonnelIds = state.exemptPersonnelIds;
-		exemptStatusTypeIds = state.exemptStatusTypeIds;
 		coverageMode = state.coverageMode;
 		startTime = state.startTime;
 		endTime = state.endTime;
@@ -169,7 +163,6 @@
 		builderStep = 'basics';
 		saveError = '';
 		applyState(createBlankBuilderState());
-		exemptStatusTypeIds = statusTypes.map((s) => s.id);
 	}
 
 	function applyStarterPreset(presetId: string | null) {
@@ -177,7 +170,6 @@
 		const preset = templateStarterPresets.find((candidate) => candidate.id === presetId);
 		if (!preset) return;
 		applyState(createBuilderStateFromPreset(preset, nextSlotKey));
-		exemptStatusTypeIds = statusTypes.map((s) => s.id);
 	}
 
 	$effect(() => {
@@ -252,13 +244,6 @@
 			preference.type === type ? { ...preference, enabled } : preference
 		);
 	}
-	function toggleExemptStatusType(statusTypeId: string) {
-		markDirty();
-		exemptStatusTypeIds = exemptStatusTypeIds.includes(statusTypeId)
-			? exemptStatusTypeIds.filter((id) => id !== statusTypeId)
-			: [...exemptStatusTypeIds, statusTypeId];
-	}
-
 	async function handleSave(status: 'draft' | 'active' | 'archived' | null = null) {
 		if ((status === 'draft' && !canSaveDraft) || (status !== 'draft' && !canSave)) return;
 		saveError = '';
@@ -272,7 +257,6 @@
 					scopeType,
 					scopeGroupIds,
 					exemptPersonnelIds,
-					exemptStatusTypeIds,
 					coverageMode,
 					startTime,
 					endTime,
@@ -331,17 +315,10 @@
 <section class="advanced-builder">
 	<header class="builder-header">
 		<div>
-			<p class="eyebrow">Advanced Duty Templates</p>
-			<h2>Draft and review reusable duty policies.</h2>
-			<p class="builder-copy">
-				Build the reusable rule set here first. Generation and apply flows can layer on top of these templates later.
-			</p>
+			<p class="eyebrow">Templates</p>
+			<h2>Advanced Duty</h2>
 		</div>
 	</header>
-
-	{#if canManageTemplates}
-		<WizardStepper steps={BUILDER_STEPS} current={builderStep} />
-	{/if}
 
 	{#if !canManageTemplates}
 		<section class="restricted-state">
@@ -365,12 +342,14 @@
 
 			<div class="builder-main">
 				{#if builderStep === 'basics'}
-					<TemplateStarterStep
-						{setupMode}
-						presets={templateStarterPresets}
-						onSetupModeChange={(mode) => (setupMode = mode)}
-						onApplyPreset={applyStarterPreset}
-					/>
+					{#if isCreatingNew}
+						<TemplateStarterStep
+							{setupMode}
+							presets={templateStarterPresets}
+							onSetupModeChange={(mode) => (setupMode = mode)}
+							onApplyPreset={applyStarterPreset}
+						/>
+					{/if}
 					<TemplateBasicsStep
 						{templateName}
 						{templateDescription}
@@ -402,7 +381,6 @@
 						{scopeType}
 						{scopeGroupIds}
 						{exemptPersonnelIds}
-						{exemptStatusTypeIds}
 						{coverageMode}
 						{startTime}
 						{endTime}
@@ -411,7 +389,6 @@
 						{cooldownHours}
 						{groupTagOptions}
 						{personnelTagOptions}
-						{statusTypes}
 						{draftSoftPreferences}
 						{softPreferenceOptions}
 						onScopeTypeChange={(value) => {
@@ -426,7 +403,6 @@
 							exemptPersonnelIds = value;
 							markDirty();
 						}}
-						onToggleExemptStatusType={toggleExemptStatusType}
 						onCoverageModeChange={(value) => {
 							coverageMode = value;
 							markDirty();
@@ -493,7 +469,6 @@
 						{cooldownHours}
 						{draftSlots}
 						{draftRotationBaselines}
-						{exemptStatusTypeIds}
 						enabledSoftPreferenceSummary={enabledSoftPreferenceSummaryText}
 						{saveError}
 						{isDirty}
@@ -538,7 +513,7 @@
 	.builder-layout {
 		display: grid;
 		gap: var(--sp-4);
-		grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+		grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
 	}
 	.builder-main {
 		display: grid;
@@ -562,10 +537,6 @@
 	h2,
 	h3 {
 		margin: 0;
-	}
-	.builder-copy {
-		margin: var(--sp-2) 0 0;
-		color: var(--text-secondary);
 	}
 	@media (max-width: 900px) {
 		.builder-layout {

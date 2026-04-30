@@ -44,6 +44,19 @@ async function applyDutyEventSeriesFromTemplate(
 	});
 }
 
+function seedAuthorizedAbsenceStatus(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('status_types', [
+		{
+			id: 'status-leave',
+			organization_id: ctx.auth.orgId,
+			name: 'Leave',
+			color: '#48bb78',
+			text_color: '#ffffff',
+			da6_availability_treatment: 'authorized-absence'
+		}
+	]);
+}
+
 describe('duty event apply use case', () => {
 	it('rejects single-event apply without approved snapshot metadata', async () => {
 		const ctx = createTestContext();
@@ -214,6 +227,7 @@ describe('duty event apply use case', () => {
 
 	it('applies the approved single-event snapshot even when status availability changes after preview', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -245,7 +259,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '08:00',
@@ -1815,6 +1828,7 @@ describe('duty event apply use case', () => {
 
 	it('treats configured calendar statuses as day-scoped exemptions during advanced generation', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -1856,7 +1870,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '08:00',
@@ -1888,8 +1901,9 @@ describe('duty event apply use case', () => {
 		expect(preview.events[1].slotInstances[0].assigneeId).toBe('person-exempt-on-day-one');
 	});
 
-	it('treats next-day exempt statuses as unavailable for overnight advanced duty coverage', async () => {
+	it('treats next-day DA6-treated statuses as unavailable for overnight advanced duty coverage', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -1931,7 +1945,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '18:00',
 			endTime: '06:00',
@@ -2630,8 +2643,9 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('blocks apply when a manual override assigns someone with an exempt status', async () => {
+	it('blocks apply when a manual override assigns someone with a DA6-treated unavailable status', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -2673,7 +2687,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '20:00',
@@ -2710,7 +2723,7 @@ describe('duty event apply use case', () => {
 			warningState: 'conflict'
 		});
 		expect(preview.slotInstances[0]?.overrideMessages).toContain(
-			'SGT Status has an exempt status for 2026-04-10 and cannot be manually assigned.'
+			'SGT Status has authorized absence status (Leave) during this duty window.'
 		);
 
 		await expect(

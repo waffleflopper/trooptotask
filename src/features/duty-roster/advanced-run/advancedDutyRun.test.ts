@@ -94,8 +94,7 @@ describe('advanced duty run snapshots', () => {
 			eventDates: ['2026-04-10'],
 			personnel,
 			holidayClosureDates: new Set(),
-			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			historyEvents: []
 		});
 
 		expect(snapshot).toMatchObject({
@@ -186,8 +185,7 @@ describe('advanced duty run snapshots', () => {
 			eventDates: ['2026-04-10', '2026-04-11'],
 			personnel: cqPersonnel,
 			holidayClosureDates: new Set(),
-			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			historyEvents: []
 		});
 
 		const dayOneAssignees = snapshot.events[0].slotProposals
@@ -253,7 +251,6 @@ describe('advanced duty run snapshots', () => {
 			personnel,
 			holidayClosureDates: new Set(),
 			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map(),
 			availabilityEntries,
 			statusTypes,
 			misconductUnavailablePersonnelDates: { 'person-chen': ['2026-04-10'] }
@@ -325,8 +322,7 @@ describe('advanced duty run snapshots', () => {
 					},
 					slotInstances: [{ templateSlotId: 'slot-general', assigneeId: 'person-nco' }]
 				}
-			],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			]
 		});
 
 		const event = snapshot.events[0];
@@ -402,7 +398,6 @@ describe('advanced duty run snapshots', () => {
 			personnel,
 			holidayClosureDates: new Set(),
 			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map(),
 			slotOverridesByEventDate: new Map([
 				[
 					'2026-04-10',

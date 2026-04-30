@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import type { StatusType } from '$lib/types';
 import TemplateStarterStep from './TemplateStarterStep.svelte';
 import TemplateBasicsStep from './TemplateBasicsStep.svelte';
 import TemplatePolicyStep from './TemplatePolicyStep.svelte';
@@ -36,8 +35,8 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				onApplyPreset
 			}
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
-		await fireEvent.click(screen.getByRole('button', { name: /Use Company CQ Preset/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Full' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Company CQ/ }));
 		expect(onSetupModeChange).toHaveBeenCalledWith('full');
 		expect(onApplyPreset).toHaveBeenCalledWith('preset-1');
 	});
@@ -62,30 +61,19 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 		await fireEvent.input(screen.getByPlaceholderText('e.g. Battalion Staff Duty'), {
 			target: { value: 'Battalion Staff Duty' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Policy' }));
 		expect(onNameChange).toHaveBeenCalled();
 		expect(onNext).toHaveBeenCalled();
 	});
 
-	it('TemplatePolicyStep toggles status exemptions and navigates', async () => {
-		const onToggleExemptStatusType = vi.fn();
-		const statusType = {
-			id: 'status-1',
-			name: 'Leave',
-			color: '#000',
-			textColor: '#fff',
-			organizationId: 'org-1',
-			createdAt: '',
-			updatedAt: '',
-			sortOrder: 0
-		} as StatusType;
+	it('TemplatePolicyStep shows status availability as status-owned and navigates', async () => {
+		const onNext = vi.fn();
 		render(TemplatePolicyStep, {
 			props: {
 				setupMode: 'quick',
 				scopeType: 'organization',
 				scopeGroupIds: [],
 				exemptPersonnelIds: [],
-				exemptStatusTypeIds: [],
 				coverageMode: 'all-day',
 				startTime: '',
 				endTime: '',
@@ -94,13 +82,11 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				cooldownHours: 24,
 				groupTagOptions: [],
 				personnelTagOptions: [],
-				statusTypes: [statusType],
 				draftSoftPreferences: [],
 				softPreferenceOptions: [],
 				onScopeTypeChange: vi.fn(),
 				onScopeGroupIdsChange: vi.fn(),
 				onExemptPersonnelIdsChange: vi.fn(),
-				onToggleExemptStatusType,
 				onCoverageModeChange: vi.fn(),
 				onStartTimeChange: vi.fn(),
 				onEndTimeChange: vi.fn(),
@@ -110,11 +96,13 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				onMoveSoftPreference: vi.fn(),
 				onUpdateSoftPreference: vi.fn(),
 				onBack: vi.fn(),
-				onNext: vi.fn()
+				onNext
 			}
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
-		expect(onToggleExemptStatusType).toHaveBeenCalledWith('status-1');
+		expect(screen.getByText('Status availability')).toBeTruthy();
+		expect(screen.getByText('Handled by Calendar status treatments.')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
+		expect(onNext).toHaveBeenCalled();
 	});
 
 	it('TemplateSeriesStep adds slots and baselines through callbacks', async () => {
@@ -166,7 +154,6 @@ describe('AdvancedDutyTemplateBuilder step components', () => {
 				cooldownHours: 24,
 				draftSlots: [{ key: 'slot-1', quantity: 1, roleLabel: 'NCO' }],
 				draftRotationBaselines: [],
-				exemptStatusTypeIds: [],
 				enabledSoftPreferenceSummary: 'Longest break',
 				saveError: '',
 				isDirty: true,

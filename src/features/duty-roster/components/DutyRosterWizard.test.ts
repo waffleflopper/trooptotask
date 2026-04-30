@@ -422,7 +422,7 @@ function deferred<T>() {
 
 async function openAdvancedPolicyReview() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-	await fireEvent.click(screen.getByRole('button', { name: 'Use Template' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Use Battalion Staff Duty' }));
 	await waitFor(() => {
 		expect(screen.getByText('Template policy')).toBeTruthy();
 	});
@@ -454,8 +454,8 @@ describe('DutyRosterWizard', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 
-		expect(screen.getByRole('button', { name: 'Continue with Charge of Quarters' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Continue with Staff Duty' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Use Charge of Quarters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Use Staff Duty' })).toBeTruthy();
 		expect(screen.queryByText('Manager on Duty')).toBeNull();
 	});
 
@@ -463,10 +463,10 @@ describe('DutyRosterWizard', () => {
 		renderWizard();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
 
 		await waitFor(() => {
-			expect(screen.getByText('Duty planning')).toBeTruthy();
+			expect(screen.getByText('Assignments / Taskings')).toBeTruthy();
 		});
 
 		const select = screen.getByLabelText('Assignment Type') as HTMLSelectElement;
@@ -495,13 +495,12 @@ describe('DutyRosterWizard', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
 
-		expect(screen.getByText('Advanced duty')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Use Template' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'New Template' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Use Battalion Staff Duty' })).toBeNull();
+		expect(screen.getByText('Advanced')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Use Battalion Staff Duty' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'New' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Use Company CQ' })).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New' }));
 
 		expect(manageTemplates).toHaveBeenCalledTimes(1);
 	});
@@ -538,7 +537,7 @@ describe('DutyRosterWizard', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
 		await fireEvent.click(screen.getByRole('button', { name: /History/ }));
 
 		expect(screen.getAllByText('Roster History').length).toBeGreaterThan(0);
@@ -584,8 +583,8 @@ describe('DutyRosterWizard', () => {
 			renderWizard();
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Preview Roster' }));
 
 			await waitFor(() => {
 				expect(screen.getByRole('button', { name: 'Export to Excel' })).toBeTruthy();
@@ -673,7 +672,7 @@ describe('DutyRosterWizard', () => {
 			);
 		});
 
-		expect(screen.getByText('Select a template')).toBeTruthy();
+		expect(screen.getByText('Use a template')).toBeTruthy();
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
 	});
@@ -842,7 +841,7 @@ describe('DutyRosterWizard', () => {
 
 		await waitFor(() => {
 			expect(screen.queryByRole('dialog', { name: 'Applying duty roster' })).toBeNull();
-			expect(screen.getByText('Select a template')).toBeTruthy();
+			expect(screen.getByText('Use a template')).toBeTruthy();
 		});
 	});
 
@@ -2231,9 +2230,9 @@ describe('DutyRosterWizard', () => {
 		expect(screen.queryByText('Applied advanced duty events')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
 		await waitFor(() => {
-			expect(screen.getByText('Duty planning')).toBeTruthy();
+			expect(screen.getByText('Assignments / Taskings')).toBeTruthy();
 		});
 
 		expect(screen.queryByText('Applied advanced duty events')).toBeNull();

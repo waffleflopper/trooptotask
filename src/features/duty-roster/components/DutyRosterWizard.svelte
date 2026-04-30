@@ -20,6 +20,7 @@
 	} from '$lib/types';
 	import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { buildTeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
 	import type {
 		DutyEvent,
 		DutyEventApplyInput,
@@ -39,6 +40,7 @@
 	import {
 		ADVANCED_STEPS,
 		addCalendarDays,
+		buildDutyPacketSeriesMarkup,
 		buildNextSeriesOverrides,
 		buildSingleEventInput,
 		buildSeriesInput,
@@ -436,6 +438,29 @@
 		if (advancedPreviewMode === 'single') await handlePreviewAdvancedEvent();
 		else await handlePreviewAdvancedSeries();
 	}
+	function handleExportAdvancedPreview() {
+		if (!advancedSeriesPreview) return;
+		const packetMarkup = buildDutyPacketSeriesMarkup(
+			advancedSeriesPreview.events.map((event) =>
+				buildTeamDutyPacketExportModel({
+					templateName: advancedSeriesPreview?.templateName ?? event.templateName,
+					event,
+					personnelById,
+					status: 'preview'
+				})
+			)
+		);
+		const fileDate = advancedSeriesPreview.eventDates[0]?.replaceAll('-', '') ?? getTodayDate().replaceAll('-', '');
+		const blob = new Blob([packetMarkup], { type: 'text/html;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = `${advancedSeriesPreview.templateName.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}-${fileDate}-preview-duty-packet.html`;
+		document.body.append(anchor);
+		anchor.click();
+		anchor.remove();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <section class="wizard-shell">
@@ -613,6 +638,8 @@
 						hasSeriesSlotOverride={(eventDate, slot) => hasSeriesSlotOverride(advancedSeriesOverrides, eventDate, slot)}
 						onBack={goToDatePattern}
 						onApply={handleApplyAdvancedSeries}
+						onRegenerate={handleRegenerateAdvancedRun}
+						onExportPreview={handleExportAdvancedPreview}
 						onCollisionConfirmedChange={(value) => (collisionReviewConfirmed = value)}
 						onShortfallConfirmedChange={(value) => (shortfallReviewConfirmed = value)}
 						onUpdateSlotAssignee={updateSeriesSlotAssignee}

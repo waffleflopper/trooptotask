@@ -32,6 +32,8 @@
 		hasSeriesSlotOverride: (eventDate: string, slot: DutyEventPreviewSlotInstance) => boolean;
 		onBack: () => void;
 		onApply: () => void;
+		onRegenerate: () => void;
+		onExportPreview: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onShortfallConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (eventDate: string, slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -65,6 +67,8 @@
 	getExplanationSections={props.getExplanationSections}
 	hasSeriesSlotOverride={props.hasSeriesSlotOverride}
 	onApply={props.onApply}
+	onRegenerate={props.onRegenerate}
+	onExportPreview={props.onExportPreview}
 	onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 	onShortfallConfirmedChange={props.onShortfallConfirmedChange}
 	onUpdateSlotAssignee={props.onUpdateSlotAssignee}

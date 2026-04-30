@@ -2,8 +2,47 @@
 	import type { DutyEventSeriesPreview, DutyEventPreviewSlotInstance, DutyTemplate } from '../duty-roster.types';
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
-	import SlotPreviewItem from './SlotPreviewItem.svelte';
 	import type { SlotExplanationSection } from './SlotPreviewItem.svelte';
+
+	type AdvancedRunUiState =
+		| 'draft'
+		| 'stale'
+		| 'expired'
+		| 'applying'
+		| 'applied'
+		| 'failed-before-persistence'
+		| 'partial-recovery';
+
+	const stateCopy: Record<AdvancedRunUiState, { label: string; description: string }> = {
+		draft: {
+			label: 'Draft preview',
+			description: 'This generated run is under review.'
+		},
+		stale: {
+			label: 'Stale preview',
+			description: 'Source data or reviewed inputs changed. Regenerate before applying.'
+		},
+		expired: {
+			label: 'Expired preview',
+			description: 'This 24-hour draft snapshot can no longer be applied.'
+		},
+		applying: {
+			label: 'Applying',
+			description: 'The reviewed snapshot is being persisted.'
+		},
+		applied: {
+			label: 'Applied',
+			description: 'This run is finalized and cannot be normally applied again.'
+		},
+		'failed-before-persistence': {
+			label: 'Failed before persistence',
+			description: 'Nothing was persisted. Retry may be allowed if the draft is still valid.'
+		},
+		'partial-recovery': {
+			label: 'Partial recovery',
+			description: 'Some persistence succeeded. Use recovery instead of retrying the run.'
+		}
+	};
 
 	interface Props {
 		preview: DutyEventSeriesPreview;
@@ -18,6 +57,11 @@
 		shortfallReviewConfirmed: boolean;
 		previewCollisionMessages: string[];
 		personnelOptions: Personnel[];
+		snapshotState?: AdvancedRunUiState;
+		canExportPreview?: boolean;
+		canRegenerate?: boolean;
+		canRetryApply?: boolean;
+		canRecoverPartialApply?: boolean;
 		formatAssignee: (id: string | null) => string;
 		formatCoverageLabel: (event: {
 			coverageMode: 'all-day' | 'timed';
@@ -27,6 +71,10 @@
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
 		hasSeriesSlotOverride: (eventDate: string, slot: DutyEventPreviewSlotInstance) => boolean;
 		onApply: () => void;
+		onRegenerate?: () => void;
+		onExportPreview?: () => void;
+		onRetryApply?: () => void;
+		onRecoverPartialApply?: () => void;
 		onCollisionConfirmedChange: (confirmed: boolean) => void;
 		onShortfallConfirmedChange: (confirmed: boolean) => void;
 		onUpdateSlotAssignee: (eventDate: string, slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -48,11 +96,20 @@
 		shortfallReviewConfirmed,
 		previewCollisionMessages,
 		personnelOptions,
+		snapshotState = 'draft',
+		canExportPreview = true,
+		canRegenerate = true,
+		canRetryApply = false,
+		canRecoverPartialApply = false,
 		formatAssignee,
 		formatCoverageLabel,
 		getExplanationSections,
 		hasSeriesSlotOverride,
 		onApply,
+		onRegenerate = () => {},
+		onExportPreview = () => {},
+		onRetryApply = () => {},
+		onRecoverPartialApply = () => {},
 		onCollisionConfirmedChange,
 		onShortfallConfirmedChange,
 		onUpdateSlotAssignee,
@@ -61,38 +118,71 @@
 		onResetSlot
 	}: Props = $props();
 
-	type ViewMode = 'by-date' | 'by-pool';
-	let viewMode = $state<ViewMode>('by-date');
+	let selectedDate = $state('all');
+	let selectedPool = $state('all');
 
 	const previewRequiresCollisionReview = $derived(previewCollisionMessages.length > 0);
 	const previewHasShortfalls = $derived(preview.events.some((event) => event.fillSummary.unfilledSlots > 0));
+	const totalSlots = $derived(preview.events.reduce((total, event) => total + event.fillSummary.totalSlots, 0));
+	const filledSlots = $derived(preview.events.reduce((total, event) => total + event.fillSummary.filledSlots, 0));
+	const hasApplySnapshotMetadata = $derived(Boolean(preview.snapshotId && preview.snapshotFingerprint));
 	const canApply = $derived(
 		!isApplying &&
 			!isRefreshing &&
+			snapshotState === 'draft' &&
+			hasApplySnapshotMetadata &&
 			!(previewRequiresCollisionReview && !collisionReviewConfirmed) &&
 			!(previewHasShortfalls && !shortfallReviewConfirmed)
 	);
+	const currentStateCopy = $derived(stateCopy[snapshotState]);
+	const disableActionControls = $derived(isRefreshing || isApplying || snapshotState === 'applying');
+	const canUseRegenerate = $derived(canRegenerate && !disableActionControls);
+	const canUsePreviewExport = $derived(canExportPreview && !disableActionControls && snapshotState !== 'expired');
+	const canUseRetry = $derived(
+		canRetryApply && snapshotState === 'failed-before-persistence' && !disableActionControls
+	);
+	const canUseRecovery = $derived(
+		canRecoverPartialApply && snapshotState === 'partial-recovery' && !disableActionControls
+	);
 
-	// Build pool-based view data
 	const poolKeys = $derived([...new Set(template.slots.map((slot) => slot.rotationPoolKey))].sort());
-	const poolView = $derived.by(() => {
-		return poolKeys.map((poolKey) => {
-			const poolSlotIds = new Set(
-				template.slots.filter((slot) => slot.rotationPoolKey === poolKey).map((slot) => slot.id)
-			);
-			const entries = preview.events.flatMap((event) =>
-				event.slotInstances
-					.filter((slot) => slot.templateSlotId && poolSlotIds.has(slot.templateSlotId))
-					.map((slot) => ({ eventDate: event.eventDate, slot }))
-			);
+	const poolBySlotId = $derived(new Map(template.slots.map((slot) => [slot.id, slot.rotationPoolKey])));
+	const reviewRows = $derived.by(() =>
+		preview.events.flatMap((event) =>
+			event.slotInstances.map((slot) => ({
+				event,
+				slot,
+				poolKey: slot.templateSlotId ? (poolBySlotId.get(slot.templateSlotId) ?? 'Unassigned') : 'Unassigned'
+			}))
+		)
+	);
+	const filteredRows = $derived(
+		reviewRows.filter((row) => {
+			const matchesDate = selectedDate === 'all' || row.event.eventDate === selectedDate;
+			const matchesPool = selectedPool === 'all' || row.poolKey === selectedPool;
+			return matchesDate && matchesPool;
+		})
+	);
 
-			const seededCount = entries.filter((e) => e.slot.fairnessConfidence !== 'low').length;
-			const totalCount = entries.length;
-			const lowConfidenceCount = entries.filter((e) => e.slot.fairnessConfidence === 'low').length;
+	function slotLabel(slot: DutyEventPreviewSlotInstance) {
+		return `${slot.roleLabel} #${slot.slotIndex + 1}`;
+	}
 
-			return { poolKey, entries, seededCount, totalCount, lowConfidenceCount };
-		});
-	});
+	function sourceLabel(slot: DutyEventPreviewSlotInstance, hasOverride: boolean) {
+		if (!slot.assigneeId && hasOverride) return 'Cleared';
+		if (!slot.assigneeId) return 'Unfilled';
+		if (slot.assignmentSource === 'locked') return 'Locked';
+		if (slot.assignmentSource === 'manual' || hasOverride) return 'Changed by user';
+		return 'Generated';
+	}
+
+	function issueLabel(slot: DutyEventPreviewSlotInstance) {
+		if (!slot.assigneeId) return 'Unfilled';
+		if (slot.warningState === 'conflict') return 'Conflict';
+		if (slot.warningState === 'warning') return 'Warning';
+		if (slot.fairnessConfidence === 'low') return 'Low confidence';
+		return 'No issue';
+	}
 </script>
 
 <section class="preview-card" aria-label="Advanced event preview">
@@ -101,14 +191,53 @@
 			<p class="eyebrow">{eyebrow}</p>
 			<h4>{preview.templateName}</h4>
 			<p class="template-meta">{meta}</p>
+			<p class="summary-line"><span>Fill:</span> <strong>{filledSlots}/{totalSlots}</strong></p>
 			{#if isRefreshing}
 				<p class="template-meta">Refreshing preview around your edits...</p>
 			{/if}
 		</div>
-		<button class="btn btn-primary" type="button" disabled={!canApply} onclick={onApply}>
-			{isApplying ? applyingLabel : applyLabel}
-		</button>
 	</div>
+
+	<section class="run-action-state" aria-label="Advanced run actions and snapshot state">
+		<div class="state-copy">
+			<p class="state-label">{currentStateCopy.label}</p>
+			<p>{currentStateCopy.description}</p>
+			{#if snapshotState === 'draft' && !hasApplySnapshotMetadata}
+				<p class="snapshot-warning">Snapshot identity is missing. Regenerate before applying.</p>
+			{/if}
+			<p class="preview-export-label">Preview export: not applied output</p>
+		</div>
+		<div class="persistent-actions">
+			<button class="btn btn-secondary btn-sm" type="button" disabled={!canUseRegenerate} onclick={onRegenerate}>
+				Regenerate preview
+			</button>
+			<button
+				class="btn btn-secondary btn-sm"
+				type="button"
+				disabled={!canUsePreviewExport}
+				aria-label="Export preview, not applied output"
+				onclick={onExportPreview}>Export preview</button
+			>
+			{#if snapshotState === 'failed-before-persistence'}
+				<button class="btn btn-secondary btn-sm" type="button" disabled={!canUseRetry} onclick={onRetryApply}>
+					Retry apply
+				</button>
+			{/if}
+			{#if snapshotState === 'partial-recovery'}
+				<button
+					class="btn btn-secondary btn-sm"
+					type="button"
+					disabled={!canUseRecovery}
+					onclick={onRecoverPartialApply}
+				>
+					Recover partial apply
+				</button>
+			{/if}
+			<button class="btn btn-primary btn-sm" type="button" disabled={!canApply} onclick={onApply}>
+				{isApplying ? applyingLabel : applyLabel}
+			</button>
+		</div>
+	</section>
 
 	{#if previewRequiresCollisionReview}
 		<div class="collision-wrapper">
@@ -134,92 +263,157 @@
 		</div>
 	{/if}
 
-	<div class="view-toggle">
-		<button
-			class="btn btn-sm"
-			class:btn-secondary={viewMode !== 'by-date'}
-			class:btn-primary={viewMode === 'by-date'}
-			type="button"
-			onclick={() => (viewMode = 'by-date')}
-		>
-			By Date
-		</button>
-		<button
-			class="btn btn-sm"
-			class:btn-secondary={viewMode !== 'by-pool'}
-			class:btn-primary={viewMode === 'by-pool'}
-			type="button"
-			onclick={() => (viewMode = 'by-pool')}
-		>
-			By Pool
-		</button>
+	<div class="review-filters" aria-label="Advanced duty review filters">
+		<label class="filter-field">
+			<span>Filter by date</span>
+			<select
+				value={selectedDate}
+				onchange={(event) => (selectedDate = (event.currentTarget as HTMLSelectElement).value)}
+			>
+				<option value="all">All dates</option>
+				{#each preview.eventDates as eventDate (eventDate)}
+					<option value={eventDate}>Date {eventDate}</option>
+				{/each}
+			</select>
+		</label>
+		<label class="filter-field">
+			<span>Filter by rotation pool</span>
+			<select
+				value={selectedPool}
+				onchange={(event) => (selectedPool = (event.currentTarget as HTMLSelectElement).value)}
+			>
+				<option value="all">All pools</option>
+				{#each poolKeys as poolKey (poolKey)}
+					<option value={poolKey}>{poolKey}</option>
+				{/each}
+			</select>
+		</label>
+		<p class="review-count">{filteredRows.length} of {reviewRows.length} slots shown</p>
 	</div>
 
-	{#if viewMode === 'by-date'}
-		<div class="slot-preview-list">
-			{#each preview.events as event (event.eventDate)}
-				<article class="slot-preview-item">
-					<div>
-						<h5>{event.eventDate}</h5>
-						<p class="template-meta">{formatCoverageLabel(event)}</p>
-						<p class="summary-line">
-							Fill: <strong>{event.fillSummary.filledSlots}/{event.fillSummary.totalSlots}</strong>
-						</p>
-					</div>
-					<div class="slot-preview-list nested-list">
-						{#each event.slotInstances as slot (`${event.eventDate}-${slot.roleLabel}-${slot.slotIndex}`)}
-							<SlotPreviewItem
-								{slot}
-								eventDate={event.eventDate}
-								{personnelOptions}
-								{formatAssignee}
-								{getExplanationSections}
-								isLoading={isRefreshing || isApplying}
-								hasOverride={hasSeriesSlotOverride(event.eventDate, slot)}
-								showResetButton={true}
-								onUpdateAssignee={(id) => onUpdateSlotAssignee(event.eventDate, slot, id)}
-								onToggleLock={() => onToggleSlotLock(event.eventDate, slot)}
-								onClear={() => onClearSlot(event.eventDate, slot)}
-								onReset={() => onResetSlot(event.eventDate, slot)}
-							/>
-						{/each}
-					</div>
-				</article>
-			{/each}
-		</div>
-	{:else}
-		<div class="pool-view-list">
-			{#each poolView as pool (pool.poolKey)}
-				<article class="pool-card">
-					<div class="pool-header">
-						<div>
-							<p class="eyebrow">Rotation pool</p>
-							<h5>{pool.poolKey}</h5>
-							<p class="template-meta">
-								{pool.entries.length} slot{pool.entries.length === 1 ? '' : 's'} across series
-								{#if pool.lowConfidenceCount > 0}
-									· <span class="confidence-warn">{pool.lowConfidenceCount} low confidence</span>
-								{/if}
-							</p>
-						</div>
-					</div>
-					<div class="pool-entry-list">
-						{#each pool.entries as entry (`${entry.eventDate}-${entry.slot.roleLabel}-${entry.slot.slotIndex}`)}
-							<div class="pool-entry-row">
-								<span class="pool-entry-date">{entry.eventDate}</span>
-								<span class="pool-entry-role">{entry.slot.roleLabel} #{entry.slot.slotIndex + 1}</span>
-								<span class="pool-entry-assignee">{formatAssignee(entry.slot.assigneeId)}</span>
-								{#if entry.slot.fairnessConfidence === 'low'}
-									<span class="confidence-badge confidence-low">Low</span>
-								{:else if entry.slot.fairnessConfidence === 'medium'}
-									<span class="confidence-badge confidence-med">Medium</span>
-								{:else}
-									<span class="confidence-badge confidence-high">High</span>
-								{/if}
+	<div class="review-table-wrap">
+		<table class="review-table" aria-label="Advanced duty run review">
+			<thead>
+				<tr>
+					<th scope="col">Date</th>
+					<th scope="col">Coverage</th>
+					<th scope="col">Slot</th>
+					<th scope="col">Proposed Soldier</th>
+					<th scope="col">Source</th>
+					<th scope="col">Issue</th>
+					<th scope="col">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each filteredRows as row (`${row.event.eventDate}-${row.slot.roleLabel}-${row.slot.slotIndex}`)}
+					{@const hasOverride = hasSeriesSlotOverride(row.event.eventDate, row.slot)}
+					<tr>
+						<td class="date-cell">{row.event.eventDate}</td>
+						<td>{formatCoverageLabel(row.event)}</td>
+						<td>
+							<div class="slot-cell">
+								<strong>{slotLabel(row.slot)}</strong>
+								<span>{row.poolKey}</span>
+							</div>
+						</td>
+						<td>
+							<label class="assignee-field">
+								<span class="sr-only">Assignee for {row.event.eventDate} {slotLabel(row.slot)}</span>
+								<select
+									aria-label={`Assignee for ${row.event.eventDate} ${slotLabel(row.slot)}`}
+									value={row.slot.assigneeId ?? ''}
+									disabled={isRefreshing || isApplying}
+									onchange={(event) =>
+										onUpdateSlotAssignee(
+											row.event.eventDate,
+											row.slot,
+											(event.currentTarget as HTMLSelectElement).value || null
+										)}
+								>
+									<option value="">Leave Unfilled</option>
+									{#each personnelOptions as person (person.id)}
+										<option value={person.id}>{person.rank} {person.lastName}</option>
+									{/each}
+								</select>
+							</label>
+							<span class="assignee-name">{formatAssignee(row.slot.assigneeId)}</span>
+						</td>
+						<td>
+							<span class="state-chip">{sourceLabel(row.slot, hasOverride)}</span>
+						</td>
+						<td>
+							<span
+								class="issue-chip"
+								class:issue-conflict={issueLabel(row.slot) === 'Conflict'}
+								class:issue-warning={issueLabel(row.slot) === 'Warning' || issueLabel(row.slot) === 'Low confidence'}
+								class:issue-unfilled={issueLabel(row.slot) === 'Unfilled'}
+								>{issueLabel(row.slot)}
+								{#if row.slot.warningState === 'warning'}<span class="sr-only">Soft warning</span>{/if}
+								{#if row.slot.warningState === 'conflict'}<span class="sr-only">Hard conflict</span>{/if}</span
+							>
+						</td>
+						<td>
+							<div class="row-actions">
+								<button
+									class="btn btn-secondary btn-sm"
+									type="button"
+									disabled={isRefreshing || isApplying}
+									aria-label={`${row.slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'} ${row.event.eventDate} ${slotLabel(row.slot)}`}
+									onclick={() => onToggleSlotLock(row.event.eventDate, row.slot)}
+								>
+									{row.slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'}
+								</button>
+								<button
+									class="btn btn-secondary btn-sm"
+									type="button"
+									disabled={isRefreshing || isApplying}
+									aria-label={`Clear ${row.event.eventDate} ${slotLabel(row.slot)}`}
+									onclick={() => onClearSlot(row.event.eventDate, row.slot)}
+								>
+									Clear
+								</button>
+								<button
+									class="btn btn-secondary btn-sm"
+									type="button"
+									disabled={isRefreshing || isApplying || !hasOverride}
+									aria-label={`Reset ${row.event.eventDate} ${slotLabel(row.slot)}`}
+									onclick={() => onResetSlot(row.event.eventDate, row.slot)}
+								>
+									Reset
+								</button>
+							</div>
+						</td>
+					</tr>
+				{:else}
+					<tr>
+						<td colspan="7" class="empty-cell">No slots match these filters.</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+
+	{#if filteredRows.some((row) => getExplanationSections(row.slot).length > 0)}
+		<div class="review-notes" aria-label="Advanced duty review notes">
+			{#each filteredRows as row (`notes-${row.event.eventDate}-${row.slot.roleLabel}-${row.slot.slotIndex}`)}
+				{@const sections = getExplanationSections(row.slot)}
+				{#if sections.length > 0}
+					<div class="review-note">
+						<p class="slot-note-label">{row.event.eventDate} · {slotLabel(row.slot)}</p>
+						{#each sections as section (`${row.event.eventDate}-${row.slot.slotIndex}-${section.label}`)}
+							<div
+								class="note-section"
+								class:note-warning={section.tone === 'warning'}
+								class:note-conflict={section.tone === 'conflict'}
+							>
+								<p class="note-section-label">{section.label}</p>
+								{#each section.lines as line (`${section.label}-${line}`)}
+									<p>{line}</p>
+								{/each}
 							</div>
 						{/each}
 					</div>
-				</article>
+				{/if}
 			{/each}
 		</div>
 	{/if}
@@ -250,8 +444,7 @@
 		color: var(--text-tertiary);
 	}
 
-	h4,
-	h5 {
+	h4 {
 		margin: 0;
 	}
 
@@ -261,120 +454,281 @@
 		color: var(--text-secondary);
 	}
 
+	.summary-line span {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
 	.collision-wrapper {
 		margin-top: var(--sp-4);
 	}
 
-	.view-toggle {
-		display: flex;
-		gap: var(--sp-2);
-		margin-top: var(--sp-4);
-	}
-
-	.slot-preview-list {
+	.run-action-state {
+		position: sticky;
+		top: 0;
+		z-index: 2;
 		display: grid;
-		gap: var(--sp-3);
-		margin-top: var(--sp-4);
-	}
-
-	.slot-preview-item {
-		display: grid;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-	}
-
-	.nested-list {
-		margin-top: 0;
-	}
-
-	.pool-view-list {
-		display: grid;
-		gap: var(--sp-4);
-		margin-top: var(--sp-4);
-	}
-
-	.pool-card {
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-		overflow: clip;
-	}
-
-	.pool-header {
-		padding: var(--sp-4);
-		border-bottom: 1px solid var(--border-subtle);
-	}
-
-	.pool-entry-list {
-		display: grid;
-	}
-
-	.pool-entry-row {
-		display: grid;
-		grid-template-columns: 120px 1fr 1fr auto;
+		grid-template-columns: minmax(220px, 1fr) auto;
 		gap: var(--sp-3);
 		align-items: center;
-		padding: 10px var(--sp-4);
-		border-top: 1px solid var(--border-subtle);
+		margin-top: var(--sp-4);
+		padding: var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-subtle) 14%);
+	}
+
+	.state-copy {
+		display: grid;
+		gap: 3px;
+	}
+
+	.state-copy p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.state-label,
+	.preview-export-label,
+	.snapshot-warning {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.state-label {
+		color: var(--text-primary);
+	}
+
+	.preview-export-label {
+		color: var(--amber-dark);
+	}
+
+	.snapshot-warning {
+		color: var(--danger-dark);
+	}
+
+	.persistent-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--sp-2);
+	}
+
+	.review-filters {
+		display: grid;
+		grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) 1fr;
+		gap: var(--sp-3);
+		align-items: end;
+		margin-top: var(--sp-4);
+	}
+
+	.filter-field {
+		display: grid;
+		gap: var(--sp-1);
+	}
+
+	.filter-field span,
+	.review-count,
+	.slot-note-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.filter-field select,
+	.assignee-field select {
+		width: 100%;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-primary);
+	}
+
+	.filter-field select {
+		min-height: 38px;
+		padding: 7px 10px;
+	}
+
+	.review-count {
+		justify-self: end;
+		margin: 0 0 10px;
+	}
+
+	.review-table-wrap {
+		margin-top: var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		overflow: auto;
+	}
+
+	.review-table {
+		width: 100%;
+		min-width: 920px;
+		border-collapse: collapse;
 		font-size: var(--text-sm);
 	}
 
-	.pool-entry-row:first-child {
-		border-top: none;
+	.review-table th,
+	.review-table td {
+		padding: 9px 10px;
+		border-bottom: 1px solid var(--border-subtle);
+		text-align: left;
+		vertical-align: middle;
 	}
 
-	.pool-entry-date {
+	.review-table th {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--surface-subtle);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
 
-	.pool-entry-role {
-		color: var(--text-secondary);
+	.review-table tr:last-child td {
+		border-bottom: 0;
 	}
 
-	.pool-entry-assignee {
+	.date-cell {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+	}
+
+	.slot-cell,
+	.assignee-field {
+		display: grid;
+		gap: 3px;
+	}
+
+	.slot-cell strong,
+	.assignee-name {
 		color: var(--text-primary);
 		font-weight: var(--font-weight-medium);
 	}
 
-	.confidence-badge {
+	.slot-cell span,
+	.assignee-name {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+	}
+
+	.assignee-field select {
+		min-width: 160px;
+		min-height: 34px;
+		padding: 5px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.state-chip,
+	.issue-chip {
 		display: inline-flex;
 		align-items: center;
-		padding: 2px 6px;
+		white-space: nowrap;
+		padding: 2px 7px;
 		border-radius: 999px;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
+		color: var(--text-secondary);
 	}
 
-	.confidence-high {
-		background: color-mix(in srgb, var(--surface-subtle) 40%, transparent);
-		color: var(--text-tertiary);
-	}
-
-	.confidence-med {
-		background: color-mix(in srgb, var(--amber-light) 50%, var(--surface-panel) 50%);
-		color: var(--amber-dark);
-	}
-
-	.confidence-low {
+	.issue-warning {
 		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
 		color: var(--amber-dark);
 	}
 
-	.confidence-warn {
+	.issue-conflict,
+	.issue-unfilled {
+		background: color-mix(in srgb, var(--danger-light) 82%, var(--surface-panel) 18%);
+		color: var(--danger-dark);
+	}
+
+	.row-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.empty-cell {
+		padding: var(--sp-4);
+		color: var(--text-secondary);
+		text-align: center;
+	}
+
+	.review-notes {
+		display: grid;
+		gap: var(--sp-2);
+		margin-top: var(--sp-3);
+	}
+
+	.review-note {
+		padding: var(--sp-3);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
+	}
+
+	.review-note p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.note-section {
+		margin-top: var(--sp-2);
+	}
+
+	.note-section p + p {
+		margin-top: var(--sp-1);
+	}
+
+	.note-section-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.note-warning p {
 		color: var(--amber-dark);
 	}
 
+	.note-conflict p {
+		color: var(--danger-dark);
+	}
+
 	@media (max-width: 640px) {
-		.pool-entry-row {
+		.run-action-state {
+			position: static;
 			grid-template-columns: 1fr;
-			gap: var(--sp-1);
-			padding: var(--sp-3);
+		}
+
+		.persistent-actions {
+			justify-content: flex-start;
+		}
+
+		.review-filters {
+			grid-template-columns: 1fr;
+		}
+
+		.review-count {
+			justify-self: start;
+			margin-bottom: 0;
 		}
 	}
 </style>

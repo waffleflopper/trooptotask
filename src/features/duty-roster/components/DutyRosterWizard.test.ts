@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { ComponentProps } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import DutyRosterWizard from './DutyRosterWizard.svelte';
 import AppliedEventManager from './AppliedEventManager.svelte';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
@@ -689,6 +689,71 @@ describe('DutyRosterWizard', () => {
 				})
 			);
 		});
+	});
+
+	it('exports the active advanced preview as not-applied output without changing snapshot apply metadata', async () => {
+		let exportedBlob: Blob | undefined;
+		const createObjectUrl = vi.fn((object: Blob | MediaSource) => {
+			exportedBlob = object as Blob;
+			return 'blob:advanced-preview';
+		});
+		const revokeObjectUrl = vi.fn((url: string) => {
+			void url;
+		});
+		const anchorClick = vi.fn();
+		const originalCreateObjectURL = URL.createObjectURL;
+		const originalRevokeObjectURL = URL.revokeObjectURL;
+		const originalAnchorClick = HTMLAnchorElement.prototype.click;
+		const previewHandler = vi.fn(async () => makeSeriesPreview());
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		URL.createObjectURL = createObjectUrl;
+		URL.revokeObjectURL = revokeObjectUrl;
+		HTMLAnchorElement.prototype.click = anchorClick;
+
+		try {
+			renderWizard({
+				onPreviewAdvancedSeries: previewHandler,
+				onApplyAdvancedSeries: applyHandler
+			});
+
+			await openAdvancedDatePattern();
+			await fireEvent.input(screen.getByLabelText('Start Date'), {
+				target: { value: '2026-04-07' }
+			});
+			await fireEvent.input(screen.getByLabelText('End Date'), {
+				target: { value: '2026-04-10' }
+			});
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
+			await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+			const actionBar = await screen.findByRole('region', { name: 'Advanced run actions and snapshot state' });
+			await fireEvent.click(within(actionBar).getByRole('button', { name: 'Export preview, not applied output' }));
+
+			if (!exportedBlob) {
+				throw new Error('Expected preview export to create a duty packet blob.');
+			}
+			const packetText = await exportedBlob.text();
+			expect(packetText).toContain('Preview-only export');
+			expect(packetText).toContain('Preview - not applied');
+			expect(packetText).toContain('Battalion Staff Duty Team Duty Packet');
+			expect(anchorClick).toHaveBeenCalled();
+			expect(revokeObjectUrl).toHaveBeenCalledWith('blob:advanced-preview');
+
+			await fireEvent.click(within(actionBar).getByRole('button', { name: 'Apply Series' }));
+			await waitFor(() => {
+				expect(applyHandler).toHaveBeenCalledWith(
+					expect.objectContaining({
+						snapshotId: 'snapshot-series-1',
+						snapshotFingerprint: 'fingerprint-series-1'
+					})
+				);
+			});
+		} finally {
+			URL.createObjectURL = originalCreateObjectURL;
+			URL.revokeObjectURL = originalRevokeObjectURL;
+			HTMLAnchorElement.prototype.click = originalAnchorClick;
+		}
 	});
 
 	it('shows progress feedback while advanced series generation is running', async () => {

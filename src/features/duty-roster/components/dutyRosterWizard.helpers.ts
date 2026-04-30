@@ -257,6 +257,29 @@ export function buildDutyPacketMarkup(exportModel: TeamDutyPacketExportModel): s
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>${escapePacketHtml(`${exportModel.templateName} Team Duty Packet`)}</title><style>body{font-family:Georgia,"Times New Roman",serif;margin:32px;color:#1f2937;}h1,h2,h3,p{margin:0;}header,section{margin-bottom:24px;}.meta-grid{display:grid;gap:8px;margin-top:12px;}.roster-line{margin-top:12px;font-weight:600;}.slot-grid{display:grid;gap:16px;}.slot-card{border:1px solid #d6d3d1;border-radius:12px;padding:16px;background:#fafaf9;}.slot-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}.slot-meta{margin-top:6px;color:#57534e;font-size:14px;}ul{margin:12px 0 0 18px;padding:0;}li+li{margin-top:6px;}</style></head><body><header><p>Team Duty Packet</p><h1>${escapePacketHtml(exportModel.templateName)}</h1><div class="meta-grid"><p>Status: ${escapePacketHtml(exportModel.statusLabel)}</p><p>Date: ${escapePacketHtml(formatDisplayDate(exportModel.eventDate))}</p><p>Coverage: ${escapePacketHtml(exportModel.coverage.label)}</p><p>Fill: ${escapePacketHtml(`${exportModel.fillSummary.filledSlots}/${exportModel.fillSummary.totalSlots} filled`)}</p><p>Blocking: ${escapePacketHtml(exportModel.isBlocking ? 'Yes' : 'No')}</p></div><p class="roster-line">Assigned team: ${escapePacketHtml(rosterLine)}</p></header><section><h2>Duty team</h2><div class="slot-grid">${slotSections}</div></section>${collisionSection}</body></html>`;
 }
 
+export function buildDutyPacketSeriesMarkup(exportModels: TeamDutyPacketExportModel[]): string {
+	if (exportModels.length === 1) return buildDutyPacketMarkup(exportModels[0]);
+
+	const templateName = exportModels[0]?.templateName ?? 'Advanced Duty';
+	const eventSections = exportModels
+		.map((model) => {
+			const slotSections = model.slotAssignments
+				.map((slot) => {
+					const explanationLines = [...slot.explanations, ...slot.warnings];
+					const explanationMarkup = explanationLines.map((line) => `<li>${escapePacketHtml(line)}</li>`).join('');
+					return `<div class="slot-row"><div><h3>${escapePacketHtml(`${slot.roleLabel} #${slot.slotIndex + 1}`)}</h3><p>${escapePacketHtml(slot.assignee?.label ?? 'Unfilled')}</p></div><p>Source: ${escapePacketHtml(slot.assignmentSource)}${slot.warningState !== 'none' ? ` · ${escapePacketHtml(slot.warningState)}` : ''}</p>${explanationMarkup ? `<ul>${explanationMarkup}</ul>` : '<p>No extra explanation recorded for this slot.</p>'}</div>`;
+				})
+				.join('');
+			const collisionMarkup = model.collisionNotes.length
+				? `<div class="notes"><h3>Collision notes</h3><ul>${model.collisionNotes.map((note) => `<li>${escapePacketHtml(note)}</li>`).join('')}</ul></div>`
+				: '';
+			return `<section><h2>${escapePacketHtml(formatDisplayDate(model.eventDate))}</h2><div class="meta-grid"><p>Status: ${escapePacketHtml(model.statusLabel)}</p><p>Coverage: ${escapePacketHtml(model.coverage.label)}</p><p>Fill: ${escapePacketHtml(`${model.fillSummary.filledSlots}/${model.fillSummary.totalSlots} filled`)}</p><p>Blocking: ${escapePacketHtml(model.isBlocking ? 'Yes' : 'No')}</p></div><div class="slot-grid">${slotSections}</div>${collisionMarkup}</section>`;
+		})
+		.join('');
+
+	return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>${escapePacketHtml(`${templateName} Team Duty Packet`)}</title><style>body{font-family:Georgia,"Times New Roman",serif;margin:32px;color:#1f2937;}h1,h2,h3,p{margin:0;}header,section{margin-bottom:24px;}.meta-grid{display:grid;gap:8px;margin-top:12px;}.slot-grid{display:grid;gap:12px;margin-top:16px;}.slot-row{border:1px solid #d6d3d1;border-radius:8px;padding:14px;background:#fafaf9;}.slot-row>div{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}.slot-row>p,.notes{margin-top:6px;color:#57534e;font-size:14px;}ul{margin:10px 0 0 18px;padding:0;}li+li{margin-top:6px;}</style></head><body><header><p>Preview-only export</p><h1>${escapePacketHtml(templateName)} Team Duty Packet</h1><p>Status: Preview - not applied</p></header>${eventSections}</body></html>`;
+}
+
 export function patternNeedsRange(pattern: DutyEventSeriesPattern): boolean {
 	return pattern !== 'custom-dates';
 }
@@ -322,6 +345,9 @@ export function toggleRunCandidate(
 
 export function wrapSinglePreview(preview: DutyEventPreview): DutyEventSeriesPreview {
 	return {
+		snapshotId: preview.snapshotId,
+		snapshotFingerprint: preview.snapshotFingerprint,
+		snapshotVersion: preview.snapshotVersion,
 		templateId: preview.templateId,
 		templateName: preview.templateName,
 		pattern: 'custom-dates',

@@ -594,7 +594,7 @@ describe('DutyRosterWizard', () => {
 		});
 		await fireEvent.click(screen.getByLabelText('Tuesday'));
 		await fireEvent.click(screen.getByLabelText('Thursday'));
-		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -637,6 +637,58 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText('Select an existing template or build one from scratch.')).toBeTruthy();
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
+	});
+
+	it('groups active advanced-duty setup controls in a rail while keeping preview and apply reachable', async () => {
+		const previewHandler = vi.fn(async () => makeSeriesPreview());
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler,
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		const setupRail = screen.getByRole('complementary', { name: 'Advanced duty setup rail' });
+		expect(setupRail.textContent).toContain('Battalion Staff Duty');
+		expect(setupRail.textContent).toContain('Date pattern');
+		expect(setupRail.textContent).toContain('Candidate pool');
+		expect(setupRail.textContent).toContain('Policy');
+		expect(screen.getByRole('region', { name: 'Advanced duty review workspace' })).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-10' }
+		});
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Review Candidates' }).at(-1)!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					startDate: '2026-04-07',
+					endDate: '2026-04-10'
+				})
+			);
+		});
+
+		const previewRail = screen.getByRole('complementary', { name: 'Advanced duty setup rail' });
+		expect(previewRail.textContent).toContain('Regenerate');
+		expect(screen.getByText('Series preview ready')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					snapshotId: 'snapshot-series-1',
+					snapshotFingerprint: 'fingerprint-series-1'
+				})
+			);
+		});
 	});
 
 	it('shows progress feedback while advanced series generation is running', async () => {

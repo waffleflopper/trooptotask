@@ -203,7 +203,13 @@ export interface DutyEventPreviewSlotInstance {
 	selectionReason: string | null;
 	unfilledReason: string | null;
 	overrideMessages?: string[];
+	candidateRankings?: DutyEventSlotCandidateRanking[];
 	sortOrder: number;
+}
+
+export interface DutyEventSlotCandidateRanking {
+	personnelId: string;
+	rank: number;
 }
 
 export interface DutyEventRecord {

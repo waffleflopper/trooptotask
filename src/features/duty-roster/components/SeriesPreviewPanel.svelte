@@ -183,6 +183,23 @@
 		if (slot.fairnessConfidence === 'low') return 'Low confidence';
 		return 'No issue';
 	}
+
+	function assigneeOptionLabel(slot: DutyEventPreviewSlotInstance, person: Personnel) {
+		const baseLabel = `${person.rank} ${person.lastName}`;
+		const ranking = slot.candidateRankings?.find((candidate) => candidate.personnelId === person.id);
+		if (!ranking) return baseLabel;
+
+		const selectedRanking = slot.assigneeId
+			? slot.candidateRankings?.find((candidate) => candidate.personnelId === slot.assigneeId)
+			: undefined;
+		const isSelected = slot.assigneeId === person.id;
+		if (isSelected) return `${baseLabel} (current pick, #${ranking.rank})`;
+
+		const nextRank = selectedRanking?.rank === 1 ? 2 : 1;
+		if (ranking.rank === nextRank) return `${baseLabel} (next up, #${ranking.rank})`;
+
+		return `${baseLabel} (#${ranking.rank})`;
+	}
 </script>
 
 <section class="preview-card" aria-label="Advanced event preview">
@@ -333,7 +350,7 @@
 								>
 									<option value="">Leave Unfilled</option>
 									{#each personnelOptions as person (person.id)}
-										<option value={person.id}>{person.rank} {person.lastName}</option>
+										<option value={person.id}>{assigneeOptionLabel(row.slot, person)}</option>
 									{/each}
 								</select>
 							</label>

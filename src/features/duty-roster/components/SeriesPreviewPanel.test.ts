@@ -153,7 +153,15 @@ const preview: DutyEventSeriesPreview = {
 	eventDates: ['2026-05-01', '2026-05-02'],
 	events: [
 		makeEvent('2026-05-01', [
-			makeSlot({ roleLabel: 'NCO', slotIndex: 0, templateSlotId: 'slot-nco-0' }),
+			makeSlot({
+				roleLabel: 'NCO',
+				slotIndex: 0,
+				templateSlotId: 'slot-nco-0',
+				candidateRankings: [
+					{ personnelId: 'person-nolan', rank: 1 },
+					{ personnelId: 'person-chen', rank: 2 }
+				]
+			}),
 			makeSlot({ roleLabel: 'Runner', slotIndex: 0, templateSlotId: 'slot-runner-0', assigneeId: 'person-chen' })
 		]),
 		makeEvent('2026-05-02', [
@@ -244,6 +252,16 @@ describe('SeriesPreviewPanel', () => {
 		expect(onToggleSlotLock).toHaveBeenCalledWith('2026-05-01', expect.objectContaining({ roleLabel: 'NCO' }));
 		expect(onClearSlot).toHaveBeenCalledWith('2026-05-01', expect.objectContaining({ roleLabel: 'NCO' }));
 		expect(onResetSlot).toHaveBeenCalledWith('2026-05-01', expect.objectContaining({ roleLabel: 'NCO' }));
+	});
+
+	it('labels replacement choices with the generator rotation order and next-up person', () => {
+		renderPanel();
+
+		const assigneeSelect = screen.getByLabelText('Assignee for 2026-05-01 NCO #1') as HTMLSelectElement;
+		const optionLabels = Array.from(assigneeSelect.options).map((option) => option.textContent);
+
+		expect(optionLabels).toContain('SGT Nolan (current pick, #1)');
+		expect(optionLabels).toContain('SPC Chen (next up, #2)');
 	});
 
 	it('keeps assignment rationale attached to the table row instead of duplicating notes below the table', async () => {

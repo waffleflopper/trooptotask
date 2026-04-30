@@ -45,7 +45,7 @@
 </script>
 
 <div class="step-back-row">
-	<button class="btn btn-secondary btn-sm" type="button" onclick={props.onBack}>Back to Date Pattern</button>
+	<button class="btn btn-secondary btn-sm" type="button" onclick={props.onBack}>Edit Dates</button>
 </div>
 <SeriesPreviewPanel
 	preview={props.preview}

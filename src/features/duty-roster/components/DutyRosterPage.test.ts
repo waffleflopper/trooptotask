@@ -3,7 +3,12 @@ import type { ComponentProps } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import DutyRosterPage from './DutyRosterPage.svelte';
-import type { DutyEvent, DutyEventSeriesApplyResult, DutyTemplate } from '../duty-roster.types';
+import type {
+	AdvancedDutyRunSnapshotRecord,
+	DutyEvent,
+	DutyEventSeriesApplyResult,
+	DutyTemplate
+} from '../duty-roster.types';
 import type { Personnel } from '$lib/types';
 
 const { invalidateAllMock } = vi.hoisted(() => ({
@@ -153,6 +158,36 @@ function makeEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 	};
 }
 
+function makeSnapshot(overrides: Partial<AdvancedDutyRunSnapshotRecord> = {}): AdvancedDutyRunSnapshotRecord {
+	return {
+		id: 'snapshot-1',
+		orgId: 'test-org',
+		templateId: 'tmpl-staff-duty',
+		templateName: 'Battalion Staff Duty',
+		pattern: 'daily',
+		startDate: '2026-04-10',
+		endDate: '2026-04-12',
+		eventCount: 3,
+		eventDates: ['2026-04-10', '2026-04-11', '2026-04-12'],
+		candidatePersonnelIds: ['person-1', 'person-2'],
+		snapshotFingerprint: 'fingerprint-1',
+		snapshotVersion: 1,
+		status: 'draft',
+		inputPayload: {},
+		snapshotPayload: {},
+		previewPayload: {},
+		exportModel: null,
+		createdByUserId: 'user-1',
+		appliedRunId: null,
+		applyError: null,
+		expiresAt: '2026-04-11T12:00:00.000Z',
+		appliedAt: null,
+		createdAt: '2026-04-10T12:00:00.000Z',
+		updatedAt: '2026-04-10T12:00:00.000Z',
+		...overrides
+	};
+}
+
 function renderPage(overrides: Partial<ComponentProps<typeof DutyRosterPage>['data']> = {}) {
 	const personnel: Personnel[] = [];
 	return render(DutyRosterPage, {
@@ -165,6 +200,7 @@ function renderPage(overrides: Partial<ComponentProps<typeof DutyRosterPage>['da
 			rosterHistory: [],
 			advancedDutyTemplates: [makeTemplate()],
 			advancedDutyEvents: [],
+			advancedDutySnapshots: [],
 			...overrides
 		}
 	});
@@ -257,6 +293,7 @@ describe('DutyRosterPage', () => {
 		expect(screen.getByRole('button', { name: 'Advanced Templates (1)' })).toBeTruthy();
 
 		expect(screen.getByRole('button', { name: 'Active Run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Draft Snapshots (0)' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Applied Events' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Apply Advanced Series' })).toBeTruthy();
 		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
@@ -267,6 +304,21 @@ describe('DutyRosterPage', () => {
 		expect(screen.getByTestId('applied-event-manager')).toBeTruthy();
 		expect(screen.getByTestId('applied-event-count').textContent).toBe('1');
 		expect(screen.queryByRole('button', { name: 'Apply Advanced Series' })).toBeNull();
+	});
+
+	it('lets users inspect and resume draft advanced duty snapshots', async () => {
+		renderPage({ advancedDutySnapshots: [makeSnapshot()] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
+
+		expect(screen.getByRole('region', { name: 'Draft advanced duty snapshots' })).toBeTruthy();
+		expect(screen.getAllByText('Battalion Staff Duty').length).toBeGreaterThan(0);
+		expect(screen.getByRole('complementary', { name: 'Snapshot details' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Resume Snapshot' }));
+
+		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
+		expect(screen.getByTestId('wizard-resume-snapshot').textContent).toBe('snapshot-1');
 	});
 
 	it('starts simple and advanced top-level tabs in distinct roster lanes', async () => {

@@ -408,6 +408,20 @@ async function persistDraftAdvancedRunSnapshot(
 	};
 }
 
+export async function listDraftAdvancedDutyRunSnapshots(ctx: QueryPorts): Promise<AdvancedDutyRunSnapshotRecord[]> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const rows = await ctx.store.findMany<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		{ status: 'draft' },
+		{
+			orderBy: [{ column: 'created_at', ascending: false }],
+			rangeFilters: [{ column: 'expires_at', op: 'gt', value: new Date().toISOString() }]
+		}
+	);
+	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows);
+}
+
 function failForHardRuleConflicts(message: string, preview: InternalDutyEventPreview): void {
 	if (preview.blockingConflicts.length > 0) {
 		fail(400, message);

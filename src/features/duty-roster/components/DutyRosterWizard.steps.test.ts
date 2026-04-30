@@ -104,8 +104,8 @@ describe('DutyRosterWizard step components', () => {
 		render(AdvancedTemplateListStep, {
 			props: { activeAdvancedTemplates: [makeTemplate()], onBack: vi.fn(), onChooseTemplate, onBuildFromScratch }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Build from scratch' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Use This Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Template' }));
 		expect(onBuildFromScratch).toHaveBeenCalled();
 		expect(onChooseTemplate).toHaveBeenCalledWith('tmpl-1');
 	});
@@ -123,8 +123,8 @@ describe('DutyRosterWizard step components', () => {
 				onContinue
 			}
 		});
-		expect(screen.getByText(/Longest break since last duty/)).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Looks Good — Set Date Pattern' }));
+		expect(screen.getByText(/Ranking: longest break/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Set Date Pattern' }));
 		expect(onContinue).toHaveBeenCalled();
 	});
 

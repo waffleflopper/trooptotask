@@ -1,6 +1,5 @@
 <script lang="ts">
 	import DutyRosterGenerator from './DutyRosterGenerator.svelte';
-	import WizardStepper from './WizardStepper.svelte';
 	import LaneChooserStep from './LaneChooserStep.svelte';
 	import SimpleTemplateListStep from './SimpleTemplateListStep.svelte';
 	import AdvancedTemplateListStep from './AdvancedTemplateListStep.svelte';
@@ -35,10 +34,10 @@
 		DutyTemplate,
 		DutyTemplateWriteInput,
 		ExistingDutyEventInput,
-		ExistingDutyEventUpdateInput
+		ExistingDutyEventUpdateInput,
+		AdvancedDutyRunSnapshotRecord
 	} from '../duty-roster.types';
 	import {
-		ADVANCED_STEPS,
 		addCalendarDays,
 		buildDutyPacketSeriesMarkup,
 		buildNextSeriesOverrides,
@@ -91,6 +90,7 @@
 		canManageAdvancedTemplates: boolean;
 		onManageAdvancedTemplates: () => void;
 		initialView?: WizardView;
+		resumeSnapshot?: AdvancedDutyRunSnapshotRecord | null;
 	}
 
 	type WizardView =
@@ -105,6 +105,7 @@
 
 	let props: Props = $props();
 	let lastInitialView = $state<WizardView | undefined>(undefined);
+	let lastResumeSnapshotId = $state<string | null>(null);
 	let view = $state<WizardView>(props.initialView ?? 'choose-lane');
 	let selectedSimpleAssignmentTypeId = $state<string | null>(null);
 	let selectedAdvancedTemplateId = $state<string | null>(null);
@@ -187,18 +188,6 @@
 			searchValue: (person) => formatCandidateReviewMeta(person)
 		}
 	];
-	const stepperCurrentId = $derived.by(() =>
-		view === 'advanced-policy-review'
-			? 'policy'
-			: view === 'advanced-date-pattern'
-				? 'date-pattern'
-				: view === 'advanced-candidate-review'
-					? 'candidates'
-					: view === 'advanced-series-preview'
-						? 'preview'
-						: 'template'
-	);
-	const showStepper = $derived(view.startsWith('advanced-'));
 	const progressMode = $derived.by(() => {
 		if (isApplyingAdvancedSeries) return 'apply';
 		if (isRefreshingAdvancedSeriesPreview) return 'refresh';
@@ -241,6 +230,13 @@
 		view = nextInitialView;
 	});
 
+	$effect(() => {
+		const snapshot = props.resumeSnapshot;
+		if (!snapshot || snapshot.id === lastResumeSnapshotId) return;
+		resumeAdvancedSnapshot(snapshot);
+		lastResumeSnapshotId = snapshot.id;
+	});
+
 	function onChooseSimple() {
 		view = 'simple-template-list';
 	}
@@ -254,6 +250,53 @@
 	function chooseAdvancedTemplate(templateId: string) {
 		selectedAdvancedTemplateId = templateId;
 		view = 'advanced-policy-review';
+	}
+	function isSeriesPreviewPayload(value: unknown): value is DutyEventSeriesPreview {
+		if (!value || typeof value !== 'object') return false;
+		const payload = value as { events?: unknown; eventDates?: unknown };
+		return Array.isArray(payload.events) && Array.isArray(payload.eventDates);
+	}
+	function isSinglePreviewPayload(value: unknown): value is DutyEventPreview {
+		if (!value || typeof value !== 'object') return false;
+		const payload = value as { eventDate?: unknown; slotInstances?: unknown };
+		return typeof payload.eventDate === 'string' && Array.isArray(payload.slotInstances);
+	}
+	function resumeAdvancedSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
+		const input = snapshot.inputPayload as Partial<DutyEventSeriesInput & DutyEventApplyInput>;
+		const previewPayload = snapshot.previewPayload;
+		selectedAdvancedTemplateId = snapshot.templateId;
+		advancedStartDate = typeof input.startDate === 'string' ? input.startDate : snapshot.startDate;
+		advancedEndDate = typeof input.endDate === 'string' ? input.endDate : snapshot.endDate;
+		advancedPattern = snapshot.pattern === 'single' ? 'daily' : snapshot.pattern;
+		replaceSelectedWeekdays(Array.isArray(input.selectedWeekdays) ? input.selectedWeekdays : [1, 3, 5]);
+		customDateEntries = Array.isArray(input.customDates) ? input.customDates : [];
+		customDateDraft = '';
+		selectedRunCandidateIds = snapshot.candidatePersonnelIds.length > 0 ? [...snapshot.candidatePersonnelIds] : null;
+		advancedSeriesOverrides = Array.isArray(input.eventOverrides) ? input.eventOverrides : [];
+		collisionReviewConfirmed = false;
+		shortfallReviewConfirmed = false;
+
+		if (isSeriesPreviewPayload(previewPayload)) {
+			advancedPreviewMode = snapshot.pattern === 'single' ? 'single' : 'series';
+			advancedSeriesPreview = {
+				...previewPayload,
+				snapshotId: snapshot.id,
+				snapshotFingerprint: snapshot.snapshotFingerprint,
+				snapshotVersion: snapshot.snapshotVersion
+			};
+			view = 'advanced-series-preview';
+			return;
+		}
+		if (isSinglePreviewPayload(previewPayload)) {
+			advancedPreviewMode = 'single';
+			advancedSeriesPreview = wrapSinglePreview({
+				...previewPayload,
+				snapshotId: snapshot.id,
+				snapshotFingerprint: snapshot.snapshotFingerprint,
+				snapshotVersion: snapshot.snapshotVersion
+			});
+			view = 'advanced-series-preview';
+		}
 	}
 	function goBackToLane() {
 		view = 'choose-lane';
@@ -286,10 +329,9 @@
 		if (selectedRunCandidateIds == null) selectedRunCandidateIds = candidateReviewOptions.map((person) => person.id);
 		view = 'advanced-candidate-review';
 	}
-	function ensureCandidateReviewCompleted() {
-		if (selectedRunCandidateIds != null) return true;
-		goToCandidateReview();
-		return false;
+	function ensureCandidateSelectionReady() {
+		if (selectedRunCandidateIds == null) selectedRunCandidateIds = candidateReviewOptions.map((person) => person.id);
+		return true;
 	}
 
 	const simpleEventInput = () =>
@@ -314,7 +356,7 @@
 		);
 
 	async function handlePreviewAdvancedSeries() {
-		if (!ensureCandidateReviewCompleted()) return;
+		if (!ensureCandidateSelectionReady()) return;
 		const input = seriesInput();
 		if (!input) return;
 		isPreviewingAdvancedSeries = true;
@@ -329,7 +371,7 @@
 		}
 	}
 	async function handlePreviewAdvancedEvent() {
-		if (!ensureCandidateReviewCompleted()) return;
+		if (!ensureCandidateSelectionReady()) return;
 		const input = simpleEventInput();
 		if (!input) return;
 		isPreviewingAdvancedSeries = true;
@@ -473,15 +515,14 @@
 </script>
 
 <section class="wizard-shell">
-	{#if view !== 'simple-generator'}
+	{#if view === 'choose-lane' || view === 'simple-template-list'}
 		<div class="wizard-hero card card-flat">
 			<div>
 				<p class="eyebrow">Duty planning</p>
-				<h2>Duty Wizard</h2>
+				<h2>Roster Planning</h2>
 			</div>
 		</div>
 	{/if}
-	{#if showStepper}<WizardStepper steps={ADVANCED_STEPS} current={stepperCurrentId} />{/if}
 	{#if view === 'choose-lane'}<LaneChooserStep
 			canManageAdvancedTemplates={props.canManageAdvancedTemplates}
 			{onChooseSimple}
@@ -532,7 +573,7 @@
 						class="rail-link"
 						type="button"
 						aria-label="Open candidate review from setup rail"
-						onclick={goToCandidateReview}>Review Candidates</button
+						onclick={goToCandidateReview}>Edit Candidate Pool</button
 					>
 				</div>
 				<div class="rail-block">

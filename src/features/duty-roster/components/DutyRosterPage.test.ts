@@ -22,6 +22,10 @@ vi.mock('./AdvancedDutyTemplateBuilder.svelte', async () => ({
 	default: (await import('./test-stubs/PassiveStub.svelte')).default
 }));
 
+vi.mock('./AppliedEventManager.svelte', async () => ({
+	default: (await import('./test-stubs/AppliedEventManagerHarness.svelte')).default
+}));
+
 vi.mock('$lib/components/PageToolbar.svelte', async () => ({
 	default: (await import('./test-stubs/PassiveStub.svelte')).default
 }));
@@ -222,12 +226,13 @@ describe('DutyRosterPage', () => {
 
 		renderPage({ advancedDutyEvents: [makeEvent()] });
 
-		expect(screen.getByTestId('advanced-event-count').textContent).toBe('1');
+		await fireEvent.click(screen.getByRole('button', { name: 'Applied Events' }));
+		expect(screen.getByTestId('applied-event-count').textContent).toBe('1');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Advanced Run' }));
 
 		await waitFor(() => {
-			expect(screen.getByTestId('advanced-event-count').textContent).toBe('0');
+			expect(screen.getByTestId('applied-event-count').textContent).toBe('0');
 		});
 
 		expect(invalidateAllMock).toHaveBeenCalledTimes(1);
@@ -244,6 +249,37 @@ describe('DutyRosterPage', () => {
 		expect(screen.getByRole('button', { name: 'Advanced Templates (1)' })).toBeTruthy();
 	});
 
+	it('exposes the advanced workspace shell without permanently stacking applied events under active runs', async () => {
+		renderPage({ advancedDutyEvents: [makeEvent()] });
+
+		expect(screen.getByRole('button', { name: 'Simple Roster' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Advanced Workspace' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Advanced Templates (1)' })).toBeTruthy();
+
+		expect(screen.getByRole('button', { name: 'Active Run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Applied Events' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Apply Advanced Series' })).toBeTruthy();
+		expect(screen.queryByTestId('applied-event-manager')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Applied Events' }));
+
+		expect(screen.getByTestId('applied-event-manager')).toBeTruthy();
+		expect(screen.getByTestId('applied-event-count').textContent).toBe('1');
+		expect(screen.queryByRole('button', { name: 'Apply Advanced Series' })).toBeNull();
+	});
+
+	it('does not expose advanced workspace navigation for scoped users', async () => {
+		renderPage({ scopedGroupId: 'group-hq' });
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Simple Roster' }).getAttribute('aria-pressed')).toBe('true');
+		});
+		expect(screen.queryByRole('button', { name: 'Advanced Workspace' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Advanced Templates (1)' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Active Run' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Applied Events' })).toBeNull();
+	});
+
 	it('uses shared toolbar primitives for duty roster sections and related calendar links', async () => {
 		renderPage();
 
@@ -258,9 +294,9 @@ describe('DutyRosterPage', () => {
 		);
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/test-org/calendar');
 
-		const wizardTab = screen.getByRole('button', { name: 'Wizard' });
+		const advancedWorkspaceTab = screen.getByRole('button', { name: 'Advanced Workspace' });
 		const advancedTab = screen.getByRole('button', { name: 'Advanced Templates (1)' });
-		expect(wizardTab.getAttribute('aria-pressed')).toBe('true');
+		expect(advancedWorkspaceTab.getAttribute('aria-pressed')).toBe('true');
 
 		await fireEvent.click(advancedTab);
 

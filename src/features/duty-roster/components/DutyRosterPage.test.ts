@@ -252,13 +252,14 @@ describe('DutyRosterPage', () => {
 	it('exposes the advanced workspace shell without permanently stacking applied events under active runs', async () => {
 		renderPage({ advancedDutyEvents: [makeEvent()] });
 
-		expect(screen.getByRole('button', { name: 'Simple Roster' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Assignments / Taskings' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Advanced Workspace' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Advanced Templates (1)' })).toBeTruthy();
 
 		expect(screen.getByRole('button', { name: 'Active Run' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Applied Events' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Apply Advanced Series' })).toBeTruthy();
+		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
 		expect(screen.queryByTestId('applied-event-manager')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Applied Events' }));
@@ -268,11 +269,25 @@ describe('DutyRosterPage', () => {
 		expect(screen.queryByRole('button', { name: 'Apply Advanced Series' })).toBeNull();
 	});
 
+	it('starts simple and advanced top-level tabs in distinct roster lanes', async () => {
+		renderPage();
+
+		expect(screen.getByRole('button', { name: 'Advanced Workspace' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignments / Taskings' }));
+
+		expect(screen.getByRole('button', { name: 'Assignments / Taskings' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('simple-template-list');
+		expect(screen.queryByRole('button', { name: 'Active Run' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Applied Events' })).toBeNull();
+	});
+
 	it('does not expose advanced workspace navigation for scoped users', async () => {
 		renderPage({ scopedGroupId: 'group-hq' });
 
 		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Simple Roster' }).getAttribute('aria-pressed')).toBe('true');
+			expect(screen.getByRole('button', { name: 'Assignments / Taskings' }).getAttribute('aria-pressed')).toBe('true');
 		});
 		expect(screen.queryByRole('button', { name: 'Advanced Workspace' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Advanced Templates (1)' })).toBeNull();

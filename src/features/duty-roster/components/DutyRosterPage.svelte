@@ -82,7 +82,11 @@
 
 	const dutyRosterTabs = $derived.by(() => {
 		const tabs: Array<{ label: string; value: DutyRosterSection; title?: string }> = [
-			{ label: 'Simple Roster', value: 'simple-roster' }
+			{
+				label: 'Assignments / Taskings',
+				value: 'simple-roster',
+				title: 'Build daily assignment and tasking rosters'
+			}
 		];
 		if (canAccessAdvancedDuty) {
 			tabs.push({
@@ -493,6 +497,7 @@
 		</section>
 	{:else if activeTab === 'simple-roster'}
 		<DutyRosterWizard
+			initialView="simple-template-list"
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={scopedPBG}
@@ -534,6 +539,7 @@
 
 			{#if activeAdvancedWorkspaceView === 'active-run'}
 				<DutyRosterWizard
+					initialView="advanced-template-list"
 					assignmentTypes={dailyAssignmentsStore.types}
 					assignments={dailyAssignmentsStore.assignments}
 					personnelByGroup={scopedPBG}
@@ -596,6 +602,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
+		min-width: 0;
 	}
 
 	.advanced-workspace {
@@ -609,6 +616,7 @@
 		justify-content: flex-start;
 		padding-bottom: var(--sp-2);
 		border-bottom: 1px solid var(--border-default);
+		overflow-x: auto;
 	}
 
 	.restricted-hero {
@@ -621,5 +629,11 @@
 		font-family: var(--font-display);
 		font-size: var(--text-ui-xl);
 		margin: 0 0 var(--sp-2);
+	}
+
+	@media (max-width: 720px) {
+		.duty-roster-page {
+			padding-inline: var(--sp-3);
+		}
 	}
 </style>

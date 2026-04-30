@@ -211,6 +211,21 @@
 			}))
 		];
 	}
+
+	function handleTableViewportKeydown(event: KeyboardEvent) {
+		const viewport = event.currentTarget as HTMLElement;
+		if (event.key === 'ArrowRight') {
+			viewport.scrollLeft += 48;
+			event.preventDefault();
+		} else if (event.key === 'ArrowLeft') {
+			viewport.scrollLeft -= 48;
+			event.preventDefault();
+		} else if (event.key === 'Home') {
+			viewport.scrollLeft = 0;
+		} else if (event.key === 'End') {
+			viewport.scrollLeft = viewport.scrollWidth;
+		}
+	}
 </script>
 
 <section class="preview-card" aria-label="Advanced event preview">
@@ -319,7 +334,14 @@
 		<p class="review-count">{filteredRows.length} of {reviewRows.length} slots shown</p>
 	</div>
 
-	<div class="review-table-wrap">
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<section
+		class="review-table-wrap"
+		aria-label="Advanced duty run table viewport"
+		tabindex="0"
+		onkeydown={handleTableViewportKeydown}
+	>
 		<table class="review-table" aria-label="Advanced duty run review">
 			<thead>
 				<tr>
@@ -441,7 +463,7 @@
 				{/each}
 			</tbody>
 		</table>
-	</div>
+	</section>
 </section>
 
 <style>
@@ -450,6 +472,7 @@
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
+		min-width: 0;
 	}
 
 	.preview-header {
@@ -493,10 +516,10 @@
 
 	.run-action-state {
 		position: sticky;
-		top: 0;
-		z-index: 2;
+		top: var(--sp-3);
+		z-index: 3;
 		display: grid;
-		grid-template-columns: minmax(220px, 1fr) auto;
+		grid-template-columns: minmax(220px, 1fr) minmax(260px, auto);
 		gap: var(--sp-3);
 		align-items: center;
 		margin-top: var(--sp-4);
@@ -545,6 +568,11 @@
 		gap: var(--sp-2);
 	}
 
+	.persistent-actions :global(.btn) {
+		min-width: max-content;
+		white-space: nowrap;
+	}
+
 	.review-filters {
 		display: grid;
 		grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) 1fr;
@@ -582,6 +610,14 @@
 		padding: 7px 10px;
 	}
 
+	.filter-field select:focus-visible,
+	.review-table-wrap:focus-visible,
+	:global(.btn:focus-visible) {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
+	}
+
 	.review-count {
 		justify-self: end;
 		margin: 0 0 10px;
@@ -593,11 +629,13 @@
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
 		overflow: auto;
+		max-width: 100%;
+		scrollbar-gutter: stable;
 	}
 
 	.review-table {
 		width: 100%;
-		min-width: 920px;
+		min-width: 860px;
 		border-collapse: collapse;
 		font-size: var(--text-sm);
 	}
@@ -689,9 +727,15 @@
 	}
 
 	.row-actions {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(64px, 1fr));
 		gap: var(--sp-2);
+	}
+
+	.row-actions :global(.btn) {
+		width: 100%;
+		min-width: 0;
+		white-space: nowrap;
 	}
 
 	.assignment-details {
@@ -779,7 +823,7 @@
 		color: var(--danger-dark);
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 860px) {
 		.run-action-state {
 			position: static;
 			grid-template-columns: 1fr;
@@ -790,12 +834,38 @@
 		}
 
 		.review-filters {
-			grid-template-columns: 1fr;
+			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 		}
 
 		.review-count {
 			justify-self: start;
 			margin-bottom: 0;
+		}
+
+		.persistent-actions {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+			width: 100%;
+		}
+
+		.persistent-actions :global(.btn) {
+			width: 100%;
+			min-width: 0;
+		}
+	}
+
+	@media (max-width: 560px) {
+		.preview-card {
+			padding: var(--sp-3);
+		}
+
+		.review-filters,
+		.persistent-actions {
+			grid-template-columns: 1fr;
+		}
+
+		.review-table {
+			min-width: 760px;
 		}
 	}
 </style>

@@ -90,6 +90,7 @@
 		onCreateAdvancedTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		canManageAdvancedTemplates: boolean;
 		onManageAdvancedTemplates: () => void;
+		initialView?: WizardView;
 	}
 
 	type WizardView =
@@ -103,7 +104,8 @@
 		| 'advanced-series-preview';
 
 	let props: Props = $props();
-	let view = $state<WizardView>('choose-lane');
+	let lastInitialView = $state<WizardView | undefined>(undefined);
+	let view = $state<WizardView>(props.initialView ?? 'choose-lane');
 	let selectedSimpleAssignmentTypeId = $state<string | null>(null);
 	let selectedAdvancedTemplateId = $state<string | null>(null);
 	let advancedStartDate = $state('');
@@ -230,6 +232,13 @@
 		const filledSlots = advancedSeriesPreview.events.reduce((total, event) => total + event.fillSummary.filledSlots, 0);
 		const totalSlots = advancedSeriesPreview.events.reduce((total, event) => total + event.fillSummary.totalSlots, 0);
 		return `${totalEvents} event${totalEvents === 1 ? '' : 's'} · ${filledSlots}/${totalSlots} slots filled`;
+	});
+
+	$effect(() => {
+		const nextInitialView = props.initialView ?? 'choose-lane';
+		if (lastInitialView === nextInitialView) return;
+		lastInitialView = nextInitialView;
+		view = nextInitialView;
 	});
 
 	function onChooseSimple() {
@@ -685,6 +694,7 @@
 		grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
 		gap: var(--sp-4);
 		align-items: start;
+		min-width: 0;
 	}
 	.advanced-setup-rail {
 		position: sticky;
@@ -695,6 +705,7 @@
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
+		min-width: 0;
 	}
 	.advanced-review-workspace {
 		min-width: 0;
@@ -738,17 +749,30 @@
 		text-decoration: underline;
 		cursor: pointer;
 	}
+	.rail-link:focus-visible,
+	.rail-action:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
+	}
 	.rail-action {
 		justify-self: start;
 		margin-top: var(--sp-1);
 	}
-	@media (max-width: 980px) {
+	@media (max-width: 1180px) {
 		.advanced-run-workspace {
 			grid-template-columns: 1fr;
 		}
 		.advanced-setup-rail {
 			position: static;
-			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+			grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+			align-items: start;
+		}
+	}
+
+	@media (max-width: 560px) {
+		.advanced-setup-rail {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

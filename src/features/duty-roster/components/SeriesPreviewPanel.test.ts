@@ -204,9 +204,15 @@ describe('SeriesPreviewPanel', () => {
 		renderPanel();
 
 		const table = screen.getByRole('table', { name: 'Advanced duty run review' });
+		const tableViewport = screen.getByRole('region', { name: 'Advanced duty run table viewport' });
 		for (const column of ['Date', 'Coverage', 'Slot', 'Proposed Soldier', 'Source', 'Issue', 'Actions']) {
 			expect(within(table).getByRole('columnheader', { name: column })).toBeTruthy();
 		}
+		expect(tableViewport.contains(table)).toBe(true);
+		tableViewport.focus();
+		expect(document.activeElement).toBe(tableViewport);
+		await fireEvent.keyDown(tableViewport, { key: 'ArrowRight' });
+		expect(tableViewport.scrollLeft).toBeGreaterThan(0);
 		expect(
 			within(table).getByRole('row', { name: /2026-05-01 0800-0800 NCO #1 .*Nolan Generated No issue/ })
 		).toBeTruthy();

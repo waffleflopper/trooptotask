@@ -246,6 +246,39 @@ describe('SeriesPreviewPanel', () => {
 		expect(onResetSlot).toHaveBeenCalledWith('2026-05-01', expect.objectContaining({ roleLabel: 'NCO' }));
 	});
 
+	it('keeps assignment rationale attached to the table row instead of duplicating notes below the table', async () => {
+		renderPanel({
+			getExplanationSections: (slot: DutyEventPreviewSlotInstance) =>
+				slot.roleLabel === 'NCO'
+					? [
+							{
+								label: 'Fairness confidence',
+								lines: ['High confidence: longest break in pool.'],
+								tone: 'neutral'
+							},
+							{
+								label: 'Why selected',
+								lines: ['SGT Nolan has the longest eligible break since last staff duty.'],
+								tone: 'neutral'
+							}
+						]
+					: []
+		});
+
+		expect(screen.queryByRole('region', { name: 'Advanced duty review notes' })).toBeNull();
+
+		const detailsButton = screen.getByLabelText('Show assignment details for 2026-05-01 NCO #1');
+		const details = detailsButton.closest('details');
+		expect(details).toBeTruthy();
+		expect(details?.open).toBe(false);
+
+		await fireEvent.click(detailsButton);
+
+		expect(details?.open).toBe(true);
+		expect(screen.getAllByText('Fairness confidence')).toHaveLength(2);
+		expect(screen.getAllByText('SGT Nolan has the longest eligible break since last staff duty.')).toHaveLength(2);
+	});
+
 	it('blocks apply until collision and unfilled slot review are acknowledged', async () => {
 		const onApply = vi.fn();
 		renderPanel({

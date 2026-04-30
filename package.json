@@ -24,9 +24,11 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint .",
-		"lint:fix": "eslint --fix ."
+		"lint:fix": "eslint --fix .",
+		"sandcastle": "npx tsx .sandcastle/main.mts"
 	},
 	"devDependencies": {
+		"@ai-hero/sandcastle": "^0.5.6",
 		"@eslint/js": "^9.39.4",
 		"@playwright/test": "^1.58.2",
 		"@sveltejs/adapter-auto": "^3.2.0",

@@ -3,6 +3,7 @@
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import type { SlotExplanationSection } from './SlotPreviewItem.svelte';
+	import SearchSelect, { type SearchSelectOption } from '$lib/components/ui/SearchSelect.svelte';
 
 	type AdvancedRunUiState =
 		| 'draft'
@@ -184,21 +185,31 @@
 		return 'No issue';
 	}
 
-	function assigneeOptionLabel(slot: DutyEventPreviewSlotInstance, person: Personnel) {
-		const baseLabel = `${person.rank} ${person.lastName}`;
+	function assigneeOptionDescription(slot: DutyEventPreviewSlotInstance, person: Personnel) {
 		const ranking = slot.candidateRankings?.find((candidate) => candidate.personnelId === person.id);
-		if (!ranking) return baseLabel;
+		if (!ranking) return undefined;
 
 		const selectedRanking = slot.assigneeId
 			? slot.candidateRankings?.find((candidate) => candidate.personnelId === slot.assigneeId)
 			: undefined;
 		const isSelected = slot.assigneeId === person.id;
-		if (isSelected) return `${baseLabel} (current pick, #${ranking.rank})`;
+		if (isSelected) return `Current pick, #${ranking.rank}`;
 
 		const nextRank = selectedRanking?.rank === 1 ? 2 : 1;
-		if (ranking.rank === nextRank) return `${baseLabel} (next up, #${ranking.rank})`;
+		if (ranking.rank === nextRank) return `Next up, #${ranking.rank}`;
 
-		return `${baseLabel} (#${ranking.rank})`;
+		return `Rotation #${ranking.rank}`;
+	}
+
+	function assigneeOptions(slot: DutyEventPreviewSlotInstance): SearchSelectOption[] {
+		return [
+			{ value: '', label: 'Leave Unfilled' },
+			...personnelOptions.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}`,
+				description: assigneeOptionDescription(slot, person)
+			}))
+		];
 	}
 </script>
 
@@ -337,22 +348,16 @@
 						<td>
 							<label class="assignee-field">
 								<span class="sr-only">Assignee for {row.event.eventDate} {slotLabel(row.slot)}</span>
-								<select
-									aria-label={`Assignee for ${row.event.eventDate} ${slotLabel(row.slot)}`}
+								<SearchSelect
+									options={assigneeOptions(row.slot)}
 									value={row.slot.assigneeId ?? ''}
 									disabled={isRefreshing || isApplying}
-									onchange={(event) =>
-										onUpdateSlotAssignee(
-											row.event.eventDate,
-											row.slot,
-											(event.currentTarget as HTMLSelectElement).value || null
-										)}
-								>
-									<option value="">Leave Unfilled</option>
-									{#each personnelOptions as person (person.id)}
-										<option value={person.id}>{assigneeOptionLabel(row.slot, person)}</option>
-									{/each}
-								</select>
+									clearable={false}
+									compact
+									placeholder="Leave Unfilled"
+									ariaLabel={`Assignee for ${row.event.eventDate} ${slotLabel(row.slot)}`}
+									onchange={(value) => onUpdateSlotAssignee(row.event.eventDate, row.slot, value || null)}
+								/>
 							</label>
 							<div class="assignee-meta">
 								<span class="assignee-name">{formatAssignee(row.slot.assigneeId)}</span>
@@ -564,8 +569,7 @@
 		color: var(--text-tertiary);
 	}
 
-	.filter-field select,
-	.assignee-field select {
+	.filter-field select {
 		width: 100%;
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
@@ -634,6 +638,11 @@
 		gap: 3px;
 	}
 
+	.assignee-field :global(.search-select) {
+		min-width: 170px;
+		width: 100%;
+	}
+
 	.slot-cell strong,
 	.assignee-name {
 		color: var(--text-primary);
@@ -652,13 +661,6 @@
 		align-items: center;
 		gap: var(--sp-1);
 		margin-top: 3px;
-	}
-
-	.assignee-field select {
-		min-width: 160px;
-		min-height: 34px;
-		padding: 5px 8px;
-		font-size: var(--text-sm);
 	}
 
 	.state-chip,

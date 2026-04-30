@@ -1,11 +1,12 @@
 <script lang="ts">
-	interface Option {
+	export interface SearchSelectOption {
 		value: string;
 		label: string;
+		description?: string;
 	}
 
 	interface Props {
-		options: Option[];
+		options: SearchSelectOption[];
 		value: string;
 		placeholder?: string;
 		disabled?: boolean;
@@ -41,12 +42,15 @@
 	const dropdownViewportPadding = 8;
 	const dropdownMaxHeight = 240;
 
-	const selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
+	const selectedOption = $derived(options.find((o) => o.value === value));
+	const selectedLabel = $derived(selectedOption?.label ?? '');
 
 	const filtered = $derived.by(() => {
 		if (!query.trim()) return options;
 		const q = query.toLowerCase();
-		return options.filter((o) => o.label.toLowerCase().includes(q));
+		return options.filter(
+			(o) => o.label.toLowerCase().includes(q) || (o.description?.toLowerCase().includes(q) ?? false)
+		);
 	});
 
 	function computeDropdownPosition() {
@@ -81,7 +85,7 @@
 		}, 150);
 	}
 
-	function selectOption(opt: Option) {
+	function selectOption(opt: SearchSelectOption) {
 		value = opt.value;
 		onchange?.(opt.value);
 		open = false;
@@ -216,7 +220,12 @@
 				aria-expanded={open}
 				aria-controls={listboxId}
 			>
-				<span class="display-copy">{selectedLabel || placeholder}</span>
+				<span class="display-copy">
+					<span class="display-label">{selectedLabel || placeholder}</span>
+					{#if selectedOption?.description}
+						<span class="display-description">{selectedOption.description}</span>
+					{/if}
+				</span>
 				<svg class="display-icon" viewBox="0 0 24 24" aria-hidden="true">
 					<polyline points="6 9 12 15 18 9"></polyline>
 				</svg>
@@ -250,7 +259,10 @@
 						aria-selected={opt.value === value}
 						onmousedown={() => selectOption(opt)}
 					>
-						{opt.label}
+						<span class="option-label">{opt.label}</span>
+						{#if opt.description}
+							<span class="option-description">{opt.description}</span>
+						{/if}
 					</li>
 				{/each}
 			{/if}
@@ -358,8 +370,29 @@
 
 	.display-copy {
 		min-width: 0;
+		display: grid;
+		gap: 2px;
+		overflow: hidden;
+	}
+
+	.display-label,
+	.display-description,
+	.option-label,
+	.option-description {
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.display-description,
+	.option-description {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.display-icon {
@@ -413,6 +446,8 @@
 	.dropdown-item {
 		width: 100%;
 		text-align: left;
+		display: grid;
+		gap: 2px;
 		padding: 9px 10px;
 		background: none;
 		border: 1px solid transparent;
@@ -433,6 +468,10 @@
 		border-color: color-mix(in srgb, var(--amber) 42%, var(--border-default) 58%);
 		color: var(--amber-dark);
 		font-weight: var(--font-weight-semibold);
+	}
+
+	.dropdown-item.selected .option-description {
+		color: color-mix(in srgb, var(--amber-dark) 72%, var(--text-tertiary) 28%);
 	}
 
 	.no-results {

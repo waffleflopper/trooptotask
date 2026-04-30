@@ -237,9 +237,8 @@ describe('SeriesPreviewPanel', () => {
 			onResetSlot
 		});
 
-		await fireEvent.change(screen.getByLabelText('Assignee for 2026-05-01 NCO #1'), {
-			target: { value: 'person-chen' }
-		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-05-01 NCO #1' }));
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SPC Chen Next up, #2' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Lock 2026-05-01 NCO #1' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Clear 2026-05-01 NCO #1' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset 2026-05-01 NCO #1' }));
@@ -254,14 +253,13 @@ describe('SeriesPreviewPanel', () => {
 		expect(onResetSlot).toHaveBeenCalledWith('2026-05-01', expect.objectContaining({ roleLabel: 'NCO' }));
 	});
 
-	it('labels replacement choices with the generator rotation order and next-up person', () => {
+	it('labels replacement choices with the generator rotation order and next-up person', async () => {
 		renderPanel();
 
-		const assigneeSelect = screen.getByLabelText('Assignee for 2026-05-01 NCO #1') as HTMLSelectElement;
-		const optionLabels = Array.from(assigneeSelect.options).map((option) => option.textContent);
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-05-01 NCO #1' }));
 
-		expect(optionLabels).toContain('SGT Nolan (current pick, #1)');
-		expect(optionLabels).toContain('SPC Chen (next up, #2)');
+		expect(screen.getByRole('option', { name: 'SGT Nolan Current pick, #1' })).toBeTruthy();
+		expect(screen.getByRole('option', { name: 'SPC Chen Next up, #2' })).toBeTruthy();
 	});
 
 	it('keeps assignment rationale attached to the table row instead of duplicating notes below the table', async () => {

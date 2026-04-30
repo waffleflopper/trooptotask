@@ -1504,7 +1504,11 @@ describe('duty event apply use case', () => {
 		expect(result.events).toHaveLength(1);
 		expect(result.events[0].slotInstances[0]).toMatchObject({
 			roleLabel: 'NCO',
-			assigneeId: 'person-long-break'
+			assigneeId: 'person-long-break',
+			candidateRankings: [
+				{ personnelId: 'person-long-break', rank: 1 },
+				{ personnelId: 'person-recent-duty', rank: 2 }
+			]
 		});
 	});
 

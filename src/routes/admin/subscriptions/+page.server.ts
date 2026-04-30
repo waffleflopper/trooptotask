@@ -1,6 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
+
+function getPersonnelCapForTier(tier: string): number | null {
+	const config = TIER_CONFIG[tier as Tier];
+	if (!config) return null;
+	return config.personnelCap === Infinity ? null : config.personnelCap;
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'subscriptions',
@@ -42,8 +49,6 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin subscriptions query failed:', orgsError);
 		}
 
-		const tierCaps: Record<string, number | null> = { free: 15, team: 80, unit: null };
-
 		const enrichedOrgs = await Promise.all(
 			(orgs ?? []).map(async (org) => {
 				const { count: personnelCount } = await adminClient
@@ -73,7 +78,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 					...org,
 					effectiveTier,
 					personnelCount: personnelCount ?? 0,
-					personnelCap: tierCaps[effectiveTier] ?? null,
+					personnelCap: getPersonnelCapForTier(effectiveTier),
 					ownerEmail,
 					isGifted: !!org.gift_tier,
 					isSuspended: !!org.suspended_at

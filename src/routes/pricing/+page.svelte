@@ -11,13 +11,13 @@
 			name: 'Free',
 			price: '$0',
 			description: 'For squad leaders and small teams that need a clean roster, calendar, and readiness picture fast.',
-			features: ['Up to 15 personnel', '1 organization', '3 exports per month', 'Full platform access during beta'],
+			features: ['Up to 20 personnel', '1 organization', '3 exports per month', 'Full platform access during beta'],
 			ctaLabel: 'Get Started Free',
 			ctaHref: '/auth/login'
 		},
 		{
 			name: 'Team',
-			price: '$15',
+			price: '$5',
 			description:
 				'For platoon-level leadership keeping one formation aligned without juggling spreadsheets and whiteboards.',
 			features: [
@@ -33,17 +33,31 @@
 		},
 		{
 			name: 'Unit',
-			price: '$30',
+			price: '$12',
 			description:
 				'For company commanders and staff sections managing multiple elements under one operational picture.',
 			features: [
-				'Unlimited personnel',
-				'Unlimited organizations',
+				'Up to 500 personnel',
+				'Up to 3 organizations',
 				'Unlimited exports',
 				'Full platform access across the unit'
 			],
 			ctaLabel: 'Get Started',
 			ctaHref: '/auth/login'
+		},
+		{
+			name: 'Enterprise',
+			price: 'Contact us',
+			showPriceNote: false,
+			description: 'For larger formations that need a capacity review, onboarding support, or a custom billing path.',
+			features: [
+				'Capacity review for larger formations',
+				'Multi-organization planning',
+				'Unlimited exports',
+				'Custom capacity and support terms'
+			],
+			ctaLabel: 'Contact Support',
+			ctaHref: 'mailto:support@trooptotask.com'
 		}
 	];
 
@@ -58,7 +72,7 @@
 		},
 		{
 			title: 'Read-only if you outgrow a plan',
-			body: 'If your organization exceeds its cap, the workspace stays visible and exportable. You just cannot add or edit more records until the tier matches your size again.'
+			body: 'If your organization exceeds its cap, the workspace stays visible and exportable. You just cannot add or edit more records until the tier or enterprise arrangement matches your size again.'
 		}
 	];
 
@@ -71,7 +85,7 @@
 		{
 			question: 'What happens if I exceed my personnel cap?',
 			answer:
-				'Your organization moves into read-only mode. Leaders can still view and export everything, but new records and edits pause until the tier fits your formation again.'
+				'Your organization moves into read-only mode. Leaders can still view and export everything, but new records and edits pause until the tier or enterprise arrangement fits your formation again.'
 		},
 		{
 			question: 'Can I cancel anytime?',
@@ -138,7 +152,9 @@
 
 			<div class="pricing-grid">
 				{#each plans as plan (plan.name)}
-					<PublicPricingTier {...plan} />
+					<div class:pricing-grid__item--enterprise={plan.name === 'Enterprise'} class="pricing-grid__item">
+						<PublicPricingTier {...plan} />
+					</div>
 				{/each}
 			</div>
 		</div>
@@ -283,6 +299,14 @@
 		align-items: stretch;
 	}
 
+	.pricing-grid__item {
+		display: grid;
+	}
+
+	.pricing-grid__item--enterprise {
+		grid-column: 2;
+	}
+
 	.pricing-note-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -333,6 +357,10 @@
 		.pricing-note-grid,
 		.pricing-brief__signals {
 			grid-template-columns: 1fr;
+		}
+
+		.pricing-grid__item--enterprise {
+			grid-column: auto;
 		}
 
 		.pricing-brief {

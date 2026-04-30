@@ -154,6 +154,7 @@ function toPublicDutyEventPreview(preview: InternalDutyEventPreview): DutyEventP
 			selectionReason: slot.selectionReason,
 			unfilledReason: slot.unfilledReason,
 			overrideMessages: slot.overrideMessages,
+			candidateRankings: slot.candidateRankings,
 			sortOrder: slot.sortOrder
 		}))
 	};

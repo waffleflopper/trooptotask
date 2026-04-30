@@ -307,6 +307,7 @@
 			<tbody>
 				{#each filteredRows as row (`${row.event.eventDate}-${row.slot.roleLabel}-${row.slot.slotIndex}`)}
 					{@const hasOverride = hasSeriesSlotOverride(row.event.eventDate, row.slot)}
+					{@const explanationSections = getExplanationSections(row.slot)}
 					<tr>
 						<td class="date-cell">{row.event.eventDate}</td>
 						<td>{formatCoverageLabel(row.event)}</td>
@@ -336,7 +337,34 @@
 									{/each}
 								</select>
 							</label>
-							<span class="assignee-name">{formatAssignee(row.slot.assigneeId)}</span>
+							<div class="assignee-meta">
+								<span class="assignee-name">{formatAssignee(row.slot.assigneeId)}</span>
+								{#if explanationSections.length > 0}
+									<details class="assignment-details">
+										<summary
+											aria-label={`Show assignment details for ${row.event.eventDate} ${slotLabel(row.slot)}`}
+											title="Assignment details"
+										>
+											<span aria-hidden="true">?</span>
+										</summary>
+										<div class="assignment-popover" role="group">
+											<p class="slot-note-label">{row.event.eventDate} · {slotLabel(row.slot)}</p>
+											{#each explanationSections as section (`${row.event.eventDate}-${row.slot.slotIndex}-${section.label}`)}
+												<div
+													class="note-section"
+													class:note-warning={section.tone === 'warning'}
+													class:note-conflict={section.tone === 'conflict'}
+												>
+													<p class="note-section-label">{section.label}</p>
+													{#each section.lines as line (`${section.label}-${line}`)}
+														<p>{line}</p>
+													{/each}
+												</div>
+											{/each}
+										</div>
+									</details>
+								{/if}
+							</div>
 						</td>
 						<td>
 							<span class="state-chip">{sourceLabel(row.slot, hasOverride)}</span>
@@ -392,31 +420,6 @@
 			</tbody>
 		</table>
 	</div>
-
-	{#if filteredRows.some((row) => getExplanationSections(row.slot).length > 0)}
-		<div class="review-notes" aria-label="Advanced duty review notes">
-			{#each filteredRows as row (`notes-${row.event.eventDate}-${row.slot.roleLabel}-${row.slot.slotIndex}`)}
-				{@const sections = getExplanationSections(row.slot)}
-				{#if sections.length > 0}
-					<div class="review-note">
-						<p class="slot-note-label">{row.event.eventDate} · {slotLabel(row.slot)}</p>
-						{#each sections as section (`${row.event.eventDate}-${row.slot.slotIndex}-${section.label}`)}
-							<div
-								class="note-section"
-								class:note-warning={section.tone === 'warning'}
-								class:note-conflict={section.tone === 'conflict'}
-							>
-								<p class="note-section-label">{section.label}</p>
-								{#each section.lines as line (`${section.label}-${line}`)}
-									<p>{line}</p>
-								{/each}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/if}
 </section>
 
 <style>
@@ -626,6 +629,14 @@
 		color: var(--text-secondary);
 	}
 
+	.assignee-meta {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-1);
+		margin-top: 3px;
+	}
+
 	.assignee-field select {
 		min-width: 160px;
 		min-height: 34px;
@@ -664,28 +675,65 @@
 		gap: var(--sp-2);
 	}
 
+	.assignment-details {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.assignment-details summary {
+		display: inline-grid;
+		place-items: center;
+		width: 18px;
+		height: 18px;
+		border: 1px solid var(--border-default);
+		border-radius: 999px;
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: var(--font-weight-semibold);
+		line-height: 1;
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.assignment-details summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.assignment-details summary:hover,
+	.assignment-details summary:focus-visible {
+		border-color: var(--amber-dark);
+		color: var(--amber-dark);
+		outline: none;
+	}
+
+	.assignment-details summary:focus-visible {
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber-light) 70%, transparent);
+	}
+
+	.assignment-popover {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 6px);
+		z-index: 4;
+		width: min(320px, calc(100vw - 48px));
+		padding: var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		box-shadow: var(--shadow-lg);
+	}
+
+	.assignment-popover p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
 	.empty-cell {
 		padding: var(--sp-4);
 		color: var(--text-secondary);
 		text-align: center;
-	}
-
-	.review-notes {
-		display: grid;
-		gap: var(--sp-2);
-		margin-top: var(--sp-3);
-	}
-
-	.review-note {
-		padding: var(--sp-3);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-	}
-
-	.review-note p {
-		margin: 0;
-		color: var(--text-secondary);
 	}
 
 	.note-section {

@@ -236,7 +236,7 @@
 	const canRetryAdvancedApply = $derived(activePreviewSnapshotState === 'failed-before-persistence');
 	const canRecoverPartialAdvancedApply = $derived(activePreviewSnapshotState === 'partial-recovery');
 
-	$effect(() => {
+	$effect.pre(() => {
 		const nextInitialView = props.initialView ?? 'choose-lane';
 		if (lastInitialView === nextInitialView) return;
 		lastInitialView = nextInitialView;
@@ -731,7 +731,7 @@
 						onRegenerate={handleRegenerateAdvancedRun}
 						onExportPreview={handleExportAdvancedPreview}
 						onRetryApply={handleApplyAdvancedSeries}
-						onRecoverPartialApply={props.onRecoverPartialApply ?? (() => {})}
+						onRecoverPartialApply={props.onRecoverPartialApply}
 						onCollisionConfirmedChange={(value) => (collisionReviewConfirmed = value)}
 						onShortfallConfirmedChange={(value) => (shortfallReviewConfirmed = value)}
 						onUpdateSlotAssignee={updateSeriesSlotAssignee}

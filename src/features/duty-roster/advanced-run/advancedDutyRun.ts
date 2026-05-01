@@ -1,6 +1,8 @@
 import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
 import { highestPriorityDa6Treatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 import {
+	type AdvancedDutyDa6Matrix,
+	type AdvancedDutyDa6MatrixRow,
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder,
 	type DutyEventCollisionSummary,
@@ -8,6 +10,7 @@ import {
 	type DutyEventFillSummary,
 	type DutyEventPreview,
 	type DutyEventPreviewSlotInstance,
+	type DutyEventSlotCandidateRanking,
 	type DutyEventRulesSnapshot,
 	type DutyEventSlotInstance,
 	type DutyEventSlotOverrideInput,
@@ -16,15 +19,21 @@ import {
 	type SoftPreferenceConfig
 } from '$features/duty-roster/duty-roster.types';
 import type { AvailabilityEntry, Da6AvailabilityTreatment, Personnel, StatusType } from '$lib/types';
+import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
 
 interface PoolHistorySummary {
 	lastServedDate: string | null;
-	lastWeekendDate: string | null;
-	lastHolidayClosureDate: string | null;
+	lastWeekendHolidayDate: string | null;
+}
+
+interface Da6RankingPolicy {
+	separateWeekendDa6: boolean;
+	includeHolidayDonsa: boolean;
 }
 
 export interface AdvancedRunHistoryEvent {
 	id: string;
+	templateId?: string;
 	eventDate: string;
 	coverageStart?: string;
 	coverageEnd?: string;
@@ -121,6 +130,7 @@ export interface AdvancedEventSnapshot {
 	slotProposals: AdvancedSlotProposal[];
 	blockingConflicts: string[];
 	availabilityClassifications: AdvancedAvailabilityClassification[];
+	da6Matrices: AdvancedDutyDa6Matrix[];
 	exportModel: TeamDutyPacketExportModel;
 }
 
@@ -130,7 +140,6 @@ export type AdvancedAvailabilityReasonCode =
 	| 'misconduct-unavailable'
 	| 'advanced-duty-overlap'
 	| 'advanced-duty-cooldown'
-	| 'status-exemption'
 	| 'template-exemption';
 
 export interface AdvancedAvailabilityClassification {
@@ -166,6 +175,7 @@ export interface AdvancedRunSnapshot {
 	};
 	personnel: AdvancedRunPersonnelSnapshot[];
 	events: AdvancedEventSnapshot[];
+	da6Matrices: AdvancedDutyDa6Matrix[];
 }
 
 export interface AdvancedRunCollisionResult {
@@ -190,7 +200,6 @@ export interface AdvancedRunSnapshotInput {
 	holidayClosureDates: Set<string>;
 	historyEvents: AdvancedRunHistoryEvent[];
 	excludedHistoryEventIdsByEventDate?: Map<string, string[]>;
-	statusExemptPersonnelDatesByEventDate: Map<string, Map<string, string>>;
 	availabilityEntries?: AvailabilityEntry[];
 	statusTypes?: StatusType[];
 	misconductUnavailablePersonnelDates?: Record<string, string[]>;
@@ -302,45 +311,105 @@ function normalizeSoftPreferencesForRanking(
 		return defaults;
 	}
 
-	const provided = new Map(softPreferences.map((preference) => [preference.type, preference]));
-	const orderedTypes = [
-		...softPreferences.map((preference) => preference.type),
-		...defaultSoftPreferenceOrder.filter((type) => !provided.has(type))
-	];
-
-	return [...new Set(orderedTypes)].map(
-		(type) => provided.get(type) ?? { type, enabled: defaults.find((item) => item.type === type)?.enabled ?? true }
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
 	);
-}
-
-function usesDefaultSoftPreferenceOrder(template: DutyTemplate): boolean {
-	const resolved = normalizeSoftPreferencesForRanking(template.softPreferences);
-	return resolved.every(
-		(preference, index) => preference.enabled === true && preference.type === defaultSoftPreferenceOrder[index]
+	const hasCurrentWeekendPolicy = softPreferences.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = softPreferences.some(
+		(preference) => preference.type === 'include-holiday-donsa-da6'
 	);
-}
 
-function describeSoftPreferenceOrder(template: DutyTemplate): string {
-	const enabled = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
-		(preference) => preference.enabled
-	);
-	if (enabled.length === 0) {
-		return 'eligibility rules and name tie-breakers only';
+	for (const preference of softPreferences) {
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
+		}
 	}
 
-	const labels: Record<SoftPreferenceConfig['type'], string> = {
-		'longest-break': 'longest break',
-		'holiday-closure': 'holiday and closure spacing',
-		weekend: 'weekend spacing',
-		'preferred-group': 'preferred groups'
-	};
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
+	}
 
-	return enabled.map((preference) => labels[preference.type]).join(', then ');
+	return defaultSoftPreferenceOrder.map((type) => byType.get(type) ?? defaults.find((item) => item.type === type)!);
+}
+
+function resolveDa6RankingPolicy(softPreferences: SoftPreferenceConfig[] | undefined): Da6RankingPolicy {
+	const resolved = normalizeSoftPreferencesForRanking(softPreferences);
+	const separateWeekendDa6 = resolved.some(
+		(preference) => preference.type === 'separate-weekend-da6' && preference.enabled
+	);
+	return {
+		separateWeekendDa6,
+		includeHolidayDonsa:
+			separateWeekendDa6 &&
+			resolved.some((preference) => preference.type === 'include-holiday-donsa-da6' && preference.enabled)
+	};
+}
+
+function isWeekendHolidaySequenceDate(date: string, holidayDonsaDates: Set<string>, policy: Da6RankingPolicy): boolean {
+	if (!policy.separateWeekendDa6) {
+		return false;
+	}
+	if (new Set([0, 6]).has(getDayOfWeek(date))) {
+		return true;
+	}
+	return policy.includeHolidayDonsa && holidayDonsaDates.has(date);
+}
+
+function describeDa6RankingPolicy(policy: Da6RankingPolicy, isWeekendHolidaySequence: boolean): string {
+	if (!policy.separateWeekendDa6) {
+		return 'single DA6 sequence';
+	}
+	return isWeekendHolidaySequence
+		? policy.includeHolidayDonsa
+			? 'separate weekend, holiday, and DONSA DA6 sequence'
+			: 'separate weekend DA6 sequence'
+		: 'weekday DA6 sequence';
+}
+
+function buildAdvancedDa6SequenceMetadata(
+	template: DutyTemplate,
+	eventDate: string,
+	holidayDonsaDates: Set<string>
+): Pick<DutyEventPreview, 'advancedDa6SequenceKey' | 'advancedDa6SequenceLabel'> {
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayDonsaDates, policy);
+	return {
+		advancedDa6SequenceKey: !policy.separateWeekendDa6
+			? 'single'
+			: isWeekendHolidaySequence
+				? 'weekend-holiday'
+				: 'weekday',
+		advancedDa6SequenceLabel: describeDa6RankingPolicy(policy, isWeekendHolidaySequence)
+	};
 }
 
 function buildGeneratedSelectionReason(
 	template: DutyTemplate,
 	slot: DutyTemplateSlot,
+	eventDate: string,
+	holidayDonsaDates: Set<string>,
 	fairnessConfidence: DutyEventFairnessConfidence,
 	missingHistoryCount: number,
 	eligibleCount: number
@@ -352,11 +421,9 @@ function buildGeneratedSelectionReason(
 		fairnessSuffix = ` Fairness confidence is medium: ${missingHistoryCount} of ${eligibleCount} eligible Soldier${eligibleCount === 1 ? '' : 's'} lack rotation history.`;
 	}
 
-	if (usesDefaultSoftPreferenceOrder(template)) {
-		return `Selected by longest break in rotation pool "${slot.rotationPoolKey}".${fairnessSuffix}`;
-	}
-
-	return `Selected using this template's soft-preference order for rotation pool "${slot.rotationPoolKey}": ${describeSoftPreferenceOrder(template)}.${fairnessSuffix}`;
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayDonsaDates, policy);
+	return `Selected by longest break in the ${describeDa6RankingPolicy(policy, isWeekendHolidaySequence)} for rotation pool "${slot.rotationPoolKey}".${fairnessSuffix}`;
 }
 
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
@@ -449,7 +516,6 @@ function classifyAdvancedAvailability(input: {
 	eventDate: string;
 	coverageStart: string;
 	coverageEnd: string;
-	statusExemptPersonnelDates: Map<string, string>;
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	misconductUnavailablePersonnelDates: Record<string, string[]>;
@@ -514,18 +580,6 @@ function classifyAdvancedAvailability(input: {
 			};
 		}
 
-		if (input.statusExemptPersonnelDates.has(person.id)) {
-			return {
-				personnelId: person.id,
-				selectable: false,
-				chargeable: false,
-				treatment: 'authorized-absence',
-				statusNames: [],
-				reason: `${formatPersonLabel(input.personnelById, person.id)} has an exempt status for ${input.statusExemptPersonnelDates.get(person.id) ?? input.eventDate} and cannot be manually assigned.`,
-				reasonCode: 'status-exemption'
-			};
-		}
-
 		const advancedDutyBlock = classifyAdvancedDutyBlock({
 			personnelId: person.id,
 			coverageStart: input.coverageStart,
@@ -536,8 +590,8 @@ function classifyAdvancedAvailability(input: {
 		if (advancedDutyBlock) {
 			return {
 				personnelId: person.id,
-				// Advanced runs allow conflict-with-warning manual overrides; simple DA6 runs block these.
-				selectable: true,
+				// Generated runs must respect blocking duty and cooldown. Manual overrides still surface this as a conflict.
+				selectable: false,
 				chargeable: true,
 				treatment: null,
 				statusNames: [],
@@ -645,7 +699,7 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 		scopeType: template.scopeType,
 		scopeGroupIds: [...template.scopeGroupIds],
 		exemptPersonnelIds: [...(template.exemptPersonnelIds ?? [])],
-		exemptStatusTypeIds: [...(template.exemptStatusTypeIds ?? [])],
+		exemptStatusTypeIds: [],
 		isBlocking: template.isBlocking,
 		cooldownHours: template.cooldownHours,
 		softPreferences: normalizeSoftPreferencesForRanking(template.softPreferences),
@@ -673,25 +727,25 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 function createEmptyPoolHistorySummary(): PoolHistorySummary {
 	return {
 		lastServedDate: null,
-		lastWeekendDate: null,
-		lastHolidayClosureDate: null
+		lastWeekendHolidayDate: null
 	};
 }
 
 function recordServiceDate(
 	summary: PoolHistorySummary,
 	date: string,
-	holidayClosureDates: Set<string>
+	holidayDonsaDates: Set<string>,
+	policy: Da6RankingPolicy
 ): PoolHistorySummary {
 	const next = { ...summary };
+	if (isWeekendHolidaySequenceDate(date, holidayDonsaDates, policy)) {
+		if (!next.lastWeekendHolidayDate || next.lastWeekendHolidayDate < date) {
+			next.lastWeekendHolidayDate = date;
+		}
+		return next;
+	}
 	if (!next.lastServedDate || next.lastServedDate < date) {
 		next.lastServedDate = date;
-	}
-	if (new Set([0, 6]).has(getDayOfWeek(date)) && (!next.lastWeekendDate || next.lastWeekendDate < date)) {
-		next.lastWeekendDate = date;
-	}
-	if (holidayClosureDates.has(date) && (!next.lastHolidayClosureDate || next.lastHolidayClosureDate < date)) {
-		next.lastHolidayClosureDate = date;
 	}
 	return next;
 }
@@ -713,6 +767,7 @@ function buildPoolHistoryIndex(
 	transientEvents: AdvancedRunTransientEvent[]
 ): Map<string, PoolHistorySummary> {
 	const historyByPoolPerson = new Map<string, PoolHistorySummary>();
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
 
 	for (const baseline of template.rotationBaselines) {
 		const key = `${baseline.rotationPoolKey}::${baseline.personId}`;
@@ -721,13 +776,18 @@ function buildPoolHistoryIndex(
 			recordServiceDate(
 				historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 				baseline.lastServedDate,
-				holidayClosureDates
+				holidayClosureDates,
+				policy
 			)
 		);
 	}
 
 	for (const event of historyEvents) {
-		if (event.eventDate > cutoffDate || excludedHistoryEventIds.has(event.id)) {
+		if (
+			event.eventDate > cutoffDate ||
+			excludedHistoryEventIds.has(event.id) ||
+			(event.templateId && event.templateId !== template.id)
+		) {
 			continue;
 		}
 		for (const slot of event.slotInstances) {
@@ -745,7 +805,8 @@ function buildPoolHistoryIndex(
 				recordServiceDate(
 					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 					event.eventDate,
-					holidayClosureDates
+					holidayClosureDates,
+					policy
 				)
 			);
 		}
@@ -772,7 +833,8 @@ function buildPoolHistoryIndex(
 				recordServiceDate(
 					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
 					event.eventDate,
-					holidayClosureDates
+					holidayClosureDates,
+					policy
 				)
 			);
 		}
@@ -789,44 +851,15 @@ function rankCandidatesForSlot(
 	eventDate: string,
 	holidayClosureDates: Set<string>
 ): Personnel[] {
-	const isHolidayClosure = holidayClosureDates.has(eventDate);
-	const isWeekend = new Set([0, 6]).has(getDayOfWeek(eventDate));
-	const softPreferences = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
-		(preference) => preference.enabled
-	);
+	const policy = resolveDa6RankingPolicy(template.softPreferences);
+	const isWeekendHolidaySequence = isWeekendHolidaySequenceDate(eventDate, holidayClosureDates, policy);
 	return [...personnel].sort((a, b) => {
 		const aSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${a.id}`) ?? createEmptyPoolHistorySummary();
 		const bSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${b.id}`) ?? createEmptyPoolHistorySummary();
-
-		for (const preference of softPreferences) {
-			switch (preference.type) {
-				case 'longest-break': {
-					const diff = compareOldestFirst(aSummary.lastServedDate, bSummary.lastServedDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'holiday-closure': {
-					if (!isHolidayClosure) break;
-					const diff = compareOldestFirst(aSummary.lastHolidayClosureDate, bSummary.lastHolidayClosureDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'weekend': {
-					if (!isWeekend) break;
-					const diff = compareOldestFirst(aSummary.lastWeekendDate, bSummary.lastWeekendDate);
-					if (diff !== 0) return diff;
-					break;
-				}
-				case 'preferred-group': {
-					const aPreferred =
-						slot.preferredGroupIds.length > 0 && !!a.groupId && slot.preferredGroupIds.includes(a.groupId);
-					const bPreferred =
-						slot.preferredGroupIds.length > 0 && !!b.groupId && slot.preferredGroupIds.includes(b.groupId);
-					if (aPreferred !== bPreferred) return aPreferred ? -1 : 1;
-					break;
-				}
-			}
-		}
+		const aLastServed = isWeekendHolidaySequence ? aSummary.lastWeekendHolidayDate : aSummary.lastServedDate;
+		const bLastServed = isWeekendHolidaySequence ? bSummary.lastWeekendHolidayDate : bSummary.lastServedDate;
+		const diff = compareOldestFirst(aLastServed, bLastServed);
+		if (diff !== 0) return diff;
 
 		return sortPersonnel(a, b);
 	});
@@ -876,6 +909,13 @@ function buildFillSummary(slotInstances: Array<{ assigneeId: string | null }>): 
 	};
 }
 
+function buildCandidateRankings(candidates: Personnel[]): DutyEventSlotCandidateRanking[] {
+	return candidates.map((person, index) => ({
+		personnelId: person.id,
+		rank: index + 1
+	}));
+}
+
 function generateSlotInstances(input: {
 	template: DutyTemplate;
 	personnel: Personnel[];
@@ -883,7 +923,6 @@ function generateSlotInstances(input: {
 	historyByPoolPerson: Map<string, PoolHistorySummary>;
 	eventDate: string;
 	holidayClosureDates: Set<string>;
-	statusExemptPersonnelDates: Map<string, string>;
 	availabilityClassifications: AdvancedAvailabilityClassification[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
 }): AdvancedSlotProposal[] {
@@ -900,10 +939,7 @@ function generateSlotInstances(input: {
 		(classification) => !classification.selectable
 	);
 	const hasAvailabilityBlocks = input.availabilityClassifications.some(
-		(classification) =>
-			!classification.selectable &&
-			classification.reasonCode !== 'template-exemption' &&
-			classification.reasonCode !== 'status-exemption'
+		(classification) => !classification.selectable && classification.reasonCode !== 'template-exemption'
 	);
 	const eligiblePersonnel = hasAnyUnselectableClassifications
 		? input.personnel.filter((person) => availabilityByPersonnelId.get(person.id)?.selectable ?? true)
@@ -963,6 +999,7 @@ function generateSlotInstances(input: {
 		);
 		const assignee = availableCandidates[0] ?? null;
 		const recommendedAssignee = recommendedCandidates[0] ?? null;
+		const candidateRankings = buildCandidateRankings(recommendedCandidates);
 
 		if (override) {
 			matchedOverrideKeys.add(override.key);
@@ -1018,6 +1055,7 @@ function generateSlotInstances(input: {
 				selectionReason,
 				unfilledReason,
 				overrideMessages,
+				candidateRankings,
 				blockingMessages,
 				isBlocking,
 				sortOrder: item.displayOrder
@@ -1041,6 +1079,8 @@ function generateSlotInstances(input: {
 				? buildGeneratedSelectionReason(
 						input.template,
 						item.slot,
+						input.eventDate,
+						input.holidayClosureDates,
 						item.fairnessConfidence,
 						item.missingHistoryCount,
 						item.eligibleCount
@@ -1054,6 +1094,7 @@ function generateSlotInstances(input: {
 						: 'No personnel matched this slot eligibility rules.'
 					: 'Every eligible person was already assigned elsewhere in this duty event.',
 			overrideMessages: [],
+			candidateRankings,
 			blockingMessages: [],
 			isBlocking,
 			sortOrder: item.displayOrder
@@ -1079,6 +1120,7 @@ function toPublicSlotProposal(slot: AdvancedSlotProposal): DutyEventPreviewSlotI
 		selectionReason: slot.selectionReason,
 		unfilledReason: slot.unfilledReason,
 		overrideMessages: slot.overrideMessages,
+		candidateRankings: slot.candidateRankings,
 		sortOrder: slot.sortOrder
 	};
 }
@@ -1090,7 +1132,6 @@ async function buildAdvancedEventSnapshot(input: {
 	holidayClosureDates: Set<string>;
 	historyEvents: AdvancedRunHistoryEvent[];
 	excludedHistoryEventIdsByEventDate?: Map<string, string[]>;
-	statusExemptPersonnelDates: Map<string, string>;
 	transientEvents: AdvancedRunTransientEvent[];
 	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
@@ -1112,7 +1153,6 @@ async function buildAdvancedEventSnapshot(input: {
 		eventDate: input.eventDate,
 		coverageStart: coverage.coverageStart,
 		coverageEnd: coverage.coverageEnd,
-		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
 		availabilityEntries: input.availabilityEntries ?? [],
 		statusTypes: input.statusTypes ?? [],
 		misconductUnavailablePersonnelDates: input.misconductUnavailablePersonnelDates ?? {},
@@ -1134,7 +1174,6 @@ async function buildAdvancedEventSnapshot(input: {
 		historyByPoolPerson,
 		eventDate: input.eventDate,
 		holidayClosureDates: input.holidayClosureDates,
-		statusExemptPersonnelDates: input.statusExemptPersonnelDates,
 		availabilityClassifications,
 		slotOverrides: input.slotOverrides
 	});
@@ -1160,6 +1199,7 @@ async function buildAdvancedEventSnapshot(input: {
 		templateId: input.template.id,
 		templateName: input.template.name,
 		eventDate: input.eventDate,
+		...buildAdvancedDa6SequenceMetadata(input.template, input.eventDate, input.holidayClosureDates),
 		coverageMode: input.template.coverageMode,
 		coverageStart: coverage.coverageStart,
 		coverageEnd: coverage.coverageEnd,
@@ -1173,6 +1213,30 @@ async function buildAdvancedEventSnapshot(input: {
 	const blockingConflicts = [
 		...new Set([...collisionCheck.blockingConflicts, ...slotProposals.flatMap((slot) => slot.blockingMessages)])
 	];
+	const exportModel = buildTeamDutyPacketExportModel({
+		templateName: input.template.name,
+		event: preview,
+		slotAssignments: slotProposals,
+		collisionNotes: blockingConflicts,
+		personnelById: allPersonnelById
+	});
+	const da6Matrices = buildEventDa6Matrices({
+		template: input.template,
+		personnel: candidatePersonnel,
+		event: {
+			eventDate: input.eventDate,
+			coverageStart: coverage.coverageStart,
+			coverageEnd: coverage.coverageEnd,
+			preview,
+			slotProposals,
+			blockingConflicts,
+			availabilityClassifications,
+			da6Matrices: [],
+			exportModel
+		},
+		historyByPoolPerson,
+		holidayClosureDates: input.holidayClosureDates
+	});
 
 	return {
 		eventDate: input.eventDate,
@@ -1182,13 +1246,8 @@ async function buildAdvancedEventSnapshot(input: {
 		slotProposals,
 		blockingConflicts,
 		availabilityClassifications,
-		exportModel: buildTeamDutyPacketExportModel({
-			templateName: input.template.name,
-			event: preview,
-			slotAssignments: slotProposals,
-			collisionNotes: blockingConflicts,
-			personnelById: allPersonnelById
-		})
+		da6Matrices,
+		exportModel
 	};
 }
 
@@ -1206,6 +1265,236 @@ function snapshotPersonnel(personnel: Personnel[]): AdvancedRunPersonnelSnapshot
 	}));
 }
 
+function mapAvailabilityToDa6Cell(input: {
+	classification: AdvancedAvailabilityClassification;
+	assignedToOtherSlot: boolean;
+}): Pick<
+	AdvancedDutyDa6Matrix['rows'][number]['cells'][number],
+	'code' | 'da6Code' | 'chargeable' | 'reason' | 'reasonCode'
+> {
+	if (input.assignedToOtherSlot) {
+		return {
+			code: 'blocked-by-duty',
+			da6Code: 'D',
+			chargeable: true,
+			reason: 'Assigned to another slot in this duty event.',
+			reasonCode: 'assigned-other-slot'
+		};
+	}
+
+	if (input.classification.selectable) {
+		return {
+			code: 'available-not-selected',
+			da6Code: null,
+			chargeable: true,
+			reason: null,
+			reasonCode: null
+		};
+	}
+
+	switch (input.classification.reasonCode) {
+		case 'authorized-absence':
+			return {
+				code: 'authorized-absence',
+				da6Code: 'A',
+				chargeable: false,
+				reason: input.classification.reason,
+				reasonCode: input.classification.reasonCode
+			};
+		case 'misconduct-unavailable':
+			return {
+				code: 'misconduct-unavailable',
+				da6Code: 'U',
+				chargeable: true,
+				reason: input.classification.reason,
+				reasonCode: input.classification.reasonCode
+			};
+		case 'advanced-duty-cooldown':
+			return {
+				code: 'blocked-by-cooldown',
+				da6Code: 'D',
+				chargeable: true,
+				reason: input.classification.reason,
+				reasonCode: input.classification.reasonCode
+			};
+		default:
+			return {
+				code: 'blocked-by-duty',
+				da6Code: 'D',
+				chargeable: input.classification.chargeable,
+				reason: input.classification.reason,
+				reasonCode: input.classification.reasonCode
+			};
+	}
+}
+
+function buildEventDa6Matrices(input: {
+	template: DutyTemplate;
+	personnel: Personnel[];
+	event: AdvancedEventSnapshot;
+	historyByPoolPerson: Map<string, PoolHistorySummary>;
+	holidayClosureDates: Set<string>;
+}): AdvancedDutyDa6Matrix[] {
+	const policy = resolveDa6RankingPolicy(input.template.softPreferences);
+	const numberingMode = policy.separateWeekendDa6 ? 'separate-weekend-holiday' : 'single-sequence';
+	const sequenceKey = input.event.preview.advancedDa6SequenceKey ?? 'single';
+	const sequenceLabel = input.event.preview.advancedDa6SequenceLabel ?? 'single DA6 sequence';
+
+	return input.template.slots.map((templateSlot) => {
+		const eligiblePersonnel = input.personnel
+			.filter(
+				(person) =>
+					!(input.template.exemptPersonnelIds ?? []).includes(person.id) &&
+					matchesSlot(person, input.template, templateSlot)
+			)
+			.sort(comparePersonnelByRankThenName);
+		const eligibleById = new Map(eligiblePersonnel.map((person) => [person.id, person]));
+		const availabilityById = new Map(
+			input.event.availabilityClassifications
+				.filter((classification) => eligibleById.has(classification.personnelId))
+				.map((classification) => [classification.personnelId, classification])
+		);
+		const assignedToSlot = new Set(
+			input.event.slotProposals
+				.filter((slot) => slot.templateSlotId === templateSlot.id && slot.assigneeId)
+				.map((slot) => slot.assigneeId as string)
+		);
+		const assignedToOtherSlots = new Set(
+			input.event.slotProposals
+				.filter((slot) => slot.templateSlotId !== templateSlot.id && slot.assigneeId)
+				.map((slot) => slot.assigneeId as string)
+		);
+		const queue = rankCandidatesForSlot(
+			input.template,
+			templateSlot,
+			eligiblePersonnel.filter((person) => availabilityById.get(person.id)?.chargeable ?? true),
+			input.historyByPoolPerson,
+			input.event.eventDate,
+			input.holidayClosureDates
+		);
+		const queuePositionById = new Map(queue.map((person, index) => [person.id, index + 1]));
+
+		return {
+			templateSlotId: templateSlot.id,
+			roleLabel: templateSlot.roleLabel,
+			rotationPoolKey: templateSlot.rotationPoolKey,
+			sequenceKey,
+			sequenceLabel,
+			numberingMode,
+			columns: [
+				{
+					eventDate: input.event.eventDate,
+					coverageStart: input.event.coverageStart,
+					coverageEnd: input.event.coverageEnd,
+					sequenceKey,
+					sequenceLabel,
+					chargeSequenceStart: null,
+					chargeableCount: queue.length
+				}
+			],
+			rows: eligiblePersonnel.map<AdvancedDutyDa6MatrixRow>((person) => {
+				const classification = availabilityById.get(person.id) ?? {
+					personnelId: person.id,
+					selectable: true,
+					chargeable: true,
+					treatment: null,
+					statusNames: [],
+					reason: null,
+					reasonCode: null
+				};
+				const assigned = assignedToSlot.has(person.id);
+				const availabilityCell = mapAvailabilityToDa6Cell({
+					classification,
+					assignedToOtherSlot: !assigned && assignedToOtherSlots.has(person.id)
+				});
+				return {
+					personnelId: person.id,
+					display: {
+						id: person.id,
+						rank: person.rank,
+						firstName: person.firstName,
+						lastName: person.lastName,
+						groupName: person.groupName
+					},
+					cells: [
+						{
+							eventDate: input.event.eventDate,
+							personnelId: person.id,
+							code: assigned ? 'assigned' : availabilityCell.code,
+							da6Code: assigned ? null : availabilityCell.da6Code,
+							chargeable: availabilityCell.chargeable,
+							queuePosition: queuePositionById.get(person.id) ?? null,
+							sequenceNumber: null,
+							assigned,
+							reason: assigned ? null : availabilityCell.reason,
+							reasonCode: assigned ? null : availabilityCell.reasonCode
+						}
+					]
+				};
+			})
+		};
+	});
+}
+
+function buildAdvancedDa6Matrices(input: { events: AdvancedEventSnapshot[] }): AdvancedDutyDa6Matrix[] {
+	const sequencePeriodCountersByMatrix = new Map<string, number>();
+	const sequenceBaseByMatrixPerson = new Map<string, number>();
+	const matricesByKey = new Map<string, AdvancedDutyDa6Matrix>();
+
+	for (const event of input.events) {
+		for (const eventMatrix of event.da6Matrices) {
+			const matrixKey = `${eventMatrix.templateSlotId}::${eventMatrix.sequenceKey}`;
+			const sequencePeriodIndex = sequencePeriodCountersByMatrix.get(matrixKey) ?? 0;
+			const chargeSequenceStart =
+				eventMatrix.columns[0]?.chargeableCount && eventMatrix.columns[0].chargeableCount > 0
+					? sequencePeriodIndex + 1
+					: null;
+			const sourceRowsById = new Map(eventMatrix.rows.map((row) => [row.personnelId, row] as const));
+			const column = eventMatrix.columns[0]
+				? {
+						...eventMatrix.columns[0],
+						chargeSequenceStart
+					}
+				: null;
+
+			let matrix = matricesByKey.get(matrixKey);
+			if (!matrix) {
+				matrix = {
+					...eventMatrix,
+					columns: [],
+					rows: eventMatrix.rows.map((row) => ({ ...row, cells: [] }))
+				};
+				matricesByKey.set(matrixKey, matrix);
+			}
+
+			if (column) {
+				matrix.columns.push(column);
+			}
+
+			for (const row of matrix.rows) {
+				const sourceRow = sourceRowsById.get(row.personnelId);
+				const sourceCell = sourceRow?.cells[0];
+				if (!sourceCell) continue;
+				const queuePosition = sourceCell.queuePosition ?? null;
+				const sequenceBaseKey = `${matrixKey}::${row.personnelId}`;
+				let sequenceBase = sequenceBaseByMatrixPerson.get(sequenceBaseKey);
+				if (sequenceBase === undefined && queuePosition !== null) {
+					sequenceBase = queuePosition - sequencePeriodIndex;
+					sequenceBaseByMatrixPerson.set(sequenceBaseKey, sequenceBase);
+				}
+				row.cells.push({
+					...sourceCell,
+					sequenceNumber: sequenceBase === undefined ? null : sequenceBase + sequencePeriodIndex
+				});
+			}
+
+			sequencePeriodCountersByMatrix.set(matrixKey, sequencePeriodIndex + 1);
+		}
+	}
+
+	return [...matricesByKey.values()];
+}
+
 export async function buildAdvancedRunSnapshot(input: AdvancedRunSnapshotInput): Promise<AdvancedRunSnapshot> {
 	const eventDates = [...input.eventDates];
 	const events: AdvancedEventSnapshot[] = [];
@@ -1219,8 +1508,6 @@ export async function buildAdvancedRunSnapshot(input: AdvancedRunSnapshotInput):
 			holidayClosureDates: input.holidayClosureDates,
 			historyEvents: input.historyEvents,
 			excludedHistoryEventIdsByEventDate: input.excludedHistoryEventIdsByEventDate,
-			statusExemptPersonnelDates:
-				input.statusExemptPersonnelDatesByEventDate.get(eventDate) ?? new Map<string, string>(),
 			transientEvents,
 			candidatePersonnelIds: input.candidatePersonnelIds,
 			slotOverrides: input.slotOverridesByEventDate?.get(eventDate),
@@ -1255,6 +1542,7 @@ export async function buildAdvancedRunSnapshot(input: AdvancedRunSnapshotInput):
 			rulesSnapshot: buildRulesSnapshot(input.template)
 		},
 		personnel: snapshotPersonnel(input.personnel),
-		events
+		events,
+		da6Matrices: buildAdvancedDa6Matrices({ events })
 	};
 }

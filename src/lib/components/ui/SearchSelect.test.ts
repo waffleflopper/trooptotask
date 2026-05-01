@@ -5,7 +5,7 @@ import SearchSelect from './SearchSelect.svelte';
 
 const options = [
 	{ value: 'alpha', label: 'Alpha' },
-	{ value: 'bravo', label: 'Bravo' },
+	{ value: 'bravo', label: 'Bravo', description: 'Next up in rotation' },
 	{ value: 'charlie', label: 'Charlie' }
 ];
 
@@ -61,6 +61,16 @@ describe('SearchSelect', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Assignee' }));
 
 		expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeTruthy();
+	});
+
+	it('renders optional secondary option text in the custom listbox', async () => {
+		renderSelect();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee' }));
+
+		const bravoOption = screen.getByRole('option', { name: 'Bravo Next up in rotation' });
+		expect(bravoOption).toBeTruthy();
+		expect(bravoOption.querySelector('.option-description')?.textContent).toBe('Next up in rotation');
 	});
 
 	it('clears on mouse down before focus can move away', async () => {

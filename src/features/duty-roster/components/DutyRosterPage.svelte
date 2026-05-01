@@ -3,6 +3,8 @@
 	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
+	import AppliedEventManager from './AppliedEventManager.svelte';
+	import AdvancedSnapshotList from './AdvancedSnapshotList.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -29,6 +31,7 @@
 		DutyEventSeriesPreview,
 		ExistingDutyEventInput,
 		ExistingDutyEventUpdateInput,
+		AdvancedDutyRunSnapshotRecord,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -57,10 +60,14 @@
 			rosterHistory: RosterHistoryItem[];
 			advancedDutyTemplates: DutyTemplate[];
 			advancedDutyEvents: DutyEvent[];
+			advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
 		};
 	}
 
 	let { data }: Props = $props();
+
+	type DutyRosterSection = 'simple-roster' | 'advanced-workspace' | 'advanced-templates';
+	type AdvancedWorkspaceView = 'active-run' | 'draft-snapshots' | 'applied-events';
 
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
@@ -68,7 +75,12 @@
 	const canAccessAdvancedDuty = $derived(!data.scopedGroupId && (org.isPrivileged || org.isFullEditor));
 	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
 	const workspaceData = $derived(data.calendar?.data ?? data);
-	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
+	let activeTab = $state<DutyRosterSection>('advanced-workspace');
+	let activeAdvancedWorkspaceView = $state<AdvancedWorkspaceView>('active-run');
+	let advancedDutySnapshots = $state<AdvancedDutyRunSnapshotRecord[]>([]);
+	let loadedSnapshotKey = $state('');
+	let resumeSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
+	const draftAdvancedDutySnapshots = $derived(advancedDutySnapshots.filter((snapshot) => snapshot.status === 'draft'));
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
 	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(
@@ -76,9 +88,20 @@
 	);
 
 	const dutyRosterTabs = $derived.by(() => {
-		const tabs: Array<{ label: string; value: 'wizard' | 'advanced-templates'; title?: string }> = [
-			{ label: 'Wizard', value: 'wizard' }
+		const tabs: Array<{ label: string; value: DutyRosterSection; title?: string }> = [
+			{
+				label: 'Assignments / Taskings',
+				value: 'simple-roster',
+				title: 'Build daily assignment and tasking rosters'
+			}
 		];
+		if (canAccessAdvancedDuty) {
+			tabs.push({
+				label: 'Advanced Workspace',
+				value: 'advanced-workspace',
+				title: 'Configure, review, apply, and inspect advanced duty runs'
+			});
+		}
 		if (canManageAdvancedTemplates) {
 			tabs.push({
 				label: `Advanced Templates (${visibleAdvancedTemplateCount})`,
@@ -89,6 +112,12 @@
 		return tabs;
 	});
 
+	const advancedWorkspaceViews = $derived([
+		{ label: 'Active Run', value: 'active-run' },
+		{ label: `Draft Snapshots (${draftAdvancedDutySnapshots.length})`, value: 'draft-snapshots' },
+		{ label: 'Applied Events', value: 'applied-events' }
+	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>);
+
 	const relatedLinks = $derived([
 		{ label: 'Assignments', href: `/org/${org.orgId}/calendar/assignments` },
 		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
@@ -96,8 +125,19 @@
 
 	$effect(() => {
 		if (!canManageAdvancedTemplates && activeTab === 'advanced-templates') {
-			activeTab = 'wizard';
+			activeTab = canAccessAdvancedDuty ? 'advanced-workspace' : 'simple-roster';
 		}
+		if (!canAccessAdvancedDuty && activeTab === 'advanced-workspace') {
+			activeTab = 'simple-roster';
+		}
+	});
+
+	$effect(() => {
+		const snapshots = data.advancedDutySnapshots ?? [];
+		const nextKey = snapshots.map((snapshot) => `${snapshot.id}:${snapshot.updatedAt}`).join('|');
+		if (nextKey === loadedSnapshotKey) return;
+		loadedSnapshotKey = nextKey;
+		advancedDutySnapshots = snapshots;
 	});
 
 	// ---- Load roster history on mount ----
@@ -114,6 +154,17 @@
 		})
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const personnelById = $derived.by(
+		() => new Map(scopedPBG.flatMap((group) => group.personnel.map((person) => [person.id, person] as const)))
+	);
+	const previewPersonnelOptions = $derived.by(() =>
+		[...personnelById.values()].sort(
+			(a, b) =>
+				a.lastName.localeCompare(b.lastName, 'en-US') ||
+				a.firstName.localeCompare(b.firstName, 'en-US') ||
+				a.id.localeCompare(b.id)
+		)
+	);
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
 		const raw = await res.text();
@@ -229,6 +280,85 @@
 		activeTab = 'advanced-templates';
 	}
 
+	function upsertDraftSnapshot(snapshot: AdvancedDutyRunSnapshotRecord | null) {
+		if (!snapshot) return;
+		advancedDutySnapshots = [snapshot, ...advancedDutySnapshots.filter((item) => item.id !== snapshot.id)];
+	}
+
+	function removeDraftSnapshot(snapshotId: string | undefined) {
+		if (!snapshotId) return;
+		advancedDutySnapshots = advancedDutySnapshots.filter((snapshot) => snapshot.id !== snapshotId);
+		if (resumeSnapshot?.id === snapshotId) {
+			resumeSnapshot = null;
+		}
+	}
+
+	function buildAppliedSnapshotFromDraft(
+		snapshotId: string | undefined,
+		result: DutyEventSeriesApplyResult
+	): AdvancedDutyRunSnapshotRecord | null {
+		if (!snapshotId) return null;
+		const draft = advancedDutySnapshots.find((snapshot) => snapshot.id === snapshotId);
+		if (!draft) return null;
+		const previewPayload = draft.previewPayload as { da6Matrices?: unknown };
+		const snapshotPayload = draft.snapshotPayload as { da6Matrices?: unknown };
+		const da6Matrices = Array.isArray(snapshotPayload.da6Matrices)
+			? snapshotPayload.da6Matrices
+			: Array.isArray(previewPayload.da6Matrices)
+				? previewPayload.da6Matrices
+				: undefined;
+		const now = new Date().toISOString();
+		return {
+			...draft,
+			status: 'applied',
+			appliedRunId: result.run.id,
+			appliedAt: now,
+			snapshotPayload: da6Matrices ? { ...draft.snapshotPayload, da6Matrices } : draft.snapshotPayload,
+			updatedAt: now
+		};
+	}
+
+	function buildDraftSnapshotFromPreview(
+		input: DutyEventSeriesInput | DutyEventApplyInput,
+		preview: DutyEventSeriesPreview | DutyEventPreview
+	): AdvancedDutyRunSnapshotRecord | null {
+		if (!preview.snapshotId || !preview.snapshotFingerprint) return null;
+		const isSeriesPreview = 'events' in preview;
+		const eventDates = isSeriesPreview ? preview.eventDates : [preview.eventDate];
+		const now = new Date();
+		return {
+			id: preview.snapshotId,
+			orgId: org.orgId,
+			templateId: preview.templateId,
+			templateName: preview.templateName,
+			pattern: isSeriesPreview ? preview.pattern : 'single',
+			startDate: eventDates[0],
+			endDate: eventDates[eventDates.length - 1],
+			eventCount: eventDates.length,
+			eventDates,
+			candidatePersonnelIds: input.candidatePersonnelIds ?? [],
+			snapshotFingerprint: preview.snapshotFingerprint,
+			snapshotVersion: preview.snapshotVersion ?? 1,
+			status: 'draft',
+			inputPayload: input as unknown as Record<string, unknown>,
+			snapshotPayload: {},
+			previewPayload: preview as unknown as Record<string, unknown>,
+			exportModel: null,
+			createdByUserId: null,
+			appliedRunId: null,
+			applyError: null,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+			appliedAt: null,
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString()
+		};
+	}
+
+	function handleResumeSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
+		resumeSnapshot = snapshot;
+		activeAdvancedWorkspaceView = 'active-run';
+	}
+
 	async function handlePreviewAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEventPreview | null> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-events/preview`, {
@@ -241,7 +371,9 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty event'));
 			}
 
-			return (await res.json()) as DutyEventPreview;
+			const preview = (await res.json()) as DutyEventPreview;
+			upsertDraftSnapshot(buildDraftSnapshotFromPreview(payload, preview));
+			return preview;
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty event');
 			return null;
@@ -261,6 +393,7 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
+			removeDraftSnapshot(payload.snapshotId);
 			advancedDutyEvents = upsertDutyEventIntoTimeline(advancedDutyEvents, event);
 			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty event applied');
@@ -283,7 +416,9 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty series'));
 			}
 
-			return (await res.json()) as DutyEventSeriesPreview;
+			const preview = (await res.json()) as DutyEventSeriesPreview;
+			upsertDraftSnapshot(buildDraftSnapshotFromPreview(payload, preview));
+			return preview;
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty series');
 			return null;
@@ -303,6 +438,12 @@
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;
+			const appliedSnapshot = buildAppliedSnapshotFromDraft(payload.snapshotId, result);
+			if (appliedSnapshot) {
+				upsertDraftSnapshot(appliedSnapshot);
+			} else {
+				removeDraftSnapshot(payload.snapshotId);
+			}
 			advancedDutyEvents = mergeDutyEventsIntoTimeline(advancedDutyEvents, result.events);
 			await refreshAdvancedDutyData();
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
@@ -460,8 +601,9 @@
 			<h1>Access restricted.</h1>
 			<p>Only organization admins and full editors can manage duty rosters.</p>
 		</section>
-	{:else if activeTab === 'wizard'}
+	{:else if activeTab === 'simple-roster'}
 		<DutyRosterWizard
+			initialView="simple-template-list"
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={scopedPBG}
@@ -489,12 +631,70 @@
 			{canManageAdvancedTemplates}
 			onManageAdvancedTemplates={handleManageAdvancedTemplates}
 		/>
+	{:else if activeTab === 'advanced-workspace'}
+		<section class="advanced-workspace" aria-label="Advanced Duty Workspace">
+			<div class="advanced-workspace__bar">
+				<ToolbarViewToggle
+					ariaLabel="Advanced Duty Workspace views"
+					options={advancedWorkspaceViews}
+					mode="full"
+					value={activeAdvancedWorkspaceView}
+					onValueChange={(value) => (activeAdvancedWorkspaceView = value as AdvancedWorkspaceView)}
+				/>
+			</div>
+
+			{#if activeAdvancedWorkspaceView === 'active-run'}
+				<DutyRosterWizard
+					initialView="advanced-template-list"
+					assignmentTypes={dailyAssignmentsStore.types}
+					assignments={dailyAssignmentsStore.assignments}
+					personnelByGroup={scopedPBG}
+					groups={groupsStore.names}
+					availabilityEntries={availabilityStore.items}
+					statusTypes={statusTypesStore.items}
+					specialDays={specialDaysStore.items}
+					rosterHistory={dutyRosterHistoryStore.items}
+					{advancedDutyTemplates}
+					{advancedDutyEvents}
+					onApplyRoster={handleApplyRoster}
+					onSaveRoster={handleSaveRoster}
+					onDeleteRoster={handleDeleteRoster}
+					onUpdateExemptions={handleUpdateExemptions}
+					onPreviewAdvancedEvent={handlePreviewAdvancedEvent}
+					onApplyAdvancedEvent={handleApplyAdvancedEvent}
+					onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
+					onApplyAdvancedSeries={handleApplyAdvancedSeries}
+					onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+					onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+					onDeleteAdvancedRun={handleDeleteAdvancedRun}
+					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
+					{canManageAdvancedTemplates}
+					onManageAdvancedTemplates={handleManageAdvancedTemplates}
+					{resumeSnapshot}
+				/>
+			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}
+				<AdvancedSnapshotList snapshots={draftAdvancedDutySnapshots} onResumeSnapshot={handleResumeSnapshot} />
+			{:else}
+				<AppliedEventManager
+					{advancedDutyEvents}
+					{advancedDutySnapshots}
+					{personnelById}
+					{previewPersonnelOptions}
+					onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+					onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+					onDeleteAdvancedRun={handleDeleteAdvancedRun}
+					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+				/>
+			{/if}
+		</section>
 	{:else}
 		<AdvancedDutyTemplateBuilder
 			templates={advancedDutyTemplates}
 			groups={groupsStore.items}
 			personnel={calendarPersonnel}
-			statusTypes={statusTypesStore.items}
 			canManageTemplates={canManageAdvancedTemplates}
 			onCreateTemplate={handleCreateAdvancedTemplate}
 			onUpdateTemplate={handleUpdateAdvancedTemplate}
@@ -505,12 +705,27 @@
 
 <style>
 	.duty-roster-page {
-		max-width: 1200px;
+		max-width: 1500px;
 		margin: 0 auto;
 		padding: var(--sp-4) var(--sp-6) var(--sp-6);
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
+		min-width: 0;
+	}
+
+	.advanced-workspace {
+		display: grid;
+		gap: var(--sp-4);
+	}
+
+	.advanced-workspace__bar {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		padding-bottom: var(--sp-2);
+		border-bottom: 1px solid var(--border-default);
+		overflow-x: auto;
 	}
 
 	.restricted-hero {
@@ -523,5 +738,11 @@
 		font-family: var(--font-display);
 		font-size: var(--text-ui-xl);
 		margin: 0 0 var(--sp-2);
+	}
+
+	@media (max-width: 720px) {
+		.duty-roster-page {
+			padding-inline: var(--sp-3);
+		}
 	}
 </style>

@@ -1,31 +1,22 @@
 <script lang="ts">
-	import type { DutyTemplate, SoftPreferenceConfig } from '../duty-roster.types';
+	import type { DutyTemplate } from '../duty-roster.types';
+	import { enabledSoftPreferenceSummary } from './advancedDutyTemplateBuilder.helpers';
 	interface Props {
 		template: DutyTemplate;
-		enabledSoftPrefs: SoftPreferenceConfig[];
 		hasRotationBaselines: boolean;
-		statusTypeNameById: Map<string, string>;
 		onBack: () => void;
 		onEditTemplate: () => void;
 		onContinue: () => void;
 	}
-	let {
-		template,
-		enabledSoftPrefs,
-		hasRotationBaselines,
-		statusTypeNameById,
-		onBack,
-		onEditTemplate,
-		onContinue
-	}: Props = $props();
+	let { template, hasRotationBaselines, onBack, onEditTemplate, onContinue }: Props = $props();
+	const da6RankingSummary = $derived(enabledSoftPreferenceSummary(template.softPreferences));
 </script>
 
 <section class="step-card card card-flat">
 	<div class="list-header">
 		<div>
-			<p class="eyebrow">Step 2 of 4 · Review policy</p>
+			<p class="eyebrow">Template policy</p>
 			<h3>{template.name}</h3>
-			<p class="wizard-copy">Confirm the rules for this duty before generating the series.</p>
 		</div>
 		<div class="header-actions">
 			<button class="btn btn-secondary btn-sm" type="button" onclick={onBack}>Back</button><button
@@ -35,75 +26,70 @@
 			>
 		</div>
 	</div>
-	<div class="policy-grid">
-		<div class="policy-item">
-			<p class="policy-label">Coverage</p>
-			<p class="policy-value">
+	<dl class="policy-list">
+		<div class="policy-row">
+			<dt>Coverage</dt>
+			<dd>
 				{template.coverageMode === 'timed'
 					? `${template.startTime ?? '--:--'} to ${template.endTime ?? '--:--'}`
 					: 'All day'}
-			</p>
+			</dd>
 		</div>
-		<div class="policy-item">
-			<p class="policy-label">Blocking duty</p>
-			<p class="policy-value">
-				{template.isBlocking
-					? 'Yes — placed Soldiers are unavailable for overlapping duties.'
-					: 'No — does not block overlapping assignments.'}
-			</p>
+		<div class="policy-row">
+			<dt>Blocking</dt>
+			<dd>{template.isBlocking ? 'Blocks overlapping duties' : 'Does not block overlapping assignments'}</dd>
 		</div>
-		<div class="policy-item">
-			<p class="policy-label">Cooldown</p>
-			<p class="policy-value">
+		<div class="policy-row">
+			<dt>Cooldown</dt>
+			<dd>
 				{template.cooldownHours > 0
-					? `${template.cooldownHours} hour${template.cooldownHours === 1 ? '' : 's'} after the shift ends.`
-					: 'No cooldown window.'}
-			</p>
+					? `${template.cooldownHours} hour${template.cooldownHours === 1 ? '' : 's'}`
+					: 'None'}
+			</dd>
 		</div>
-		<div class="policy-item">
-			<p class="policy-label">Status exemptions</p>
-			<p class="policy-value">
-				{#if (template.exemptStatusTypeIds ?? []).length > 0}{(template.exemptStatusTypeIds ?? [])
-						.map((statusTypeId) => statusTypeNameById.get(statusTypeId) ?? statusTypeId)
-						.join(', ')}{:else}None configured.{/if}
-			</p>
+		<div class="policy-row">
+			<dt>Status availability</dt>
+			<dd>Handled by Calendar status treatments</dd>
 		</div>
-		<div class="policy-item">
-			<p class="policy-label">Positions to fill</p>
-			<p class="policy-value">
-				{template.slots.reduce((total, slot) => total + slot.quantity, 0)} total across {template.slots.length} slot definition{template
-					.slots.length === 1
-					? ''
-					: 's'}.
-			</p>
+		<div class="policy-row">
+			<dt>Slots</dt>
+			<dd>{template.slots.reduce((total, slot) => total + slot.quantity, 0)} positions</dd>
 		</div>
-		{#each template.slots as slot (slot.id)}<div class="policy-item policy-slot">
-				<p class="policy-label">{slot.roleLabel} × {slot.quantity}</p>
-				<p class="policy-value policy-value-secondary">
-					Pool: {slot.rotationPoolKey}{#if slot.allowedRanks.length > 0}
-						· Ranks: {slot.allowedRanks.join(', ')}{/if}
-				</p>
-			</div>{/each}
-		{#if enabledSoftPrefs.length > 0}<div class="policy-item policy-full-width">
-				<p class="policy-label">Candidate ranking order</p>
-				<ol class="policy-pref-list">
-					{#each enabledSoftPrefs as pref (pref.type)}<li>
-							{#if pref.type === 'longest-break'}Longest break since last duty — favors whoever has gone the longest
-								without serving.{:else if pref.type === 'holiday-closure'}Holiday or closure day volunteers preferred.{:else if pref.type === 'weekend'}Weekend
-								volunteers preferred.{:else if pref.type === 'preferred-group'}Preferred group alignment — favors
-								candidates from the template's preferred groups.{/if}
-						</li>{/each}
-				</ol>
-			</div>{/if}
-		{#if !hasRotationBaselines}<div class="policy-item policy-full-width policy-notice">
-				<p class="policy-value">
-					<strong>No baseline duty history on file</strong> — the generator will treat all candidates as equally fresh for
-					the first run. Set manual baselines in the template to improve ranking accuracy.
-				</p>
-			</div>{/if}
+	</dl>
+
+	<div class="slot-list" aria-label="Template slots">
+		{#each template.slots as slot (slot.id)}
+			<p>
+				<strong>{slot.roleLabel} × {slot.quantity}</strong>
+				<span
+					>{slot.rotationPoolKey}{#if slot.allowedRanks.length > 0}
+						· {slot.allowedRanks.join(', ')}{/if}</span
+				>
+			</p>
+		{/each}
 	</div>
+
+	{#if da6RankingSummary || !hasRotationBaselines}
+		<div class="policy-note">
+			<p>DA6 ranking: {da6RankingSummary}.</p>
+			{#if !hasRotationBaselines}
+				<p>No baseline history yet. First-run ranking starts from equal freshness.</p>
+			{/if}
+		</div>
+	{/if}
+	{#if (template.exemptStatusTypeIds?.length ?? 0) > 0}
+		<div class="policy-note legacy-status-warning">
+			<p>
+				This template still has {template.exemptStatusTypeIds?.length} legacy status exemption{template
+					.exemptStatusTypeIds?.length === 1
+					? ''
+					: 's'}. Future runs ignore them; confirm Calendar status treatments cover the intended DA6 handling before
+				applying.
+			</p>
+		</div>
+	{/if}
 	<div class="step-actions">
-		<button class="btn btn-primary" type="button" onclick={onContinue}>Looks Good — Set Date Pattern</button>
+		<button class="btn btn-primary" type="button" onclick={onContinue}>Set Date Pattern</button>
 	</div>
 </section>
 
@@ -121,27 +107,21 @@
 		justify-content: space-between;
 		flex-wrap: wrap;
 	}
-	.policy-grid {
+	.policy-list {
 		display: grid;
+		margin: var(--sp-4) 0 0;
+		border-top: 1px solid var(--border-subtle);
+	}
+	.policy-row {
+		display: grid;
+		grid-template-columns: minmax(120px, 0.36fr) minmax(0, 1fr);
 		gap: var(--sp-3);
-		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-		margin-top: var(--sp-4);
+		padding: var(--sp-2) 0;
+		border-bottom: 1px solid var(--border-subtle);
 	}
-	.policy-item {
-		padding: var(--sp-3);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-	}
-	.policy-slot {
-		border-left: 3px solid color-mix(in srgb, var(--amber-light) 80%, transparent);
-	}
-	.policy-full-width {
-		grid-column: 1 / -1;
-	}
-	.policy-label,
+	.policy-row dt,
 	.eyebrow {
-		margin: 0 0 4px;
+		margin: 0;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
@@ -149,21 +129,59 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 	}
-	.policy-value,
-	.wizard-copy {
+	.policy-row dd {
 		margin: 0;
 		color: var(--text-secondary);
 	}
-	.policy-value-secondary {
-		font-weight: var(--font-weight-normal);
+	.slot-list {
+		display: grid;
+		gap: var(--sp-2);
+		margin-top: var(--sp-4);
 	}
-	.policy-pref-list {
-		margin: var(--sp-2) 0 0 1.25rem;
+	.slot-list p {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		margin: 0;
+		padding: var(--sp-2) var(--sp-3);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
+	}
+	.slot-list span {
+		color: var(--text-secondary);
+	}
+	.policy-note {
+		display: grid;
+		gap: var(--sp-1);
+		margin-top: var(--sp-4);
+		padding: var(--sp-3);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+	}
+	.policy-note p {
+		margin: 0;
+	}
+	.legacy-status-warning {
+		border-color: var(--color-warning-border, var(--border-default));
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
 	}
 	.step-actions {
 		margin-top: var(--sp-4);
 	}
 	h3 {
 		margin: 0;
+	}
+	@media (max-width: 640px) {
+		.policy-row,
+		.slot-list p {
+			grid-template-columns: 1fr;
+		}
+		.slot-list p {
+			display: grid;
+		}
 	}
 </style>

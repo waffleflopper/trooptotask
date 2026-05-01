@@ -15,6 +15,8 @@
 		formatFillSummary: (event: DutyEvent) => string;
 		formatSlotAssignee: (id: string | null) => string;
 		onOpenEvent: (event: DutyEvent) => void;
+		onViewRunDa6: (group: AppliedEventRunGroup) => void;
+		canViewRunDa6: (group: AppliedEventRunGroup) => boolean;
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventRunGroup) => void;
 	}
@@ -36,6 +38,8 @@
 		formatFillSummary={props.formatFillSummary}
 		formatSlotAssignee={props.formatSlotAssignee}
 		onOpenEvent={props.onOpenEvent}
+		onViewRunDa6={props.onViewRunDa6}
+		canViewRunDa6={props.canViewRunDa6}
 		onRequestDeleteEvent={props.onRequestDeleteEvent}
 		onRequestDeleteRun={props.onRequestDeleteRun}
 		selectedEventId={props.selectedEventId}

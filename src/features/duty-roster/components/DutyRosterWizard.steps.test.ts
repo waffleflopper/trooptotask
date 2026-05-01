@@ -94,7 +94,7 @@ describe('DutyRosterWizard step components', () => {
 				onChooseTemplate
 			}
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Staff Duty' }));
 		expect(onChooseTemplate).toHaveBeenCalledWith('at-sd');
 	});
 
@@ -104,8 +104,8 @@ describe('DutyRosterWizard step components', () => {
 		render(AdvancedTemplateListStep, {
 			props: { activeAdvancedTemplates: [makeTemplate()], onBack: vi.fn(), onChooseTemplate, onBuildFromScratch }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Build from scratch' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Use This Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Battalion Staff Duty' }));
 		expect(onBuildFromScratch).toHaveBeenCalled();
 		expect(onChooseTemplate).toHaveBeenCalledWith('tmpl-1');
 	});
@@ -114,17 +114,16 @@ describe('DutyRosterWizard step components', () => {
 		const onContinue = vi.fn();
 		render(AdvancedPolicyReviewStep, {
 			props: {
-				template: makeTemplate(),
-				enabledSoftPrefs: [{ type: 'longest-break', enabled: true }],
+				template: makeTemplate({ exemptStatusTypeIds: ['status-leave', 'status-school'] }),
 				hasRotationBaselines: false,
-				statusTypeNameById: new Map(),
 				onBack: vi.fn(),
 				onEditTemplate: vi.fn(),
 				onContinue
 			}
 		});
-		expect(screen.getByText(/Longest break since last duty/)).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Looks Good — Set Date Pattern' }));
+		expect(screen.getByText(/DA6 ranking: Single DA6 sequence/)).toBeTruthy();
+		expect(screen.getByText(/This template still has 2 legacy status exemptions/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Set Date Pattern' }));
 		expect(onContinue).toHaveBeenCalled();
 	});
 

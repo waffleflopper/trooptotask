@@ -24,12 +24,8 @@
 <section class="step-card card card-flat">
 	<div class="list-header">
 		<div>
-			<p class="eyebrow">Step 3 of 4 · Candidate review</p>
-			<h3>Choose who can be considered for this run.</h3>
-			<p class="wizard-copy">
-				Review the people who can be considered for this run, then deselect anyone you do not want in the generator
-				pool.
-			</p>
+			<p class="eyebrow">Candidate pool</p>
+			<h3>{props.templateName}</h3>
 			<p class="template-meta">{props.selectedCount} of {props.totalCount} candidates included</p>
 		</div>
 		<button class="btn btn-secondary btn-sm" type="button" onclick={props.onBack}>Back</button>
@@ -39,12 +35,12 @@
 			class="btn btn-secondary"
 			type="button"
 			disabled={!props.canPreviewSingle || props.isPreviewing}
-			onclick={props.onPreviewSingle}>{props.isPreviewing ? 'Generating Preview...' : 'Preview One-Time Event'}</button
+			onclick={props.onPreviewSingle}>{props.isPreviewing ? 'Generating...' : 'Preview One Date'}</button
 		><button
 			class="btn btn-primary"
 			type="button"
 			disabled={!props.canPreviewSeries || props.isPreviewing}
-			onclick={props.onPreviewSeries}>{props.isPreviewing ? 'Generating Preview...' : 'Preview Series'}</button
+			onclick={props.onPreviewSeries}>{props.isPreviewing ? 'Generating...' : 'Preview Run'}</button
 		>
 	</div>
 	<div class="candidate-review-table-wrap">
@@ -88,6 +84,9 @@
 		display: flex;
 		gap: var(--sp-3);
 		flex-wrap: wrap;
+		justify-content: flex-end;
+		padding-top: var(--sp-3);
+		border-top: 1px solid var(--border-subtle);
 	}
 	.eyebrow {
 		margin: 0 0 var(--sp-2);
@@ -98,12 +97,23 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 	}
-	.wizard-copy,
 	.template-meta {
 		margin: var(--sp-2) 0 0;
 		color: var(--text-secondary);
 	}
 	h3 {
 		margin: 0;
+	}
+	@media (max-width: 640px) {
+		.list-header {
+			display: grid;
+		}
+		.step-actions,
+		.step-actions :global(.btn) {
+			width: 100%;
+		}
+		.step-actions {
+			display: grid;
+		}
 	}
 </style>

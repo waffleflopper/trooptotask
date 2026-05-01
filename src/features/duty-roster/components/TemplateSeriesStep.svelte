@@ -40,21 +40,18 @@
 	<div class="section-header">
 		<div>
 			<p class="eyebrow">Slot Builder</p>
-			<h3>Define the roles this duty needs.</h3>
+			<h3>Define required slots</h3>
 		</div>
 		<button class="btn btn-sm" type="button" onclick={props.onAddSlot}>Add Slot</button>
 	</div>
 
 	{#if props.draftSlots.length === 0}
-		<EmptyState
-			message="No slot definitions yet. Add the first slot so the template can describe who this duty needs."
-			variant="simple"
-		/>
+		<EmptyState message="No slots yet." variant="simple" />
 	{:else}
 		<div class="slot-list">
 			{#each props.draftSlots as slot, index (slot.key)}
 				{@const isCollapsed = props.collapsedSlots.has(slot.key)}
-				<article class="slot-card" class:slot-collapsed={isCollapsed}>
+				<article class="slot-row" class:slot-collapsed={isCollapsed}>
 					<div class="slot-header">
 						<button
 							class="slot-collapse-btn"
@@ -112,15 +109,6 @@
 							>
 							{#if props.setupMode === 'full'}
 								<label class="field"
-									><span>Preferred groups</span><MultiTagSelect
-										options={props.groupTagOptions}
-										value={slot.preferredGroupIds}
-										placeholder="Any group..."
-										ariaLabel="Preferred groups"
-										onChange={(ids) => props.onUpdateSlot(slot.key, { preferredGroupIds: ids })}
-									/></label
-								>
-								<label class="field"
 									><span>MOS filter</span><MultiTagSelect
 										options={props.mosTagOptions}
 										value={slot.allowedMosValues}
@@ -147,12 +135,10 @@
 									placeholder="Leave blank to keep this slot on its own rotation"
 									oninput={(e) =>
 										props.onUpdateSlot(slot.key, { rotationPoolKey: (e.currentTarget as HTMLInputElement).value })}
-								/><span class="field-hint"
-									>Use the same rotation group on multiple slots when those positions should rotate together.</span
-								></label
+								/></label
 							>
 							<label class="field"
-								><span>Conflict behavior for this slot</span><select
+								><span>Conflict behavior</span><select
 									class="select"
 									aria-label="Conflict behavior for this slot"
 									value={slot.blockingMode}
@@ -163,7 +149,6 @@
 									><option value="inherit">Inherit template policy</option><option value="blocking"
 										>Force blocking</option
 									><option value="non-blocking">Force non-blocking</option></select
-								><span class="field-hint">Override the template-wide blocking rule for this slot only when needed.</span
 								></label
 							>
 						</div>
@@ -175,23 +160,20 @@
 </section>
 
 {#if props.setupMode === 'full'}
-	<section class="builder-card">
+	<section class="baseline-panel">
 		<div class="section-header">
 			<div>
-				<p class="eyebrow">Rotation Starting Points</p>
-				<h3>Set a starting point when you do not have enough duty history yet.</h3>
+				<p class="eyebrow">Baselines</p>
+				<h3>Starting points</h3>
 			</div>
 			<button class="btn btn-sm" type="button" onclick={props.onAddBaseline}>Add Baseline</button>
 		</div>
 		{#if props.draftRotationBaselines.length === 0}
-			<EmptyState
-				message="No manual starting points yet. Add one when a rotation group needs a last-served date to start from."
-				variant="simple"
-			/>
+			<EmptyState message="No starting points set." variant="simple" />
 		{:else}
 			<div class="slot-list">
 				{#each props.draftRotationBaselines as baseline, index (baseline.key)}
-					<article class="slot-card">
+					<article class="slot-row">
 						<div class="slot-header">
 							<h4>Baseline {index + 1}</h4>
 							<button class="btn btn-sm" type="button" onclick={() => props.onRemoveBaseline(baseline.key)}
@@ -209,8 +191,7 @@
 										props.onUpdateBaseline(baseline.key, {
 											rotationPoolKey: (e.currentTarget as HTMLInputElement).value
 										})}
-								/><span class="field-hint">Match this to the rotation group used on the slot you want to seed.</span
-								><datalist id={`rotation-pool-${baseline.key}`}
+								/><datalist id={`rotation-pool-${baseline.key}`}
 									>{#each props.rotationPoolOptions as option (option)}<option value={option}></option>{/each}</datalist
 								></label
 							>
@@ -246,7 +227,7 @@
 
 <div class="step-actions">
 	<button class="btn btn-secondary" type="button" onclick={props.onBack}>Back</button>
-	<button class="btn btn-primary" type="button" onclick={props.onReview}>Review Template</button>
+	<button class="btn btn-primary" type="button" onclick={props.onReview}>Review</button>
 </div>
 
 <style>
@@ -255,7 +236,11 @@
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
+	}
+	.baseline-panel {
 		margin-top: var(--sp-4);
+		padding-top: var(--sp-4);
+		border-top: 1px solid var(--border-subtle);
 	}
 	.section-header,
 	.slot-header {
@@ -268,11 +253,9 @@
 		gap: var(--sp-3);
 		margin-top: var(--sp-4);
 	}
-	.slot-card {
-		padding: var(--sp-4);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
+	.slot-row {
+		padding: var(--sp-3) 0;
+		border-top: 1px solid var(--border-subtle);
 	}
 	.slot-title h4,
 	h3 {
@@ -295,11 +278,6 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
-	}
-	.field-hint {
-		margin: 0;
-		color: var(--text-tertiary);
-		font-size: var(--text-sm);
 	}
 	.step-actions {
 		display: flex;

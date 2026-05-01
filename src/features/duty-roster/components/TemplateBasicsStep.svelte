@@ -27,6 +27,7 @@
 </script>
 
 <section class="builder-card">
+	<p class="eyebrow">Details</p>
 	<div class="form-grid">
 		<label class="field">
 			<span>Name</span>
@@ -59,7 +60,7 @@
 				class="input"
 				rows="3"
 				value={templateDescription}
-				placeholder="Plain-language context for the policy or SOP this duty template represents."
+				placeholder="Optional notes"
 				oninput={(e) => onDescriptionChange((e.currentTarget as HTMLTextAreaElement).value)}
 			></textarea>
 		</label>
@@ -67,9 +68,9 @@
 </section>
 
 <div class="step-actions">
-	<button class="btn btn-primary" type="button" disabled={!canSaveDraft} onclick={onNext}>Next</button>
+	<button class="btn btn-primary" type="button" disabled={!canSaveDraft} onclick={onNext}>Policy</button>
 	{#if selectedTemplateCanArchive}
-		<button class="btn btn-danger" type="button" onclick={onArchive}>Archive Template</button>
+		<button class="btn btn-danger" type="button" onclick={onArchive}>Archive</button>
 	{/if}
 </div>
 
@@ -79,6 +80,15 @@
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
+	}
+	.eyebrow {
+		margin: 0 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 	.form-grid {
 		display: grid;

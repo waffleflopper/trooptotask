@@ -1,43 +1,45 @@
 <script lang="ts">
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import type { StatusType } from '$lib/types';
-	import type { SetupMode, SoftPreferenceOption } from './advancedDutyTemplateBuilder.helpers';
+	import { isDa6RankingPreferenceEnabled, type SetupMode } from './advancedDutyTemplateBuilder.helpers';
+	import type { SoftPreferenceConfig } from '../duty-roster.types';
 
 	interface Props {
 		setupMode: SetupMode;
 		scopeType: 'organization' | 'groups';
 		scopeGroupIds: string[];
 		exemptPersonnelIds: string[];
-		exemptStatusTypeIds: string[];
 		coverageMode: 'all-day' | 'timed';
 		startTime: string;
 		endTime: string;
 		spansMidnight: boolean;
 		isBlocking: boolean;
 		cooldownHours: number;
+		legacyExemptStatusTypeCount: number;
 		groupTagOptions: TagOption[];
 		personnelTagOptions: TagOption[];
-		statusTypes: StatusType[];
-		draftSoftPreferences: Array<{ type: string; enabled: boolean }>;
-		softPreferenceOptions: SoftPreferenceOption[];
+		draftSoftPreferences: SoftPreferenceConfig[];
 		onScopeTypeChange: (value: 'organization' | 'groups') => void;
 		onScopeGroupIdsChange: (value: string[]) => void;
 		onExemptPersonnelIdsChange: (value: string[]) => void;
-		onToggleExemptStatusType: (value: string) => void;
 		onCoverageModeChange: (value: 'all-day' | 'timed') => void;
 		onStartTimeChange: (value: string) => void;
 		onEndTimeChange: (value: string) => void;
 		onSpansMidnightChange: (value: boolean) => void;
 		onIsBlockingChange: (value: boolean) => void;
 		onCooldownHoursChange: (value: number) => void;
-		onMoveSoftPreference: (type: string, direction: -1 | 1) => void;
 		onUpdateSoftPreference: (type: string, enabled: boolean) => void;
 		onBack: () => void;
 		onNext: () => void;
 	}
 
 	let props: Props = $props();
+	const usesSeparateWeekendDa6 = $derived(
+		isDa6RankingPreferenceEnabled(props.draftSoftPreferences, 'separate-weekend-da6')
+	);
+	const includesHolidayDonsa = $derived(
+		isDa6RankingPreferenceEnabled(props.draftSoftPreferences, 'include-holiday-donsa-da6')
+	);
 </script>
 
 <section class="builder-card">
@@ -93,7 +95,7 @@
 					checked={props.spansMidnight}
 					onchange={(e) => props.onSpansMidnightChange((e.currentTarget as HTMLInputElement).checked)}
 				/>
-				<span>Spans midnight (e.g. 0800–0800 is 24 hours)</span>
+				<span>Spans midnight</span>
 			</label>
 		{/if}
 
@@ -132,10 +134,7 @@
 	{/if}
 
 	<div class="selection-block">
-		<p class="selection-label">Permanently exempt personnel</p>
-		<p class="selection-hint">
-			These people are never selected by the generator, regardless of rotation order or slot eligibility rules.
-		</p>
+		<p class="selection-label">Exempt personnel</p>
 		<MultiTagSelect
 			options={props.personnelTagOptions}
 			value={props.exemptPersonnelIds}
@@ -145,79 +144,51 @@
 		/>
 	</div>
 
-	{#if props.statusTypes.length > 0}
-		<div class="selection-block">
-			<p class="selection-label">Status-based exemptions</p>
-			<p class="selection-hint">
-				If someone has one of these calendar statuses on a duty day, they are treated as exempt for that day only and
-				re-enter rotation automatically when the status no longer applies.
+	<div class="selection-block status-source">
+		<p class="selection-label">Status availability</p>
+		<p>Handled by Calendar status treatments.</p>
+		{#if props.legacyExemptStatusTypeCount > 0}
+			<p class="legacy-status-warning">
+				This template still has {props.legacyExemptStatusTypeCount} legacy status exemption{props.legacyExemptStatusTypeCount ===
+				1
+					? ''
+					: 's'}. Saving will clear them; confirm Calendar status treatments cover the intended DA6 handling.
 			</p>
-			<div class="chip-list">
-				{#each props.statusTypes as statusType (statusType.id)}
-					<button
-						class="chip status-chip"
-						class:selected={props.exemptStatusTypeIds.includes(statusType.id)}
-						aria-pressed={props.exemptStatusTypeIds.includes(statusType.id)}
-						style={`--chip-color: ${statusType.color}; --chip-text: ${statusType.textColor}`}
-						onclick={() => props.onToggleExemptStatusType(statusType.id)}
-					>
-						{statusType.name}
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 
 	{#if props.setupMode === 'full'}
-		<section class="builder-card nested-card">
+		<section class="preference-section">
 			<div class="section-header">
 				<div>
-					<p class="eyebrow">Soft Preference Order</p>
-					<h3>Choose how the generator breaks ties.</h3>
-					<p class="builder-copy">
-						Move the enabled preferences into the order you want the generator to consider them.
-					</p>
+					<p class="eyebrow">DA6 Ranking</p>
+					<h3>Sequence policy</h3>
 				</div>
 			</div>
-			<div class="slot-list">
-				{#each props.draftSoftPreferences as preference, index (preference.type)}
-					<article class="slot-card">
-						<div class="slot-header">
-							<div>
-								<h4>
-									{props.softPreferenceOptions.find((option) => option.type === preference.type)?.label ??
-										preference.type}
-								</h4>
-								<p class="field-hint">
-									{props.softPreferenceOptions.find((option) => option.type === preference.type)?.description}
-								</p>
-							</div>
-							<div class="slot-actions">
-								<button
-									class="btn btn-sm"
-									type="button"
-									disabled={index === 0}
-									onclick={() => props.onMoveSoftPreference(preference.type, -1)}>Move Up</button
-								>
-								<button
-									class="btn btn-sm"
-									type="button"
-									disabled={index === props.draftSoftPreferences.length - 1}
-									onclick={() => props.onMoveSoftPreference(preference.type, 1)}>Move Down</button
-								>
-							</div>
-						</div>
-						<label class="field field-checkbox">
-							<input
-								type="checkbox"
-								checked={preference.enabled}
-								onchange={(e) =>
-									props.onUpdateSoftPreference(preference.type, (e.currentTarget as HTMLInputElement).checked)}
-							/>
-							<span>Enabled</span>
-						</label>
-					</article>
-				{/each}
+			<div class="da6-policy">
+				<label class="field field-checkbox">
+					<input
+						type="checkbox"
+						checked={usesSeparateWeekendDa6}
+						onchange={(e) =>
+							props.onUpdateSoftPreference('separate-weekend-da6', (e.currentTarget as HTMLInputElement).checked)}
+					/>
+					<span>Use separate weekend DA6 ranking</span>
+				</label>
+				{#if usesSeparateWeekendDa6}
+					<label class="field field-checkbox nested-toggle">
+						<input
+							type="checkbox"
+							checked={includesHolidayDonsa}
+							onchange={(e) =>
+								props.onUpdateSoftPreference(
+									'include-holiday-donsa-da6',
+									(e.currentTarget as HTMLInputElement).checked
+								)}
+						/>
+						<span>Include holidays and DONSAs</span>
+					</label>
+				{/if}
 			</div>
 		</section>
 	{/if}
@@ -225,7 +196,7 @@
 
 <div class="step-actions">
 	<button class="btn btn-secondary" type="button" onclick={props.onBack}>Back</button>
-	<button class="btn btn-primary" type="button" onclick={props.onNext}>Next</button>
+	<button class="btn btn-primary" type="button" onclick={props.onNext}>Slots</button>
 </div>
 
 <style>
@@ -235,8 +206,10 @@
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
 	}
-	.nested-card {
+	.preference-section {
 		margin-top: var(--sp-4);
+		padding-top: var(--sp-4);
+		border-top: 1px solid var(--border-subtle);
 	}
 	.form-grid {
 		display: grid;
@@ -265,70 +238,30 @@
 	.selection-block {
 		margin-top: var(--sp-4);
 	}
-	.selection-hint,
-	.field-hint,
-	.builder-copy {
-		margin: var(--sp-2) 0 0;
-		color: var(--text-tertiary);
-		font-size: var(--text-sm);
-	}
-	.chip-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin-top: var(--sp-3);
-	}
-	.chip {
-		appearance: none;
-		padding: 4px 8px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		border: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+	.status-source p:last-child {
+		margin: var(--sp-1) 0 0;
 		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
 	}
-	.chip:hover {
-		border-color: var(--ink-35);
-		background: var(--surface-panel);
-		color: var(--text-primary);
+	.legacy-status-warning {
+		max-width: 68ch;
+		padding: var(--sp-3);
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: var(--radius-md);
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
 	}
-	.chip.selected {
-		background: var(--amber-light);
-		border-color: var(--amber);
-		color: var(--amber-dark);
-	}
-	.status-chip.selected {
-		background: var(--chip-color);
-		border-color: var(--chip-color);
-		color: var(--chip-text);
-	}
-	.section-header,
-	.slot-header {
+	.section-header {
 		display: flex;
 		justify-content: space-between;
 		gap: var(--sp-4);
 	}
-	.slot-list {
-		display: grid;
-		gap: var(--sp-3);
+	.da6-policy {
 		margin-top: var(--sp-4);
 	}
-	.slot-card {
-		padding: var(--sp-4);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
+	.nested-toggle {
+		margin-top: var(--sp-3);
+		padding-left: var(--sp-5);
 	}
-	.slot-actions,
 	.step-actions {
 		display: flex;
 		gap: var(--sp-3);
@@ -337,8 +270,7 @@
 	.step-actions {
 		margin-top: var(--sp-4);
 	}
-	h3,
-	h4 {
+	h3 {
 		margin: 0;
 	}
 </style>

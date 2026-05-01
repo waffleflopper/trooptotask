@@ -19,12 +19,24 @@ export function getAuditActionParts(action: string): { area: string; event: stri
 
 export function getAuditTone(action: string): string {
 	const area = action.split(/[.>_]/)[0] ?? '';
-	if (['billing', 'export', 'data'].includes(area)) return 'info';
-	if (['personnel', 'member', 'members'].includes(area)) return 'danger';
-	if (['training', 'critical'].includes(area)) return 'success';
-	if (['duty', 'calendar'].includes(area)) return 'warning';
-	if (['user', 'preferences', 'user_preferences'].includes(area)) return 'neutral';
-	return 'neutral';
+	switch (area) {
+		case 'billing':
+		case 'export':
+		case 'data':
+			return 'info';
+		case 'personnel':
+		case 'member':
+		case 'members':
+			return 'danger';
+		case 'training':
+		case 'critical':
+			return 'success';
+		case 'duty':
+		case 'calendar':
+			return 'warning';
+		default:
+			return 'neutral';
+	}
 }
 
 export function formatAuditTimestamp(dateStr: string): string {

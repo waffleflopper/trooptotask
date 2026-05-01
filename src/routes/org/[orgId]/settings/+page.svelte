@@ -37,18 +37,17 @@
 	type AuditLog = (typeof data.auditLog.logs)[number];
 	type RoleCount = { owner: number; admin: number; member: number };
 	type EditablePreset = Exclude<PermissionPreset, 'owner'>;
+	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
 
-	const sections = $derived.by(
-		() =>
-			[
-				{ id: 'organization', label: 'Organization', eyebrow: 'Profile' },
-				{ id: 'members', label: 'Members', eyebrow: 'Access Control' },
-				{ id: 'policies', label: 'Policies', eyebrow: 'Operational Defaults' },
-				{ id: 'archived', label: 'Archived Personnel', eyebrow: 'Retention Queue' },
-				{ id: 'data-export', label: 'Data & Export', eyebrow: 'Backup & Migration' },
-				...(data.isOwner ? [{ id: 'danger', label: 'Danger Zone', eyebrow: 'Owner Authority', danger: true }] : [])
-			] as Array<{ id: SectionId; label: string; eyebrow: string; danger?: boolean }>
-	);
+	const standardSections: SectionConfig[] = [
+		{ id: 'organization', label: 'Organization', eyebrow: 'Profile' },
+		{ id: 'members', label: 'Members', eyebrow: 'Access Control' },
+		{ id: 'policies', label: 'Policies', eyebrow: 'Operational Defaults' },
+		{ id: 'archived', label: 'Archived Personnel', eyebrow: 'Retention Queue' },
+		{ id: 'data-export', label: 'Data & Export', eyebrow: 'Backup & Migration' }
+	];
+	const ownerSection: SectionConfig = { id: 'danger', label: 'Danger Zone', eyebrow: 'Owner Authority', danger: true };
+	const sections = $derived(data.isOwner ? [...standardSections, ownerSection] : standardSections);
 
 	let activeSection = $state<SectionId>('organization');
 	let activityCollapsed = $state(false);
@@ -122,6 +121,7 @@
 	);
 
 	const activeSectionConfig = $derived(sections.find((section) => section.id === activeSection) ?? sections[0]);
+	const activeSectionDescription = $derived(getSectionDescription(activeSection));
 	const roleCounts = $derived.by(() =>
 		data.members.reduce(
 			(counts: RoleCount, member: { role: string }) => {
@@ -174,7 +174,8 @@
 		`Includes ${formatCap(tierConfig.personnelCap).toLowerCase()} members, audit log, ${formatExportLimit(tierConfig.bulkExportsPerMonth)}.`
 	);
 	const personnelCount = $derived(`${tier.personnelCount} / ${formatCap(tierConfig.personnelCap).toUpperCase()}`);
-	const billingStatus = $derived(tier.isReadOnly ? 'Read-only' : tier.source === 'gift' ? 'Gifted access' : 'Active');
+	const billingStatus = $derived(getBillingStatus(tier));
+	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
 	$effect.pre(() => {
 		retentionMonths = serverRetention;
@@ -257,8 +258,30 @@
 		return `${getPresetLabel(preset)} · All groups`;
 	}
 
+	function getBillingStatus(tier: EffectiveTier): string {
+		if (tier.isReadOnly) return 'Read-only';
+		if (tier.source === 'gift') return 'Gifted access';
+		return 'Active';
+	}
+
+	function getSectionDescription(sectionId: SectionId): string | null {
+		switch (sectionId) {
+			case 'members':
+				return 'Who can see and edit the roster, and how new invitations are granted.';
+			case 'policies':
+				return 'Retention windows, warning lead times, and shared expiration thresholds.';
+			case 'archived':
+				return 'Records pending automatic deletion. Restore, export, or purge early.';
+			case 'data-export':
+				return 'Move data in and out of T2T. JSON for backups, Excel for human review.';
+			case 'danger':
+				return 'Destructive actions that cannot be undone. Owner authentication required.';
+			case 'organization':
+				return null;
+		}
+	}
+
 	function isCurrentMember(member: OrganizationMember): boolean {
-		const sessionEmail = (data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email;
 		if (sessionEmail && member.email === sessionEmail) return true;
 		return Boolean(data.isOwner && member.role === 'owner');
 	}
@@ -471,16 +494,8 @@
 			<div>
 				<p class="content-eyebrow">{activeSectionConfig.eyebrow}</p>
 				<h2 id="settings-section-title">{activeSectionConfig.label}</h2>
-				{#if activeSection === 'members'}
-					<p class="content-description">Who can see and edit the roster, and how new invitations are granted.</p>
-				{:else if activeSection === 'policies'}
-					<p class="content-description">Retention windows, warning lead times, and shared expiration thresholds.</p>
-				{:else if activeSection === 'archived'}
-					<p class="content-description">Records pending automatic deletion. Restore, export, or purge early.</p>
-				{:else if activeSection === 'data-export'}
-					<p class="content-description">Move data in and out of T2T. JSON for backups, Excel for human review.</p>
-				{:else if activeSection === 'danger'}
-					<p class="content-description">Destructive actions that cannot be undone. Owner authentication required.</p>
+				{#if activeSectionDescription}
+					<p class="content-description">{activeSectionDescription}</p>
 				{/if}
 			</div>
 			{#if activeSection === 'members' && data.canManageMembers}

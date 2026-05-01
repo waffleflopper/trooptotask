@@ -13,43 +13,35 @@
 <section class="step-card card card-flat">
 	<div class="list-header">
 		<div>
-			<p class="eyebrow">Step 1 of 4 · Choose template</p>
-			<h3>Select an existing template or build one from scratch.</h3>
-			<p class="wizard-copy">
-				Use a ready template to jump into policy review, or open the template builder to create a new advanced duty.
-			</p>
+			<p class="eyebrow">Advanced</p>
+			<h3>Use a template</h3>
 		</div>
-		<button class="btn btn-secondary btn-sm" type="button" onclick={onBack}>Back</button>
+		<div class="header-actions">
+			<button class="btn btn-secondary btn-sm" type="button" onclick={onBuildFromScratch}>New</button>
+			<button class="btn btn-secondary btn-sm" type="button" onclick={onBack}>Back</button>
+		</div>
 	</div>
-	<div class="template-grid">
-		<article class="template-card preset-card-blank">
-			<div>
-				<h4>Build from scratch</h4>
-				<p class="template-description">Open the template builder and configure every field yourself.</p>
-			</div>
-			<button class="btn btn-secondary btn-sm" type="button" onclick={onBuildFromScratch}>Build from scratch</button>
-		</article>
+	<div class="template-list">
 		{#each activeAdvancedTemplates as template (template.id)}
-			<article class="template-card">
-				<div>
+			<article class="template-row">
+				<div class="template-main">
 					<h4>{template.name}</h4>
 					<p class="template-meta">
 						{template.coverageMode === 'timed' ? `${template.startTime} to ${template.endTime}` : 'All day'} · {template
-							.slots.length} slot{template.slots.length === 1 ? '' : 's'}
+							.slots.length} slot definition{template.slots.length === 1 ? '' : 's'}
 					</p>
-					<p class="template-description">{template.description ?? 'No description.'}</p>
 				</div>
-				<button class="btn btn-primary btn-sm" type="button" onclick={() => onChooseTemplate(template.id)}
-					>Use This Template</button
+				<button
+					class="btn btn-primary btn-sm"
+					type="button"
+					aria-label={`Use ${template.name}`}
+					onclick={() => onChooseTemplate(template.id)}>Use</button
 				>
 			</article>
 		{/each}
 	</div>
 	{#if activeAdvancedTemplates.length === 0}
-		<EmptyState
-			message="No active advanced duty templates ready. Save and activate one in the template builder, then return here."
-			variant="simple"
-		/>
+		<EmptyState message="No active advanced templates yet." variant="simple" />
 	{/if}
 </section>
 
@@ -64,25 +56,29 @@
 		display: flex;
 		justify-content: space-between;
 		gap: var(--sp-4);
+		align-items: flex-start;
 	}
-	.template-grid {
+	.header-actions {
+		display: flex;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+	.template-list {
 		display: grid;
-		gap: var(--sp-4);
-		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		gap: var(--sp-2);
 		margin-top: var(--sp-4);
 	}
-	.template-card {
-		display: flex;
-		flex-direction: column;
+	.template-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
 		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		padding: var(--sp-3) 0;
+		border-top: 1px solid var(--border-subtle);
 	}
-	.preset-card-blank {
-		border-style: dashed;
-		background: var(--surface-subtle);
+	.template-main {
+		min-width: 0;
 	}
 	.eyebrow {
 		margin: 0 0 var(--sp-2);
@@ -93,14 +89,25 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 	}
-	.template-meta,
-	.template-description,
-	.wizard-copy {
+	.template-meta {
 		margin: var(--sp-2) 0 0;
 		color: var(--text-secondary);
 	}
 	h3,
 	h4 {
 		margin: 0;
+	}
+	@media (max-width: 640px) {
+		.list-header,
+		.template-row {
+			grid-template-columns: 1fr;
+		}
+		.list-header {
+			display: grid;
+		}
+		.header-actions,
+		.template-row :global(.btn) {
+			width: 100%;
+		}
 	}
 </style>

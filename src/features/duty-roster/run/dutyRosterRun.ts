@@ -457,11 +457,12 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(personnel.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
-	const chargeSequenceCounters = new Map<DutyRosterSequenceKey, number>([
+	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
 		['single', 0],
 		['weekday', 0],
 		['weekend-holiday', 0]
 	]);
+	const sequenceBaseByPerson = new Map<string, number>();
 	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
 
 	for (const date of dutyDates) {
@@ -479,7 +480,8 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		});
 		const queue = rankedPersonnel.filter((person) => classifications.get(person.id)?.chargeable);
 		const assigned = rankedPersonnel.find((person) => classifications.get(person.id)?.selectable) ?? null;
-		const chargeSequenceStart = queue.length > 0 ? (chargeSequenceCounters.get(sequenceKey) ?? 0) + 1 : null;
+		const sequencePeriodIndex = sequencePeriodCounters.get(sequenceKey) ?? 0;
+		const chargeSequenceStart = queue.length > 0 ? sequencePeriodIndex + 1 : null;
 
 		columns.push({
 			date,
@@ -505,14 +507,19 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 			const queueIndex = queue.findIndex((candidate) => candidate.id === person.id);
 			const queuePosition = queueIndex === -1 ? null : queueIndex + 1;
 			const isAssigned = assigned?.id === person.id;
-			const sequenceNumber =
-				chargeSequenceStart !== null && queuePosition !== null ? chargeSequenceStart + queuePosition - 1 : null;
+			const sequenceBaseKey = `${sequenceKey}::${person.id}`;
+			let sequenceBase = sequenceBaseByPerson.get(sequenceBaseKey);
+			if (sequenceBase === undefined && queuePosition !== null) {
+				sequenceBase = queuePosition - sequencePeriodIndex;
+				sequenceBaseByPerson.set(sequenceBaseKey, sequenceBase);
+			}
+			const sequenceNumber = sequenceBase === undefined ? null : sequenceBase + sequencePeriodIndex;
 			cellsByPersonnelId
 				.get(person.id)!
 				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber, isAssigned));
 		}
 
-		chargeSequenceCounters.set(sequenceKey, (chargeSequenceCounters.get(sequenceKey) ?? 0) + queue.length);
+		sequencePeriodCounters.set(sequenceKey, sequencePeriodIndex + 1);
 	}
 
 	const da6 = {

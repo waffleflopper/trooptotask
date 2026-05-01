@@ -1,7 +1,5 @@
 <script lang="ts">
 	import DutyRosterGenerator from './DutyRosterGenerator.svelte';
-	import WizardStepper from './WizardStepper.svelte';
-	import AppliedEventManager from './AppliedEventManager.svelte';
 	import LaneChooserStep from './LaneChooserStep.svelte';
 	import SimpleTemplateListStep from './SimpleTemplateListStep.svelte';
 	import AdvancedTemplateListStep from './AdvancedTemplateListStep.svelte';
@@ -21,6 +19,7 @@
 	} from '$lib/types';
 	import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { buildTeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
 	import type {
 		DutyEvent,
 		DutyEventApplyInput,
@@ -35,11 +34,12 @@
 		DutyTemplate,
 		DutyTemplateWriteInput,
 		ExistingDutyEventInput,
-		ExistingDutyEventUpdateInput
+		ExistingDutyEventUpdateInput,
+		AdvancedDutyRunSnapshotRecord
 	} from '../duty-roster.types';
 	import {
-		ADVANCED_STEPS,
 		addCalendarDays,
+		buildDutyPacketSeriesMarkup,
 		buildNextSeriesOverrides,
 		buildSingleEventInput,
 		buildSeriesInput,
@@ -89,6 +89,8 @@
 		onCreateAdvancedTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		canManageAdvancedTemplates: boolean;
 		onManageAdvancedTemplates: () => void;
+		initialView?: WizardView;
+		resumeSnapshot?: AdvancedDutyRunSnapshotRecord | null;
 	}
 
 	type WizardView =
@@ -102,7 +104,9 @@
 		| 'advanced-series-preview';
 
 	let props: Props = $props();
-	let view = $state<WizardView>('choose-lane');
+	let lastInitialView = $state<WizardView | undefined>(undefined);
+	let lastResumeSnapshotId = $state<string | null>(null);
+	let view = $state<WizardView>(props.initialView ?? 'choose-lane');
 	let selectedSimpleAssignmentTypeId = $state<string | null>(null);
 	let selectedAdvancedTemplateId = $state<string | null>(null);
 	let advancedStartDate = $state('');
@@ -120,10 +124,6 @@
 	let isPreviewingAdvancedSeries = $state(false);
 	let isRefreshingAdvancedSeriesPreview = $state(false);
 	let isApplyingAdvancedSeries = $state(false);
-	let localAdvancedDutyEvents = $derived(
-		[...props.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
-	);
-
 	const simpleTemplates = $derived(getLegacySimpleTemplates(props.assignmentTypes));
 	const selectedSimpleTemplate = $derived(
 		simpleTemplates.find((template) => template.assignmentTypeId === selectedSimpleAssignmentTypeId) ?? null
@@ -136,7 +136,6 @@
 	const selectedAdvancedTemplate = $derived(
 		activeAdvancedTemplates.find((template) => template.id === selectedAdvancedTemplateId) ?? null
 	);
-	const enabledSoftPrefs = $derived((selectedAdvancedTemplate?.softPreferences ?? []).filter((pref) => pref.enabled));
 	const hasRotationBaselines = $derived((selectedAdvancedTemplate?.rotationBaselines.length ?? 0) > 0);
 	const previewCollisionMessages = $derived.by(() =>
 		advancedSeriesPreview
@@ -170,9 +169,6 @@
 			? candidateReviewOptions
 			: candidateReviewOptions.filter((person) => new Set(selectedRunCandidateIds).has(person.id))
 	);
-	const statusTypeNameById = $derived.by(
-		() => new Map(props.statusTypes.map((statusType) => [statusType.id, statusType.name] as const))
-	);
 	const candidateReviewColumns: ColumnDef<Personnel>[] = [
 		{ key: 'include', header: 'Include', value: () => '', searchable: false },
 		{
@@ -188,18 +184,6 @@
 			searchValue: (person) => formatCandidateReviewMeta(person)
 		}
 	];
-	const stepperCurrentId = $derived.by(() =>
-		view === 'advanced-policy-review'
-			? 'policy'
-			: view === 'advanced-date-pattern'
-				? 'date-pattern'
-				: view === 'advanced-candidate-review'
-					? 'candidates'
-					: view === 'advanced-series-preview'
-						? 'preview'
-						: 'template'
-	);
-	const showStepper = $derived(view.startsWith('advanced-'));
 	const progressMode = $derived.by(() => {
 		if (isApplyingAdvancedSeries) return 'apply';
 		if (isRefreshingAdvancedSeriesPreview) return 'refresh';
@@ -207,6 +191,47 @@
 		return null;
 	});
 	const progressEventCount = $derived(advancedSeriesPreview?.eventDates.length ?? 0);
+	const showAdvancedRunWorkspace = $derived(
+		selectedAdvancedTemplate &&
+			(view === 'advanced-policy-review' ||
+				view === 'advanced-date-pattern' ||
+				view === 'advanced-candidate-review' ||
+				view === 'advanced-series-preview')
+	);
+	const advancedDatePatternSummary = $derived.by(() => {
+		if (!advancedStartDate) return 'Not set';
+		if (advancedPattern === 'custom-dates') {
+			return customDateEntries.length > 0
+				? `${customDateEntries.length} custom date${customDateEntries.length === 1 ? '' : 's'}`
+				: 'No custom dates selected';
+		}
+		return `${advancedStartDate} to ${advancedEndDate || advancedStartDate} · ${formatSeriesPatternLabel(advancedPattern)}`;
+	});
+	const candidatePoolSummary = $derived.by(() => {
+		const selectedCount = selectedRunCandidateCount(selectedRunCandidateIds, candidateReviewOptions);
+		return `${selectedCount} included of ${candidateReviewOptions.length}`;
+	});
+	const activeRunStateSummary = $derived.by(() => {
+		if (!advancedSeriesPreview) return 'Setup in progress';
+		const totalEvents = advancedSeriesPreview.eventDates.length;
+		const filledSlots = advancedSeriesPreview.events.reduce((total, event) => total + event.fillSummary.filledSlots, 0);
+		const totalSlots = advancedSeriesPreview.events.reduce((total, event) => total + event.fillSummary.totalSlots, 0);
+		return `${totalEvents} event${totalEvents === 1 ? '' : 's'} · ${filledSlots}/${totalSlots} slots filled`;
+	});
+
+	$effect(() => {
+		const nextInitialView = props.initialView ?? 'choose-lane';
+		if (lastInitialView === nextInitialView) return;
+		lastInitialView = nextInitialView;
+		view = nextInitialView;
+	});
+
+	$effect(() => {
+		const snapshot = props.resumeSnapshot;
+		if (!snapshot || snapshot.id === lastResumeSnapshotId) return;
+		resumeAdvancedSnapshot(snapshot);
+		lastResumeSnapshotId = snapshot.id;
+	});
 
 	function onChooseSimple() {
 		view = 'simple-template-list';
@@ -221,6 +246,53 @@
 	function chooseAdvancedTemplate(templateId: string) {
 		selectedAdvancedTemplateId = templateId;
 		view = 'advanced-policy-review';
+	}
+	function isSeriesPreviewPayload(value: unknown): value is DutyEventSeriesPreview {
+		if (!value || typeof value !== 'object') return false;
+		const payload = value as { events?: unknown; eventDates?: unknown };
+		return Array.isArray(payload.events) && Array.isArray(payload.eventDates);
+	}
+	function isSinglePreviewPayload(value: unknown): value is DutyEventPreview {
+		if (!value || typeof value !== 'object') return false;
+		const payload = value as { eventDate?: unknown; slotInstances?: unknown };
+		return typeof payload.eventDate === 'string' && Array.isArray(payload.slotInstances);
+	}
+	function resumeAdvancedSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
+		const input = snapshot.inputPayload as Partial<DutyEventSeriesInput & DutyEventApplyInput>;
+		const previewPayload = snapshot.previewPayload;
+		selectedAdvancedTemplateId = snapshot.templateId;
+		advancedStartDate = typeof input.startDate === 'string' ? input.startDate : snapshot.startDate;
+		advancedEndDate = typeof input.endDate === 'string' ? input.endDate : snapshot.endDate;
+		advancedPattern = snapshot.pattern === 'single' ? 'daily' : snapshot.pattern;
+		replaceSelectedWeekdays(Array.isArray(input.selectedWeekdays) ? input.selectedWeekdays : [1, 3, 5]);
+		customDateEntries = Array.isArray(input.customDates) ? input.customDates : [];
+		customDateDraft = '';
+		selectedRunCandidateIds = snapshot.candidatePersonnelIds.length > 0 ? [...snapshot.candidatePersonnelIds] : null;
+		advancedSeriesOverrides = Array.isArray(input.eventOverrides) ? input.eventOverrides : [];
+		collisionReviewConfirmed = false;
+		shortfallReviewConfirmed = false;
+
+		if (isSeriesPreviewPayload(previewPayload)) {
+			advancedPreviewMode = snapshot.pattern === 'single' ? 'single' : 'series';
+			advancedSeriesPreview = {
+				...previewPayload,
+				snapshotId: snapshot.id,
+				snapshotFingerprint: snapshot.snapshotFingerprint,
+				snapshotVersion: snapshot.snapshotVersion
+			};
+			view = 'advanced-series-preview';
+			return;
+		}
+		if (isSinglePreviewPayload(previewPayload)) {
+			advancedPreviewMode = 'single';
+			advancedSeriesPreview = wrapSinglePreview({
+				...previewPayload,
+				snapshotId: snapshot.id,
+				snapshotFingerprint: snapshot.snapshotFingerprint,
+				snapshotVersion: snapshot.snapshotVersion
+			});
+			view = 'advanced-series-preview';
+		}
 	}
 	function goBackToLane() {
 		view = 'choose-lane';
@@ -253,10 +325,9 @@
 		if (selectedRunCandidateIds == null) selectedRunCandidateIds = candidateReviewOptions.map((person) => person.id);
 		view = 'advanced-candidate-review';
 	}
-	function ensureCandidateReviewCompleted() {
-		if (selectedRunCandidateIds != null) return true;
-		goToCandidateReview();
-		return false;
+	function ensureCandidateSelectionReady() {
+		if (selectedRunCandidateIds == null) selectedRunCandidateIds = candidateReviewOptions.map((person) => person.id);
+		return true;
 	}
 
 	const simpleEventInput = () =>
@@ -281,7 +352,7 @@
 		);
 
 	async function handlePreviewAdvancedSeries() {
-		if (!ensureCandidateReviewCompleted()) return;
+		if (!ensureCandidateSelectionReady()) return;
 		const input = seriesInput();
 		if (!input) return;
 		isPreviewingAdvancedSeries = true;
@@ -296,7 +367,7 @@
 		}
 	}
 	async function handlePreviewAdvancedEvent() {
-		if (!ensureCandidateReviewCompleted()) return;
+		if (!ensureCandidateSelectionReady()) return;
 		const input = simpleEventInput();
 		if (!input) return;
 		isPreviewingAdvancedSeries = true;
@@ -385,31 +456,21 @@
 			if (advancedPreviewMode === 'single') {
 				const input = simpleEventInput();
 				if (!input) return;
-				const result = await props.onApplyAdvancedEvent({
+				await props.onApplyAdvancedEvent({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
-				if (result)
-					localAdvancedDutyEvents = [
-						result,
-						...localAdvancedDutyEvents.filter((existing) => existing.id !== result.id)
-					].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 			} else {
 				const input = seriesInput();
 				if (!input) return;
-				const result = await props.onApplyAdvancedSeries({
+				await props.onApplyAdvancedSeries({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
-				if (result)
-					localAdvancedDutyEvents = [
-						...result.events,
-						...localAdvancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
-					].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 			}
 			advancedPreviewMode = null;
 			advancedSeriesPreview = null;
@@ -420,18 +481,44 @@
 			isApplyingAdvancedSeries = false;
 		}
 	}
+	async function handleRegenerateAdvancedRun() {
+		if (advancedPreviewMode === 'single') await handlePreviewAdvancedEvent();
+		else await handlePreviewAdvancedSeries();
+	}
+	function handleExportAdvancedPreview() {
+		if (!advancedSeriesPreview) return;
+		const packetMarkup = buildDutyPacketSeriesMarkup(
+			advancedSeriesPreview.events.map((event) =>
+				buildTeamDutyPacketExportModel({
+					templateName: advancedSeriesPreview?.templateName ?? event.templateName,
+					event,
+					personnelById,
+					status: 'preview'
+				})
+			)
+		);
+		const fileDate = advancedSeriesPreview.eventDates[0]?.replaceAll('-', '') ?? getTodayDate().replaceAll('-', '');
+		const blob = new Blob([packetMarkup], { type: 'text/html;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = `${advancedSeriesPreview.templateName.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}-${fileDate}-preview-duty-packet.html`;
+		document.body.append(anchor);
+		anchor.click();
+		anchor.remove();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <section class="wizard-shell">
-	{#if view !== 'simple-generator'}
+	{#if view === 'choose-lane' || view === 'simple-template-list'}
 		<div class="wizard-hero card card-flat">
 			<div>
 				<p class="eyebrow">Duty planning</p>
-				<h2>Duty Wizard</h2>
+				<h2>Roster Planning</h2>
 			</div>
 		</div>
 	{/if}
-	{#if showStepper}<WizardStepper steps={ADVANCED_STEPS} current={stepperCurrentId} />{/if}
 	{#if view === 'choose-lane'}<LaneChooserStep
 			canManageAdvancedTemplates={props.canManageAdvancedTemplates}
 			{onChooseSimple}
@@ -463,110 +550,151 @@
 			onChooseTemplate={chooseAdvancedTemplate}
 			onBuildFromScratch={props.onManageAdvancedTemplates}
 		/>{/if}
-	{#if view === 'advanced-policy-review' && selectedAdvancedTemplate}<AdvancedPolicyReviewStep
-			template={selectedAdvancedTemplate}
-			{enabledSoftPrefs}
-			{hasRotationBaselines}
-			{statusTypeNameById}
-			onBack={() => (view = 'advanced-template-list')}
-			onEditTemplate={props.onManageAdvancedTemplates}
-			onContinue={goToDatePattern}
-		/>{/if}
-	{#if view === 'advanced-date-pattern' && selectedAdvancedTemplate}<AdvancedDatePatternStep
-			{advancedPattern}
-			{advancedStartDate}
-			{advancedEndDate}
-			{selectedWeekdays}
-			{weekdayOptions}
-			{customDateDraft}
-			{customDateEntries}
-			isPreviewing={isPreviewingAdvancedSeries}
-			canPreviewSingle={Boolean(simpleEventInput())}
-			canPreviewSeries={Boolean(seriesInput())}
-			onBack={goToPolicyReview}
-			onPatternChange={(pattern) => {
-				advancedPattern = pattern;
-				selectedRunCandidateIds = null;
-				advancedPreviewMode = null;
-				advancedSeriesPreview = null;
-				advancedSeriesOverrides = [];
-				collisionReviewConfirmed = false;
-				shortfallReviewConfirmed = false;
-				if (pattern === 'selected-weekdays') replaceSelectedWeekdays([]);
-			}}
-			onStartDateChange={(value) => (advancedStartDate = value)}
-			onEndDateChange={(value) => (advancedEndDate = value)}
-			onToggleWeekday={(day) => {
-				if (selectedWeekdays.has(day)) selectedWeekdays.delete(day);
-				else selectedWeekdays.add(day);
-			}}
-			onCustomDateDraftChange={(value) => (customDateDraft = value)}
-			onAddCustomDate={() => {
-				const nextDate = customDateDraft.trim();
-				if (!nextDate) return;
-				customDateEntries = [...new Set([...customDateEntries, nextDate])].sort((a, b) => a.localeCompare(b));
-				customDateDraft = '';
-			}}
-			onRemoveCustomDate={(date) => (customDateEntries = customDateEntries.filter((item) => item !== date))}
-			onReviewCandidates={goToCandidateReview}
-			onPreviewSingle={handlePreviewAdvancedEvent}
-			onPreviewSeries={handlePreviewAdvancedSeries}
-		/>{/if}
-	{#if view === 'advanced-candidate-review' && selectedAdvancedTemplate}<AdvancedCandidateReviewStep
-			templateName={selectedAdvancedTemplate.name}
-			candidates={candidateReviewOptions}
-			columns={candidateReviewColumns}
-			selectedCount={selectedRunCandidateCount(selectedRunCandidateIds, candidateReviewOptions)}
-			totalCount={candidateReviewOptions.length}
-			isPreviewing={isPreviewingAdvancedSeries}
-			canPreviewSingle={Boolean(simpleEventInput())}
-			canPreviewSeries={Boolean(seriesInput())}
-			isSelected={(personId) => isRunCandidateSelected(selectedRunCandidateIds, candidateReviewOptions, personId)}
-			formatLabel={formatCandidateReviewLabel}
-			onToggleCandidate={(personId) =>
-				(selectedRunCandidateIds = toggleRunCandidate(selectedRunCandidateIds, candidateReviewOptions, personId))}
-			onBack={() => (view = 'advanced-date-pattern')}
-			onPreviewSingle={handlePreviewAdvancedEvent}
-			onPreviewSeries={handlePreviewAdvancedSeries}
-		/>{/if}
-	{#if view === 'advanced-series-preview' && selectedAdvancedTemplate && advancedSeriesPreview}<AdvancedSeriesPreviewStep
-			preview={advancedSeriesPreview}
-			template={selectedAdvancedTemplate}
-			overrides={advancedSeriesOverrides}
-			previewMode={advancedPreviewMode}
-			isRefreshing={isRefreshingAdvancedSeriesPreview}
-			isApplying={isApplyingAdvancedSeries}
-			{collisionReviewConfirmed}
-			{shortfallReviewConfirmed}
-			{previewCollisionMessages}
-			personnelOptions={reviewedPreviewPersonnelOptions}
-			formatAssignee={(id) => formatSlotAssignee(id, personnelById)}
-			{formatCoverageLabel}
-			{formatSeriesPatternLabel}
-			getExplanationSections={getSlotExplanationSections}
-			hasSeriesSlotOverride={(eventDate, slot) => hasSeriesSlotOverride(advancedSeriesOverrides, eventDate, slot)}
-			onBack={goToDatePattern}
-			onApply={handleApplyAdvancedSeries}
-			onCollisionConfirmedChange={(value) => (collisionReviewConfirmed = value)}
-			onShortfallConfirmedChange={(value) => (shortfallReviewConfirmed = value)}
-			onUpdateSlotAssignee={updateSeriesSlotAssignee}
-			onToggleSlotLock={toggleSeriesSlotLock}
-			onClearSlot={clearSeriesSlot}
-			onResetSlot={resetSeriesSlot}
-		/>{/if}
-
-	{#if view !== 'simple-template-list' && view !== 'simple-generator'}
-		<AppliedEventManager
-			advancedDutyEvents={localAdvancedDutyEvents}
-			{personnelById}
-			{previewPersonnelOptions}
-			onPreviewExistingAdvancedEvent={props.onPreviewExistingAdvancedEvent}
-			onUpdateExistingAdvancedEvent={props.onUpdateExistingAdvancedEvent}
-			onDeleteAdvancedEvent={props.onDeleteAdvancedEvent}
-			onDeleteAdvancedRun={props.onDeleteAdvancedRun}
-			onDeleteLegacyAdvancedGroup={props.onDeleteLegacyAdvancedGroup}
-		/>
+	{#if showAdvancedRunWorkspace && selectedAdvancedTemplate}
+		<div class="advanced-run-workspace" data-layout="setup-rail">
+			<aside class="advanced-setup-rail" aria-label="Advanced duty setup rail">
+				<div class="rail-block rail-template">
+					<p class="rail-label">Template</p>
+					<h3>{selectedAdvancedTemplate.name}</h3>
+					<p>{selectedAdvancedTemplate.description || 'No description on file.'}</p>
+				</div>
+				<div class="rail-block">
+					<p class="rail-label">Date pattern</p>
+					<p>{advancedDatePatternSummary}</p>
+				</div>
+				<div class="rail-block">
+					<p class="rail-label">Candidate pool</p>
+					<p>{candidatePoolSummary}</p>
+					<button
+						class="rail-link"
+						type="button"
+						aria-label="Open candidate review from setup rail"
+						onclick={goToCandidateReview}>Edit Candidate Pool</button
+					>
+				</div>
+				<div class="rail-block">
+					<p class="rail-label">Policy</p>
+					<p>
+						{selectedAdvancedTemplate.slots.reduce((total, slot) => total + slot.quantity, 0)} positions · {selectedAdvancedTemplate.isBlocking
+							? 'Blocks overlaps'
+							: 'Allows overlaps'}
+					</p>
+					<button
+						class="rail-link"
+						type="button"
+						aria-label="Open policy review from setup rail"
+						onclick={goToPolicyReview}>Review Policy</button
+					>
+				</div>
+				<div class="rail-block">
+					<p class="rail-label">Run state</p>
+					<p>{activeRunStateSummary}</p>
+					{#if advancedSeriesPreview}
+						<button
+							class="btn btn-secondary btn-sm rail-action"
+							type="button"
+							disabled={isPreviewingAdvancedSeries || isRefreshingAdvancedSeriesPreview}
+							onclick={handleRegenerateAdvancedRun}>Regenerate Preview</button
+						>
+					{/if}
+				</div>
+			</aside>
+			<section class="advanced-review-workspace" aria-label="Advanced duty review workspace">
+				{#if view === 'advanced-policy-review'}<AdvancedPolicyReviewStep
+						template={selectedAdvancedTemplate}
+						{hasRotationBaselines}
+						onBack={() => (view = 'advanced-template-list')}
+						onEditTemplate={props.onManageAdvancedTemplates}
+						onContinue={goToDatePattern}
+					/>{/if}
+				{#if view === 'advanced-date-pattern'}<AdvancedDatePatternStep
+						{advancedPattern}
+						{advancedStartDate}
+						{advancedEndDate}
+						{selectedWeekdays}
+						{weekdayOptions}
+						{customDateDraft}
+						{customDateEntries}
+						isPreviewing={isPreviewingAdvancedSeries}
+						canPreviewSingle={Boolean(simpleEventInput())}
+						canPreviewSeries={Boolean(seriesInput())}
+						onBack={goToPolicyReview}
+						onPatternChange={(pattern) => {
+							advancedPattern = pattern;
+							selectedRunCandidateIds = null;
+							advancedPreviewMode = null;
+							advancedSeriesPreview = null;
+							advancedSeriesOverrides = [];
+							collisionReviewConfirmed = false;
+							shortfallReviewConfirmed = false;
+							if (pattern === 'selected-weekdays') replaceSelectedWeekdays([]);
+						}}
+						onStartDateChange={(value) => (advancedStartDate = value)}
+						onEndDateChange={(value) => (advancedEndDate = value)}
+						onToggleWeekday={(day) => {
+							if (selectedWeekdays.has(day)) selectedWeekdays.delete(day);
+							else selectedWeekdays.add(day);
+						}}
+						onCustomDateDraftChange={(value) => (customDateDraft = value)}
+						onAddCustomDate={() => {
+							const nextDate = customDateDraft.trim();
+							if (!nextDate) return;
+							customDateEntries = [...new Set([...customDateEntries, nextDate])].sort((a, b) => a.localeCompare(b));
+							customDateDraft = '';
+						}}
+						onRemoveCustomDate={(date) => (customDateEntries = customDateEntries.filter((item) => item !== date))}
+						onReviewCandidates={goToCandidateReview}
+						onPreviewSingle={handlePreviewAdvancedEvent}
+						onPreviewSeries={handlePreviewAdvancedSeries}
+					/>{/if}
+				{#if view === 'advanced-candidate-review'}<AdvancedCandidateReviewStep
+						templateName={selectedAdvancedTemplate.name}
+						candidates={candidateReviewOptions}
+						columns={candidateReviewColumns}
+						selectedCount={selectedRunCandidateCount(selectedRunCandidateIds, candidateReviewOptions)}
+						totalCount={candidateReviewOptions.length}
+						isPreviewing={isPreviewingAdvancedSeries}
+						canPreviewSingle={Boolean(simpleEventInput())}
+						canPreviewSeries={Boolean(seriesInput())}
+						isSelected={(personId) => isRunCandidateSelected(selectedRunCandidateIds, candidateReviewOptions, personId)}
+						formatLabel={formatCandidateReviewLabel}
+						onToggleCandidate={(personId) =>
+							(selectedRunCandidateIds = toggleRunCandidate(selectedRunCandidateIds, candidateReviewOptions, personId))}
+						onBack={() => (view = 'advanced-date-pattern')}
+						onPreviewSingle={handlePreviewAdvancedEvent}
+						onPreviewSeries={handlePreviewAdvancedSeries}
+					/>{/if}
+				{#if view === 'advanced-series-preview' && advancedSeriesPreview}<AdvancedSeriesPreviewStep
+						preview={advancedSeriesPreview}
+						template={selectedAdvancedTemplate}
+						overrides={advancedSeriesOverrides}
+						previewMode={advancedPreviewMode}
+						isRefreshing={isRefreshingAdvancedSeriesPreview}
+						isApplying={isApplyingAdvancedSeries}
+						{collisionReviewConfirmed}
+						{shortfallReviewConfirmed}
+						{previewCollisionMessages}
+						personnelOptions={reviewedPreviewPersonnelOptions}
+						formatAssignee={(id) => formatSlotAssignee(id, personnelById)}
+						{formatCoverageLabel}
+						{formatSeriesPatternLabel}
+						getExplanationSections={getSlotExplanationSections}
+						hasSeriesSlotOverride={(eventDate, slot) => hasSeriesSlotOverride(advancedSeriesOverrides, eventDate, slot)}
+						onBack={goToDatePattern}
+						onApply={handleApplyAdvancedSeries}
+						onRegenerate={handleRegenerateAdvancedRun}
+						onExportPreview={handleExportAdvancedPreview}
+						onCollisionConfirmedChange={(value) => (collisionReviewConfirmed = value)}
+						onShortfallConfirmedChange={(value) => (shortfallReviewConfirmed = value)}
+						onUpdateSlotAssignee={updateSeriesSlotAssignee}
+						onToggleSlotLock={toggleSeriesSlotLock}
+						onClearSlot={clearSeriesSlot}
+						onResetSlot={resetSeriesSlot}
+					/>{/if}
+			</section>
+		</div>
 	{/if}
+
 	{#if progressMode}
 		<DutyRosterProgressModal mode={progressMode} eventCount={progressEventCount} />
 	{/if}
@@ -595,5 +723,91 @@
 	h2,
 	h2 {
 		margin: 0;
+	}
+	.advanced-run-workspace {
+		display: grid;
+		grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+		gap: var(--sp-4);
+		align-items: start;
+		min-width: 0;
+	}
+	.advanced-setup-rail {
+		position: sticky;
+		top: var(--sp-4);
+		display: grid;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		min-width: 0;
+	}
+	.advanced-review-workspace {
+		min-width: 0;
+	}
+	.rail-block {
+		display: grid;
+		gap: var(--sp-1);
+		padding-bottom: var(--sp-3);
+		border-bottom: 1px solid var(--border-subtle);
+	}
+	.rail-block:last-child {
+		padding-bottom: 0;
+		border-bottom: 0;
+	}
+	.rail-label {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+	.rail-template h3,
+	.rail-block p {
+		margin: 0;
+	}
+	.rail-template h3 {
+		font-size: var(--text-ui-lg);
+	}
+	.rail-block p {
+		color: var(--text-secondary);
+	}
+	.rail-link {
+		justify-self: start;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--text-link);
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.rail-link:focus-visible,
+	.rail-action:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
+	}
+	.rail-action {
+		justify-self: start;
+		margin-top: var(--sp-1);
+	}
+	@media (max-width: 1180px) {
+		.advanced-run-workspace {
+			grid-template-columns: 1fr;
+		}
+		.advanced-setup-rail {
+			position: static;
+			grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+			align-items: start;
+		}
+	}
+
+	@media (max-width: 560px) {
+		.advanced-setup-rail {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

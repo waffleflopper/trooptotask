@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type {
 		DutyEvent,
+		AdvancedDutyRunSnapshotRecord,
 		DutyEventRunDeleteResult,
 		DutyEventSeriesApplyResult,
 		DutyEventSeriesInput
@@ -8,11 +9,19 @@
 
 	interface Props {
 		advancedDutyEvents?: DutyEvent[];
+		initialView?: string;
+		resumeSnapshot?: AdvancedDutyRunSnapshotRecord | null;
 		onApplyAdvancedSeries?: (input: DutyEventSeriesInput) => Promise<DutyEventSeriesApplyResult | null>;
 		onDeleteAdvancedRun?: (runId: string) => Promise<DutyEventRunDeleteResult | null>;
 	}
 
-	let { advancedDutyEvents = [], onApplyAdvancedSeries, onDeleteAdvancedRun }: Props = $props();
+	let {
+		advancedDutyEvents = [],
+		initialView = 'choose-lane',
+		resumeSnapshot = null,
+		onApplyAdvancedSeries,
+		onDeleteAdvancedRun
+	}: Props = $props();
 
 	async function applySeries() {
 		await onApplyAdvancedSeries?.({
@@ -29,5 +38,7 @@
 </script>
 
 <div data-testid="advanced-event-count">{advancedDutyEvents.length}</div>
+<div data-testid="wizard-initial-view">{initialView}</div>
+<div data-testid="wizard-resume-snapshot">{resumeSnapshot?.id ?? ''}</div>
 <button type="button" onclick={applySeries}>Apply Advanced Series</button>
 <button type="button" onclick={deleteRun}>Delete Advanced Run</button>

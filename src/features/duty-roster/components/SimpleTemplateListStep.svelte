@@ -19,8 +19,8 @@
 <section class="step-card card card-flat">
 	<div class="list-header">
 		<div>
-			<p class="eyebrow">Assignment templates</p>
-			<h3>Select an existing assignment type.</h3>
+			<p class="eyebrow">Assignments / Taskings</p>
+			<h3>Choose an assignment type</h3>
 		</div>
 		<button class="btn btn-secondary btn-sm" type="button" onclick={onBack}>Back</button>
 	</div>
@@ -30,18 +30,19 @@
 			variant="simple"
 		/>
 	{:else}
-		<div class="template-grid">
+		<div class="template-list">
 			{#each simpleTemplates as template (template.id)}
-				<article class="template-card">
-					<div>
+				<article class="template-row">
+					<div class="template-main">
 						<h4>{template.name}</h4>
 						<p class="template-meta">{template.shortName} · {template.exemptPersonnelCount} exempt</p>
-						<p class="template-description">{template.description}</p>
+						{#if template.description}<p class="template-description">{template.description}</p>{/if}
 					</div>
 					<button
 						class="btn btn-primary btn-sm"
 						type="button"
-						onclick={() => onChooseTemplate(template.assignmentTypeId)}>Continue with {template.name}</button
+						aria-label={`Use ${template.name}`}
+						onclick={() => onChooseTemplate(template.assignmentTypeId)}>Use</button
 					>
 				</article>
 			{/each}
@@ -61,20 +62,24 @@
 		justify-content: space-between;
 		gap: var(--sp-4);
 	}
-	.template-grid {
-		display: grid;
-		gap: var(--sp-4);
-		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-		margin-top: var(--sp-4);
-	}
-	.template-card {
+	.template-list {
 		display: flex;
 		flex-direction: column;
+		gap: var(--sp-2);
+		margin-top: var(--sp-4);
+	}
+	.template-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
 		gap: var(--sp-3);
-		padding: var(--sp-4);
+		padding: var(--sp-3);
 		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border-radius: var(--radius-md);
+		background: var(--surface-page);
+	}
+	.template-main {
+		min-width: 0;
 	}
 	.eyebrow {
 		margin: 0 0 var(--sp-2);
@@ -93,5 +98,12 @@
 	h3,
 	h4 {
 		margin: 0;
+	}
+
+	@media (max-width: 640px) {
+		.template-row {
+			grid-template-columns: 1fr;
+			align-items: stretch;
+		}
 	}
 </style>

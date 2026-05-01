@@ -17,7 +17,6 @@
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
-	import WizardStepper from './WizardStepper.svelte';
 	import DutyRosterProgressModal from './DutyRosterProgressModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -67,11 +66,6 @@
 
 	type DutyRosterView = 'setup' | 'preview' | 'history';
 	type GeneratedRosterEntry = { date: string; assignee: DutyRosterSnapshotPersonnel | null; reason?: string };
-
-	const WIZARD_STEPS = [
-		{ id: 'setup', label: 'Setup' },
-		{ id: 'preview', label: 'Preview & Apply' }
-	];
 
 	let view = $state<DutyRosterView>('setup');
 
@@ -399,28 +393,24 @@
 	});
 
 	const panelTitle = $derived(
-		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
+		view === 'history' ? 'Roster History' : view === 'preview' ? 'Roster Preview' : 'Build Roster'
 	);
 
 	const canGenerate = $derived(!!selectedAssignmentTypeId && !!startDate && !!endDate && eligiblePersonnel.length > 0);
 </script>
 
 <section class="generator-shell">
-	<div class="generator-hero card card-flat">
+	<header class="generator-header">
 		<div class="hero-copy">
-			<p class="eyebrow">Duty planning</p>
+			<p class="eyebrow">Assignments / Taskings</p>
 			<h2>{panelTitle}</h2>
-			<p class="hero-description">
-				Build and review DA6-style rosters without working inside a popup. Generate, preview, re-apply, and audit
-				rosters from one page.
-			</p>
 		</div>
 		{#if view !== 'history'}
 			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')}>
 				View History{localRosterHistory.length > 0 ? ` (${localRosterHistory.length})` : ''}
 			</button>
 		{/if}
-	</div>
+	</header>
 
 	{#if applyFeedback}
 		<div
@@ -438,10 +428,6 @@
 				</div>
 			{/if}
 		</div>
-	{/if}
-
-	{#if view !== 'history'}
-		<WizardStepper steps={WIZARD_STEPS} current={view === 'preview' ? 'preview' : 'setup'} />
 	{/if}
 
 	<div class="generator-body">
@@ -743,90 +729,70 @@
 				{/if}
 			</section>
 		{:else if view === 'setup'}
-			<div class="wizard-step">
-				<section class="config-section panel-card section-card card card-flat">
-					<div class="panel-header">
-						<div>
-							<h3>Duty Configuration</h3>
-							<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
-						</div>
-						<div class="panel-actions">
-							<button class="btn btn-primary" onclick={generateRoster} disabled={!canGenerate || isGenerating}>
-								{isGenerating ? 'Generating...' : 'Generate Roster'}
-							</button>
-						</div>
+			<section class="config-section panel-card section-card card card-flat">
+				<div class="panel-header">
+					<div>
+						<h3>Roster Setup</h3>
+						<p class="hint">Choose the assignment, date span, and exclusions.</p>
 					</div>
+					<div class="panel-actions">
+						<button class="btn btn-primary" onclick={generateRoster} disabled={!canGenerate || isGenerating}>
+							{isGenerating ? 'Generating...' : 'Preview Roster'}
+						</button>
+					</div>
+				</div>
 
-					<div class="form-group">
-						<label class="label" for="assignmentType">Assignment Type</label>
+				<div class="setup-grid">
+					<label class="form-group">
+						<span class="label">Assignment Type</span>
 						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
-							<option value="">Select duty type...</option>
+							<option value="">Select assignment...</option>
 							{#each personnelAssignmentTypes as type (type.id)}
 								<option value={type.id}>{type.name} ({type.shortName})</option>
 							{/each}
 						</select>
-					</div>
+					</label>
 
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="duration">Duty Duration</label>
-							<select id="duration" class="select" bind:value={dutyDuration}>
-								<option value="daily">Daily</option>
-								<option value="weekly">Weekly</option>
-								<option value="monthly">Monthly</option>
-							</select>
-						</div>
-					</div>
+					<label class="form-group">
+						<span class="label">Duration</span>
+						<select id="duration" class="select" bind:value={dutyDuration}>
+							<option value="daily">Daily</option>
+							<option value="weekly">Weekly</option>
+							<option value="monthly">Monthly</option>
+						</select>
+					</label>
 
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="startDate">Start Date</label>
-							<input id="startDate" type="date" class="input" bind:value={startDate} />
-						</div>
-						<div class="form-group">
-							<label class="label" for="endDate">End Date</label>
-							<input id="endDate" type="date" class="input" bind:value={endDate} />
-						</div>
-					</div>
-				</section>
+					<label class="form-group">
+						<span class="label">Start Date</span>
+						<input id="startDate" type="date" class="input" bind:value={startDate} />
+					</label>
 
-				<section class="config-section panel-card section-card card card-flat">
-					<div class="panel-header">
-						<div>
-							<p class="pane-eyebrow">Scheduling</p>
-							<h3>Schedule Options</h3>
-							<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
-						</div>
-					</div>
+					<label class="form-group">
+						<span class="label">End Date</span>
+						<input id="endDate" type="date" class="input" bind:value={endDate} />
+					</label>
+				</div>
 
+				<div class="rule-strip" aria-label="Schedule exclusions">
 					<label class="toggle-row">
 						<input type="checkbox" bind:checked={excludeWeekends} />
-						<span>Exclude weekends (Sat & Sun)</span>
+						<span>Skip weekends</span>
 					</label>
 
 					<label class="toggle-row">
 						<input type="checkbox" bind:checked={excludeHolidays} />
-						<span>Exclude federal holidays</span>
+						<span>Skip federal holidays</span>
 					</label>
 
 					<label class="toggle-row">
 						<input type="checkbox" bind:checked={excludeOrgClosures} />
-						<span>Exclude org closures</span>
+						<span>Skip DONSAs</span>
 					</label>
-				</section>
+				</div>
 
-				<section class="config-section panel-card section-card card card-flat">
-					<div class="panel-header">
-						<div>
-							<p class="pane-eyebrow">Availability Rules</p>
-							<h3>DA6 Status Treatments</h3>
-							<p class="hint">
-								Status Types with a duty roster treatment automatically affect DA6 availability and numbering.
-							</p>
-						</div>
-					</div>
-
-					{#if da6TreatedStatusTypes.length > 0}
+				{#if da6TreatedStatusTypes.length > 0}
+					<details class="treatment-details">
+						<summary>DA6 status treatments ({da6TreatedStatusTypes.length})</summary>
 						<div class="treatment-list">
 							{#each da6TreatedStatusTypes as status (status.id)}
 								<div class="treatment-row">
@@ -837,20 +803,15 @@
 								</div>
 							{/each}
 						</div>
-					{:else}
-						<p class="empty-note">No status types currently affect DA6 duty roster generation.</p>
-					{/if}
-				</section>
+					</details>
+				{/if}
 
 				{#if selectedAssignmentTypeId}
-					<section class="config-section panel-card section-card card card-flat">
-						<div class="panel-header">
+					<div class="exemption-block">
+						<div class="panel-header compact">
 							<div>
-								<p class="pane-eyebrow">Exemptions</p>
 								<h3>Exempt Personnel</h3>
-								<p class="hint">
-									These people will never be assigned this duty type. Everyone else is eligible by default.
-								</p>
+								<p class="hint">Never assign these people to this assignment type.</p>
 							</div>
 							{#if hasExemptionChanges}
 								<div class="panel-actions">
@@ -863,13 +824,13 @@
 						<MultiTagSelect
 							options={exemptPersonnelOptions}
 							value={[...draftExemptIds]}
-							placeholder="Search to add exempt personnel..."
+							placeholder="Search exempt personnel..."
 							ariaLabel="Exempt personnel"
 							onChange={replaceDraftExemptIds}
 						/>
-					</section>
+					</div>
 				{/if}
-			</div>
+			</section>
 		{/if}
 	</div>
 </section>
@@ -911,12 +872,11 @@
 		gap: var(--sp-6);
 	}
 
-	.generator-hero {
+	.generator-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--sp-6);
-		padding: var(--section-card-padding);
+		gap: var(--sp-4);
 	}
 
 	.hero-copy {
@@ -941,12 +901,6 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-	}
-
-	.hero-description {
-		margin: var(--sp-2) 0 0;
-		max-width: 58ch;
-		color: var(--text-secondary);
 	}
 
 	.feedback-banner {
@@ -981,12 +935,6 @@
 		gap: var(--sp-2);
 	}
 
-	.wizard-step {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-6);
-	}
-
 	.generator-body {
 		display: flex;
 		flex-direction: column;
@@ -1002,7 +950,11 @@
 	}
 
 	.config-section .panel-header {
-		margin-bottom: 0;
+		margin-bottom: var(--sp-4);
+	}
+
+	.panel-header.compact {
+		margin-bottom: var(--sp-3);
 	}
 
 	.panel-actions {
@@ -1016,20 +968,43 @@
 		margin-bottom: 0;
 	}
 
-	.pane-eyebrow {
-		margin: 0 0 var(--sp-1);
+	.setup-grid {
+		display: grid;
+		gap: var(--sp-3);
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+
+	.rule-strip {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		padding-top: var(--sp-4);
+		margin-top: var(--sp-4);
+		border-top: 1px solid var(--border-subtle);
+	}
+
+	.treatment-details,
+	.exemption-block {
+		padding-top: var(--sp-4);
+		margin-top: var(--sp-4);
+		border-top: 1px solid var(--border-subtle);
+	}
+
+	.treatment-details summary {
+		cursor: pointer;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--amber-dark);
+		color: var(--text-secondary);
 	}
 
 	.treatment-list {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-2);
+		margin-top: var(--sp-3);
 	}
 
 	.treatment-row {
@@ -1057,12 +1032,6 @@
 		font-size: var(--text-xs);
 		font-weight: 700;
 		line-height: 1.2;
-	}
-
-	.empty-note {
-		margin: 0;
-		color: var(--text-tertiary);
-		font-size: var(--text-ui-sm);
 	}
 
 	.history-panel,
@@ -1340,7 +1309,7 @@
 	}
 
 	@media (max-width: 900px) {
-		.generator-hero,
+		.generator-header,
 		.panel-header {
 			flex-direction: column;
 			align-items: flex-start;
@@ -1348,6 +1317,16 @@
 
 		.panel-actions {
 			justify-content: flex-start;
+		}
+
+		.setup-grid {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.setup-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

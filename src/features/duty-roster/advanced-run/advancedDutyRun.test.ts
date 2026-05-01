@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildAdvancedRunSnapshot } from './advancedDutyRun';
-import type { DutyTemplate } from '../duty-roster.types';
+import { cloneDefaultSoftPreferences, type DutyTemplate } from '../duty-roster.types';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 
 const template: DutyTemplate = {
@@ -94,8 +94,7 @@ describe('advanced duty run snapshots', () => {
 			eventDates: ['2026-04-10'],
 			personnel,
 			holidayClosureDates: new Set(),
-			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			historyEvents: []
 		});
 
 		expect(snapshot).toMatchObject({
@@ -125,6 +124,82 @@ describe('advanced duty run snapshots', () => {
 			roleLabel: 'NCO',
 			assigneeId: 'person-nco'
 		});
+	});
+
+	it('builds one DA6 matrix per slot and sequence lane for previewed runs', async () => {
+		const snapshot = await buildAdvancedRunSnapshot({
+			template: {
+				...template,
+				softPreferences: [
+					...cloneDefaultSoftPreferences().map((preference) =>
+						preference.type === 'separate-weekend-da6' ? { ...preference, enabled: true } : preference
+					)
+				]
+			},
+			eventDates: ['2026-04-10', '2026-04-11'],
+			personnel,
+			holidayClosureDates: new Set(),
+			historyEvents: []
+		});
+
+		expect(
+			snapshot.da6Matrices.map((matrix) => ({
+				roleLabel: matrix.roleLabel,
+				sequenceKey: matrix.sequenceKey,
+				dates: matrix.columns.map((column) => column.eventDate)
+			}))
+		).toEqual(
+			expect.arrayContaining([
+				{ roleLabel: 'General', sequenceKey: 'weekday', dates: ['2026-04-10'] },
+				{ roleLabel: 'General', sequenceKey: 'weekend-holiday', dates: ['2026-04-11'] },
+				{ roleLabel: 'NCO', sequenceKey: 'weekday', dates: ['2026-04-10'] },
+				{ roleLabel: 'NCO', sequenceKey: 'weekend-holiday', dates: ['2026-04-11'] }
+			])
+		);
+		expect(snapshot.da6Matrices).toHaveLength(4);
+	});
+
+	it('increments advanced DA6 row numbers by one period instead of the whole pool size', async () => {
+		const largePoolTemplate: DutyTemplate = {
+			...template,
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			slots: [
+				{
+					...template.slots[0],
+					id: 'slot-da6',
+					roleLabel: 'DA6',
+					rotationPoolKey: 'da6'
+				}
+			]
+		};
+		const largePoolPersonnel = Array.from({ length: 30 }, (_, index) => {
+			const ordinal = String(index + 1).padStart(2, '0');
+			return {
+				id: `person-${ordinal}`,
+				rank: 'SPC',
+				lastName: `Soldier${ordinal}`,
+				firstName: 'Test',
+				mos: '11B',
+				clinicRole: 'Rifleman',
+				groupId: 'group-hq',
+				groupName: 'Headquarters'
+			};
+		});
+
+		const snapshot = await buildAdvancedRunSnapshot({
+			template: largePoolTemplate,
+			eventDates: ['2026-06-01', '2026-06-02', '2026-06-03'],
+			personnel: largePoolPersonnel,
+			holidayClosureDates: new Set(),
+			historyEvents: []
+		});
+
+		const matrix = snapshot.da6Matrices.find((candidate) => candidate.templateSlotId === 'slot-da6');
+		const row = matrix?.rows.find((candidate) => candidate.personnelId === 'person-17');
+
+		expect(row?.cells.map((cell) => cell.sequenceNumber)).toEqual([17, 18, 19]);
+		expect(matrix?.columns.map((column) => column.chargeSequenceStart)).toEqual([1, 2, 3]);
 	});
 
 	it('uses earlier dates in the same run snapshot as transient fairness history', async () => {
@@ -186,8 +261,7 @@ describe('advanced duty run snapshots', () => {
 			eventDates: ['2026-04-10', '2026-04-11'],
 			personnel: cqPersonnel,
 			holidayClosureDates: new Set(),
-			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			historyEvents: []
 		});
 
 		const dayOneAssignees = snapshot.events[0].slotProposals
@@ -196,9 +270,18 @@ describe('advanced duty run snapshots', () => {
 		const dayTwoAssignees = snapshot.events[1].slotProposals
 			.map((slot) => slot.assigneeId)
 			.filter((id): id is string => !!id);
+		const dayOneSlots = snapshot.events[0].slotProposals;
 
 		expect(dayOneAssignees).toHaveLength(2);
 		expect(dayTwoAssignees).toHaveLength(2);
+		expect(dayOneSlots[0].candidateRankings?.[0]).toEqual({
+			personnelId: dayOneSlots[0].assigneeId,
+			rank: 1
+		});
+		expect(dayOneSlots[0].candidateRankings?.map((candidate) => candidate.rank)).toEqual([1, 2, 3, 4]);
+		expect(dayOneSlots[1].candidateRankings?.map((candidate) => candidate.personnelId)).not.toContain(
+			dayOneSlots[0].assigneeId
+		);
 		for (const assigneeId of dayOneAssignees) {
 			expect(dayTwoAssignees).not.toContain(assigneeId);
 		}
@@ -244,7 +327,6 @@ describe('advanced duty run snapshots', () => {
 			personnel,
 			holidayClosureDates: new Set(),
 			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map(),
 			availabilityEntries,
 			statusTypes,
 			misconductUnavailablePersonnelDates: { 'person-chen': ['2026-04-10'] }
@@ -316,8 +398,7 @@ describe('advanced duty run snapshots', () => {
 					},
 					slotInstances: [{ templateSlotId: 'slot-general', assigneeId: 'person-nco' }]
 				}
-			],
-			statusExemptPersonnelDatesByEventDate: new Map()
+			]
 		});
 
 		const event = snapshot.events[0];
@@ -327,13 +408,13 @@ describe('advanced duty run snapshots', () => {
 				expect.objectContaining({
 					personnelId: 'person-baker',
 					reasonCode: 'advanced-duty-overlap',
-					selectable: true,
+					selectable: false,
 					chargeable: true
 				}),
 				expect.objectContaining({
 					personnelId: 'person-nco',
 					reasonCode: 'advanced-duty-cooldown',
-					selectable: true,
+					selectable: false,
 					chargeable: true
 				}),
 				expect.objectContaining({
@@ -342,7 +423,10 @@ describe('advanced duty run snapshots', () => {
 				})
 			])
 		);
-		expect(event.preview.slotInstances.map((slot) => slot.assigneeId)).toEqual(['person-chen', 'person-nco']);
+		expect(event.preview.slotInstances.map((slot) => slot.assigneeId)).toEqual(['person-chen', null]);
+		expect(event.preview.slotInstances[1].unfilledReason).toBe(
+			'No eligible Soldier remained after availability and blocking checks.'
+		);
 	});
 
 	it('exposes a preview team duty packet export model for generated, overridden, locked, cleared, and unfilled slots', async () => {
@@ -390,7 +474,6 @@ describe('advanced duty run snapshots', () => {
 			personnel,
 			holidayClosureDates: new Set(),
 			historyEvents: [],
-			statusExemptPersonnelDatesByEventDate: new Map(),
 			slotOverridesByEventDate: new Map([
 				[
 					'2026-04-10',

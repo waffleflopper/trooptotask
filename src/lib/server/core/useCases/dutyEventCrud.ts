@@ -74,6 +74,8 @@ interface ResolvedPreviewData {
 	availabilityEntries?: AvailabilityEntry[];
 	statusTypes?: StatusType[];
 	holidayClosureDates?: Set<string>;
+	historyRows?: Record<string, unknown>[];
+	historySlotRows?: Record<string, unknown>[];
 	templateHistoryRows?: Record<string, unknown>[];
 	templateHistorySlotRows?: Record<string, unknown>[];
 }
@@ -98,10 +100,24 @@ type AdvancedRunSnapshotPayload = AdvancedRunSnapshot & {
 	originalProposalsByEventDate?: Record<string, SnapshotOriginalProposal>;
 };
 
+const MAX_DUTY_EVENT_COOLDOWN_HOURS = 168;
+
 function addDays(date: string, days: number): string {
 	const value = new Date(`${date}T00:00:00Z`);
 	value.setUTCDate(value.getUTCDate() + days);
 	return value.toISOString().slice(0, 10);
+}
+
+function addHours(dateTime: string, hours: number): string {
+	const value = new Date(dateTime);
+	value.setHours(value.getHours() + hours);
+	const year = value.getFullYear();
+	const month = String(value.getMonth() + 1).padStart(2, '0');
+	const day = String(value.getDate()).padStart(2, '0');
+	const hour = String(value.getHours()).padStart(2, '0');
+	const minute = String(value.getMinutes()).padStart(2, '0');
+	const second = String(value.getSeconds()).padStart(2, '0');
+	return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 }
 
 function buildSlotKey(templateSlotId: string | null, slotIndex: number): string {
@@ -119,6 +135,8 @@ function toPublicDutyEventPreview(preview: InternalDutyEventPreview): DutyEventP
 		templateId: preview.templateId,
 		templateName: preview.templateName,
 		eventDate: preview.eventDate,
+		advancedDa6SequenceKey: preview.advancedDa6SequenceKey,
+		advancedDa6SequenceLabel: preview.advancedDa6SequenceLabel,
 		coverageMode: preview.coverageMode,
 		coverageStart: preview.coverageStart,
 		coverageEnd: preview.coverageEnd,
@@ -138,6 +156,7 @@ function toPublicDutyEventPreview(preview: InternalDutyEventPreview): DutyEventP
 			selectionReason: slot.selectionReason,
 			unfilledReason: slot.unfilledReason,
 			overrideMessages: slot.overrideMessages,
+			candidateRankings: slot.candidateRankings,
 			sortOrder: slot.sortOrder
 		}))
 	};
@@ -391,6 +410,26 @@ async function persistDraftAdvancedRunSnapshot(
 	};
 }
 
+export async function listVisibleAdvancedDutyRunSnapshots(ctx: QueryPorts): Promise<AdvancedDutyRunSnapshotRecord[]> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const now = new Date().toISOString();
+	const rows = await ctx.store.findMany<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		undefined,
+		{
+			orderBy: [{ column: 'created_at', ascending: false }],
+			limit: 100
+		}
+	);
+	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows).filter((snapshot) => {
+		if (snapshot.status === 'draft') {
+			return snapshot.expiresAt > now;
+		}
+		return snapshot.status === 'applied' || snapshot.status === 'applying' || snapshot.status === 'partial-failure';
+	});
+}
+
 function failForHardRuleConflicts(message: string, preview: InternalDutyEventPreview): void {
 	if (preview.blockingConflicts.length > 0) {
 		fail(400, message);
@@ -429,6 +468,16 @@ function normalizeDates(values: string[]): string[] {
 
 function buildCoveredDates(coverageStart: string, coverageEnd: string): string[] {
 	return eachDate(coverageStart.slice(0, 10), coverageEnd.slice(0, 10));
+}
+
+function mergeRowsById(...rowGroups: Record<string, unknown>[][]): Record<string, unknown>[] {
+	const rowsById = new Map<string, Record<string, unknown>>();
+	for (const rows of rowGroups) {
+		for (const row of rows) {
+			rowsById.set(String(row.id), row);
+		}
+	}
+	return [...rowsById.values()];
 }
 
 function getDayOfWeek(date: string): number {
@@ -509,15 +558,47 @@ function normalizeSoftPreferencesForRanking(
 		return defaults;
 	}
 
-	const provided = new Map(softPreferences.map((preference) => [preference.type, preference]));
-	const orderedTypes = [
-		...softPreferences.map((preference) => preference.type),
-		...defaultSoftPreferenceOrder.filter((type) => !provided.has(type))
-	];
-
-	return [...new Set(orderedTypes)].map(
-		(type) => provided.get(type) ?? { type, enabled: defaults.find((item) => item.type === type)?.enabled ?? true }
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>(
+		defaults.map((preference) => [preference.type, { ...preference }])
 	);
+	const hasCurrentWeekendPolicy = softPreferences.some((preference) => preference.type === 'separate-weekend-da6');
+	const hasCurrentHolidayDonsaPolicy = softPreferences.some(
+		(preference) => preference.type === 'include-holiday-donsa-da6'
+	);
+
+	for (const preference of softPreferences) {
+		switch (preference.type) {
+			case 'longest-break':
+				byType.set('longest-break', { type: 'longest-break', enabled: true });
+				break;
+			case 'separate-weekend-da6':
+			case 'include-holiday-donsa-da6':
+				byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+				break;
+			case 'weekend':
+				if (!hasCurrentWeekendPolicy) {
+					byType.set('separate-weekend-da6', { type: 'separate-weekend-da6', enabled: preference.enabled });
+				}
+				break;
+			case 'holiday-closure':
+				if (!hasCurrentHolidayDonsaPolicy) {
+					byType.set('include-holiday-donsa-da6', {
+						type: 'include-holiday-donsa-da6',
+						enabled: preference.enabled
+					});
+				}
+				break;
+			case 'preferred-group':
+				break;
+		}
+	}
+
+	const separateWeekendDa6 = byType.get('separate-weekend-da6')?.enabled ?? false;
+	if (!separateWeekendDa6) {
+		byType.set('include-holiday-donsa-da6', { type: 'include-holiday-donsa-da6', enabled: false });
+	}
+
+	return defaultSoftPreferenceOrder.map((type) => byType.get(type) ?? defaults.find((item) => item.type === type)!);
 }
 
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
@@ -568,21 +649,34 @@ async function buildSingleDutyEventPreviewSnapshot(
 			coverage.coverageEnd.slice(0, 10)
 		));
 	const statusTypes = resolvedData.statusTypes ?? (await listStatusTypes(ctx));
-	const statusExemptPersonnelDates = await listStatusExemptPersonnelDatesForCoverage(
-		ctx,
-		coverage.coverageStart.slice(0, 10),
-		coverage.coverageEnd.slice(0, 10),
-		template.exemptStatusTypeIds ?? []
-	);
+	const templateHistoryRows =
+		resolvedData.templateHistoryRows ??
+		(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			template_id: template.id
+		}));
+	const coverageHistoryRows =
+		resolvedData.historyRows ??
+		(await listDutyEventHistoryRowsForCoverage(ctx, coverage.coverageStart, coverage.coverageEnd));
+	const historyRows = mergeRowsById(templateHistoryRows, coverageHistoryRows);
+	const historySlotRows =
+		resolvedData.historySlotRows ??
+		(await listDutyEventSlotRowsForEvents(
+			ctx,
+			historyRows.map((row) => String(row.id))
+		));
+	const previewData = {
+		...resolvedData,
+		historyRows,
+		historySlotRows
+	};
 	const personnelById = new Map(allPersonnel.map((person) => [person.id, person]));
-	const historyEvents = await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedData, excludeDutyEventIds);
+	const historyEvents = await buildAdvancedRunHistoryEvents(ctx, template.id, previewData, excludeDutyEventIds);
 	return buildAdvancedRunSnapshot({
 		template,
 		eventDates: [eventDate],
 		personnel: allPersonnel,
 		holidayClosureDates,
 		historyEvents,
-		statusExemptPersonnelDatesByEventDate: new Map([[eventDate, statusExemptPersonnelDates]]),
 		availabilityEntries,
 		statusTypes,
 		candidatePersonnelIds,
@@ -631,6 +725,7 @@ async function buildAdvancedRunHistoryEvents(
 ): Promise<AdvancedRunHistoryEvent[]> {
 	const excludedEventIds = new Set(excludeDutyEventIds);
 	const eventRows = (
+		resolvedData.historyRows ??
 		resolvedData.templateHistoryRows ??
 		(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
 			template_id: templateId
@@ -641,8 +736,9 @@ async function buildAdvancedRunHistoryEvents(
 	}
 
 	const eventIds = new Set(eventRows.map((row) => String(row.id)));
-	const slotRows = resolvedData.templateHistorySlotRows
-		? resolvedData.templateHistorySlotRows.filter((row) => eventIds.has(String(row.duty_event_id)))
+	const resolvedSlotRows = resolvedData.historySlotRows ?? resolvedData.templateHistorySlotRows;
+	const slotRows = resolvedSlotRows
+		? resolvedSlotRows.filter((row) => eventIds.has(String(row.duty_event_id)))
 		: await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
 				inFilters: { duty_event_id: [...eventIds] }
 			});
@@ -656,6 +752,7 @@ async function buildAdvancedRunHistoryEvents(
 
 	return eventRows.map((row) => ({
 		id: String(row.id),
+		templateId: row.template_id == null ? undefined : String(row.template_id),
 		eventDate: String(row.event_date),
 		coverageStart: String(row.coverage_start),
 		coverageEnd: String(row.coverage_end),
@@ -667,6 +764,27 @@ async function buildAdvancedRunHistoryEvents(
 			assigneeId: slotRow.assignee_id == null ? null : String(slotRow.assignee_id)
 		}))
 	}));
+}
+
+async function listDutyEventHistoryRowsForCoverage(
+	ctx: QueryPorts,
+	coverageStart: string,
+	coverageEnd: string
+): Promise<Record<string, unknown>[]> {
+	return ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		rangeFilters: [
+			{ column: 'coverage_start', op: 'lt', value: coverageEnd },
+			{ column: 'coverage_end', op: 'gt', value: addHours(coverageStart, -MAX_DUTY_EVENT_COOLDOWN_HOURS) }
+		]
+	});
+}
+
+async function listDutyEventSlotRowsForEvents(ctx: QueryPorts, eventIds: string[]): Promise<Record<string, unknown>[]> {
+	return eventIds.length > 0
+		? ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+				inFilters: { duty_event_id: eventIds }
+			})
+		: [];
 }
 
 async function expandSeriesDates(ctx: QueryPorts, input: DutyEventSeriesInput): Promise<string[]> {
@@ -704,7 +822,7 @@ async function expandSeriesDates(ctx: QueryPorts, input: DutyEventSeriesInput): 
 		}
 		case 'holiday-closure-only':
 			if (!input.startDate || !input.endDate) {
-				fail(400, 'Holiday/closure runs require both a start date and end date.');
+				fail(400, 'Holiday/DONSA runs require both a start date and end date.');
 			}
 			return getHolidayClosureDates(ctx, input.startDate, input.endDate);
 	}
@@ -930,10 +1048,28 @@ async function buildCollisionSummary(
 			inFilters: { assignee_id: assigneeIds, date: buildCoveredDates(coverageStart, coverageEnd) }
 		}
 	);
+	const assignmentTypeIds = [
+		...new Set(
+			dailyAssignmentRows
+				.map((row) => row.assignment_type_id)
+				.filter((id): id is string => typeof id === 'string' && id.length > 0)
+		)
+	];
+	const assignmentTypeRows =
+		assignmentTypeIds.length > 0
+			? await ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId, undefined, {
+					inFilters: { id: assignmentTypeIds }
+				})
+			: [];
+	const assignmentTypeNameById = new Map(
+		assignmentTypeRows.map((row) => [String(row.id), String(row.name ?? row.short_name ?? row.id)])
+	);
 
 	for (const row of dailyAssignmentRows) {
 		const assigneeId = String(row.assignee_id);
-		const message = `${formatPersonLabel(personnelById, assigneeId)} already has a daily assignment on ${String(row.date)}. Review this collision before apply.`;
+		const assignmentTypeId = typeof row.assignment_type_id === 'string' ? row.assignment_type_id : '';
+		const assignmentLabel = assignmentTypeNameById.get(assignmentTypeId) ?? 'a daily assignment';
+		const message = `${formatPersonLabel(personnelById, assigneeId)} already has ${assignmentLabel} on ${String(row.date)}. Review this collision before apply.`;
 		for (const slot of blockingSlotsByAssignee.get(assigneeId) ?? []) {
 			addSlotConflict(
 				slotMessages,
@@ -1292,39 +1428,6 @@ async function listPersonnel(ctx: QueryPorts): Promise<Personnel[]> {
 		]
 	});
 	return PersonnelEntity.fromDbArray(rows);
-}
-
-async function listStatusExemptPersonnelDatesForCoverage(
-	ctx: QueryPorts,
-	coverageStartDate: string,
-	coverageEndDate: string,
-	exemptStatusTypeIds: string[]
-): Promise<Map<string, string>> {
-	const statusTypeIds = [...new Set(exemptStatusTypeIds.map((statusTypeId) => statusTypeId.trim()).filter(Boolean))];
-	if (statusTypeIds.length === 0) {
-		return new Map();
-	}
-
-	const rows = await ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-		inFilters: { status_type_id: statusTypeIds },
-		rangeFilters: [
-			{ column: 'start_date', op: 'lte', value: coverageEndDate },
-			{ column: 'end_date', op: 'gte', value: coverageStartDate }
-		]
-	});
-
-	const personnelDates = new Map<string, string>();
-	for (const row of rows) {
-		const personnelId = row.personnel_id == null ? '' : String(row.personnel_id);
-		if (!personnelId || personnelDates.has(personnelId)) {
-			continue;
-		}
-
-		const statusStart = String(row.start_date);
-		personnelDates.set(personnelId, statusStart > coverageStartDate ? statusStart : coverageStartDate);
-	}
-
-	return personnelDates;
 }
 
 export async function applyDutyEventFromTemplate(
@@ -1708,17 +1811,27 @@ export async function previewDutyEventSeriesFromTemplate(
 	);
 	const templateHistoryIds = existingEventRows.map((row) => String(row.id));
 	const seriesCoverages = eventDates.map((eventDate) => buildAdvancedDutyCoverage(template, eventDate));
+	const coverageStart = seriesCoverages.map((coverage) => coverage.coverageStart).sort((a, b) => a.localeCompare(b))[0];
+	const coverageEnd = seriesCoverages.map((coverage) => coverage.coverageEnd).sort((a, b) => b.localeCompare(a))[0];
 	const coverageStartDate = seriesCoverages
 		.map((coverage) => coverage.coverageStart.slice(0, 10))
 		.sort((a, b) => a.localeCompare(b))[0];
 	const coverageEndDate = seriesCoverages
 		.map((coverage) => coverage.coverageEnd.slice(0, 10))
 		.sort((a, b) => b.localeCompare(a))[0];
+	const coverageHistoryRows = await listDutyEventHistoryRowsForCoverage(ctx, coverageStart, coverageEnd);
+	const historyRows = mergeRowsById(existingEventRows, coverageHistoryRows);
+	const historySlotRows = await listDutyEventSlotRowsForEvents(
+		ctx,
+		historyRows.map((row) => String(row.id))
+	);
 	const resolvedPreviewData: ResolvedPreviewData = {
 		allPersonnel: await listPersonnel(ctx),
 		availabilityEntries: await listAvailabilityEntriesForCoverage(ctx, coverageStartDate, coverageEndDate),
 		statusTypes: await listStatusTypes(ctx),
 		holidayClosureDates: await listHolidayClosureDateSet(ctx),
+		historyRows,
+		historySlotRows,
 		templateHistoryRows: existingEventRows,
 		templateHistorySlotRows:
 			templateHistoryIds.length > 0
@@ -1727,19 +1840,6 @@ export async function previewDutyEventSeriesFromTemplate(
 					})
 				: []
 	};
-	const statusExemptPersonnelDatesByEventDate = new Map<string, Map<string, string>>();
-	for (const eventDate of eventDates) {
-		const coverage = buildAdvancedDutyCoverage(template, eventDate);
-		statusExemptPersonnelDatesByEventDate.set(
-			eventDate,
-			await listStatusExemptPersonnelDatesForCoverage(
-				ctx,
-				coverage.coverageStart.slice(0, 10),
-				coverage.coverageEnd.slice(0, 10),
-				template.exemptStatusTypeIds ?? []
-			)
-		);
-	}
 	const allPersonnel = resolvedPreviewData.allPersonnel ?? [];
 	const personnelById = new Map(allPersonnel.map((person) => [person.id, person]));
 	const slotOverridesByEventDate = new Map<string, DutyEventSlotOverrideInput[] | undefined>(
@@ -1758,7 +1858,6 @@ export async function previewDutyEventSeriesFromTemplate(
 		holidayClosureDates: resolvedPreviewData.holidayClosureDates ?? new Set(),
 		historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 		excludedHistoryEventIdsByEventDate,
-		statusExemptPersonnelDatesByEventDate,
 		availabilityEntries: resolvedPreviewData.availabilityEntries,
 		statusTypes: resolvedPreviewData.statusTypes,
 		candidatePersonnelIds: input.candidatePersonnelIds,
@@ -1785,7 +1884,6 @@ export async function previewDutyEventSeriesFromTemplate(
 			holidayClosureDates: resolvedPreviewData.holidayClosureDates ?? new Set(),
 			historyEvents: await buildAdvancedRunHistoryEvents(ctx, template.id, resolvedPreviewData),
 			excludedHistoryEventIdsByEventDate,
-			statusExemptPersonnelDatesByEventDate,
 			availabilityEntries: resolvedPreviewData.availabilityEntries,
 			statusTypes: resolvedPreviewData.statusTypes,
 			candidatePersonnelIds: input.candidatePersonnelIds,
@@ -1827,7 +1925,8 @@ export async function previewDutyEventSeriesFromTemplate(
 		templateName: template.name,
 		pattern: input.pattern,
 		eventDates,
-		events
+		events,
+		da6Matrices: snapshot.da6Matrices
 	};
 	if (eventDates.length === 0) {
 		return publicPreview;

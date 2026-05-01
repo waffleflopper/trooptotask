@@ -3,7 +3,13 @@ export type DutyTemplateStatus = 'draft' | 'active' | 'archived';
 export type DutyTemplateScopeType = 'organization' | 'groups';
 export type DutyTemplateCoverageMode = 'all-day' | 'timed';
 export type DutyTemplateSlotBlockingMode = 'inherit' | 'blocking' | 'non-blocking';
-export type SoftPreferenceType = 'longest-break' | 'holiday-closure' | 'weekend' | 'preferred-group';
+export type SoftPreferenceType =
+	| 'longest-break'
+	| 'separate-weekend-da6'
+	| 'include-holiday-donsa-da6'
+	| 'holiday-closure'
+	| 'weekend'
+	| 'preferred-group';
 export type DutyEventSeriesPattern =
 	| 'daily'
 	| 'weekday-only'
@@ -18,15 +24,27 @@ export interface SoftPreferenceConfig {
 	enabled: boolean;
 }
 
-export const DEFAULT_SOFT_PREFERENCE_ORDER = [
+export const DEFAULT_SOFT_PREFERENCE_CONFIG = [
+	{ type: 'longest-break', enabled: true },
+	{ type: 'separate-weekend-da6', enabled: false },
+	{ type: 'include-holiday-donsa-da6', enabled: false }
+] as const satisfies readonly SoftPreferenceConfig[];
+
+export const DEFAULT_SOFT_PREFERENCE_ORDER = DEFAULT_SOFT_PREFERENCE_CONFIG.map((preference) => preference.type) as [
 	'longest-break',
+	'separate-weekend-da6',
+	'include-holiday-donsa-da6'
+];
+
+export const PERSISTED_SOFT_PREFERENCE_TYPES = [
+	...DEFAULT_SOFT_PREFERENCE_ORDER,
 	'holiday-closure',
 	'weekend',
 	'preferred-group'
 ] as const satisfies readonly SoftPreferenceType[];
 
 export function cloneDefaultSoftPreferences(): SoftPreferenceConfig[] {
-	return DEFAULT_SOFT_PREFERENCE_ORDER.map((type) => ({ type, enabled: true }));
+	return DEFAULT_SOFT_PREFERENCE_CONFIG.map((preference) => ({ ...preference }));
 }
 
 export interface DutyTemplateSlot {
@@ -203,7 +221,69 @@ export interface DutyEventPreviewSlotInstance {
 	selectionReason: string | null;
 	unfilledReason: string | null;
 	overrideMessages?: string[];
+	candidateRankings?: DutyEventSlotCandidateRanking[];
 	sortOrder: number;
+}
+
+export interface DutyEventSlotCandidateRanking {
+	personnelId: string;
+	rank: number;
+}
+
+export type AdvancedDutyDa6CellCode =
+	| 'assigned'
+	| 'available-not-selected'
+	| 'authorized-absence'
+	| 'blocked-by-duty'
+	| 'blocked-by-cooldown'
+	| 'misconduct-unavailable';
+
+export type AdvancedDutyDa6SequenceKey = 'single' | 'weekday' | 'weekend-holiday';
+
+export interface AdvancedDutyDa6MatrixColumn {
+	eventDate: string;
+	coverageStart: string;
+	coverageEnd: string;
+	sequenceKey: AdvancedDutyDa6SequenceKey;
+	sequenceLabel: string;
+	chargeSequenceStart: number | null;
+	chargeableCount: number;
+}
+
+export interface AdvancedDutyDa6MatrixCell {
+	eventDate: string;
+	personnelId: string;
+	code: AdvancedDutyDa6CellCode;
+	da6Code: 'A' | 'D' | 'U' | null;
+	chargeable: boolean;
+	queuePosition: number | null;
+	sequenceNumber: number | null;
+	assigned: boolean;
+	reason: string | null;
+	reasonCode: string | null;
+}
+
+export interface AdvancedDutyDa6MatrixRow {
+	personnelId: string;
+	display: {
+		id: string;
+		rank: string;
+		firstName: string;
+		lastName: string;
+		groupName: string;
+	};
+	cells: AdvancedDutyDa6MatrixCell[];
+}
+
+export interface AdvancedDutyDa6Matrix {
+	templateSlotId: string;
+	roleLabel: string;
+	rotationPoolKey: string;
+	sequenceKey: AdvancedDutyDa6SequenceKey;
+	sequenceLabel: string;
+	numberingMode: 'single-sequence' | 'separate-weekend-holiday';
+	columns: AdvancedDutyDa6MatrixColumn[];
+	rows: AdvancedDutyDa6MatrixRow[];
 }
 
 export interface DutyEventRecord {
@@ -318,6 +398,8 @@ export interface DutyEventPreview {
 	templateId: string;
 	templateName: string;
 	eventDate: string;
+	advancedDa6SequenceKey?: 'single' | 'weekday' | 'weekend-holiday';
+	advancedDa6SequenceLabel?: string;
 	coverageMode: DutyTemplateCoverageMode;
 	coverageStart: string;
 	coverageEnd: string;
@@ -352,6 +434,7 @@ export interface DutyEventSeriesPreview {
 	pattern: DutyEventSeriesPattern;
 	eventDates: string[];
 	events: DutyEventPreview[];
+	da6Matrices?: AdvancedDutyDa6Matrix[];
 }
 
 export interface DutyEventSeriesApplyResult {

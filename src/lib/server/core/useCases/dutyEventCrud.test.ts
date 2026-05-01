@@ -44,6 +44,19 @@ async function applyDutyEventSeriesFromTemplate(
 	});
 }
 
+function seedAuthorizedAbsenceStatus(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('status_types', [
+		{
+			id: 'status-leave',
+			organization_id: ctx.auth.orgId,
+			name: 'Leave',
+			color: '#48bb78',
+			text_color: '#ffffff',
+			da6_availability_treatment: 'authorized-absence'
+		}
+	]);
+}
+
 describe('duty event apply use case', () => {
 	it('rejects single-event apply without approved snapshot metadata', async () => {
 		const ctx = createTestContext();
@@ -214,6 +227,7 @@ describe('duty event apply use case', () => {
 
 	it('applies the approved single-event snapshot even when status availability changes after preview', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -245,7 +259,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '08:00',
@@ -863,6 +876,15 @@ describe('duty event apply use case', () => {
 				assignee_id: 'person-nco'
 			}
 		]);
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-existing',
+				organization_id: ctx.auth.orgId,
+				name: 'Ammo Detail',
+				color: '#6b7280',
+				sort_order: 0
+			}
+		]);
 
 		const template = await createDutyTemplate(ctx, {
 			status: 'active',
@@ -893,7 +915,7 @@ describe('duty event apply use case', () => {
 
 		expect(preview.collisionSummary).toEqual({
 			hasConflicts: true,
-			conflicts: ['SGT Nolan already has a daily assignment on 2026-04-10. Review this collision before apply.']
+			conflicts: ['SGT Nolan already has Ammo Detail on 2026-04-10. Review this collision before apply.']
 		});
 
 		await expect(
@@ -986,7 +1008,7 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('treats a persisted blocking slot override as blocking even when the template is non-blocking', async () => {
+	it('treats a persisted blocking slot override as unavailable even when the template is non-blocking', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -1037,8 +1059,12 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.collisionSummary).toEqual({
-			hasConflicts: true,
-			conflicts: ['SGT Nolan is still in cooldown until 2026-04-11T17:00:00. Review this collision before apply.']
+			hasConflicts: false,
+			conflicts: []
+		});
+		expect(preview.slotInstances[0]).toMatchObject({
+			assigneeId: null,
+			unfilledReason: 'No eligible Soldier remained after availability and blocking checks.'
 		});
 	});
 
@@ -1065,6 +1091,15 @@ describe('duty event apply use case', () => {
 				date: '2026-04-11',
 				assignment_type_id: 'at-existing',
 				assignee_id: 'person-nco'
+			}
+		]);
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-existing',
+				organization_id: ctx.auth.orgId,
+				name: 'Range Detail',
+				color: '#6b7280',
+				sort_order: 0
 			}
 		]);
 
@@ -1097,7 +1132,7 @@ describe('duty event apply use case', () => {
 
 		expect(preview.collisionSummary).toEqual({
 			hasConflicts: true,
-			conflicts: ['SGT Nolan already has a daily assignment on 2026-04-11. Review this collision before apply.']
+			conflicts: ['SGT Nolan already has Range Detail on 2026-04-11. Review this collision before apply.']
 		});
 
 		await expect(
@@ -1195,10 +1230,12 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.collisionSummary).toEqual({
-			hasConflicts: true,
-			conflicts: [
-				'SGT Nolan is already assigned to duty coverage from 2026-04-10T06:00:00 to 2026-04-10T18:00:00. Review this collision before apply.'
-			]
+			hasConflicts: false,
+			conflicts: []
+		});
+		expect(preview.slotInstances[0]).toMatchObject({
+			assigneeId: null,
+			unfilledReason: 'No eligible Soldier remained after availability and blocking checks.'
 		});
 	});
 
@@ -1498,7 +1535,11 @@ describe('duty event apply use case', () => {
 		expect(result.events).toHaveLength(1);
 		expect(result.events[0].slotInstances[0]).toMatchObject({
 			roleLabel: 'NCO',
-			assigneeId: 'person-long-break'
+			assigneeId: 'person-long-break',
+			candidateRankings: [
+				{ personnelId: 'person-long-break', rank: 1 },
+				{ personnelId: 'person-recent-duty', rank: 2 }
+			]
 		});
 	});
 
@@ -1805,6 +1846,7 @@ describe('duty event apply use case', () => {
 
 	it('treats configured calendar statuses as day-scoped exemptions during advanced generation', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -1846,7 +1888,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '08:00',
@@ -1878,8 +1919,9 @@ describe('duty event apply use case', () => {
 		expect(preview.events[1].slotInstances[0].assigneeId).toBe('person-exempt-on-day-one');
 	});
 
-	it('treats next-day exempt statuses as unavailable for overnight advanced duty coverage', async () => {
+	it('treats next-day DA6-treated statuses as unavailable for overnight advanced duty coverage', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -1921,7 +1963,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '18:00',
 			endTime: '06:00',
@@ -2620,8 +2661,9 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('blocks apply when a manual override assigns someone with an exempt status', async () => {
+	it('blocks apply when a manual override assigns someone with a DA6-treated unavailable status', async () => {
 		const ctx = createTestContext();
+		seedAuthorizedAbsenceStatus(ctx);
 
 		ctx.store.seed('personnel', [
 			{
@@ -2663,7 +2705,6 @@ describe('duty event apply use case', () => {
 			name: 'Battalion Staff Duty',
 			scopeType: 'groups',
 			scopeGroupIds: ['group-hq'],
-			exemptStatusTypeIds: ['status-leave'],
 			coverageMode: 'timed',
 			startTime: '08:00',
 			endTime: '20:00',
@@ -2700,7 +2741,7 @@ describe('duty event apply use case', () => {
 			warningState: 'conflict'
 		});
 		expect(preview.slotInstances[0]?.overrideMessages).toContain(
-			'SGT Status has an exempt status for 2026-04-10 and cannot be manually assigned.'
+			'SGT Status has authorized absence status (Leave) during this duty window.'
 		);
 
 		await expect(
@@ -3097,7 +3138,7 @@ describe('duty event apply use case', () => {
 		});
 	});
 
-	it('prefers selected groups when longest-break history is otherwise tied', async () => {
+	it('uses DA6 roster order instead of preferred groups when longest-break history is tied', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3154,11 +3195,11 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.slotInstances[0]).toMatchObject({
-			assigneeId: 'person-preferred'
+			assigneeId: 'person-not-preferred'
 		});
 	});
 
-	it('avoids more recent weekend duty before applying the preferred-group tie-break', async () => {
+	it('uses the separate weekend DA6 sequence for weekend ranking when enabled', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3195,6 +3236,11 @@ describe('duty event apply use case', () => {
 			endTime: '08:00',
 			isBlocking: true,
 			cooldownHours: 24,
+			softPreferences: [
+				{ type: 'longest-break', enabled: true },
+				{ type: 'separate-weekend-da6', enabled: true },
+				{ type: 'include-holiday-donsa-da6', enabled: false }
+			],
 			slots: [
 				{
 					roleLabel: 'NCO',
@@ -3358,9 +3404,13 @@ describe('duty event apply use case', () => {
 		expect(preview.slotInstances[0]).toMatchObject({
 			assigneeId: 'person-weekend-rested'
 		});
+		expect(preview).toMatchObject({
+			advancedDa6SequenceKey: 'weekend-holiday',
+			advancedDa6SequenceLabel: 'separate weekend DA6 sequence'
+		});
 	});
 
-	it('uses the saved soft-preference order when preferred groups should outrank weekend spacing', async () => {
+	it('normalizes legacy soft preferences without restoring preferred-group ranking', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -3496,11 +3546,11 @@ describe('duty event apply use case', () => {
 		});
 
 		expect(preview.slotInstances[0]).toMatchObject({
-			assigneeId: 'person-weekend-preferred'
+			assigneeId: 'person-weekend-rested'
 		});
 	});
 
-	it('avoids back-to-back holiday or closure duty before applying later soft preferences', async () => {
+	it('uses the weekend DA6 sequence for holidays and DONSAs when included', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('special_days', [
@@ -3561,6 +3611,11 @@ describe('duty event apply use case', () => {
 			endTime: '08:00',
 			isBlocking: true,
 			cooldownHours: 24,
+			softPreferences: [
+				{ type: 'longest-break', enabled: true },
+				{ type: 'separate-weekend-da6', enabled: true },
+				{ type: 'include-holiday-donsa-da6', enabled: true }
+			],
 			slots: [
 				{
 					roleLabel: 'NCO',
@@ -3723,6 +3778,10 @@ describe('duty event apply use case', () => {
 
 		expect(preview.slotInstances[0]).toMatchObject({
 			assigneeId: 'person-holiday-rested'
+		});
+		expect(preview).toMatchObject({
+			advancedDa6SequenceKey: 'weekend-holiday',
+			advancedDa6SequenceLabel: 'separate weekend, holiday, and DONSA DA6 sequence'
 		});
 	});
 
@@ -4442,6 +4501,95 @@ describe('duty event apply use case', () => {
 			end_date: '2026-04-12',
 			event_count: 3
 		});
+	});
+
+	it('excludes Soldiers assigned or cooling down from other blocking templates during series preview', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Avery',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const blockingTemplate = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Template 1 Blocking Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '20:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+		const previewTemplate = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Template 2 Blocking Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '20:00',
+			isBlocking: true,
+			cooldownHours: 0,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: blockingTemplate.id,
+			eventDate: '2026-04-10'
+		});
+		expect(applied.slotInstances[0]).toMatchObject({ assigneeId: 'person-alpha' });
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: previewTemplate.id,
+			pattern: 'daily',
+			startDate: '2026-04-10',
+			endDate: '2026-04-11'
+		});
+
+		expect(preview.events.map((event) => event.slotInstances[0].assigneeId)).toEqual(['person-bravo', 'person-bravo']);
+		expect(preview.events[0].slotInstances[0].overrideMessages).toEqual([]);
+		expect(preview.events[1].slotInstances[0].overrideMessages).toEqual([]);
 	});
 });
 

@@ -14,6 +14,7 @@ supabase/seed.sql
 # Generated
 .vercel/
 .env*
+.sandcastle/
 
 # Documentation with pseudo-code
 CLAUDE.md
@@ -21,3 +22,7 @@ docs/
 
 # Worktrees
 .claude/
+
+# Vendored agent skills
+.agents/skills/impeccable/
+skills-lock.json

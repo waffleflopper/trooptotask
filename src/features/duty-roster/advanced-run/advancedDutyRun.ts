@@ -1437,15 +1437,17 @@ function buildEventDa6Matrices(input: {
 }
 
 function buildAdvancedDa6Matrices(input: { events: AdvancedEventSnapshot[] }): AdvancedDutyDa6Matrix[] {
-	const sequenceCountersByMatrix = new Map<string, number>();
+	const sequencePeriodCountersByMatrix = new Map<string, number>();
+	const sequenceBaseByMatrixPerson = new Map<string, number>();
 	const matricesByKey = new Map<string, AdvancedDutyDa6Matrix>();
 
 	for (const event of input.events) {
 		for (const eventMatrix of event.da6Matrices) {
 			const matrixKey = `${eventMatrix.templateSlotId}::${eventMatrix.sequenceKey}`;
+			const sequencePeriodIndex = sequencePeriodCountersByMatrix.get(matrixKey) ?? 0;
 			const chargeSequenceStart =
 				eventMatrix.columns[0]?.chargeableCount && eventMatrix.columns[0].chargeableCount > 0
-					? (sequenceCountersByMatrix.get(matrixKey) ?? 0) + 1
+					? sequencePeriodIndex + 1
 					: null;
 			const sourceRowsById = new Map(eventMatrix.rows.map((row) => [row.personnelId, row] as const));
 			const column = eventMatrix.columns[0]
@@ -1474,17 +1476,19 @@ function buildAdvancedDa6Matrices(input: { events: AdvancedEventSnapshot[] }): A
 				const sourceCell = sourceRow?.cells[0];
 				if (!sourceCell) continue;
 				const queuePosition = sourceCell.queuePosition ?? null;
+				const sequenceBaseKey = `${matrixKey}::${row.personnelId}`;
+				let sequenceBase = sequenceBaseByMatrixPerson.get(sequenceBaseKey);
+				if (sequenceBase === undefined && queuePosition !== null) {
+					sequenceBase = queuePosition - sequencePeriodIndex;
+					sequenceBaseByMatrixPerson.set(sequenceBaseKey, sequenceBase);
+				}
 				row.cells.push({
 					...sourceCell,
-					sequenceNumber:
-						chargeSequenceStart !== null && queuePosition !== null ? chargeSequenceStart + queuePosition - 1 : null
+					sequenceNumber: sequenceBase === undefined ? null : sequenceBase + sequencePeriodIndex
 				});
 			}
 
-			sequenceCountersByMatrix.set(
-				matrixKey,
-				(sequenceCountersByMatrix.get(matrixKey) ?? 0) + (eventMatrix.columns[0]?.chargeableCount ?? 0)
-			);
+			sequencePeriodCountersByMatrix.set(matrixKey, sequencePeriodIndex + 1);
 		}
 	}
 

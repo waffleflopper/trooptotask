@@ -2,34 +2,41 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 
-const { buildLayoutContextMock, fetchDashboardTrainingSummaryMock, findManyWithCountMock, findManyMock, mockCtx } =
-	vi.hoisted(() => {
-		const ORG_ID = '11111111-1111-1111-1111-111111111111';
-		const findManyWithCountMock = vi.fn();
-		const findManyMock = vi.fn();
+const {
+	buildLayoutContextMock,
+	fetchCriticalTasksReportDashboardMock,
+	fetchDashboardTrainingSummaryMock,
+	findManyWithCountMock,
+	findManyMock,
+	mockCtx
+} = vi.hoisted(() => {
+	const ORG_ID = '11111111-1111-1111-1111-111111111111';
+	const findManyWithCountMock = vi.fn();
+	const findManyMock = vi.fn();
 
-		return {
-			buildLayoutContextMock: vi.fn(),
-			fetchDashboardTrainingSummaryMock: vi.fn(),
-			findManyWithCountMock,
-			findManyMock,
-			mockCtx: {
-				auth: {
-					orgId: ORG_ID,
-					userId: 'user-1',
-					requireView: vi.fn(),
-					requireEdit: vi.fn(),
-					requirePrivileged: vi.fn(),
-					requireOwner: vi.fn(),
-					requireManageMembers: vi.fn()
-				},
-				store: {
-					findManyWithCount: findManyWithCountMock,
-					findMany: findManyMock
-				}
+	return {
+		buildLayoutContextMock: vi.fn(),
+		fetchCriticalTasksReportDashboardMock: vi.fn(),
+		fetchDashboardTrainingSummaryMock: vi.fn(),
+		findManyWithCountMock,
+		findManyMock,
+		mockCtx: {
+			auth: {
+				orgId: ORG_ID,
+				userId: 'user-1',
+				requireView: vi.fn(),
+				requireEdit: vi.fn(),
+				requirePrivileged: vi.fn(),
+				requireOwner: vi.fn(),
+				requireManageMembers: vi.fn()
+			},
+			store: {
+				findManyWithCount: findManyWithCountMock,
+				findMany: findManyMock
 			}
-		};
-	});
+		}
+	};
+});
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
@@ -45,6 +52,10 @@ vi.mock('$lib/server/core/useCases/trainingSummaryQuery', () => ({
 	fetchDashboardTrainingSummary: fetchDashboardTrainingSummaryMock
 }));
 
+vi.mock('$lib/server/core/useCases/criticalTasksReportsQuery', () => ({
+	fetchCriticalTasksReportDashboard: fetchCriticalTasksReportDashboardMock
+}));
+
 import { load } from './+page.server';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
@@ -56,6 +67,85 @@ describe('dashboard page server load', () => {
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: new Set<string>()
+		});
+		fetchCriticalTasksReportDashboardMock.mockResolvedValue({
+			kpis: {
+				overallReadiness: { percent: 68, deltaPercent: -4, readyCount: 17, applicableCount: 25 },
+				soldiersBelow70: { count: 3, totalApplicable: 8, thresholdPercent: 70 },
+				tasksExpiringSoon: { count: 5, affectedSoldiers: 4, windowDays: 60 },
+				tasksBelowThreshold: { count: 2, thresholdPercent: 70 }
+			},
+			tasksBelowThreshold: {
+				thresholdPercent: 70,
+				rows: [
+					{
+						taskId: 'task-1',
+						taskCode: 'ICT-1',
+						taskName: 'React to contact',
+						percentComplete: 40,
+						soldierGapCount: 3,
+						applicableCount: 5,
+						completeCount: 2
+					}
+				]
+			},
+			atRiskSoldiers: {
+				rows: [
+					{
+						personnelId: 'person-1',
+						soldierName: 'Smith, Ann',
+						mos: '11B',
+						rank: 'SGT',
+						groupName: 'Alpha',
+						readinessPercent: 50,
+						applicableCount: 4,
+						readyCount: 2,
+						tasksExpiringSoonCount: 1,
+						daysSinceLastIctUpdate: 45,
+						lastIctUpdateAt: '2026-03-09'
+					}
+				]
+			},
+			readinessTrend: {
+				comparisonMos: ['11B'],
+				months: [
+					{
+						month: '2026-04',
+						label: 'Apr',
+						overallReadinessPercent: 68,
+						overallReadyCount: 17,
+						overallApplicableCount: 25,
+						mosReadiness: []
+					}
+				]
+			},
+			expirationCliff: {
+				mosSeries: [],
+				months: [],
+				projectedReadinessAtMonth6: {
+					month: '2026-10',
+					label: 'Oct',
+					readinessPercent: 64,
+					readyCount: 16,
+					applicableCount: 25
+				}
+			},
+			readinessMatrix: {
+				hasCategorizedTasks: false,
+				categories: [{ key: '__uncategorized__', label: 'Uncategorized', isUncategorized: true }],
+				rows: [
+					{
+						mos: '11B',
+						personnelCount: 5,
+						averageReadinessPercent: 60,
+						averageReadyCount: 12,
+						averageApplicableCount: 20,
+						averageTier: 'warn',
+						cells: []
+					}
+				]
+			},
+			readinessDistribution: { bins: [], defaultMos: null, series: [] }
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
@@ -69,6 +159,7 @@ describe('dashboard page server load', () => {
 		});
 		const depends = vi.fn();
 		const parent = vi.fn().mockResolvedValue({
+			permissions: { canViewCriticalTasks: true },
 			dashboard: {
 				data: workspaceBootstrap
 			}
@@ -110,7 +201,45 @@ describe('dashboard page server load', () => {
 
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: { stats: null, issues: [] },
-			onboardingTrainingCompletions: []
+			onboardingTrainingCompletions: [],
+			ictlSummary: {
+				hasActiveTasks: true,
+				overallReadinessPercent: 68,
+				overallDeltaPercent: -4,
+				readyCount: 17,
+				applicableCount: 25,
+				soldiersBelowThresholdCount: 3,
+				soldiersBelowThresholdTotal: 8,
+				thresholdPercent: 70,
+				expiringSoonCount: 5,
+				expiringSoonAffectedSoldiers: 4,
+				expiringSoonWindowDays: 60,
+				tasksBelowThresholdCount: 2,
+				projectedReadinessPercent: 64,
+				mosReadiness: [{ mos: '11B', personnelCount: 5, readinessPercent: 60 }],
+				trend: [{ month: '2026-04', label: 'Apr', readinessPercent: 68 }],
+				tasksBelowThreshold: [
+					{
+						taskId: 'task-1',
+						taskCode: 'ICT-1',
+						taskName: 'React to contact',
+						percentComplete: 40,
+						soldierGapCount: 3
+					}
+				],
+				atRiskSoldiers: [
+					{
+						personnelId: 'person-1',
+						soldierName: 'Smith, Ann',
+						mos: '11B',
+						rank: 'SGT',
+						groupName: 'Alpha',
+						readinessPercent: 50,
+						tasksExpiringSoonCount: 1,
+						daysSinceLastIctUpdate: 45
+					}
+				]
+			}
 		});
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
 			'[dashboard-load]',
@@ -131,5 +260,52 @@ describe('dashboard page server load', () => {
 				issueStatuses: ['expired', 'warning-orange']
 			}
 		});
+		expect(fetchCriticalTasksReportDashboardMock).toHaveBeenCalledOnce();
+	});
+
+	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {
+		let resolveWorkspace: ((value: WorkspaceBootstrap<DashboardBootstrap>) => void) | undefined;
+		const workspaceBootstrap = new Promise<WorkspaceBootstrap<DashboardBootstrap>>((resolve) => {
+			resolveWorkspace = resolve;
+		});
+		const parent = vi.fn().mockResolvedValue({
+			permissions: { canViewCriticalTasks: false },
+			dashboard: {
+				data: workspaceBootstrap
+			}
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: {},
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		resolveWorkspace?.({
+			workspace: 'dashboard',
+			data: {
+				availabilityEntries: [],
+				assignmentTypes: [],
+				todayAssignments: [],
+				pinnedGroups: [],
+				ratingSchemeEntries: [],
+				activeOnboardings: [],
+				todayDutyEvents: [],
+				personnel: [],
+				groups: [],
+				statusTypes: [],
+				trainingTypes: [],
+				lossWarningWindowDays: 180
+			} as unknown as DashboardBootstrap
+		});
+
+		await expect(result.summary).resolves.toEqual({
+			trainingSummary: { stats: null, issues: [] },
+			onboardingTrainingCompletions: [],
+			ictlSummary: null
+		});
+		expect(fetchCriticalTasksReportDashboardMock).not.toHaveBeenCalled();
 	});
 });

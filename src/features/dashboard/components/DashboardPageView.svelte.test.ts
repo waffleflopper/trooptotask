@@ -79,7 +79,10 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 			hasTrainingIssues: false,
 			delinquencies: [],
 			maxGroupCount: 1,
-			groupedIndividuals: []
+			groupedIndividuals: [],
+			ictl: {
+				state: 'hidden'
+			}
 		},
 		trainingStats: {
 			expired: 0,
@@ -186,5 +189,74 @@ describe('DashboardPageView', () => {
 
 		expect(screen.queryByText('Workspace support')).toBeNull();
 		expect(screen.queryByText('Review checklist')).toBeNull();
+	});
+
+	it('renders the compact ICTL dashboard item instead of the old placeholder for Critical Tasks viewers', async () => {
+		global.fetch = vi.fn(
+			async () => new Response(JSON.stringify({ config: { version: 3, widgets: [], defaultTab: 'training-evals' } }))
+		);
+		dashboardTabStore.setTab('training-evals');
+		const ctx = makeCtx({
+			data: {
+				permissions: {
+					canViewTraining: true,
+					canViewRatingScheme: true,
+					canViewCriticalTasks: true
+				}
+			},
+			trainingEvals: {
+				evalsDueSoon: [],
+				trainingColor: 'var(--success)',
+				hasTrainingIssues: false,
+				delinquencies: [],
+				maxGroupCount: 1,
+				groupedIndividuals: [],
+				ictl: {
+					state: 'ready',
+					readinessColor: 'var(--danger)',
+					readinessLabel: '68% ready',
+					deltaLabel: 'down 4 pts vs 30d',
+					readyCount: 17,
+					applicableCount: 25,
+					primaryConcern: '3 of 8 Soldiers below 70%',
+					expiringSoonLabel: '5 tasks expiring <=60d across 4 Soldiers',
+					tasksBelowThresholdLabel: '2 tasks below unit threshold',
+					projectedReadinessLabel: '64% projected in 6 months',
+					mosReadiness: [{ mos: '11B', personnelCount: 5, readinessPercent: 60 }],
+					tasksBelowThreshold: [
+						{
+							taskId: 'task-1',
+							taskCode: 'ICT-1',
+							taskName: 'React to contact',
+							percentComplete: 40,
+							soldierGapCount: 3
+						}
+					],
+					atRiskSoldiers: [
+						{
+							personnelId: 'person-1',
+							soldierName: 'Smith, Ann',
+							mos: '11B',
+							rank: 'SGT',
+							groupName: 'Alpha',
+							readinessPercent: 50,
+							tasksExpiringSoonCount: 1,
+							daysSinceLastIctUpdate: 45
+						}
+					],
+					reportHref: '/org/org-1/critical-tasks/reports'
+				}
+			}
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(await screen.findByRole('region', { name: 'Critical Tasks summary' })).toBeTruthy();
+		expect(screen.queryByText(/coming soon/i)).toBeNull();
+		expect(screen.getByText('68% ready')).toBeTruthy();
+		expect(screen.getByText('3 of 8 Soldiers below 70%')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open reports' }).getAttribute('href')).toBe(
+			'/org/org-1/critical-tasks/reports'
+		);
 	});
 });

@@ -10,6 +10,7 @@ import {
 	listDutyEvents,
 	listDutyEventsForCalendar,
 	listDutyEventsInRange,
+	listVisibleAdvancedDutyRunSnapshots,
 	previewDutyEventFromTemplate,
 	previewExistingDutyEvent,
 	previewDutyEventSeriesFromTemplate,
@@ -432,6 +433,94 @@ describe('duty event apply use case', () => {
 			status: 400,
 			message: 'Regenerate the advanced duty preview before applying.'
 		});
+	});
+
+	it('lists resumable persisted advanced snapshots across reload boundaries', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }]
+		});
+
+		await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+		const applyingPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-11'
+		});
+		const failedPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-12'
+		});
+		const partialPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-13'
+		});
+		const appliedPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-14'
+		});
+		const expiredPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-15'
+		});
+
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, applyingPreview.snapshotId ?? '', {
+			status: 'applying'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, failedPreview.snapshotId ?? '', {
+			status: 'apply-failed'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, partialPreview.snapshotId ?? '', {
+			status: 'partial-failure'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, appliedPreview.snapshotId ?? '', {
+			status: 'applied'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, expiredPreview.snapshotId ?? '', {
+			status: 'expired',
+			expires_at: '2026-04-01T00:00:00.000Z'
+		});
+
+		const snapshots = await listVisibleAdvancedDutyRunSnapshots(ctx);
+		const snapshotIds = snapshots.map((snapshot) => snapshot.id);
+		const snapshotStatuses = snapshots.map((snapshot) => snapshot.status);
+
+		expect(snapshotStatuses).toContain('applied');
+		expect(snapshotStatuses).toContain('partial-failure');
+		expect(snapshotStatuses).toContain('apply-failed');
+		expect(snapshotStatuses).toContain('applying');
+		expect(snapshotStatuses).not.toContain('expired');
+		expect(snapshotIds).toContain(appliedPreview.snapshotId);
+		expect(snapshotIds).toContain(partialPreview.snapshotId);
+		expect(snapshotIds).toContain(failedPreview.snapshotId);
+		expect(snapshotIds).toContain(applyingPreview.snapshotId);
+		expect(snapshotIds).not.toContain(expiredPreview.snapshotId);
 	});
 
 	it('applies one advanced timed duty event as a parent event with slot instances', async () => {

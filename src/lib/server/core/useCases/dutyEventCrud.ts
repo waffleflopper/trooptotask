@@ -46,7 +46,8 @@ import type {
 } from '$features/duty-roster/duty-roster.types';
 import {
 	cloneDefaultSoftPreferences,
-	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder
+	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder,
+	isResumableAdvancedDutyRunSnapshotStatus
 } from '$features/duty-roster/duty-roster.types';
 
 interface SlotCollisionCheckResult {
@@ -426,7 +427,7 @@ export async function listVisibleAdvancedDutyRunSnapshots(ctx: QueryPorts): Prom
 		if (snapshot.status === 'draft') {
 			return snapshot.expiresAt > now;
 		}
-		return snapshot.status === 'applied' || snapshot.status === 'applying' || snapshot.status === 'partial-failure';
+		return snapshot.status === 'applied' || isResumableAdvancedDutyRunSnapshotStatus(snapshot.status);
 	});
 }
 

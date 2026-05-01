@@ -281,6 +281,10 @@
 		activeTab = 'advanced-templates';
 	}
 
+	function handleRecoverPartialApply() {
+		activeAdvancedWorkspaceView = 'applied-events';
+	}
+
 	function upsertDraftSnapshot(snapshot: AdvancedDutyRunSnapshotRecord | null) {
 		if (!snapshot) return;
 		advancedDutySnapshots = [snapshot, ...advancedDutySnapshots.filter((item) => item.id !== snapshot.id)];
@@ -684,9 +688,7 @@
 					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
 					{canManageAdvancedTemplates}
 					onManageAdvancedTemplates={handleManageAdvancedTemplates}
-					onRecoverPartialApply={() => {
-						activeAdvancedWorkspaceView = 'applied-events';
-					}}
+					onRecoverPartialApply={handleRecoverPartialApply}
 					{resumeSnapshot}
 				/>
 			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}

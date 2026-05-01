@@ -132,6 +132,7 @@
 										<input
 											type="text"
 											class="input deny-input"
+											aria-label="Denial reason"
 											placeholder="Reason"
 											bind:value={denialReason}
 											onkeydown={(event) => {

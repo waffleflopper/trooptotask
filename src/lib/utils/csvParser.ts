@@ -85,6 +85,17 @@ function parseDelimitedText(text: string): string[][] {
 	let cell = '';
 	let inQuotes = false;
 
+	function finishCell() {
+		row.push(cell.trim());
+		cell = '';
+	}
+
+	function finishRow() {
+		finishCell();
+		if (row.some((value) => value.length > 0)) rows.push(row);
+		row = [];
+	}
+
 	for (let index = 0; index < text.length; index += 1) {
 		const char = text[index];
 		const next = text[index + 1];
@@ -100,25 +111,20 @@ function parseDelimitedText(text: string): string[][] {
 		}
 
 		if (char === ',' && !inQuotes) {
-			row.push(cell.trim());
-			cell = '';
+			finishCell();
 			continue;
 		}
 
 		if ((char === '\n' || char === '\r') && !inQuotes) {
 			if (char === '\r' && next === '\n') index += 1;
-			row.push(cell.trim());
-			if (row.some((value) => value.length > 0)) rows.push(row);
-			row = [];
-			cell = '';
+			finishRow();
 			continue;
 		}
 
 		cell += char;
 	}
 
-	row.push(cell.trim());
-	if (row.some((value) => value.length > 0)) rows.push(row);
+	finishRow();
 
 	return rows;
 }

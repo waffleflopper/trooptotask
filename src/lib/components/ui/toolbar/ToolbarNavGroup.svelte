@@ -25,9 +25,8 @@
 		{@const disabledReasonId = item.disabledReason ? getDisabledReasonId(item, index) : undefined}
 		{#if item.disabled}
 			<span
-				class="toolbar-nav-group__item"
+				class="toolbar-nav-group__item disabled"
 				class:active={item.active}
-				class:disabled={item.disabled}
 				aria-current={item.active ? 'page' : undefined}
 				aria-disabled="true"
 				aria-describedby={disabledReasonId}

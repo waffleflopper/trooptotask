@@ -101,6 +101,18 @@ export interface PolicyEvaluator {
 	evaluate(input: PolicyEvaluationInput): PolicyDecision;
 }
 
+type PolicyDecisionResult = Pick<PolicyDecision, 'allowed' | 'reasonCode'> &
+	Partial<Pick<PolicyDecision, 'matchedCapability' | 'matchedScope' | 'blockingOverlay'>>;
+
+const GOVERNANCE_MEMBERSHIP_ROLES = new Set<MembershipRole>(['owner', 'admin']);
+
+const CAPABILITY_RANK: Record<CapabilityLevel, number> = {
+	none: 0,
+	view: 1,
+	operate: 2,
+	configure: 3
+};
+
 export const POLICY_ACTION_CATALOG = {
 	calendar: {
 		viewAvailability: featureAction({
@@ -189,11 +201,7 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 	}
 
 	const action = input.action;
-	const matchedCapability = {
-		lane: action.owner.lane,
-		actual: input.capabilityMap[action.owner.lane] ?? 'none',
-		required: action.requiredCapability
-	};
+	const matchedCapability = matchCapability(input.capabilityMap, action);
 
 	if (!capabilityMeets(matchedCapability.actual, matchedCapability.required)) {
 		return buildDecision(input, {
@@ -240,34 +248,32 @@ function evaluateGovernancePolicy(
 	input: PolicyEvaluationInput,
 	action: OrganizationGovernancePolicyAction
 ): PolicyDecision {
+	const matchedScope = matchScope(input.scopeSet, input.resource);
+
 	if (action.owner.access === 'owner-only' && input.actor.membershipRole !== 'owner') {
 		return buildDecision(input, {
 			allowed: false,
 			reasonCode: POLICY_REASON_CODES.deniedOwnerOnly,
-			matchedScope: matchScope(input.scopeSet, input.resource)
+			matchedScope
 		});
 	}
 
-	if (!['owner', 'admin'].includes(input.actor.membershipRole)) {
+	if (!GOVERNANCE_MEMBERSHIP_ROLES.has(input.actor.membershipRole)) {
 		return buildDecision(input, {
 			allowed: false,
 			reasonCode: POLICY_REASON_CODES.deniedGovernanceRole,
-			matchedScope: matchScope(input.scopeSet, input.resource)
+			matchedScope
 		});
 	}
 
 	return buildDecision(input, {
 		allowed: true,
 		reasonCode: POLICY_REASON_CODES.allowedGovernance,
-		matchedScope: matchScope(input.scopeSet, input.resource)
+		matchedScope
 	});
 }
 
-function buildDecision(
-	input: PolicyEvaluationInput,
-	result: Pick<PolicyDecision, 'allowed' | 'reasonCode'> &
-		Partial<Pick<PolicyDecision, 'matchedCapability' | 'matchedScope' | 'blockingOverlay'>>
-): PolicyDecision {
+function buildDecision(input: PolicyEvaluationInput, result: PolicyDecisionResult): PolicyDecision {
 	return {
 		allowed: result.allowed,
 		decisionKind: input.decisionKind,
@@ -297,14 +303,16 @@ function deriveAudit(action: PolicyAction, allowed: boolean): PolicyDecision['au
 	return { capture: false, category: 'ordinary-read' };
 }
 
-function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
-	const rank: Record<CapabilityLevel, number> = {
-		none: 0,
-		view: 1,
-		operate: 2,
-		configure: 3
+function matchCapability(capabilityMap: CapabilityMap, action: FeatureLanePolicyAction): MatchedCapability {
+	return {
+		lane: action.owner.lane,
+		actual: capabilityMap[action.owner.lane] ?? 'none',
+		required: action.requiredCapability
 	};
-	return rank[actual] >= rank[required];
+}
+
+function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
+	return CAPABILITY_RANK[actual] >= CAPABILITY_RANK[required];
 }
 
 function matchScope(scopeSet: ScopeSet, resource: PolicyResource): MatchedScope {
@@ -313,7 +321,11 @@ function matchScope(scopeSet: ScopeSet, resource: PolicyResource): MatchedScope 
 	}
 
 	if (scopeSet.kind === 'organization') {
-		return resource.kind === 'group' ? { kind: 'group', groupId: resource.groupId } : { kind: 'organization' };
+		if (resource.kind === 'group') {
+			return { kind: 'group', groupId: resource.groupId };
+		}
+
+		return { kind: 'organization' };
 	}
 
 	if (resource.kind === 'group' && scopeSet.groupIds.includes(resource.groupId)) {

@@ -812,7 +812,7 @@ describe('OrgShellCoordinator', () => {
 				{ id: 'p2', rank: 'CPT', firstName: 'Jane', lastName: 'Jones' }
 			],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
-			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000', da6TreatmentReviewed: true }],
 			pinnedGroups: ['Alpha'],
 			lossWarningWindowDays: 180,
 			awardTrackingAcknowledgedPersonnelIds: []

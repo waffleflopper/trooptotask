@@ -8,7 +8,8 @@ describe('shared calendar types in lib/types', () => {
 			id: '1',
 			name: 'Leave',
 			color: '#48bb78',
-			textColor: '#ffffff'
+			textColor: '#ffffff',
+			da6TreatmentReviewed: true
 		};
 		expect(st.id).toBe('1');
 		expect(st.name).toBe('Leave');

@@ -94,13 +94,14 @@ describe('CalendarSettingsPage', () => {
 				name: 'Leave',
 				color: '#48bb78',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'authorized-absence'
+				da6AvailabilityTreatment: 'authorized-absence',
+				da6TreatmentReviewed: true
 			}
 		];
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getAllByText('Authorized absence, nonchargeable').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getAllByText('Authorized absence (unavailable, nonchargeable)').length).toBeGreaterThanOrEqual(2);
 		expect(screen.getByRole('button', { name: 'Duty roster treatment help' })).toBeTruthy();
 
 		const newTreatment = screen.getByLabelText('Duty roster treatment');
@@ -130,21 +131,24 @@ describe('CalendarSettingsPage', () => {
 				name: 'Annual Leave',
 				color: '#48bb78',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: null
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
 			},
 			{
 				id: 'detail',
 				name: 'Detail',
 				color: '#c47f00',
 				textColor: '#0e0e0d',
-				da6AvailabilityTreatment: null
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
 			},
 			{
 				id: 'tdy',
 				name: 'TDY',
 				color: '#2f5d75',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'other-duty'
+				da6AvailabilityTreatment: 'other-duty',
+				da6TreatmentReviewed: true
 			},
 			{
 				id: 'appointment',
@@ -159,10 +163,10 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage);
 
 		const review = screen.getByRole('region', { name: 'DA6 treatment review' });
-		expect(within(review).getByText('Review existing DA6 treatments')).toBeTruthy();
+		expect(within(review).getByText('Confirm statuses with no DA6 effect')).toBeTruthy();
 		expect(
 			within(review).getByText(
-				'Check leave, TDY, school, sick, CQ/SD, detail, and similar statuses before generating DA Form 6 rosters.'
+				'These status types are excluded from DA Form 6 rosters unless you edit them and assign a duty roster treatment.'
 			)
 		).toBeTruthy();
 		expect(within(review).getByText('2 need review')).toBeTruthy();
@@ -187,7 +191,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Mark Appointment reviewed' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Appointment has no DA6 effect' }));
 
 		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('appointment', {
 			da6AvailabilityTreatment: null,

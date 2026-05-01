@@ -151,49 +151,56 @@ describe('provisionOrganization', () => {
 						color: '#48bb78',
 						textColor: '#ffffff',
 						sortOrder: 0,
-						da6AvailabilityTreatment: 'authorized-absence'
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'School',
 						color: '#4299e1',
 						textColor: '#ffffff',
 						sortOrder: 1,
-						da6AvailabilityTreatment: 'authorized-absence'
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'Training / TDY',
 						color: '#9f7aea',
 						textColor: '#ffffff',
 						sortOrder: 2,
-						da6AvailabilityTreatment: 'authorized-absence'
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'Appointment',
 						color: '#ed8936',
 						textColor: '#ffffff',
 						sortOrder: 3,
-						da6AvailabilityTreatment: null
+						da6AvailabilityTreatment: null,
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'Sick',
 						color: '#e53e3e',
 						textColor: '#ffffff',
 						sortOrder: 4,
-						da6AvailabilityTreatment: 'authorized-absence'
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'Other Duty / Detail',
 						color: '#a0522d',
 						textColor: '#ffffff',
 						sortOrder: 5,
-						da6AvailabilityTreatment: 'other-duty'
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
 					},
 					{
 						name: 'CQ/SD',
 						color: '#dc2626',
 						textColor: '#ffffff',
 						sortOrder: 6,
-						da6AvailabilityTreatment: 'other-duty'
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
 					}
 				]
 			}

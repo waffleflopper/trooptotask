@@ -23,6 +23,7 @@ export const StatusTypeEntity = defineEntity<StatusType>({
 			column: 'da6_availability_treatment',
 			insertDefault: null
 		}),
+		da6TreatmentReviewed: field(z.boolean(), { column: 'da6_treatment_reviewed', insertDefault: false }),
 		sortOrder: field(z.number().int(), { column: 'sort_order', insertDefault: 0 })
 	}
 });

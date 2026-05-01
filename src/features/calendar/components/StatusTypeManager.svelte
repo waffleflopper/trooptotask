@@ -47,7 +47,8 @@
 					name: newName.trim(),
 					color: newColor,
 					textColor: newTextColor,
-					da6AvailabilityTreatment: toDa6AvailabilityTreatment(newDa6Treatment)
+					da6AvailabilityTreatment: toDa6AvailabilityTreatment(newDa6Treatment),
+					da6TreatmentReviewed: true
 				}
 			: null}
 	resetAddForm={() => {
@@ -68,7 +69,8 @@
 					name: editName.trim(),
 					color: editColor,
 					textColor: editTextColor,
-					da6AvailabilityTreatment: toDa6AvailabilityTreatment(editDa6Treatment)
+					da6AvailabilityTreatment: toDa6AvailabilityTreatment(editDa6Treatment),
+					da6TreatmentReviewed: true
 				}
 			: null}
 	removeConfirmMessage={(s) =>

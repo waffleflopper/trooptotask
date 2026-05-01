@@ -446,7 +446,8 @@ export function createSupabaseOrgChromePort(config: {
 export function createSupabaseCalendarWorkspacePort(
 	locals: App.Locals,
 	cookies: Cookies,
-	orgId: string
+	orgId: string,
+	options: { specialDaysRange?: { rangeStart: string; rangeEnd: string } } = {}
 ): StreamableOrgWorkspacePort {
 	function getCalendarData(): Promise<CalendarBootstrap>;
 	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;
@@ -457,7 +458,7 @@ export function createSupabaseCalendarWorkspacePort(
 		const fn = async (ctx: UseCaseContext) =>
 			withCalendarTiming(orgId, 'workspace-bootstrap', async () => {
 				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
+					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd, specialDaysRange: options.specialDaysRange }),
 					getActiveOnboardingPersonnelIds(ctx)
 				]);
 				return { ...calendarData, activeOnboardingPersonnelIds };

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
@@ -9,6 +9,10 @@ import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery'
 import { _createCalendarLayoutLoad } from './+layout.server';
 
 describe('calendar layout server load', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it('registers calendar dependencies and streams the calendar workspace bootstrap', async () => {
 		const availabilityEntries = Promise.resolve([
 			{
@@ -77,6 +81,7 @@ describe('calendar layout server load', () => {
 			params: { orgId: 'org-1' },
 			locals,
 			cookies,
+			url: new URL('https://app.test/org/org-1/calendar'),
 			depends
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
@@ -114,5 +119,46 @@ describe('calendar layout server load', () => {
 				}
 			})
 		} satisfies WorkspaceBootstrap<CalendarBootstrap>);
+	});
+
+	it('requests full settings-year special days for calendar settings hydration', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-01T00:00:00Z'));
+		const calendarData = {
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-05-31',
+			availabilityEntries: Promise.resolve([]),
+			specialDays: Promise.resolve([]),
+			assignmentTypes: [],
+			dailyAssignments: Promise.resolve([]),
+			pinnedGroups: [],
+			advancedDutyEvents: [],
+			personnel: [],
+			groups: [],
+			statusTypes: [],
+			activeOnboardingPersonnelIds: [],
+			lossWarningWindowDays: 180
+		} as CalendarBootstrap;
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
+		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
+		const load = _createCalendarLayoutLoad({
+			createWorkspacePort,
+			createPlannerPort: vi.fn().mockReturnValue(createDefaultHydrationPlanner('org-1'))
+		});
+
+		await load({
+			params: { orgId: 'org-1' },
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			url: new URL('https://app.test/org/org-1/calendar/settings'),
+			depends: vi.fn()
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(createWorkspacePort).toHaveBeenCalledWith({
+			locals: {},
+			cookies: {},
+			orgId: 'org-1',
+			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
+		});
 	});
 });

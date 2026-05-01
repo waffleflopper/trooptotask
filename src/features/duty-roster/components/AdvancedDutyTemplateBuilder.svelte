@@ -92,6 +92,7 @@
 		showArchivedTemplates ? templates : templates.filter((template) => template.status !== 'archived')
 	);
 	const selectedTemplate = $derived(templates.find((template) => template.id === selectedTemplateId) ?? null);
+	const legacyExemptStatusTypeCount = $derived(selectedTemplate?.exemptStatusTypeIds?.length ?? 0);
 	const hasInvalidSlots = $derived(draftSlots.some((slot) => !slot.roleLabel.trim() || slot.quantity < 1));
 	const canSave = $derived(templateName.trim().length > 0 && !hasInvalidSlots);
 	const canSaveDraft = $derived(templateName.trim().length > 0);
@@ -374,6 +375,7 @@
 						{spansMidnight}
 						{isBlocking}
 						{cooldownHours}
+						{legacyExemptStatusTypeCount}
 						{groupTagOptions}
 						{personnelTagOptions}
 						{draftSoftPreferences}
@@ -452,6 +454,7 @@
 						{endTime}
 						{isBlocking}
 						{cooldownHours}
+						{legacyExemptStatusTypeCount}
 						{draftSlots}
 						{draftRotationBaselines}
 						enabledSoftPreferenceSummary={enabledSoftPreferenceSummaryText}

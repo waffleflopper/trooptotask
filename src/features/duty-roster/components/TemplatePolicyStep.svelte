@@ -15,6 +15,7 @@
 		spansMidnight: boolean;
 		isBlocking: boolean;
 		cooldownHours: number;
+		legacyExemptStatusTypeCount: number;
 		groupTagOptions: TagOption[];
 		personnelTagOptions: TagOption[];
 		draftSoftPreferences: SoftPreferenceConfig[];
@@ -146,6 +147,14 @@
 	<div class="selection-block status-source">
 		<p class="selection-label">Status availability</p>
 		<p>Handled by Calendar status treatments.</p>
+		{#if props.legacyExemptStatusTypeCount > 0}
+			<p class="legacy-status-warning">
+				This template still has {props.legacyExemptStatusTypeCount} legacy status exemption{props.legacyExemptStatusTypeCount ===
+				1
+					? ''
+					: 's'}. Saving will clear them; confirm Calendar status treatments cover the intended DA6 handling.
+			</p>
+		{/if}
 	</div>
 
 	{#if props.setupMode === 'full'}
@@ -232,6 +241,14 @@
 	.status-source p:last-child {
 		margin: var(--sp-1) 0 0;
 		color: var(--text-secondary);
+	}
+	.legacy-status-warning {
+		max-width: 68ch;
+		padding: var(--sp-3);
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: var(--radius-md);
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
 	}
 	.section-header {
 		display: flex;

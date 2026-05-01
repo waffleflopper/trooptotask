@@ -10,6 +10,7 @@
 		endTime: string;
 		isBlocking: boolean;
 		cooldownHours: number;
+		legacyExemptStatusTypeCount: number;
 		draftSlots: Array<{ key: string; quantity: number; roleLabel: string }>;
 		draftRotationBaselines: Array<{ key: string }>;
 		enabledSoftPreferenceSummary: string;
@@ -70,6 +71,15 @@
 			<dt>Status Availability</dt>
 			<dd>From status settings</dd>
 		</div>
+		{#if props.legacyExemptStatusTypeCount > 0}
+			<div class="summary-wide legacy-status-warning">
+				<dt>Legacy Status Exemptions</dt>
+				<dd>
+					{props.legacyExemptStatusTypeCount} old exemption{props.legacyExemptStatusTypeCount === 1 ? '' : 's'} will be cleared
+					on save. Confirm Calendar status treatments cover the intended DA6 handling.
+				</dd>
+			</div>
+		{/if}
 		<div class="summary-wide">
 			<dt>DA6 Ranking</dt>
 			<dd>{props.enabledSoftPreferenceSummary}</dd>
@@ -151,6 +161,12 @@
 	}
 	.summary-wide {
 		grid-column: 1 / -1;
+	}
+	.summary-grid .legacy-status-warning {
+		padding: var(--sp-3);
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: var(--radius-md);
+		background: var(--color-warning-bg, var(--surface-subtle));
 	}
 	.summary-slots {
 		margin: var(--sp-3) 0 0;

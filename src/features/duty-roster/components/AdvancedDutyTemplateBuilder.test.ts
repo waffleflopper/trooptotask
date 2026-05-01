@@ -329,8 +329,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
-	it('leaves status availability to Calendar status treatments when saving templates', async () => {
-		const existing = makeTemplate();
+	it('warns that legacy status exemptions are cleared when saving templates', async () => {
+		const existing = makeTemplate({ exemptStatusTypeIds: ['status-leave'] });
 		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);
 
 		render(AdvancedDutyTemplateBuilder, {
@@ -348,10 +348,13 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await goToPolicyStep();
 		expect(screen.getByText('Status availability')).toBeTruthy();
 		expect(screen.getByText('Handled by Calendar status treatments.')).toBeTruthy();
+		expect(screen.getByText(/This template still has 1 legacy status exemption/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Slots' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 		expect(screen.getByText('Status Availability')).toBeTruthy();
 		expect(screen.getByText('From status settings')).toBeTruthy();
+		expect(screen.getByText('Legacy Status Exemptions')).toBeTruthy();
+		expect(screen.getByText(/1 old exemption will be cleared on save/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {

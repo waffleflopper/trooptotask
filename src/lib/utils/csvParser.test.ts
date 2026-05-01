@@ -1,5 +1,8 @@
+// @vitest-environment happy-dom
+
 import { describe, it, expect } from 'vitest';
-import { parseCSVText, parseTrainingStatus, parseDateString } from './csvParser';
+import ExcelJS from 'exceljs';
+import { parseCSVText, parseTrainingStatus, parseDateString, parseFile } from './csvParser';
 
 describe('parseCSVText', () => {
 	it('returns a promise (is async)', async () => {
@@ -24,6 +27,32 @@ describe('parseCSVText', () => {
 	it('filters out empty rows', async () => {
 		const result = await parseCSVText('Name,Rank\n\nDoe,SGT\n\n');
 		expect(result).toHaveLength(2);
+	});
+
+	it('keeps quoted commas in a single cell', async () => {
+		const result = await parseCSVText('Name,Notes\nDoe,"Has, comma"');
+		expect(result[1]).toEqual(['Doe', 'Has, comma']);
+	});
+});
+
+describe('parseFile', () => {
+	it('parses xlsx files without the legacy xls parser', async () => {
+		const workbook = new ExcelJS.Workbook();
+		const sheet = workbook.addWorksheet('Personnel');
+		sheet.addRows([
+			['Name', 'Rank'],
+			['Doe', 'SGT']
+		]);
+
+		const buffer = await workbook.xlsx.writeBuffer();
+		const file = new File([buffer], 'personnel.xlsx', {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+		});
+
+		await expect(parseFile(file)).resolves.toEqual([
+			['Name', 'Rank'],
+			['Doe', 'SGT']
+		]);
 	});
 });
 

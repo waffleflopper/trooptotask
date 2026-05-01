@@ -226,7 +226,7 @@ describe('fetchOnboardingBootstrap', () => {
 				]
 			}
 		]);
-		// refreshTrainingSteps queries onboarding_step_progress directly
+		// Training-backed hydration reads step progress directly.
 		ctx.store.seed('onboarding_step_progress', [
 			{
 				id: 'sp1',
@@ -257,5 +257,81 @@ describe('fetchOnboardingBootstrap', () => {
 		const step = result.onboardings[0].steps.find((s) => s.id === 'sp1');
 		expect(step).toBeDefined();
 		expect(step!.completed).toBe(true);
+	});
+
+	it('hydrates active training-backed onboardings for view-only onboarding users', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				orgId: ORG,
+				requireEdit(area) {
+					if (area === 'onboarding') {
+						throw Object.assign(new Error('Forbidden'), { status: 403 });
+					}
+				}
+			}
+		});
+		const trainingTypeId = 'tt1';
+
+		ctx.store.seed('personnel_onboardings', [
+			{
+				id: 'ob1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				started_at: '2026-01-01',
+				completed_at: null,
+				cancelled_at: null,
+				status: 'in_progress',
+				template_id: null,
+				onboarding_step_progress: [
+					{
+						id: 'sp1',
+						onboarding_id: 'ob1',
+						organization_id: ORG,
+						step_name: 'CPR',
+						step_type: 'training',
+						training_type_id: trainingTypeId,
+						stages: null,
+						sort_order: 0,
+						completed: false,
+						current_stage: null,
+						notes: [],
+						template_step_id: null,
+						active: true
+					}
+				]
+			}
+		]);
+		ctx.store.seed('onboarding_step_progress', [
+			{
+				id: 'sp1',
+				organization_id: ORG,
+				onboarding_id: 'ob1',
+				step_name: 'CPR',
+				step_type: 'training',
+				training_type_id: trainingTypeId,
+				completed: false,
+				active: true
+			}
+		]);
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				training_type_id: trainingTypeId,
+				completed_date: '2026-01-01',
+				expiration_date: null,
+				exempted: false
+			}
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+
+		const step = result.onboardings[0].steps.find((s) => s.id === 'sp1');
+		expect(step).toBeDefined();
+		expect(step!.completed).toBe(true);
+
+		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', ORG, { id: 'sp1' });
+		expect(stored?.completed).toBe(false);
 	});
 });

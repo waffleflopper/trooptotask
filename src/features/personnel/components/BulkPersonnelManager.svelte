@@ -412,11 +412,11 @@
 					<div class="import-section">
 						<div class="upload-section">
 							<h4>Upload File</h4>
-							<p class="hint">Upload an Excel (.xlsx, .xls) or CSV file</p>
+							<p class="hint">Upload an Excel (.xlsx) or CSV file</p>
 							<div class="upload-row">
 								<input
 									type="file"
-									accept=".xlsx,.xls,.csv"
+									accept=".xlsx,.csv"
 									onchange={handleFileUpload}
 									bind:this={fileInput}
 									class="file-input"

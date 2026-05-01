@@ -66,6 +66,7 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 				},
 				issues: []
 			},
+			ictlSummary: null,
 			onboardingTrainingCompletions: []
 		}
 	};

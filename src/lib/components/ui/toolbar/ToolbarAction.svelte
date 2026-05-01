@@ -14,9 +14,10 @@
 	let { action, mode, descriptionIdSuffix = '' }: Props = $props();
 
 	const compact = $derived(mode === 'compact');
-	const labelledById = $derived(
+	const disabledReasonId = $derived(
 		action.disabledReason ? `toolbar-action-${action.id}${descriptionIdSuffix}-reason` : undefined
 	);
+	const actionTitle = $derived(compact || action.disabledReason ? (action.disabledReason ?? action.label) : undefined);
 	const actionClass = $derived(
 		[
 			'toolbar-action',
@@ -59,17 +60,29 @@
 			}))}
 		/>
 	</div>
+{:else if action.href && action.disabled}
+	<span
+		class={actionClass}
+		class:disabled={action.disabled}
+		aria-label={compact ? action.label : undefined}
+		aria-disabled="true"
+		aria-describedby={disabledReasonId}
+		title={actionTitle}
+	>
+		{#if action.icon}
+			<ToolbarIcon icon={action.icon} />
+		{/if}
+		{#if !compact}
+			<span>{action.label}</span>
+		{/if}
+	</span>
 {:else if action.href}
 	<a
 		class={actionClass}
-		class:disabled={action.disabled}
-		href={action.disabled ? undefined : action.href}
-		role={action.disabled ? 'link' : undefined}
-		tabindex={action.disabled ? 0 : undefined}
+		href={action.href}
 		aria-label={compact ? action.label : undefined}
-		aria-disabled={action.disabled || undefined}
-		aria-describedby={labelledById}
-		title={compact || action.disabledReason ? (action.disabledReason ?? action.label) : undefined}
+		aria-describedby={disabledReasonId}
+		title={actionTitle}
 	>
 		{#if action.icon}
 			<ToolbarIcon icon={action.icon} />
@@ -85,8 +98,8 @@
 		onclick={action.onclick}
 		disabled={action.disabled}
 		aria-label={compact ? action.label : undefined}
-		aria-describedby={labelledById}
-		title={compact || action.disabledReason ? (action.disabledReason ?? action.label) : undefined}
+		aria-describedby={disabledReasonId}
+		title={actionTitle}
 	>
 		{#if action.icon}
 			<ToolbarIcon icon={action.icon} />
@@ -98,7 +111,7 @@
 {/if}
 
 {#if action.disabledReason}
-	<span id={labelledById} class="toolbar-action__reason">{action.disabledReason}</span>
+	<span id={disabledReasonId} class="toolbar-action__reason">{action.disabledReason}</span>
 {/if}
 
 <style>
@@ -113,7 +126,6 @@
 	.toolbar-action.disabled {
 		opacity: var(--opacity-heavy);
 		cursor: not-allowed;
-		pointer-events: none;
 		box-shadow: none;
 		transform: none;
 	}

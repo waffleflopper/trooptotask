@@ -23,20 +23,29 @@
 <nav class="toolbar-nav-group" class:toolbar-nav-group--compact={compact} aria-label={ariaLabel} data-compact={compact}>
 	{#each items as item, index (item.href)}
 		{@const disabledReasonId = item.disabledReason ? getDisabledReasonId(item, index) : undefined}
-		<a
-			class="toolbar-nav-group__item"
-			class:active={item.active}
-			class:disabled={item.disabled}
-			href={item.disabled ? undefined : item.href}
-			role={item.disabled ? 'link' : undefined}
-			tabindex={item.disabled ? 0 : undefined}
-			aria-current={item.active ? 'page' : undefined}
-			aria-disabled={item.disabled || undefined}
-			aria-describedby={disabledReasonId}
-			title={item.disabledReason}
-		>
-			{item.label}
-		</a>
+		{#if item.disabled}
+			<span
+				class="toolbar-nav-group__item disabled"
+				class:active={item.active}
+				aria-current={item.active ? 'page' : undefined}
+				aria-disabled="true"
+				aria-describedby={disabledReasonId}
+				title={item.disabledReason}
+			>
+				{item.label}
+			</span>
+		{:else}
+			<a
+				class="toolbar-nav-group__item"
+				class:active={item.active}
+				href={item.href}
+				aria-current={item.active ? 'page' : undefined}
+				aria-describedby={disabledReasonId}
+				title={item.disabledReason}
+			>
+				{item.label}
+			</a>
+		{/if}
 		{#if item.disabledReason}
 			<span id={disabledReasonId} class="toolbar-nav-group__reason">{item.disabledReason}</span>
 		{/if}

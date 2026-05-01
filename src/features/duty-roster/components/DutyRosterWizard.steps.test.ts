@@ -114,7 +114,7 @@ describe('DutyRosterWizard step components', () => {
 		const onContinue = vi.fn();
 		render(AdvancedPolicyReviewStep, {
 			props: {
-				template: makeTemplate(),
+				template: makeTemplate({ exemptStatusTypeIds: ['status-leave', 'status-school'] }),
 				hasRotationBaselines: false,
 				onBack: vi.fn(),
 				onEditTemplate: vi.fn(),
@@ -122,6 +122,7 @@ describe('DutyRosterWizard step components', () => {
 			}
 		});
 		expect(screen.getByText(/DA6 ranking: Single DA6 sequence/)).toBeTruthy();
+		expect(screen.getByText(/This template still has 2 legacy status exemptions/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Set Date Pattern' }));
 		expect(onContinue).toHaveBeenCalled();
 	});

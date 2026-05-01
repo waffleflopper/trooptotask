@@ -77,6 +77,17 @@
 			{/if}
 		</div>
 	{/if}
+	{#if (template.exemptStatusTypeIds?.length ?? 0) > 0}
+		<div class="policy-note legacy-status-warning">
+			<p>
+				This template still has {template.exemptStatusTypeIds?.length} legacy status exemption{template
+					.exemptStatusTypeIds?.length === 1
+					? ''
+					: 's'}. Future runs ignore them; confirm Calendar status treatments cover the intended DA6 handling before
+				applying.
+			</p>
+		</div>
+	{/if}
 	<div class="step-actions">
 		<button class="btn btn-primary" type="button" onclick={onContinue}>Set Date Pattern</button>
 	</div>
@@ -152,6 +163,11 @@
 	}
 	.policy-note p {
 		margin: 0;
+	}
+	.legacy-status-warning {
+		border-color: var(--color-warning-border, var(--border-default));
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
 	}
 	.step-actions {
 		margin-top: var(--sp-4);

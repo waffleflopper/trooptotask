@@ -83,7 +83,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		get isFullEditor() {
 			const current = getInput();
 			const isPrivileged = current.userRole === 'owner' || current.userRole === 'admin';
-			return !isPrivileged && !current.scopedGroupId && checkFullEditor(current.permissions);
+			return !isPrivileged && checkFullEditor(current.permissions, current.scopedGroupId);
 		},
 		get permissions() {
 			return getInput().permissions;

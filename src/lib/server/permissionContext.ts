@@ -14,6 +14,8 @@
  */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isFullEditor as hasFullEditorPermissions } from '$lib/access/memberAccessShape';
+import type { OrganizationMemberPermissions } from '$lib/types';
 import type { FeatureArea } from './core/ports';
 import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
 
@@ -142,20 +144,25 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 	};
 
 	const canManageMembers = isPrivileged || !!membership.can_manage_members;
+	const memberPermissions: OrganizationMemberPermissions = {
+		canViewCalendar: !!membership.can_view_calendar,
+		canEditCalendar: !!membership.can_edit_calendar,
+		canViewPersonnel: !!membership.can_view_personnel,
+		canEditPersonnel: !!membership.can_edit_personnel,
+		canViewTraining: !!membership.can_view_training,
+		canEditTraining: !!membership.can_edit_training,
+		canViewCriticalTasks: !!membership.can_view_critical_tasks,
+		canEditCriticalTasks: !!membership.can_edit_critical_tasks,
+		canViewOnboarding: !!membership.can_view_onboarding,
+		canEditOnboarding: !!membership.can_edit_onboarding,
+		canViewRatingScheme: membership.can_view_rating_scheme,
+		canEditRatingScheme: membership.can_edit_rating_scheme,
+		canViewLeadersBook: !!membership.can_view_leaders_book,
+		canEditLeadersBook: !!membership.can_edit_leaders_book,
+		canManageMembers: !!membership.can_manage_members
+	};
 
-	const isFullEditor =
-		!isPrivileged &&
-		!scopedGroupId &&
-		canView.calendar &&
-		canEdit.calendar &&
-		canView.personnel &&
-		canEdit.personnel &&
-		canView.training &&
-		canEdit.training &&
-		canView.onboarding &&
-		canEdit.onboarding &&
-		canView['leaders-book'] &&
-		canEdit['leaders-book'];
+	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {

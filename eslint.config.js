@@ -70,6 +70,7 @@ export default ts.config(
 			'node_modules/',
 			'.claude/',
 			'.superpowers/',
+			'.sandcastle/',
 			'.agents/skills/impeccable/agents/',
 			'.agents/skills/impeccable/scripts/',
 			'.vercel/',

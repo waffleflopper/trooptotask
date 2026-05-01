@@ -159,6 +159,49 @@ describe('advanced duty run snapshots', () => {
 		expect(snapshot.da6Matrices).toHaveLength(4);
 	});
 
+	it('increments advanced DA6 row numbers by one period instead of the whole pool size', async () => {
+		const largePoolTemplate: DutyTemplate = {
+			...template,
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			slots: [
+				{
+					...template.slots[0],
+					id: 'slot-da6',
+					roleLabel: 'DA6',
+					rotationPoolKey: 'da6'
+				}
+			]
+		};
+		const largePoolPersonnel = Array.from({ length: 30 }, (_, index) => {
+			const ordinal = String(index + 1).padStart(2, '0');
+			return {
+				id: `person-${ordinal}`,
+				rank: 'SPC',
+				lastName: `Soldier${ordinal}`,
+				firstName: 'Test',
+				mos: '11B',
+				clinicRole: 'Rifleman',
+				groupId: 'group-hq',
+				groupName: 'Headquarters'
+			};
+		});
+
+		const snapshot = await buildAdvancedRunSnapshot({
+			template: largePoolTemplate,
+			eventDates: ['2026-06-01', '2026-06-02', '2026-06-03'],
+			personnel: largePoolPersonnel,
+			holidayClosureDates: new Set(),
+			historyEvents: []
+		});
+
+		const matrix = snapshot.da6Matrices.find((candidate) => candidate.templateSlotId === 'slot-da6');
+		const row = matrix?.rows.find((candidate) => candidate.personnelId === 'person-17');
+
+		expect(row?.cells.map((cell) => cell.sequenceNumber)).toEqual([17, 18, 19]);
+		expect(matrix?.columns.map((column) => column.chargeSequenceStart)).toEqual([1, 2, 3]);
+	});
+
 	it('uses earlier dates in the same run snapshot as transient fairness history', async () => {
 		const cqTemplate: DutyTemplate = {
 			...template,

@@ -506,19 +506,19 @@ describe('buildDutyRosterRunSnapshot', () => {
 				date: '2026-05-03',
 				sequenceKind: 'weekend',
 				sequenceKey: 'weekend-holiday',
-				chargeSequenceStart: 3,
+				chargeSequenceStart: 2,
 				chargeableCount: 2
 			},
 			{
 				date: '2026-05-04',
 				sequenceKind: 'holiday',
 				sequenceKey: 'weekend-holiday',
-				chargeSequenceStart: 5,
+				chargeSequenceStart: 3,
 				chargeableCount: 2
 			}
 		]);
-		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 6]);
-		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 4, 5]);
+		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 4]);
+		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 2, 3]);
 		expect(snapshot.exportModel.sequencePeriods).toEqual([
 			{
 				date: '2026-05-01',

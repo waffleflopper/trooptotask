@@ -132,6 +132,7 @@ describe('createSupabaseOrgProvisioningPort', () => {
 				color: '#48bb78',
 				text_color: '#ffffff',
 				da6_availability_treatment: null,
+				da6_treatment_reviewed: false,
 				sort_order: 0
 			}
 		]);

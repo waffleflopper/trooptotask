@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-30-duty-roster-workspace',
+		date: '2026-04-30',
+		title: 'Duty Roster Workspace Updates',
+		items: [
+			'Duty roster planning now has a clearer workspace for simple assignments, advanced templates, draft runs, and applied events, so the next action is easier to find',
+			'Advanced roster previews now use saved run snapshots, which means you can review, adjust, resume after a reload, and apply the approved version without rebuilding the plan from scratch',
+			'DA6 review and print views are easier to trust, with clearer weekend rows, assignment-collision labels, availability treatment, and candidate rationale before you commit the roster'
+		]
+	},
+	{
 		id: '2026-04-15-upcoming-losses',
 		date: '2026-04-15',
 		title: 'Upcoming Loss Tracking',

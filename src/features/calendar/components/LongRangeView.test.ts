@@ -51,7 +51,8 @@ const statusTypes: StatusType[] = [
 		id: 'leave',
 		name: 'Leave',
 		color: '#2563eb',
-		textColor: '#ffffff'
+		textColor: '#ffffff',
+		da6TreatmentReviewed: true
 	}
 ];
 

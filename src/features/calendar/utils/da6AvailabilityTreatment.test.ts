@@ -8,28 +8,32 @@ const statusTypes: StatusType[] = [
 		name: 'Appointment',
 		color: '#ed8936',
 		textColor: '#fff',
-		da6AvailabilityTreatment: null
+		da6AvailabilityTreatment: null,
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'leave',
 		name: 'Leave',
 		color: '#48bb78',
 		textColor: '#fff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'detail',
 		name: 'Other Duty / Detail',
 		color: '#a0522d',
 		textColor: '#fff',
-		da6AvailabilityTreatment: 'other-duty'
+		da6AvailabilityTreatment: 'other-duty',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'misconduct',
 		name: 'Misconduct unavailable',
 		color: '#991b1b',
 		textColor: '#fff',
-		da6AvailabilityTreatment: 'misconduct-unavailable'
+		da6AvailabilityTreatment: 'misconduct-unavailable',
+		da6TreatmentReviewed: true
 	}
 ];
 

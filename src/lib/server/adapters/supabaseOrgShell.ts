@@ -29,7 +29,7 @@ import type { UseCaseContext } from '../core/ports';
 import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoordinator';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { fetchCalendarBootstrap, type CalendarBootstrap } from '../core/useCases/calendarQuery';
+import { fetchCalendarBootstrap, type CalendarBootstrap, type CalendarDateRange } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
@@ -447,7 +447,7 @@ export function createSupabaseCalendarWorkspacePort(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string,
-	options: { specialDaysRange?: { rangeStart: string; rangeEnd: string } } = {}
+	options: { specialDaysRange?: CalendarDateRange } = {}
 ): StreamableOrgWorkspacePort {
 	function getCalendarData(): Promise<CalendarBootstrap>;
 	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;

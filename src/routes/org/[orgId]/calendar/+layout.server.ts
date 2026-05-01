@@ -4,13 +4,13 @@ import { createSupabaseCalendarWorkspacePort } from '$lib/server/adapters/supaba
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarBootstrap, CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
 
 interface CalendarLayoutRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
-	specialDaysRange?: { rangeStart: string; rangeEnd: string };
+	specialDaysRange?: CalendarDateRange;
 }
 
 export interface CalendarLayoutLoadDeps {
@@ -31,10 +31,11 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 		depends('app:org-core', 'app:calendar-data');
 
 		const { orgId } = params;
-		const specialDaysRange = url.pathname.replace(/\/$/, '').endsWith('/calendar/settings')
-			? createCalendarSettingsSpecialDaysRange(new Date())
-			: undefined;
-		const workspacePort = createWorkspacePort({ locals, cookies, orgId, specialDaysRange });
+		const requestContext: CalendarLayoutRequestContext = { locals, cookies, orgId };
+		if (isCalendarSettingsPath(url.pathname)) {
+			requestContext.specialDaysRange = createCalendarSettingsSpecialDaysRange(new Date());
+		}
+		const workspacePort = createWorkspacePort(requestContext);
 		const plannerPort = createPlannerPort(orgId);
 
 		return coordinator.streamWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
@@ -44,7 +45,11 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 	};
 }
 
-function createCalendarSettingsSpecialDaysRange(anchorDate: Date): { rangeStart: string; rangeEnd: string } {
+function isCalendarSettingsPath(pathname: string): boolean {
+	return pathname.replace(/\/$/, '').endsWith('/calendar/settings');
+}
+
+function createCalendarSettingsSpecialDaysRange(anchorDate: Date): CalendarDateRange {
 	const year = anchorDate.getFullYear();
 	return {
 		rangeStart: `${year - 1}-01-01`,

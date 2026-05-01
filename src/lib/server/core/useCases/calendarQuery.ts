@@ -23,13 +23,15 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listDutyEventsInRange } from '$lib/server/core/useCases/dutyEventCrud';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 
-export interface CalendarQueryInput {
+export interface CalendarDateRange {
 	rangeStart: string;
 	rangeEnd: string;
 }
 
+export type CalendarQueryInput = CalendarDateRange;
+
 export interface CalendarBootstrapQueryInput extends CalendarQueryInput {
-	specialDaysRange?: CalendarQueryInput;
+	specialDaysRange?: CalendarDateRange;
 }
 
 export interface CalendarData {

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import type { StatusType } from '$lib/types';
 
@@ -121,5 +121,77 @@ describe('CalendarSettingsPage', () => {
 				da6AvailabilityTreatment: 'other-duty'
 			})
 		);
+	});
+
+	it('guides admins to review existing status types without a DA6 treatment', () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'annual-leave',
+				name: 'Annual Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null
+			},
+			{
+				id: 'detail',
+				name: 'Detail',
+				color: '#c47f00',
+				textColor: '#0e0e0d',
+				da6AvailabilityTreatment: null
+			},
+			{
+				id: 'tdy',
+				name: 'TDY',
+				color: '#2f5d75',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: 'other-duty'
+			},
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#ed8936',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: true
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		const review = screen.getByRole('region', { name: 'DA6 treatment review' });
+		expect(within(review).getByText('Review existing DA6 treatments')).toBeTruthy();
+		expect(
+			within(review).getByText(
+				'Check leave, TDY, school, sick, CQ/SD, detail, and similar statuses before generating DA Form 6 rosters.'
+			)
+		).toBeTruthy();
+		expect(within(review).getByText('2 need review')).toBeTruthy();
+		expect(within(review).getByText('Annual Leave')).toBeTruthy();
+		expect(within(review).getByText('Detail')).toBeTruthy();
+		expect(within(review).queryByText('TDY')).toBeNull();
+		expect(within(review).queryByText('Appointment')).toBeNull();
+		expect(statusTypesStoreMock.update).not.toHaveBeenCalled();
+	});
+
+	it('lets admins mark no-effect DA6 status types as reviewed without assigning a treatment', async () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#ed8936',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark Appointment reviewed' }));
+
+		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('appointment', {
+			da6AvailabilityTreatment: null,
+			da6TreatmentReviewed: true
+		});
 	});
 });

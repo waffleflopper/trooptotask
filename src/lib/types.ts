@@ -215,6 +215,7 @@ export interface StatusType {
 	color: string;
 	textColor: string;
 	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
+	da6TreatmentReviewed?: boolean;
 }
 
 export const DA6_AVAILABILITY_TREATMENTS = ['authorized-absence', 'other-duty', 'misconduct-unavailable'] as const;
@@ -276,7 +277,14 @@ export const DEFAULT_STATUS_TYPES: StatusType[] = [
 		textColor: '#ffffff',
 		da6AvailabilityTreatment: 'authorized-absence'
 	},
-	{ id: 'appointment', name: 'Appointment', color: '#ed8936', textColor: '#ffffff', da6AvailabilityTreatment: null },
+	{
+		id: 'appointment',
+		name: 'Appointment',
+		color: '#ed8936',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: null,
+		da6TreatmentReviewed: true
+	},
 	{
 		id: 'sick',
 		name: 'Sick',

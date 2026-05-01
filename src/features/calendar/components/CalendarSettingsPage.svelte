@@ -68,7 +68,8 @@
 			name: editStatusName.trim(),
 			color: editStatusColor,
 			textColor: editStatusTextColor,
-			da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment)
+			da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment),
+			da6TreatmentReviewed: true
 		});
 		editingStatus = null;
 	}
@@ -80,7 +81,8 @@
 			name: newStatusName.trim(),
 			color: newStatusColor,
 			textColor: newStatusTextColor,
-			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment)
+			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment),
+			da6TreatmentReviewed: true
 		});
 		newStatusName = '';
 		newStatusColor = '#4a4a47';
@@ -93,6 +95,14 @@
 		await statusTypesStore.remove(s.id);
 		availabilityStore.removeByStatusTypeLocal(s.id);
 		confirmDeleteStatus = null;
+	}
+
+	async function markStatusDa6Reviewed(status: StatusType) {
+		if (!canMutate) return;
+		await statusTypesStore.update(status.id, {
+			da6AvailabilityTreatment: null,
+			da6TreatmentReviewed: true
+		});
 	}
 
 	// ---- Assignment Types ----
@@ -236,6 +246,9 @@
 		{ label: 'Closures', href: '#special-days' }
 	];
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }]);
+	const statusTypesMissingDa6Treatment = $derived(
+		statusTypesStore.items.filter((status) => !status.da6AvailabilityTreatment && !status.da6TreatmentReviewed)
+	);
 </script>
 
 <div class="settings-page">
@@ -320,6 +333,40 @@
 						+ Add
 					</button>
 				</div>
+
+				{#if statusTypesMissingDa6Treatment.length > 0}
+					<section class="da6-review" aria-label="DA6 treatment review">
+						<div class="da6-review-copy">
+							<div class="da6-review-heading">
+								<span class="da6-review-marker" aria-hidden="true">DA6</span>
+								<h3>Review existing DA6 treatments</h3>
+							</div>
+							<p>
+								Check leave, TDY, school, sick, CQ/SD, detail, and similar statuses before generating DA Form 6 rosters.
+							</p>
+						</div>
+						<div class="da6-review-list" aria-label="Status types needing DA6 treatment review">
+							<span class="da6-review-count">
+								{statusTypesMissingDa6Treatment.length === 1
+									? '1 needs review'
+									: `${statusTypesMissingDa6Treatment.length} need review`}
+							</span>
+							{#each statusTypesMissingDa6Treatment as status (status.id)}
+								<span class="da6-review-chip">
+									<span>{status.name}</span>
+									{#if canMutate}
+										<button
+											class="da6-review-action"
+											type="button"
+											aria-label={`Mark ${status.name} reviewed`}
+											onclick={() => markStatusDa6Reviewed(status)}>Reviewed</button
+										>
+									{/if}
+								</span>
+							{/each}
+						</div>
+					</section>
+				{/if}
 
 				<div class="item-list">
 					{#each statusTypesStore.items as status (status.id)}
@@ -860,6 +907,102 @@
 	.treatment-summary {
 		color: var(--text-tertiary);
 		font-size: var(--text-xs);
+	}
+
+	.da6-review {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
+	}
+
+	.da6-review-heading {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.da6-review-marker,
+	.da6-review-count {
+		display: inline-flex;
+		align-items: center;
+		min-height: 22px;
+		padding: 3px 8px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+		white-space: nowrap;
+	}
+
+	.da6-review h3 {
+		margin: 0;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+	}
+
+	.da6-review p {
+		margin: var(--sp-2) 0 0;
+		max-width: 68ch;
+		font-size: var(--text-sm);
+		line-height: var(--line-height-copy);
+		color: var(--text-secondary);
+	}
+
+	.da6-review-list {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.da6-review-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-height: 24px;
+		padding: 3px 5px 3px 9px;
+		border: 1px solid color-mix(in srgb, var(--amber) 36%, var(--border-default) 64%);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--surface-panel) 86%, var(--amber-light) 14%);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		color: var(--text-primary);
+	}
+
+	.da6-review-action {
+		appearance: none;
+		min-height: 22px;
+		padding: 2px 7px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.da6-review-action:hover:not(:disabled) {
+		border-color: color-mix(in srgb, var(--amber) 48%, var(--border-default) 52%);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
+		color: var(--text-primary);
 	}
 
 	.treatment-field {

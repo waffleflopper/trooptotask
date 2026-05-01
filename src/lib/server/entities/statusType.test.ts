@@ -10,6 +10,7 @@ describe('StatusTypeEntity', () => {
 			color: '#22c55e',
 			text_color: '#ffffff',
 			da6_availability_treatment: 'authorized-absence',
+			da6_treatment_reviewed: true,
 			sort_order: 2
 		};
 		const result = StatusTypeEntity.fromDb(row) as StatusType & { sortOrder: number };
@@ -20,6 +21,7 @@ describe('StatusTypeEntity', () => {
 			color: '#22c55e',
 			textColor: '#ffffff',
 			da6AvailabilityTreatment: 'authorized-absence',
+			da6TreatmentReviewed: true,
 			sortOrder: 2
 		});
 	});
@@ -46,6 +48,7 @@ describe('StatusTypeEntity', () => {
 			color: '#6b7280',
 			text_color: '#ffffff',
 			da6_availability_treatment: null,
+			da6_treatment_reviewed: false,
 			sort_order: 0
 		});
 	});
@@ -57,6 +60,7 @@ describe('StatusTypeEntity', () => {
 				color: '#22c55e',
 				textColor: '#000000',
 				da6AvailabilityTreatment: 'authorized-absence',
+				da6TreatmentReviewed: true,
 				sortOrder: 5
 			},
 			'org-1'
@@ -68,6 +72,7 @@ describe('StatusTypeEntity', () => {
 			color: '#22c55e',
 			text_color: '#000000',
 			da6_availability_treatment: 'authorized-absence',
+			da6_treatment_reviewed: true,
 			sort_order: 5
 		});
 	});
@@ -77,17 +82,19 @@ describe('StatusTypeEntity', () => {
 			id: 'st-1',
 			textColor: '#000000',
 			name: 'Updated',
-			da6AvailabilityTreatment: 'other-duty'
+			da6AvailabilityTreatment: 'other-duty',
+			da6TreatmentReviewed: true
 		});
 
 		expect(result).toEqual({
 			text_color: '#000000',
 			name: 'Updated',
-			da6_availability_treatment: 'other-duty'
+			da6_availability_treatment: 'other-duty',
+			da6_treatment_reviewed: true
 		});
 	});
 
-	it('createSchema requires name, makes color/textColor/treatment/sortOrder optional', () => {
+	it('createSchema requires name, makes color/textColor/treatment/reviewed/sortOrder optional', () => {
 		const valid = StatusTypeEntity.createSchema.safeParse({ name: 'Leave' });
 		expect(valid.success).toBe(true);
 
@@ -99,6 +106,7 @@ describe('StatusTypeEntity', () => {
 			color: '#3b82f6',
 			textColor: '#000000',
 			da6AvailabilityTreatment: 'authorized-absence',
+			da6TreatmentReviewed: true,
 			sortOrder: 2
 		});
 		expect(withOptionals.success).toBe(true);

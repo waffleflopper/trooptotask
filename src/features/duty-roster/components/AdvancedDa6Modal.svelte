@@ -1,6 +1,11 @@
 <script lang="ts">
 	import Modal from '$lib/components/Modal.svelte';
 	import type { AdvancedDutyDa6Matrix } from '../duty-roster.types';
+	import {
+		formatAdvancedDutyDa6CellLabel,
+		formatAdvancedDutyDa6CoverageLabel,
+		formatAdvancedDutyDa6DisplayDate
+	} from './advancedDutyDa6Format';
 
 	interface Props {
 		title: string;
@@ -10,31 +15,6 @@
 	}
 
 	let { title, matrices, onClose, onPrint }: Props = $props();
-
-	function formatDisplayDate(value: string): string {
-		return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
-	function formatCoverageLabel(column: AdvancedDutyDa6Matrix['columns'][number]): string {
-		const start = column.coverageStart.slice(11, 16).replace(':', '');
-		const end = column.coverageEnd.slice(11, 16).replace(':', '');
-		return column.coverageStart.slice(0, 10) === column.coverageEnd.slice(0, 10)
-			? `${start}-${end}`
-			: `${start}-${end} next day`;
-	}
-
-	function formatCellLabel(cell: AdvancedDutyDa6Matrix['rows'][number]['cells'][number]): string {
-		if (cell.assigned) return 'X';
-		if (cell.da6Code === 'A') return 'A';
-		if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-			return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
-		}
-		return cell.sequenceNumber == null ? '' : String(cell.sequenceNumber);
-	}
 </script>
 
 <Modal {title} {onClose} width="1200px" titleId="advanced-da6-modal-title">
@@ -71,8 +51,8 @@
 									<th class="sticky-col">Name</th>
 									{#each matrix.columns as column (column.eventDate)}
 										<th>
-											<div>{formatDisplayDate(column.eventDate)}</div>
-											<div class="column-meta">{formatCoverageLabel(column)}</div>
+											<div>{formatAdvancedDutyDa6DisplayDate(column.eventDate)}</div>
+											<div class="column-meta">{formatAdvancedDutyDa6CoverageLabel(column)}</div>
 										</th>
 									{/each}
 								</tr>
@@ -90,7 +70,7 @@
 												class:unavailable={cell.da6Code === 'A' || cell.da6Code === 'U'}
 												title={cell.reason ?? undefined}
 											>
-												{formatCellLabel(cell)}
+												{formatAdvancedDutyDa6CellLabel(cell)}
 											</td>
 										{/each}
 									</tr>

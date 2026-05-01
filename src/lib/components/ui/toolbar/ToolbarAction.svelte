@@ -59,15 +59,27 @@
 			}))}
 		/>
 	</div>
+{:else if action.href && action.disabled}
+	<span
+		class={actionClass}
+		class:disabled={action.disabled}
+		aria-label={compact ? action.label : undefined}
+		aria-disabled="true"
+		aria-describedby={labelledById}
+		title={compact || action.disabledReason ? (action.disabledReason ?? action.label) : undefined}
+	>
+		{#if action.icon}
+			<ToolbarIcon icon={action.icon} />
+		{/if}
+		{#if !compact}
+			<span>{action.label}</span>
+		{/if}
+	</span>
 {:else if action.href}
 	<a
 		class={actionClass}
-		class:disabled={action.disabled}
-		href={action.disabled ? undefined : action.href}
-		role={action.disabled ? 'link' : undefined}
-		tabindex={action.disabled ? 0 : undefined}
+		href={action.href}
 		aria-label={compact ? action.label : undefined}
-		aria-disabled={action.disabled || undefined}
 		aria-describedby={labelledById}
 		title={compact || action.disabledReason ? (action.disabledReason ?? action.label) : undefined}
 	>
@@ -113,7 +125,6 @@
 	.toolbar-action.disabled {
 		opacity: var(--opacity-heavy);
 		cursor: not-allowed;
-		pointer-events: none;
 		box-shadow: none;
 		transform: none;
 	}

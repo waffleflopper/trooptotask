@@ -96,12 +96,15 @@ describe('OnboardingPageView', () => {
 	});
 
 	it('uses shared toolbar meta for read-only upgrade text', () => {
-		render(OnboardingPageView, { props: { ctx: makeCtx({ readOnly: true }) } });
+		const { container } = render(OnboardingPageView, { props: { ctx: makeCtx({ readOnly: true }) } });
 
-		const manageTemplates = screen.getByRole('link', { name: 'Manage Templates' });
+		const manageTemplates = container.querySelector('[aria-describedby="toolbar-action-manage-templates-reason"]');
 
-		expect(manageTemplates.getAttribute('aria-disabled')).toBe('true');
-		expect(manageTemplates.getAttribute('href')).toBeNull();
+		expect(manageTemplates?.getAttribute('aria-disabled')).toBe('true');
+		expect(manageTemplates?.getAttribute('href')).toBeNull();
+		expect(manageTemplates?.getAttribute('role')).toBeNull();
+		expect(manageTemplates?.getAttribute('tabindex')).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Manage Templates' })).toBeNull();
 		expect(screen.getByRole('status', { name: 'Upgrade to edit' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Start Onboarding' }).hasAttribute('disabled')).toBe(true);
 	});

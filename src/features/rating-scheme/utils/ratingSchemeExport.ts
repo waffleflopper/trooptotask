@@ -53,26 +53,7 @@ function getStatusLabel(status: string): string {
 
 export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: PersonnelLookup[]) {
 	const ExcelJS = await import('exceljs');
-	const rows = entries.map((entry) => {
-		const rated = personnel.find((p) => p.id === entry.ratedPersonId);
-		return {
-			'Eval Type': entry.evalType,
-			'Report Type': entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '',
-			'Rated Individual': rated ? `${rated.rank} ${rated.lastName}, ${rated.firstName}` : 'Unknown',
-			Rank: rated?.rank ?? '',
-			Rater: getPersonName(personnel, entry.raterPersonId, entry.raterName),
-			'Senior Rater': getPersonName(personnel, entry.seniorRaterPersonId, entry.seniorRaterName),
-			'Intermediate Rater': getPersonName(personnel, entry.intermediateRaterPersonId, entry.intermediateRaterName),
-			Reviewer: getPersonName(personnel, entry.reviewerPersonId, entry.reviewerName),
-			'Rating Period Start': entry.ratingPeriodStart,
-			'Thru Date': entry.ratingPeriodEnd,
-			'Days Until Due': getDaysUntilDue(entry.ratingPeriodEnd),
-			'Due Status': getDueStatusLabel(entry),
-			Status: getStatusLabel(entry.status),
-			'Workflow Status': getWorkflowLabel(entry.workflowStatus),
-			Notes: entry.notes ?? ''
-		};
-	});
+	const rows = entries.map((entry) => buildRatingSchemeExportRow(entry, personnel));
 
 	const workbook = new ExcelJS.Workbook();
 	const sheet = workbook.addWorksheet('Rating Scheme');
@@ -86,6 +67,27 @@ export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel
 		new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
 		`rating-scheme-${today}.xlsx`
 	);
+}
+
+function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: PersonnelLookup[]) {
+	const rated = personnel.find((p) => p.id === entry.ratedPersonId);
+	return {
+		'Eval Type': entry.evalType,
+		'Report Type': entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '',
+		'Rated Individual': rated ? `${rated.rank} ${rated.lastName}, ${rated.firstName}` : 'Unknown',
+		Rank: rated?.rank ?? '',
+		Rater: getPersonName(personnel, entry.raterPersonId, entry.raterName),
+		'Senior Rater': getPersonName(personnel, entry.seniorRaterPersonId, entry.seniorRaterName),
+		'Intermediate Rater': getPersonName(personnel, entry.intermediateRaterPersonId, entry.intermediateRaterName),
+		Reviewer: getPersonName(personnel, entry.reviewerPersonId, entry.reviewerName),
+		'Rating Period Start': entry.ratingPeriodStart,
+		'Thru Date': entry.ratingPeriodEnd,
+		'Days Until Due': getDaysUntilDue(entry.ratingPeriodEnd),
+		'Due Status': getDueStatusLabel(entry),
+		Status: getStatusLabel(entry.status),
+		'Workflow Status': getWorkflowLabel(entry.workflowStatus),
+		Notes: entry.notes ?? ''
+	};
 }
 
 function downloadBlob(blob: Blob, filename: string) {

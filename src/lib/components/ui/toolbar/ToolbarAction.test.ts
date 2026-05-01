@@ -88,4 +88,30 @@ describe('ToolbarAction', () => {
 		expect(screen.getByRole('button', { name: /Import Completions/ }).hasAttribute('disabled')).toBe(true);
 		expect(screen.getByText('Upload requires personnel and tasks.')).toBeTruthy();
 	});
+
+	it('removes disabled link actions from link semantics and the tab order', () => {
+		render(ToolbarAction, {
+			props: {
+				action: {
+					id: 'planning',
+					label: 'Planning',
+					href: '/org/org-1/calendar/planning',
+					disabled: true,
+					disabledReason: 'Read-only mode'
+				},
+				mode: 'full'
+			}
+		});
+
+		const disabledAction = screen.getByText('Planning').closest('.toolbar-action');
+
+		expect(screen.queryByRole('link', { name: 'Planning' })).toBeNull();
+		expect(disabledAction?.getAttribute('aria-disabled')).toBe('true');
+		expect(disabledAction?.getAttribute('href')).toBeNull();
+		expect(disabledAction?.getAttribute('role')).toBeNull();
+		expect(disabledAction?.getAttribute('tabindex')).toBeNull();
+		expect(disabledAction?.getAttribute('title')).toBe('Read-only mode');
+		expect(disabledAction?.getAttribute('aria-describedby')).toBeTruthy();
+		expect(screen.getByText('Read-only mode')).toBeTruthy();
+	});
 });

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { ComponentProps } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import DutyRosterPage from './DutyRosterPage.svelte';
 import type {
 	AdvancedDutyRunSnapshotRecord,
@@ -307,6 +307,22 @@ describe('DutyRosterPage', () => {
 	});
 
 	it('lets users inspect and resume draft advanced duty snapshots', async () => {
+		vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+			new Response(
+				JSON.stringify(
+					makeSnapshot({
+						previewPayload: {
+							templateId: 'tmpl-staff-duty',
+							templateName: 'Battalion Staff Duty',
+							pattern: 'daily',
+							eventDates: ['2026-04-10', '2026-04-11', '2026-04-12'],
+							events: []
+						}
+					})
+				),
+				{ status: 200 }
+			)
+		);
 		renderPage({ advancedDutySnapshots: [makeSnapshot()] });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
@@ -317,8 +333,56 @@ describe('DutyRosterPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Resume Snapshot' }));
 
-		expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
+		await waitFor(() => {
+			expect(screen.getByTestId('wizard-initial-view').textContent).toBe('advanced-template-list');
+		});
 		expect(screen.getByTestId('wizard-resume-snapshot').textContent).toBe('snapshot-1');
+		expect(globalThis.fetch).toHaveBeenCalledWith('/org/test-org/api/duty-events/snapshots/snapshot-1');
+	});
+
+	it('keeps resumable advanced snapshots in the draft snapshot workspace after reload-style data loads', async () => {
+		renderPage({
+			advancedDutySnapshots: [
+				makeSnapshot({ id: 'snapshot-draft', status: 'draft' }),
+				makeSnapshot({ id: 'snapshot-applying', status: 'applying' }),
+				makeSnapshot({ id: 'snapshot-failed', status: 'apply-failed' }),
+				makeSnapshot({ id: 'snapshot-partial', status: 'partial-failure' }),
+				makeSnapshot({ id: 'snapshot-applied', status: 'applied' })
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (4)' }));
+
+		expect(screen.getByRole('region', { name: 'Draft advanced duty snapshots' })).toBeTruthy();
+		expect(screen.getByText('4 draft snapshots')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Resume Snapshot' })).toBeTruthy();
+	});
+
+	it('does not offer delete actions for snapshots while apply is in progress', async () => {
+		renderPage({
+			advancedDutySnapshots: [makeSnapshot({ id: 'snapshot-applying', status: 'applying' })]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
+
+		expect(screen.queryByRole('button', { name: 'Delete Snapshot' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Delete snapshot for Battalion Staff Duty' })).toBeNull();
+	});
+
+	it('lets users delete a draft advanced duty snapshot from the snapshot workspace', async () => {
+		vi.mocked(globalThis.fetch).mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }));
+		renderPage({ advancedDutySnapshots: [makeSnapshot()] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Snapshot' }));
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete Snapshot' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('No draft snapshots')).toBeTruthy();
+		});
+		expect(globalThis.fetch).toHaveBeenCalledWith('/org/test-org/api/duty-events/snapshots/snapshot-1', {
+			method: 'DELETE'
+		});
 	});
 
 	it('starts simple and advanced top-level tabs in distinct roster lanes', async () => {

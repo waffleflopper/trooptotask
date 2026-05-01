@@ -65,12 +65,15 @@ describe('printAdvancedDutyDa6Matrices', () => {
 				close: vi.fn()
 			},
 			focus: vi.fn(),
-			print: vi.fn()
+			print: vi.fn(),
+			opener: window
 		} as unknown as Window;
-		vi.spyOn(window, 'open').mockReturnValue(printWindow);
+		const open = vi.spyOn(window, 'open').mockReturnValue(printWindow);
 
 		printAdvancedDutyDa6Matrices('DA6 <img src=x onerror=alert(1)>', [makeMatrix()]);
 
+		expect(open).toHaveBeenCalledWith('', '_blank');
+		expect(printWindow.opener).toBeNull();
 		const markup = String(write.mock.calls[0]?.[0] ?? '');
 		expect(markup).toContain('DA6 &lt;img src=x onerror=alert(1)&gt;');
 		expect(markup).toContain('Staff &lt;img src=x onerror=alert(1)&gt;');

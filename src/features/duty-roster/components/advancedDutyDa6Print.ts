@@ -15,8 +15,9 @@ function escapeHtml(value: string): string {
 }
 
 export function printAdvancedDutyDa6Matrices(title: string, matrices: AdvancedDutyDa6Matrix[]): void {
-	const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+	const printWindow = window.open('', '_blank');
 	if (!printWindow) return;
+	printWindow.opener = null;
 	const safeTitle = escapeHtml(title);
 
 	const markup = `<!doctype html>

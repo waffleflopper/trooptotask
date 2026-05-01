@@ -293,6 +293,31 @@
 		}
 	}
 
+	function buildAppliedSnapshotFromDraft(
+		snapshotId: string | undefined,
+		result: DutyEventSeriesApplyResult
+	): AdvancedDutyRunSnapshotRecord | null {
+		if (!snapshotId) return null;
+		const draft = advancedDutySnapshots.find((snapshot) => snapshot.id === snapshotId);
+		if (!draft) return null;
+		const previewPayload = draft.previewPayload as { da6Matrices?: unknown };
+		const snapshotPayload = draft.snapshotPayload as { da6Matrices?: unknown };
+		const da6Matrices = Array.isArray(snapshotPayload.da6Matrices)
+			? snapshotPayload.da6Matrices
+			: Array.isArray(previewPayload.da6Matrices)
+				? previewPayload.da6Matrices
+				: undefined;
+		const now = new Date().toISOString();
+		return {
+			...draft,
+			status: 'applied',
+			appliedRunId: result.run.id,
+			appliedAt: now,
+			snapshotPayload: da6Matrices ? { ...draft.snapshotPayload, da6Matrices } : draft.snapshotPayload,
+			updatedAt: now
+		};
+	}
+
 	function buildDraftSnapshotFromPreview(
 		input: DutyEventSeriesInput | DutyEventApplyInput,
 		preview: DutyEventSeriesPreview | DutyEventPreview
@@ -413,7 +438,12 @@
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;
-			removeDraftSnapshot(payload.snapshotId);
+			const appliedSnapshot = buildAppliedSnapshotFromDraft(payload.snapshotId, result);
+			if (appliedSnapshot) {
+				upsertDraftSnapshot(appliedSnapshot);
+			} else {
+				removeDraftSnapshot(payload.snapshotId);
+			}
 			advancedDutyEvents = mergeDutyEventsIntoTimeline(advancedDutyEvents, result.events);
 			await refreshAdvancedDutyData();
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);

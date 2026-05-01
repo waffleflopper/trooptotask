@@ -204,8 +204,8 @@ export function getPermissionPreset(
 	return 'custom';
 }
 
-export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
-	const shape = toMemberAccessShape({ permissions });
+export function isFullEditor(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): boolean {
+	const shape = toMemberAccessShape({ permissions, scopedGroupId });
 	return (
 		shape.scopeSet.kind === 'organization' &&
 		Object.values(shape.capabilityMap).every((level) => level === 'configure') &&
@@ -279,6 +279,7 @@ function fromCapabilityMap(
 		canEditRatingScheme: ratingScheme.canEdit,
 		canViewLeadersBook: leadersBook.canView,
 		canEditLeadersBook: leadersBook.canEdit,
+		// Membership management is role/override-driven, not represented by capability lanes.
 		canManageMembers: false
 	};
 }

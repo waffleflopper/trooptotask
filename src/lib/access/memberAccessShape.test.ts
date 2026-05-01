@@ -158,5 +158,7 @@ describe('member access shape', () => {
 		expect(isFullEditor(PERMISSION_PRESETS['full-editor'])).toBe(true);
 		expect(isFullEditor(PERMISSION_PRESETS.viewer)).toBe(false);
 		expect(isFullEditor({ ...PERMISSION_PRESETS['full-editor'], canEditCriticalTasks: false })).toBe(false);
+		expect(isFullEditor({ ...PERMISSION_PRESETS['full-editor'], canEditRatingScheme: false })).toBe(false);
+		expect(isFullEditor(PERMISSION_PRESETS['full-editor'], 'group-1')).toBe(false);
 	});
 });

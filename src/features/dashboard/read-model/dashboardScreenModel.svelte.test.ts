@@ -44,6 +44,7 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 			}
 		},
 		trainingSummary: null,
+		ictlSummary: null,
 		onboardingTrainingCompletions: [],
 		...overrides
 	};
@@ -220,5 +221,66 @@ describe('createDashboardScreenModel', () => {
 		});
 
 		vi.useRealTimers();
+	});
+
+	it('pre-shapes a compact ICTL summary for the training tab when dashboard data is present', () => {
+		const model = createDashboardScreenModel(
+			makeData({
+				ictlSummary: {
+					hasActiveTasks: true,
+					overallReadinessPercent: 68,
+					overallDeltaPercent: -4,
+					readyCount: 17,
+					applicableCount: 25,
+					soldiersBelowThresholdCount: 3,
+					soldiersBelowThresholdTotal: 8,
+					thresholdPercent: 70,
+					expiringSoonCount: 5,
+					expiringSoonAffectedSoldiers: 4,
+					expiringSoonWindowDays: 60,
+					tasksBelowThresholdCount: 2,
+					projectedReadinessPercent: 64,
+					mosReadiness: [
+						{ mos: '11B', personnelCount: 5, readinessPercent: 60 },
+						{ mos: '68W', personnelCount: 3, readinessPercent: 92 }
+					],
+					trend: [{ month: '2026-04', label: 'Apr', readinessPercent: 68 }],
+					tasksBelowThreshold: [
+						{
+							taskId: 'task-1',
+							taskCode: 'ICT-1',
+							taskName: 'React to contact',
+							percentComplete: 40,
+							soldierGapCount: 3
+						}
+					],
+					atRiskSoldiers: [
+						{
+							personnelId: 'person-1',
+							soldierName: 'Smith, Ann',
+							mos: '11B',
+							rank: 'SGT',
+							groupName: 'Alpha',
+							readinessPercent: 50,
+							tasksExpiringSoonCount: 1,
+							daysSinceLastIctUpdate: 45
+						}
+					]
+				}
+			})
+		);
+
+		expect(model.trainingEvals.ictl).toMatchObject({
+			state: 'ready',
+			readinessColor: 'var(--danger)',
+			readinessLabel: '68% ready',
+			deltaLabel: 'down 4 pts vs 30d',
+			primaryConcern: '3 of 8 Soldiers below 70%',
+			expiringSoonLabel: '5 tasks expiring <=60d across 4 Soldiers',
+			mosReadiness: [
+				{ mos: '11B', personnelCount: 5, readinessPercent: 60 },
+				{ mos: '68W', personnelCount: 3, readinessPercent: 92 }
+			]
+		});
 	});
 });

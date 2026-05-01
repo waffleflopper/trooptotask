@@ -97,6 +97,7 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 		},
 		dashboard: { data: makeWorkspaceData(workspaceOverrides), hydration: undefined, workspace: 'dashboard' },
 		trainingSummary: null,
+		ictlSummary: null,
 		onboardingTrainingCompletions: [],
 		onboardingTemplateStepCount: 0,
 		ratingSchemeEntryCount: 0,

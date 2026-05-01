@@ -24,6 +24,22 @@ export interface OnboardingBootstrap {
 	trainingTypes: TrainingType[];
 }
 
+function applyTrainingCompletionStatuses(
+	onboarding: PersonnelOnboarding,
+	completionStatusByStepId: Map<string, boolean>
+): PersonnelOnboarding {
+	return {
+		...onboarding,
+		steps: onboarding.steps.map((step) => {
+			if (step.stepType !== 'training' || !completionStatusByStepId.has(step.id)) {
+				return step;
+			}
+
+			return { ...step, completed: completionStatusByStepId.get(step.id) === true };
+		})
+	};
+}
+
 export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<OnboardingBootstrap> {
 	const orgId = ctx.auth.orgId;
 
@@ -67,35 +83,26 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 		onboardings = allOnboardings.filter((o) => scopedPersonnelIds.has(o.personnelId));
 	}
 
-	// Refresh training step completion server-side for active in-progress onboardings.
+	// Hydrate training-backed steps from current training records without requiring edit access.
 	const activeOnboardings = onboardings.filter((o) => o.status === 'in_progress');
 	const trainingOnboardings = activeOnboardings.filter((o) =>
 		o.steps.some((s) => s.stepType === 'training' && s.active)
 	);
 
 	if (trainingOnboardings.length > 0) {
-		const refreshResults = await Promise.all(
+		const completionStatuses = await Promise.all(
 			trainingOnboardings.map((o) => getTrainingStepCompletionStatuses(ctx, { onboardingId: o.id }))
 		);
-		const refreshedStepsByOnboardingId = new Map(
+		const refreshedOnboardingById = new Map(
 			trainingOnboardings.map((onboarding, index) => {
-				const refreshMap = new Map(refreshResults[index].map((result) => [result.id, result.completed]));
-				return [
-					onboarding.id,
-					onboarding.steps.map((step) =>
-						step.stepType === 'training' && refreshMap.has(step.id)
-							? { ...step, completed: refreshMap.get(step.id)! }
-							: step
-					)
-				];
+				const completionStatusByStepId = new Map(
+					completionStatuses[index].map((result) => [result.id, result.completed])
+				);
+				return [onboarding.id, applyTrainingCompletionStatuses(onboarding, completionStatusByStepId)];
 			})
 		);
 
-		onboardings = onboardings.map((onboarding) =>
-			refreshedStepsByOnboardingId.has(onboarding.id)
-				? { ...onboarding, steps: refreshedStepsByOnboardingId.get(onboarding.id)! }
-				: onboarding
-		);
+		onboardings = onboardings.map((onboarding) => refreshedOnboardingById.get(onboarding.id) ?? onboarding);
 	}
 
 	return {

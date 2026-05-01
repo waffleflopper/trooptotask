@@ -226,7 +226,7 @@ describe('fetchOnboardingBootstrap', () => {
 				]
 			}
 		]);
-		// refreshTrainingSteps queries onboarding_step_progress directly
+		// Training-backed hydration reads step progress directly.
 		ctx.store.seed('onboarding_step_progress', [
 			{
 				id: 'sp1',

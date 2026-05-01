@@ -321,6 +321,24 @@ describe('DutyRosterPage', () => {
 		expect(screen.getByTestId('wizard-resume-snapshot').textContent).toBe('snapshot-1');
 	});
 
+	it('keeps resumable advanced snapshots in the draft snapshot workspace after reload-style data loads', async () => {
+		renderPage({
+			advancedDutySnapshots: [
+				makeSnapshot({ id: 'snapshot-draft', status: 'draft' }),
+				makeSnapshot({ id: 'snapshot-applying', status: 'applying' }),
+				makeSnapshot({ id: 'snapshot-failed', status: 'apply-failed' }),
+				makeSnapshot({ id: 'snapshot-partial', status: 'partial-failure' }),
+				makeSnapshot({ id: 'snapshot-applied', status: 'applied' })
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (4)' }));
+
+		expect(screen.getByRole('region', { name: 'Draft advanced duty snapshots' })).toBeTruthy();
+		expect(screen.getByText('4 draft snapshots')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Resume Snapshot' })).toBeTruthy();
+	});
+
 	it('starts simple and advanced top-level tabs in distinct roster lanes', async () => {
 		renderPage();
 

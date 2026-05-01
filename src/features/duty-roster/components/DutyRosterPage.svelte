@@ -36,6 +36,7 @@
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
+	import { isResumableAdvancedDutyRunSnapshotStatus } from '../duty-roster.types';
 	import {
 		mergeDutyEventsIntoTimeline,
 		normalizeDutyTemplate,
@@ -81,7 +82,9 @@
 	let advancedDutySnapshots = $state<AdvancedDutyRunSnapshotRecord[]>([]);
 	let loadedSnapshotKey = $state('');
 	let resumeSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
-	const draftAdvancedDutySnapshots = $derived(advancedDutySnapshots.filter((snapshot) => snapshot.status === 'draft'));
+	const draftAdvancedDutySnapshots = $derived(
+		advancedDutySnapshots.filter((snapshot) => isResumableAdvancedDutyRunSnapshotStatus(snapshot.status))
+	);
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
 	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(

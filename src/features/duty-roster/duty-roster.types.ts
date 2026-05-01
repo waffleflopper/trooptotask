@@ -333,6 +333,19 @@ export type AdvancedDutyRunSnapshotStatus =
 	| 'partial-failure'
 	| 'expired';
 
+export const RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES = [
+	'draft',
+	'applying',
+	'apply-failed',
+	'partial-failure'
+] as const satisfies readonly AdvancedDutyRunSnapshotStatus[];
+
+export function isResumableAdvancedDutyRunSnapshotStatus(
+	status: AdvancedDutyRunSnapshotStatus
+): status is (typeof RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES)[number] {
+	return (RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES as readonly AdvancedDutyRunSnapshotStatus[]).includes(status);
+}
+
 export type AdvancedRunUiState =
 	| 'draft'
 	| 'stale'

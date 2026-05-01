@@ -3,6 +3,24 @@ import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 
+const RATING_SCHEME_COLUMNS = [
+	{ header: 'Eval Type', key: 'Eval Type', width: 10 },
+	{ header: 'Report Type', key: 'Report Type', width: 18 },
+	{ header: 'Rated Individual', key: 'Rated Individual', width: 28 },
+	{ header: 'Rank', key: 'Rank', width: 8 },
+	{ header: 'Rater', key: 'Rater', width: 28 },
+	{ header: 'Senior Rater', key: 'Senior Rater', width: 28 },
+	{ header: 'Intermediate Rater', key: 'Intermediate Rater', width: 28 },
+	{ header: 'Reviewer', key: 'Reviewer', width: 28 },
+	{ header: 'Rating Period Start', key: 'Rating Period Start', width: 14 },
+	{ header: 'Thru Date', key: 'Thru Date', width: 14 },
+	{ header: 'Days Until Due', key: 'Days Until Due', width: 14 },
+	{ header: 'Due Status', key: 'Due Status', width: 16 },
+	{ header: 'Status', key: 'Status', width: 16 },
+	{ header: 'Workflow Status', key: 'Workflow Status', width: 22 },
+	{ header: 'Notes', key: 'Notes', width: 30 }
+];
+
 function getPersonName(personnel: PersonnelLookup[], id: string | null, name: string | null): string {
 	if (id) {
 		const p = personnel.find((p) => p.id === id);
@@ -58,23 +76,7 @@ export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel
 
 	const workbook = new ExcelJS.Workbook();
 	const sheet = workbook.addWorksheet('Rating Scheme');
-	sheet.columns = [
-		{ header: 'Eval Type', key: 'Eval Type', width: 10 },
-		{ header: 'Report Type', key: 'Report Type', width: 18 },
-		{ header: 'Rated Individual', key: 'Rated Individual', width: 28 },
-		{ header: 'Rank', key: 'Rank', width: 8 },
-		{ header: 'Rater', key: 'Rater', width: 28 },
-		{ header: 'Senior Rater', key: 'Senior Rater', width: 28 },
-		{ header: 'Intermediate Rater', key: 'Intermediate Rater', width: 28 },
-		{ header: 'Reviewer', key: 'Reviewer', width: 28 },
-		{ header: 'Rating Period Start', key: 'Rating Period Start', width: 14 },
-		{ header: 'Thru Date', key: 'Thru Date', width: 14 },
-		{ header: 'Days Until Due', key: 'Days Until Due', width: 14 },
-		{ header: 'Due Status', key: 'Due Status', width: 16 },
-		{ header: 'Status', key: 'Status', width: 16 },
-		{ header: 'Workflow Status', key: 'Workflow Status', width: 22 },
-		{ header: 'Notes', key: 'Notes', width: 30 }
-	];
+	sheet.columns = RATING_SCHEME_COLUMNS;
 	sheet.addRows(rows);
 	sheet.getRow(1).font = { bold: true };
 

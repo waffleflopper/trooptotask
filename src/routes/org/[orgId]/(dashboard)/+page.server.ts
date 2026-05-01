@@ -3,6 +3,7 @@ import { buildLayoutContext, loadWithContextCore } from '$lib/server/adapters/ht
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
@@ -61,6 +62,17 @@ function toDashboardIctlSummary(report: IctReportDashboard): DashboardIctlSummar
 	};
 }
 
+async function loadDashboardIctlSummary(
+	ctx: UseCaseContext,
+	canViewCriticalTasks: boolean
+): Promise<DashboardIctlSummary | null> {
+	if (!canViewCriticalTasks) return null;
+
+	ctx.auth.requireView('critical-tasks');
+	const report = await fetchCriticalTasksReportDashboard(ctx);
+	return toDashboardIctlSummary(report);
+}
+
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
@@ -86,16 +98,10 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 						issueStatuses: ['expired', 'warning-orange']
 					}
 				});
-				const ictlSummary = canViewCriticalTasks
-					? await (async () => {
-							ctx.auth.requireView('critical-tasks');
-							return toDashboardIctlSummary(await fetchCriticalTasksReportDashboard(ctx));
-						})()
-					: null;
 
 				return {
 					trainingSummary: trainingData.trainingSummary,
-					ictlSummary,
+					ictlSummary: await loadDashboardIctlSummary(ctx, canViewCriticalTasks),
 					onboardingTrainingCompletions: [...trainingData.onboardingTrainingCompletions]
 				} satisfies DashboardPageSummaryData;
 			})

@@ -684,22 +684,7 @@ export class DashboardScreenModel {
 			return { state: 'empty', reportHref };
 		}
 
-		return {
-			state: 'ready',
-			readinessColor: availabilityColor(summary.overallReadinessPercent),
-			readinessLabel: `${summary.overallReadinessPercent}% ready`,
-			deltaLabel: formatReadinessDelta(summary.overallDeltaPercent),
-			readyCount: summary.readyCount,
-			applicableCount: summary.applicableCount,
-			primaryConcern: formatSoldiersBelowThreshold(summary),
-			expiringSoonLabel: formatExpiringSoon(summary),
-			tasksBelowThresholdLabel: formatTasksBelowThreshold(summary),
-			projectedReadinessLabel: `${summary.projectedReadinessPercent}% projected in 6 months`,
-			mosReadiness: summary.mosReadiness,
-			tasksBelowThreshold: summary.tasksBelowThreshold,
-			atRiskSoldiers: summary.atRiskSoldiers,
-			reportHref
-		};
+		return createReadyIctlView(summary, reportHref);
 	}
 
 	get outTodayByStatus(): GroupedEntries<DashboardOutTodayRow> {
@@ -826,6 +811,25 @@ function formatExpiringSoon(summary: DashboardIctlSummary): string {
 function formatTasksBelowThreshold(summary: DashboardIctlSummary): string {
 	const taskLabel = summary.tasksBelowThresholdCount === 1 ? 'task' : 'tasks';
 	return `${summary.tasksBelowThresholdCount} ${taskLabel} below unit threshold`;
+}
+
+function createReadyIctlView(summary: DashboardIctlSummary, reportHref: string): DashboardIctlView {
+	return {
+		state: 'ready',
+		readinessColor: availabilityColor(summary.overallReadinessPercent),
+		readinessLabel: `${summary.overallReadinessPercent}% ready`,
+		deltaLabel: formatReadinessDelta(summary.overallDeltaPercent),
+		readyCount: summary.readyCount,
+		applicableCount: summary.applicableCount,
+		primaryConcern: formatSoldiersBelowThreshold(summary),
+		expiringSoonLabel: formatExpiringSoon(summary),
+		tasksBelowThresholdLabel: formatTasksBelowThreshold(summary),
+		projectedReadinessLabel: `${summary.projectedReadinessPercent}% projected in 6 months`,
+		mosReadiness: summary.mosReadiness,
+		tasksBelowThreshold: summary.tasksBelowThreshold,
+		atRiskSoldiers: summary.atRiskSoldiers,
+		reportHref
+	};
 }
 
 function readPreference<T extends string>(

@@ -90,16 +90,34 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - Scope should be a shared member scope set across all scoped feature lanes.
 - The approved target supports org-wide access or `1..n` groups.
-- The first implementation wave may preserve current single-group storage/runtime behavior until a dedicated migration expands storage and RLS safely.
+- Multi-group scope should move into the replacement program sooner rather than later. Slices may use temporary translation only as migration scaffolding, but the intended rollout is to retire single-group storage/runtime behavior from each migrated workflow.
 - Per-feature scope matrices are not part of the approved model.
 
 #### Policy-decision model
 
 - Final allow or deny decisions should come from:
   - governance role
+  - stable policy action
   - capability map
   - shared scope set
   - policy overlays
+- Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions instead of defining authorization meaning from UI placement or route shape.
+- Every policy action should be owned by a durable feature lane or by organization-governance semantics.
+- The first action catalog should use workflow-level actions: meaningful user workflows rather than one action per button or one catch-all action per feature.
+- Split actions when they need different capability levels, audit treatment, or UX explanations.
+- The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
+- Do not treat a compatibility adapter over current permission flags as the destination architecture.
+- The core policy evaluator should be pure TypeScript and provider-agnostic. It should receive already-loaded facts such as actor role, capability map, scope set, resource context, and policy overlays.
+- Supabase-specific reads belong in an adapter that translates provider data into policy inputs before evaluation.
+- Policy evaluation should return a structured decision result, not a bare boolean. The result should include the final allow or deny value plus explanation fields such as reason code, matched capability, matched scope, and blocking overlay.
+- Every policy decision should include a stable machine-readable reason code such as `allowed.capability`, `denied.missingCapability`, `denied.outOfScope`, `denied.readOnlyMode`, or `denied.ownerOnly`.
+- Human-facing copy should be mapped from reason codes outside the evaluator; free-form explanation strings must not become canonical policy reasons.
+- Structured decisions should be usable for both user-facing explanations and audit capture when members attempt denied or suspicious access.
+- Audit capture should be selective rather than logging every policy decision. The policy result should carry enough structured fields for an audit event, while an audit adapter or allowlist decides whether to persist it.
+- Always-audit categories should include denied writes, organization-governance actions, owner-only actions, billing changes, and member-management changes. Suspicious denied reads or repeated denied attempts may become audit-worthy through explicit capture rules.
+- Ordinary allowed reads should not be audited by default.
+- Policy enforcement must be server-authoritative. Client-side or preloaded decisions may improve UX by hiding buttons, disabling controls, or showing explanations, but writes and sensitive reads must still be checked server-side.
+- Hidden UI controls and client-side decisions are advisory only and must not be treated as security enforcement.
 - Cross-cutting rules such as read-only mode, delete-approval workflows, and owner-only danger operations should remain explicit policy overlays rather than being stuffed into the feature capability ladder.
 
 ### Feature-permission direction
@@ -135,6 +153,8 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ### Auditability direction
 
 - Authorization decisions should become easier to explain, inspect, and review.
+- Policy decisions should preserve enough structured explanation to support audit trails without requiring every call site to reverse-engineer why access was allowed or denied.
+- Authorization audit trails should stay selective and useful; avoid turning routine allowed reads into audit noise.
 - Every member should remain explainable as:
   - fixed governance role
   - assigned preset
@@ -155,6 +175,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
 - Do not deepen boolean-only authz patterns just because the current schema still uses them.
+- Do not leave current permission flags or single-group scope in place as a long-lived compatibility substrate for migrated authorization workflows.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.
 - Do not introduce per-feature scope matrices.

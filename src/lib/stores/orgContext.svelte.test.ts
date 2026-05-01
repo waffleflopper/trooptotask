@@ -96,7 +96,7 @@ describe('createOrgContext', () => {
 		expect(ctx.isFullEditor).toBe(true);
 	});
 
-	it('keeps isFullEditor=true when only Critical Tasks permissions are disabled', () => {
+	it('sets isFullEditor=false when Critical Tasks permissions are disabled', () => {
 		const ctx = createOrgContext(
 			makeInput({
 				userRole: 'member',
@@ -108,7 +108,7 @@ describe('createOrgContext', () => {
 				scopedGroupId: null
 			})
 		);
-		expect(ctx.isFullEditor).toBe(true);
+		expect(ctx.isFullEditor).toBe(false);
 	});
 
 	it('sets isFullEditor=false when any permission is false', () => {

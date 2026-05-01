@@ -1,4 +1,5 @@
-import { PERMISSION_PRESETS, type OrganizationMemberPermissions } from '$lib/types';
+import type { OrganizationMemberPermissions } from '$lib/types';
+import { resolveCurrentPresetPermissions, resolveCurrentUpdatePermissions } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
@@ -274,32 +275,12 @@ function normalizeEmail(email: string): string {
 }
 
 function resolvePresetPermissions(preset: string): OrganizationMemberPermissions {
-	return PERMISSION_PRESETS[preset as keyof typeof PERMISSION_PRESETS] ?? PERMISSION_PRESETS['full-editor'];
+	return resolveCurrentPresetPermissions(preset);
 }
 
 function resolveUpdatePermissions(
 	preset: string,
 	customPermissions?: Partial<OrganizationMemberPermissions> | null
 ): OrganizationMemberPermissions {
-	if (preset !== 'custom') {
-		return resolvePresetPermissions(preset);
-	}
-
-	return {
-		canViewCalendar: !!customPermissions?.canViewCalendar,
-		canEditCalendar: !!customPermissions?.canEditCalendar,
-		canViewPersonnel: !!customPermissions?.canViewPersonnel,
-		canEditPersonnel: !!customPermissions?.canEditPersonnel,
-		canViewTraining: !!customPermissions?.canViewTraining,
-		canEditTraining: !!customPermissions?.canEditTraining,
-		canViewCriticalTasks: !!customPermissions?.canViewCriticalTasks,
-		canEditCriticalTasks: !!customPermissions?.canEditCriticalTasks,
-		canViewOnboarding: !!customPermissions?.canViewOnboarding,
-		canEditOnboarding: !!customPermissions?.canEditOnboarding,
-		canViewRatingScheme: !!customPermissions?.canViewRatingScheme,
-		canEditRatingScheme: !!customPermissions?.canEditRatingScheme,
-		canViewLeadersBook: !!customPermissions?.canViewLeadersBook,
-		canEditLeadersBook: !!customPermissions?.canEditLeadersBook,
-		canManageMembers: !!customPermissions?.canManageMembers
-	};
+	return resolveCurrentUpdatePermissions(preset, customPermissions);
 }

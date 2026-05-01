@@ -330,7 +330,11 @@ describe('acceptDashboardInvitation', () => {
 				canViewLeadersBook: true,
 				canEditLeadersBook: true,
 				canManageMembers: false,
-				scopedGroupId: null
+				scopedGroupId: null,
+				memberPreset: null,
+				capabilityOverrides: {},
+				accessScopeKind: null,
+				accessScopeGroupIds: []
 			}
 		]);
 	});

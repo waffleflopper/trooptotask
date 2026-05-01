@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	currentPresetToMemberAccessShape,
+	currentPresetToMemberAccessStorage,
 	getPermissionPreset,
 	isFullEditor,
 	PERMISSION_PRESETS,
+	resolveStoredMemberAccessShape,
 	resolveCurrentPresetPermissions,
 	resolveCurrentUpdatePermissions,
+	serializeScopeSetForStorage,
 	toCurrentPermissionFlags,
 	toMemberAccessShape,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
@@ -112,6 +115,48 @@ describe('member access shape', () => {
 			criticalTasks: 'operate',
 			onboarding: 'operate',
 			ratingScheme: 'operate'
+		});
+	});
+
+	it('resolves a stored platform preset with explicit lane overrides while preserving preset lineage', () => {
+		const shape = resolveStoredMemberAccessShape({
+			membershipRole: 'member',
+			memberPreset: 'viewer',
+			capabilityOverrides: {
+				calendar: 'operate',
+				ratingScheme: 'none'
+			},
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo', 'group-alpha'] }
+		});
+
+		expect(shape.memberPreset).toBe('viewer');
+		expect(shape.capabilityMap).toEqual({
+			...TARGET_MEMBER_PRESET_CAPABILITIES.viewer,
+			calendar: 'operate',
+			ratingScheme: 'none'
+		});
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+		expect(shape.canManageMembers).toBe(false);
+	});
+
+	it('translates current Team Leader storage as Operator lineage plus configure overrides and multi-group-ready scope columns', () => {
+		const storage = currentPresetToMemberAccessStorage({
+			preset: 'team-leader',
+			scopedGroupId: 'group-alpha'
+		});
+
+		expect(storage.memberPreset).toBe('operator');
+		expect(storage.capabilityOverrides).toEqual({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		});
+		expect(serializeScopeSetForStorage(storage.scopeSet)).toEqual({
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-alpha']
 		});
 	});
 

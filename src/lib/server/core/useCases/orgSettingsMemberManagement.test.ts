@@ -161,7 +161,18 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
 				scopedGroupId: 'group-1',
-				permissions: PERMISSION_PRESETS['team-leader']
+				permissions: PERMISSION_PRESETS['team-leader'],
+				memberPreset: 'operator',
+				capabilityOverrides: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-1']
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([
@@ -447,7 +458,11 @@ describe('updateOrganizationMemberPermissions', () => {
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'admin',
 				scopedGroupId: null,
-				permissions: PERMISSION_PRESETS.admin
+				permissions: PERMISSION_PRESETS.admin,
+				memberPreset: 'editor',
+				capabilityOverrides: {},
+				accessScopeKind: 'organization',
+				accessScopeGroupIds: []
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([
@@ -519,7 +534,17 @@ describe('updateOrganizationMemberPermissions', () => {
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
 				scopedGroupId: null,
-				permissions: customPermissions
+				permissions: customPermissions,
+				memberPreset: 'viewer',
+				capabilityOverrides: {
+					calendar: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
+				accessScopeKind: 'organization',
+				accessScopeGroupIds: []
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([

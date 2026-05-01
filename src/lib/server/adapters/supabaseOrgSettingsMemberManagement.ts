@@ -59,7 +59,11 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				can_edit_rating_scheme: input.permissions.canEditRatingScheme,
 				can_view_leaders_book: input.permissions.canViewLeadersBook,
 				can_edit_leaders_book: input.permissions.canEditLeadersBook,
-				can_manage_members: input.permissions.canManageMembers
+				can_manage_members: input.permissions.canManageMembers,
+				member_preset: input.memberPreset,
+				capability_overrides: input.capabilityOverrides,
+				access_scope_kind: input.accessScopeKind,
+				access_scope_group_ids: input.accessScopeGroupIds
 			});
 
 			return error?.message ?? null;
@@ -148,6 +152,10 @@ function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {
 		can_edit_rating_scheme: input.permissions.canEditRatingScheme,
 		can_view_leaders_book: input.permissions.canViewLeadersBook,
 		can_edit_leaders_book: input.permissions.canEditLeadersBook,
-		can_manage_members: input.permissions.canManageMembers
+		can_manage_members: input.permissions.canManageMembers,
+		member_preset: input.memberPreset,
+		capability_overrides: input.capabilityOverrides,
+		access_scope_kind: input.accessScopeKind,
+		access_scope_group_ids: input.accessScopeGroupIds
 	};
 }

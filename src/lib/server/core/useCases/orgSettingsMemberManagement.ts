@@ -1,5 +1,12 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { resolveCurrentPresetPermissions, resolveCurrentUpdatePermissions } from '$lib/access/memberAccessShape';
+import {
+	currentPresetToMemberAccessStorage,
+	resolveCurrentPresetPermissions,
+	resolveCurrentUpdatePermissions,
+	serializeScopeSetForStorage,
+	type CapabilityOverrideMap,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
@@ -10,6 +17,10 @@ export interface OrganizationInvitationCreateInput {
 	invitedBy: string;
 	scopedGroupId: string | null;
 	permissions: OrganizationMemberPermissions;
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
 }
 
 export interface OrganizationMembershipUpdateInput {
@@ -18,6 +29,10 @@ export interface OrganizationMembershipUpdateInput {
 	role: 'admin' | 'member';
 	scopedGroupId: string | null;
 	permissions: OrganizationMemberPermissions;
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
 }
 
 interface OrganizationMembershipRecord {
@@ -90,12 +105,21 @@ export async function inviteOrganizationMember(
 	}
 
 	const permissions = resolveCurrentPresetPermissions(input.preset);
+	const accessStorage = currentPresetToMemberAccessStorage({
+		preset: input.preset,
+		scopedGroupId: input.scopedGroupId
+	});
+	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
 		invitedBy: actorUserId,
 		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
-		permissions
+		permissions,
+		memberPreset: accessStorage.memberPreset,
+		capabilityOverrides: accessStorage.capabilityOverrides,
+		accessScopeKind: serializedScope.access_scope_kind,
+		accessScopeGroupIds: serializedScope.access_scope_group_ids
 	});
 
 	if (errorMessage) {
@@ -221,13 +245,23 @@ export async function updateOrganizationMemberPermissions(
 	}
 
 	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
+	const accessStorage = currentPresetToMemberAccessStorage({
+		preset: input.preset,
+		scopedGroupId: input.scopedGroupId,
+		customPermissions: input.customPermissions
+	});
+	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
 	const role = input.preset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,
 		role,
 		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
-		permissions
+		permissions,
+		memberPreset: accessStorage.memberPreset,
+		capabilityOverrides: accessStorage.capabilityOverrides,
+		accessScopeKind: serializedScope.access_scope_kind,
+		accessScopeGroupIds: serializedScope.access_scope_group_ids
 	});
 
 	if (errorMessage) {

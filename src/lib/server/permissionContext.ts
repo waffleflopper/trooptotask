@@ -162,7 +162,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canManageMembers: !!membership.can_manage_members
 	};
 
-	const isFullEditor = !isPrivileged && !scopedGroupId && hasFullEditorPermissions(memberPermissions);
+	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {

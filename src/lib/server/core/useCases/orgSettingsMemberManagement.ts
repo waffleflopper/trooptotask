@@ -89,7 +89,7 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const permissions = resolvePresetPermissions(input.preset);
+	const permissions = resolveCurrentPresetPermissions(input.preset);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
@@ -220,7 +220,7 @@ export async function updateOrganizationMemberPermissions(
 		ports.auth.requireManageMembers();
 	}
 
-	const permissions = resolveUpdatePermissions(input.preset, input.customPermissions);
+	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
 	const role = input.preset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
@@ -272,15 +272,4 @@ function requireActorUserId(auth: AuthContext): string {
 
 function normalizeEmail(email: string): string {
 	return sanitizeString(email, 254).toLowerCase();
-}
-
-function resolvePresetPermissions(preset: string): OrganizationMemberPermissions {
-	return resolveCurrentPresetPermissions(preset);
-}
-
-function resolveUpdatePermissions(
-	preset: string,
-	customPermissions?: Partial<OrganizationMemberPermissions> | null
-): OrganizationMemberPermissions {
-	return resolveCurrentUpdatePermissions(preset, customPermissions);
 }

@@ -3,8 +3,8 @@ import { statusTypesStore } from './statusTypes.svelte';
 import type { StatusType } from '$lib/types';
 
 const mockTypes: StatusType[] = [
-	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff' },
-	{ id: '2', name: 'TDY', color: '#3b82f6', textColor: '#ffffff' }
+	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff', da6TreatmentReviewed: true },
+	{ id: '2', name: 'TDY', color: '#3b82f6', textColor: '#ffffff', da6TreatmentReviewed: true }
 ];
 
 function stubFetch(response: unknown, status = 200) {
@@ -54,10 +54,15 @@ describe('statusTypesStore', () => {
 
 	describe('add', () => {
 		it('adds item and returns the server-created record', async () => {
-			const created = { id: 'new-1', name: 'CQ', color: '#ff0000', textColor: '#ffffff' };
+			const created = { id: 'new-1', name: 'CQ', color: '#ff0000', textColor: '#ffffff', da6TreatmentReviewed: false };
 			stubFetch(created);
 
-			const result = await statusTypesStore.add({ name: 'CQ', color: '#ff0000', textColor: '#ffffff' });
+			const result = await statusTypesStore.add({
+				name: 'CQ',
+				color: '#ff0000',
+				textColor: '#ffffff',
+				da6TreatmentReviewed: false
+			});
 
 			expect(result).not.toBeNull();
 			expect(result!.id).toBe('new-1');

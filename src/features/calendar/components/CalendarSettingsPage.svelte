@@ -307,12 +307,7 @@
 							<label class="treatment-label" for="new-status-da6-treatment">Duty roster treatment</label>
 							<span class="help-wrapper">
 								<button class="help-icon" type="button" aria-label="Duty roster treatment help">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-										<path
-											d="M12 6.75c-1.8 0-3 1.01-3 2.52h1.73c0-.69.52-1.1 1.22-1.1.76 0 1.29.44 1.29 1.11 0 .62-.34.93-1.08 1.38-.95.57-1.66 1.19-1.66 2.59v.38h1.72v-.25c0-.84.37-1.18 1.19-1.68.88-.53 1.57-1.19 1.57-2.52 0-1.76-1.39-2.43-2.98-2.43Z"
-										/>
-										<circle cx="12" cy="17.35" r="1" fill="currentColor" stroke="none" />
-									</svg>
+									<span aria-hidden="true">?</span>
 								</button>
 								<span class="help-tooltip" role="tooltip">{DA6_AVAILABILITY_HELP}</span>
 							</span>
@@ -339,10 +334,11 @@
 						<div class="da6-review-copy">
 							<div class="da6-review-heading">
 								<span class="da6-review-marker" aria-hidden="true">DA6</span>
-								<h3>Review existing DA6 treatments</h3>
+								<h3>Confirm statuses with no DA6 effect</h3>
 							</div>
 							<p>
-								Check leave, TDY, school, sick, CQ/SD, detail, and similar statuses before generating DA Form 6 rosters.
+								These status types are excluded from DA Form 6 rosters unless you edit them and assign a duty roster
+								treatment.
 							</p>
 						</div>
 						<div class="da6-review-list" aria-label="Status types needing DA6 treatment review">
@@ -358,8 +354,8 @@
 										<button
 											class="da6-review-action"
 											type="button"
-											aria-label={`Mark ${status.name} reviewed`}
-											onclick={() => markStatusDa6Reviewed(status)}>Reviewed</button
+											aria-label={`Confirm ${status.name} has no DA6 effect`}
+											onclick={() => markStatusDa6Reviewed(status)}>No effect</button
 										>
 									{/if}
 								</span>
@@ -1037,18 +1033,18 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 1.25rem;
-		height: 1.25rem;
+		width: 1.15rem;
+		height: 1.15rem;
+		padding: 0;
 		border: 1px solid var(--border-default);
 		border-radius: 999px;
 		background: var(--surface-panel);
 		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		font-weight: var(--font-weight-semibold);
+		line-height: 1;
 		cursor: help;
-	}
-
-	.help-icon svg {
-		width: 0.85rem;
-		height: 0.85rem;
 	}
 
 	.help-tooltip {

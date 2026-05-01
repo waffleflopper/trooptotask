@@ -215,7 +215,7 @@ export interface StatusType {
 	color: string;
 	textColor: string;
 	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
-	da6TreatmentReviewed?: boolean;
+	da6TreatmentReviewed: boolean;
 }
 
 export const DA6_AVAILABILITY_TREATMENTS = ['authorized-absence', 'other-duty', 'misconduct-unavailable'] as const;
@@ -261,21 +261,24 @@ export const DEFAULT_STATUS_TYPES: StatusType[] = [
 		name: 'Leave',
 		color: '#48bb78',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'school',
 		name: 'School',
 		color: '#4299e1',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'training-tdy',
 		name: 'Training / TDY',
 		color: '#9f7aea',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'appointment',
@@ -290,14 +293,16 @@ export const DEFAULT_STATUS_TYPES: StatusType[] = [
 		name: 'Sick',
 		color: '#e53e3e',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'other-duty',
 		name: 'Other Duty / Detail',
 		color: '#a0522d',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'other-duty'
+		da6AvailabilityTreatment: 'other-duty',
+		da6TreatmentReviewed: true
 	}
 ];
 

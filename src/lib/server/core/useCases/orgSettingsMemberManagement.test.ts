@@ -85,6 +85,94 @@ function createOrganizationSettingsMemberManagementPort(
 }
 
 describe('inviteOrganizationMember', () => {
+	it('denies admin invitations in read-only mode with policy audit metadata', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			},
+			readOnly: true
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					settings: port
+				},
+				{
+					email: 'new.user@example.com',
+					preset: 'full-editor',
+					scopedGroupId: null,
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.inviteMember',
+					reasonCode: 'denied:read-only-overlay',
+					blockingOverlay: 'read-only-mode'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('denies high-access members who are not admin or owner before creating invitations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					preset: 'full-editor',
+					scopedGroupId: null,
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.invitationLookups).toEqual([]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.inviteMember',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid invitation emails before querying pending invites', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -242,6 +330,51 @@ describe('revokeOrganizationInvitation', () => {
 });
 
 describe('removeOrganizationMember', () => {
+	it('denies high-access members who are not admin or owner before removing memberships', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			removeOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.membershipLookups).toEqual([]);
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.removeMember',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects removing the current actor from the organization', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -379,6 +512,100 @@ describe('removeOrganizationMember', () => {
 });
 
 describe('updateOrganizationMemberPermissions', () => {
+	it('denies admins before granting another member admin access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin',
+				requireOwner: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					preset: 'admin',
+					scopedGroupId: null,
+					customPermissions: buildPermissions(),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateAdminAccess',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('denies high-access members who are not admin or owner before updating access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					preset: 'full-editor',
+					scopedGroupId: null,
+					customPermissions: buildPermissions(),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateMemberAccess',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('blocks owner permission changes before auth escalation checks', async () => {
 		const requireOwner = vi.fn();
 		const requireManageMembers = vi.fn();
@@ -450,7 +677,7 @@ describe('updateOrganizationMemberPermissions', () => {
 
 		expect(result).toEqual({ permissionSuccess: true });
 		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
-		expect(requireOwner).toHaveBeenCalledOnce();
+		expect(requireOwner).not.toHaveBeenCalled();
 		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{
@@ -490,7 +717,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		]);
 	});
 
-	it('uses manage-members auth for non-admin updates and keeps the permission-change notification path', async () => {
+	it('uses governance policy for non-admin updates and keeps the permission-change notification path', async () => {
 		const requireOwner = vi.fn();
 		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
@@ -526,7 +753,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		);
 
 		expect(result).toEqual({ permissionSuccess: true });
-		expect(requireManageMembers).toHaveBeenCalledOnce();
+		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{

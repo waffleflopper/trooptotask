@@ -106,7 +106,7 @@ describe('policy evaluator', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.manageMembers,
+			action: POLICY_ACTION_CATALOG.organization.updateMemberAccess,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 			resource: { kind: 'organization' },
@@ -126,7 +126,7 @@ describe('policy evaluator', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'member' },
-			action: POLICY_ACTION_CATALOG.organization.manageMembers,
+			action: POLICY_ACTION_CATALOG.organization.updateMemberAccess,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' },
@@ -160,6 +160,25 @@ describe('policy evaluator', () => {
 			audit: { capture: true, category: 'denied' }
 		});
 		expect(decision.matchedCapability).toBeUndefined();
+	});
+
+	it('lets read-only overlays block governance writes after role checks pass', () => {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'admin' },
+			action: POLICY_ACTION_CATALOG.organization.inviteMember,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: [{ id: 'billing-read-only', kind: 'read-only-mode', label: 'Billing read-only mode' }]
+		});
+
+		expect(decision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:read-only-overlay',
+			blockingOverlay: { id: 'billing-read-only', kind: 'read-only-mode' },
+			audit: { capture: true, category: 'denied' }
+		});
 	});
 
 	it('preserves advisory decisions as non-authoritative contract results', () => {

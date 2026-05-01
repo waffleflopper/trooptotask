@@ -1,4 +1,5 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	currentPresetToMemberAccessStorage,
 	resolveCurrentPresetPermissions,
@@ -8,8 +9,9 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
-import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
+import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
+import { requireGovernancePolicy } from './governancePolicy';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -55,6 +57,7 @@ interface OrganizationSettingsMemberManagementPorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	notifications: NotificationPort;
+	readOnlyGuard?: ReadOnlyGuard;
 	settings: OrganizationSettingsMemberManagementPort;
 }
 
@@ -97,7 +100,7 @@ export async function inviteOrganizationMember(
 	inviteEmail: string;
 	inviteMessage: string;
 }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
 
 	const actorUserId = requireActorUserId(ports.auth);
 	const email = normalizeEmail(input.email);
@@ -151,7 +154,7 @@ export async function revokeOrganizationInvitation(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: RevokeOrganizationInvitationInput
 ): Promise<{ success: true }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.revokeInvitation);
 
 	if (!validateUUID(input.inviteId)) {
 		fail(400, 'Invalid invitation ID');
@@ -175,7 +178,7 @@ export async function removeOrganizationMember(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: RemoveOrganizationMemberInput
 ): Promise<{ success: true }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.removeMember);
 
 	if (!validateUUID(input.membershipId)) {
 		fail(400, 'Invalid membership ID');
@@ -239,9 +242,9 @@ export async function updateOrganizationMemberPermissions(
 	}
 
 	if (input.preset === 'admin' || targetMembership?.role === 'admin') {
-		ports.auth.requireOwner();
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	} else {
-		ports.auth.requireManageMembers();
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
 	}
 
 	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);

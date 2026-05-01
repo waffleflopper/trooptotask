@@ -1,15 +1,19 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
 import { canManageBillingSubscription, readBillingOrganization } from '$lib/server/core/useCases/billingOrganization';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 
 export async function _loadBillingPageData(
-	ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
+	ctx: Pick<UseCaseContext, 'auth' | 'audit' | 'rawStore'>,
 	effectiveTier: EffectiveTier
 ) {
+	await requireGovernancePolicy({ auth: ctx.auth, audit: ctx.audit }, POLICY_ACTION_CATALOG.organization.accessBilling);
+
 	const org = await readBillingOrganization({ auth: ctx.auth, store: ctx.rawStore });
 	const canManageSubscription = canManageBillingSubscription(org);
 

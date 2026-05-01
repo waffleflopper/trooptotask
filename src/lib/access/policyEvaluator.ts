@@ -149,10 +149,50 @@ export const POLICY_ACTION_CATALOG = {
 		})
 	},
 	organization: {
-		manageMembers: governanceAction({
-			id: 'organization.manageMembers',
-			label: 'Manage organization members',
+		accessGovernance: governanceAction({
+			id: 'organization.accessGovernance',
+			label: 'Access organization governance',
 			access: 'admin-or-owner'
+		}),
+		accessBilling: governanceAction({
+			id: 'organization.accessBilling',
+			label: 'Access organization billing',
+			access: 'owner-only'
+		}),
+		rename: governanceAction({
+			id: 'organization.rename',
+			label: 'Rename organization',
+			access: 'admin-or-owner'
+		}),
+		inviteMember: governanceAction({
+			id: 'organization.inviteMember',
+			label: 'Invite organization member',
+			access: 'admin-or-owner'
+		}),
+		revokeInvitation: governanceAction({
+			id: 'organization.revokeInvitation',
+			label: 'Revoke organization invitation',
+			access: 'admin-or-owner'
+		}),
+		removeMember: governanceAction({
+			id: 'organization.removeMember',
+			label: 'Remove organization member',
+			access: 'admin-or-owner'
+		}),
+		updateMemberAccess: governanceAction({
+			id: 'organization.updateMemberAccess',
+			label: 'Update organization member access',
+			access: 'admin-or-owner'
+		}),
+		updateAdminAccess: governanceAction({
+			id: 'organization.updateAdminAccess',
+			label: 'Update organization admin access',
+			access: 'owner-only'
+		}),
+		transferOwnership: governanceAction({
+			id: 'organization.transferOwnership',
+			label: 'Transfer organization ownership',
+			access: 'owner-only'
 		}),
 		deleteOrganization: governanceAction({
 			id: 'organization.deleteOrganization',
@@ -266,6 +306,16 @@ function evaluateGovernancePolicy(
 		});
 	}
 
+	const blockingOverlay = findBlockingOverlay(input);
+	if (blockingOverlay) {
+		return buildDecision(input, {
+			allowed: false,
+			reasonCode: POLICY_REASON_CODES.deniedReadOnlyOverlay,
+			matchedScope,
+			blockingOverlay
+		});
+	}
+
 	return buildDecision(input, {
 		allowed: true,
 		reasonCode: POLICY_REASON_CODES.allowedGovernance,
@@ -336,7 +386,7 @@ function matchScope(scopeSet: ScopeSet, resource: PolicyResource): MatchedScope 
 }
 
 function findBlockingOverlay(input: PolicyEvaluationInput): PolicyOverlay | undefined {
-	if (input.action.accessMode !== 'write') {
+	if (input.action.accessMode !== 'write' && input.action.accessMode !== 'governance') {
 		return undefined;
 	}
 

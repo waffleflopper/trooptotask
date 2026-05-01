@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -23,6 +24,7 @@ import {
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
+import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
@@ -34,6 +36,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'privileged',
 		fn: async (ctx) => {
+			await requireGovernancePolicy(
+				{ auth: ctx.auth, audit: ctx.audit },
+				POLICY_ACTION_CATALOG.organization.accessGovernance
+			);
+
 			const adminStore = createSupabaseDataStore(getAdminClient());
 			const [
 				membershipRows,
@@ -162,7 +169,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				invitations,
 				isOwner: userRole === 'owner',
 				isAdmin,
-				canManageMembers: userRole === 'owner' || userRole === 'admin' || permissions.canManageMembers,
+				canManageMembers: userRole === 'owner' || userRole === 'admin',
 				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
 				exportInfo,
 				policies: {
@@ -196,6 +203,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -220,6 +228,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
@@ -247,6 +256,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{ inviteId: (formData.get('inviteId') as string) ?? '' }
@@ -269,6 +279,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
@@ -294,6 +305,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
@@ -322,6 +334,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -346,6 +359,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{

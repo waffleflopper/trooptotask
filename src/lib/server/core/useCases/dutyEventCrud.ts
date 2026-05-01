@@ -47,6 +47,7 @@ import type {
 import {
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder,
+	RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES,
 	isResumableAdvancedDutyRunSnapshotStatus
 } from '$features/duty-roster/duty-roster.types';
 
@@ -55,6 +56,31 @@ interface SlotCollisionCheckResult {
 	slotMessages: Map<string, string[]>;
 	blockingConflicts: string[];
 }
+
+const ADVANCED_DUTY_RUN_SNAPSHOT_SUMMARY_SELECT = [
+	'id',
+	'organization_id',
+	'template_id',
+	'template_name',
+	'pattern',
+	'start_date',
+	'end_date',
+	'event_count',
+	'event_dates',
+	'candidate_personnel_ids',
+	'snapshot_fingerprint',
+	'snapshot_version',
+	'status',
+	'created_by_user_id',
+	'applied_run_id',
+	'apply_error',
+	'expires_at',
+	'applied_at',
+	'created_at',
+	'updated_at'
+].join(', ');
+
+const ADVANCED_DUTY_RUN_APPLIED_SNAPSHOT_SELECT = `${ADVANCED_DUTY_RUN_SNAPSHOT_SUMMARY_SELECT}, snapshot_payload, export_model`;
 
 interface TransientPreviewEvent {
 	eventDate: string;
@@ -188,6 +214,12 @@ function stableStringify(value: unknown): string {
 
 function buildSnapshotFingerprint(payload: Record<string, unknown>): string {
 	return createHash('sha256').update(stableStringify(payload)).digest('hex');
+}
+
+function omitPreviewOnlyDa6Matrices<T extends Record<string, unknown>>(previewPayload: T): T {
+	const storedPreviewPayload = { ...previewPayload };
+	delete storedPreviewPayload.da6Matrices;
+	return storedPreviewPayload as T;
 }
 
 function normalizeSlotOverridesForSnapshotCompare(
@@ -380,6 +412,27 @@ async function persistDraftAdvancedRunSnapshot(
 		snapshot: input.snapshotPayload,
 		snapshotVersion
 	});
+	const existingInputMatchRows = await ctx.store.findMany<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		{
+			template_id: input.templateId,
+			status: 'draft'
+		},
+		{
+			orderBy: [{ column: 'created_at', ascending: false }],
+			limit: 100,
+			select: 'id, expires_at, input_payload'
+		}
+	);
+	const now = new Date().toISOString();
+	const matchingDraftIds = existingInputMatchRows
+		.filter((row) => typeof row.expires_at !== 'string' || row.expires_at > now)
+		.filter((row) => stableStringify(row.input_payload ?? {}) === stableStringify(input.inputPayload))
+		.map((row) => String(row.id));
+	if (matchingDraftIds.length > 0) {
+		await ctx.store.deleteManyByIds(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, matchingDraftIds);
+	}
 	const inserted = await ctx.store.insert<Record<string, unknown>>(
 		AdvancedDutyRunSnapshotEntity.table,
 		ctx.auth.orgId,
@@ -413,7 +466,6 @@ async function persistDraftAdvancedRunSnapshot(
 
 export async function listVisibleAdvancedDutyRunSnapshots(ctx: QueryPorts): Promise<AdvancedDutyRunSnapshotRecord[]> {
 	requireAdvancedDutyAccess(ctx.auth);
-	const now = new Date().toISOString();
 	const rows = await ctx.store.findMany<Record<string, unknown>>(
 		AdvancedDutyRunSnapshotEntity.table,
 		ctx.auth.orgId,
@@ -423,12 +475,107 @@ export async function listVisibleAdvancedDutyRunSnapshots(ctx: QueryPorts): Prom
 			limit: 100
 		}
 	);
-	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows).filter((snapshot) => {
-		if (snapshot.status === 'draft') {
-			return snapshot.expiresAt > now;
-		}
-		return snapshot.status === 'applied' || isResumableAdvancedDutyRunSnapshotStatus(snapshot.status);
+	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows)
+		.map(withSnapshotPayloadDefaults)
+		.map(withResumePreviewPayload)
+		.filter(isVisibleAdvancedDutyRunSnapshot);
+}
+
+export async function listVisibleAdvancedDutyRunSnapshotSummaries(
+	ctx: QueryPorts
+): Promise<AdvancedDutyRunSnapshotRecord[]> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const [resumableRows, appliedRows] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, undefined, {
+			inFilters: { status: [...RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES] },
+			orderBy: [{ column: 'created_at', ascending: false }],
+			limit: 100,
+			select: ADVANCED_DUTY_RUN_SNAPSHOT_SUMMARY_SELECT
+		}),
+		ctx.store.findMany<Record<string, unknown>>(
+			AdvancedDutyRunSnapshotEntity.table,
+			ctx.auth.orgId,
+			{ status: 'applied' },
+			{
+				orderBy: [{ column: 'created_at', ascending: false }],
+				limit: 100,
+				select: ADVANCED_DUTY_RUN_APPLIED_SNAPSHOT_SELECT
+			}
+		)
+	]);
+
+	return AdvancedDutyRunSnapshotEntity.fromDbArray([...resumableRows, ...appliedRows])
+		.map(withSnapshotPayloadDefaults)
+		.filter(isVisibleAdvancedDutyRunSnapshot)
+		.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function getVisibleAdvancedDutyRunSnapshot(
+	ctx: QueryPorts,
+	snapshotId: string
+): Promise<AdvancedDutyRunSnapshotRecord> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const row = await ctx.store.findOne<Record<string, unknown>>(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, {
+		id: snapshotId
 	});
+	if (!row) {
+		fail(404, 'Advanced duty snapshot not found.');
+	}
+	const snapshot = AdvancedDutyRunSnapshotEntity.fromDb(row);
+	if (!isVisibleAdvancedDutyRunSnapshot(snapshot)) {
+		fail(404, 'Advanced duty snapshot not found.');
+	}
+	return withResumePreviewPayload(withSnapshotPayloadDefaults(snapshot));
+}
+
+export async function deleteVisibleAdvancedDutyRunSnapshot(
+	ctx: WritePorts,
+	snapshotId: string
+): Promise<{ success: true }> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const row = await ctx.store.findOne<Record<string, unknown>>(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, {
+		id: snapshotId
+	});
+	if (!row) {
+		fail(404, 'Advanced duty snapshot not found.');
+	}
+	const snapshot = AdvancedDutyRunSnapshotEntity.fromDb(row);
+	if (snapshot.status === 'applied') {
+		fail(400, 'Applied advanced duty snapshots cannot be deleted from the draft snapshot workspace.');
+	}
+	await ctx.store.delete(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, snapshotId);
+	return { success: true };
+}
+
+function withSnapshotPayloadDefaults(snapshot: AdvancedDutyRunSnapshotRecord): AdvancedDutyRunSnapshotRecord {
+	const { inputPayload, snapshotPayload, previewPayload, exportModel, ...summary } = snapshot;
+	return {
+		...summary,
+		inputPayload: inputPayload ?? {},
+		snapshotPayload: snapshotPayload ?? {},
+		previewPayload: previewPayload ?? {},
+		exportModel: exportModel ?? null
+	};
+}
+
+function withResumePreviewPayload(snapshot: AdvancedDutyRunSnapshotRecord): AdvancedDutyRunSnapshotRecord {
+	const snapshotPayload = snapshot.snapshotPayload as { da6Matrices?: unknown } | undefined;
+	const previewPayload = snapshot.previewPayload as { da6Matrices?: unknown } | undefined;
+	if (!snapshotPayload?.da6Matrices || previewPayload?.da6Matrices) return snapshot;
+	return {
+		...snapshot,
+		previewPayload: {
+			...snapshot.previewPayload,
+			da6Matrices: snapshotPayload.da6Matrices
+		}
+	};
+}
+
+function isVisibleAdvancedDutyRunSnapshot(snapshot: AdvancedDutyRunSnapshotRecord): boolean {
+	if (snapshot.status === 'draft') {
+		return snapshot.expiresAt > new Date().toISOString();
+	}
+	return snapshot.status === 'applied' || isResumableAdvancedDutyRunSnapshotStatus(snapshot.status);
 }
 
 function failForHardRuleConflicts(message: string, preview: InternalDutyEventPreview): void {
@@ -1946,7 +2093,7 @@ export async function previewDutyEventSeriesFromTemplate(
 						originalProposalsByEventDate
 					}
 				: snapshot,
-		previewPayload: publicPreview as unknown as Record<string, unknown>
+		previewPayload: omitPreviewOnlyDa6Matrices(publicPreview as unknown as Record<string, unknown>)
 	});
 
 	return {

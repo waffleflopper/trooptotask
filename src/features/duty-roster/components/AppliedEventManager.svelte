@@ -2,9 +2,13 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import AppliedEventsSection from './AppliedEventsSection.svelte';
 	import AppliedEventEditorModal from './AppliedEventEditorModal.svelte';
+	import AdvancedDa6Modal from './AdvancedDa6Modal.svelte';
 	import type { Personnel } from '$lib/types';
 	import { buildTeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
+	import { printAdvancedDutyDa6Matrices } from './advancedDutyDa6Print';
 	import type {
+		AdvancedDutyDa6Matrix,
+		AdvancedDutyRunSnapshotRecord,
 		DutyEvent,
 		DutyEventPreview,
 		DutyEventPreviewSlotInstance,
@@ -30,6 +34,7 @@
 
 	interface Props {
 		advancedDutyEvents: DutyEvent[];
+		advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
 		personnelById: Map<string, Personnel>;
 		previewPersonnelOptions: Personnel[];
 		onPreviewExistingAdvancedEvent: (input: ExistingDutyEventInput) => Promise<DutyEventPreview | null>;
@@ -41,6 +46,7 @@
 
 	let {
 		advancedDutyEvents,
+		advancedDutySnapshots = [],
 		personnelById,
 		previewPersonnelOptions,
 		onPreviewExistingAdvancedEvent,
@@ -62,12 +68,25 @@
 	let isSavingAppliedEvent = $state(false);
 	let pendingEventDelete = $state<DutyEvent | null>(null);
 	let pendingRunDelete = $state<AppliedEventRunGroup | null>(null);
+	let selectedDa6Snapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
 
 	const appliedEventGroups = $derived.by(() => buildAppliedEventGroups(appliedAdvancedEvents));
 	const selectedAppliedEvent = $derived(
 		selectedAppliedEventId ? (appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null) : null
 	);
 	const appliedEventCollisionMessages = $derived(appliedEventPreview?.collisionSummary.conflicts ?? []);
+	const appliedSnapshotByRunId = $derived.by(
+		() =>
+			new Map(
+				advancedDutySnapshots
+					.filter((snapshot) => snapshot.status === 'applied' && snapshot.appliedRunId)
+					.map((snapshot) => [snapshot.appliedRunId as string, snapshot] as const)
+			)
+	);
+	const selectedDa6Matrices = $derived.by(() => {
+		const payload = selectedDa6Snapshot?.snapshotPayload as { da6Matrices?: AdvancedDutyDa6Matrix[] } | undefined;
+		return payload?.da6Matrices ?? [];
+	});
 
 	function exportAppliedDutyPacket() {
 		if (!selectedAppliedEvent || !appliedEventPreview) return;
@@ -89,6 +108,11 @@
 		anchor.click();
 		anchor.remove();
 		URL.revokeObjectURL(url);
+	}
+
+	function openAppliedRunDa6(group: AppliedEventRunGroup) {
+		if (!group.runId) return;
+		selectedDa6Snapshot = appliedSnapshotByRunId.get(group.runId) ?? null;
 	}
 
 	async function openAppliedEventEditor(event: DutyEvent) {
@@ -278,9 +302,23 @@
 	formatFillSummary={formatAppliedFillSummary}
 	formatSlotAssignee={(id) => formatSlotAssignee(id, personnelById)}
 	onOpenEvent={openAppliedEventEditor}
+	onViewRunDa6={openAppliedRunDa6}
 	onRequestDeleteEvent={(event) => (pendingEventDelete = event)}
 	onRequestDeleteRun={(group) => (pendingRunDelete = group)}
 />
+
+{#if selectedDa6Snapshot && selectedDa6Matrices.length > 0}
+	<AdvancedDa6Modal
+		title={`${selectedDa6Snapshot.templateName} DA6 matrices`}
+		matrices={selectedDa6Matrices}
+		onClose={() => (selectedDa6Snapshot = null)}
+		onPrint={() =>
+			printAdvancedDutyDa6Matrices(
+				`${selectedDa6Snapshot?.templateName ?? 'Applied duty run'} DA6 matrices`,
+				selectedDa6Matrices
+			)}
+	/>
+{/if}
 
 <AppliedEventEditorModal
 	event={selectedAppliedEvent}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildAdvancedRunSnapshot } from './advancedDutyRun';
-import type { DutyTemplate } from '../duty-roster.types';
+import { cloneDefaultSoftPreferences, type DutyTemplate } from '../duty-roster.types';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 
 const template: DutyTemplate = {
@@ -124,6 +124,39 @@ describe('advanced duty run snapshots', () => {
 			roleLabel: 'NCO',
 			assigneeId: 'person-nco'
 		});
+	});
+
+	it('builds one DA6 matrix per slot and sequence lane for previewed runs', async () => {
+		const snapshot = await buildAdvancedRunSnapshot({
+			template: {
+				...template,
+				softPreferences: [
+					...cloneDefaultSoftPreferences().map((preference) =>
+						preference.type === 'separate-weekend-da6' ? { ...preference, enabled: true } : preference
+					)
+				]
+			},
+			eventDates: ['2026-04-10', '2026-04-11'],
+			personnel,
+			holidayClosureDates: new Set(),
+			historyEvents: []
+		});
+
+		expect(
+			snapshot.da6Matrices.map((matrix) => ({
+				roleLabel: matrix.roleLabel,
+				sequenceKey: matrix.sequenceKey,
+				dates: matrix.columns.map((column) => column.eventDate)
+			}))
+		).toEqual(
+			expect.arrayContaining([
+				{ roleLabel: 'General', sequenceKey: 'weekday', dates: ['2026-04-10'] },
+				{ roleLabel: 'General', sequenceKey: 'weekend-holiday', dates: ['2026-04-11'] },
+				{ roleLabel: 'NCO', sequenceKey: 'weekday', dates: ['2026-04-10'] },
+				{ roleLabel: 'NCO', sequenceKey: 'weekend-holiday', dates: ['2026-04-11'] }
+			])
+		);
+		expect(snapshot.da6Matrices).toHaveLength(4);
 	});
 
 	it('uses earlier dates in the same run snapshot as transient fairness history', async () => {

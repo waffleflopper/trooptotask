@@ -23,7 +23,12 @@ export function parseFile(file: File): Promise<string[][]> {
 					return;
 				}
 
-				const rows = await parseXlsxBuffer(data as ArrayBuffer);
+				if (!(data instanceof ArrayBuffer)) {
+					reject(new Error('Failed to read file'));
+					return;
+				}
+
+				const rows = await parseXlsxBuffer(data);
 				resolve(rows);
 			} catch (err) {
 				reject(err);

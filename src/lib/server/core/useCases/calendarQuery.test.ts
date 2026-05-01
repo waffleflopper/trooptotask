@@ -347,6 +347,52 @@ describe('fetchCalendarBootstrap', () => {
 
 		expect(result.lossWarningWindowDays).toBe(180);
 	});
+
+	it('can hydrate a full settings holiday range without widening grid range collections', async () => {
+		const ctx = buildCtx();
+		ctx.store.seed('special_days', [
+			{ id: 'new-year', organization_id: ORG, date: '2026-01-01', name: "New Year's Day", type: 'federal-holiday' },
+			{ id: 'march', organization_id: ORG, date: '2026-03-15', name: 'Training Holiday', type: 'org-closure' },
+			{ id: 'christmas', organization_id: ORG, date: '2026-12-25', name: 'Christmas Day', type: 'federal-holiday' }
+		]);
+		ctx.store.seed('availability_entries', [
+			{
+				id: 'in-range',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				status_type_id: 'st1',
+				start_date: '2026-03-01',
+				end_date: '2026-03-02',
+				note: null
+			},
+			{
+				id: 'out-of-range',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				status_type_id: 'st1',
+				start_date: '2026-12-25',
+				end_date: '2026-12-25',
+				note: null
+			}
+		]);
+		ctx.store.seed('daily_assignments', [
+			{ id: 'in-range', organization_id: ORG, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' },
+			{ id: 'out-of-range', organization_id: ORG, date: '2026-12-25', assignment_type_id: 'at1', assignee_id: 'p1' }
+		]);
+
+		const result = await fetchCalendarBootstrap(ctx, {
+			...RANGE,
+			specialDaysRange: { rangeStart: '2026-01-01', rangeEnd: '2026-12-31' }
+		});
+
+		await expect(result.specialDays).resolves.toEqual([
+			expect.objectContaining({ id: 'new-year' }),
+			expect.objectContaining({ id: 'march' }),
+			expect.objectContaining({ id: 'christmas' })
+		]);
+		await expect(result.availabilityEntries).resolves.toEqual([expect.objectContaining({ id: 'in-range' })]);
+		await expect(result.dailyAssignments).resolves.toEqual([expect.objectContaining({ id: 'in-range' })]);
+	});
 });
 
 describe('fetchCalendarRangeData', () => {

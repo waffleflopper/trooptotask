@@ -12,7 +12,7 @@ import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboard
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { refreshTrainingSteps } from './onboardingStepProgress';
+import { getTrainingStepCompletionStatuses } from './onboardingStepProgress';
 import type { WritePorts } from '$lib/server/core/ports';
 
 export interface OnboardingBootstrap {
@@ -75,7 +75,7 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 
 	if (trainingOnboardings.length > 0) {
 		const refreshResults = await Promise.all(
-			trainingOnboardings.map((o) => refreshTrainingSteps(ctx, { onboardingId: o.id }))
+			trainingOnboardings.map((o) => getTrainingStepCompletionStatuses(ctx, { onboardingId: o.id }))
 		);
 		const refreshedStepsByOnboardingId = new Map(
 			trainingOnboardings.map((onboarding, index) => {

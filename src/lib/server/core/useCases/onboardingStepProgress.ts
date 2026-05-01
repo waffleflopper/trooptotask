@@ -103,14 +103,16 @@ interface TrainingStepResult {
 	completed: boolean;
 }
 
-export async function refreshTrainingSteps(
-	ctx: WritePorts,
+interface TrainingStepCompletion extends TrainingStepResult {
+	storedCompleted: boolean;
+}
+
+type TrainingStepReadContext = Pick<WritePorts, 'store' | 'auth'>;
+
+async function readTrainingStepCompletions(
+	ctx: TrainingStepReadContext,
 	input: RefreshTrainingInput
-): Promise<TrainingStepResult[]> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-
+): Promise<TrainingStepCompletion[]> {
 	// Fetch the onboarding to get the personnel_id
 	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
 		'personnel_onboardings',
@@ -151,24 +153,53 @@ export async function refreshTrainingSteps(
 
 	const completedTypeIds = new Set(trainingRecords.map((r) => r.training_type_id));
 
+	return trainingSteps.map((step) => ({
+		id: step.id,
+		onboardingId: step.onboarding_id,
+		stepName: step.step_name,
+		stepType: step.step_type,
+		trainingTypeId: step.training_type_id,
+		completed: completedTypeIds.has(step.training_type_id!),
+		storedCompleted: step.completed
+	}));
+}
+
+function toTrainingStepResult(result: TrainingStepCompletion): TrainingStepResult {
+	return {
+		id: result.id,
+		onboardingId: result.onboardingId,
+		stepName: result.stepName,
+		stepType: result.stepType,
+		trainingTypeId: result.trainingTypeId,
+		completed: result.completed
+	};
+}
+
+export async function getTrainingStepCompletionStatuses(
+	ctx: TrainingStepReadContext,
+	input: RefreshTrainingInput
+): Promise<TrainingStepResult[]> {
+	const results = await readTrainingStepCompletions(ctx, input);
+	return results.map(toTrainingStepResult);
+}
+
+export async function refreshTrainingSteps(
+	ctx: WritePorts,
+	input: RefreshTrainingInput
+): Promise<TrainingStepResult[]> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	const results = await readTrainingStepCompletions(ctx, input);
+
 	// Update each training step's completed status
-	const results: TrainingStepResult[] = [];
-	for (const step of trainingSteps) {
-		const completed = completedTypeIds.has(step.training_type_id!);
-		if (!isReadOnly && step.completed !== completed) {
-			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, step.id, { completed });
+	for (const result of results) {
+		if (!isReadOnly && result.storedCompleted !== result.completed) {
+			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, result.id, { completed: result.completed });
 		}
-		results.push({
-			id: step.id,
-			onboardingId: step.onboarding_id,
-			stepName: step.step_name,
-			stepType: step.step_type,
-			trainingTypeId: step.training_type_id,
-			completed
-		});
 	}
 
-	return results;
+	return results.map(toTrainingStepResult);
 }
 
 interface AddNoteInput {

@@ -1,20 +1,16 @@
 <script lang="ts">
-	import type { DutyEventSeriesPreview, DutyEventPreviewSlotInstance, DutyTemplate } from '../duty-roster.types';
+	import type {
+		AdvancedRunUiState,
+		DutyEventSeriesPreview,
+		DutyEventPreviewSlotInstance,
+		DutyTemplate
+	} from '../duty-roster.types';
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import type { SlotExplanationSection } from './SlotPreviewItem.svelte';
 	import SearchSelect, { type SearchSelectOption } from '$lib/components/ui/SearchSelect.svelte';
 	import AdvancedDa6Modal from './AdvancedDa6Modal.svelte';
 	import { printAdvancedDutyDa6Matrices } from './advancedDutyDa6Print';
-
-	type AdvancedRunUiState =
-		| 'draft'
-		| 'stale'
-		| 'expired'
-		| 'applying'
-		| 'applied'
-		| 'failed-before-persistence'
-		| 'partial-recovery';
 
 	const stateCopy: Record<AdvancedRunUiState, { label: string; description: string }> = {
 		draft: {

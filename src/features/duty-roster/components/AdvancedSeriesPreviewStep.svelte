@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SeriesPreviewPanel from './SeriesPreviewPanel.svelte';
 	import type {
+		AdvancedRunUiState,
 		DutyEventPreviewSlotInstance,
 		DutyEventSeriesEventOverrideInput,
 		DutyEventSeriesPattern,
@@ -21,6 +22,9 @@
 		shortfallReviewConfirmed: boolean;
 		previewCollisionMessages: string[];
 		personnelOptions: Personnel[];
+		snapshotState?: AdvancedRunUiState;
+		canRetryApply?: boolean;
+		canRecoverPartialApply?: boolean;
 		formatAssignee: (id: string | null) => string;
 		formatCoverageLabel: (event: {
 			coverageMode: DutyTemplateCoverageMode;
@@ -34,6 +38,8 @@
 		onApply: () => void;
 		onRegenerate: () => void;
 		onExportPreview: () => void;
+		onRetryApply?: () => void;
+		onRecoverPartialApply?: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onShortfallConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (eventDate: string, slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -62,6 +68,9 @@
 	shortfallReviewConfirmed={props.shortfallReviewConfirmed}
 	previewCollisionMessages={props.previewCollisionMessages}
 	personnelOptions={props.personnelOptions}
+	snapshotState={props.snapshotState}
+	canRetryApply={props.canRetryApply}
+	canRecoverPartialApply={props.canRecoverPartialApply}
 	formatAssignee={props.formatAssignee}
 	formatCoverageLabel={props.formatCoverageLabel}
 	getExplanationSections={props.getExplanationSections}
@@ -69,6 +78,8 @@
 	onApply={props.onApply}
 	onRegenerate={props.onRegenerate}
 	onExportPreview={props.onExportPreview}
+	onRetryApply={props.onRetryApply}
+	onRecoverPartialApply={props.onRecoverPartialApply}
 	onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 	onShortfallConfirmedChange={props.onShortfallConfirmedChange}
 	onUpdateSlotAssignee={props.onUpdateSlotAssignee}

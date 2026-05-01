@@ -333,6 +333,15 @@ export type AdvancedDutyRunSnapshotStatus =
 	| 'partial-failure'
 	| 'expired';
 
+export type AdvancedRunUiState =
+	| 'draft'
+	| 'stale'
+	| 'expired'
+	| 'applying'
+	| 'applied'
+	| 'failed-before-persistence'
+	| 'partial-recovery';
+
 export interface AdvancedDutyRunSnapshotRecord {
 	id: string;
 	orgId: string;

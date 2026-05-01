@@ -21,6 +21,8 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { buildTeamDutyPacketExportModel } from '../advanced-run/advancedDutyRun';
 	import type {
+		AdvancedDutyRunSnapshotStatus,
+		AdvancedRunUiState,
 		DutyEvent,
 		DutyEventApplyInput,
 		DutyEventPreview,
@@ -89,6 +91,7 @@
 		onCreateAdvancedTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		canManageAdvancedTemplates: boolean;
 		onManageAdvancedTemplates: () => void;
+		onRecoverPartialApply?: () => void;
 		initialView?: WizardView;
 		resumeSnapshot?: AdvancedDutyRunSnapshotRecord | null;
 	}
@@ -105,8 +108,8 @@
 
 	let props: Props = $props();
 	let lastInitialView = $state<WizardView | undefined>(undefined);
-	let lastResumeSnapshotId = $state<string | null>(null);
-	let view = $state<WizardView>(props.initialView ?? 'choose-lane');
+	let lastResumeSnapshotKey = $state<string | null>(null);
+	let view = $state<WizardView>('choose-lane');
 	let selectedSimpleAssignmentTypeId = $state<string | null>(null);
 	let selectedAdvancedTemplateId = $state<string | null>(null);
 	let advancedStartDate = $state('');
@@ -218,6 +221,20 @@
 		const totalSlots = advancedSeriesPreview.events.reduce((total, event) => total + event.fillSummary.totalSlots, 0);
 		return `${totalEvents} event${totalEvents === 1 ? '' : 's'} · ${filledSlots}/${totalSlots} slots filled`;
 	});
+	const activePreviewSnapshotRecord = $derived.by(() => {
+		const snapshot = props.resumeSnapshot;
+		if (!snapshot || !advancedSeriesPreview?.snapshotId) return null;
+		return snapshot.id === advancedSeriesPreview.snapshotId ? snapshot : null;
+	});
+	const activePreviewSnapshotState = $derived.by((): AdvancedRunUiState => {
+		if (isApplyingAdvancedSeries) return 'applying';
+		const snapshot = activePreviewSnapshotRecord;
+		if (!snapshot) return 'draft';
+		if (snapshot.status === 'draft' && isExpiredSnapshot(snapshot.expiresAt)) return 'expired';
+		return mapSnapshotStatusToUiState(snapshot.status);
+	});
+	const canRetryAdvancedApply = $derived(activePreviewSnapshotState === 'failed-before-persistence');
+	const canRecoverPartialAdvancedApply = $derived(activePreviewSnapshotState === 'partial-recovery');
 
 	$effect(() => {
 		const nextInitialView = props.initialView ?? 'choose-lane';
@@ -228,10 +245,34 @@
 
 	$effect(() => {
 		const snapshot = props.resumeSnapshot;
-		if (!snapshot || snapshot.id === lastResumeSnapshotId) return;
+		if (!snapshot) return;
+		const snapshotKey = `${snapshot.id}:${snapshot.status}:${snapshot.updatedAt}`;
+		if (snapshotKey === lastResumeSnapshotKey) return;
 		resumeAdvancedSnapshot(snapshot);
-		lastResumeSnapshotId = snapshot.id;
+		lastResumeSnapshotKey = snapshotKey;
 	});
+
+	function isExpiredSnapshot(expiresAt: string): boolean {
+		const timestamp = new Date(expiresAt).getTime();
+		return Number.isFinite(timestamp) && timestamp <= Date.now();
+	}
+
+	function mapSnapshotStatusToUiState(status: AdvancedDutyRunSnapshotStatus): AdvancedRunUiState {
+		switch (status) {
+			case 'draft':
+				return 'draft';
+			case 'applying':
+				return 'applying';
+			case 'applied':
+				return 'applied';
+			case 'apply-failed':
+				return 'failed-before-persistence';
+			case 'partial-failure':
+				return 'partial-recovery';
+			case 'expired':
+				return 'expired';
+		}
+	}
 
 	function onChooseSimple() {
 		view = 'simple-template-list';
@@ -456,21 +497,23 @@
 			if (advancedPreviewMode === 'single') {
 				const input = simpleEventInput();
 				if (!input) return;
-				await props.onApplyAdvancedEvent({
+				const event = await props.onApplyAdvancedEvent({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
+				if (!event) return;
 			} else {
 				const input = seriesInput();
 				if (!input) return;
-				await props.onApplyAdvancedSeries({
+				const result = await props.onApplyAdvancedSeries({
 					...input,
 					snapshotId: approvedPreview.snapshotId,
 					snapshotFingerprint: approvedPreview.snapshotFingerprint,
 					collisionReviewConfirmed: previewCollisionMessages.length > 0 ? collisionReviewConfirmed : undefined
 				});
+				if (!result) return;
 			}
 			advancedPreviewMode = null;
 			advancedSeriesPreview = null;
@@ -675,6 +718,9 @@
 						{shortfallReviewConfirmed}
 						{previewCollisionMessages}
 						personnelOptions={reviewedPreviewPersonnelOptions}
+						snapshotState={activePreviewSnapshotState}
+						canRetryApply={canRetryAdvancedApply}
+						canRecoverPartialApply={canRecoverPartialAdvancedApply}
 						formatAssignee={(id) => formatSlotAssignee(id, personnelById)}
 						{formatCoverageLabel}
 						{formatSeriesPatternLabel}
@@ -684,6 +730,8 @@
 						onApply={handleApplyAdvancedSeries}
 						onRegenerate={handleRegenerateAdvancedRun}
 						onExportPreview={handleExportAdvancedPreview}
+						onRetryApply={handleApplyAdvancedSeries}
+						onRecoverPartialApply={props.onRecoverPartialApply ?? (() => {})}
 						onCollisionConfirmedChange={(value) => (collisionReviewConfirmed = value)}
 						onShortfallConfirmedChange={(value) => (shortfallReviewConfirmed = value)}
 						onUpdateSlotAssignee={updateSeriesSlotAssignee}

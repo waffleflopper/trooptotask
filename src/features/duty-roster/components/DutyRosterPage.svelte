@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
@@ -359,6 +360,15 @@
 		activeAdvancedWorkspaceView = 'active-run';
 	}
 
+	async function refreshResumeSnapshot(snapshotId: string | undefined): Promise<AdvancedDutyRunSnapshotRecord | null> {
+		if (!snapshotId) return null;
+		await refreshAdvancedDutyData();
+		await tick();
+		const nextSnapshot = advancedDutySnapshots.find((snapshot) => snapshot.id === snapshotId) ?? null;
+		resumeSnapshot = nextSnapshot;
+		return nextSnapshot;
+	}
+
 	async function handlePreviewAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEventPreview | null> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-events/preview`, {
@@ -399,6 +409,7 @@
 			toastStore.success('Advanced duty event applied');
 			return event;
 		} catch (error) {
+			await refreshResumeSnapshot(payload.snapshotId);
 			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty event');
 			return null;
 		}
@@ -449,6 +460,7 @@
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
 			return result;
 		} catch (error) {
+			await refreshResumeSnapshot(payload.snapshotId);
 			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty series');
 			return null;
 		}
@@ -672,6 +684,9 @@
 					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
 					{canManageAdvancedTemplates}
 					onManageAdvancedTemplates={handleManageAdvancedTemplates}
+					onRecoverPartialApply={() => {
+						activeAdvancedWorkspaceView = 'applied-events';
+					}}
 					{resumeSnapshot}
 				/>
 			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}

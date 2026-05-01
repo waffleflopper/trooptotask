@@ -11,6 +11,7 @@ import {
 	listDutyEvents,
 	listDutyEventsForCalendar,
 	listDutyEventsInRange,
+	listVisibleAdvancedDutyRunSnapshotSummaries,
 	listVisibleAdvancedDutyRunSnapshots,
 	previewDutyEventFromTemplate,
 	previewExistingDutyEvent,
@@ -524,6 +525,58 @@ describe('duty event apply use case', () => {
 		expect(snapshotIds).not.toContain(expiredPreview.snapshotId);
 	});
 
+	it('lists advanced snapshot summaries without loading full resumable payloads', async () => {
+		const ctx = createTestContext();
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'organization',
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			slots: [{ roleLabel: 'NCO', quantity: 1 }]
+		});
+
+		const draftPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, draftPreview.snapshotId ?? '', {
+			expires_at: '2099-04-10T00:00:00.000Z',
+			created_at: '2026-04-10T00:00:00.000Z',
+			updated_at: '2026-04-10T00:00:00.000Z'
+		});
+		const appliedPreview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-11'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, appliedPreview.snapshotId ?? '', {
+			status: 'applied',
+			created_at: '2026-04-11T00:00:00.000Z',
+			updated_at: '2026-04-11T00:00:00.000Z'
+		});
+
+		const summaries = await listVisibleAdvancedDutyRunSnapshotSummaries(ctx);
+		const draftSummary = summaries.find((snapshot) => snapshot.id === draftPreview.snapshotId);
+		const appliedSummary = summaries.find((snapshot) => snapshot.id === appliedPreview.snapshotId);
+
+		expect(draftSummary).toMatchObject({
+			inputPayload: {},
+			snapshotPayload: {},
+			previewPayload: {},
+			exportModel: null
+		});
+		expect(appliedSummary?.inputPayload).toEqual({});
+		expect(appliedSummary?.previewPayload).toEqual({});
+		expect(appliedSummary?.snapshotPayload).toMatchObject({
+			events: [expect.objectContaining({ eventDate: '2026-04-11' })]
+		});
+		expect(summaries.map((snapshot) => snapshot.createdAt)).toEqual(
+			[...summaries.map((snapshot) => snapshot.createdAt)].sort((left, right) => right.localeCompare(left))
+		);
+	});
+
 	it('applies one advanced timed duty event as a parent event with slot instances', async () => {
 		const ctx = createTestContext();
 
@@ -823,6 +876,64 @@ describe('duty event apply use case', () => {
 			ctx.auth.orgId
 		);
 		expect(draftSnapshots).toHaveLength(0);
+	});
+
+	it('rejects deletion of applied advanced run snapshots', async () => {
+		const ctx = createTestContext();
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'organization',
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			slots: [{ roleLabel: 'NCO', quantity: 1 }]
+		});
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'weekday-only'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, preview.snapshotId ?? '', {
+			status: 'applied'
+		});
+
+		await expect(deleteVisibleAdvancedDutyRunSnapshot(ctx, preview.snapshotId ?? '')).rejects.toMatchObject({
+			status: 400,
+			message: 'Applied advanced duty snapshots cannot be deleted from the draft snapshot workspace.'
+		});
+	});
+
+	it('rejects deletion of advanced run snapshots while apply is in progress', async () => {
+		const ctx = createTestContext();
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'organization',
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			slots: [{ roleLabel: 'NCO', quantity: 1 }]
+		});
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'weekday-only'
+		});
+		await ctx.store.update('advanced_duty_run_snapshots', ctx.auth.orgId, preview.snapshotId ?? '', {
+			status: 'applying'
+		});
+
+		await expect(deleteVisibleAdvancedDutyRunSnapshot(ctx, preview.snapshotId ?? '')).rejects.toMatchObject({
+			status: 409,
+			message: 'Advanced duty snapshots cannot be deleted while apply is in progress.'
+		});
 	});
 
 	it('persists a draft advanced run snapshot when previewing a single duty event', async () => {

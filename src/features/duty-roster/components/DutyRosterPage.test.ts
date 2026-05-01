@@ -358,6 +358,17 @@ describe('DutyRosterPage', () => {
 		expect(screen.getByRole('button', { name: 'Resume Snapshot' })).toBeTruthy();
 	});
 
+	it('does not offer delete actions for snapshots while apply is in progress', async () => {
+		renderPage({
+			advancedDutySnapshots: [makeSnapshot({ id: 'snapshot-applying', status: 'applying' })]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
+
+		expect(screen.queryByRole('button', { name: 'Delete Snapshot' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Delete snapshot for Battalion Staff Duty' })).toBeNull();
+	});
+
 	it('lets users delete a draft advanced duty snapshot from the snapshot workspace', async () => {
 		vi.mocked(globalThis.fetch).mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }));
 		renderPage({ advancedDutySnapshots: [makeSnapshot()] });

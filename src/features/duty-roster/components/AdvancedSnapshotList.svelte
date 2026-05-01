@@ -35,6 +35,10 @@
 		});
 	}
 
+	function canDeleteSnapshot(snapshot: AdvancedDutyRunSnapshotRecord): boolean {
+		return snapshot.status !== 'applying';
+	}
+
 	async function confirmDeleteSnapshot() {
 		if (!pendingDeleteSnapshot) return;
 		const snapshotId = pendingDeleteSnapshot.id;
@@ -82,14 +86,16 @@
 							<button class="btn btn-primary btn-sm" type="button" onclick={() => onResumeSnapshot(snapshot)}>
 								Resume
 							</button>
-							<button
-								class="btn btn-danger btn-sm"
-								type="button"
-								aria-label={`Delete snapshot for ${snapshot.templateName}`}
-								onclick={() => (pendingDeleteSnapshot = snapshot)}
-							>
-								Delete
-							</button>
+							{#if canDeleteSnapshot(snapshot)}
+								<button
+									class="btn btn-danger btn-sm"
+									type="button"
+									aria-label={`Delete snapshot for ${snapshot.templateName}`}
+									onclick={() => (pendingDeleteSnapshot = snapshot)}
+								>
+									Delete
+								</button>
+							{/if}
 						</div>
 					</article>
 				{/each}
@@ -125,9 +131,11 @@
 						<button class="btn btn-primary" type="button" onclick={() => onResumeSnapshot(selectedSnapshot)}>
 							Resume Snapshot
 						</button>
-						<button class="btn btn-danger" type="button" onclick={() => (pendingDeleteSnapshot = selectedSnapshot)}>
-							Delete Snapshot
-						</button>
+						{#if canDeleteSnapshot(selectedSnapshot)}
+							<button class="btn btn-danger" type="button" onclick={() => (pendingDeleteSnapshot = selectedSnapshot)}>
+								Delete Snapshot
+							</button>
+						{/if}
 					</div>
 				</aside>
 			{/if}

@@ -46,6 +46,7 @@
 		removeLegacyDutyEvents,
 		sortDutyTemplates,
 		sortDutyEventsByCoverageStart,
+		stableSnapshotInput,
 		upsertDutyEventIntoTimeline
 	} from '../advancedDutyCollections';
 
@@ -286,10 +287,6 @@
 
 	function handleRecoverPartialApply() {
 		activeAdvancedWorkspaceView = 'applied-events';
-	}
-
-	function stableSnapshotInput(value: Record<string, unknown>): string {
-		return JSON.stringify(value, Object.keys(value).sort());
 	}
 
 	function isSameDraftSnapshotInput(

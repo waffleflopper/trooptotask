@@ -1282,6 +1282,83 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText('2026-04-07')).toBeTruthy();
 	});
 
+	it('maps resumed snapshot lifecycle states into the advanced preview action bar', async () => {
+		const onRecoverPartialApply = vi.fn();
+		const { rerender } = renderWizard({
+			initialView: 'advanced-template-list',
+			resumeSnapshot: makeDraftSnapshot({
+				status: 'apply-failed',
+				updatedAt: '2026-04-07T12:05:00.000Z'
+			}),
+			onRecoverPartialApply
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Failed before persistence')).toBeTruthy();
+		});
+		expect(screen.getByRole('button', { name: 'Retry apply' })).toHaveProperty('disabled', false);
+
+		rerender({
+			initialView: 'advanced-template-list',
+			resumeSnapshot: makeDraftSnapshot({
+				status: 'partial-failure',
+				updatedAt: '2026-04-07T12:10:00.000Z'
+			}),
+			onRecoverPartialApply
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Partial recovery')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Recover partial apply' }));
+		expect(onRecoverPartialApply).toHaveBeenCalledTimes(1);
+
+		rerender({
+			initialView: 'advanced-template-list',
+			resumeSnapshot: makeDraftSnapshot({
+				expiresAt: '2026-04-01T00:00:00.000Z',
+				updatedAt: '2026-04-07T12:15:00.000Z'
+			}),
+			onRecoverPartialApply
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Expired preview')).toBeTruthy();
+		});
+		expect(screen.getByRole('button', { name: 'Apply Series' })).toHaveProperty('disabled', true);
+	});
+
+	it('keeps the preview open when advanced series apply fails', async () => {
+		const applyHandler = vi.fn(async () => null);
+		renderWizard({
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-10' }
+		});
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Edit Candidate Pool' }).at(-1)!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Run' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledTimes(1);
+		});
+		expect(screen.getByText('Series preview ready')).toBeTruthy();
+		expect(screen.queryByText('Use a template')).toBeNull();
+	});
+
 	it('lets users lock and clear previewed assignments before applying an advanced series', async () => {
 		const previewHandler = vi.fn(async (input: DutyEventSeriesInput) => {
 			const override = input.eventOverrides?.[0]?.slotOverrides?.[0];

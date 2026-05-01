@@ -1,13 +1,16 @@
 <script lang="ts">
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import type { AdvancedDutyRunSnapshotRecord } from '../duty-roster.types';
 
 	interface Props {
 		snapshots: AdvancedDutyRunSnapshotRecord[];
 		onResumeSnapshot: (snapshot: AdvancedDutyRunSnapshotRecord) => void;
+		onDeleteSnapshot: (snapshot: AdvancedDutyRunSnapshotRecord) => Promise<boolean>;
 	}
 
-	let { snapshots, onResumeSnapshot }: Props = $props();
+	let { snapshots, onResumeSnapshot, onDeleteSnapshot }: Props = $props();
 	let selectedSnapshotId = $state<string | null>(null);
+	let pendingDeleteSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
 	const selectedSnapshot = $derived(
 		snapshots.find((snapshot) => snapshot.id === selectedSnapshotId) ?? snapshots[0] ?? null
 	);
@@ -30,6 +33,21 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
+	}
+
+	function canDeleteSnapshot(snapshot: AdvancedDutyRunSnapshotRecord): boolean {
+		return snapshot.status !== 'applying';
+	}
+
+	async function confirmDeleteSnapshot() {
+		if (!pendingDeleteSnapshot) return;
+		const snapshotId = pendingDeleteSnapshot.id;
+		if (await onDeleteSnapshot(pendingDeleteSnapshot)) {
+			if (selectedSnapshotId === snapshotId) {
+				selectedSnapshotId = null;
+			}
+			pendingDeleteSnapshot = null;
+		}
 	}
 </script>
 
@@ -68,6 +86,16 @@
 							<button class="btn btn-primary btn-sm" type="button" onclick={() => onResumeSnapshot(snapshot)}>
 								Resume
 							</button>
+							{#if canDeleteSnapshot(snapshot)}
+								<button
+									class="btn btn-danger btn-sm"
+									type="button"
+									aria-label={`Delete snapshot for ${snapshot.templateName}`}
+									onclick={() => (pendingDeleteSnapshot = snapshot)}
+								>
+									Delete
+								</button>
+							{/if}
 						</div>
 					</article>
 				{/each}
@@ -99,14 +127,33 @@
 							<dd>{formatTimestamp(selectedSnapshot.expiresAt)}</dd>
 						</div>
 					</dl>
-					<button class="btn btn-primary" type="button" onclick={() => onResumeSnapshot(selectedSnapshot)}>
-						Resume Snapshot
-					</button>
+					<div class="snapshot-detail__actions">
+						<button class="btn btn-primary" type="button" onclick={() => onResumeSnapshot(selectedSnapshot)}>
+							Resume Snapshot
+						</button>
+						{#if canDeleteSnapshot(selectedSnapshot)}
+							<button class="btn btn-danger" type="button" onclick={() => (pendingDeleteSnapshot = selectedSnapshot)}>
+								Delete Snapshot
+							</button>
+						{/if}
+					</div>
 				</aside>
 			{/if}
 		</div>
 	{/if}
 </section>
+
+{#if pendingDeleteSnapshot}
+	<ConfirmDialog
+		title="Delete Draft Snapshot?"
+		message={`Delete the ${pendingDeleteSnapshot.templateName} draft snapshot for ${formatDate(pendingDeleteSnapshot.startDate)} to ${formatDate(pendingDeleteSnapshot.endDate)}? This removes the saved preview, but does not touch applied duty history.`}
+		confirmLabel="Delete Snapshot"
+		cancelLabel="Keep Snapshot"
+		variant="danger"
+		onConfirm={confirmDeleteSnapshot}
+		onCancel={() => (pendingDeleteSnapshot = null)}
+	/>
+{/if}
 
 <style>
 	.snapshot-workspace {
@@ -175,6 +222,11 @@
 		flex-wrap: wrap;
 		justify-content: flex-end;
 	}
+	.snapshot-detail__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
 	.snapshot-detail {
 		position: sticky;
 		top: var(--sp-4);
@@ -218,6 +270,7 @@
 		}
 		.snapshot-row__actions,
 		.snapshot-row__actions :global(.btn),
+		.snapshot-detail__actions,
 		.snapshot-detail :global(.btn) {
 			width: 100%;
 		}

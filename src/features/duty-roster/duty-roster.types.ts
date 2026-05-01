@@ -333,6 +333,34 @@ export type AdvancedDutyRunSnapshotStatus =
 	| 'partial-failure'
 	| 'expired';
 
+export const RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES = [
+	'draft',
+	'applying',
+	'apply-failed',
+	'partial-failure'
+] as const satisfies readonly AdvancedDutyRunSnapshotStatus[];
+
+export type ResumableAdvancedDutyRunSnapshotStatus = (typeof RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES)[number];
+
+const resumableAdvancedDutyRunSnapshotStatuses = new Set<AdvancedDutyRunSnapshotStatus>(
+	RESUMABLE_ADVANCED_DUTY_RUN_SNAPSHOT_STATUSES
+);
+
+export function isResumableAdvancedDutyRunSnapshotStatus(
+	status: AdvancedDutyRunSnapshotStatus
+): status is ResumableAdvancedDutyRunSnapshotStatus {
+	return resumableAdvancedDutyRunSnapshotStatuses.has(status);
+}
+
+export type AdvancedRunUiState =
+	| 'draft'
+	| 'stale'
+	| 'expired'
+	| 'applying'
+	| 'applied'
+	| 'failed-before-persistence'
+	| 'partial-recovery';
+
 export interface AdvancedDutyRunSnapshotRecord {
 	id: string;
 	orgId: string;

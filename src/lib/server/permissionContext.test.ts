@@ -126,7 +126,7 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.isFullEditor).toBe(true);
 	});
 
-	it('keeps full-editor access for non-critical-tasks lanes when critical tasks permissions are disabled', () => {
+	it('does not detect full editor when critical tasks permissions are disabled', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			scoped_group_id: null,
@@ -145,8 +145,8 @@ describe('createPermissionContextFromMembership', () => {
 			can_manage_members: true
 		});
 
-		expect(ctx.isFullEditor).toBe(true);
-		expect(() => ctx.requireFullEditor()).not.toThrow();
+		expect(ctx.isFullEditor).toBe(false);
+		expect(() => ctx.requireFullEditor()).toThrow();
 	});
 
 	it('requireEdit throws for areas without edit permission', () => {

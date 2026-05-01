@@ -12,22 +12,22 @@ export const DA6_AVAILABILITY_TREATMENT_OPTIONS: Array<{
 }> = [
 	{
 		value: DA6_TREATMENT_NONE,
-		label: 'No DA6 effect',
+		label: 'No effect (available, chargeable)',
 		description: 'Does not block selection or change DA Form 6 numbering.'
 	},
 	{
 		value: 'authorized-absence',
-		label: 'Authorized absence, nonchargeable',
+		label: 'Authorized absence (unavailable, nonchargeable)',
 		description: 'Blocks selection and interrupts the DA Form 6 count.'
 	},
 	{
 		value: 'other-duty',
-		label: 'Other duty, chargeable unavailable',
+		label: 'Other duty (unavailable, chargeable)',
 		description: 'Blocks selection while the DA Form 6 count continues.'
 	},
 	{
 		value: 'misconduct-unavailable',
-		label: 'Misconduct unavailable, chargeable',
+		label: 'Misconduct (unavailable, chargeable)',
 		description: 'Future workflow: blocks selection while the DA Form 6 count continues.',
 		disabled: true
 	}
@@ -39,7 +39,7 @@ export const DA6_AVAILABILITY_HELP =
 export function formatDa6AvailabilityTreatment(value: Da6AvailabilityTreatment | null | undefined): string {
 	return (
 		DA6_AVAILABILITY_TREATMENT_OPTIONS.find((option) => option.value === (value ?? DA6_TREATMENT_NONE))?.label ??
-		'No DA6 effect'
+		'No effect (available, chargeable)'
 	);
 }
 

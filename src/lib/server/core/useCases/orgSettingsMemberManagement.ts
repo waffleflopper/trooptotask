@@ -1,4 +1,5 @@
-import { PERMISSION_PRESETS, type OrganizationMemberPermissions } from '$lib/types';
+import type { OrganizationMemberPermissions } from '$lib/types';
+import { resolveCurrentPresetPermissions, resolveCurrentUpdatePermissions } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
@@ -88,7 +89,7 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const permissions = resolvePresetPermissions(input.preset);
+	const permissions = resolveCurrentPresetPermissions(input.preset);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
@@ -219,7 +220,7 @@ export async function updateOrganizationMemberPermissions(
 		ports.auth.requireManageMembers();
 	}
 
-	const permissions = resolveUpdatePermissions(input.preset, input.customPermissions);
+	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
 	const role = input.preset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
@@ -271,35 +272,4 @@ function requireActorUserId(auth: AuthContext): string {
 
 function normalizeEmail(email: string): string {
 	return sanitizeString(email, 254).toLowerCase();
-}
-
-function resolvePresetPermissions(preset: string): OrganizationMemberPermissions {
-	return PERMISSION_PRESETS[preset as keyof typeof PERMISSION_PRESETS] ?? PERMISSION_PRESETS['full-editor'];
-}
-
-function resolveUpdatePermissions(
-	preset: string,
-	customPermissions?: Partial<OrganizationMemberPermissions> | null
-): OrganizationMemberPermissions {
-	if (preset !== 'custom') {
-		return resolvePresetPermissions(preset);
-	}
-
-	return {
-		canViewCalendar: !!customPermissions?.canViewCalendar,
-		canEditCalendar: !!customPermissions?.canEditCalendar,
-		canViewPersonnel: !!customPermissions?.canViewPersonnel,
-		canEditPersonnel: !!customPermissions?.canEditPersonnel,
-		canViewTraining: !!customPermissions?.canViewTraining,
-		canEditTraining: !!customPermissions?.canEditTraining,
-		canViewCriticalTasks: !!customPermissions?.canViewCriticalTasks,
-		canEditCriticalTasks: !!customPermissions?.canEditCriticalTasks,
-		canViewOnboarding: !!customPermissions?.canViewOnboarding,
-		canEditOnboarding: !!customPermissions?.canEditOnboarding,
-		canViewRatingScheme: !!customPermissions?.canViewRatingScheme,
-		canEditRatingScheme: !!customPermissions?.canEditRatingScheme,
-		canViewLeadersBook: !!customPermissions?.canViewLeadersBook,
-		canEditLeadersBook: !!customPermissions?.canEditLeadersBook,
-		canManageMembers: !!customPermissions?.canManageMembers
-	};
 }

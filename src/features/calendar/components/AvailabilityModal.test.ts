@@ -140,8 +140,8 @@ describe('AvailabilityModal — advanced duty events', () => {
 
 describe('AvailabilityModal — searchable status type', () => {
 	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
-		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
+		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true },
+		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', da6TreatmentReviewed: true }
 	];
 
 	it('filters status type options by typed text before adding status', async () => {
@@ -168,7 +168,9 @@ describe('AvailabilityModal — searchable status type', () => {
 });
 
 describe('AvailabilityModal — edit status feedback', () => {
-	const statusTypes: StatusType[] = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+	const statusTypes: StatusType[] = [
+		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true }
+	];
 
 	it('shows an updated toast after editing an existing status entry', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => undefined);

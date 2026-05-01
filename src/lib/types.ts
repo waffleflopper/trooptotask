@@ -61,149 +61,13 @@ export interface OrganizationInvitation {
 	createdAt: string;
 }
 
-// Preset permission templates for easy assignment
-export type PermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
-
-export const PERMISSION_PRESETS: Record<
-	Exclude<PermissionPreset, 'owner' | 'custom'>,
-	OrganizationMemberPermissions
-> = {
-	admin: {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
-		canManageMembers: true
-	},
-	'full-editor': {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
-		canManageMembers: false
-	},
-	'team-leader': {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: true,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: true,
-		canViewOnboarding: true,
-		canEditOnboarding: true,
-		canViewRatingScheme: true,
-		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
-		canManageMembers: false
-	},
-	viewer: {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canViewCriticalTasks: true,
-		canEditCriticalTasks: false,
-		canViewOnboarding: true,
-		canEditOnboarding: false,
-		canViewRatingScheme: true,
-		canEditRatingScheme: false,
-		canViewLeadersBook: true,
-		canEditLeadersBook: false,
-		canManageMembers: false
-	}
-};
-
-export function resolveRatingSchemePermissions(
-	permissions: Pick<
-		OrganizationMemberPermissions,
-		'canViewPersonnel' | 'canEditPersonnel' | 'canViewRatingScheme' | 'canEditRatingScheme' | 'canEditLeadersBook'
-	>
-): { canViewRatingScheme: boolean; canEditRatingScheme: boolean } {
-	return {
-		canViewRatingScheme: permissions.canViewRatingScheme ?? permissions.canViewPersonnel,
-		canEditRatingScheme:
-			permissions.canEditRatingScheme ?? (permissions.canEditPersonnel && permissions.canEditLeadersBook)
-	};
-}
-
-export function getPermissionPreset(
-	permissions: OrganizationMemberPermissions,
-	scopedGroupId?: string | null
-): PermissionPreset {
-	const resolvedPermissions = resolveRatingSchemePermissions(permissions);
-
-	// Check each preset
-	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
-		if (
-			permissions.canViewCalendar === presetPermissions.canViewCalendar &&
-			permissions.canEditCalendar === presetPermissions.canEditCalendar &&
-			permissions.canViewPersonnel === presetPermissions.canViewPersonnel &&
-			permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
-			permissions.canViewTraining === presetPermissions.canViewTraining &&
-			permissions.canEditTraining === presetPermissions.canEditTraining &&
-			permissions.canViewCriticalTasks === presetPermissions.canViewCriticalTasks &&
-			permissions.canEditCriticalTasks === presetPermissions.canEditCriticalTasks &&
-			permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
-			permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
-			resolvedPermissions.canViewRatingScheme === presetPermissions.canViewRatingScheme &&
-			resolvedPermissions.canEditRatingScheme === presetPermissions.canEditRatingScheme &&
-			permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
-			permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
-			permissions.canManageMembers === presetPermissions.canManageMembers
-		) {
-			// Distinguish team-leader from full-editor: if member has a scoped group, it's team-leader
-			if (preset === 'full-editor' && scopedGroupId) {
-				return 'team-leader';
-			}
-			// Skip team-leader match if no scoped group (it's actually full-editor)
-			if (preset === 'team-leader' && !scopedGroupId) {
-				continue;
-			}
-			return preset as PermissionPreset;
-		}
-	}
-	return 'custom';
-}
-
-export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
-	return (
-		permissions.canViewCalendar &&
-		permissions.canEditCalendar &&
-		permissions.canViewPersonnel &&
-		permissions.canEditPersonnel &&
-		permissions.canViewTraining &&
-		permissions.canEditTraining &&
-		permissions.canViewOnboarding &&
-		permissions.canEditOnboarding &&
-		permissions.canViewLeadersBook &&
-		permissions.canEditLeadersBook
-	);
-}
+export {
+	PERMISSION_PRESETS,
+	getPermissionPreset,
+	isFullEditor,
+	resolveRatingSchemePermissions,
+	type CurrentPermissionPreset as PermissionPreset
+} from '$lib/access/memberAccessShape';
 
 // ============================================================
 // Calendar Display Types (shared across features)
@@ -215,6 +79,7 @@ export interface StatusType {
 	color: string;
 	textColor: string;
 	da6AvailabilityTreatment?: Da6AvailabilityTreatment | null;
+	da6TreatmentReviewed: boolean;
 }
 
 export const DA6_AVAILABILITY_TREATMENTS = ['authorized-absence', 'other-duty', 'misconduct-unavailable'] as const;
@@ -260,36 +125,48 @@ export const DEFAULT_STATUS_TYPES: StatusType[] = [
 		name: 'Leave',
 		color: '#48bb78',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'school',
 		name: 'School',
 		color: '#4299e1',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'training-tdy',
 		name: 'Training / TDY',
 		color: '#9f7aea',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
-	{ id: 'appointment', name: 'Appointment', color: '#ed8936', textColor: '#ffffff', da6AvailabilityTreatment: null },
+	{
+		id: 'appointment',
+		name: 'Appointment',
+		color: '#ed8936',
+		textColor: '#ffffff',
+		da6AvailabilityTreatment: null,
+		da6TreatmentReviewed: true
+	},
 	{
 		id: 'sick',
 		name: 'Sick',
 		color: '#e53e3e',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'authorized-absence'
+		da6AvailabilityTreatment: 'authorized-absence',
+		da6TreatmentReviewed: true
 	},
 	{
 		id: 'other-duty',
 		name: 'Other Duty / Detail',
 		color: '#a0522d',
 		textColor: '#ffffff',
-		da6AvailabilityTreatment: 'other-duty'
+		da6AvailabilityTreatment: 'other-duty',
+		da6TreatmentReviewed: true
 	}
 ];
 

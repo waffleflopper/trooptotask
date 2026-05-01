@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import type { StatusType } from '$lib/types';
 
@@ -94,13 +94,14 @@ describe('CalendarSettingsPage', () => {
 				name: 'Leave',
 				color: '#48bb78',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'authorized-absence'
+				da6AvailabilityTreatment: 'authorized-absence',
+				da6TreatmentReviewed: true
 			}
 		];
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getAllByText('Authorized absence, nonchargeable').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getAllByText('Authorized absence (unavailable, nonchargeable)').length).toBeGreaterThanOrEqual(2);
 		expect(screen.getByRole('button', { name: 'Duty roster treatment help' })).toBeTruthy();
 
 		const newTreatment = screen.getByLabelText('Duty roster treatment');
@@ -121,5 +122,80 @@ describe('CalendarSettingsPage', () => {
 				da6AvailabilityTreatment: 'other-duty'
 			})
 		);
+	});
+
+	it('guides admins to review existing status types without a DA6 treatment', () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'annual-leave',
+				name: 'Annual Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
+			},
+			{
+				id: 'detail',
+				name: 'Detail',
+				color: '#c47f00',
+				textColor: '#0e0e0d',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
+			},
+			{
+				id: 'tdy',
+				name: 'TDY',
+				color: '#2f5d75',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: 'other-duty',
+				da6TreatmentReviewed: true
+			},
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#ed8936',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: true
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		const review = screen.getByRole('region', { name: 'DA6 treatment review' });
+		expect(within(review).getByText('Confirm statuses with no DA6 effect')).toBeTruthy();
+		expect(
+			within(review).getByText(
+				'These status types are excluded from DA Form 6 rosters unless you edit them and assign a duty roster treatment.'
+			)
+		).toBeTruthy();
+		expect(within(review).getByText('2 need review')).toBeTruthy();
+		expect(within(review).getByText('Annual Leave')).toBeTruthy();
+		expect(within(review).getByText('Detail')).toBeTruthy();
+		expect(within(review).queryByText('TDY')).toBeNull();
+		expect(within(review).queryByText('Appointment')).toBeNull();
+		expect(statusTypesStoreMock.update).not.toHaveBeenCalled();
+	});
+
+	it('lets admins mark no-effect DA6 status types as reviewed without assigning a treatment', async () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#ed8936',
+				textColor: '#ffffff',
+				da6AvailabilityTreatment: null,
+				da6TreatmentReviewed: false
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Appointment has no DA6 effect' }));
+
+		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('appointment', {
+			da6AvailabilityTreatment: null,
+			da6TreatmentReviewed: true
+		});
 	});
 });

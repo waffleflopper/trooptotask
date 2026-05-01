@@ -5,7 +5,7 @@ import { canAccessAdvancedDuty } from '$lib/server/core/useCases/advancedDutyAcc
 import { listDutyTemplates } from '$lib/server/core/useCases/dutyTemplateCrud';
 import {
 	listDutyEventsForCalendar,
-	listVisibleAdvancedDutyRunSnapshots
+	listVisibleAdvancedDutyRunSnapshotSummaries
 } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const load = async ({ params, locals, cookies }: PageServerLoadEvent) => {
@@ -14,12 +14,13 @@ export const load = async ({ params, locals, cookies }: PageServerLoadEvent) => 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'calendar',
 		fn: async (ctx) => {
-			const rosterHistory = await fetchRosterHistory(ctx);
-			const advancedDutyEvents = await listDutyEventsForCalendar(ctx);
-			const advancedDutyTemplates = canAccessAdvancedDuty(ctx.auth) ? await listDutyTemplates(ctx) : [];
-			const advancedDutySnapshots = canAccessAdvancedDuty(ctx.auth)
-				? await listVisibleAdvancedDutyRunSnapshots(ctx)
-				: [];
+			const canUseAdvancedDuty = canAccessAdvancedDuty(ctx.auth);
+			const [rosterHistory, advancedDutyEvents, advancedDutyTemplates, advancedDutySnapshots] = await Promise.all([
+				fetchRosterHistory(ctx),
+				listDutyEventsForCalendar(ctx),
+				canUseAdvancedDuty ? listDutyTemplates(ctx) : Promise.resolve([]),
+				canUseAdvancedDuty ? listVisibleAdvancedDutyRunSnapshotSummaries(ctx) : Promise.resolve([])
+			]);
 			return { rosterHistory, advancedDutyTemplates, advancedDutyEvents, advancedDutySnapshots };
 		}
 	});

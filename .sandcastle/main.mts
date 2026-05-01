@@ -98,7 +98,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 		// not write code.
 		maxIterations: 1,
 		// Opus for planning: dependency analysis benefits from deeper reasoning.
-		agent: sandcastle.codex('gpt-5.4'),
+		agent: sandcastle.codex('gpt-5.5, {"effort": "high"}'),
 		promptFile: './.sandcastle/plan-prompt.md'
 	});
 
@@ -148,7 +148,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 				const implement = await sandbox.run({
 					name: 'implementer',
 					maxIterations: 100,
-					agent: sandcastle.codex('gpt-5.4'),
+					agent: sandcastle.codex('gpt-5.5, {"effort": "medium"}'),
 					promptFile: './.sandcastle/implement-prompt.md',
 					promptArgs: {
 						TASK_ID: issue.id,
@@ -162,7 +162,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 					const review = await sandbox.run({
 						name: 'reviewer',
 						maxIterations: 1,
-						agent: sandcastle.codex('gpt-5.4-mini'),
+						agent: sandcastle.codex('gpt-5.5, {"effort": "medium"}'),
 						promptFile: './.sandcastle/review-prompt.md',
 						promptArgs: {
 							BRANCH: issue.branch
@@ -225,7 +225,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 		sandbox: docker(sandboxConfig),
 		name: 'merger',
 		maxIterations: 1,
-		agent: sandcastle.codex('gpt-5.4'),
+		agent: sandcastle.codex('gpt-5.4, {"effort": "high"}'),
 		promptFile: './.sandcastle/merge-prompt.md',
 		promptArgs: {
 			// A markdown list of branch names, one per line.

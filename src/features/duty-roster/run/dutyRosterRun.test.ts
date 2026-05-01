@@ -49,7 +49,8 @@ function baseInput(overrides: Partial<DutyRosterRunInput> = {}): DutyRosterRunIn
 				name: 'Leave',
 				color: '#008000',
 				textColor: '#fff',
-				da6AvailabilityTreatment: 'authorized-absence'
+				da6AvailabilityTreatment: 'authorized-absence',
+				da6TreatmentReviewed: true
 			}
 		],
 		specialDays: [],
@@ -294,14 +295,16 @@ describe('buildDutyRosterRunSnapshot', () => {
 						name: 'Appointment',
 						color: '#ed8936',
 						textColor: '#fff',
-						da6AvailabilityTreatment: null
+						da6AvailabilityTreatment: null,
+						da6TreatmentReviewed: true
 					},
 					{
 						id: 'detail',
 						name: 'Other Duty / Detail',
 						color: '#a0522d',
 						textColor: '#fff',
-						da6AvailabilityTreatment: 'other-duty'
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
 					}
 				],
 				availabilityEntries: [
@@ -362,14 +365,16 @@ describe('buildDutyRosterRunSnapshot', () => {
 						name: 'Leave',
 						color: '#008000',
 						textColor: '#fff',
-						da6AvailabilityTreatment: 'authorized-absence'
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
 					},
 					{
 						id: 'detail',
 						name: 'Other Duty / Detail',
 						color: '#a0522d',
 						textColor: '#fff',
-						da6AvailabilityTreatment: 'other-duty'
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
 					}
 				],
 				availabilityEntries: [
@@ -660,7 +665,8 @@ describe('buildDutyRosterRunSnapshot', () => {
 						name: 'Detail',
 						color: '#111827',
 						textColor: '#fff',
-						da6AvailabilityTreatment: 'other-duty'
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
 					}
 				],
 				availabilityEntries: [

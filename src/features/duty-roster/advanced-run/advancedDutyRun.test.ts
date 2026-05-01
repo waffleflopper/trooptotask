@@ -294,14 +294,16 @@ describe('advanced duty run snapshots', () => {
 				name: 'Leave',
 				color: '#008000',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'authorized-absence'
+				da6AvailabilityTreatment: 'authorized-absence',
+				da6TreatmentReviewed: true
 			},
 			{
 				id: 'other-duty',
 				name: 'Other Duty / Detail',
 				color: '#a0522d',
 				textColor: '#ffffff',
-				da6AvailabilityTreatment: 'other-duty'
+				da6AvailabilityTreatment: 'other-duty',
+				da6TreatmentReviewed: true
 			}
 		];
 		const availabilityEntries: AvailabilityEntry[] = [

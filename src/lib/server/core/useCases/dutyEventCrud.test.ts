@@ -4,6 +4,7 @@ import { createDutyTemplate } from './dutyTemplateCrud';
 import {
 	applyDutyEventFromTemplate as applyDutyEventFromTemplateUseCase,
 	applyDutyEventSeriesFromTemplate as applyDutyEventSeriesFromTemplateUseCase,
+	deleteVisibleAdvancedDutyRunSnapshot,
 	deleteDutyEventById,
 	deleteDutyEventRun,
 	deleteLegacyDutyEventGroup,
@@ -723,6 +724,105 @@ describe('duty event apply use case', () => {
 				events: expect.arrayContaining([expect.objectContaining({ eventDate: '2026-04-06' })])
 			})
 		});
+		expect(draftSnapshots[0].preview_payload).not.toHaveProperty('da6Matrices');
+	});
+
+	it('replaces an unexpired draft snapshot for identical advanced series previews', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const input: DutyEventSeriesInput = {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'weekday-only'
+		};
+
+		const first = await previewDutyEventSeriesFromTemplate(ctx, input);
+		const second = await previewDutyEventSeriesFromTemplate(ctx, input);
+		const draftSnapshots = await ctx.store.findMany<Record<string, unknown>>(
+			'advanced_duty_run_snapshots',
+			ctx.auth.orgId
+		);
+
+		expect(second.snapshotId).not.toBe(first.snapshotId);
+		expect(draftSnapshots).toHaveLength(1);
+		expect(draftSnapshots[0].id).toBe(second.snapshotId);
+	});
+
+	it('deletes a draft advanced run snapshot without touching applied duty history', async () => {
+		const ctx = createTestContext();
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'organization',
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'weekday-only'
+		});
+
+		await expect(deleteVisibleAdvancedDutyRunSnapshot(ctx, preview.snapshotId ?? '')).resolves.toEqual({
+			success: true
+		});
+
+		const draftSnapshots = await ctx.store.findMany<Record<string, unknown>>(
+			'advanced_duty_run_snapshots',
+			ctx.auth.orgId
+		);
+		expect(draftSnapshots).toHaveLength(0);
 	});
 
 	it('persists a draft advanced run snapshot when previewing a single duty event', async () => {

@@ -62,7 +62,8 @@
 		scopedGroupId: resolvedData.scopedGroupId,
 		rosterHistory: resolvedData.rosterHistory,
 		advancedDutyTemplates: resolvedData.advancedDutyTemplates,
-		advancedDutyEvents: resolvedData.advancedDutyEvents
+		advancedDutyEvents: resolvedData.advancedDutyEvents,
+		advancedDutySnapshots: resolvedData.advancedDutySnapshots
 	}));
 </script>
 

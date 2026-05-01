@@ -6,7 +6,7 @@ const {
 	canAccessAdvancedDutyMock,
 	listDutyTemplatesMock,
 	listDutyEventsForCalendarMock,
-	listVisibleAdvancedDutyRunSnapshotsMock,
+	listVisibleAdvancedDutyRunSnapshotSummariesMock,
 	mockCtx
 } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -14,7 +14,7 @@ const {
 	canAccessAdvancedDutyMock: vi.fn(),
 	listDutyTemplatesMock: vi.fn(),
 	listDutyEventsForCalendarMock: vi.fn(),
-	listVisibleAdvancedDutyRunSnapshotsMock: vi.fn(),
+	listVisibleAdvancedDutyRunSnapshotSummariesMock: vi.fn(),
 	mockCtx: {
 		auth: {
 			isPrivileged: false,
@@ -43,7 +43,7 @@ vi.mock('$lib/server/core/useCases/dutyTemplateCrud', () => ({
 
 vi.mock('$lib/server/core/useCases/dutyEventCrud', () => ({
 	listDutyEventsForCalendar: listDutyEventsForCalendarMock,
-	listVisibleAdvancedDutyRunSnapshots: listVisibleAdvancedDutyRunSnapshotsMock
+	listVisibleAdvancedDutyRunSnapshotSummaries: listVisibleAdvancedDutyRunSnapshotSummariesMock
 }));
 
 import { load } from './+page.server';
@@ -55,7 +55,7 @@ describe('duty roster page load', () => {
 		fetchRosterHistoryMock.mockResolvedValue(['history-item']);
 		listDutyEventsForCalendarMock.mockResolvedValue(['event-item']);
 		listDutyTemplatesMock.mockResolvedValue(['template-item']);
-		listVisibleAdvancedDutyRunSnapshotsMock.mockResolvedValue(['snapshot-item']);
+		listVisibleAdvancedDutyRunSnapshotSummariesMock.mockResolvedValue(['snapshot-item']);
 	});
 
 	it('loads advanced duty events for calendar users even without advanced duty template access', async () => {
@@ -65,7 +65,7 @@ describe('duty roster page load', () => {
 
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
 		expect(listDutyTemplatesMock).not.toHaveBeenCalled();
-		expect(listVisibleAdvancedDutyRunSnapshotsMock).not.toHaveBeenCalled();
+		expect(listVisibleAdvancedDutyRunSnapshotSummariesMock).not.toHaveBeenCalled();
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
 			advancedDutyEvents: ['event-item'],
@@ -81,7 +81,7 @@ describe('duty roster page load', () => {
 
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
 		expect(listDutyTemplatesMock).toHaveBeenCalledWith(mockCtx);
-		expect(listVisibleAdvancedDutyRunSnapshotsMock).toHaveBeenCalledWith(mockCtx);
+		expect(listVisibleAdvancedDutyRunSnapshotSummariesMock).toHaveBeenCalledWith(mockCtx);
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
 			advancedDutyEvents: ['event-item'],

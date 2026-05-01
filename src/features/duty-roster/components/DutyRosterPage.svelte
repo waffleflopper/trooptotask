@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
 	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
@@ -35,6 +36,7 @@
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
+	import { isResumableAdvancedDutyRunSnapshotStatus } from '../duty-roster.types';
 	import {
 		mergeDutyEventsIntoTimeline,
 		normalizeDutyTemplate,
@@ -44,6 +46,7 @@
 		removeLegacyDutyEvents,
 		sortDutyTemplates,
 		sortDutyEventsByCoverageStart,
+		stableSnapshotInput,
 		upsertDutyEventIntoTimeline
 	} from '../advancedDutyCollections';
 
@@ -80,7 +83,9 @@
 	let advancedDutySnapshots = $state<AdvancedDutyRunSnapshotRecord[]>([]);
 	let loadedSnapshotKey = $state('');
 	let resumeSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
-	const draftAdvancedDutySnapshots = $derived(advancedDutySnapshots.filter((snapshot) => snapshot.status === 'draft'));
+	const resumableAdvancedDutySnapshots = $derived(
+		advancedDutySnapshots.filter((snapshot) => isResumableAdvancedDutyRunSnapshotStatus(snapshot.status))
+	);
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
 	let advancedDutyEvents = $derived(sortDutyEventsByCoverageStart(data.advancedDutyEvents));
 	const visibleAdvancedTemplateCount = $derived(
@@ -114,7 +119,7 @@
 
 	const advancedWorkspaceViews = $derived([
 		{ label: 'Active Run', value: 'active-run' },
-		{ label: `Draft Snapshots (${draftAdvancedDutySnapshots.length})`, value: 'draft-snapshots' },
+		{ label: `Draft Snapshots (${resumableAdvancedDutySnapshots.length})`, value: 'draft-snapshots' },
 		{ label: 'Applied Events', value: 'applied-events' }
 	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>);
 
@@ -280,9 +285,28 @@
 		activeTab = 'advanced-templates';
 	}
 
+	function handleRecoverPartialApply() {
+		activeAdvancedWorkspaceView = 'applied-events';
+	}
+
+	function isSameDraftSnapshotInput(
+		left: AdvancedDutyRunSnapshotRecord,
+		right: AdvancedDutyRunSnapshotRecord
+	): boolean {
+		return (
+			left.status === 'draft' &&
+			right.status === 'draft' &&
+			left.templateId === right.templateId &&
+			stableSnapshotInput(left.inputPayload) === stableSnapshotInput(right.inputPayload)
+		);
+	}
+
 	function upsertDraftSnapshot(snapshot: AdvancedDutyRunSnapshotRecord | null) {
 		if (!snapshot) return;
-		advancedDutySnapshots = [snapshot, ...advancedDutySnapshots.filter((item) => item.id !== snapshot.id)];
+		advancedDutySnapshots = [
+			snapshot,
+			...advancedDutySnapshots.filter((item) => item.id !== snapshot.id && !isSameDraftSnapshotInput(item, snapshot))
+		];
 	}
 
 	function removeDraftSnapshot(snapshotId: string | undefined) {
@@ -354,9 +378,65 @@
 		};
 	}
 
-	function handleResumeSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
-		resumeSnapshot = snapshot;
+	function hasSnapshotResumePayload(snapshot: AdvancedDutyRunSnapshotRecord): boolean {
+		const previewPayload = snapshot.previewPayload;
+		return Boolean(
+			previewPayload &&
+			typeof previewPayload === 'object' &&
+			(('events' in previewPayload && Array.isArray((previewPayload as { events?: unknown }).events)) ||
+				('eventDate' in previewPayload && typeof (previewPayload as { eventDate?: unknown }).eventDate === 'string'))
+		);
+	}
+
+	async function loadSnapshotForResume(
+		snapshot: AdvancedDutyRunSnapshotRecord
+	): Promise<AdvancedDutyRunSnapshotRecord | null> {
+		if (hasSnapshotResumePayload(snapshot)) return snapshot;
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/snapshots/${encodeURIComponent(snapshot.id)}`);
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to load advanced duty snapshot'));
+			}
+			return (await res.json()) as AdvancedDutyRunSnapshotRecord;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to load advanced duty snapshot');
+			return null;
+		}
+	}
+
+	async function handleResumeSnapshot(snapshot: AdvancedDutyRunSnapshotRecord) {
+		const fullSnapshot = await loadSnapshotForResume(snapshot);
+		if (!fullSnapshot) return;
+		upsertDraftSnapshot(fullSnapshot);
+		resumeSnapshot = fullSnapshot;
 		activeAdvancedWorkspaceView = 'active-run';
+	}
+
+	async function handleDeleteSnapshot(snapshot: AdvancedDutyRunSnapshotRecord): Promise<boolean> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/snapshots/${encodeURIComponent(snapshot.id)}`, {
+				method: 'DELETE'
+			});
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to delete advanced duty snapshot'));
+			}
+			removeDraftSnapshot(snapshot.id);
+			await refreshAdvancedDutyData();
+			toastStore.success('Draft snapshot deleted');
+			return true;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to delete advanced duty snapshot');
+			return false;
+		}
+	}
+
+	async function refreshResumeSnapshot(snapshotId: string | undefined): Promise<AdvancedDutyRunSnapshotRecord | null> {
+		if (!snapshotId) return null;
+		await refreshAdvancedDutyData();
+		await tick();
+		const nextSnapshot = advancedDutySnapshots.find((snapshot) => snapshot.id === snapshotId) ?? null;
+		resumeSnapshot = nextSnapshot;
+		return nextSnapshot;
 	}
 
 	async function handlePreviewAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEventPreview | null> {
@@ -399,6 +479,7 @@
 			toastStore.success('Advanced duty event applied');
 			return event;
 		} catch (error) {
+			await refreshResumeSnapshot(payload.snapshotId);
 			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty event');
 			return null;
 		}
@@ -449,6 +530,7 @@
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
 			return result;
 		} catch (error) {
+			await refreshResumeSnapshot(payload.snapshotId);
 			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty series');
 			return null;
 		}
@@ -672,10 +754,15 @@
 					onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
 					{canManageAdvancedTemplates}
 					onManageAdvancedTemplates={handleManageAdvancedTemplates}
+					onRecoverPartialApply={handleRecoverPartialApply}
 					{resumeSnapshot}
 				/>
 			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}
-				<AdvancedSnapshotList snapshots={draftAdvancedDutySnapshots} onResumeSnapshot={handleResumeSnapshot} />
+				<AdvancedSnapshotList
+					snapshots={resumableAdvancedDutySnapshots}
+					onResumeSnapshot={handleResumeSnapshot}
+					onDeleteSnapshot={handleDeleteSnapshot}
+				/>
 			{:else}
 				<AppliedEventManager
 					{advancedDutyEvents}

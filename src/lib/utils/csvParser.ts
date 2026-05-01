@@ -5,13 +5,7 @@
  * Handles comma-separated values with basic trimming.
  */
 export async function parseCSVText(text: string): Promise<string[][]> {
-	const XLSX = await import('xlsx');
-	const workbook = XLSX.read(text, { type: 'string', raw: true });
-	const sheet = workbook.Sheets[workbook.SheetNames[0]];
-	const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
-	return raw
-		.map((row) => Array.from(row as unknown[], (cell) => String(cell ?? '').trim()))
-		.filter((row) => row.some((cell) => cell.length > 0));
+	return parseDelimitedText(text);
 }
 
 /**
@@ -23,23 +17,110 @@ export function parseFile(file: File): Promise<string[][]> {
 		const reader = new FileReader();
 		reader.onload = async (e) => {
 			try {
-				const XLSX = await import('xlsx');
-				const data = new Uint8Array(e.target?.result as ArrayBuffer);
-				const workbook = XLSX.read(data, { type: 'array', raw: true });
-				const sheet = workbook.Sheets[workbook.SheetNames[0]];
-				const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
-				// Convert all cells to trimmed strings; Array.from densifies sparse arrays (XLSX skips empty cells)
-				const rows = raw
-					.map((row) => Array.from(row as unknown[], (cell) => String(cell ?? '').trim()))
-					.filter((row) => row.some((cell) => cell.length > 0));
+				const data = e.target?.result;
+				if (typeof data === 'string') {
+					resolve(parseDelimitedText(data));
+					return;
+				}
+
+				const rows = await parseXlsxBuffer(data as ArrayBuffer);
 				resolve(rows);
 			} catch (err) {
 				reject(err);
 			}
 		};
 		reader.onerror = () => reject(new Error('Failed to read file'));
-		reader.readAsArrayBuffer(file);
+		if (isCsvFile(file)) {
+			reader.readAsText(file);
+		} else {
+			reader.readAsArrayBuffer(file);
+		}
 	});
+}
+
+function isCsvFile(file: File): boolean {
+	return file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+}
+
+async function parseXlsxBuffer(buffer: ArrayBuffer): Promise<string[][]> {
+	const ExcelJS = await import('exceljs');
+	const workbook = new ExcelJS.Workbook();
+	await workbook.xlsx.load(buffer);
+	const sheet = workbook.worksheets[0];
+	if (!sheet) return [];
+
+	const rows: string[][] = [];
+	sheet.eachRow({ includeEmpty: true }, (row) => {
+		const values: string[] = [];
+		for (let index = 1; index <= row.cellCount; index += 1) {
+			values.push(cellToString(row.getCell(index).value));
+		}
+		if (values.some((cell) => cell.length > 0)) {
+			rows.push(values);
+		}
+	});
+
+	return rows;
+}
+
+function cellToString(value: unknown): string {
+	if (value == null) return '';
+	if (value instanceof Date) return value.toISOString().slice(0, 10);
+	if (typeof value === 'object') {
+		if ('text' in value && typeof value.text === 'string') return value.text.trim();
+		if ('result' in value) return cellToString(value.result);
+		if ('richText' in value && Array.isArray(value.richText)) {
+			return value.richText
+				.map((part) => (typeof part?.text === 'string' ? part.text : ''))
+				.join('')
+				.trim();
+		}
+	}
+	return String(value).trim();
+}
+
+function parseDelimitedText(text: string): string[][] {
+	const rows: string[][] = [];
+	let row: string[] = [];
+	let cell = '';
+	let inQuotes = false;
+
+	for (let index = 0; index < text.length; index += 1) {
+		const char = text[index];
+		const next = text[index + 1];
+
+		if (char === '"') {
+			if (inQuotes && next === '"') {
+				cell += '"';
+				index += 1;
+			} else {
+				inQuotes = !inQuotes;
+			}
+			continue;
+		}
+
+		if (char === ',' && !inQuotes) {
+			row.push(cell.trim());
+			cell = '';
+			continue;
+		}
+
+		if ((char === '\n' || char === '\r') && !inQuotes) {
+			if (char === '\r' && next === '\n') index += 1;
+			row.push(cell.trim());
+			if (row.some((value) => value.length > 0)) rows.push(row);
+			row = [];
+			cell = '';
+			continue;
+		}
+
+		cell += char;
+	}
+
+	row.push(cell.trim());
+	if (row.some((value) => value.length > 0)) rows.push(row);
+
+	return rows;
 }
 
 /**

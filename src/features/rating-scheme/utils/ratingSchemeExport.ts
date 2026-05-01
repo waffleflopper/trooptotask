@@ -34,7 +34,7 @@ function getStatusLabel(status: string): string {
 }
 
 export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: PersonnelLookup[]) {
-	const XLSX = await import('xlsx');
+	const ExcelJS = await import('exceljs');
 	const rows = entries.map((entry) => {
 		const rated = personnel.find((p) => p.id === entry.ratedPersonId);
 		return {
@@ -56,29 +56,43 @@ export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel
 		};
 	});
 
-	const ws = XLSX.utils.json_to_sheet(rows);
-
-	ws['!cols'] = [
-		{ wch: 10 }, // Eval Type
-		{ wch: 18 }, // Report Type
-		{ wch: 28 }, // Rated Individual
-		{ wch: 8 }, // Rank
-		{ wch: 28 }, // Rater
-		{ wch: 28 }, // Senior Rater
-		{ wch: 28 }, // Intermediate Rater
-		{ wch: 28 }, // Reviewer
-		{ wch: 14 }, // Rating Period Start
-		{ wch: 14 }, // Thru Date
-		{ wch: 14 }, // Days Until Due
-		{ wch: 16 }, // Due Status
-		{ wch: 16 }, // Status
-		{ wch: 22 }, // Workflow Status
-		{ wch: 30 } // Notes
+	const workbook = new ExcelJS.Workbook();
+	const sheet = workbook.addWorksheet('Rating Scheme');
+	sheet.columns = [
+		{ header: 'Eval Type', key: 'Eval Type', width: 10 },
+		{ header: 'Report Type', key: 'Report Type', width: 18 },
+		{ header: 'Rated Individual', key: 'Rated Individual', width: 28 },
+		{ header: 'Rank', key: 'Rank', width: 8 },
+		{ header: 'Rater', key: 'Rater', width: 28 },
+		{ header: 'Senior Rater', key: 'Senior Rater', width: 28 },
+		{ header: 'Intermediate Rater', key: 'Intermediate Rater', width: 28 },
+		{ header: 'Reviewer', key: 'Reviewer', width: 28 },
+		{ header: 'Rating Period Start', key: 'Rating Period Start', width: 14 },
+		{ header: 'Thru Date', key: 'Thru Date', width: 14 },
+		{ header: 'Days Until Due', key: 'Days Until Due', width: 14 },
+		{ header: 'Due Status', key: 'Due Status', width: 16 },
+		{ header: 'Status', key: 'Status', width: 16 },
+		{ header: 'Workflow Status', key: 'Workflow Status', width: 22 },
+		{ header: 'Notes', key: 'Notes', width: 30 }
 	];
-
-	const wb = XLSX.utils.book_new();
-	XLSX.utils.book_append_sheet(wb, ws, 'Rating Scheme');
+	sheet.addRows(rows);
+	sheet.getRow(1).font = { bold: true };
 
 	const today = new Date().toISOString().slice(0, 10);
-	XLSX.writeFile(wb, `rating-scheme-${today}.xlsx`);
+	const buffer = await workbook.xlsx.writeBuffer();
+	downloadBlob(
+		new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+		`rating-scheme-${today}.xlsx`
+	);
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	URL.revokeObjectURL(url);
 }

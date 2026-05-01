@@ -1,20 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// @vitest-environment happy-dom
 
-const { mockWriteFile, mockJsonToSheet, mockBookNew, mockBookAppendSheet } = vi.hoisted(() => {
-	const mockWriteFile = vi.fn();
-	const mockJsonToSheet = vi.fn(() => ({ '!cols': [] }));
-	const mockBookNew = vi.fn(() => ({}));
-	const mockBookAppendSheet = vi.fn();
-	return { mockWriteFile, mockJsonToSheet, mockBookNew, mockBookAppendSheet };
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const { mockAddWorksheet, mockAddRows, mockWriteBuffer } = vi.hoisted(() => {
+	const mockAddRows = vi.fn();
+	const mockGetRow = vi.fn(() => ({}));
+	const mockAddWorksheet = vi.fn(() => ({
+		addRows: mockAddRows,
+		getRow: mockGetRow,
+		columns: []
+	}));
+	const mockWriteBuffer = vi.fn(async () => new ArrayBuffer(8));
+	return { mockAddWorksheet, mockAddRows, mockGetRow, mockWriteBuffer };
 });
 
-vi.mock('xlsx', () => ({
-	utils: {
-		json_to_sheet: mockJsonToSheet,
-		book_new: mockBookNew,
-		book_append_sheet: mockBookAppendSheet
-	},
-	writeFile: mockWriteFile
+vi.mock('exceljs', () => ({
+	Workbook: vi.fn(() => ({
+		addWorksheet: mockAddWorksheet,
+		xlsx: {
+			writeBuffer: mockWriteBuffer
+		}
+	}))
 }));
 
 import { exportRatingScheme } from './ratingSchemeExport';
@@ -66,8 +72,23 @@ function makePersonnel(): Personnel[] {
 }
 
 describe('exportRatingScheme', () => {
+	let clickedAnchor: HTMLAnchorElement | null;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
+		clickedAnchor = null;
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:rating-scheme');
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		const appendChild = document.body.appendChild.bind(document.body);
+		vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
+			if (node instanceof HTMLAnchorElement) clickedAnchor = node;
+			return appendChild(node);
+		});
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
 	});
 
 	it('returns a promise (is async)', async () => {
@@ -79,9 +100,16 @@ describe('exportRatingScheme', () => {
 	it('creates a workbook and saves it as xlsx', async () => {
 		await exportRatingScheme([makeEntry()], makePersonnel());
 
-		expect(mockJsonToSheet).toHaveBeenCalled();
-		expect(mockBookNew).toHaveBeenCalled();
-		expect(mockBookAppendSheet).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'Rating Scheme');
-		expect(mockWriteFile).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('rating-scheme-'));
+		expect(mockAddWorksheet).toHaveBeenCalledWith('Rating Scheme');
+		expect(mockAddRows).toHaveBeenCalledWith([
+			expect.objectContaining({
+				'Eval Type': 'OER',
+				'Rated Individual': 'CPT Smith, Jane',
+				Rater: 'CPT Jones'
+			})
+		]);
+		expect(mockWriteBuffer).toHaveBeenCalled();
+		expect(clickedAnchor?.download).toContain('rating-scheme-');
+		expect(clickedAnchor?.download).toContain('.xlsx');
 	});
 });

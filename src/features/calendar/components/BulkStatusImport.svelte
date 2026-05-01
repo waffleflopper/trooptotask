@@ -319,7 +319,7 @@
 					</div>
 					<div class="summary-item">
 						<span class="summary-label">Supported files</span>
-						<span class="summary-value">`.csv`, `.xlsx`, and `.xls`</span>
+						<span class="summary-value">`.csv` and `.xlsx`</span>
 					</div>
 				</div>
 			</section>
@@ -329,7 +329,7 @@
 					<div class="upload-option upload-card">
 						<h4>Upload a file</h4>
 						<p class="text-muted">Best when you already have a spreadsheet ready to go.</p>
-						<input type="file" accept=".csv,.xlsx,.xls" onchange={handleFileUpload} />
+						<input type="file" accept=".csv,.xlsx" onchange={handleFileUpload} />
 					</div>
 
 					<div class="divider-row">

@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from './supabasePagination';
-import { deriveMembershipFromInvitation } from '$lib/server/core/useCases/organizationInvitationMembership';
+import {
+	deriveMembershipFromInvitation,
+	type OrganizationMembershipDraft
+} from '$lib/server/core/useCases/organizationInvitationMembership';
 
 interface PendingOrgInvitation {
 	organization_id: string;
@@ -20,10 +23,10 @@ interface PendingOrgInvitation {
 	can_edit_leaders_book: boolean | null;
 	can_manage_members: boolean | null;
 	scoped_group_id: string | null;
-	member_preset: ReturnType<typeof deriveMembershipFromInvitation>['memberPreset'];
-	capability_overrides: ReturnType<typeof deriveMembershipFromInvitation>['capabilityOverrides'];
-	access_scope_kind: ReturnType<typeof deriveMembershipFromInvitation>['accessScopeKind'];
-	access_scope_group_ids: ReturnType<typeof deriveMembershipFromInvitation>['accessScopeGroupIds'];
+	member_preset: OrganizationMembershipDraft['memberPreset'];
+	capability_overrides: OrganizationMembershipDraft['capabilityOverrides'];
+	access_scope_kind: OrganizationMembershipDraft['accessScopeKind'];
+	access_scope_group_ids: OrganizationMembershipDraft['accessScopeGroupIds'];
 }
 
 export async function autoAcceptOrgInvites(

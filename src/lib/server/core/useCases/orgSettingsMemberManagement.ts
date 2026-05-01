@@ -65,6 +65,13 @@ interface InviteOrganizationMemberInput {
 	actorEmail?: string | null;
 }
 
+interface MemberAccessStorageFields {
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
+}
+
 interface RevokeOrganizationInvitationInput {
 	inviteId: string;
 }
@@ -105,21 +112,14 @@ export async function inviteOrganizationMember(
 	}
 
 	const permissions = resolveCurrentPresetPermissions(input.preset);
-	const accessStorage = currentPresetToMemberAccessStorage({
-		preset: input.preset,
-		scopedGroupId: input.scopedGroupId
-	});
-	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
+	const accessStorage = buildCurrentPresetStorageFields(input);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
 		invitedBy: actorUserId,
 		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
 		permissions,
-		memberPreset: accessStorage.memberPreset,
-		capabilityOverrides: accessStorage.capabilityOverrides,
-		accessScopeKind: serializedScope.access_scope_kind,
-		accessScopeGroupIds: serializedScope.access_scope_group_ids
+		...accessStorage
 	});
 
 	if (errorMessage) {
@@ -245,12 +245,7 @@ export async function updateOrganizationMemberPermissions(
 	}
 
 	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
-	const accessStorage = currentPresetToMemberAccessStorage({
-		preset: input.preset,
-		scopedGroupId: input.scopedGroupId,
-		customPermissions: input.customPermissions
-	});
-	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
+	const accessStorage = buildCurrentPresetStorageFields(input);
 	const role = input.preset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
@@ -258,10 +253,7 @@ export async function updateOrganizationMemberPermissions(
 		role,
 		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
 		permissions,
-		memberPreset: accessStorage.memberPreset,
-		capabilityOverrides: accessStorage.capabilityOverrides,
-		accessScopeKind: serializedScope.access_scope_kind,
-		accessScopeGroupIds: serializedScope.access_scope_group_ids
+		...accessStorage
 	});
 
 	if (errorMessage) {
@@ -306,4 +298,20 @@ function requireActorUserId(auth: AuthContext): string {
 
 function normalizeEmail(email: string): string {
 	return sanitizeString(email, 254).toLowerCase();
+}
+
+function buildCurrentPresetStorageFields(input: {
+	preset: string;
+	scopedGroupId?: string | null;
+	customPermissions?: Partial<OrganizationMemberPermissions> | null;
+}): MemberAccessStorageFields {
+	const accessStorage = currentPresetToMemberAccessStorage(input);
+	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
+
+	return {
+		memberPreset: accessStorage.memberPreset,
+		capabilityOverrides: accessStorage.capabilityOverrides,
+		accessScopeKind: serializedScope.access_scope_kind,
+		accessScopeGroupIds: serializedScope.access_scope_group_ids
+	};
 }

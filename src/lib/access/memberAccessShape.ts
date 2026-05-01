@@ -20,6 +20,15 @@ export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, Capabilit
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
 
+const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
+	'calendar',
+	'personnel',
+	'training',
+	'criticalTasks',
+	'onboarding',
+	'ratingScheme'
+];
+
 export interface MemberAccessShape {
 	membershipRole: MembershipRole;
 	memberPreset: MemberPreset;
@@ -330,7 +339,7 @@ function diffCapabilityOverrides(
 	capabilityMap: CapabilityMap
 ): CapabilityOverrideMap {
 	const overrides: CapabilityOverrideMap = {};
-	for (const lane of Object.keys(baseCapabilityMap) as DurableFeatureLane[]) {
+	for (const lane of DURABLE_FEATURE_LANES) {
 		if (capabilityMap[lane] !== baseCapabilityMap[lane]) {
 			overrides[lane] = capabilityMap[lane];
 		}
@@ -344,7 +353,7 @@ function filterCapabilityOverrides(capabilityOverrides?: CapabilityOverrideMap |
 		return overrides;
 	}
 
-	for (const lane of Object.keys(TARGET_MEMBER_PRESET_CAPABILITIES.viewer) as DurableFeatureLane[]) {
+	for (const lane of DURABLE_FEATURE_LANES) {
 		const level = capabilityOverrides[lane];
 		if (level === 'none' || level === 'view' || level === 'operate' || level === 'configure') {
 			overrides[lane] = level;
@@ -404,7 +413,6 @@ function fromCapabilityMap(
 		canEditRatingScheme: ratingScheme.canEdit,
 		canViewLeadersBook: leadersBook.canView,
 		canEditLeadersBook: leadersBook.canEdit,
-		// Membership management is role/override-driven, not represented by capability lanes.
 		canManageMembers: false
 	};
 }

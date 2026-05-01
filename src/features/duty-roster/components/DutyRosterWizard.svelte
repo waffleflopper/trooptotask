@@ -246,11 +246,15 @@
 	$effect(() => {
 		const snapshot = props.resumeSnapshot;
 		if (!snapshot) return;
-		const snapshotKey = `${snapshot.id}:${snapshot.status}:${snapshot.updatedAt}`;
+		const snapshotKey = getResumeSnapshotKey(snapshot);
 		if (snapshotKey === lastResumeSnapshotKey) return;
 		resumeAdvancedSnapshot(snapshot);
 		lastResumeSnapshotKey = snapshotKey;
 	});
+
+	function getResumeSnapshotKey(snapshot: AdvancedDutyRunSnapshotRecord): string {
+		return `${snapshot.id}:${snapshot.status}:${snapshot.updatedAt}`;
+	}
 
 	function isExpiredSnapshot(expiresAt: string): boolean {
 		const timestamp = new Date(expiresAt).getTime();
@@ -768,7 +772,6 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 	}
-	h2,
 	h2 {
 		margin: 0;
 	}

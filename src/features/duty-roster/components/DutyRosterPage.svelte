@@ -82,7 +82,7 @@
 	let advancedDutySnapshots = $state<AdvancedDutyRunSnapshotRecord[]>([]);
 	let loadedSnapshotKey = $state('');
 	let resumeSnapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
-	const draftAdvancedDutySnapshots = $derived(
+	const resumableAdvancedDutySnapshots = $derived(
 		advancedDutySnapshots.filter((snapshot) => isResumableAdvancedDutyRunSnapshotStatus(snapshot.status))
 	);
 	let advancedDutyTemplates = $derived(normalizeDutyTemplates(data.advancedDutyTemplates ?? []));
@@ -118,7 +118,7 @@
 
 	const advancedWorkspaceViews = $derived([
 		{ label: 'Active Run', value: 'active-run' },
-		{ label: `Draft Snapshots (${draftAdvancedDutySnapshots.length})`, value: 'draft-snapshots' },
+		{ label: `Draft Snapshots (${resumableAdvancedDutySnapshots.length})`, value: 'draft-snapshots' },
 		{ label: 'Applied Events', value: 'applied-events' }
 	] satisfies Array<{ label: string; value: AdvancedWorkspaceView }>);
 
@@ -695,7 +695,7 @@
 					{resumeSnapshot}
 				/>
 			{:else if activeAdvancedWorkspaceView === 'draft-snapshots'}
-				<AdvancedSnapshotList snapshots={draftAdvancedDutySnapshots} onResumeSnapshot={handleResumeSnapshot} />
+				<AdvancedSnapshotList snapshots={resumableAdvancedDutySnapshots} onResumeSnapshot={handleResumeSnapshot} />
 			{:else}
 				<AppliedEventManager
 					{advancedDutyEvents}

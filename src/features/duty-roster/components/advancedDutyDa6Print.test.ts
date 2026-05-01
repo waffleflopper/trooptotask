@@ -80,6 +80,10 @@ describe('printAdvancedDutyDa6Matrices', () => {
 		expect(markup).toContain('primary &amp; secondary');
 		expect(markup).toContain('Single &quot;DA6&quot;');
 		expect(markup).toContain('Nolan &amp; Sons, &lt;script&gt;alert(1)&lt;/script&gt;');
+		expect(markup).toContain('@page { size: landscape; margin: 0.35in; }');
+		expect(markup).toContain('Duty window: 1700-0900 next day.');
+		expect(markup).toContain('>5/1</th>');
+		expect(markup).not.toContain('1700-0900 next day</span>');
 		expect(markup).not.toContain('<img src=x onerror=alert(1)>');
 		expect(markup).not.toContain('<script>alert(1)</script>');
 	});

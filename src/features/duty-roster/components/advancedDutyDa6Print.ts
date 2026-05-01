@@ -1,29 +1,9 @@
 import type { AdvancedDutyDa6Matrix } from '../duty-roster.types';
-
-function formatDisplayDate(value: string): string {
-	return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric'
-	});
-}
-
-function formatCoverageLabel(column: AdvancedDutyDa6Matrix['columns'][number]): string {
-	const start = column.coverageStart.slice(11, 16).replace(':', '');
-	const end = column.coverageEnd.slice(11, 16).replace(':', '');
-	return column.coverageStart.slice(0, 10) === column.coverageEnd.slice(0, 10)
-		? `${start}-${end}`
-		: `${start}-${end} next day`;
-}
-
-function formatCellLabel(cell: AdvancedDutyDa6Matrix['rows'][number]['cells'][number]): string {
-	if (cell.assigned) return 'X';
-	if (cell.da6Code === 'A') return 'A';
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
-	}
-	return cell.sequenceNumber == null ? '' : String(cell.sequenceNumber);
-}
+import {
+	formatAdvancedDutyDa6CellLabel,
+	formatAdvancedDutyDa6CoverageLabel,
+	formatAdvancedDutyDa6DisplayDate
+} from './advancedDutyDa6Format';
 
 export function printAdvancedDutyDa6Matrices(title: string, matrices: AdvancedDutyDa6Matrix[]): void {
 	const printWindow = window.open('', '_blank', 'noopener,noreferrer');
@@ -61,7 +41,10 @@ ${matrices
 <tr>
 <th>Name</th>
 ${matrix.columns
-	.map((column) => `<th>${formatDisplayDate(column.eventDate)}<br /><span>${formatCoverageLabel(column)}</span></th>`)
+	.map(
+		(column) =>
+			`<th>${formatAdvancedDutyDa6DisplayDate(column.eventDate)}<br /><span>${formatAdvancedDutyDa6CoverageLabel(column)}</span></th>`
+	)
 	.join('')}
 </tr>
 </thead>
@@ -70,7 +53,7 @@ ${matrix.rows
 	.map(
 		(row) => `<tr>
 <td>${row.display.rank} ${row.display.lastName}, ${row.display.firstName}</td>
-${row.cells.map((cell) => `<td>${formatCellLabel(cell)}</td>`).join('')}
+${row.cells.map((cell) => `<td>${formatAdvancedDutyDa6CellLabel(cell)}</td>`).join('')}
 </tr>`
 	)
 	.join('')}

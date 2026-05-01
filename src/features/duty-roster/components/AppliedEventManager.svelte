@@ -83,10 +83,17 @@
 					.map((snapshot) => [snapshot.appliedRunId as string, snapshot] as const)
 			)
 	);
-	const selectedDa6Matrices = $derived.by(() => {
-		const payload = selectedDa6Snapshot?.snapshotPayload as { da6Matrices?: AdvancedDutyDa6Matrix[] } | undefined;
+	const selectedDa6Matrices = $derived.by(() => getSnapshotDa6Matrices(selectedDa6Snapshot));
+
+	function getSnapshotDa6Matrices(snapshot: AdvancedDutyRunSnapshotRecord | null): AdvancedDutyDa6Matrix[] {
+		const payload = snapshot?.snapshotPayload as { da6Matrices?: AdvancedDutyDa6Matrix[] } | undefined;
 		return payload?.da6Matrices ?? [];
-	});
+	}
+
+	function clearDeleteRequests() {
+		pendingEventDelete = null;
+		pendingRunDelete = null;
+	}
 
 	function exportAppliedDutyPacket() {
 		if (!selectedAppliedEvent || !appliedEventPreview) return;
@@ -352,10 +359,7 @@
 		cancelLabel="Cancel"
 		variant="danger"
 		onConfirm={confirmDeleteAppliedRun}
-		onCancel={() => {
-			pendingEventDelete = null;
-			pendingRunDelete = null;
-		}}
+		onCancel={clearDeleteRequests}
 	/>
 {/if}
 
@@ -367,9 +371,6 @@
 		cancelLabel="Cancel"
 		variant="danger"
 		onConfirm={confirmDeleteAppliedEvent}
-		onCancel={() => {
-			pendingEventDelete = null;
-			pendingRunDelete = null;
-		}}
+		onCancel={clearDeleteRequests}
 	/>
 {/if}

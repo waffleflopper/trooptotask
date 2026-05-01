@@ -3,7 +3,6 @@ import { highestPriorityDa6Treatment } from '$features/calendar/utils/da6Availab
 import {
 	type AdvancedDutyDa6Matrix,
 	type AdvancedDutyDa6MatrixRow,
-	type AdvancedDutyDa6SequenceKey,
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder,
 	type DutyEventCollisionSummary,
@@ -1214,6 +1213,13 @@ async function buildAdvancedEventSnapshot(input: {
 	const blockingConflicts = [
 		...new Set([...collisionCheck.blockingConflicts, ...slotProposals.flatMap((slot) => slot.blockingMessages)])
 	];
+	const exportModel = buildTeamDutyPacketExportModel({
+		templateName: input.template.name,
+		event: preview,
+		slotAssignments: slotProposals,
+		collisionNotes: blockingConflicts,
+		personnelById: allPersonnelById
+	});
 	const da6Matrices = buildEventDa6Matrices({
 		template: input.template,
 		personnel: candidatePersonnel,
@@ -1226,23 +1232,10 @@ async function buildAdvancedEventSnapshot(input: {
 			blockingConflicts,
 			availabilityClassifications,
 			da6Matrices: [],
-			exportModel: buildTeamDutyPacketExportModel({
-				templateName: input.template.name,
-				event: preview,
-				slotAssignments: slotProposals,
-				collisionNotes: blockingConflicts,
-				personnelById: allPersonnelById
-			})
+			exportModel
 		},
 		historyByPoolPerson,
 		holidayClosureDates: input.holidayClosureDates
-	});
-	const exportModel = buildTeamDutyPacketExportModel({
-		templateName: input.template.name,
-		event: preview,
-		slotAssignments: slotProposals,
-		collisionNotes: blockingConflicts,
-		personnelById: allPersonnelById
 	});
 
 	return {
@@ -1385,7 +1378,7 @@ function buildEventDa6Matrices(input: {
 			templateSlotId: templateSlot.id,
 			roleLabel: templateSlot.roleLabel,
 			rotationPoolKey: templateSlot.rotationPoolKey,
-			sequenceKey: sequenceKey as AdvancedDutyDa6SequenceKey,
+			sequenceKey,
 			sequenceLabel,
 			numberingMode,
 			columns: [
@@ -1393,7 +1386,7 @@ function buildEventDa6Matrices(input: {
 					eventDate: input.event.eventDate,
 					coverageStart: input.event.coverageStart,
 					coverageEnd: input.event.coverageEnd,
-					sequenceKey: sequenceKey as AdvancedDutyDa6SequenceKey,
+					sequenceKey,
 					sequenceLabel,
 					chargeSequenceStart: null,
 					chargeableCount: queue.length
@@ -1454,9 +1447,7 @@ function buildAdvancedDa6Matrices(input: { events: AdvancedEventSnapshot[] }): A
 				eventMatrix.columns[0]?.chargeableCount && eventMatrix.columns[0].chargeableCount > 0
 					? (sequenceCountersByMatrix.get(matrixKey) ?? 0) + 1
 					: null;
-			const queuePositionById = new Map(
-				eventMatrix.rows.map((row) => [row.personnelId, row.cells[0]?.queuePosition ?? null] as const)
-			);
+			const sourceRowsById = new Map(eventMatrix.rows.map((row) => [row.personnelId, row] as const));
 			const column = eventMatrix.columns[0]
 				? {
 						...eventMatrix.columns[0],
@@ -1479,10 +1470,10 @@ function buildAdvancedDa6Matrices(input: { events: AdvancedEventSnapshot[] }): A
 			}
 
 			for (const row of matrix.rows) {
-				const sourceRow = eventMatrix.rows.find((candidate) => candidate.personnelId === row.personnelId);
+				const sourceRow = sourceRowsById.get(row.personnelId);
 				const sourceCell = sourceRow?.cells[0];
 				if (!sourceCell) continue;
-				const queuePosition = queuePositionById.get(row.personnelId) ?? null;
+				const queuePosition = sourceCell.queuePosition ?? null;
 				row.cells.push({
 					...sourceCell,
 					sequenceNumber:

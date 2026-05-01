@@ -22,6 +22,7 @@
 		formatSlotAssignee: (id: string | null) => string;
 		onOpenEvent: (event: DutyEvent) => void;
 		onViewRunDa6: (group: AppliedEventGroup) => void;
+		canViewRunDa6: (group: AppliedEventGroup) => boolean;
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventGroup) => void;
 		selectedEventId: string | null;
@@ -36,6 +37,7 @@
 		formatSlotAssignee,
 		onOpenEvent,
 		onViewRunDa6,
+		canViewRunDa6,
 		onRequestDeleteEvent,
 		onRequestDeleteRun,
 		selectedEventId
@@ -67,9 +69,12 @@
 								class="btn btn-secondary btn-sm"
 								type="button"
 								aria-label={`View DA6 ${group.templateName}`}
+								disabled={!canViewRunDa6(group)}
+								title={canViewRunDa6(group) ? undefined : 'DA6 audit data is not available for this applied run.'}
 								onclick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
+									if (!canViewRunDa6(group)) return;
 									onViewRunDa6(group);
 								}}
 							>

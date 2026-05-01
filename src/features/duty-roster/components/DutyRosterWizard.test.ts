@@ -1819,6 +1819,17 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByRole('table', { name: 'DA6 matrix NCO weekday DA6 sequence' })).toBeTruthy();
 	});
 
+	it('keeps the applied run DA6 action disabled when snapshot audit data is unavailable', () => {
+		renderAppliedEventManager({
+			advancedDutyEvents: [makeAppliedEvent()],
+			advancedDutySnapshots: []
+		});
+
+		const viewDa6 = screen.getByRole('button', { name: 'View DA6 Battalion Staff Duty' });
+		expect(viewDa6.hasAttribute('disabled')).toBe(true);
+		expect(viewDa6.getAttribute('title')).toBe('DA6 audit data is not available for this applied run.');
+	});
+
 	it('reopens an applied duty event and lets the user regenerate and save that one event', async () => {
 		const previewExistingHandler = vi.fn(async (input: ExistingDutyEventInput) => {
 			if (input.slotOverrides?.length === 0) {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppliedEventsSection from './AppliedEventsSection.svelte';
 	import AppliedEventEditorModal from './AppliedEventEditorModal.svelte';
 	import AdvancedDa6Modal from './AdvancedDa6Modal.svelte';
@@ -84,6 +85,15 @@
 			)
 	);
 	const selectedDa6Matrices = $derived.by(() => getSnapshotDa6Matrices(selectedDa6Snapshot));
+	const da6SnapshotByRunId = $derived.by(
+		() =>
+			new Map(
+				advancedDutySnapshots
+					.filter((snapshot) => snapshot.status === 'applied' && snapshot.appliedRunId)
+					.map((snapshot) => [snapshot.appliedRunId as string, getSnapshotDa6Matrices(snapshot)] as const)
+					.filter(([, matrices]) => matrices.length > 0)
+			)
+	);
 
 	function getSnapshotDa6Matrices(snapshot: AdvancedDutyRunSnapshotRecord | null): AdvancedDutyDa6Matrix[] {
 		const payload = snapshot?.snapshotPayload as { da6Matrices?: AdvancedDutyDa6Matrix[] } | undefined;
@@ -119,7 +129,16 @@
 
 	function openAppliedRunDa6(group: AppliedEventRunGroup) {
 		if (!group.runId) return;
-		selectedDa6Snapshot = appliedSnapshotByRunId.get(group.runId) ?? null;
+		const snapshot = appliedSnapshotByRunId.get(group.runId) ?? null;
+		if (!snapshot || getSnapshotDa6Matrices(snapshot).length === 0) {
+			toastStore.warning('DA6 audit data is not available for this applied run yet.');
+			return;
+		}
+		selectedDa6Snapshot = snapshot;
+	}
+
+	function canViewAppliedRunDa6(group: AppliedEventRunGroup): boolean {
+		return Boolean(group.runId && da6SnapshotByRunId.has(group.runId));
 	}
 
 	async function openAppliedEventEditor(event: DutyEvent) {
@@ -310,6 +329,7 @@
 	formatSlotAssignee={(id) => formatSlotAssignee(id, personnelById)}
 	onOpenEvent={openAppliedEventEditor}
 	onViewRunDa6={openAppliedRunDa6}
+	canViewRunDa6={canViewAppliedRunDa6}
 	onRequestDeleteEvent={(event) => (pendingEventDelete = event)}
 	onRequestDeleteRun={(group) => (pendingRunDelete = group)}
 />

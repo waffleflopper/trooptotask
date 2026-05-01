@@ -11,7 +11,14 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
-import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
+import type {
+	DashboardIctlAtRiskSoldier,
+	DashboardIctlMosReadiness,
+	DashboardIctlSummary,
+	DashboardIctlTaskConcern,
+	DashboardPageData,
+	TrainingIssue
+} from '$features/dashboard/dashboard.types';
 
 export type GroupedEntries<T> = Array<[string, T[]]>;
 export type UpcomingGroupBy = 'date' | 'group';
@@ -176,7 +183,31 @@ export interface DashboardTrainingEvalsView {
 	delinquencies: { groupName: string; count: number; pct: number }[];
 	maxGroupCount: number;
 	groupedIndividuals: DashboardGroupedIndividualIssue[];
+	ictl: DashboardIctlView;
 }
+
+export type DashboardIctlView =
+	| { state: 'hidden' }
+	| {
+			state: 'empty';
+			reportHref: string;
+	  }
+	| {
+			state: 'ready';
+			readinessColor: string;
+			readinessLabel: string;
+			deltaLabel: string;
+			readyCount: number;
+			applicableCount: number;
+			primaryConcern: string;
+			expiringSoonLabel: string;
+			tasksBelowThresholdLabel: string;
+			projectedReadinessLabel: string;
+			mosReadiness: DashboardIctlMosReadiness[];
+			tasksBelowThreshold: DashboardIctlTaskConcern[];
+			atRiskSoldiers: DashboardIctlAtRiskSoldier[];
+			reportHref: string;
+	  };
 
 const OUT_TODAY_KEY = 'dashboard-out-today-group-by';
 const UPCOMING_KEY = 'dashboard-upcoming-group-by';
@@ -639,8 +670,21 @@ export class DashboardScreenModel {
 				this.trainingStats !== null && (this.trainingStats.expired > 0 || this.trainingStats.warningOrange > 0),
 			delinquencies,
 			maxGroupCount: delinquencies.length > 0 ? Math.max(...delinquencies.map((g) => g.count)) : 1,
-			groupedIndividuals: this.groupedTrainingIndividuals
+			groupedIndividuals: this.groupedTrainingIndividuals,
+			ictl: this.ictlView
 		};
+	}
+
+	private get ictlView(): DashboardIctlView {
+		const summary = this.data.ictlSummary;
+		if (!summary) return { state: 'hidden' };
+
+		const reportHref = `/org/${this.data.orgId}/critical-tasks/reports`;
+		if (!summary.hasActiveTasks) {
+			return { state: 'empty', reportHref };
+		}
+
+		return createReadyIctlView(summary, reportHref);
 	}
 
 	get outTodayByStatus(): GroupedEntries<DashboardOutTodayRow> {
@@ -744,6 +788,47 @@ function createBrowserStoragePort(): DashboardStoragePort | null {
 		setItem(key, value) {
 			globalThis.localStorage.setItem(key, value);
 		}
+	};
+}
+
+function formatReadinessDelta(deltaPercent: number): string {
+	if (deltaPercent > 0) return `up ${deltaPercent} pts vs 30d`;
+	if (deltaPercent < 0) return `down ${Math.abs(deltaPercent)} pts vs 30d`;
+	return 'steady vs 30d';
+}
+
+function formatSoldiersBelowThreshold(summary: DashboardIctlSummary): string {
+	const soldierLabel = summary.soldiersBelowThresholdCount === 1 ? 'Soldier' : 'Soldiers';
+	return `${summary.soldiersBelowThresholdCount} of ${summary.soldiersBelowThresholdTotal} ${soldierLabel} below ${summary.thresholdPercent}%`;
+}
+
+function formatExpiringSoon(summary: DashboardIctlSummary): string {
+	const taskLabel = summary.expiringSoonCount === 1 ? 'task' : 'tasks';
+	const soldierLabel = summary.expiringSoonAffectedSoldiers === 1 ? 'Soldier' : 'Soldiers';
+	return `${summary.expiringSoonCount} ${taskLabel} expiring <=${summary.expiringSoonWindowDays}d across ${summary.expiringSoonAffectedSoldiers} ${soldierLabel}`;
+}
+
+function formatTasksBelowThreshold(summary: DashboardIctlSummary): string {
+	const taskLabel = summary.tasksBelowThresholdCount === 1 ? 'task' : 'tasks';
+	return `${summary.tasksBelowThresholdCount} ${taskLabel} below unit threshold`;
+}
+
+function createReadyIctlView(summary: DashboardIctlSummary, reportHref: string): DashboardIctlView {
+	return {
+		state: 'ready',
+		readinessColor: availabilityColor(summary.overallReadinessPercent),
+		readinessLabel: `${summary.overallReadinessPercent}% ready`,
+		deltaLabel: formatReadinessDelta(summary.overallDeltaPercent),
+		readyCount: summary.readyCount,
+		applicableCount: summary.applicableCount,
+		primaryConcern: formatSoldiersBelowThreshold(summary),
+		expiringSoonLabel: formatExpiringSoon(summary),
+		tasksBelowThresholdLabel: formatTasksBelowThreshold(summary),
+		projectedReadinessLabel: `${summary.projectedReadinessPercent}% projected in 6 months`,
+		mosReadiness: summary.mosReadiness,
+		tasksBelowThreshold: summary.tasksBelowThreshold,
+		atRiskSoldiers: summary.atRiskSoldiers,
+		reportHref
 	};
 }
 

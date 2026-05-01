@@ -122,4 +122,28 @@ describe('createSupabaseCalendarWorkspacePort', () => {
 			})
 		);
 	});
+
+	it('can request full settings-year special days without widening the calendar grid range', async () => {
+		const port = createSupabaseCalendarWorkspacePort(
+			{} as App.Locals,
+			emptyCookies,
+			'11111111-1111-1111-1111-111111111111',
+			{
+				specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
+			}
+		);
+
+		const streamed = await port.streamWorkspaceData<CalendarBootstrap>('calendar');
+
+		await streamed.data;
+
+		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				rangeStart: '2026-03-01',
+				rangeEnd: '2026-05-31',
+				specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
+			})
+		);
+	});
 });

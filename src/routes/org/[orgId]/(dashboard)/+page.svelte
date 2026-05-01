@@ -127,6 +127,7 @@
 			permissions: data.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,
+			ictlSummary: summary.ictlSummary,
 			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
 		};
 	}

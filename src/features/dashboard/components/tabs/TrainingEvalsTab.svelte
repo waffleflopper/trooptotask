@@ -120,11 +120,89 @@
 		{/if}
 	</div>
 
-	<!-- ICTL Placeholder -->
-	<div class="ictl-placeholder">
-		<span class="ictl-kicker">ICTL Status</span>
-		<span class="ictl-note">Individual critical task data — coming soon</span>
-	</div>
+	{#if view.ictl.state === 'empty'}
+		<section class="ictl-summary" aria-label="Critical Tasks summary">
+			<div class="ictl-heading">
+				<div>
+					<div class="ictl-kicker">Critical Tasks</div>
+					<h3>No active tasks configured.</h3>
+				</div>
+				<a class="ictl-link" href={view.ictl.reportHref}>Open reports</a>
+			</div>
+			<p class="ictl-empty">Add active ICTL tasks before readiness can be summarized here.</p>
+		</section>
+	{:else if view.ictl.state === 'ready'}
+		<section class="ictl-summary" aria-label="Critical Tasks summary">
+			<div class="ictl-heading">
+				<div>
+					<div class="ictl-kicker">Critical Tasks</div>
+					<h3>ICTL Readiness</h3>
+				</div>
+				<a class="ictl-link" href={view.ictl.reportHref}>Open reports</a>
+			</div>
+
+			<div class="ictl-grid">
+				<div class="ictl-readiness">
+					<span class="ictl-value" style="color: {view.ictl.readinessColor}">{view.ictl.readinessLabel}</span>
+					<span class="ictl-sub">{view.ictl.readyCount} of {view.ictl.applicableCount} applicable records ready</span>
+					<span class="ictl-delta">{view.ictl.deltaLabel}</span>
+				</div>
+
+				<div class="ictl-alerts">
+					<span>{view.ictl.primaryConcern}</span>
+					<span>{view.ictl.expiringSoonLabel}</span>
+					<span>{view.ictl.tasksBelowThresholdLabel}</span>
+					<span>{view.ictl.projectedReadinessLabel}</span>
+				</div>
+			</div>
+
+			{#if view.ictl.mosReadiness.length > 0}
+				<div class="ictl-mos-list" aria-label="Critical Tasks MOS readiness">
+					{#each view.ictl.mosReadiness as row (row.mos)}
+						<div class="ictl-mos-row">
+							<span class="ictl-mos-label">{row.mos}</span>
+							<div class="ictl-mos-track">
+								<div class="ictl-mos-fill" style="width: {Math.max(row.readinessPercent, 4)}%"></div>
+							</div>
+							<span class="ictl-mos-value">{row.readinessPercent}%</span>
+							<span class="ictl-mos-count">{row.personnelCount} pax</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="ictl-action-lists">
+				<div>
+					<div class="ictl-list-title">Below Threshold</div>
+					{#if view.ictl.tasksBelowThreshold.length === 0}
+						<p class="empty-mono">No tasks below threshold.</p>
+					{:else}
+						{#each view.ictl.tasksBelowThreshold as task (task.taskId)}
+							<div class="ictl-list-row">
+								<span>{task.taskCode}</span>
+								<span>{task.percentComplete}%</span>
+								<span>{task.soldierGapCount} gap</span>
+							</div>
+						{/each}
+					{/if}
+				</div>
+				<div>
+					<div class="ictl-list-title">At Risk</div>
+					{#if view.ictl.atRiskSoldiers.length === 0}
+						<p class="empty-mono">No at-risk Soldiers.</p>
+					{:else}
+						{#each view.ictl.atRiskSoldiers as soldier (soldier.personnelId)}
+							<div class="ictl-list-row">
+								<span>{soldier.soldierName}</span>
+								<span>{soldier.readinessPercent}%</span>
+								<span>{soldier.tasksExpiringSoonCount} exp</span>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</div>
+		</section>
+	{/if}
 </section>
 
 <style>
@@ -372,14 +450,10 @@
 		font-weight: var(--font-weight-semibold);
 	}
 
-	/* ── ICTL Placeholder ─────────────────────────────────── */
-	.ictl-placeholder {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-4);
-		padding: var(--sp-4) 0;
+	/* ── ICTL Summary ─────────────────────────────────────── */
+	.ictl-summary {
+		padding: var(--sp-8) 0 0;
 		border-top: 1px solid var(--border-rule);
-		opacity: 0.5;
 	}
 
 	.ictl-kicker {
@@ -388,13 +462,150 @@
 		text-transform: uppercase;
 		letter-spacing: var(--letter-spacing-mono);
 		color: var(--text-tertiary);
-		flex-shrink: 0;
 	}
 
-	.ictl-note {
+	.ictl-heading {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-5);
+	}
+
+	.ictl-heading h3 {
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-display);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: var(--ink);
+		margin: var(--sp-1) 0 0;
+	}
+
+	.ictl-link {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-primary);
+		text-decoration: none;
+		border-bottom: 1px solid var(--ink-30);
+		white-space: nowrap;
+	}
+
+	.ictl-grid {
+		display: grid;
+		grid-template-columns: minmax(180px, 0.8fr) 1.2fr;
+		gap: var(--sp-6);
+		margin-bottom: var(--sp-6);
+	}
+
+	.ictl-readiness,
+	.ictl-alerts {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.ictl-value {
+		font-family: var(--font-display);
+		font-size: var(--text-4xl);
+		font-weight: var(--font-weight-display);
+		line-height: 1;
+		text-transform: uppercase;
+	}
+
+	.ictl-sub,
+	.ictl-empty {
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		margin: 0;
+	}
+
+	.ictl-delta,
+	.ictl-alerts span,
+	.ictl-list-title,
+	.ictl-list-row,
+	.ictl-mos-label,
+	.ictl-mos-value,
+	.ictl-mos-count {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+	}
+
+	.ictl-delta {
 		color: var(--text-tertiary);
+	}
+
+	.ictl-alerts span {
+		color: var(--text-secondary);
+	}
+
+	.ictl-mos-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-6);
+	}
+
+	.ictl-mos-row {
+		display: grid;
+		grid-template-columns: 56px minmax(72px, 1fr) 48px 58px;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.ictl-mos-label,
+	.ictl-mos-value {
+		color: var(--text-primary);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.ictl-mos-count {
+		color: var(--text-tertiary);
+		text-align: right;
+	}
+
+	.ictl-mos-track {
+		height: 3px;
+		background: var(--ink-15);
+		overflow: hidden;
+	}
+
+	.ictl-mos-fill {
+		height: 100%;
+		background: var(--ink);
+	}
+
+	.ictl-action-lists {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-8);
+	}
+
+	.ictl-list-title {
+		color: var(--text-tertiary);
+		margin-bottom: var(--sp-2);
+	}
+
+	.ictl-list-row {
+		display: grid;
+		grid-template-columns: 1fr auto auto;
+		gap: var(--sp-2);
+		padding: var(--sp-2) 0;
+		border-top: 1px solid var(--ink-06);
+		color: var(--text-secondary);
+	}
+
+	.ictl-list-row span:first-child {
+		color: var(--text-primary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.empty-mono {
@@ -420,6 +631,12 @@
 
 		.eval-row {
 			grid-template-columns: 1fr auto;
+		}
+
+		.ictl-grid,
+		.ictl-action-lists {
+			grid-template-columns: 1fr;
+			gap: var(--sp-5);
 		}
 
 		.eval-type,

@@ -103,15 +103,32 @@ interface TrainingStepResult {
 	completed: boolean;
 }
 
-export async function refreshTrainingSteps(
-	ctx: WritePorts,
+interface TrainingStepCompletion extends TrainingStepResult {
+	persistedCompleted: boolean;
+}
+
+type TrainingStepReadContext = Pick<WritePorts, 'store' | 'auth'>;
+
+interface TrainingStepRow {
+	id: string;
+	onboarding_id: string;
+	step_name: string;
+	step_type: string;
+	training_type_id: string | null;
+	completed: boolean;
+	active: boolean;
+}
+
+type ActiveTrainingStepRow = TrainingStepRow & { training_type_id: string };
+
+function isActiveTrainingStep(step: TrainingStepRow): step is ActiveTrainingStepRow {
+	return step.active && step.training_type_id !== null;
+}
+
+async function readTrainingStepCompletions(
+	ctx: TrainingStepReadContext,
 	input: RefreshTrainingInput
-): Promise<TrainingStepResult[]> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-
-	// Fetch the onboarding to get the personnel_id
+): Promise<TrainingStepCompletion[]> {
 	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
 		'personnel_onboardings',
 		ctx.auth.orgId,
@@ -121,27 +138,17 @@ export async function refreshTrainingSteps(
 		fail(404, 'Onboarding not found');
 	}
 
-	// Fetch all training-type steps for this onboarding
-	const allSteps = await ctx.store.findMany<{
-		id: string;
-		onboarding_id: string;
-		step_name: string;
-		step_type: string;
-		training_type_id: string | null;
-		completed: boolean;
-		active: boolean;
-	}>('onboarding_step_progress', ctx.auth.orgId, {
+	const allSteps = await ctx.store.findMany<TrainingStepRow>('onboarding_step_progress', ctx.auth.orgId, {
 		onboarding_id: input.onboardingId,
 		step_type: 'training'
 	});
 
-	const trainingSteps = allSteps.filter((s) => s.active && s.training_type_id);
+	const trainingSteps = allSteps.filter(isActiveTrainingStep);
 	if (trainingSteps.length === 0) {
 		return [];
 	}
 
-	// Targeted query: only this soldier's training records for the specific training type IDs
-	const trainingTypeIds = trainingSteps.map((s) => s.training_type_id!);
+	const trainingTypeIds = trainingSteps.map((step) => step.training_type_id);
 	const trainingRecords = await ctx.store.findMany<{ training_type_id: string }>(
 		'personnel_trainings',
 		ctx.auth.orgId,
@@ -151,24 +158,52 @@ export async function refreshTrainingSteps(
 
 	const completedTypeIds = new Set(trainingRecords.map((r) => r.training_type_id));
 
-	// Update each training step's completed status
-	const results: TrainingStepResult[] = [];
-	for (const step of trainingSteps) {
-		const completed = completedTypeIds.has(step.training_type_id!);
-		if (!isReadOnly && step.completed !== completed) {
-			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, step.id, { completed });
+	return trainingSteps.map((step) => ({
+		id: step.id,
+		onboardingId: step.onboarding_id,
+		stepName: step.step_name,
+		stepType: step.step_type,
+		trainingTypeId: step.training_type_id,
+		completed: completedTypeIds.has(step.training_type_id),
+		persistedCompleted: step.completed
+	}));
+}
+
+function toTrainingStepResult(result: TrainingStepCompletion): TrainingStepResult {
+	return {
+		id: result.id,
+		onboardingId: result.onboardingId,
+		stepName: result.stepName,
+		stepType: result.stepType,
+		trainingTypeId: result.trainingTypeId,
+		completed: result.completed
+	};
+}
+
+export async function getTrainingStepCompletionStatuses(
+	ctx: TrainingStepReadContext,
+	input: RefreshTrainingInput
+): Promise<TrainingStepResult[]> {
+	const results = await readTrainingStepCompletions(ctx, input);
+	return results.map(toTrainingStepResult);
+}
+
+export async function refreshTrainingSteps(
+	ctx: WritePorts,
+	input: RefreshTrainingInput
+): Promise<TrainingStepResult[]> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	const results = await readTrainingStepCompletions(ctx, input);
+
+	for (const result of results) {
+		if (!isReadOnly && result.persistedCompleted !== result.completed) {
+			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, result.id, { completed: result.completed });
 		}
-		results.push({
-			id: step.id,
-			onboardingId: step.onboarding_id,
-			stepName: step.step_name,
-			stepType: step.step_type,
-			trainingTypeId: step.training_type_id,
-			completed
-		});
 	}
 
-	return results;
+	return results.map(toTrainingStepResult);
 }
 
 interface AddNoteInput {

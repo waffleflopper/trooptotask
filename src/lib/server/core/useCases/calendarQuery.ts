@@ -23,9 +23,15 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listDutyEventsInRange } from '$lib/server/core/useCases/dutyEventCrud';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 
-export interface CalendarQueryInput {
+export interface CalendarDateRange {
 	rangeStart: string;
 	rangeEnd: string;
+}
+
+export type CalendarQueryInput = CalendarDateRange;
+
+export interface CalendarBootstrapQueryInput extends CalendarQueryInput {
+	specialDaysRange?: CalendarDateRange;
 }
 
 export interface CalendarData {
@@ -173,12 +179,13 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 
 export async function fetchCalendarBootstrap(
 	ctx: QueryPorts,
-	input: CalendarQueryInput
+	input: CalendarBootstrapQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
 	ctx.auth.requireView('calendar');
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
+	const specialDaysRange = input.specialDaysRange ?? input;
 	const availabilityEntries = ctx.store
 		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 			select: AvailabilityEntryEntity.select,
@@ -191,8 +198,8 @@ export async function fetchCalendarBootstrap(
 	const specialDays = ctx.store
 		.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
 			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
+				{ column: 'date', op: 'gte', value: specialDaysRange.rangeStart },
+				{ column: 'date', op: 'lte', value: specialDaysRange.rangeEnd }
 			],
 			orderBy: [{ column: 'date', ascending: true }]
 		})

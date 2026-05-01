@@ -40,14 +40,17 @@ describe('toolbar nav and meta primitives', () => {
 		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
 	});
 
-	it('renders disabled nav items without an active href', () => {
+	it('renders disabled nav items without link semantics or a tab stop', () => {
 		render(ToolbarNavMetaTest);
 
-		const locked = screen.getByRole('link', { name: 'Locked Settings' });
+		const locked = screen.getByText('Locked Settings');
 
 		expect(locked.getAttribute('aria-disabled')).toBe('true');
 		expect(locked.getAttribute('href')).toBeNull();
+		expect(locked.getAttribute('role')).toBeNull();
+		expect(locked.getAttribute('tabindex')).toBeNull();
 		expect(locked.getAttribute('title')).toBe('Upgrade to edit');
 		expect(locked.getAttribute('aria-describedby')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Locked Settings' })).toBeNull();
 	});
 });

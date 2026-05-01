@@ -243,11 +243,11 @@
 					id="ict-completion-import-file"
 					type="file"
 					class="input"
-					accept=".csv,.xls,.xlsx"
+					accept=".csv,.xlsx"
 					aria-label="Upload file"
 					onchange={handleFileUpload}
 				/>
-				<p class="field-hint">CSV, XLS, and XLSX files are accepted.</p>
+				<p class="field-hint">CSV and XLSX files are accepted.</p>
 			</div>
 
 			{#if importError}

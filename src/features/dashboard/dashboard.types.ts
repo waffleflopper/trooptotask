@@ -18,6 +18,7 @@ const ALL_TABS: DashboardTabId[] = ['unit-readiness', 'people-duty', 'training-e
 export type DashboardPermission =
 	| 'canViewCalendar'
 	| 'canViewTraining'
+	| 'canViewCriticalTasks'
 	| 'canViewRatingScheme'
 	| 'canViewOnboarding'
 	| 'canViewPersonnel';
@@ -78,6 +79,57 @@ export interface TrainingIssue {
 	label: string;
 }
 
+export interface DashboardIctlMosReadiness {
+	mos: string;
+	personnelCount: number;
+	readinessPercent: number;
+}
+
+export interface DashboardIctlTrendPoint {
+	month: string;
+	label: string;
+	readinessPercent: number;
+}
+
+export interface DashboardIctlTaskConcern {
+	taskId: string;
+	taskCode: string;
+	taskName: string;
+	percentComplete: number;
+	soldierGapCount: number;
+}
+
+export interface DashboardIctlAtRiskSoldier {
+	personnelId: string;
+	soldierName: string;
+	mos: string;
+	rank: string;
+	groupName: string;
+	readinessPercent: number;
+	tasksExpiringSoonCount: number;
+	daysSinceLastIctUpdate: number | null;
+}
+
+export interface DashboardIctlSummary {
+	hasActiveTasks: boolean;
+	overallReadinessPercent: number;
+	overallDeltaPercent: number;
+	readyCount: number;
+	applicableCount: number;
+	soldiersBelowThresholdCount: number;
+	soldiersBelowThresholdTotal: number;
+	thresholdPercent: number;
+	expiringSoonCount: number;
+	expiringSoonAffectedSoldiers: number;
+	expiringSoonWindowDays: number;
+	tasksBelowThresholdCount: number;
+	projectedReadinessPercent: number;
+	mosReadiness: DashboardIctlMosReadiness[];
+	trend: DashboardIctlTrendPoint[];
+	tasksBelowThreshold: DashboardIctlTaskConcern[];
+	atRiskSoldiers: DashboardIctlAtRiskSoldier[];
+}
+
 // Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
 export interface DashboardPageData {
 	orgId: string;
@@ -86,6 +138,7 @@ export interface DashboardPageData {
 	permissions: OrganizationMemberPermissions | null;
 	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
+	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
 	onboardingTemplateStepCount?: number;
 	ratingSchemeEntryCount?: number;

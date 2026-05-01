@@ -32,6 +32,23 @@ export function sortDutyEventsByCoverageStart(items: DutyEvent[]): DutyEvent[] {
 	return [...items].sort(byNewestCoverageStart);
 }
 
+export function stableSnapshotInput(value: Record<string, unknown>): string {
+	return stableJsonStringify(value);
+}
+
+function stableJsonStringify(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map((item) => stableJsonStringify(item)).join(',')}]`;
+	}
+	if (value && typeof value === 'object') {
+		return `{${Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, item]) => `${JSON.stringify(key)}:${stableJsonStringify(item)}`)
+			.join(',')}}`;
+	}
+	return JSON.stringify(value);
+}
+
 export function upsertDutyEventIntoTimeline(existing: DutyEvent[], event: DutyEvent): DutyEvent[] {
 	return [event, ...existing.filter((item) => item.id !== event.id)].sort(byNewestCoverageStart);
 }

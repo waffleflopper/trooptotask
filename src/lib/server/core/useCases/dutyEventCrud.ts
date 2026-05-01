@@ -505,9 +505,10 @@ export async function listVisibleAdvancedDutyRunSnapshotSummaries(
 	]);
 
 	return AdvancedDutyRunSnapshotEntity.fromDbArray([...resumableRows, ...appliedRows])
+		.map(withSummaryPayloadBoundary)
 		.map(withSnapshotPayloadDefaults)
 		.filter(isVisibleAdvancedDutyRunSnapshot)
-		.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+		.sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''));
 }
 
 export async function getVisibleAdvancedDutyRunSnapshot(
@@ -543,6 +544,9 @@ export async function deleteVisibleAdvancedDutyRunSnapshot(
 	if (snapshot.status === 'applied') {
 		fail(400, 'Applied advanced duty snapshots cannot be deleted from the draft snapshot workspace.');
 	}
+	if (snapshot.status === 'applying') {
+		fail(409, 'Advanced duty snapshots cannot be deleted while apply is in progress.');
+	}
 	await ctx.store.delete(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, snapshotId);
 	return { success: true };
 }
@@ -555,6 +559,23 @@ function withSnapshotPayloadDefaults(snapshot: AdvancedDutyRunSnapshotRecord): A
 		snapshotPayload: snapshotPayload ?? {},
 		previewPayload: previewPayload ?? {},
 		exportModel: exportModel ?? null
+	};
+}
+
+function withSummaryPayloadBoundary(snapshot: AdvancedDutyRunSnapshotRecord): AdvancedDutyRunSnapshotRecord {
+	if (snapshot.status === 'applied') {
+		return {
+			...snapshot,
+			inputPayload: {},
+			previewPayload: {}
+		};
+	}
+	return {
+		...snapshot,
+		inputPayload: {},
+		snapshotPayload: {},
+		previewPayload: {},
+		exportModel: null
 	};
 }
 

@@ -7,6 +7,7 @@ import {
 	removeDutyEventsByRunId,
 	removeLegacyDutyEvents,
 	sortDutyTemplates,
+	stableSnapshotInput,
 	upsertDutyEventIntoTimeline
 } from './advancedDutyCollections';
 
@@ -74,6 +75,55 @@ function makeEvent(id: string, coverageStart: string, runId: string | null = 'ru
 }
 
 describe('advancedDutyCollections', () => {
+	it('builds stable snapshot input keys without dropping nested override fields', () => {
+		const first = stableSnapshotInput({
+			templateId: 'template-1',
+			eventOverrides: [
+				{
+					eventDate: '2026-05-05',
+					slotOverrides: [{ slotIndex: 0, assigneeId: 'person-1' }]
+				}
+			]
+		});
+		const second = stableSnapshotInput({
+			templateId: 'template-1',
+			eventOverrides: [
+				{
+					eventDate: '2026-05-05',
+					slotOverrides: [{ slotIndex: 0, assigneeId: 'person-2' }]
+				}
+			]
+		});
+
+		expect(first).toContain('person-1');
+		expect(second).toContain('person-2');
+		expect(first).not.toBe(second);
+	});
+
+	it('builds identical snapshot input keys for equivalent nested objects with different key order', () => {
+		expect(
+			stableSnapshotInput({
+				templateId: 'template-1',
+				eventOverrides: [
+					{
+						eventDate: '2026-05-05',
+						slotOverrides: [{ assigneeId: 'person-1', slotIndex: 0 }]
+					}
+				]
+			})
+		).toBe(
+			stableSnapshotInput({
+				eventOverrides: [
+					{
+						slotOverrides: [{ slotIndex: 0, assigneeId: 'person-1' }],
+						eventDate: '2026-05-05'
+					}
+				],
+				templateId: 'template-1'
+			})
+		);
+	});
+
 	it('normalizes optional template arrays and default soft preferences', () => {
 		const template = normalizeDutyTemplate({
 			...makeTemplate(),

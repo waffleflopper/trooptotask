@@ -176,6 +176,66 @@ const preview: DutyEventSeriesPreview = {
 	]
 };
 
+const da6Matrices = [
+	{
+		templateSlotId: 'slot-nco-0',
+		roleLabel: 'NCO',
+		rotationPoolKey: 'NCO',
+		sequenceKey: 'weekday',
+		sequenceLabel: 'weekday DA6 sequence',
+		numberingMode: 'separate-weekend-holiday' as const,
+		columns: [
+			{
+				eventDate: '2026-05-01',
+				coverageStart: '2026-05-01T08:00:00',
+				coverageEnd: '2026-05-02T08:00:00',
+				sequenceKey: 'weekday' as const,
+				sequenceLabel: 'weekday DA6 sequence',
+				chargeSequenceStart: 1,
+				chargeableCount: 2
+			}
+		],
+		rows: [
+			{
+				personnelId: 'person-nolan',
+				display: { id: 'person-nolan', rank: 'SGT', firstName: 'Casey', lastName: 'Nolan', groupName: 'HQ' },
+				cells: [
+					{
+						eventDate: '2026-05-01',
+						personnelId: 'person-nolan',
+						code: 'assigned' as const,
+						da6Code: null,
+						chargeable: true,
+						queuePosition: 1,
+						sequenceNumber: 1,
+						assigned: true,
+						reason: null,
+						reasonCode: null
+					}
+				]
+			},
+			{
+				personnelId: 'person-chen',
+				display: { id: 'person-chen', rank: 'SPC', firstName: 'Avery', lastName: 'Chen', groupName: 'Alpha' },
+				cells: [
+					{
+						eventDate: '2026-05-01',
+						personnelId: 'person-chen',
+						code: 'blocked-by-duty' as const,
+						da6Code: 'D' as const,
+						chargeable: true,
+						queuePosition: 2,
+						sequenceNumber: 2,
+						assigned: false,
+						reason: 'Assigned to another slot in this duty event.',
+						reasonCode: 'assigned-other-slot'
+					}
+				]
+			}
+		]
+	}
+];
+
 function renderPanel(overrides: Partial<Record<string, unknown>> = {}) {
 	return render(SeriesPreviewPanel, {
 		props: {
@@ -271,6 +331,40 @@ describe('SeriesPreviewPanel', () => {
 
 		expect(screen.getByRole('option', { name: 'SGT Nolan Current pick, #1' })).toBeTruthy();
 		expect(screen.getByRole('option', { name: 'SPC Chen Next up, #2' })).toBeTruthy();
+	});
+
+	it('opens the preview DA6 modal and prints the matrix set for the run', async () => {
+		const openMock = vi.fn(() => ({
+			document: { open: vi.fn(), write: vi.fn(), close: vi.fn() },
+			focus: vi.fn(),
+			print: vi.fn()
+		}));
+		const originalOpen = window.open;
+		window.open = openMock as unknown as typeof window.open;
+
+		try {
+			renderPanel({
+				preview: {
+					...preview,
+					da6Matrices
+				}
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'View DA6 Matrices' }));
+
+			expect(screen.getByRole('dialog')).toBeTruthy();
+			expect(screen.getByText(/weekday DA6 sequence/)).toBeTruthy();
+			const da6Table = screen.getByRole('table', { name: 'DA6 matrix NCO weekday DA6 sequence' });
+			expect(da6Table).toBeTruthy();
+			expect(within(da6Table).getByText('X')).toBeTruthy();
+			expect(within(da6Table).getByText('D2')).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Print DA6' }));
+
+			expect(openMock).toHaveBeenCalledTimes(1);
+		} finally {
+			window.open = originalOpen;
+		}
 	});
 
 	it('keeps assignment rationale attached to the table row instead of duplicating notes below the table', async () => {

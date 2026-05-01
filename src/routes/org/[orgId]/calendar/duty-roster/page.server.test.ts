@@ -6,7 +6,7 @@ const {
 	canAccessAdvancedDutyMock,
 	listDutyTemplatesMock,
 	listDutyEventsForCalendarMock,
-	listDraftAdvancedDutyRunSnapshotsMock,
+	listVisibleAdvancedDutyRunSnapshotsMock,
 	mockCtx
 } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -14,7 +14,7 @@ const {
 	canAccessAdvancedDutyMock: vi.fn(),
 	listDutyTemplatesMock: vi.fn(),
 	listDutyEventsForCalendarMock: vi.fn(),
-	listDraftAdvancedDutyRunSnapshotsMock: vi.fn(),
+	listVisibleAdvancedDutyRunSnapshotsMock: vi.fn(),
 	mockCtx: {
 		auth: {
 			isPrivileged: false,
@@ -43,7 +43,7 @@ vi.mock('$lib/server/core/useCases/dutyTemplateCrud', () => ({
 
 vi.mock('$lib/server/core/useCases/dutyEventCrud', () => ({
 	listDutyEventsForCalendar: listDutyEventsForCalendarMock,
-	listDraftAdvancedDutyRunSnapshots: listDraftAdvancedDutyRunSnapshotsMock
+	listVisibleAdvancedDutyRunSnapshots: listVisibleAdvancedDutyRunSnapshotsMock
 }));
 
 import { load } from './+page.server';
@@ -55,7 +55,7 @@ describe('duty roster page load', () => {
 		fetchRosterHistoryMock.mockResolvedValue(['history-item']);
 		listDutyEventsForCalendarMock.mockResolvedValue(['event-item']);
 		listDutyTemplatesMock.mockResolvedValue(['template-item']);
-		listDraftAdvancedDutyRunSnapshotsMock.mockResolvedValue(['snapshot-item']);
+		listVisibleAdvancedDutyRunSnapshotsMock.mockResolvedValue(['snapshot-item']);
 	});
 
 	it('loads advanced duty events for calendar users even without advanced duty template access', async () => {
@@ -65,7 +65,7 @@ describe('duty roster page load', () => {
 
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
 		expect(listDutyTemplatesMock).not.toHaveBeenCalled();
-		expect(listDraftAdvancedDutyRunSnapshotsMock).not.toHaveBeenCalled();
+		expect(listVisibleAdvancedDutyRunSnapshotsMock).not.toHaveBeenCalled();
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
 			advancedDutyEvents: ['event-item'],
@@ -74,14 +74,14 @@ describe('duty roster page load', () => {
 		});
 	});
 
-	it('loads advanced duty templates and draft snapshots when advanced duty access is allowed', async () => {
+	it('loads advanced duty templates and visible snapshots when advanced duty access is allowed', async () => {
 		canAccessAdvancedDutyMock.mockReturnValue(true);
 
 		const result = await load({ params: { orgId: 'test-org' }, locals: {}, cookies: {} } as never);
 
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
 		expect(listDutyTemplatesMock).toHaveBeenCalledWith(mockCtx);
-		expect(listDraftAdvancedDutyRunSnapshotsMock).toHaveBeenCalledWith(mockCtx);
+		expect(listVisibleAdvancedDutyRunSnapshotsMock).toHaveBeenCalledWith(mockCtx);
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
 			advancedDutyEvents: ['event-item'],

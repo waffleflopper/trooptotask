@@ -230,6 +230,62 @@ export interface DutyEventSlotCandidateRanking {
 	rank: number;
 }
 
+export type AdvancedDutyDa6CellCode =
+	| 'assigned'
+	| 'available-not-selected'
+	| 'authorized-absence'
+	| 'blocked-by-duty'
+	| 'blocked-by-cooldown'
+	| 'misconduct-unavailable';
+
+export type AdvancedDutyDa6SequenceKey = 'single' | 'weekday' | 'weekend-holiday';
+
+export interface AdvancedDutyDa6MatrixColumn {
+	eventDate: string;
+	coverageStart: string;
+	coverageEnd: string;
+	sequenceKey: AdvancedDutyDa6SequenceKey;
+	sequenceLabel: string;
+	chargeSequenceStart: number | null;
+	chargeableCount: number;
+}
+
+export interface AdvancedDutyDa6MatrixCell {
+	eventDate: string;
+	personnelId: string;
+	code: AdvancedDutyDa6CellCode;
+	da6Code: 'A' | 'D' | 'U' | null;
+	chargeable: boolean;
+	queuePosition: number | null;
+	sequenceNumber: number | null;
+	assigned: boolean;
+	reason: string | null;
+	reasonCode: string | null;
+}
+
+export interface AdvancedDutyDa6MatrixRow {
+	personnelId: string;
+	display: {
+		id: string;
+		rank: string;
+		firstName: string;
+		lastName: string;
+		groupName: string;
+	};
+	cells: AdvancedDutyDa6MatrixCell[];
+}
+
+export interface AdvancedDutyDa6Matrix {
+	templateSlotId: string;
+	roleLabel: string;
+	rotationPoolKey: string;
+	sequenceKey: AdvancedDutyDa6SequenceKey;
+	sequenceLabel: string;
+	numberingMode: 'single-sequence' | 'separate-weekend-holiday';
+	columns: AdvancedDutyDa6MatrixColumn[];
+	rows: AdvancedDutyDa6MatrixRow[];
+}
+
 export interface DutyEventRecord {
 	id: string;
 	orgId: string;
@@ -378,6 +434,7 @@ export interface DutyEventSeriesPreview {
 	pattern: DutyEventSeriesPattern;
 	eventDates: string[];
 	events: DutyEventPreview[];
+	da6Matrices?: AdvancedDutyDa6Matrix[];
 }
 
 export interface DutyEventSeriesApplyResult {

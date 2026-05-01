@@ -21,6 +21,7 @@
 		formatFillSummary: (event: DutyEvent) => string;
 		formatSlotAssignee: (id: string | null) => string;
 		onOpenEvent: (event: DutyEvent) => void;
+		onViewRunDa6: (group: AppliedEventGroup) => void;
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventGroup) => void;
 		selectedEventId: string | null;
@@ -34,6 +35,7 @@
 		formatFillSummary,
 		formatSlotAssignee,
 		onOpenEvent,
+		onViewRunDa6,
 		onRequestDeleteEvent,
 		onRequestDeleteRun,
 		selectedEventId
@@ -59,6 +61,20 @@
 					<div class="summary-actions">
 						{#if group.isLegacy}
 							<span class="legacy-pill">Legacy</span>
+						{/if}
+						{#if group.runId}
+							<button
+								class="btn btn-secondary btn-sm"
+								type="button"
+								aria-label={`View DA6 ${group.templateName}`}
+								onclick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									onViewRunDa6(group);
+								}}
+							>
+								View DA6
+							</button>
 						{/if}
 						<button
 							class="btn btn-danger btn-sm"

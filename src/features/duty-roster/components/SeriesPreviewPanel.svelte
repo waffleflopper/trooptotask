@@ -4,6 +4,8 @@
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import type { SlotExplanationSection } from './SlotPreviewItem.svelte';
 	import SearchSelect, { type SearchSelectOption } from '$lib/components/ui/SearchSelect.svelte';
+	import AdvancedDa6Modal from './AdvancedDa6Modal.svelte';
+	import { printAdvancedDutyDa6Matrices } from './advancedDutyDa6Print';
 
 	type AdvancedRunUiState =
 		| 'draft'
@@ -121,6 +123,7 @@
 
 	let selectedDate = $state('all');
 	let selectedPool = $state('all');
+	let isDa6ModalOpen = $state(false);
 
 	const previewRequiresCollisionReview = $derived(previewCollisionMessages.length > 0);
 	const previewHasShortfalls = $derived(preview.events.some((event) => event.fillSummary.unfilledSlots > 0));
@@ -145,6 +148,7 @@
 	const canUseRecovery = $derived(
 		canRecoverPartialApply && snapshotState === 'partial-recovery' && !disableActionControls
 	);
+	const hasDa6Matrices = $derived((preview.da6Matrices?.length ?? 0) > 0);
 
 	const poolKeys = $derived([...new Set(template.slots.map((slot) => slot.rotationPoolKey))].sort());
 	const poolBySlotId = $derived(new Map(template.slots.map((slot) => [slot.id, slot.rotationPoolKey])));
@@ -265,6 +269,11 @@
 				aria-label="Export preview, not applied output"
 				onclick={onExportPreview}>Export preview</button
 			>
+			{#if hasDa6Matrices}
+				<button class="btn btn-secondary btn-sm" type="button" onclick={() => (isDa6ModalOpen = true)}>
+					View DA6 Matrices
+				</button>
+			{/if}
 			{#if snapshotState === 'failed-before-persistence'}
 				<button class="btn btn-secondary btn-sm" type="button" disabled={!canUseRetry} onclick={onRetryApply}>
 					Retry apply
@@ -474,6 +483,15 @@
 		</table>
 	</section>
 </section>
+
+{#if isDa6ModalOpen && preview.da6Matrices}
+	<AdvancedDa6Modal
+		title={`${preview.templateName} DA6 matrices`}
+		matrices={preview.da6Matrices}
+		onClose={() => (isDa6ModalOpen = false)}
+		onPrint={() => printAdvancedDutyDa6Matrices(`${preview.templateName} DA6 matrices`, preview.da6Matrices ?? [])}
+	/>
+{/if}
 
 <style>
 	.preview-card {

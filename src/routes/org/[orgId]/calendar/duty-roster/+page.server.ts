@@ -3,7 +3,10 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchRosterHistory } from '$lib/server/core/useCases/rosterHistoryQuery';
 import { canAccessAdvancedDuty } from '$lib/server/core/useCases/advancedDutyAccess';
 import { listDutyTemplates } from '$lib/server/core/useCases/dutyTemplateCrud';
-import { listDraftAdvancedDutyRunSnapshots, listDutyEventsForCalendar } from '$lib/server/core/useCases/dutyEventCrud';
+import {
+	listDutyEventsForCalendar,
+	listVisibleAdvancedDutyRunSnapshots
+} from '$lib/server/core/useCases/dutyEventCrud';
 
 export const load = async ({ params, locals, cookies }: PageServerLoadEvent) => {
 	const { orgId } = params;
@@ -14,7 +17,9 @@ export const load = async ({ params, locals, cookies }: PageServerLoadEvent) => 
 			const rosterHistory = await fetchRosterHistory(ctx);
 			const advancedDutyEvents = await listDutyEventsForCalendar(ctx);
 			const advancedDutyTemplates = canAccessAdvancedDuty(ctx.auth) ? await listDutyTemplates(ctx) : [];
-			const advancedDutySnapshots = canAccessAdvancedDuty(ctx.auth) ? await listDraftAdvancedDutyRunSnapshots(ctx) : [];
+			const advancedDutySnapshots = canAccessAdvancedDuty(ctx.auth)
+				? await listVisibleAdvancedDutyRunSnapshots(ctx)
+				: [];
 			return { rosterHistory, advancedDutyTemplates, advancedDutyEvents, advancedDutySnapshots };
 		}
 	});

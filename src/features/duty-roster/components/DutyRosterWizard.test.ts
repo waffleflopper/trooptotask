@@ -1751,6 +1751,74 @@ describe('DutyRosterWizard', () => {
 		expect(screen.queryByText(/T00:00:00/)).toBeNull();
 	});
 
+	it('opens the applied run DA6 viewer from the run ledger when snapshot audit data exists', async () => {
+		renderAppliedEventManager({
+			advancedDutyEvents: [makeAppliedEvent()],
+			advancedDutySnapshots: [
+				{
+					...makeDraftSnapshot({
+						status: 'applied',
+						appliedRunId: 'run-event-1'
+					}),
+					snapshotPayload: {
+						da6Matrices: [
+							{
+								templateSlotId: 'slot-1',
+								roleLabel: 'NCO',
+								rotationPoolKey: 'staff-duty-primary',
+								sequenceKey: 'weekday',
+								sequenceLabel: 'weekday DA6 sequence',
+								numberingMode: 'single-sequence',
+								columns: [
+									{
+										eventDate: '2026-04-10',
+										coverageStart: '2026-04-10T08:00:00',
+										coverageEnd: '2026-04-11T08:00:00',
+										sequenceKey: 'weekday',
+										sequenceLabel: 'weekday DA6 sequence',
+										chargeSequenceStart: 1,
+										chargeableCount: 1
+									}
+								],
+								rows: [
+									{
+										personnelId: 'person-nco',
+										display: {
+											id: 'person-nco',
+											rank: 'SGT',
+											firstName: 'Casey',
+											lastName: 'Nolan',
+											groupName: 'HQ'
+										},
+										cells: [
+											{
+												eventDate: '2026-04-10',
+												personnelId: 'person-nco',
+												code: 'assigned',
+												da6Code: null,
+												chargeable: true,
+												queuePosition: 1,
+												sequenceNumber: 1,
+												assigned: true,
+												reason: null,
+												reasonCode: null
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'View DA6 Battalion Staff Duty' }));
+
+		expect(screen.getByText(/weekday DA6 sequence/)).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'DA6 matrix NCO weekday DA6 sequence' })).toBeTruthy();
+	});
+
 	it('reopens an applied duty event and lets the user regenerate and save that one event', async () => {
 		const previewExistingHandler = vi.fn(async (input: ExistingDutyEventInput) => {
 			if (input.slotOverrides?.length === 0) {

@@ -410,18 +410,24 @@ async function persistDraftAdvancedRunSnapshot(
 	};
 }
 
-export async function listDraftAdvancedDutyRunSnapshots(ctx: QueryPorts): Promise<AdvancedDutyRunSnapshotRecord[]> {
+export async function listVisibleAdvancedDutyRunSnapshots(ctx: QueryPorts): Promise<AdvancedDutyRunSnapshotRecord[]> {
 	requireAdvancedDutyAccess(ctx.auth);
+	const now = new Date().toISOString();
 	const rows = await ctx.store.findMany<Record<string, unknown>>(
 		AdvancedDutyRunSnapshotEntity.table,
 		ctx.auth.orgId,
-		{ status: 'draft' },
+		undefined,
 		{
 			orderBy: [{ column: 'created_at', ascending: false }],
-			rangeFilters: [{ column: 'expires_at', op: 'gt', value: new Date().toISOString() }]
+			limit: 100
 		}
 	);
-	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows);
+	return AdvancedDutyRunSnapshotEntity.fromDbArray(rows).filter((snapshot) => {
+		if (snapshot.status === 'draft') {
+			return snapshot.expiresAt > now;
+		}
+		return snapshot.status === 'applied' || snapshot.status === 'applying' || snapshot.status === 'partial-failure';
+	});
 }
 
 function failForHardRuleConflicts(message: string, preview: InternalDutyEventPreview): void {
@@ -1919,7 +1925,8 @@ export async function previewDutyEventSeriesFromTemplate(
 		templateName: template.name,
 		pattern: input.pattern,
 		eventDates,
-		events
+		events,
+		da6Matrices: snapshot.da6Matrices
 	};
 	if (eventDates.length === 0) {
 		return publicPreview;

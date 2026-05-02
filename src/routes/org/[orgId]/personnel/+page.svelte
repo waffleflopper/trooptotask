@@ -21,7 +21,6 @@
 			pinnedGroups: workspaceData.pinnedGroups,
 			personnel: workspaceData.personnel,
 			permissions: data.permissions,
-			scopedGroupId: data.scopedGroupId,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays,
 			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds
 		})

@@ -79,7 +79,7 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 }
 
 export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
-	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageRecords, { kind: 'unscoped' }, AUDIT_RESOURCE);
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.importRecords, { kind: 'unscoped' }, AUDIT_RESOURCE);
 
 	const { records } = input;
 
@@ -132,6 +132,12 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			errors.push({ index: i, message: 'You can only add personnel to your assigned group' });
 			continue;
 		}
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.importRecords,
+			groupId ? { kind: 'group', groupId } : { kind: 'organization' },
+			AUDIT_RESOURCE
+		);
 
 		validRows.push({
 			index: i,

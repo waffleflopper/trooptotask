@@ -3,6 +3,7 @@ import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -113,56 +114,74 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('permission flags', () => {
-		it('canAddPersonnel is true when canEditPersonnel and no scopedGroupId', () => {
+		it('canAddPersonnel is true when the Personnel manage-records affordance is allowed', () => {
 			const ctx = new PersonnelPageContext(
-				makeData({ permissions: { canEditPersonnel: true }, scopedGroupId: null }),
+				makeData({ permissions: { canEditPersonnel: false }, scopedGroupId: 'legacy-group' }),
 				makeModals(),
-				makeOrg()
+				makeOrg({
+					affordanceForFeatureAction: (action) => ({
+						allowed: action.id === POLICY_ACTION_CATALOG.personnel.manageRecords.id,
+						visible: true,
+						disabled: false,
+						reason: 'allowed:capability',
+						explanation: '',
+						decision: {} as never
+					})
+				})
 			);
 			expect(ctx.canAddPersonnel).toBe(true);
 		});
 
-		it('canAddPersonnel is false when scopedGroupId is set', () => {
+		it('canAddPersonnel is false when the Personnel manage-records affordance is denied', () => {
 			const ctx = new PersonnelPageContext(
-				makeData({ permissions: { canEditPersonnel: true }, scopedGroupId: 'g1' }),
+				makeData({ permissions: { canEditPersonnel: true }, scopedGroupId: null }),
 				makeModals(),
-				makeOrg()
+				makeOrg({
+					affordanceForFeatureAction: () => ({
+						allowed: false,
+						visible: false,
+						disabled: false,
+						reason: 'denied:missing-capability',
+						explanation: '',
+						decision: {} as never
+					})
+				})
 			);
 			expect(ctx.canAddPersonnel).toBe(false);
 		});
 
-		it('canAddPersonnel is false when canEditPersonnel is false', () => {
-			const ctx = new PersonnelPageContext(
-				makeData({ permissions: { canEditPersonnel: false }, scopedGroupId: null }),
-				makeModals(),
-				makeOrg()
-			);
-			expect(ctx.canAddPersonnel).toBe(false);
-		});
-
-		it('canManageConfig is true when org isOwner', () => {
+		it('canManageConfig is true with Personnel configure capability', () => {
 			const ctx = new PersonnelPageContext(
 				makeData(),
 				makeModals(),
-				makeOrg({ isOwner: true, isAdmin: false, isFullEditor: false })
-			);
-			expect(ctx.canManageConfig).toBe(true);
-		});
-
-		it('canManageConfig is true when org isAdmin', () => {
-			const ctx = new PersonnelPageContext(
-				makeData(),
-				makeModals(),
-				makeOrg({ isOwner: false, isAdmin: true, isFullEditor: false })
+				makeOrg({
+					affordanceForFeatureAction: (action) => ({
+						allowed: action.id === POLICY_ACTION_CATALOG.personnel.archiveRecords.id,
+						visible: true,
+						disabled: false,
+						reason: 'allowed:capability',
+						explanation: '',
+						decision: {} as never
+					})
+				})
 			);
 			expect(ctx.canManageConfig).toBe(true);
 		});
 
-		it('canManageConfig is false for plain member', () => {
+		it('canManageConfig is false without Personnel configure capability', () => {
 			const ctx = new PersonnelPageContext(
 				makeData(),
 				makeModals(),
-				makeOrg({ isOwner: false, isAdmin: false, isFullEditor: false })
+				makeOrg({
+					affordanceForFeatureAction: () => ({
+						allowed: false,
+						visible: false,
+						disabled: false,
+						reason: 'denied:missing-capability',
+						explanation: '',
+						decision: {} as never
+					})
+				})
 			);
 			expect(ctx.canManageConfig).toBe(false);
 		});

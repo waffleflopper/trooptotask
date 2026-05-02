@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 import { mergePersonnelBatch } from './personnelMergeBatch';
 
-function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
-	return createWritePortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
+	return createTestContext(overrides);
 }
 
 describe('mergePersonnelBatch', () => {
@@ -340,5 +340,55 @@ describe('mergePersonnelBatch', () => {
 			ets: null,
 			deros: null
 		});
+	});
+
+	it('denies a merge update when the matched personnel row is outside the actor Scope Set', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-b',
+				ets: null,
+				deros: null,
+				archived_at: null
+			}
+		]);
+
+		await expect(
+			mergePersonnelBatch(ctx, {
+				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				details: expect.objectContaining({
+					policyAction: 'personnel.mergeRecords',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
 	});
 });

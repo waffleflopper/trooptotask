@@ -1,9 +1,12 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
+export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'privileged',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const { id } = input;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
@@ -12,11 +15,20 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 			rank: string;
 			first_name: string;
 			last_name: string;
+			group_id: string | null;
 			archived_at: string | null;
 		}>('personnel', ctx.auth.orgId, { id });
 
 		if (!person) fail(404, 'Personnel not found');
 		if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
+
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.permanentlyDeleteRecords,
+			policyResourceForGroup(person.group_id),
+			'personnel',
+			id
+		);
 
 		await ctx.store.delete('personnel', ctx.auth.orgId, id);
 
@@ -37,4 +49,6 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 
 		return { success: true };
 	}
-});
+};
+
+export const DELETE = handle(_deleteConfig);

@@ -2,7 +2,8 @@ import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
@@ -15,7 +16,6 @@ export interface PersonnelPageData {
 	pinnedGroups: string[];
 	personnel?: Personnel[];
 	permissions?: OrganizationMemberPermissions | null;
-	scopedGroupId?: string | null;
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
@@ -96,11 +96,22 @@ export class PersonnelPageContext {
 	// ---- Permission flags ----
 
 	get canAddPersonnel(): boolean {
-		return (this.#data.permissions?.canEditPersonnel ?? false) && !this.#data.scopedGroupId;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords).allowed;
 	}
 
 	get canManageConfig(): boolean {
-		return (this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor) ?? false;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.archiveRecords).allowed;
+	}
+
+	personnelRecordAffordance(person: Personnel): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		);
+	}
+
+	canManagePersonnelRecord(person: Personnel): boolean {
+		return this.personnelRecordAffordance(person).allowed;
 	}
 
 	// ---- Derived: filtered personnel ----

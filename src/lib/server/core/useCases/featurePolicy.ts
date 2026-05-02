@@ -1,6 +1,7 @@
 import {
 	evaluatePolicyDecision,
 	type FeatureLanePolicyAction,
+	type PolicyDecision,
 	type PolicyReasonCode,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
@@ -68,16 +69,7 @@ export async function requireFeaturePolicy(
 	resourceType: string,
 	resourceId?: string
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
-		action,
-		capabilityMap: ports.auth.capabilityMap,
-		scopeSet: ports.auth.scopeSet,
-		resource,
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+	const decision = await evaluateFeaturePolicy(ports, action, resource);
 
 	if (decision.allowed) {
 		return;
@@ -100,6 +92,23 @@ export async function requireFeaturePolicy(
 	}
 
 	fail(403, featurePolicyDenialMessage(decision.reasonCode, action.owner.lane));
+}
+
+export async function evaluateFeaturePolicy(
+	ports: FeaturePolicyPorts,
+	action: FeatureLanePolicyAction,
+	resource: PolicyResource
+): Promise<PolicyDecision> {
+	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
+	return evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: { membershipRole: ports.auth.role },
+		action,
+		capabilityMap: ports.auth.capabilityMap,
+		scopeSet: ports.auth.scopeSet,
+		resource,
+		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
+	});
 }
 
 function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string): string {

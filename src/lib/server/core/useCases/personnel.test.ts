@@ -259,7 +259,19 @@ describe('Personnel — archive', () => {
 
 	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
 		const ctx = buildContext({
-			auth: { isPrivileged: false, isFullEditor: false, role: 'member' }
+			auth: {
+				isPrivileged: false,
+				isFullEditor: false,
+				role: 'member',
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				}
+			}
 		});
 		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
@@ -273,6 +285,34 @@ describe('Personnel — archive', () => {
 
 		// Should NOT have invalidated tier cache
 		expect(ctx.subscription.tierCacheInvalidated).toBe(false);
+	});
+
+	it('archives directly for a configure-capable member without relying on full-editor compatibility', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		const { archive } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+
+		const result = await archive(ctx, 'p-1');
+
+		expect(result).toBeUndefined();
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		expect(stored.archived_at).toBeTruthy();
+		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 	});
 
 	it('enforces group scope on archive', async () => {

@@ -71,7 +71,7 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 }
 
 export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInput): Promise<MergeBatchResult> {
-	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageRecords, { kind: 'unscoped' }, 'personnel');
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.mergeRecords, { kind: 'unscoped' }, 'personnel');
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
 		fail(400, 'records array is required');
@@ -81,8 +81,9 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
+	const personnelLookupStore = ctx.rawStore ?? ctx.store;
 	const [people, groups] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+		personnelLookupStore.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
 			isNull: { archived_at: true }
 		}),
 		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId)
@@ -159,6 +160,14 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			continue;
 		}
 		matched.push({ index, personnelId: person.id as string });
+
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.mergeRecords,
+			person.group_id ? { kind: 'group', groupId: person.group_id as string } : { kind: 'organization' },
+			'personnel',
+			person.id as string
+		);
 
 		const patch: Record<string, unknown> = {};
 		if (desiredEts && desiredEts !== ((person.ets as string | null) ?? null)) {

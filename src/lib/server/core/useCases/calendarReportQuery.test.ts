@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createInMemoryDataStore, createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createTestContext } from '$lib/server/adapters/inMemory';
 import { fetchCalendarReportData } from './calendarReportQuery';
 
 const ORG = 'test-org';
 
-function buildCtx() {
-	return createQueryWithRawStorePortsContext();
+function buildCtx(overrides?: Parameters<typeof createTestContext>[0]) {
+	return createTestContext(overrides);
 }
 
 function seedData(store: ReturnType<typeof createInMemoryDataStore>) {
@@ -86,5 +86,57 @@ describe('fetchCalendarReportData', () => {
 		const result = await fetchCalendarReportData(ctx);
 
 		expect(result.allPersonnel).toHaveLength(2);
+	});
+
+	it('requires Calendar view capability through a report policy decision', async () => {
+		const ctx = buildCtx({
+			auth: {
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+
+		await expect(fetchCalendarReportData(ctx)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to view calendar data'
+		});
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.viewReports',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
+	});
+
+	it('filters report personnel and groups through the shared Scope Set', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedData(ctx.rawStore as ReturnType<typeof createInMemoryDataStore>);
+
+		const result = await fetchCalendarReportData(ctx);
+
+		expect(result.allPersonnel.map((person) => person.id)).toEqual(['p1']);
+		expect(result.groups.map((group) => group.id)).toEqual(['g1']);
 	});
 });

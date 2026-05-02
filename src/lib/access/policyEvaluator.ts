@@ -129,6 +129,20 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'write',
 			requiredCapability: 'operate'
 		}),
+		manageAssignments: featureAction({
+			id: 'calendar.manageAssignments',
+			label: 'Manage calendar assignments',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		viewReports: featureAction({
+			id: 'calendar.viewReports',
+			label: 'View calendar reports',
+			lane: 'calendar',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
 		configureStatusTypes: featureAction({
 			id: 'calendar.configureStatusTypes',
 			label: 'Configure calendar status types',

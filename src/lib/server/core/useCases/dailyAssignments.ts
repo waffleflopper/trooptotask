@@ -93,7 +93,7 @@ async function requireCalendarAssignmentRowsPolicy(ctx: WritePorts, rows: Record
 
 async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
 	if (records.length === 0) {
-		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability);
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
 		return;
 	}
 
@@ -113,11 +113,11 @@ async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: Assignm
 	}
 
 	if (personnelAssigneeIds.length > 0) {
-		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelAssigneeIds);
+		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, personnelAssigneeIds);
 	}
 
 	for (const groupId of new Set(groupAssigneeIds.filter(Boolean))) {
-		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, { kind: 'group', groupId });
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, { kind: 'group', groupId });
 	}
 }
 
@@ -264,7 +264,7 @@ export async function deleteDailyAssignment(ctx: WritePorts, id: string): Promis
 	const assignmentTypeId = existingRow?.assignment_type_id;
 	const assigneeId = existingRow?.assignee_id;
 	if (typeof assignmentTypeId !== 'string' || typeof assigneeId !== 'string') {
-		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability);
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
 	}
 
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);

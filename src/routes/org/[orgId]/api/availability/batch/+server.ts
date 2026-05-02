@@ -8,11 +8,13 @@ type AnyInput = any;
 export const POST = handle<AnyInput, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => createAvailabilityBatch(ctx, input)
 });
 
 export const DELETE = handle<AnyInput, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => deleteAvailabilityBatch(ctx, input)
 });

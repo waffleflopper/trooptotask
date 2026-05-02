@@ -52,12 +52,7 @@ const mockData: CalendarPageData = {
 	orgName: 'Test Org',
 	userId: 'user1',
 	personnel: [],
-	allPersonnel: [],
-	scopedGroupId: null,
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: true
-	}
+	allPersonnel: []
 };
 
 const filterPersonnel: Personnel[] = [
@@ -84,26 +79,38 @@ const filterPersonnel: Personnel[] = [
 ];
 
 function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const org = createOrgContext({
+	const defaultCapabilityMap = {
+		calendar: 'view',
+		personnel: 'view',
+		training: 'view',
+		criticalTasks: 'view',
+		onboarding: 'view',
+		ratingScheme: 'view'
+	} satisfies OrgContext['capabilityMap'];
+	const configureCapabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	} satisfies OrgContext['capabilityMap'];
+
+	return createOrgContext({
 		orgId: 'org1',
 		orgName: 'Test Org',
 		userId: 'user1',
-		userRole: 'member',
-		capabilityMap: {
-			calendar: 'view',
-			personnel: 'view',
-			training: 'view',
-			criticalTasks: 'view',
-			onboarding: 'view',
-			ratingScheme: 'view'
-		},
-		scopeSet: { kind: 'organization' },
+		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
+		capabilityMap:
+			overrides.capabilityMap ??
+			(overrides.isOwner || overrides.isAdmin || overrides.isFullEditor
+				? configureCapabilityMap
+				: defaultCapabilityMap),
+		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		isReadOnly: false
+		isReadOnly: overrides.readOnly ?? false
 	});
-
-	return Object.assign({}, org, overrides);
 }
 
 describe('CalendarPageView', () => {
@@ -121,8 +128,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: mockData.orgId,
-					orgName: 'Test Org',
-					permissions: mockData.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -152,8 +158,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -184,8 +189,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -219,8 +223,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});

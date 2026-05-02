@@ -809,7 +809,7 @@ describe('read-only and permission guards', () => {
 			action: 'policy.denied',
 			resourceType: 'calendar',
 			details: {
-				policyAction: 'calendar.manageAvailability',
+				policyAction: 'calendar.manageAssignments',
 				reasonCode: 'denied:missing-capability'
 			}
 		});

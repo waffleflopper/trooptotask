@@ -344,6 +344,18 @@ describe('policy evaluator', () => {
 				accessMode: 'write',
 				requiredCapability: 'operate'
 			},
+			manageAssignments: {
+				id: 'calendar.manageAssignments',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'operate'
+			},
+			viewReports: {
+				id: 'calendar.viewReports',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'read',
+				requiredCapability: 'view'
+			},
 			configureStatusTypes: {
 				id: 'calendar.configureStatusTypes',
 				owner: { kind: 'feature-lane', lane: 'calendar' },

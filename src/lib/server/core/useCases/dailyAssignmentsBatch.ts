@@ -99,7 +99,7 @@ async function requireExistingAssignmentSlotPolicy(
 
 async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
 	if (records.length === 0) {
-		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, []);
+		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, []);
 		return;
 	}
 
@@ -118,10 +118,10 @@ async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: Assignm
 		}
 	}
 
-	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelAssigneeIds);
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, personnelAssigneeIds);
 
 	for (const groupId of new Set(groupAssigneeIds.filter(Boolean))) {
-		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, { kind: 'group', groupId });
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, { kind: 'group', groupId });
 	}
 }
 
@@ -154,7 +154,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 				.map((record) => record.assigneeId)
 		)
 	];
-	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, assigneeIds);
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, assigneeIds);
 
 	if (assigneeIds.length > 0) {
 		const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {

@@ -180,54 +180,6 @@
 	],
 	"legacyAuthorizationAllowlist": [
 		{
-			"path": "src/features/calendar/components/AssignmentPlannerPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
-			"ownerIssue": "#759",
-			"reason": "Calendar assignment planner still derives client affordances from legacy edit/full-editor and single-Group scope inputs.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/calendar/components/BulkStatusPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "scopedGroupId"],
-			"ownerIssue": "#759",
-			"reason": "Calendar bulk status UI still uses full-editor and single-Group scope compatibility inputs.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/calendar/components/CalendarPageView.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#759",
-			"reason": "Calendar page affordances still read legacy canEditCalendar compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/calendar/components/CalendarSettingsPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor"],
-			"ownerIssue": "#759",
-			"reason": "Calendar settings affordances still use full-editor compatibility.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/calendar/contexts/CalendarPageContext.svelte.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
-			"ownerIssue": "#759",
-			"reason": "Calendar client context still gates interactions with legacy edit/full-editor and single-Group scope inputs.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/calendar/utils/calendarToolbarItems.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#759",
-			"reason": "Calendar toolbar visibility still depends on legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/features/critical-tasks/components/IctPersonnelDetailPage.svelte",
 			"classification": "runtime-affordance",
 			"patterns": ["canEdit*"],

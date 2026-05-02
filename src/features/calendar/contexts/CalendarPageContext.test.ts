@@ -62,12 +62,7 @@ const mockData: CalendarPageData = {
 	orgName: 'Test Org',
 	userId: 'user1',
 	personnel: mockPersonnel,
-	allPersonnel: mockPersonnel,
-	scopedGroupId: null,
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: true
-	}
+	allPersonnel: mockPersonnel
 };
 
 const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean };
@@ -77,26 +72,38 @@ const mutableStatusTypesStore = statusTypesStore as unknown as { loading: boolea
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
 
 function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const org = createOrgContext({
+	const defaultCapabilityMap = {
+		calendar: 'view',
+		personnel: 'view',
+		training: 'view',
+		criticalTasks: 'view',
+		onboarding: 'view',
+		ratingScheme: 'view'
+	} satisfies OrgContext['capabilityMap'];
+	const configureCapabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	} satisfies OrgContext['capabilityMap'];
+
+	return createOrgContext({
 		orgId: 'org1',
 		orgName: 'Test Org',
 		userId: 'user1',
-		userRole: 'member',
-		capabilityMap: {
-			calendar: 'view',
-			personnel: 'view',
-			training: 'view',
-			criticalTasks: 'view',
-			onboarding: 'view',
-			ratingScheme: 'view'
-		},
-		scopeSet: { kind: 'organization' },
+		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
+		capabilityMap:
+			overrides.capabilityMap ??
+			(overrides.isOwner || overrides.isAdmin || overrides.isFullEditor
+				? configureCapabilityMap
+				: defaultCapabilityMap),
+		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		isReadOnly: false
+		isReadOnly: overrides.readOnly ?? false
 	});
-
-	return Object.assign({}, org, overrides);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,9 +146,42 @@ describe('CalendarPageContext', () => {
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
-		it('canManageConfig is true for fullEditor', () => {
-			const editorCtx = new CalendarPageContext(mockData, makeMockOrg({ isFullEditor: true }));
+		it('canManageConfig is true for Calendar configure capability without full-editor compatibility', () => {
+			const editorCtx = new CalendarPageContext(
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'configure',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					},
+					isFullEditor: false
+				})
+			);
 			expect(editorCtx.canManageConfig).toBe(true);
+		});
+
+		it('allows Calendar operate affordances without full-editor compatibility', () => {
+			const operatorCtx = new CalendarPageContext(
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					},
+					isFullEditor: false
+				})
+			);
+
+			expect(operatorCtx.canManageAvailability).toBe(true);
+			expect(operatorCtx.canManageAssignments).toBe(true);
 		});
 	});
 
@@ -214,26 +254,46 @@ describe('CalendarPageContext', () => {
 	// ---- handleCellClick --------------------------------------------------
 
 	describe('handleCellClick', () => {
-		it('sets selectedPerson and selectedDate when canEditCalendar', () => {
+		it('sets selectedPerson and selectedDate when Calendar operate policy allows availability changes', () => {
+			const operatorCtx = new CalendarPageContext(
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					}
+				})
+			);
 			const date = new Date('2026-03-15');
-			ctx.handleCellClick(mockPersonnel[0], date);
-			expect(ctx.selectedPerson).toBe(mockPersonnel[0]);
-			expect(ctx.selectedDate).toBe(date);
+			operatorCtx.handleCellClick(mockPersonnel[0], date);
+			expect(operatorCtx.selectedPerson).toBe(mockPersonnel[0]);
+			expect(operatorCtx.selectedDate).toBe(date);
 		});
 
-		it('does nothing when canEditCalendar is false', () => {
-			const noEditCtx = new CalendarPageContext(
-				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				makeMockOrg()
-			);
+		it('does nothing when Calendar operate policy denies availability changes', () => {
+			const noEditCtx = new CalendarPageContext(mockData, makeMockOrg());
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});
 
-		it('does nothing when person is outside scoped group', () => {
+		it('does nothing when person is outside the shared Scope Set', () => {
 			const scopedCtx = new CalendarPageContext(
-				{ ...mockData, scopedGroupId: 'other-group', personnel: [] }, // p1 is NOT in scoped set
-				makeMockOrg()
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['g2'] }
+				})
 			);
 			scopedCtx.handleCellClick(mockPersonnel[0], new Date());
 			expect(scopedCtx.selectedPerson).toBeNull();
@@ -243,21 +303,31 @@ describe('CalendarPageContext', () => {
 	// ---- handlePersonClick ------------------------------------------------
 
 	describe('handlePersonClick', () => {
-		it('sets selectedPerson and selectedDate to today when canEditCalendar', () => {
+		it('sets selectedPerson and selectedDate to today when Calendar operate policy allows availability changes', () => {
+			const operatorCtx = new CalendarPageContext(
+				mockData,
+				makeMockOrg({
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'view',
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					}
+				})
+			);
 			const before = Date.now();
-			ctx.handlePersonClick(mockPersonnel[0]);
+			operatorCtx.handlePersonClick(mockPersonnel[0]);
 			const after = Date.now();
-			expect(ctx.selectedPerson).toBe(mockPersonnel[0]);
-			expect(ctx.selectedDate).toBeInstanceOf(Date);
-			expect(ctx.selectedDate!.getTime()).toBeGreaterThanOrEqual(before);
-			expect(ctx.selectedDate!.getTime()).toBeLessThanOrEqual(after);
+			expect(operatorCtx.selectedPerson).toBe(mockPersonnel[0]);
+			expect(operatorCtx.selectedDate).toBeInstanceOf(Date);
+			expect(operatorCtx.selectedDate!.getTime()).toBeGreaterThanOrEqual(before);
+			expect(operatorCtx.selectedDate!.getTime()).toBeLessThanOrEqual(after);
 		});
 
-		it('does nothing when canEditCalendar is false', () => {
-			const noEditCtx = new CalendarPageContext(
-				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				makeMockOrg()
-			);
+		it('does nothing when Calendar operate policy denies availability changes', () => {
+			const noEditCtx = new CalendarPageContext(mockData, makeMockOrg());
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});

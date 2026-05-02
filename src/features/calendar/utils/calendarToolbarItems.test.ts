@@ -4,7 +4,8 @@ import { buildCalendarToolbarItems } from './calendarToolbarItems';
 function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItems>[0]> = {}) {
 	return {
 		orgId: 'org1',
-		canEditCalendar: false,
+		canManageAvailability: false,
+		canManageAssignments: false,
 		canManageConfig: false,
 		readOnly: false,
 		showStatusText: false,
@@ -43,8 +44,8 @@ describe('buildCalendarToolbarItems', () => {
 		expect(onboardingItem!.active).toBe(true);
 	});
 
-	it('includes Bulk Status dropdown for users with edit + manage permissions', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canEditCalendar: true, canManageConfig: true }));
+	it('includes Bulk Status dropdown for users with Calendar availability operation access', () => {
+		const items = buildCalendarToolbarItems(makeInput({ canManageAvailability: true }));
 		const bulk = items.find((i) => i.label === 'Bulk Status');
 		expect(bulk).toBeDefined();
 		expect(bulk!.icon).toBe('clipboard-list');
@@ -60,12 +61,19 @@ describe('buildCalendarToolbarItems', () => {
 		expect(items.find((i) => i.label === 'Bulk Status')).toBeUndefined();
 	});
 
-	it('includes Planning dropdown with duty roster and assignment planner links for admins', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canEditCalendar: true, canManageConfig: true }));
+	it('includes Planning dropdown with assignment planner for assignment operators', () => {
+		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true }));
 		const planning = items.find((i) => i.label === 'Planning');
 		expect(planning).toBeDefined();
 		expect(planning!.icon).toBe('calendar-days');
 		expect(planning!.displayMode).toBe('full');
+		const labels = planning!.menuItems!.map((i) => i.label);
+		expect(labels).toEqual(['Assignment Planner']);
+	});
+
+	it('keeps Duty Roster planning behind Calendar configuration access while that workflow is still advanced-only', () => {
+		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true, canManageConfig: true }));
+		const planning = items.find((i) => i.label === 'Planning');
 		const labels = planning!.menuItems!.map((i) => i.label);
 		expect(labels).toEqual(['Duty Roster', 'Assignment Planner']);
 	});
@@ -107,7 +115,7 @@ describe('buildCalendarToolbarItems', () => {
 
 	it('keeps edit-requiring groups visible but disabled when readOnly', () => {
 		const items = buildCalendarToolbarItems(
-			makeInput({ canEditCalendar: true, canManageConfig: true, readOnly: true })
+			makeInput({ canManageAvailability: true, canManageAssignments: true, readOnly: true })
 		);
 		const bulk = items.find((i) => i.label === 'Bulk Status');
 		const planning = items.find((i) => i.label === 'Planning');

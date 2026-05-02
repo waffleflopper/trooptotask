@@ -30,7 +30,6 @@
 		data: {
 			orgId: string;
 			orgName: string;
-			permissions?: { canViewCalendar?: boolean; canEditCalendar?: boolean } | null;
 		};
 	}
 
@@ -50,7 +49,8 @@
 	const toolbarItems = $derived(
 		buildCalendarToolbarItems({
 			orgId: data.orgId,
-			canEditCalendar: data.permissions?.canEditCalendar ?? false,
+			canManageAvailability: ctx.canManageAvailability,
+			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
 			readOnly: ctx.readOnly,
 			showStatusText: ctx.showStatusText,
@@ -90,7 +90,7 @@
 </svelte:head>
 
 <div class="page">
-	{#if !data.permissions?.canViewCalendar}
+	{#if !ctx.canViewCalendar}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -191,7 +191,7 @@
 						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
-						canEdit={data.permissions?.canEditCalendar ?? false}
+						canEdit={ctx.canManageAvailability}
 						showStatusText={ctx.showStatusText}
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}

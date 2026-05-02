@@ -16,6 +16,8 @@
  */
 import { setContext, getContext } from 'svelte';
 import {
+	capabilityMeets,
+	hasOrganizationWideConfigureAccess,
 	resolveMemberAccessShapeFromStoredOrCurrent,
 	type CapabilityLevel,
 	type CapabilityMap,
@@ -141,11 +143,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 			const current = getInput();
 			const isPrivileged = current.userRole === 'owner' || current.userRole === 'admin';
 			const accessShape = getAccessShape();
-			return (
-				!isPrivileged &&
-				accessShape.scopeSet.kind === 'organization' &&
-				Object.values(accessShape.capabilityMap).every((level) => level === 'configure')
-			);
+			return !isPrivileged && hasOrganizationWideConfigureAccess(accessShape.capabilityMap, accessShape.scopeSet);
 		},
 		get capabilityMap() {
 			return getAccessShape().capabilityMap;
@@ -169,8 +167,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 			return evaluateClientAffordance(getInput(), getAccessShape(), action, resource);
 		},
 		hasCapability(lane, capability) {
-			const rank: Record<CapabilityLevel, number> = { none: 0, view: 1, operate: 2, configure: 3 };
-			return rank[getAccessShape().capabilityMap[lane] ?? 'none'] >= rank[capability];
+			return capabilityMeets(getAccessShape().capabilityMap[lane] ?? 'none', capability);
 		},
 		isResourceInScope(resource = { kind: 'organization' }) {
 			return isResourceAllowedByScope(getAccessShape().scopeSet, resource);

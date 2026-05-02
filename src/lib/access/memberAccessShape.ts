@@ -156,9 +156,16 @@ export const PERMISSION_PRESETS: Record<
 	}
 };
 
-const EDITOR_CAPABILITY_MAP = buildCapabilityMap('configure');
-const OPERATOR_CAPABILITY_MAP = buildCapabilityMap('operate');
-const VIEWER_CAPABILITY_MAP = buildCapabilityMap('view');
+const CAPABILITY_RANK: Record<CapabilityLevel, number> = {
+	none: 0,
+	view: 1,
+	operate: 2,
+	configure: 3
+};
+
+const EDITOR_CAPABILITY_MAP = createCapabilityMap('configure');
+const OPERATOR_CAPABILITY_MAP = createCapabilityMap('operate');
+const VIEWER_CAPABILITY_MAP = createCapabilityMap('view');
 
 export function toMemberAccessShape(input: CurrentMemberAccessInput): MemberAccessShape {
 	const permissions = withResolvedCompatibilityPermissions(input.permissions);
@@ -313,6 +320,25 @@ export function serializeScopeSetForStorage(scopeSet: ScopeSet): SerializedScope
 	};
 }
 
+export function createCapabilityMap(level: CapabilityLevel): CapabilityMap {
+	return {
+		calendar: level,
+		personnel: level,
+		training: level,
+		criticalTasks: level,
+		onboarding: level,
+		ratingScheme: level
+	};
+}
+
+export function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
+	return CAPABILITY_RANK[actual] >= CAPABILITY_RANK[required];
+}
+
+export function hasOrganizationWideConfigureAccess(capabilityMap: CapabilityMap, scopeSet: ScopeSet): boolean {
+	return scopeSet.kind === 'organization' && DURABLE_FEATURE_LANES.every((lane) => capabilityMap[lane] === 'configure');
+}
+
 export function resolveCurrentPresetPermissions(preset: string): OrganizationMemberPermissions {
 	return toCurrentPermissionFlags(currentPresetToMemberAccessShape({ preset }));
 }
@@ -360,8 +386,7 @@ export function getPermissionPreset(
 export function isFullEditor(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): boolean {
 	const shape = toMemberAccessShape({ permissions, scopedGroupId });
 	return (
-		shape.scopeSet.kind === 'organization' &&
-		Object.values(shape.capabilityMap).every((level) => level === 'configure') &&
+		hasOrganizationWideConfigureAccess(shape.capabilityMap, shape.scopeSet) &&
 		shape.compatibilityLanes.leadersBook === 'configure'
 	);
 }
@@ -391,17 +416,6 @@ function toPermissionFlags(level: CapabilityLevel): { canView: boolean; canEdit:
 	return {
 		canView: level !== 'none',
 		canEdit: level === 'configure'
-	};
-}
-
-function buildCapabilityMap(level: CapabilityLevel): CapabilityMap {
-	return {
-		calendar: level,
-		personnel: level,
-		training: level,
-		criticalTasks: level,
-		onboarding: level,
-		ratingScheme: level
 	};
 }
 

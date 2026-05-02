@@ -1,3 +1,4 @@
+import { hasOrganizationWideConfigureAccess } from '$lib/access/memberAccessShape';
 import type { OrgAccessPort, OrgChromePort, OrgShellData } from '../orgShell';
 
 export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort): Promise<OrgShellData> {
@@ -23,10 +24,7 @@ export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort)
 		scopedGroupId: membership.scopedGroupId,
 		isOwner,
 		isAdmin,
-		isFullEditor:
-			!isPrivileged &&
-			membership.scopeSet.kind === 'organization' &&
-			Object.values(membership.capabilityMap).every((level) => level === 'configure'),
+		isFullEditor: !isPrivileged && hasOrganizationWideConfigureAccess(membership.capabilityMap, membership.scopeSet),
 		effectiveTier: orgState.effectiveTier,
 		unreadNotificationCount: chromeData.unreadNotificationCount,
 		activeAnnouncements: chromeData.activeAnnouncements,

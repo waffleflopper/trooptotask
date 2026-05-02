@@ -1,4 +1,11 @@
-import type { CapabilityLevel, CapabilityMap, DurableFeatureLane, MembershipRole, ScopeSet } from './memberAccessShape';
+import {
+	capabilityMeets,
+	type CapabilityLevel,
+	type CapabilityMap,
+	type DurableFeatureLane,
+	type MembershipRole,
+	type ScopeSet
+} from './memberAccessShape';
 
 export type PolicyDecisionKind = 'server-authoritative' | 'client-advisory';
 export type PolicyActionAccessMode = 'read' | 'write' | 'governance';
@@ -105,13 +112,6 @@ type PolicyDecisionResult = Pick<PolicyDecision, 'allowed' | 'reasonCode'> &
 	Partial<Pick<PolicyDecision, 'matchedCapability' | 'matchedScope' | 'blockingOverlay'>>;
 
 const GOVERNANCE_MEMBERSHIP_ROLES = new Set<MembershipRole>(['owner', 'admin']);
-
-const CAPABILITY_RANK: Record<CapabilityLevel, number> = {
-	none: 0,
-	view: 1,
-	operate: 2,
-	configure: 3
-};
 
 export const POLICY_ACTION_CATALOG = {
 	calendar: {
@@ -461,10 +461,6 @@ function matchCapability(capabilityMap: CapabilityMap, action: FeatureLanePolicy
 		actual: capabilityMap[action.owner.lane] ?? 'none',
 		required: action.requiredCapability
 	};
-}
-
-function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
-	return CAPABILITY_RANK[actual] >= CAPABILITY_RANK[required];
 }
 
 function matchScope(scopeSet: ScopeSet, resource: PolicyResource): MatchedScope {

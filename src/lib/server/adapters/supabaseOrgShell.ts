@@ -11,6 +11,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import {
+	createCapabilityMap,
 	resolveMemberAccessShapeFromStoredOrCurrent,
 	type CapabilityMap,
 	type ScopeSet
@@ -109,14 +110,7 @@ function resolveDemoCapabilityMap(
 	role: 'owner' | 'admin' | 'member'
 ): CapabilityMap {
 	if (role === 'owner' || role === 'admin') {
-		return {
-			calendar: 'configure',
-			personnel: 'configure',
-			training: 'configure',
-			criticalTasks: 'configure',
-			onboarding: 'configure',
-			ratingScheme: 'configure'
-		};
+		return createCapabilityMap('configure');
 	}
 
 	return resolveMemberAccessShapeFromStoredOrCurrent({
@@ -364,14 +358,7 @@ function resolveMembershipClientAccessShape(
 ): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
 	if (isPrivileged) {
 		return {
-			capabilityMap: {
-				calendar: 'configure',
-				personnel: 'configure',
-				training: 'configure',
-				criticalTasks: 'configure',
-				onboarding: 'configure',
-				ratingScheme: 'configure'
-			},
+			capabilityMap: createCapabilityMap('configure'),
 			scopeSet: { kind: 'organization' }
 		};
 	}

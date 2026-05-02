@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createRatingSchemeEntryUseCases } from './ratingSchemeEntryCrud';
 
-function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
-	return createWriteWithNotificationsPortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
+	return createTestContext(overrides);
 }
 
 const validInput = {
@@ -48,7 +48,7 @@ describe('Rating scheme entry — create', () => {
 
 		await create(ctx, { ...validInput });
 
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'rating_scheme.created',
 			resourceType: 'rating_scheme'
 		});
@@ -69,8 +69,8 @@ describe('Rating scheme entry — create', () => {
 		const stored = await ctx.store.findMany('rating_scheme_entries', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'rating_scheme.created',
 			resourceType: 'rating_scheme'
 		});
@@ -112,7 +112,7 @@ describe('Rating scheme entry — create', () => {
 		const { create } = createRatingSchemeEntryUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
-		expect(ctx.audit.events).toContainEqual(
+		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
 				resourceType: 'rating_scheme',
@@ -158,6 +158,39 @@ describe('Rating scheme entry — create', () => {
 		expect(result.ratedPersonId).toBe('person-1');
 	});
 
+	it('treats unassigned rated people as unscoped for scoped Rating Scheme writes', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: null
+			}
+		]);
+		const { create } = createRatingSchemeEntryUseCases();
+
+		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
+
+		expect(result.ratedPersonId).toBe('person-1');
+	});
+
 	it('denies create outside the member multi-Group scope set', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -187,7 +220,7 @@ describe('Rating scheme entry — create', () => {
 		const { create } = createRatingSchemeEntryUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
-		expect(ctx.audit.events).toContainEqual(
+		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
 				resourceType: 'rating_scheme',
@@ -220,7 +253,7 @@ describe('Rating scheme entry — update', () => {
 		const result = (await update(ctx, { id: 'rs-1', status: 'complete' })) as Record<string, unknown>;
 		expect(result.status).toBe('complete');
 
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'rating_scheme.updated',
 			resourceId: 'rs-1'
 		});
@@ -272,12 +305,12 @@ describe('Rating scheme entry — delete', () => {
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
 		expect(stored).toBeNull();
 
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'rating_scheme.deleted',
 			resourceId: 'rs-1'
 		});
 
-		const notifications = ctx.notifications.notifications;
+		const notifications = ctx.notificationPort.notifications;
 		expect(notifications).toHaveLength(1);
 	});
 
@@ -326,7 +359,7 @@ describe('Rating scheme entry — delete', () => {
 		const { remove } = createRatingSchemeEntryUseCases();
 
 		await expect(remove(ctx, 'rs-1')).rejects.toMatchObject({ status: 403 });
-		expect(ctx.audit.events).toContainEqual(
+		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
 				resourceType: 'rating_scheme',

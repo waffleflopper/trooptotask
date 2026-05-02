@@ -10,10 +10,11 @@
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { requireFeaturePolicy } from './featurePolicy';
 
 const entity = RatingSchemeEntryEntity;
 const AUDIT_RESOURCE = 'rating_scheme';
+type RatingSchemePolicyPorts = WriteWithNotificationsPorts & { rawStore?: WriteWithNotificationsPorts['store'] };
 
 /** Coerce empty strings to null for optional fields */
 function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unknown> {
@@ -33,22 +34,31 @@ function optionalPersonnelId(value: unknown): string | null | undefined {
 }
 
 async function policyResourceForRatedPerson(
-	ctx: WriteWithNotificationsPorts,
+	ctx: RatingSchemePolicyPorts,
 	personnelId: string | null | undefined
 ): Promise<PolicyResource> {
 	if (!personnelId) {
-		return { kind: 'organization' };
+		return { kind: 'unscoped' };
 	}
 
-	const person = await ctx.store.findOne<{ group_id: string | null }>('personnel', ctx.auth.orgId, { id: personnelId });
-	return policyResourceForGroup(person?.group_id);
+	const person = await (ctx.rawStore ?? ctx.store).findOne<{ group_id: string | null }>('personnel', ctx.auth.orgId, {
+		id: personnelId
+	});
+	if (!person?.group_id) {
+		return { kind: 'unscoped' };
+	}
+
+	return { kind: 'group', groupId: person.group_id };
 }
 
-async function policyResourceForRatingSchemeEntry(
-	ctx: WriteWithNotificationsPorts,
-	id: string
-): Promise<PolicyResource> {
-	const entry = await ctx.store.findOne<{ rated_person_id: string | null }>(entity.table, ctx.auth.orgId, { id });
+async function policyResourceForRatingSchemeEntry(ctx: RatingSchemePolicyPorts, id: string): Promise<PolicyResource> {
+	const entry = await (ctx.rawStore ?? ctx.store).findOne<{ rated_person_id: string | null }>(
+		entity.table,
+		ctx.auth.orgId,
+		{
+			id
+		}
+	);
 	return policyResourceForRatedPerson(ctx, entry?.rated_person_id);
 }
 

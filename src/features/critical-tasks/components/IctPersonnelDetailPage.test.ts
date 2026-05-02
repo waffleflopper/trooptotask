@@ -249,7 +249,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.queryByRole('searchbox', { name: 'Filter by task ID or name' })).toBeNull();
 	});
 
-	it('shows log and edit actions for training editors on active task rows', () => {
+	it('shows log and edit actions for Critical Tasks operators on active task rows', () => {
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
@@ -277,7 +277,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByRole('button', { name: 'Log completion for 181-105-1003' })).toBeTruthy();
 	});
 
-	it('keeps the page read-only for members without training edit access', () => {
+	it('keeps the page read-only for members without Critical Tasks edit access', () => {
 		mockOrgContext.permissions.canEditCriticalTasks = false;
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
@@ -307,7 +307,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.queryByRole('button', { name: 'Log completion for 181-105-1003' })).toBeNull();
 	});
 
-	it('lets training editors log a completion from the detail page without a reload', async () => {
+	it('lets Critical Tasks operators log a completion from the detail page without a reload', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
 		vi.stubGlobal('fetch', fetchMock);
@@ -407,7 +407,7 @@ describe('IctPersonnelDetailPage', () => {
 		});
 	});
 
-	it('lets training editors input a task from the personnel toolbar with an MOS-scoped task search', async () => {
+	it('lets Critical Tasks operators input a task from the personnel toolbar with an MOS-scoped task search', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
 		vi.stubGlobal('fetch', fetchMock);
@@ -493,7 +493,7 @@ describe('IctPersonnelDetailPage', () => {
 		});
 	});
 
-	it('lets training editors edit an existing completion from the detail page', async () => {
+	it('lets Critical Tasks operators edit an existing completion from the detail page', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
 		vi.stubGlobal('fetch', fetchMock);

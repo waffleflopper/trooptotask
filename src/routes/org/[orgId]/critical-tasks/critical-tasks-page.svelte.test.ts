@@ -227,8 +227,8 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
+						canViewTraining: false,
+						canEditTraining: false,
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					}
@@ -245,7 +245,7 @@ describe('critical tasks page', () => {
 			screen.getByRole('button', { name: 'Import Completions' }),
 			libraryLink,
 			reportsLink,
-			screen.getByRole('button', { name: 'Record Training' })
+			screen.getByRole('button', { name: 'Record Completion' })
 		];
 		for (let index = 0; index < orderedActions.length - 1; index += 1) {
 			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
@@ -370,7 +370,7 @@ describe('critical tasks page', () => {
 					'import-completions': 176,
 					'task-library': 136,
 					reports: 104,
-					'record-training': 168
+					'record-completion': 180
 				};
 				return rectWithWidth(widths[actionId ?? ''] ?? 96);
 			}
@@ -447,7 +447,7 @@ describe('critical tasks page', () => {
 			await fireEvent.click(overflowTrigger);
 			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
 		}
-		expect(screen.getByRole('button', { name: /Record Training/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Record Completion/ })).toBeTruthy();
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {
@@ -546,7 +546,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('button', { name: /Smith 181-105-1001: current/i })).toBeTruthy();
 	});
 
-	it('shows reports but omits the task library affordance for non-admin training editors', async () => {
+	it('shows reports but omits the task library affordance for non-admin Critical Tasks operators', async () => {
 		mockOrgContext.role = 'member';
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isPrivileged = false;
@@ -735,7 +735,7 @@ describe('critical tasks page', () => {
 		});
 	});
 
-	it('links soldier names to the per-person detail page for training viewers', () => {
+	it('links soldier names to the per-person detail page for Critical Tasks viewers', () => {
 		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
 		groupsStore.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
@@ -767,7 +767,7 @@ describe('critical tasks page', () => {
 		expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
 	});
 
-	it('lets training editors log a completion from a matrix cell and updates the matrix without a reload', async () => {
+	it('lets Critical Tasks operators log a completion from a matrix cell and updates the matrix without a reload', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
 		vi.stubGlobal('fetch', fetchMock);
@@ -868,7 +868,7 @@ describe('critical tasks page', () => {
 		});
 	});
 
-	it('lets training editors input a task from the toolbar with searchable person and task selectors', async () => {
+	it('lets Critical Tasks operators input a task from the toolbar with searchable person and task selectors', async () => {
 		const airwayTask: IctTask = {
 			...ictTask,
 			id: 'task-2',
@@ -932,7 +932,7 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Record Training' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Record Completion' }));
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 

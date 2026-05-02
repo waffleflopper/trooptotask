@@ -8,6 +8,7 @@ import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { OrganizationMemberPermissions, Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 
 const editablePermissions: OrganizationMemberPermissions = {
 	canViewCalendar: true,
@@ -73,6 +74,8 @@ function makeCtx(
 		data: { orgId: 'org-1', scopedGroupId: null },
 		orgId: 'org-1',
 		canAddPersonnel: false,
+		canManagePersonnelRecord: () => false,
+		personnelRecordAffordance: () => deniedAffordance(),
 		viewMode: 'alphabetical',
 		totalPersonnel: personnel.length,
 		upcomingLossMap,
@@ -81,6 +84,30 @@ function makeCtx(
 		openGroupManager: vi.fn(),
 		openBulkManager: vi.fn()
 	} as unknown as PersonnelPageContext;
+}
+
+function allowedAffordance(overrides: Partial<ClientAffordance> = {}): ClientAffordance {
+	return {
+		allowed: true,
+		visible: true,
+		disabled: false,
+		reason: 'allowed:capability',
+		explanation: '',
+		decision: {} as never,
+		...overrides
+	};
+}
+
+function deniedAffordance(overrides: Partial<ClientAffordance> = {}): ClientAffordance {
+	return {
+		allowed: false,
+		visible: false,
+		disabled: false,
+		reason: 'denied:missing-capability',
+		explanation: '',
+		decision: {} as never,
+		...overrides
+	};
 }
 
 describe('PersonnelPageView', () => {
@@ -128,8 +155,10 @@ describe('PersonnelPageView', () => {
 	it('keeps primary personnel actions visible in the floating toolbar for editors', () => {
 		const ctx = {
 			...makeCtx(),
-			canAddPersonnel: true
-		} as PersonnelPageContext;
+			canAddPersonnel: true,
+			canManagePersonnelRecord: () => true,
+			personnelRecordAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
 			props: { ctx, permissions: editablePermissions }
@@ -189,7 +218,11 @@ describe('PersonnelPageView', () => {
 	describe('upcoming-loss indicators', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = makeCtx(vi.fn(), lossMap);
+			const ctx = {
+				...makeCtx(vi.fn(), lossMap),
+				canManagePersonnelRecord: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
 				props: { ctx, permissions: viewOnlyPermissions }
@@ -234,7 +267,11 @@ describe('PersonnelPageView', () => {
 
 		it('shows an award acknowledgement action in the row actions when the loss indicator is present', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = makeCtx(vi.fn(), lossMap);
+			const ctx = {
+				...makeCtx(vi.fn(), lossMap),
+				canManagePersonnelRecord: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
 				props: { ctx, permissions: editablePermissions }
@@ -259,7 +296,11 @@ describe('PersonnelPageView', () => {
 				json: async () => ({ personnelId: 'person-1', awardTrackingAcknowledged: true })
 			} as Response);
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = makeCtx(vi.fn(), lossMap);
+			const ctx = {
+				...makeCtx(vi.fn(), lossMap),
+				canManagePersonnelRecord: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
 				props: { ctx, permissions: editablePermissions }
@@ -283,11 +324,20 @@ describe('PersonnelPageView', () => {
 
 	it('updates personnel row edit affordances when permissions change after render', async () => {
 		const handleEdit = vi.fn();
-		const ctx = makeCtx(handleEdit);
+		const editableCtx = {
+			...makeCtx(handleEdit),
+			canManagePersonnelRecord: () => true,
+			personnelRecordAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+		const viewOnlyCtx = {
+			...makeCtx(handleEdit),
+			canManagePersonnelRecord: () => false,
+			personnelRecordAffordance: () => deniedAffordance()
+		} as unknown as PersonnelPageContext;
 		const view = render(PersonnelPageView, {
 			props: {
-				ctx,
-				permissions: editablePermissions
+				ctx: editableCtx,
+				permissions: viewOnlyPermissions
 			}
 		});
 
@@ -295,8 +345,8 @@ describe('PersonnelPageView', () => {
 		handleEdit.mockClear();
 
 		await view.rerender({
-			ctx,
-			permissions: viewOnlyPermissions
+			ctx: viewOnlyCtx,
+			permissions: editablePermissions
 		});
 
 		expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
@@ -306,6 +356,21 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(row!);
 
 		expect(handleEdit).not.toHaveBeenCalled();
+	});
+
+	it('uses per-record policy affordances instead of legacy canEditPersonnel for edit actions', () => {
+		const ctx = {
+			...makeCtx(),
+			canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
+			personnelRecordAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: viewOnlyPermissions }
+		});
+
+		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 	});
 
 	it('keeps rating scheme controls out of the Personnel roster page', () => {

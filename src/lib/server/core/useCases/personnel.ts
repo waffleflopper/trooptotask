@@ -12,7 +12,7 @@ import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -111,9 +111,21 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				id
 			);
 
-			if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
+			const directArchiveDecision = await evaluateFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.archiveRecords,
+				policyResourceForGroup(currentRecord?.group_id)
+			);
+			if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
 				return { requiresApproval: true };
 			}
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.archiveRecords,
+				policyResourceForGroup(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
 
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, {
 				archived_at: new Date().toISOString()

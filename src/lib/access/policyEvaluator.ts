@@ -159,12 +159,61 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'read',
 			requiredCapability: 'view'
 		}),
+		readSensitiveRecords: featureAction({
+			id: 'personnel.readSensitiveRecords',
+			label: 'Read sensitive personnel records',
+			lane: 'personnel',
+			accessMode: 'read',
+			requiredCapability: 'configure'
+		}),
 		manageRecords: featureAction({
 			id: 'personnel.manageRecords',
 			label: 'Manage personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
 			requiredCapability: 'operate'
+		}),
+		archiveRecords: featureAction({
+			id: 'personnel.archiveRecords',
+			label: 'Archive personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		restoreRecords: featureAction({
+			id: 'personnel.restoreRecords',
+			label: 'Restore personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		importRecords: featureAction({
+			id: 'personnel.importRecords',
+			label: 'Import personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		mergeRecords: featureAction({
+			id: 'personnel.mergeRecords',
+			label: 'Merge personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		exportRecords: featureAction({
+			id: 'personnel.exportRecords',
+			label: 'Export personnel records',
+			lane: 'personnel',
+			accessMode: 'read',
+			requiredCapability: 'configure'
+		}),
+		permanentlyDeleteRecords: featureAction({
+			id: 'personnel.permanentlyDeleteRecords',
+			label: 'Permanently delete personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
 		})
 	},
 	training: {

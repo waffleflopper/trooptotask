@@ -268,22 +268,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/features/personnel/components/PersonnelPageView.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#760",
-			"reason": "Personnel page affordances still read legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/personnel/contexts/PersonnelPageContext.svelte.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
-			"ownerIssue": "#760",
-			"reason": "Personnel client context still uses legacy edit/full-editor and single-Group scope gates.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/features/rating-scheme/components/RatingSchemePageView.svelte",
 			"classification": "runtime-affordance",
 			"patterns": ["canEdit*"],
@@ -500,14 +484,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/lib/server/core/useCases/personnel.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["isFullEditor"],
-			"ownerIssue": "#760",
-			"reason": "Personnel use case still checks full-editor compatibility for selected workflows.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
 			"classification": "runtime-authorization",
 			"patterns": ["isFullEditor"],
@@ -642,14 +618,6 @@
 			"patterns": ["canEdit*"],
 			"ownerIssue": "#762",
 			"reason": "Critical Tasks route still passes legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/personnel/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["scopedGroupId"],
-			"ownerIssue": "#760",
-			"reason": "Personnel route still passes single-Group scope compatibility data.",
 			"driftIds": ["D-01"]
 		},
 		{

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -25,6 +25,46 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('GET /api/personnel/[id]/export', () => {
+	it('uses Personnel policy decisions instead of route-level privileged authorization', async () => {
+		const requirePrivileged = vi.fn(() => {
+			throw new Error('legacy requirePrivileged should not authorize Personnel export');
+		});
+		const ctx = createTestContext({
+			auth: {
+				requirePrivileged,
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				archived_at: null
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'p-1' });
+
+		expect(result._filename).toContain('SGT_Smith_Jamie-export');
+		expect(requirePrivileged).not.toHaveBeenCalled();
+	});
+
 	it('includes ETS and PCS / DEROS in the personnel info worksheet', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

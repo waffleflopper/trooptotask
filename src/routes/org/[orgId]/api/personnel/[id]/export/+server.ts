@@ -1,6 +1,8 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import ExcelJS from 'exceljs';
 
 interface PersonnelExportOutput {
@@ -10,6 +12,7 @@ interface PersonnelExportOutput {
 
 export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOutput> = {
 	permission: 'privileged',
+	deferPolicyToUseCase: true,
 	parseInput: (event: RequestEvent) => ({ personnelId: event.params.id as string }),
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
@@ -43,6 +46,14 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 			]);
 
 		if (!person) fail(404, 'Personnel not found');
+
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.exportRecords,
+			policyResourceForGroup(person.group_id),
+			'personnel',
+			id
+		);
 
 		// Extended info is a separate table without org_id scoping — query by personnel_id
 		const extResults = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId, {

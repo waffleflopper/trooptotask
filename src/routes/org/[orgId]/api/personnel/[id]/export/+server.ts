@@ -2,6 +2,8 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import ExcelJS from 'exceljs';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface PersonnelExportOutput {
 	_buffer: ArrayBuffer;
@@ -14,6 +16,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
 		const id = input.personnelId;
+		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		const [person, trainings, counseling, goals, availability, trainingTypes, counselingTypes, statusTypes, groups] =
 			await Promise.all([

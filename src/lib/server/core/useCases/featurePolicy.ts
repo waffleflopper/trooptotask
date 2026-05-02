@@ -74,6 +74,7 @@ export async function requireFeaturePolicy(
 		actor: { membershipRole: ports.auth.role },
 		action,
 		capabilityMap: ports.auth.capabilityMap,
+		compatibilityLanes: ports.auth.compatibilityLanes,
 		scopeSet: ports.auth.scopeSet,
 		resource,
 		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []

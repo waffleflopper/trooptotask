@@ -336,7 +336,7 @@
 			"classification": "compatibility-adapter",
 			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
 			"ownerIssue": "#757",
-			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data.",
+			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data; #765 keeps Leader's Book compatibility explicit through a separate policy lane map.",
 			"driftIds": ["D-01"]
 		},
 		{
@@ -577,7 +577,7 @@
 			"classification": "compatibility-adapter",
 			"patterns": ["isFullEditor", "scopedGroupId"],
 			"ownerIssue": "#757",
-			"reason": "Client org context derives new advisory affordances from Capability Map and Scope Set while retaining full-editor and single-Group compatibility fields for transitional callers.",
+			"reason": "Client org context derives new advisory affordances from Capability Map, Scope Set, and the #765 Leader's Book compatibility policy lane while retaining full-editor and single-Group compatibility fields for transitional callers.",
 			"driftIds": ["D-01"]
 		},
 		{

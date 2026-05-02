@@ -39,6 +39,9 @@ export function createSupabaseAuthContextAdapter(
 		get capabilityMap() {
 			return permCtx.capabilityMap;
 		},
+		get compatibilityLanes() {
+			return permCtx.compatibilityLanes;
+		},
 		get scopeSet() {
 			return permCtx.scopeSet;
 		},
@@ -90,6 +93,7 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
+		compatibilityLanes: { leadersBook: 'configure' },
 		scopeSet: { kind: 'organization' },
 
 		requireEdit() {},

@@ -50,6 +50,7 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
 			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord,
 			capabilityMap: t.auth.capabilityMap,
+			compatibilityLanes: t.auth.compatibilityLanes,
 			scopeSet: t.auth.scopeSet
 		},
 		readOnly: t.readOnly

@@ -29,6 +29,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
+		compatibilityLanes: { leadersBook: 'configure' },
 		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },

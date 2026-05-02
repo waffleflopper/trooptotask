@@ -107,7 +107,24 @@ describe('createPermissionContextFromMembership', () => {
 		});
 
 		expect(ctx.capabilityMap.personnel).toBe('operate');
+		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+	});
+
+	it('keeps Leader Book compatibility capability separate from the durable capability map', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			member_preset: 'viewer',
+			capability_overrides: { personnel: 'operate' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(Object.keys(ctx.capabilityMap)).not.toContain('leadersBook');
+		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
+		expect(ctx.canView['leaders-book']).toBe(false);
 	});
 
 	it('does not let legacy flags or scoped_group_id override stored member access', () => {

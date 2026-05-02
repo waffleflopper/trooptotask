@@ -80,6 +80,7 @@ async function evaluateCalendarPolicy(
 		actor: { membershipRole: ports.auth.role },
 		action,
 		capabilityMap: ports.auth.capabilityMap,
+		compatibilityLanes: ports.auth.compatibilityLanes,
 		scopeSet: ports.auth.scopeSet,
 		resource,
 		overlays

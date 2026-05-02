@@ -5,6 +5,8 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -28,6 +30,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		const userId = ctx.auth.userId;
 
 		if (!userId) fail(403, 'Not available in sandbox mode');
+		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		if (isBillingEnabled) {
 			const tier = await ctx.subscription.getEffectiveTier();

@@ -224,6 +224,29 @@ describe('createOrgContext', () => {
 		expect(ctx.hasCapability('calendar', 'operate')).toBe(false);
 	});
 
+	it('uses compatibility lanes for Leader Book client affordances without durable lane promotion', () => {
+		const ctx = createOrgContext(
+			makeInput({
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				compatibilityLanes: { leadersBook: 'view' },
+				scopeSet: { kind: 'organization' }
+			})
+		);
+
+		expect(Object.keys(ctx.capabilityMap)).not.toContain('leadersBook');
+		expect(ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.leadersBook.viewRecords).allowed).toBe(true);
+		expect(ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.leadersBook.updateRecords).reason).toBe(
+			'denied:missing-capability'
+		);
+	});
+
 	it('uses governance role for organization affordances instead of member feature capabilities', () => {
 		const owner = createOrgContext(
 			makeInput({

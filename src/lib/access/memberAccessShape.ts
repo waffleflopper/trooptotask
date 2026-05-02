@@ -67,6 +67,16 @@ export interface TargetMemberAccessInput {
 	canManageMembers?: boolean | null;
 }
 
+export interface StoredOrCurrentMemberAccessInput {
+	membershipRole: MembershipRole;
+	permissions: OrganizationMemberPermissions;
+	scopedGroupId?: string | null;
+	memberPreset?: unknown;
+	capabilityOverrides?: unknown;
+	accessScopeKind?: unknown;
+	accessScopeGroupIds?: unknown;
+}
+
 export interface SerializedScopeSetStorage {
 	access_scope_kind: ScopeSet['kind'];
 	access_scope_group_ids: string[];
@@ -264,6 +274,37 @@ export function targetMemberAccessToCurrentPermissionFlags(
 	);
 }
 
+export function resolveMemberAccessShapeFromStoredOrCurrent(
+	input: StoredOrCurrentMemberAccessInput
+): MemberAccessShape {
+	const storedPreset = parseStoredMemberPreset(input.memberPreset);
+	if (storedPreset) {
+		return resolveStoredMemberAccessShape({
+			membershipRole: input.membershipRole,
+			memberPreset: storedPreset,
+			capabilityOverrides: parseCapabilityOverrideMap(input.capabilityOverrides),
+			scopeSet: parseStoredScopeSet(input),
+			canManageMembers: input.permissions.canManageMembers
+		});
+	}
+
+	const permissions = withResolvedCompatibilityPermissions(input.permissions);
+	const currentPreset = getPermissionPreset(permissions, input.scopedGroupId);
+	const memberPreset = input.membershipRole === 'admin' ? 'editor' : storedPresetForDisplayPreset(currentPreset);
+	const capabilityOverrides = diffCapabilityOverrides(
+		TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset],
+		capabilityMapFromPermissions(permissions)
+	);
+
+	return resolveStoredMemberAccessShape({
+		membershipRole: input.membershipRole,
+		memberPreset,
+		capabilityOverrides,
+		scopeSet: input.scopedGroupId ? { kind: 'groups', groupIds: [input.scopedGroupId] } : { kind: 'organization' },
+		canManageMembers: input.permissions.canManageMembers
+	});
+}
+
 export function serializeScopeSetForStorage(scopeSet: ScopeSet): SerializedScopeSetStorage {
 	const normalizedScopeSet = normalizeScopeSet(scopeSet);
 	return {
@@ -364,6 +405,17 @@ function buildCapabilityMap(level: CapabilityLevel): CapabilityMap {
 	};
 }
 
+function capabilityMapFromPermissions(permissions: Required<OrganizationMemberPermissions>): CapabilityMap {
+	return {
+		calendar: toCapabilityLevel(permissions.canViewCalendar, permissions.canEditCalendar),
+		personnel: toCapabilityLevel(permissions.canViewPersonnel, permissions.canEditPersonnel),
+		training: toCapabilityLevel(permissions.canViewTraining, permissions.canEditTraining),
+		criticalTasks: toCapabilityLevel(permissions.canViewCriticalTasks, permissions.canEditCriticalTasks),
+		onboarding: toCapabilityLevel(permissions.canViewOnboarding, permissions.canEditOnboarding),
+		ratingScheme: toCapabilityLevel(permissions.canViewRatingScheme, permissions.canEditRatingScheme)
+	};
+}
+
 function applyCapabilityOverrides(
 	baseCapabilityMap: CapabilityMap,
 	capabilityOverrides?: CapabilityOverrideMap | null
@@ -407,6 +459,40 @@ export function isCapabilityLevel(value: unknown): value is CapabilityLevel {
 	return CAPABILITY_LEVELS.includes(value as CapabilityLevel);
 }
 
+function parseStoredMemberPreset(value: unknown): StoredMemberPreset | null {
+	return value === 'viewer' || value === 'operator' || value === 'editor' ? value : null;
+}
+
+function parseCapabilityOverrideMap(value: unknown): CapabilityOverrideMap {
+	const overrides: CapabilityOverrideMap = {};
+	if (!value || typeof value !== 'object') {
+		return overrides;
+	}
+
+	const record = value as Record<string, unknown>;
+	for (const lane of DURABLE_FEATURE_LANES) {
+		const level = record[lane];
+		if (isCapabilityLevel(level)) {
+			overrides[lane] = level;
+		}
+	}
+
+	return overrides;
+}
+
+function parseStoredScopeSet(
+	input: Pick<StoredOrCurrentMemberAccessInput, 'accessScopeKind' | 'accessScopeGroupIds'>
+): ScopeSet {
+	if (input.accessScopeKind !== 'groups' || !Array.isArray(input.accessScopeGroupIds)) {
+		return { kind: 'organization' };
+	}
+
+	return normalizeScopeSet({
+		kind: 'groups',
+		groupIds: input.accessScopeGroupIds.filter((groupId): groupId is string => typeof groupId === 'string')
+	});
+}
+
 function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 	if (scopeSet?.kind !== 'groups') {
 		return { kind: 'organization' };
@@ -414,6 +500,12 @@ function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(Boolean)));
 	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+}
+
+function storedPresetForDisplayPreset(preset: CurrentPermissionPreset): StoredMemberPreset {
+	if (preset === 'viewer') return 'viewer';
+	if (preset === 'team-leader') return 'operator';
+	return 'editor';
 }
 
 function storedPresetForCurrentPreset(preset: Exclude<CurrentPermissionPreset, 'owner'>): StoredMemberPreset {

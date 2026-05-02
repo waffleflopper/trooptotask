@@ -6,11 +6,9 @@
 	import { sortMembers } from '$features/groups/utils/sortMembers';
 	import {
 		DURABLE_FEATURE_LANES,
-		isCapabilityLevel,
-		resolveStoredMemberAccessShape,
+		resolveMemberAccessShapeFromStoredOrCurrent,
 		TARGET_MEMBER_PRESET_CAPABILITIES,
 		type CapabilityLevel,
-		type CapabilityMap,
 		type DurableFeatureLane,
 		type MemberAccessShape,
 		type MemberPreset,
@@ -22,7 +20,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { OrganizationMember, PermissionPreset } from '$lib/types';
-	import { getPermissionPreset, resolveRatingSchemePermissions } from '$lib/types';
+	import { getPermissionPreset } from '$lib/types';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import { addMonths, formatRelativeDate } from '$lib/utils/dates';
 	import { downloadBlob } from './settingsDownloads';
@@ -224,30 +222,6 @@
 		savedCriticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
 	});
 
-	function getMemberPreset(member: OrganizationMember): PermissionPreset {
-		if (member.role === 'owner') return 'owner';
-		return getPermissionPreset(
-			{
-				canViewCalendar: member.canViewCalendar,
-				canEditCalendar: member.canEditCalendar,
-				canViewPersonnel: member.canViewPersonnel,
-				canEditPersonnel: member.canEditPersonnel,
-				canViewTraining: member.canViewTraining,
-				canEditTraining: member.canEditTraining,
-				canViewCriticalTasks: member.canViewCriticalTasks,
-				canEditCriticalTasks: member.canEditCriticalTasks,
-				canViewOnboarding: member.canViewOnboarding,
-				canEditOnboarding: member.canEditOnboarding,
-				canViewRatingScheme: member.canViewRatingScheme,
-				canEditRatingScheme: member.canEditRatingScheme,
-				canViewLeadersBook: member.canViewLeadersBook,
-				canEditLeadersBook: member.canEditLeadersBook,
-				canManageMembers: member.canManageMembers
-			},
-			member.scopedGroupId
-		);
-	}
-
 	function getInvitePreset(invite: (typeof data.invitations)[number]): PermissionPreset {
 		return getPermissionPreset(
 			{
@@ -386,78 +360,15 @@
 	}
 
 	function getMemberAccessShape(member: OrganizationMember) {
-		const storedPreset = normalizeStoredPreset(member.memberPreset);
-		if (storedPreset) {
-			return resolveStoredMemberAccessShape({
-				membershipRole: member.role,
-				memberPreset: storedPreset,
-				capabilityOverrides: normalizeCapabilityOverrides(member.capabilityOverrides),
-				scopeSet: normalizeStoredScope(member),
-				canManageMembers: member.canManageMembers
-			});
-		}
-
-		const ratingScheme = resolveRatingSchemePermissions(member);
-		return resolveStoredMemberAccessShape({
+		return resolveMemberAccessShapeFromStoredOrCurrent({
 			membershipRole: member.role,
-			memberPreset: member.role === 'admin' ? 'editor' : storedPresetForPreset(getMemberPreset(member)),
-			capabilityOverrides: currentCapabilityOverrides(member, ratingScheme),
-			scopeSet: member.scopedGroupId ? { kind: 'groups', groupIds: [member.scopedGroupId] } : { kind: 'organization' },
-			canManageMembers: member.canManageMembers
+			permissions: member,
+			scopedGroupId: member.scopedGroupId,
+			memberPreset: member.memberPreset,
+			capabilityOverrides: member.capabilityOverrides,
+			accessScopeKind: member.accessScopeKind,
+			accessScopeGroupIds: member.accessScopeGroupIds
 		});
-	}
-
-	function normalizeStoredPreset(value: unknown): StoredMemberPreset | null {
-		return value === 'viewer' || value === 'operator' || value === 'editor' ? value : null;
-	}
-
-	function storedPresetForPreset(preset: PermissionPreset): StoredMemberPreset {
-		if (preset === 'viewer') return 'viewer';
-		if (preset === 'team-leader') return 'operator';
-		return 'editor';
-	}
-
-	function normalizeCapabilityOverrides(value: unknown) {
-		const overrides: Partial<Record<DurableFeatureLane, CapabilityLevel>> = {};
-		if (!value || typeof value !== 'object') return overrides;
-		const record = value as Record<string, unknown>;
-		for (const lane of accessLanes) {
-			const level = record[lane.id];
-			if (isCapabilityLevel(level)) {
-				overrides[lane.id] = level;
-			}
-		}
-		return overrides;
-	}
-
-	function normalizeStoredScope(member: OrganizationMember): ScopeSet {
-		if (member.accessScopeKind === 'groups') {
-			const groupIds = Array.from(new Set((member.accessScopeGroupIds ?? []).filter(Boolean)));
-			return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
-		}
-		return { kind: 'organization' };
-	}
-
-	function currentCapabilityOverrides(
-		member: OrganizationMember,
-		ratingScheme: { canViewRatingScheme: boolean; canEditRatingScheme: boolean }
-	) {
-		const map: CapabilityMap = {
-			calendar: member.canEditCalendar ? 'configure' : member.canViewCalendar ? 'view' : 'none',
-			personnel: member.canEditPersonnel ? 'configure' : member.canViewPersonnel ? 'view' : 'none',
-			training: member.canEditTraining ? 'configure' : member.canViewTraining ? 'view' : 'none',
-			criticalTasks: member.canEditCriticalTasks ? 'configure' : member.canViewCriticalTasks ? 'view' : 'none',
-			onboarding: member.canEditOnboarding ? 'configure' : member.canViewOnboarding ? 'view' : 'none',
-			ratingScheme: ratingScheme.canEditRatingScheme ? 'configure' : ratingScheme.canViewRatingScheme ? 'view' : 'none'
-		};
-		const preset = member.role === 'admin' ? 'editor' : storedPresetForPreset(getMemberPreset(member));
-		const overrides: Partial<Record<DurableFeatureLane, CapabilityLevel>> = {};
-		for (const lane of accessLanes) {
-			if (map[lane.id] !== TARGET_MEMBER_PRESET_CAPABILITIES[preset][lane.id]) {
-				overrides[lane.id] = map[lane.id];
-			}
-		}
-		return overrides;
 	}
 
 	function formatScopeSet(scopeSet: ScopeSet): string {

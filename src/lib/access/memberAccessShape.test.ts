@@ -5,6 +5,7 @@ import {
 	getPermissionPreset,
 	isFullEditor,
 	PERMISSION_PRESETS,
+	resolveMemberAccessShapeFromStoredOrCurrent,
 	resolveStoredMemberAccessShape,
 	resolveCurrentPresetPermissions,
 	resolveCurrentUpdatePermissions,
@@ -137,6 +138,35 @@ describe('member access shape', () => {
 		});
 		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
 		expect(shape.canManageMembers).toBe(false);
+	});
+
+	it('resolves stored-or-current access from stored columns when they exist', () => {
+		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: 'member',
+			permissions: PERMISSION_PRESETS['full-editor'],
+			scopedGroupId: null,
+			memberPreset: 'viewer',
+			capabilityOverrides: { calendar: 'operate', ratingScheme: 'none', unknown: 'configure' },
+			accessScopeKind: 'groups',
+			accessScopeGroupIds: ['group-alpha', 'group-alpha', 'group-bravo']
+		});
+
+		expect(shape.memberPreset).toBe('viewer');
+		expect(shape.capabilityMap.calendar).toBe('operate');
+		expect(shape.capabilityMap.ratingScheme).toBe('none');
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+	});
+
+	it('falls back to current permission flags when stored access columns are missing', () => {
+		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: 'member',
+			permissions: PERMISSION_PRESETS['full-editor'],
+			scopedGroupId: 'group-alpha'
+		});
+
+		expect(shape.memberPreset).toBe('operator');
+		expect(shape.capabilityMap).toEqual(TARGET_MEMBER_PRESET_CAPABILITIES.editor);
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha'] });
 	});
 
 	it('translates current Team Leader storage as Operator lineage plus configure overrides and multi-group-ready scope columns', () => {

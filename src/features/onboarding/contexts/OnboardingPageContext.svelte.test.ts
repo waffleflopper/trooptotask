@@ -9,6 +9,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 import {
+	OnboardingPageContext,
 	getProgress,
 	isStepDeprecated,
 	isTrainingStepComplete,
@@ -16,6 +17,9 @@ import {
 	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
+import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { createOrgContext } from '$lib/stores/orgContext.svelte';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -50,6 +54,87 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 		...overrides
 	};
 }
+
+const baseCapabilityMap: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'operate',
+	ratingScheme: 'none'
+};
+
+function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
+	return createOrgContext({
+		orgId: 'org-1',
+		orgName: 'Test Org',
+		userId: 'user-1',
+		userRole: 'member',
+		capabilityMap,
+		scopeSet: { kind: 'groups', groupIds: ['g-1'] },
+		scopedGroupId: null,
+		isReadOnly: false,
+		permissions: {
+			canViewCalendar: false,
+			canEditCalendar: false,
+			canViewPersonnel: true,
+			canEditPersonnel: false,
+			canViewTraining: false,
+			canEditTraining: false,
+			canViewCriticalTasks: false,
+			canEditCriticalTasks: false,
+			canViewOnboarding: false,
+			canEditOnboarding: false,
+			canViewRatingScheme: false,
+			canEditRatingScheme: false,
+			canViewLeadersBook: false,
+			canEditLeadersBook: false,
+			canManageMembers: false
+		}
+	});
+}
+
+describe('OnboardingPageContext policy affordances', () => {
+	it('uses advisory Onboarding policy decisions instead of legacy permission flags', () => {
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+
+		expect(ctx.canViewOnboarding).toBe(true);
+		expect(ctx.canManageWorkflows).toBe(true);
+		expect(ctx.canManageConfig).toBe(false);
+	});
+
+	it('checks per-personnel scope for onboarding record actions', () => {
+		personnelStore.load(
+			[
+				{
+					id: 'p-1',
+					rank: 'SGT',
+					firstName: 'Ada',
+					lastName: 'Lovelace',
+					mos: '',
+					clinicRole: '',
+					groupId: 'g-1',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-2',
+					rank: 'SGT',
+					firstName: 'Grace',
+					lastName: 'Hopper',
+					mos: '',
+					clinicRole: '',
+					groupId: 'g-2',
+					groupName: 'Bravo'
+				}
+			],
+			'org-1'
+		);
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+
+		expect(ctx.canManageOnboarding(makeOnboarding({ personnelId: 'p-1' }))).toBe(true);
+		expect(ctx.canManageOnboarding(makeOnboarding({ personnelId: 'p-2' }))).toBe(false);
+	});
+});
 
 // ── isStepDeprecated ──────────────────────────────────────────
 

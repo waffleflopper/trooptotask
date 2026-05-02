@@ -9,11 +9,12 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const OnboardingTemplateStepEntity = defineEntity<OnboardingTemplateStep>({
 	table: 'onboarding_template_steps',
 	permission: 'onboarding',
-	requireFullEditor: true,
+	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 	groupScope: 'none',
 	audit: { resourceType: 'onboarding_template_step' },
 	schema: {

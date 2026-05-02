@@ -796,6 +796,8 @@ export function createSupabaseOnboardingWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'onboarding',
+				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -803,6 +805,8 @@ export function createSupabaseOnboardingWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'onboarding',
+			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}

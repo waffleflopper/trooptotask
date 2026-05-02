@@ -55,7 +55,7 @@
 			});
 		}
 
-		if (ctx.canEditOnboarding) {
+		if (ctx.canManageWorkflows) {
 			actions.push({
 				id: 'start-onboarding',
 				label: 'Start Onboarding',
@@ -104,7 +104,7 @@
 						<p class="notice-label">Configuration Required</p>
 						<p>No template steps are defined, so new onboardings cannot be started until a template is built.</p>
 					</div>
-					{#if ctx.canEditOnboarding}
+					{#if ctx.canManageWorkflows}
 						<a href={ctx.templatesUrl} class="btn btn-sm btn-secondary">Manage Templates</a>
 					{/if}
 				</div>
@@ -124,7 +124,7 @@
 
 			{#if ctx.filteredOnboardings.length === 0}
 				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
-					{#if ctx.canEditOnboarding}
+					{#if ctx.canManageWorkflows}
 						<EmptyState
 							message="Set up your onboarding template to get started. Define the requirements new members need to complete."
 							actionLabel="Set Up Template"
@@ -143,6 +143,7 @@
 						{@const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}
 						{@const isExpanded = ctx.expandedOnboardingId === onboarding.id}
 						{@const groupName = ctx.getPersonGroupName(onboarding.personnelId)}
+						{@const canManageThisOnboarding = ctx.canManageOnboarding(onboarding)}
 						<div class="onboarding-card" class:expanded={isExpanded}>
 							<button
 								class="card-summary"
@@ -175,7 +176,7 @@
 
 							{#if isExpanded}
 								<div class="card-detail">
-									{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
+									{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
 										<div class="detail-actions">
 											<button
 												class="btn btn-primary btn-sm"
@@ -262,7 +263,7 @@
 													{#if isInactive}
 														{#if step.completed}
 															<span class="inactive-note">Previously completed</span>
-														{:else if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
+														{:else if canManageThisOnboarding && onboarding.status === 'in_progress'}
 															<button
 																class="btn btn-danger btn-sm"
 																type="button"
@@ -278,7 +279,7 @@
 													{:else}
 														<div class="step-status">
 															{#if step.stepType === 'checkbox'}
-																{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
+																{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
 																	<button
 																		class="checkbox-toggle"
 																		class:checked={step.completed}
@@ -313,10 +314,10 @@
 																	<Stepper
 																		stages={step.stages ?? []}
 																		currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
-																		onStageClick={ctx.canEditOnboarding && onboarding.status === 'in_progress'
+																		onStageClick={canManageThisOnboarding && onboarding.status === 'in_progress'
 																			? (stage) => ctx.handleStageClick(step, stage)
 																			: undefined}
-																		disabled={!ctx.canEditOnboarding || onboarding.status !== 'in_progress'}
+																		disabled={!canManageThisOnboarding || onboarding.status !== 'in_progress'}
 																	/>
 																</div>
 															{/if}
@@ -347,7 +348,7 @@
 
 													{#if ctx.expandedNotes.has(step.id)}
 														<div class="step-notes">
-															{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
+															{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
 																<div class="note-input-row">
 																	<input
 																		type="text"

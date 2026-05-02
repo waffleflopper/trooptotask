@@ -149,6 +149,27 @@ describe('policy evaluator', () => {
 		});
 	});
 
+	it('defines Onboarding workflow actions with distinct read, operate, and configure capabilities', () => {
+		expect(POLICY_ACTION_CATALOG.onboarding.viewWorkflows).toMatchObject({
+			id: 'onboarding.viewWorkflows',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'onboarding' },
+			requiredCapability: 'view'
+		});
+		expect(POLICY_ACTION_CATALOG.onboarding.manageWorkflows).toMatchObject({
+			id: 'onboarding.manageWorkflows',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'onboarding' },
+			requiredCapability: 'operate'
+		});
+		expect(POLICY_ACTION_CATALOG.onboarding.configureWorkflows).toMatchObject({
+			id: 'onboarding.configureWorkflows',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'onboarding' },
+			requiredCapability: 'configure'
+		});
+	});
+
 	it('lets read-only overlays block writes after capability and scope pass', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',

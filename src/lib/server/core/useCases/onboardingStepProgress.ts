@@ -7,6 +7,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
+import { requireOnboardingManagePolicyForOnboarding, requireOnboardingManagePolicyForStep } from './onboardingPolicy';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -28,12 +29,7 @@ interface AdvanceStageInput {
 }
 
 export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): Promise<StepResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const step = await ctx.store.findOne<{
 		id: string;
@@ -192,8 +188,7 @@ export async function refreshTrainingSteps(
 	ctx: WritePorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
-	ctx.auth.requireEdit('onboarding');
-
+	await requireOnboardingManagePolicyForOnboarding({ ...ctx, readOnlyGuard: undefined }, input.onboardingId);
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	const results = await readTrainingStepCompletions(ctx, input);
 
@@ -217,16 +212,11 @@ interface NoteResult {
 }
 
 export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
-	ctx.auth.requireEdit('onboarding');
+	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const userId = ctx.auth.userId;
 	if (!userId) {
 		fail(401, 'Authentication required');
-	}
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
 	}
 
 	const step = await ctx.store.findOne<{
@@ -267,12 +257,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 }
 
 export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promise<void> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
 	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
 		id: stepId
@@ -296,12 +281,7 @@ export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promi
 }
 
 export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	// Fetch the step
 	const step = await ctx.store.findOne<{

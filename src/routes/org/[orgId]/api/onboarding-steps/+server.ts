@@ -10,6 +10,7 @@ import {
 export const PUT = handle<Record<string, unknown>, unknown>({
 	permission: 'onboarding',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const action = input.action as string;
 
@@ -44,6 +45,7 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'onboarding',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const stepId = input.id as string;
 		if (!stepId) fail(400, 'Missing step id');

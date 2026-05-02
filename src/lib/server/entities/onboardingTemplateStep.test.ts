@@ -171,8 +171,9 @@ describe('OnboardingTemplateStepEntity', () => {
 		expect(OnboardingTemplateStepEntity.permission).toBe('onboarding');
 	});
 
-	it('requires full editor', () => {
-		expect(OnboardingTemplateStepEntity.requireFullEditor).toBe(true);
+	it('uses Onboarding configure policy', () => {
+		expect(OnboardingTemplateStepEntity.requireFullEditor).toBeUndefined();
+		expect(OnboardingTemplateStepEntity.policyAction?.id).toBe('onboarding.configureWorkflows');
 	});
 
 	it('has audit config for onboarding_template_step', () => {

@@ -11,6 +11,10 @@
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { subjectDetails } from '$lib/server/auditDetails';
+import {
+	requireOnboardingManagePolicyForOnboarding,
+	requireOnboardingManagePolicyForPersonnel
+} from './onboardingPolicy';
 
 interface StartInput {
 	personnelId: string;
@@ -44,12 +48,7 @@ interface StartResult {
 }
 
 export async function startOnboarding(ctx: WritePorts, input: StartInput): Promise<StartResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForPersonnel(ctx, input.personnelId);
 
 	// Enforce one-active-per-soldier
 	const existing = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -181,12 +180,7 @@ interface LifecycleResult {
 }
 
 export async function cancelOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
 		id
@@ -225,12 +219,7 @@ export async function cancelOnboarding(ctx: WritePorts, id: string): Promise<Lif
 }
 
 export async function reopenOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
 		id
@@ -272,12 +261,7 @@ interface CompleteResult extends LifecycleResult {
 }
 
 export async function completeOnboarding(ctx: WritePorts, id: string): Promise<CompleteResult> {
-	ctx.auth.requireEdit('onboarding');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
 		id

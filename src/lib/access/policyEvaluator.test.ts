@@ -98,6 +98,27 @@ describe('policy evaluator', () => {
 		});
 	});
 
+	it('defines Rating Scheme workflow actions with Rating Scheme lane ownership', () => {
+		expect(POLICY_ACTION_CATALOG.ratingScheme.viewEntries).toMatchObject({
+			id: 'ratingScheme.viewEntries',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
+			requiredCapability: 'view'
+		});
+		expect(POLICY_ACTION_CATALOG.ratingScheme.updateEntries).toMatchObject({
+			id: 'ratingScheme.updateEntries',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
+			requiredCapability: 'operate'
+		});
+		expect(POLICY_ACTION_CATALOG.ratingScheme.configureWorkflows).toMatchObject({
+			id: 'ratingScheme.configureWorkflows',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
+			requiredCapability: 'configure'
+		});
+	});
+
 	it('keeps adjacent roster reference reads owned by the adjacent feature lane', () => {
 		expect(POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences).toMatchObject({
 			id: 'ratingScheme.readRosterReferences',

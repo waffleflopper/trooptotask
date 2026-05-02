@@ -152,6 +152,12 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 export async function fetchRatingSchemeBootstrap(ctx: QueryWithRawStorePorts): Promise<RatingSchemeBootstrap> {
 	await requireFeaturePolicy(
 		ctx,
+		POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
+		{ kind: 'unscoped' },
+		'rating-scheme'
+	);
+	await requireFeaturePolicy(
+		ctx,
 		POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences,
 		{ kind: 'unscoped' },
 		'rating-scheme'

@@ -419,6 +419,30 @@ describe('fetchRatingSchemeBootstrap', () => {
 		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
 	});
 
+	it('allows Rating Scheme view access without Personnel or Leader Book capability', async () => {
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'view'
+				}
+			}
+		});
+		ctx.ratingSchemePersonnelLookup = {
+			listPersonnelLookup: vi.fn().mockResolvedValue([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }])
+		};
+
+		const result = await fetchRatingSchemeBootstrap(ctx);
+
+		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
+	});
+
 	it('does not allow adjacent roster reference reads through Personnel capability alone', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: {

@@ -14,8 +14,8 @@ import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from './featurePolicy';
 import { requireCalendarPolicy } from './calendarPolicy';
-import { requirePolicyDecision } from './policyAuthorization';
 
 /**
  * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
@@ -51,13 +51,13 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
 
-	async function enforceWritePolicy(ctx: C, resource: PolicyResource): Promise<void> {
+	async function requireCrudAuthorization(ctx: C, resource: PolicyResource, resourceId?: string): Promise<void> {
 		if (config.policyAction) {
 			if (config.policyAction.owner.lane === 'calendar') {
 				await requireCalendarPolicy(ctx, config.policyAction, resource);
 				return;
 			}
-			await requirePolicyDecision(ctx, config.policyAction, resource);
+			await requireFeaturePolicy(ctx, config.policyAction, resource, auditResource, resourceId);
 			return;
 		}
 
@@ -77,12 +77,12 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 	return {
 		async create(ctx, data) {
 			if (!config.policyAction) {
-				await enforceWritePolicy(ctx, { kind: 'organization' });
+				await requireCrudAuthorization(ctx, { kind: 'organization' });
 			}
 
 			const validated = parseOrFail(entity.createSchema, data);
 			if (config.policyAction) {
-				await enforceWritePolicy(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
+				await requireCrudAuthorization(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
 			}
 
 			// Group scope: if entity has a personnelIdField, enforce access
@@ -107,13 +107,13 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 
 		async update(ctx, data) {
 			if (!config.policyAction) {
-				await enforceWritePolicy(ctx, { kind: 'organization' });
+				await requireCrudAuthorization(ctx, { kind: 'organization' });
 			}
 
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
 			if (config.policyAction) {
-				await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
+				await requireCrudAuthorization(ctx, await resolvePolicyResourceForRecord(ctx, entity, id), id);
 			}
 
 			// Group scope: enforce by record lookup
@@ -141,7 +141,11 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
+			await requireCrudAuthorization(
+				ctx,
+				config.policyAction ? await resolvePolicyResourceForRecord(ctx, entity, id) : { kind: 'organization' },
+				id
+			);
 
 			// Group scope: enforce by record lookup
 			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {

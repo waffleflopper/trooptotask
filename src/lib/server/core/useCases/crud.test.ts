@@ -168,10 +168,11 @@ describe('createCrudUseCases', () => {
 			expect(ctx.audit.events).toEqual([
 				expect.objectContaining({
 					action: 'policy.denied',
-					resourceType: 'criticalTasks.recordCompletion',
+					resourceType: 'test_record',
 					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
 						reasonCode: 'denied:out-of-scope',
-						resource: { kind: 'group', groupId: 'group-3' }
+						scope: 'out-of-scope'
 					})
 				})
 			]);

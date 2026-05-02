@@ -168,12 +168,33 @@ export const POLICY_ACTION_CATALOG = {
 		})
 	},
 	training: {
+		viewRecords: featureAction({
+			id: 'training.viewRecords',
+			label: 'View training records',
+			lane: 'training',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
 		viewMatrix: featureAction({
 			id: 'training.viewMatrix',
 			label: 'View training matrix',
 			lane: 'training',
 			accessMode: 'read',
 			requiredCapability: 'view'
+		}),
+		recordCompletions: featureAction({
+			id: 'training.recordCompletions',
+			label: 'Record training completions',
+			lane: 'training',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		configureRequirements: featureAction({
+			id: 'training.configureRequirements',
+			label: 'Configure training requirements',
+			lane: 'training',
+			accessMode: 'write',
+			requiredCapability: 'configure'
 		})
 	},
 	criticalTasks: {

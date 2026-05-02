@@ -8,9 +8,11 @@
  * For read-side reporting, see `trainingReportsQuery.ts` and `trainingSummaryQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { WritePorts } from '$lib/server/core/ports';
+import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -27,18 +29,35 @@ interface TrainingTypeRow {
 	expiration_date_only: boolean;
 }
 
+interface TrainingRecordResourceRow {
+	personnel_id: string;
+}
+
+async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string): Promise<PolicyResource> {
+	const record = await ctx.store.findOne<TrainingRecordResourceRow>(
+		entity.table,
+		ctx.auth.orgId,
+		{ id: recordId },
+		'personnel_id'
+	);
+	if (!record?.personnel_id) {
+		return { kind: 'organization' };
+	}
+	return policyResourceForPersonnel(ctx, record.personnel_id);
+}
+
 export async function createTrainingRecord(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
-	ctx.auth.requireEdit('training');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const personnelId = validated.personnelId as string;
 	const trainingTypeId = validated.trainingTypeId as string;
 	const completionDate = (validated.completionDate as string | null) ?? null;
 
-	await ctx.auth.requireGroupAccess(personnelId);
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		await policyResourceForPersonnel(ctx, personnelId),
+		AUDIT_RESOURCE
+	);
 
 	const trainingType = await ctx.store.findOne<TrainingTypeRow>(
 		'training_types',
@@ -85,10 +104,81 @@ export async function createTrainingRecord(ctx: WritePorts, input: Record<string
 	return entity.fromDb(row);
 }
 
-export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void> {
-	ctx.auth.requireEdit('training');
+export async function updateTrainingRecord(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+	const { id, ...fields } = input;
+	if (!id || typeof id !== 'string') {
+		fail(400, 'Missing id');
+	}
 
-	await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id');
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		await policyResourceForTrainingRecord(ctx, id),
+		AUDIT_RESOURCE,
+		id
+	);
+
+	const existing = await ctx.store.findOne<{
+		training_type_id: string;
+		personnel_id: string;
+	}>('personnel_trainings', ctx.auth.orgId, { id });
+
+	let isExpirationDateOnly = false;
+	let expirationMonths: number | null = null;
+
+	if (existing) {
+		const trainingType = await ctx.store.findOne<{
+			expiration_months: number | null;
+			expiration_date_only: boolean | null;
+		}>('training_types', ctx.auth.orgId, { id: existing.training_type_id });
+
+		if (trainingType) {
+			isExpirationDateOnly = trainingType.expiration_date_only ?? false;
+			expirationMonths = trainingType.expiration_months;
+		}
+	}
+
+	const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+	if (fields.completionDate !== undefined) {
+		updates.completion_date = fields.completionDate;
+	}
+
+	if (isExpirationDateOnly) {
+		if (fields.expirationDate !== undefined) {
+			updates.expiration_date = fields.expirationDate;
+		}
+	} else if (fields.completionDate !== undefined) {
+		updates.expiration_date = calculateExpirationDate(fields.completionDate as string, expirationMonths);
+	}
+
+	if (fields.notes !== undefined) updates.notes = fields.notes;
+	if (fields.certificateUrl !== undefined) updates.certificate_url = fields.certificateUrl;
+
+	const row = await ctx.store.update<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId, id, updates);
+
+	ctx.audit.log({
+		action: `${AUDIT_RESOURCE}.updated`,
+		resourceType: AUDIT_RESOURCE,
+		resourceId: id,
+		details: {
+			personnel_id: row.personnel_id,
+			training_type_id: row.training_type_id,
+			completion_date: row.completion_date
+		}
+	});
+
+	return entity.fromDb(row);
+}
+
+export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		await policyResourceForTrainingRecord(ctx, id),
+		AUDIT_RESOURCE,
+		id
+	);
 
 	if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
 		return { requiresApproval: true };

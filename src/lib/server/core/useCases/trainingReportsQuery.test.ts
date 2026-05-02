@@ -364,6 +364,27 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.trainings[0].trainingTypeId).toBe('tt-1');
 	});
 
+	it('denies report reads without Training view capability', async () => {
+		const ctx = createQueryPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(fetchTrainingReportsData(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(generateTrainingReportCsv(ctx)).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('returns empty array when no training records exist', async () => {
 		const ctx = buildCtx();
 

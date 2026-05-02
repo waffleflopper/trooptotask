@@ -7,9 +7,11 @@
  * For single-record mutations, see `trainingRecords.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { calculateExpirationDate } from './trainingRecords';
 import type { WritePorts } from '$lib/server/core/ports';
+import { policyResourcesForPersonnel, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -43,11 +45,6 @@ export async function importTrainingRecords(
 	ctx: WritePorts,
 	input: ImportTrainingRecordsInput
 ): Promise<BatchImportResult> {
-	ctx.auth.requireEdit('training');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -58,9 +55,28 @@ export async function importTrainingRecords(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	// Enforce group scope in one batch call
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	await ctx.auth.requireGroupAccessBatch(uniquePersonnelIds);
+	const personnelResources = await policyResourcesForPersonnel(ctx, uniquePersonnelIds);
+	for (const personnelId of uniquePersonnelIds) {
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.training.recordCompletions,
+			personnelResources.get(personnelId) ?? { kind: 'organization' },
+			AUDIT_RESOURCE,
+			personnelId
+		);
+	}
+
+	const exemptTrainingTypeIds = [...new Set(records.filter((r) => r.status === 'exempt').map((r) => r.trainingTypeId))];
+	for (const trainingTypeId of exemptTrainingTypeIds) {
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			{ kind: 'organization' },
+			'training_type',
+			trainingTypeId
+		);
+	}
 
 	// Prefetch training types in single query
 	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];

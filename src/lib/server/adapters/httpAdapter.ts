@@ -38,7 +38,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
-import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
+import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
@@ -49,6 +49,10 @@ interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
 	isSandbox: boolean;
+}
+
+function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
+	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId;
 }
 
 async function createRequestAuthContext(config: {
@@ -98,7 +102,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		ctx: {
 			store: scopedStore,
@@ -165,7 +169,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,
@@ -218,7 +222,7 @@ export async function buildLayoutContextFromMembership(
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,
@@ -531,6 +535,7 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 // ---------------------------------------------------------------------------
 
 export interface EntityHandlerHooks {
+	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
@@ -552,11 +557,12 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		throw new Error(`entityHandlers: entity "${entity.table}" must have a permission defined`);
 	}
 
+	const policyAction = hooks?.policyAction ?? entity.policyAction;
 	const config: CrudConfig<UseCaseContext> = {
 		entity,
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
-		policyAction: entity.policyAction,
+		policyAction,
 		requireFullEditor: entity.requireFullEditor,
 		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
@@ -571,7 +577,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!entity.policyAction,
+			deferPolicyToUseCase: !!policyAction,
 			fn: (ctx, input) => useCases.create(ctx, input)
 		};
 		result.POST = handle(postConfig);
@@ -582,7 +588,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!entity.policyAction,
+			deferPolicyToUseCase: !!policyAction,
 			fn: (ctx, input) => useCases.update(ctx, input)
 		};
 		result.PUT = handle(putConfig);
@@ -593,7 +599,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
-			deferPolicyToUseCase: !!entity.policyAction,
+			deferPolicyToUseCase: !!policyAction,
 			fn: async (ctx, input) => {
 				const id = input?.id;
 				if (!id || typeof id !== 'string') {

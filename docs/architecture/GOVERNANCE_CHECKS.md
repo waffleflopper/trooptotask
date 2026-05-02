@@ -45,7 +45,7 @@ The legacy authorization removal program is tracked by parent issue `#750`, with
 
 The inventory lives in `docs/architecture/LEGACY_AUTHORIZATION_INVENTORY.md`. The allowlist lives in `legacyAuthorizationAllowlist` inside `docs/architecture/GOVERNANCE_BASELINE.json`.
 
-The guardrail scans production `src` files and Supabase SQL files for legacy authorization entry points. The shared runtime APIs for `requireEdit(...)`, `requireFullEditor`, and `isFullEditor` are no longer allowlisted, so any production reintroduction fails governance unless a future issue explicitly documents a new historical or compatibility classification.
+The guardrail scans production `src` files and Supabase SQL files for legacy authorization entry points. Runtime legacy authorization and runtime legacy affordance classifications are no longer valid allowlist categories after `#768`; remaining production references must be compatibility translation only, historical migration/backfill, or local seed fixtures. The shared runtime APIs for `requireEdit(...)`, `requireFullEditor`, and `isFullEditor` are no longer allowlisted, so any production reintroduction fails governance unless a future issue explicitly documents a new historical or compatibility classification.
 
 - `isFullEditor`
 - `requireFullEditor`

@@ -59,7 +59,6 @@
 		orgId: resolvedData.orgId,
 		orgName: resolvedData.orgName,
 		calendar: resolvedData.calendar ? { data: resolvedData.calendar.data } : undefined,
-		scopedGroupId: resolvedData.scopedGroupId,
 		permissions: resolvedData.permissions
 	}));
 </script>

@@ -3,7 +3,7 @@
  *
  * Returns availability entries, daily assignments, assignment types, pinned groups,
  * rating scheme entries, and active onboarding records for a given date window.
- * All collections are group-scoped when the caller has a `scopedGroupId`.
+ * Scoped collections are filtered through feature-owned Policy Decisions and Scope Set data.
  *
  * Separate from `calendarQuery.ts` because the dashboard shows different widgets and
  * includes data (onboarding, rating scheme) the calendar page doesn't need.

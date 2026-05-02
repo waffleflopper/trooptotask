@@ -17,9 +17,10 @@
 	} from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
-	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
+	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 	import type {
@@ -59,7 +60,6 @@
 			calendar?: {
 				data?: CalendarWorkspaceData;
 			};
-			scopedGroupId?: string | null;
 			rosterHistory: RosterHistoryItem[];
 			advancedDutyTemplates: DutyTemplate[];
 			advancedDutyEvents: DutyEvent[];
@@ -73,10 +73,15 @@
 	type AdvancedWorkspaceView = 'active-run' | 'draft-snapshots' | 'applied-events';
 
 	const org = getOrgContext();
-	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
+	const canManageConfig = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes).allowed
+	);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
-	const canAccessAdvancedDuty = $derived(!data.scopedGroupId && (org.isPrivileged || org.isFullEditor));
-	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
+	const canAccessAdvancedDuty = $derived(
+		org.scopeSet.kind === 'organization' &&
+			org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments).allowed
+	);
+	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty && org.isPrivileged);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<DutyRosterSection>('advanced-workspace');
 	let activeAdvancedWorkspaceView = $state<AdvancedWorkspaceView>('active-run');
@@ -158,7 +163,7 @@
 			fallbackGroupName: data.orgName ?? ''
 		})
 	);
-	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const personnelById = $derived.by(
 		() => new Map(scopedPBG.flatMap((group) => group.personnel.map((person) => [person.id, person] as const)))
 	);
@@ -681,7 +686,7 @@
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
-			<p>Only organization admins and full editors can manage duty rosters.</p>
+			<p>Calendar configuration access is required to manage duty rosters.</p>
 		</section>
 	{:else if activeTab === 'simple-roster'}
 		<DutyRosterWizard

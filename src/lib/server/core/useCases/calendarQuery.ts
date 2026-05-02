@@ -3,8 +3,7 @@
  *
  * `fetchCalendarData(ctx, { rangeStart, rangeEnd })` returns availability entries,
  * special days, assignment types, daily assignments, and pinned groups for the given
- * ISO-string date window. All collections are group-scoped if the caller has a
- * `scopedGroupId` on their AuthContext.
+ * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
  *
  * For onboarding-specific calendar data, see `onboardingCalendarQuery.ts`.
  */

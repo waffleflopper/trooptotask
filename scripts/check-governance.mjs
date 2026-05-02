@@ -19,8 +19,6 @@ const LEGACY_AUTHORIZATION_SIGNALS = [
 	{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ }
 ];
 const VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS = new Set([
-	'runtime-authorization',
-	'runtime-affordance',
 	'compatibility-adapter',
 	'historical-migration',
 	'local-seed-fixture'

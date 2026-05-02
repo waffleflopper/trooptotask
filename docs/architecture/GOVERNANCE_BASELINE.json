@@ -216,19 +216,6 @@
 	],
 	"legacyAuthorizationAllowlist": [
 		{
-			"path": "src/features/duty-roster/components/DutyRosterPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": [
-				"isFullEditor",
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Duty roster affordances still use full-editor and single-Group compatibility gates.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/features/groups/components/OrganizationMemberManager.svelte",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -257,7 +244,7 @@
 		},
 		{
 			"path": "src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
 				"scopedGroupId",
@@ -266,7 +253,7 @@
 				"can_edit_*"
 			],
 			"ownerIssue": "#757",
-			"reason": "Dashboard org access still reads legacy permission columns and single-Group scope as compatibility inputs for client affordances.",
+			"reason": "Dashboard org access reads legacy membership columns only to translate them into Capability Map and Scope Set data.",
 			"driftIds": [
 				"D-01"
 			]
@@ -333,30 +320,6 @@
 			]
 		},
 		{
-			"path": "src/lib/server/core/useCases/calendarQuery.ts",
-			"classification": "runtime-authorization",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Calendar query still applies single-Group scope compatibility filters.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/lib/server/core/useCases/dashboardQuery.ts",
-			"classification": "runtime-authorization",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#757",
-			"reason": "Dashboard query still uses single-Group scope compatibility for visible personnel data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/lib/server/core/useCases/loadOrgShell.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -371,37 +334,37 @@
 		},
 		{
 			"path": "src/lib/server/core/useCases/orgSettingsMemberManagement.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Org settings member management still accepts single-Group compatibility scope.",
+			"reason": "Org settings member management accepts legacy single-Group form input only to persist the replacement Scope Set and compatibility columns.",
 			"driftIds": [
 				"D-01"
 			]
 		},
 		{
 			"path": "src/lib/server/core/useCases/organizationInvitationMembership.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Organization invitation membership still handles legacy edit flags and single-Group compatibility scope.",
+			"reason": "Organization invitation membership maps legacy invite fields into member access compatibility data during invite acceptance.",
 			"driftIds": [
 				"D-01"
 			]
 		},
 		{
 			"path": "src/lib/server/groupAccess.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"scopedGroupId"
 			],
 			"ownerIssue": "#766",
-			"reason": "Group access helper still enforces single-Group scope compatibility.",
+			"reason": "Group access helper remains only for compatibility callers while migrated workflows use Scope Set and Policy Decisions.",
 			"driftIds": [
 				"D-01"
 			]
@@ -437,26 +400,26 @@
 		},
 		{
 			"path": "src/lib/types.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"isFullEditor",
 				"canEdit*",
 				"scopedGroupId"
 			],
 			"ownerIssue": "#767",
-			"reason": "Shared route data types still carry legacy authorization fields until compatibility APIs are deleted.",
+			"reason": "Shared route data types retain legacy compatibility fields for older route data while new authorization uses Capability Map, Scope Set, and Policy Decisions.",
 			"driftIds": [
 				"D-01"
 			]
 		},
 		{
 			"path": "src/lib/utils/scopePersonnel.ts",
-			"classification": "runtime-affordance",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Client-side personnel filtering still accepts single-Group compatibility scope for affordance data.",
+			"reason": "Client-side personnel filtering keeps the old single-Group helper beside the Scope Set helper for transitional callers.",
 			"driftIds": [
 				"D-01"
 			]
@@ -475,56 +438,8 @@
 			]
 		},
 		{
-			"path": "src/routes/org/[orgId]/calendar/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Calendar route still passes single-Group scope compatibility data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/routes/org/[orgId]/calendar/assignments/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Calendar assignments route still passes single-Group scope compatibility data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/routes/org/[orgId]/calendar/bulk/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Calendar bulk route still passes single-Group scope compatibility data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
-			"path": "src/routes/org/[orgId]/calendar/duty-roster/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": [
-				"scopedGroupId"
-			],
-			"ownerIssue": "#759",
-			"reason": "Duty roster route still passes single-Group scope compatibility data.",
-			"driftIds": [
-				"D-01"
-			]
-		},
-		{
 			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
-			"classification": "runtime-affordance",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
 				"scopedGroupId",
@@ -533,20 +448,20 @@
 				"can_edit_*"
 			],
 			"ownerIssue": "#757",
-			"reason": "Settings page load still reads and maps legacy member access fields for the member-management surface.",
+			"reason": "Settings page load maps legacy member access fields for the member-management compatibility surface.",
 			"driftIds": [
 				"D-01"
 			]
 		},
 		{
 			"path": "src/routes/org/[orgId]/settings/+page.svelte",
-			"classification": "runtime-affordance",
+			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Settings page still passes legacy member access fields into member-management UI.",
+			"reason": "Settings page passes legacy member access fields only into the member-management compatibility UI.",
 			"driftIds": [
 				"D-01"
 			]

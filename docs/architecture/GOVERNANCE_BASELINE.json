@@ -14,6 +14,7 @@
 		"docs/architecture/ADR_BACKLOG.md",
 		"docs/architecture/ADR_GUIDANCE.md",
 		"docs/architecture/GOVERNANCE_CHECKS.md",
+		"docs/architecture/LEGACY_AUTHORIZATION_INVENTORY.md",
 		"docs/architecture/V1_RETROFIT_SKILLS_GUIDE.md",
 		"docs/architecture/adrs/0000-template.md"
 	],
@@ -175,6 +176,561 @@
 			"patterns": ["cleanup_expired_demo_sandboxes"],
 			"reason": "Sandbox cleanup remains a deprecated exceptional maintenance path until the runtime callers and schema are removed.",
 			"driftIds": ["D-06"]
+		}
+	],
+	"legacyAuthorizationAllowlist": [
+		{
+			"path": "src/features/calendar/components/AssignmentPlannerPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar assignment planner still derives client affordances from legacy edit/full-editor and single-Group scope inputs.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/calendar/components/BulkStatusPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar bulk status UI still uses full-editor and single-Group scope compatibility inputs.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/calendar/components/CalendarPageView.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#759",
+			"reason": "Calendar page affordances still read legacy canEditCalendar compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/calendar/components/CalendarSettingsPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor"],
+			"ownerIssue": "#759",
+			"reason": "Calendar settings affordances still use full-editor compatibility.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/calendar/contexts/CalendarPageContext.svelte.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar client context still gates interactions with legacy edit/full-editor and single-Group scope inputs.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/calendar/utils/calendarToolbarItems.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#759",
+			"reason": "Calendar toolbar visibility still depends on legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/critical-tasks/components/IctPersonnelDetailPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#762",
+			"reason": "Critical Tasks detail affordances still read legacy canEditCriticalTasks data until the remaining workflow migration finishes.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/duty-roster/components/DutyRosterPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Duty roster affordances still use full-editor and single-Group compatibility gates.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/groups/components/OrganizationMemberManager.svelte",
+			"classification": "compatibility-adapter",
+			"patterns": ["canEdit*", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Member management still displays and submits legacy edit flags and single-Group scope while Capability Map and Scope Set are rolled out.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/onboarding/components/OnboardingPageView.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding page affordances still read legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/onboarding/contexts/OnboardingPageContext.svelte.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding client context still derives interaction gates from legacy full-editor and edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/personnel/components/PersonnelPageView.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#760",
+			"reason": "Personnel page affordances still read legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/personnel/contexts/PersonnelPageContext.svelte.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
+			"ownerIssue": "#760",
+			"reason": "Personnel client context still uses legacy edit/full-editor and single-Group scope gates.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/rating-scheme/components/RatingSchemePageView.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#764",
+			"reason": "Rating Scheme page affordances still read legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/rating-scheme/contexts/RatingSchemePageContext.svelte.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*"],
+			"ownerIssue": "#764",
+			"reason": "Rating Scheme client context still uses full-editor and edit compatibility gates.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/training/components/TrainingModals.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#761",
+			"reason": "Training modal affordances still read legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/training/components/TrainingPageView.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#761",
+			"reason": "Training page affordances still read legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/training/components/TrainingTypesPage.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor"],
+			"ownerIssue": "#761",
+			"reason": "Training type management affordances still use full-editor compatibility.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/features/training/contexts/TrainingPageContext.svelte.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["isFullEditor", "canEdit*"],
+			"ownerIssue": "#761",
+			"reason": "Training client context still uses full-editor and edit compatibility gates.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/access/memberAccessShape.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/httpAdapter.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor", "requireEdit("],
+			"ownerIssue": "#767",
+			"reason": "HTTP request auth context still exposes legacy authorization methods until compatibility APIs are deleted.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/inMemory.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["isFullEditor", "requireFullEditor", "requireEdit(", "scopedGroupId"],
+			"ownerIssue": "#767",
+			"reason": "In-memory adapter still implements legacy auth context and scope compatibility for tests and local ports.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseAuthContext.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor", "requireFullEditor", "requireEdit(", "scopedGroupId"],
+			"ownerIssue": "#767",
+			"reason": "Supabase auth context still exposes legacy full-editor, edit, and single-Group scope authorization methods.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#757",
+			"reason": "Dashboard org access still reads legacy permission columns and single-Group scope as compatibility inputs for client affordances.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#757",
+			"reason": "Member management persistence still round-trips legacy columns while the replacement access shape rolls out.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#757",
+			"reason": "Org shell loading still reads legacy booleans and single-Group scope as compatibility inputs.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/auto-accept-org-invites.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#757",
+			"reason": "Invite acceptance still transfers legacy permission columns and single-Group scope during compatibility migration.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/orgShell.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["isFullEditor", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Org shell domain types still expose legacy full-editor and single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/ports.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor", "requireFullEditor", "requireEdit(", "scopedGroupId"],
+			"ownerIssue": "#767",
+			"reason": "Server port contracts still include legacy auth context methods and scope shape.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/advancedDutyAccess.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor", "requireFullEditor", "scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Advanced duty access still depends on legacy full-editor and single-Group checks.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/calendarQuery.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar query still applies single-Group scope compatibility filters.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/crud.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor", "requireEdit("],
+			"ownerIssue": "#767",
+			"reason": "Shared CRUD still supports legacy full-editor and feature edit authorization options for unmigrated entities.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/dashboardQuery.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Dashboard query still uses single-Group scope compatibility for visible personnel data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/loadOrgShell.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Org shell load still exposes full-editor and single-Group scope compatibility values.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/onboardingLifecycle.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireEdit("],
+			"ownerIssue": "#763",
+			"reason": "Onboarding lifecycle writes still call legacy feature edit authorization.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/onboardingQuery.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding reads still apply single-Group scope compatibility filters.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/onboardingResync.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding resync still requires legacy full-editor authorization.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/onboardingStepProgress.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireEdit("],
+			"ownerIssue": "#763",
+			"reason": "Onboarding step writes still call legacy feature edit authorization.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/orgSettingsMemberManagement.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Org settings member management still accepts single-Group compatibility scope.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/organizationInvitationMembership.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["canEdit*", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Organization invitation membership still handles legacy edit flags and single-Group compatibility scope.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/personnel.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor"],
+			"ownerIssue": "#760",
+			"reason": "Personnel use case still checks full-editor compatibility for selected workflows.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor"],
+			"ownerIssue": "#764",
+			"reason": "Rating Scheme CRUD still uses full-editor compatibility for selected behaviors.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/core/useCases/trainingRecords.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor"],
+			"ownerIssue": "#761",
+			"reason": "Training records still use full-editor compatibility for selected paths.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/entities/onboardingTemplate.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding template entity wiring still declares legacy full-editor requirements.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/entities/onboardingTemplateStep.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor"],
+			"ownerIssue": "#763",
+			"reason": "Onboarding template step entity wiring still declares legacy full-editor requirements.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/entitySchema.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["requireFullEditor"],
+			"ownerIssue": "#767",
+			"reason": "Entity schema still supports legacy full-editor authorization metadata.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/groupAccess.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#766",
+			"reason": "Group access helper still enforces single-Group scope compatibility.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/server/permissionContext.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"requireFullEditor",
+				"requireEdit(",
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#767",
+			"reason": "Permission context remains the central legacy compatibility adapter until replacement APIs fully own authorization.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/stores/orgContext.svelte.ts",
+			"classification": "compatibility-adapter",
+			"patterns": ["isFullEditor", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Client org context still exposes full-editor and single-Group compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/types.ts",
+			"classification": "runtime-authorization",
+			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
+			"ownerIssue": "#767",
+			"reason": "Shared route data types still carry legacy authorization fields until compatibility APIs are deleted.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/lib/utils/scopePersonnel.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Client-side personnel filtering still accepts single-Group compatibility scope for affordance data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/+layout.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Org layout still passes legacy edit and single-Group compatibility data to client context.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/calendar/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar route still passes single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/calendar/assignments/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar assignments route still passes single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/calendar/bulk/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Calendar bulk route still passes single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/calendar/duty-roster/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#759",
+			"reason": "Duty roster route still passes single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/critical-tasks/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*"],
+			"ownerIssue": "#762",
+			"reason": "Critical Tasks route still passes legacy edit compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/personnel/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["scopedGroupId"],
+			"ownerIssue": "#760",
+			"reason": "Personnel route still passes single-Group scope compatibility data.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#757",
+			"reason": "Settings page load still reads and maps legacy member access fields for the member-management surface.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/+page.svelte",
+			"classification": "runtime-affordance",
+			"patterns": ["canEdit*", "scopedGroupId"],
+			"ownerIssue": "#757",
+			"reason": "Settings page still passes legacy member access fields into member-management UI.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260413001158_remote_schema.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical remote schema snapshot preserves legacy authorization columns and helpers.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260414000100_critical_tasks_foundation.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical Critical Tasks foundation migration preserves legacy RLS/helper behavior.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260421000100_critical_tasks_permission_lane.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical Critical Tasks lane migration still defines legacy database helper compatibility.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260423000100_rating_scheme_permission_lane.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical Rating Scheme lane migration still defines legacy database helper compatibility.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260423000200_rating_scheme_helper_search_path.sql",
+			"classification": "historical-migration",
+			"patterns": ["can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical helper search-path migration references legacy database helper names.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260423000300_ensure_rating_scheme_personnel_lookup.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*"],
+			"ownerIssue": "#766",
+			"reason": "Historical Rating Scheme personnel lookup migration still preserves single-Group scope helper behavior.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/migrations/20260501000100_member_access_storage.sql",
+			"classification": "historical-migration",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Member access storage migration intentionally backfills replacement access data from legacy columns.",
+			"driftIds": ["D-01"]
+		},
+		{
+			"path": "supabase/seed.sql",
+			"classification": "local-seed-fixture",
+			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],
+			"ownerIssue": "#766",
+			"reason": "Local seed data still includes legacy authorization columns as fixture compatibility.",
+			"driftIds": ["D-01"]
 		}
 	],
 	"featurePermissionCouplings": []

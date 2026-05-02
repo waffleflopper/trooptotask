@@ -14,7 +14,15 @@
  */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isFullEditor as hasFullEditorPermissions } from '$lib/access/memberAccessShape';
+import {
+	isFullEditor as hasFullEditorPermissions,
+	resolveStoredMemberAccessShape,
+	toMemberAccessShape,
+	type CapabilityMap,
+	type CapabilityOverrideMap,
+	type ScopeSet,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { FeatureArea } from './core/ports';
 import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
@@ -28,6 +36,8 @@ export interface PermissionContext {
 	readonly isPrivileged: boolean;
 	readonly isFullEditor: boolean;
 	readonly scopedGroupId: string | null;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
 	readonly canView: Record<FeatureArea, boolean>;
 	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
@@ -68,6 +78,8 @@ export function createSandboxContext(): PermissionContext {
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
+		capabilityMap: buildPrivilegedCapabilityMap(),
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
@@ -106,6 +118,10 @@ export interface MembershipRow {
 	can_view_leaders_book: boolean;
 	can_edit_leaders_book: boolean;
 	can_manage_members: boolean;
+	member_preset?: StoredMemberPreset | null;
+	capability_overrides?: CapabilityOverrideMap | null;
+	access_scope_kind?: ScopeSet['kind'] | null;
+	access_scope_group_ids?: string[] | null;
 }
 
 /**
@@ -163,6 +179,28 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 	};
 
 	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
+	const memberAccess = resolveMembershipAccess({
+		membership,
+		isPrivileged,
+		scopedGroupId,
+		effectivePermissions: {
+			canViewCalendar: canView.calendar,
+			canEditCalendar: canEdit.calendar,
+			canViewPersonnel: canView.personnel,
+			canEditPersonnel: canEdit.personnel,
+			canViewTraining: canView.training,
+			canEditTraining: canEdit.training,
+			canViewCriticalTasks: canView['critical-tasks'],
+			canEditCriticalTasks: canEdit['critical-tasks'],
+			canViewOnboarding: canView.onboarding,
+			canEditOnboarding: canEdit.onboarding,
+			canViewRatingScheme: canView['rating-scheme'],
+			canEditRatingScheme: canEdit['rating-scheme'],
+			canViewLeadersBook: canView['leaders-book'],
+			canEditLeadersBook: canEdit['leaders-book'],
+			canManageMembers
+		}
+	});
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
@@ -184,6 +222,8 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isPrivileged,
 		isFullEditor,
 		scopedGroupId,
+		capabilityMap: memberAccess.capabilityMap,
+		scopeSet: memberAccess.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
@@ -280,7 +320,7 @@ export async function getMembershipRow(
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
@@ -291,4 +331,78 @@ export async function getMembershipRow(
 	}
 
 	return membership as MembershipRow;
+}
+
+function resolveMembershipAccess(input: {
+	membership: MembershipRow;
+	isPrivileged: boolean;
+	scopedGroupId: string | null;
+	effectivePermissions: OrganizationMemberPermissions;
+}) {
+	const storedPreset = normalizeStoredPreset(input.membership.member_preset);
+	if (storedPreset) {
+		return resolveStoredMemberAccessShape({
+			membershipRole: input.membership.role,
+			memberPreset: storedPreset,
+			capabilityOverrides: input.membership.capability_overrides,
+			scopeSet: normalizeStoredScopeSet(input.membership),
+			canManageMembers: input.membership.can_manage_members
+		});
+	}
+
+	if (input.isPrivileged) {
+		return toMemberAccessShape({
+			membershipRole: input.membership.role,
+			permissions: {
+				...input.effectivePermissions,
+				canViewCalendar: true,
+				canEditCalendar: true,
+				canViewPersonnel: true,
+				canEditPersonnel: true,
+				canViewTraining: true,
+				canEditTraining: true,
+				canViewCriticalTasks: true,
+				canEditCriticalTasks: true,
+				canViewOnboarding: true,
+				canEditOnboarding: true,
+				canViewRatingScheme: true,
+				canEditRatingScheme: true,
+				canViewLeadersBook: true,
+				canEditLeadersBook: true
+			},
+			scopedGroupId: null
+		});
+	}
+
+	return toMemberAccessShape({
+		membershipRole: input.membership.role,
+		permissions: input.effectivePermissions,
+		scopedGroupId: input.scopedGroupId
+	});
+}
+
+function normalizeStoredPreset(value: StoredMemberPreset | null | undefined): StoredMemberPreset | null {
+	return value === 'viewer' || value === 'operator' || value === 'editor' ? value : null;
+}
+
+function normalizeStoredScopeSet(membership: MembershipRow): ScopeSet {
+	if (membership.access_scope_kind === 'groups') {
+		const groupIds = Array.isArray(membership.access_scope_group_ids)
+			? membership.access_scope_group_ids.filter(Boolean)
+			: [];
+		return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+	}
+
+	return { kind: 'organization' };
+}
+
+function buildPrivilegedCapabilityMap(): CapabilityMap {
+	return {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	};
 }

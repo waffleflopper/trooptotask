@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchRosterHistory } from './rosterHistoryQuery';
 
@@ -9,13 +9,24 @@ function buildCtx() {
 }
 
 describe('fetchRosterHistory', () => {
-	it('calls requireView for calendar permission', async () => {
-		const ctx = buildCtx();
-		const spy = vi.spyOn(ctx.auth, 'requireView');
+	it('requires an authoritative Calendar view policy decision', async () => {
+		const ctx = createQueryPortsContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
 
-		await fetchRosterHistory(ctx);
-
-		expect(spy).toHaveBeenCalledWith('calendar');
+		await expect(fetchRosterHistory(ctx)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to view calendar data'
+		});
 	});
 
 	it('returns roster history with entity transforms', async () => {

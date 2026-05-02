@@ -211,4 +211,39 @@ describe('policy evaluator', () => {
 			deniedGovernanceRole: 'denied:governance-role'
 		});
 	});
+
+	it('represents Calendar view, operate, and configure workflows in the action catalog', () => {
+		expect(POLICY_ACTION_CATALOG.calendar).toMatchObject({
+			viewAvailability: {
+				id: 'calendar.viewAvailability',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'read',
+				requiredCapability: 'view'
+			},
+			manageAvailability: {
+				id: 'calendar.manageAvailability',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'operate'
+			},
+			configureStatusTypes: {
+				id: 'calendar.configureStatusTypes',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'configure'
+			},
+			configureSpecialDays: {
+				id: 'calendar.configureSpecialDays',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'configure'
+			},
+			configureAssignmentTypes: {
+				id: 'calendar.configureAssignmentTypes',
+				owner: { kind: 'feature-lane', lane: 'calendar' },
+				accessMode: 'write',
+				requiredCapability: 'configure'
+			}
+		});
+	});
 });

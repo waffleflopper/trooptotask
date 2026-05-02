@@ -11,6 +11,7 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
 import { findDutyCoverageConflictsBatch, type DutyCoverageConflictCheck } from './dutyAvailability';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy } from './calendarPolicy';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -58,11 +59,6 @@ interface BatchResult {
 }
 
 export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -88,6 +84,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 				.map((record) => record.assigneeId)
 		)
 	];
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, assigneeIds);
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
 	}

@@ -104,16 +104,32 @@ describe('resetFederalHolidays use case', () => {
 		await expect(resetUseCase(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('requires edit permission on calendar', async () => {
+	it('requires Calendar configure capability', async () => {
 		const ctx = buildContext({
 			auth: {
-				requireEdit() {
-					throw new Error('No edit permission');
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
 				}
 			}
 		});
 		const resetUseCase = createResetFederalHolidaysUseCase();
 
-		await expect(resetUseCase(ctx)).rejects.toThrow('No edit permission');
+		await expect(resetUseCase(ctx)).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar configuration access'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.configureSpecialDays',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
 	});
 });

@@ -13,6 +13,8 @@ import type { WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 
 /**
  * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
@@ -46,19 +48,24 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
+	const calendarPolicyAction = getCalendarCrudPolicyAction(config as CrudConfig);
 
 	return {
 		async create(ctx, data) {
-			if (config.requirePrivileged) {
+			if (calendarPolicyAction) {
+				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
+			} else if (config.requirePrivileged) {
 				ctx.auth.requirePrivileged();
 			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
-			ctx.auth.requireEdit(permission);
+			if (!calendarPolicyAction) {
+				ctx.auth.requireEdit(permission);
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
+				const isReadOnly = await ctx.readOnlyGuard.check();
+				if (isReadOnly) {
+					fail(403, 'Organization is in read-only mode');
+				}
 			}
 
 			const validated = parseOrFail(entity.createSchema, data);
@@ -84,16 +91,20 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (config.requirePrivileged) {
+			if (calendarPolicyAction) {
+				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
+			} else if (config.requirePrivileged) {
 				ctx.auth.requirePrivileged();
 			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
-			ctx.auth.requireEdit(permission);
+			if (!calendarPolicyAction) {
+				ctx.auth.requireEdit(permission);
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
+				const isReadOnly = await ctx.readOnlyGuard.check();
+				if (isReadOnly) {
+					fail(403, 'Organization is in read-only mode');
+				}
 			}
 
 			const validated = parseOrFail(entity.updateSchema, data);
@@ -124,16 +135,20 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (config.requirePrivileged) {
+			if (calendarPolicyAction) {
+				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
+			} else if (config.requirePrivileged) {
 				ctx.auth.requirePrivileged();
 			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
-			ctx.auth.requireEdit(permission);
+			if (!calendarPolicyAction) {
+				ctx.auth.requireEdit(permission);
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
+				const isReadOnly = await ctx.readOnlyGuard.check();
+				if (isReadOnly) {
+					fail(403, 'Organization is in read-only mode');
+				}
 			}
 
 			// Group scope: enforce by record lookup
@@ -159,4 +174,21 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			}
 		}
 	};
+}
+
+function getCalendarCrudPolicyAction(config: CrudConfig): FeatureLanePolicyAction | null {
+	if (config.permission !== 'calendar') {
+		return null;
+	}
+
+	switch (config.auditResource) {
+		case 'status_type':
+			return CALENDAR_POLICY_ACTIONS.configureStatusTypes;
+		case 'special_day':
+			return CALENDAR_POLICY_ACTIONS.configureSpecialDays;
+		case 'assignment_type':
+			return CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
+		default:
+			return config.requireFullEditor ? CALENDAR_POLICY_ACTIONS.configureAssignmentTypes : null;
+	}
 }

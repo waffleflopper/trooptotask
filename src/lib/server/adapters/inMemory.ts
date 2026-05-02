@@ -301,6 +301,15 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		isPrivileged: true,
 		isFullEditor: true,
 		scopedGroupId: null,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},

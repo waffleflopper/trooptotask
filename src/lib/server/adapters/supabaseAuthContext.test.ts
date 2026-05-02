@@ -21,6 +21,15 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,

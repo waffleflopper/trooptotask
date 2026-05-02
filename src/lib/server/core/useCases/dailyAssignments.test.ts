@@ -122,6 +122,49 @@ describe('replaceDailyAssignments', () => {
 		expect(stored[0]?.id).toBe('old-1');
 	});
 
+	it('denies replacing existing assignments outside the shared multi-Group policy scope', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		ctx.store.seed('personnel', [{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'old-1',
+				organization_id: 'test-org',
+				date: '2025-04-01',
+				assignment_type_id: 'at-1',
+				assignee_id: 'p-outside-group'
+			}
+		]);
+
+		await expect(
+			replaceDailyAssignments(ctx, {
+				date: '2025-04-01',
+				records: []
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]?.id).toBe('old-1');
+	});
+
 	it('rejects replacing a day when a new assignee already has overlapping duty coverage', async () => {
 		const ctx = buildContext();
 
@@ -271,6 +314,49 @@ describe('createDailyAssignment', () => {
 
 		expect(result).toMatchObject({ assigneeId: 'Front Desk', assignmentTypeId: 'at-group' });
 		expect(requireGroupAccess).not.toHaveBeenCalled();
+	});
+
+	it('denies group assignees outside the shared multi-Group policy scope', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+
+		await expect(
+			createDailyAssignment(ctx, {
+				date: '2025-04-01',
+				assignmentTypeId: 'at-group',
+				assigneeId: 'group-c'
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 	});
 });
 
@@ -569,6 +655,45 @@ describe('deleteDailyAssignment', () => {
 	});
 });
 
+describe('updateDailyAssignment', () => {
+	it('denies updating an existing assignment outside the shared multi-Group policy scope', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		ctx.store.seed('personnel', [{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'da-1',
+				organization_id: 'test-org',
+				date: '2025-04-01',
+				assignment_type_id: 'at-1',
+				assignee_id: 'p-outside-group'
+			}
+		]);
+
+		await expect(updateDailyAssignment(ctx, { id: 'da-1', date: '2025-04-02' })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored[0]).toMatchObject({ id: 'da-1', date: '2025-04-01' });
+	});
+});
+
 describe('clearDailyAssignment', () => {
 	it('rejects clearing an assignment slot when the existing assignee is outside the scoped group', async () => {
 		const groupAccessError = new Error('Group access denied');
@@ -624,16 +749,32 @@ describe('read-only and permission guards', () => {
 		await expect(deleteDailyAssignment(ctx, 'da-1')).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('rejects when user lacks calendar edit permission', async () => {
+	it('rejects when user lacks Calendar operate capability', async () => {
 		const ctx = buildContext({
 			auth: {
-				requireEdit() {
-					throw new Error('No edit permission');
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
 				}
 			}
 		});
 		await expect(
 			createDailyAssignment(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1', assigneeId: 'p-1' })
-		).rejects.toThrow('No edit permission');
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar operation access'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.manageAvailability',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
 	});
 });

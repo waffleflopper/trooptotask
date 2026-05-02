@@ -52,8 +52,9 @@
 		ctx.workflowFilter = value as WorkflowStatus | 'all';
 	};
 	const canViewRatingScheme = $derived(ctx.canViewRatingScheme);
-	const showRatingSchemeWriteActions = $derived(ctx.showRatingSchemeWriteActions);
-	const canUseRatingSchemeWriteActions = $derived(ctx.canUseRatingSchemeWriteActions);
+	const ratingSchemeWriteAffordance = $derived(ctx.ratingSchemeWriteAffordance);
+	const showRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.visible);
+	const canUseRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.allowed);
 	const ratingStats = $derived(ctx.ratingStats);
 	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
 	const activeFilterCount = $derived(
@@ -95,7 +96,7 @@
 				label: 'Add Entry',
 				onclick: () => ctx.handleAddRatingEntry(),
 				disabled: !canUseRatingSchemeWriteActions,
-				disabledReason: ctx.ratingSchemeWriteAffordance.explanation,
+				disabledReason: ratingSchemeWriteAffordance.explanation,
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'

@@ -40,10 +40,7 @@ export async function createDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
-	await requireDeletionRequestPolicy(ctx, input);
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+	await requireCreateDeletionRequestPolicy(ctx, input);
 
 	// Check for existing pending request for the same resource
 	const existing = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
@@ -93,7 +90,7 @@ export async function createDeletionRequest(
 	return row;
 }
 
-async function requireDeletionRequestPolicy(
+async function requireCreateDeletionRequestPolicy(
 	ctx: WriteWithNotificationsPorts,
 	input: Pick<CreateDeletionRequestInput, 'resourceType' | 'resourceId'>
 ): Promise<void> {

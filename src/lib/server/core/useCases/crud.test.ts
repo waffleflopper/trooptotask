@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
@@ -131,6 +131,39 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
+		it('uses create-resource policy resolution for policyAction creates without consulting legacy privileged auth', async () => {
+			const requirePrivileged = vi.fn(() => {
+				throw new Error('legacy privileged fallback should not authorize policy CRUD create');
+			});
+			const ctx = buildContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					requirePrivileged,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-2'] }
+				}
+			});
+			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-2', last_name: 'Able' }]);
+			const { create } = createCrudUseCases({
+				...crudConfig,
+				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
+			});
+
+			await expect(create(ctx, { personnelId: 'p-1', notes: 'done' })).resolves.toMatchObject({
+				personnelId: 'p-1'
+			});
+			expect(requirePrivileged).not.toHaveBeenCalled();
+		});
+
 		it('denies policy writes outside a multi-group scope set and captures an audit event', async () => {
 			const ctx = buildContext({
 				auth: {
@@ -170,6 +203,51 @@ describe('createCrudUseCases', () => {
 					})
 				})
 			]);
+		});
+
+		it('retains the legacy privileged fallback for create configs without policyAction', async () => {
+			const requirePrivileged = vi.fn();
+			const requireGroupAccess = vi.fn(async () => {
+				throw new Error('group access denied');
+			});
+			const ctx = buildContext({
+				auth: {
+					requirePrivileged,
+					requireGroupAccess
+				}
+			});
+			const { create } = createCrudUseCases({
+				...noPolicyCrudConfig,
+				requirePrivileged: true
+			});
+
+			await expect(create(ctx, { personnelId: 'p-legacy', notes: 'legacy' })).rejects.toThrow('group access denied');
+			expect(requirePrivileged).toHaveBeenCalledOnce();
+			expect(requireGroupAccess).toHaveBeenCalledWith('p-legacy');
+			const stored = await ctx.store.findMany('test_records', 'test-org');
+			expect(stored).toHaveLength(0);
+		});
+
+		it('retains the legacy privileged fallback when requirePrivileged is explicitly configured with policyAction', async () => {
+			const requirePrivileged = vi.fn(() => {
+				throw new Error('Requires owner or admin');
+			});
+			const ctx = buildContext({
+				auth: {
+					requirePrivileged
+				}
+			});
+			const { create } = createCrudUseCases({
+				...crudConfig,
+				requirePrivileged: true
+			});
+
+			await expect(create(ctx, { personnelId: 'p-legacy', notes: 'legacy' })).rejects.toThrow(
+				'Requires owner or admin'
+			);
+			expect(requirePrivileged).toHaveBeenCalledOnce();
+			const stored = await ctx.store.findMany('test_records', 'test-org');
+			expect(stored).toHaveLength(0);
 		});
 
 		it('enforces group scope via personnelIdField', async () => {

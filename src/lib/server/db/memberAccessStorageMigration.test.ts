@@ -19,7 +19,6 @@ describe('member access storage migration', () => {
 		expect(normalized).toContain('add column if not exists "capability_overrides" jsonb');
 		expect(normalized).toContain('add column if not exists "access_scope_kind" text');
 		expect(normalized).toContain('add column if not exists "access_scope_group_ids" uuid[]');
-		expect(normalized).toContain('add column if not exists "access_scope_personnel_ids" uuid[]');
 		expect(normalized).toContain('alter table "public"."organization_invitations"');
 	});
 
@@ -40,6 +39,8 @@ describe('member access storage migration', () => {
 		expect(normalized).toContain('create or replace function "public"."member_access_group_scope_matches"');
 		expect(normalized).toContain('"p_group_id" = any("organization_memberships"."access_scope_group_ids")');
 		expect(normalized).toContain('"organization_memberships"."access_scope_kind" = \'organization\'');
+		expect(normalized).toContain('intentionally limited to organization-wide or one-or-more groups');
+		expect(normalized).not.toContain('access_scope_personnel_ids');
 		expect(normalized).not.toContain('calendar_scope_group_ids');
 		expect(normalized).not.toContain('personnel_scope_group_ids');
 	});

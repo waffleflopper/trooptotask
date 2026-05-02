@@ -61,6 +61,7 @@ Date: 2026-04-21
 - Model scope as a shared member scope set across all scoped feature lanes:
   - organization-wide
   - one or more `Group`s
+- Do not reserve personnel-specific member scope storage in the v1 replacement model. If personnel-scoped access becomes necessary later, introduce it through a new ADR or approved slice that defines its policy semantics, RLS behavior, UI affordances, and audit behavior together.
 - Do not introduce per-feature scope matrices in the replacement model.
 - Treat read-only billing locks, delete-approval workflows, and owner-only danger operations as explicit policy overlays rather than part of the feature capability ladder itself.
 - Name the intended first-class v1 feature lanes now:
@@ -119,6 +120,7 @@ Date: 2026-04-21
   - `Leader's Book` remains a transitional compatibility concern rather than a fully resolved boundary
 - New risks or migration costs:
   - multi-group scope and capability-map storage need careful migration and RLS work
+  - production rollout of member-access storage requires the `docs/architecture/MEMBER_ACCESS_STORAGE_BACKFILL_RUNBOOK.md` lock-risk and chunked-backfill guidance before remote migrations are run
   - docs can outrun implementation if follow-up slices do not land in a staged way
   - lane separation work must avoid pretending Rating Scheme and Leaders Book boundaries are already clean
 
@@ -147,6 +149,7 @@ Date: 2026-04-21
 - Related drift IDs: `D-01`, `D-03`, `D-04`
 - Related docs:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
+  - `docs/architecture/MEMBER_ACCESS_STORAGE_BACKFILL_RUNBOOK.md`
   - `docs/architecture/DRIFT_LEDGER.md`
   - `docs/architecture/V1_CHANGE_INTENT.md`
   - `docs/architecture/ADR_GUIDANCE.md`

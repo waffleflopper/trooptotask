@@ -2,15 +2,13 @@ ALTER TABLE "public"."organization_memberships"
   ADD COLUMN IF NOT EXISTS "member_preset" text,
   ADD COLUMN IF NOT EXISTS "capability_overrides" jsonb,
   ADD COLUMN IF NOT EXISTS "access_scope_kind" text,
-  ADD COLUMN IF NOT EXISTS "access_scope_group_ids" uuid[],
-  ADD COLUMN IF NOT EXISTS "access_scope_personnel_ids" uuid[];
+  ADD COLUMN IF NOT EXISTS "access_scope_group_ids" uuid[];
 
 ALTER TABLE "public"."organization_invitations"
   ADD COLUMN IF NOT EXISTS "member_preset" text,
   ADD COLUMN IF NOT EXISTS "capability_overrides" jsonb,
   ADD COLUMN IF NOT EXISTS "access_scope_kind" text,
-  ADD COLUMN IF NOT EXISTS "access_scope_group_ids" uuid[],
-  ADD COLUMN IF NOT EXISTS "access_scope_personnel_ids" uuid[];
+  ADD COLUMN IF NOT EXISTS "access_scope_group_ids" uuid[];
 
 CREATE OR REPLACE FUNCTION "public"."member_access_capability_level"("p_can_view" boolean, "p_can_edit" boolean)
 RETURNS text
@@ -39,6 +37,7 @@ $$;
 -- Backfill current boolean permission flags into transitional member-access storage.
 -- This keeps the legacy flags as compatibility scaffolding while the destination model
 -- persists platform Member Preset lineage, explicit capability overrides, and shared Scope Set data.
+-- Scope Set storage is intentionally limited to organization-wide or one-or-more Groups.
 UPDATE "public"."organization_memberships"
 SET
   "member_preset" = CASE
@@ -80,15 +79,13 @@ SET
       CASE WHEN "scoped_group_id" IS NOT NULL THEN 'operate' WHEN "can_edit_calendar" AND "can_edit_personnel" AND "can_edit_training" AND "can_edit_critical_tasks" AND "can_edit_onboarding" AND "can_edit_rating_scheme" THEN 'configure' ELSE 'view' END,
       "can_view_rating_scheme",
       "can_edit_rating_scheme"
-    ))),
+  ))),
   "access_scope_kind" = CASE WHEN "scoped_group_id" IS NOT NULL THEN 'groups' ELSE 'organization' END,
-  "access_scope_group_ids" = CASE WHEN "scoped_group_id" IS NOT NULL THEN ARRAY["scoped_group_id"] ELSE ARRAY[]::uuid[] END,
-  "access_scope_personnel_ids" = ARRAY[]::uuid[]
+  "access_scope_group_ids" = CASE WHEN "scoped_group_id" IS NOT NULL THEN ARRAY["scoped_group_id"] ELSE ARRAY[]::uuid[] END
 WHERE "member_preset" IS NULL
    OR "capability_overrides" IS NULL
    OR "access_scope_kind" IS NULL
-   OR "access_scope_group_ids" IS NULL
-   OR "access_scope_personnel_ids" IS NULL;
+   OR "access_scope_group_ids" IS NULL;
 
 UPDATE "public"."organization_invitations"
 SET
@@ -131,15 +128,13 @@ SET
       CASE WHEN "scoped_group_id" IS NOT NULL THEN 'operate' WHEN "can_edit_calendar" AND "can_edit_personnel" AND "can_edit_training" AND "can_edit_critical_tasks" AND "can_edit_onboarding" AND "can_edit_rating_scheme" THEN 'configure' ELSE 'view' END,
       "can_view_rating_scheme",
       "can_edit_rating_scheme"
-    ))),
+  ))),
   "access_scope_kind" = CASE WHEN "scoped_group_id" IS NOT NULL THEN 'groups' ELSE 'organization' END,
-  "access_scope_group_ids" = CASE WHEN "scoped_group_id" IS NOT NULL THEN ARRAY["scoped_group_id"] ELSE ARRAY[]::uuid[] END,
-  "access_scope_personnel_ids" = ARRAY[]::uuid[]
+  "access_scope_group_ids" = CASE WHEN "scoped_group_id" IS NOT NULL THEN ARRAY["scoped_group_id"] ELSE ARRAY[]::uuid[] END
 WHERE "member_preset" IS NULL
    OR "capability_overrides" IS NULL
    OR "access_scope_kind" IS NULL
-   OR "access_scope_group_ids" IS NULL
-   OR "access_scope_personnel_ids" IS NULL;
+   OR "access_scope_group_ids" IS NULL;
 
 ALTER TABLE "public"."organization_memberships"
   ALTER COLUMN "member_preset" SET DEFAULT 'viewer',
@@ -149,9 +144,7 @@ ALTER TABLE "public"."organization_memberships"
   ALTER COLUMN "access_scope_kind" SET DEFAULT 'organization',
   ALTER COLUMN "access_scope_kind" SET NOT NULL,
   ALTER COLUMN "access_scope_group_ids" SET DEFAULT ARRAY[]::uuid[],
-  ALTER COLUMN "access_scope_group_ids" SET NOT NULL,
-  ALTER COLUMN "access_scope_personnel_ids" SET DEFAULT ARRAY[]::uuid[],
-  ALTER COLUMN "access_scope_personnel_ids" SET NOT NULL;
+  ALTER COLUMN "access_scope_group_ids" SET NOT NULL;
 
 ALTER TABLE "public"."organization_invitations"
   ALTER COLUMN "member_preset" SET DEFAULT 'viewer',
@@ -161,9 +154,7 @@ ALTER TABLE "public"."organization_invitations"
   ALTER COLUMN "access_scope_kind" SET DEFAULT 'organization',
   ALTER COLUMN "access_scope_kind" SET NOT NULL,
   ALTER COLUMN "access_scope_group_ids" SET DEFAULT ARRAY[]::uuid[],
-  ALTER COLUMN "access_scope_group_ids" SET NOT NULL,
-  ALTER COLUMN "access_scope_personnel_ids" SET DEFAULT ARRAY[]::uuid[],
-  ALTER COLUMN "access_scope_personnel_ids" SET NOT NULL;
+  ALTER COLUMN "access_scope_group_ids" SET NOT NULL;
 
 ALTER TABLE "public"."organization_memberships"
   DROP CONSTRAINT IF EXISTS "organization_memberships_member_preset_check",

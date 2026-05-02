@@ -196,22 +196,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/features/onboarding/components/OnboardingPageView.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding page affordances still read legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/onboarding/contexts/OnboardingPageContext.svelte.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding client context still derives interaction gates from legacy full-editor and edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/features/rating-scheme/components/RatingSchemePageView.svelte",
 			"classification": "runtime-affordance",
 			"patterns": ["canEdit*"],
@@ -348,38 +332,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/lib/server/core/useCases/onboardingLifecycle.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["requireEdit("],
-			"ownerIssue": "#763",
-			"reason": "Onboarding lifecycle writes still call legacy feature edit authorization.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/onboardingQuery.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["scopedGroupId"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding reads still apply single-Group scope compatibility filters.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/onboardingResync.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["requireFullEditor"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding resync still requires legacy full-editor authorization.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/onboardingStepProgress.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["requireEdit("],
-			"ownerIssue": "#763",
-			"reason": "Onboarding step writes still call legacy feature edit authorization.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/lib/server/core/useCases/orgSettingsMemberManagement.ts",
 			"classification": "runtime-authorization",
 			"patterns": ["scopedGroupId"],
@@ -401,22 +353,6 @@
 			"patterns": ["isFullEditor"],
 			"ownerIssue": "#764",
 			"reason": "Rating Scheme CRUD still uses full-editor compatibility for selected behaviors.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/entities/onboardingTemplate.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["requireFullEditor"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding template entity wiring still declares legacy full-editor requirements.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/entities/onboardingTemplateStep.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["requireFullEditor"],
-			"ownerIssue": "#763",
-			"reason": "Onboarding template step entity wiring still declares legacy full-editor requirements.",
 			"driftIds": ["D-01"]
 		},
 		{

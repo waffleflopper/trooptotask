@@ -17,6 +17,16 @@ export const changelog: ChangelogEntry[] = [
 		]
 	},
 	{
+		id: '2026-04-23-access-control-improvements',
+		date: '2026-04-23',
+		title: 'Clearer Access Controls',
+		items: [
+			'TroopToTask now has more precise access controls, so leaders can give people access to the tools they need without opening up unrelated areas',
+			'Rating Scheme access is now managed on its own, separate from Personnel and Leader’s Book access, making permissions easier to understand and safer to adjust',
+			'Navigation and page access now line up more closely with each person’s assigned permissions, so users see fewer dead ends and fewer areas they should not be working in'
+		]
+	},
+	{
 		id: '2026-04-15-upcoming-losses',
 		date: '2026-04-15',
 		title: 'Upcoming Loss Tracking',

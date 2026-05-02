@@ -156,6 +156,27 @@ export const POLICY_ACTION_CATALOG = {
 		})
 	},
 	ratingScheme: {
+		viewEntries: featureAction({
+			id: 'ratingScheme.viewEntries',
+			label: 'View rating scheme entries',
+			lane: 'ratingScheme',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		updateEntries: featureAction({
+			id: 'ratingScheme.updateEntries',
+			label: 'Update rating scheme entries',
+			lane: 'ratingScheme',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		configureWorkflows: featureAction({
+			id: 'ratingScheme.configureWorkflows',
+			label: 'Configure rating scheme workflows',
+			lane: 'ratingScheme',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
 		readRosterReferences: featureAction({
 			id: 'ratingScheme.readRosterReferences',
 			label: 'Read roster references for rating scheme',

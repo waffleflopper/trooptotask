@@ -801,7 +801,7 @@ export function createSupabaseRatingSchemeWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'rating-scheme',
+				permission: 'none',
 				fn: async (ctx) => fetchRatingSchemeBootstrap(ctx)
 			});
 

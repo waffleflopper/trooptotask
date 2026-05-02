@@ -15,20 +15,43 @@ const validInput = {
 };
 
 describe('Rating scheme entry — create', () => {
-	it('requires the rating scheme edit lane before mutating', async () => {
-		const requireEditCalls: string[] = [];
+	it('uses Rating Scheme policy decisions instead of the legacy edit lane before mutating', async () => {
 		const ctx = buildContext({
 			auth: {
-				requireEdit(area) {
-					requireEditCalls.push(area);
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				requireEdit() {
+					throw new Error('legacy requireEdit should not authorize Rating Scheme writes');
+				},
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: null
+			}
+		]);
 		const { create } = createRatingSchemeEntryUseCases();
 
 		await create(ctx, { ...validInput });
 
-		expect(requireEditCalls).toEqual(['rating-scheme']);
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'rating_scheme.created',
+			resourceType: 'rating_scheme'
+		});
 	});
 
 	it('creates an entry, persists it, and audits', async () => {
@@ -69,6 +92,111 @@ describe('Rating scheme entry — create', () => {
 		const { create } = createRatingSchemeEntryUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('denies create through an authoritative Rating Scheme policy decision and audits the attempt', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'view'
+				}
+			}
+		});
+		const { create } = createRatingSchemeEntryUseCases();
+
+		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'rating_scheme',
+				details: expect.objectContaining({
+					policyAction: 'ratingScheme.updateEntries',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
+	});
+
+	it('honors multi-Group scope when creating a scoped rating scheme entry', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: 'group-c'
+			}
+		]);
+		const { create } = createRatingSchemeEntryUseCases();
+
+		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
+
+		expect(result.ratedPersonId).toBe('person-1');
+	});
+
+	it('denies create outside the member multi-Group scope set', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: 'group-b'
+			}
+		]);
+		const { create } = createRatingSchemeEntryUseCases();
+
+		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'rating_scheme',
+				details: expect.objectContaining({
+					policyAction: 'ratingScheme.updateEntries',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
+		);
 	});
 });
 
@@ -182,5 +310,32 @@ describe('Rating scheme entry — delete', () => {
 		const { remove } = createRatingSchemeEntryUseCases();
 
 		await expect(remove(ctx, 'rs-1')).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('audits read-only delete denial through the Rating Scheme policy overlay', async () => {
+		const ctx = buildContext({ readOnly: true });
+		ctx.store.seed('rating_scheme_entries', [
+			{
+				id: 'rs-1',
+				rated_person_id: 'person-1',
+				eval_type: 'OER',
+				status: 'draft',
+				organization_id: 'test-org'
+			}
+		]);
+		const { remove } = createRatingSchemeEntryUseCases();
+
+		await expect(remove(ctx, 'rs-1')).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'rating_scheme',
+				resourceId: 'rs-1',
+				details: expect.objectContaining({
+					policyAction: 'ratingScheme.updateEntries',
+					reasonCode: 'denied:read-only-overlay'
+				})
+			})
+		);
 	});
 });

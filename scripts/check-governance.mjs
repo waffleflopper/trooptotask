@@ -8,6 +8,23 @@ const driftLedgerPath = path.join(repoRoot, 'docs/architecture/DRIFT_LEDGER.md')
 const driftLedger = readFileSync(driftLedgerPath, 'utf8');
 
 const errors = [];
+const LEGACY_AUTHORIZATION_SIGNALS = [
+	{ label: 'isFullEditor', pattern: /\bisFullEditor\b/ },
+	{ label: 'requireFullEditor', pattern: /\brequireFullEditor\b/ },
+	{ label: 'requireEdit(', pattern: /\brequireEdit\(/ },
+	{ label: 'canEdit*', pattern: /\bcanEdit[A-Z][A-Za-z0-9_]*/ },
+	{ label: 'scopedGroupId', pattern: /\bscopedGroupId\b/ },
+	{ label: 'scoped_group_id', pattern: /\bscoped_group_id\b/ },
+	{ label: 'can_view_*', pattern: /\bcan_view_[a-z_]+\b/ },
+	{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ }
+];
+const VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS = new Set([
+	'runtime-authorization',
+	'runtime-affordance',
+	'compatibility-adapter',
+	'historical-migration',
+	'local-seed-fixture'
+]);
 
 function normalizePath(filePath) {
 	return filePath.split(path.sep).join('/');
@@ -97,18 +114,8 @@ function collectDeprecatedDemoSandboxSignals(content) {
 
 function collectLegacyAuthorizationSignals(content) {
 	const signals = new Set();
-	const trackedSignals = [
-		{ label: 'isFullEditor', pattern: /\bisFullEditor\b/ },
-		{ label: 'requireFullEditor', pattern: /\brequireFullEditor\b/ },
-		{ label: 'requireEdit(', pattern: /\brequireEdit\(/ },
-		{ label: 'canEdit*', pattern: /\bcanEdit[A-Z][A-Za-z0-9_]*/ },
-		{ label: 'scopedGroupId', pattern: /\bscopedGroupId\b/ },
-		{ label: 'scoped_group_id', pattern: /\bscoped_group_id\b/ },
-		{ label: 'can_view_*', pattern: /\bcan_view_[a-z_]+\b/ },
-		{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ }
-	];
 
-	for (const signal of trackedSignals) {
+	for (const signal of LEGACY_AUTHORIZATION_SIGNALS) {
 		if (signal.pattern.test(content)) {
 			signals.add(signal.label);
 		}
@@ -124,6 +131,19 @@ function contentHasSignal(content, signal) {
 
 function contentHasLegacyAuthorizationSignal(content, signal) {
 	return collectLegacyAuthorizationSignals(content).includes(signal);
+}
+
+function isProductionSourceFile(filePath) {
+	if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
+	if (/\.test\.(ts|js)$/.test(filePath)) return false;
+	if (filePath.includes('/test-stubs/')) return false;
+	return true;
+}
+
+function legacyAuthorizationScanFiles() {
+	const sourceFiles = walkRelative('src').filter(isProductionSourceFile);
+	const migrationFiles = walkRelative('supabase').filter((filePath) => /\.sql$/.test(filePath));
+	return [...sourceFiles, ...migrationFiles];
 }
 
 function ensureRequiredFiles() {
@@ -287,17 +307,9 @@ function checkDeprecatedDemoSandboxAllowlist() {
 }
 
 function checkLegacyAuthorizationAllowlist() {
-	const sourceFiles = walkRelative('src').filter((filePath) => {
-		if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
-		if (/\.test\.(ts|js)$/.test(filePath)) return false;
-		if (filePath.includes('/test-stubs/')) return false;
-		return true;
-	});
-	const migrationFiles = walkRelative('supabase').filter((filePath) => /\.(sql)$/.test(filePath));
-	const scannedFiles = [...sourceFiles, ...migrationFiles];
 	const actualSignals = [];
 
-	for (const filePath of scannedFiles) {
+	for (const filePath of legacyAuthorizationScanFiles()) {
 		if (!existsSync(path.join(repoRoot, filePath))) continue;
 		for (const signal of collectLegacyAuthorizationSignals(readRelativeFile(filePath))) {
 			actualSignals.push(`${filePath}::${signal}`);
@@ -305,19 +317,12 @@ function checkLegacyAuthorizationAllowlist() {
 	}
 
 	const allowlistedSignals = [];
-	const validClassifications = new Set([
-		'runtime-authorization',
-		'runtime-affordance',
-		'compatibility-adapter',
-		'historical-migration',
-		'local-seed-fixture'
-	]);
 
 	for (const entry of baseline.legacyAuthorizationAllowlist ?? []) {
 		const context = `Legacy authorization allowlist entry ${entry.path}`;
 		ensureDriftIdsExist(entry.driftIds, context);
 
-		if (!validClassifications.has(entry.classification)) {
+		if (!VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS.has(entry.classification)) {
 			errors.push(`${context} uses unknown classification: ${entry.classification}`);
 		}
 

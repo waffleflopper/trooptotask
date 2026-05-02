@@ -1,6 +1,7 @@
 import {
 	evaluatePolicyDecision,
-	type PolicyAction,
+	type FeatureLanePolicyAction,
+	type OrganizationGovernancePolicyAction,
 	type PolicyReasonCode,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
@@ -14,9 +15,11 @@ interface PolicyPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 }
 
+type ServerPolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+
 export async function requirePolicyDecision(
 	ports: PolicyPorts,
-	action: PolicyAction,
+	action: ServerPolicyAction,
 	resource: PolicyResource
 ): Promise<void> {
 	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;

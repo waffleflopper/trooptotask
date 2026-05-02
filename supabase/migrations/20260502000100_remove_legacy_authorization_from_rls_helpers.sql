@@ -538,7 +538,7 @@ BEGIN
 
   CASE object_scope
     WHEN 'sign-in-rosters' THEN
-      RETURN public.can_edit_personnel(org_id);
+      RETURN public.can_edit_training(org_id);
     WHEN 'counseling-records' THEN
       RETURN public.can_edit_leaders_book(org_id);
     WHEN 'counseling-templates' THEN

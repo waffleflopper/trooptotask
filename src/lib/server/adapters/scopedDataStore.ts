@@ -126,6 +126,15 @@ export function createScopedDataStore(
 				return idSet.has(result[scoped.needsPersonnelFilter] as string) ? result : null;
 			}
 
+			if (scoped.options) {
+				const results = await inner.findMany<T>(table, orgId, scoped.filters ?? filters, {
+					...scoped.options,
+					...(select ? { select } : {}),
+					limit: 1
+				});
+				return results[0] ?? null;
+			}
+
 			return inner.findOne<T>(table, orgId, scoped.filters ?? filters, select);
 		},
 

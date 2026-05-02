@@ -144,6 +144,7 @@
 						{@const isExpanded = ctx.expandedOnboardingId === onboarding.id}
 						{@const groupName = ctx.getPersonGroupName(onboarding.personnelId)}
 						{@const canManageThisOnboarding = ctx.canManageOnboarding(onboarding)}
+						{@const canActOnThisOnboarding = canManageThisOnboarding && onboarding.status === 'in_progress'}
 						<div class="onboarding-card" class:expanded={isExpanded}>
 							<button
 								class="card-summary"
@@ -176,7 +177,7 @@
 
 							{#if isExpanded}
 								<div class="card-detail">
-									{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
+									{#if canActOnThisOnboarding}
 										<div class="detail-actions">
 											<button
 												class="btn btn-primary btn-sm"
@@ -263,7 +264,7 @@
 													{#if isInactive}
 														{#if step.completed}
 															<span class="inactive-note">Previously completed</span>
-														{:else if canManageThisOnboarding && onboarding.status === 'in_progress'}
+														{:else if canActOnThisOnboarding}
 															<button
 																class="btn btn-danger btn-sm"
 																type="button"
@@ -279,7 +280,7 @@
 													{:else}
 														<div class="step-status">
 															{#if step.stepType === 'checkbox'}
-																{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
+																{#if canActOnThisOnboarding}
 																	<button
 																		class="checkbox-toggle"
 																		class:checked={step.completed}
@@ -314,10 +315,10 @@
 																	<Stepper
 																		stages={step.stages ?? []}
 																		currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
-																		onStageClick={canManageThisOnboarding && onboarding.status === 'in_progress'
+																		onStageClick={canActOnThisOnboarding
 																			? (stage) => ctx.handleStageClick(step, stage)
 																			: undefined}
-																		disabled={!canManageThisOnboarding || onboarding.status !== 'in_progress'}
+																		disabled={!canActOnThisOnboarding}
 																	/>
 																</div>
 															{/if}
@@ -348,7 +349,7 @@
 
 													{#if ctx.expandedNotes.has(step.id)}
 														<div class="step-notes">
-															{#if canManageThisOnboarding && onboarding.status === 'in_progress'}
+															{#if canActOnThisOnboarding}
 																<div class="note-input-row">
 																	<input
 																		type="text"

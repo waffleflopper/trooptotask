@@ -16,6 +16,8 @@ import type { Personnel } from '$lib/types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 
+const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
+
 // ── Modal IDs ─────────────────────────────────────────────────
 
 export const MODAL_IDS = {
@@ -179,19 +181,19 @@ export class OnboardingPageContext {
 	// ── Permission flags (derived from OrgContext) ─────────────
 
 	get canManageWorkflows(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.manageWorkflows, {
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.manageWorkflows, {
 			kind: 'unscoped'
 		}).visible;
 	}
 
 	get canViewOnboarding(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.viewWorkflows, {
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.viewWorkflows, {
 			kind: 'unscoped'
 		}).visible;
 	}
 
 	get canManageConfig(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, {
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.configureWorkflows, {
 			kind: 'unscoped'
 		}).visible;
 	}
@@ -252,7 +254,7 @@ export class OnboardingPageContext {
 
 	canManageOnboarding(onboarding: PersonnelOnboarding): boolean {
 		return this.#org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+			ONBOARDING_POLICY_ACTIONS.manageWorkflows,
 			this.getPersonnelPolicyResource(onboarding.personnelId)
 		).visible;
 	}

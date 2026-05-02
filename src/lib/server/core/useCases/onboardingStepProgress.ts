@@ -283,7 +283,6 @@ export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promi
 export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
-	// Fetch the step
 	const step = await ctx.store.findOne<{
 		id: string;
 		onboarding_id: string;

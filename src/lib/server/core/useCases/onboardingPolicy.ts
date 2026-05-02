@@ -2,6 +2,9 @@ import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResourc
 import type { DataStore, WritePorts } from '$lib/server/core/ports';
 import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
 
+const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
+const UNSCOPED_ONBOARDING_RESOURCE: PolicyResource = { kind: 'unscoped' };
+
 type OnboardingPolicyPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'> & {
 	readOnlyGuard?: WritePorts['readOnlyGuard'];
 };
@@ -67,7 +70,7 @@ export async function requireOnboardingPolicy(
 }
 
 export async function requireOnboardingViewPolicy(ports: OnboardingPolicyPorts): Promise<void> {
-	await requireOnboardingPolicy(ports, POLICY_ACTION_CATALOG.onboarding.viewWorkflows, { kind: 'unscoped' });
+	await requireOnboardingPolicy(ports, ONBOARDING_POLICY_ACTIONS.viewWorkflows, UNSCOPED_ONBOARDING_RESOURCE);
 }
 
 export async function requireOnboardingManagePolicyForPersonnel(
@@ -76,7 +79,7 @@ export async function requireOnboardingManagePolicyForPersonnel(
 ): Promise<void> {
 	await requireOnboardingPolicy(
 		ports,
-		POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+		ONBOARDING_POLICY_ACTIONS.manageWorkflows,
 		await policyResourceForOnboardingPersonnel(ports, personnelId)
 	);
 }
@@ -87,7 +90,7 @@ export async function requireOnboardingManagePolicyForOnboarding(
 ): Promise<void> {
 	await requireOnboardingPolicy(
 		ports,
-		POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+		ONBOARDING_POLICY_ACTIONS.manageWorkflows,
 		await policyResourceForOnboarding(ports, onboardingId),
 		onboardingId
 	);
@@ -99,7 +102,7 @@ export async function requireOnboardingManagePolicyForStep(
 ): Promise<void> {
 	await requireOnboardingPolicy(
 		ports,
-		POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+		ONBOARDING_POLICY_ACTIONS.manageWorkflows,
 		await policyResourceForOnboardingStep(ports, stepId),
 		stepId
 	);
@@ -111,8 +114,8 @@ export async function requireOnboardingConfigurePolicy(
 ): Promise<void> {
 	await requireOnboardingPolicy(
 		ports,
-		POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
-		{ kind: 'unscoped' },
+		ONBOARDING_POLICY_ACTIONS.configureWorkflows,
+		UNSCOPED_ONBOARDING_RESOURCE,
 		resourceId
 	);
 }

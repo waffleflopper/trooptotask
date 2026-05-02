@@ -1,4 +1,5 @@
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 
 export type FeatureArea =
 	| 'calendar'
@@ -135,6 +136,8 @@ export interface AuthContext {
 	readonly isPrivileged: boolean;
 	readonly isFullEditor: boolean;
 	readonly scopedGroupId: string | null;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
 
 	requireEdit(area: FeatureArea): void;
 	requireView(area: FeatureArea): void;

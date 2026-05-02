@@ -71,6 +71,38 @@ describe('Personnel — create', () => {
 		await expect(create(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({ status: 403 });
 	});
 
+	it('denies create through an authoritative Personnel policy decision and audits the attempt', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+		const { create } = createPersonnelUseCases();
+
+		await expect(create(ctx, { ...validInput, groupId: 'group-a' })).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				details: expect.objectContaining({
+					policyAction: 'personnel.manageRecords',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
+	});
+
 	it('allows scoped user to create in their own group', async () => {
 		const ctx = buildContext({ auth: { scopedGroupId: 'group-a' } });
 		const { create } = createPersonnelUseCases();

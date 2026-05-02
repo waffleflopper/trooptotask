@@ -186,6 +186,64 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
+
+	it('limits roster hydration to the member multi-Group scope set', async () => {
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['g1', 'g3'] }
+			}
+		});
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p1',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				mos: '11B',
+				clinic_role: 'Medic',
+				group_id: 'g1',
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p2',
+				organization_id: ORG,
+				rank: 'CPT',
+				last_name: 'Jones',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Provider',
+				group_id: 'g2',
+				groups: { name: 'Bravo' }
+			},
+			{
+				id: 'p3',
+				organization_id: ORG,
+				rank: 'SSG',
+				last_name: 'Davis',
+				first_name: 'Kai',
+				mos: '25B',
+				clinic_role: 'Signal',
+				group_id: 'g3',
+				groups: { name: 'Charlie' }
+			}
+		]);
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.personnel.map((person) => person.id)).toEqual(['p3', 'p1']);
+		expect(result.personnelLookup.map((person) => person.id)).toEqual(['p3', 'p1']);
+	});
 });
 
 describe('fetchPersonnelBootstrap — loss warning window', () => {
@@ -324,7 +382,20 @@ describe('fetchRatingSchemeBootstrap', () => {
 	});
 
 	it('uses the dedicated rating-scheme personnel lookup port when available', async () => {
-		const ctx = createQueryWithRawStorePortsContext();
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'view'
+				}
+			}
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'p1',
@@ -346,6 +417,26 @@ describe('fetchRatingSchemeBootstrap', () => {
 
 		expect(listPersonnelLookup).toHaveBeenCalledWith(ORG);
 		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
+	});
+
+	it('does not allow adjacent roster reference reads through Personnel capability alone', async () => {
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.ratingSchemePersonnelLookup = { listPersonnelLookup: vi.fn().mockResolvedValue([]) };
+
+		await expect(fetchRatingSchemeBootstrap(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('requires the dedicated rating-scheme personnel lookup port', async () => {

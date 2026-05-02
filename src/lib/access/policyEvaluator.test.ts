@@ -68,7 +68,7 @@ describe('policy evaluator', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'member' },
-			action: POLICY_ACTION_CATALOG.personnel.updateRoster,
+			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 			resource: { kind: 'group', groupId: 'group-bravo' },
@@ -80,6 +80,30 @@ describe('policy evaluator', () => {
 			reasonCode: 'denied:out-of-scope',
 			matchedCapability: { lane: 'personnel', actual: 'operate', required: 'operate' },
 			matchedScope: { kind: 'out-of-scope', resource: { kind: 'group', groupId: 'group-bravo' } }
+		});
+	});
+
+	it('defines Personnel workflow actions with Personnel lane ownership', () => {
+		expect(POLICY_ACTION_CATALOG.personnel.viewRoster).toMatchObject({
+			id: 'personnel.viewRoster',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'view'
+		});
+		expect(POLICY_ACTION_CATALOG.personnel.manageRecords).toMatchObject({
+			id: 'personnel.manageRecords',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'operate'
+		});
+	});
+
+	it('keeps adjacent roster reference reads owned by the adjacent feature lane', () => {
+		expect(POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences).toMatchObject({
+			id: 'ratingScheme.readRosterReferences',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
+			requiredCapability: 'view'
 		});
 	});
 

@@ -9,8 +9,10 @@
  * and `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import { requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -24,12 +26,12 @@ export interface PersonnelUseCases {
 export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
-			ctx.auth.requireEdit('personnel');
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				toPersonnelPolicyResource(data.groupId),
+				AUDIT_RESOURCE
+			);
 
 			const capCheck = await ctx.subscription.canAddPersonnel();
 			if (!capCheck.allowed) {
@@ -58,17 +60,27 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		},
 
 		async update(ctx, data) {
-			ctx.auth.requireEdit('personnel');
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
 			const validated = entity.updateSchema.parse(data);
 			const { id } = validated as { id: string };
+			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
 
-			await ctx.auth.requireGroupAccess(id);
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				toPersonnelPolicyResource(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
+
+			if ((validated as Record<string, unknown>).groupId !== undefined) {
+				await requireFeaturePolicy(
+					ctx,
+					POLICY_ACTION_CATALOG.personnel.manageRecords,
+					toPersonnelPolicyResource((validated as Record<string, unknown>).groupId),
+					AUDIT_RESOURCE,
+					id
+				);
+			}
 
 			const dbData = entity.toDbUpdate(validated);
 			if ((validated as Record<string, unknown>).groupId !== undefined) {
@@ -93,14 +105,15 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		},
 
 		async archive(ctx, id) {
-			ctx.auth.requireEdit('personnel');
+			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
-			await ctx.auth.requireGroupAccess(id);
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				toPersonnelPolicyResource(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
 
 			if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
 				return { requiresApproval: true };
@@ -119,4 +132,8 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			});
 		}
 	};
+}
+
+function toPersonnelPolicyResource(groupId: unknown): PolicyResource {
+	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
 }

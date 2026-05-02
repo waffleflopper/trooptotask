@@ -8,10 +8,12 @@
  * For single-record personnel mutations, see `personnel.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import { requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -77,10 +79,7 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 }
 
 export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
-	ctx.auth.requireEdit('personnel');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageRecords, { kind: 'unscoped' }, AUDIT_RESOURCE);
 
 	const { records } = input;
 
@@ -95,8 +94,6 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 	// Fetch groups for name matching
 	const groups = await ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId);
 	const groupMap = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
-
-	const scopedGroupId = ctx.auth.scopedGroupId;
 
 	// Validate all records
 	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];
@@ -131,7 +128,7 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			groupId = groupMap.get(groupName.toLowerCase()) ?? null;
 		}
 
-		if (scopedGroupId && groupId !== scopedGroupId) {
+		if (!isGroupAllowedByScope(ctx.auth.scopeSet, groupId)) {
 			errors.push({ index: i, message: 'You can only add personnel to your assigned group' });
 			continue;
 		}
@@ -193,4 +190,15 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 		inserted: insertedRows.map((row) => entity.fromDb(row)),
 		errors
 	};
+}
+
+function isGroupAllowedByScope(
+	scopeSet: WriteWithSubscriptionPorts['auth']['scopeSet'],
+	groupId: string | null
+): boolean {
+	if (scopeSet.kind === 'organization') {
+		return true;
+	}
+
+	return groupId !== null && scopeSet.groupIds.includes(groupId);
 }

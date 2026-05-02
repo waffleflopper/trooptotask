@@ -10,7 +10,9 @@
  */
 import type { QueryPorts, FindOptions } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelQueryOptions {
 	archived?: boolean | 'all';
@@ -45,6 +47,7 @@ function buildFindOptions(options?: PersonnelQueryOptions): FindOptions {
 }
 
 export async function queryPersonnel(ctx: QueryPorts, options?: PersonnelQueryOptions): Promise<Personnel[]> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	const rows = await ctx.store.findMany<Record<string, unknown>>(
 		'personnel',
 		ctx.auth.orgId,
@@ -55,6 +58,7 @@ export async function queryPersonnel(ctx: QueryPorts, options?: PersonnelQueryOp
 }
 
 export async function countPersonnel(ctx: QueryPorts, options?: PersonnelQueryOptions): Promise<number> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	const { count } = await ctx.store.findManyWithCount<Record<string, unknown>>(
 		'personnel',
 		ctx.auth.orgId,
@@ -68,5 +72,6 @@ export async function queryPersonnelRaw(
 	ctx: QueryPorts,
 	options?: PersonnelQueryOptions
 ): Promise<Record<string, unknown>[]> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	return ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, buildFindOptions(options));
 }

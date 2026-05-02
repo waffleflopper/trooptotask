@@ -1,7 +1,9 @@
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
+import { requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
@@ -69,10 +71,7 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 }
 
 export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInput): Promise<MergeBatchResult> {
-	ctx.auth.requireEdit('personnel');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageRecords, { kind: 'unscoped' }, 'personnel');
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
 		fail(400, 'records array is required');

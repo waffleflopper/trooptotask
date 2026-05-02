@@ -7,7 +7,9 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
+import { requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
@@ -98,6 +100,7 @@ async function loadRatingSchemeSharedData(
 export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Promise<PersonnelBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 
 	const [
 		personnelRows,
@@ -132,7 +135,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
 	]);
 
-	const scopedAllPersonnelRows = ctx.auth.scopedGroupId ? personnelRows : allPersonnelRows;
+	const scopedAllPersonnelRows = ctx.auth.scopeSet.kind === 'groups' ? personnelRows : allPersonnelRows;
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
@@ -147,6 +150,12 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 }
 
 export async function fetchRatingSchemeBootstrap(ctx: QueryWithRawStorePorts): Promise<RatingSchemeBootstrap> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences,
+		{ kind: 'unscoped' },
+		'rating-scheme'
+	);
 	const shared = await loadRatingSchemeSharedData(ctx, {
 		includePersonnelLookup: true,
 		includeAwardTracking: false

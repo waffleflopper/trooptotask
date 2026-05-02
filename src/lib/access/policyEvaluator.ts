@@ -131,9 +131,16 @@ export const POLICY_ACTION_CATALOG = {
 		})
 	},
 	personnel: {
-		updateRoster: featureAction({
-			id: 'personnel.updateRoster',
-			label: 'Update personnel roster',
+		viewRoster: featureAction({
+			id: 'personnel.viewRoster',
+			label: 'View personnel roster',
+			lane: 'personnel',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		manageRecords: featureAction({
+			id: 'personnel.manageRecords',
+			label: 'Manage personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
 			requiredCapability: 'operate'
@@ -144,6 +151,15 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'training.viewMatrix',
 			label: 'View training matrix',
 			lane: 'training',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		})
+	},
+	ratingScheme: {
+		readRosterReferences: featureAction({
+			id: 'ratingScheme.readRosterReferences',
+			label: 'Read roster references for rating scheme',
+			lane: 'ratingScheme',
 			accessMode: 'read',
 			requiredCapability: 'view'
 		})

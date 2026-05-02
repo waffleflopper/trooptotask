@@ -37,6 +37,7 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
@@ -45,6 +46,15 @@ import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalT
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
+
+const FULL_CAPABILITY_MAP: CapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
+};
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -301,6 +311,8 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		isPrivileged: true,
 		isFullEditor: true,
 		scopedGroupId: null,
+		capabilityMap: FULL_CAPABILITY_MAP,
+		scopeSet: { kind: 'organization' } satisfies ScopeSet,
 		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},
@@ -312,7 +324,12 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		async requireGroupAccessByRecord() {}
 	};
 
-	return { ...defaults, ...overrides };
+	const auth = { ...defaults, ...overrides };
+	if (overrides?.scopedGroupId && !overrides.scopeSet) {
+		auth.scopeSet = { kind: 'groups', groupIds: [overrides.scopedGroupId] };
+	}
+
+	return auth;
 }
 
 interface AuditEvent {
@@ -364,12 +381,14 @@ export function createTestNotificationPort(): NotificationPort & { notifications
 
 function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
 	const rawStore = createInMemoryDataStore();
+	const scopeGroupIds =
+		auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId ? [auth.scopedGroupId] : [];
 
-	if (!auth.scopedGroupId) {
+	if (scopeGroupIds.length === 0) {
 		return { store: rawStore, rawStore };
 	}
 
-	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopedGroupId, defaultScopeRules), {
+	const scopedStore = Object.assign(createScopedDataStore(rawStore, scopeGroupIds, defaultScopeRules), {
 		seed: rawStore.seed
 	}) as InMemoryDataStore;
 

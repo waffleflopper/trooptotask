@@ -4,7 +4,7 @@
  * Wraps a DataStore so that reads are filtered to rows belonging to a specific group's
  * personnel. The column mapping (table → group/personnel column) lives in `scopeRules.ts`.
  *
- * When `scopedGroupId` is null (admin/owner context), the inner store is returned as-is
+ * When no scoped Group IDs are provided (admin/owner context), the inner store is returned as-is
  * with zero overhead — route code never needs to branch on role.
  *
  * Writes are not intercepted. Enforce write authorization at the use-case level.
@@ -17,10 +17,15 @@ import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/se
  */
 export function createScopedDataStore(
 	inner: DataStore,
-	scopedGroupId: string | null,
+	scopedGroupIds: string[] | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	if (!scopedGroupId) return inner;
+	const groupIds = Array.isArray(scopedGroupIds)
+		? scopedGroupIds.filter(Boolean)
+		: scopedGroupIds
+			? [scopedGroupIds]
+			: [];
+	if (groupIds.length === 0) return inner;
 
 	let cachedPersonnelIds: string[] | null = null;
 
@@ -34,9 +39,18 @@ export function createScopedDataStore(
 		}
 
 		const personnel = await inner.findMany<{ id: string }>('personnel', orgId, {
-			[personnelRule.groupColumn]: scopedGroupId
+			[personnelRule.groupColumn]: groupIds[0]
 		});
-		cachedPersonnelIds = personnel.map((p) => p.id);
+		const remainingGroupIds = groupIds.slice(1);
+		if (remainingGroupIds.length === 0) {
+			cachedPersonnelIds = personnel.map((p) => p.id);
+			return cachedPersonnelIds;
+		}
+
+		const additionalPersonnel = await inner.findMany<{ id: string }>('personnel', orgId, undefined, {
+			inFilters: { [personnelRule.groupColumn]: remainingGroupIds }
+		});
+		cachedPersonnelIds = [...personnel, ...additionalPersonnel].map((p) => p.id);
 		return cachedPersonnelIds;
 	}
 
@@ -50,8 +64,21 @@ export function createScopedDataStore(
 		if (!rule) return { filters, options };
 
 		if (rule.type === 'group') {
+			if (groupIds.length > 1) {
+				return {
+					filters,
+					options: {
+						...options,
+						inFilters: {
+							...options?.inFilters,
+							[rule.groupColumn]: groupIds
+						}
+					}
+				};
+			}
+
 			return {
-				filters: { ...filters, [rule.groupColumn]: scopedGroupId },
+				filters: { ...filters, [rule.groupColumn]: groupIds[0] },
 				options
 			};
 		}

@@ -38,7 +38,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
-import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
+import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
@@ -47,6 +47,10 @@ interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
 	isSandbox: boolean;
+}
+
+function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
+	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId;
 }
 
 async function createRequestAuthContext(config: {
@@ -96,7 +100,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		ctx: {
 			store: scopedStore,
@@ -163,7 +167,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,
@@ -216,7 +220,7 @@ export async function buildLayoutContextFromMembership(
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,

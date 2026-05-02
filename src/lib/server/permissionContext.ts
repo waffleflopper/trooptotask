@@ -14,12 +14,29 @@
  */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isFullEditor as hasFullEditorPermissions } from '$lib/access/memberAccessShape';
+import {
+	isFullEditor as hasFullEditorPermissions,
+	resolveStoredMemberAccessShape,
+	toMemberAccessShape,
+	type CapabilityMap,
+	type CapabilityOverrideMap,
+	type ScopeSet,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { FeatureArea } from './core/ports';
 import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
 
 export type { FeatureArea };
+
+const PRIVILEGED_CAPABILITY_MAP: CapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
+};
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';
@@ -28,6 +45,8 @@ export interface PermissionContext {
 	readonly isPrivileged: boolean;
 	readonly isFullEditor: boolean;
 	readonly scopedGroupId: string | null;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
 	readonly canView: Record<FeatureArea, boolean>;
 	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
@@ -68,6 +87,8 @@ export function createSandboxContext(): PermissionContext {
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
+		capabilityMap: PRIVILEGED_CAPABILITY_MAP,
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
@@ -106,6 +127,10 @@ export interface MembershipRow {
 	can_view_leaders_book: boolean;
 	can_edit_leaders_book: boolean;
 	can_manage_members: boolean;
+	member_preset?: StoredMemberPreset | null;
+	capability_overrides?: CapabilityOverrideMap | null;
+	access_scope_kind?: ScopeSet['kind'] | null;
+	access_scope_group_ids?: string[] | null;
 }
 
 /**
@@ -163,6 +188,22 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 	};
 
 	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
+	const memberAccessShape = membership.member_preset
+		? resolveStoredMemberAccessShape({
+				membershipRole: role,
+				memberPreset: membership.member_preset,
+				capabilityOverrides: membership.capability_overrides,
+				scopeSet:
+					membership.access_scope_kind === 'groups'
+						? { kind: 'groups', groupIds: membership.access_scope_group_ids ?? [] }
+						: { kind: 'organization' },
+				canManageMembers: membership.can_manage_members
+			})
+		: toMemberAccessShape({
+				membershipRole: role,
+				permissions: memberPermissions,
+				scopedGroupId
+			});
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
@@ -184,6 +225,8 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isPrivileged,
 		isFullEditor,
 		scopedGroupId,
+		capabilityMap: isPrivileged ? PRIVILEGED_CAPABILITY_MAP : memberAccessShape.capabilityMap,
+		scopeSet: isPrivileged ? { kind: 'organization' } : memberAccessShape.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
@@ -280,7 +323,7 @@ export async function getMembershipRow(
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)

@@ -92,6 +92,22 @@ describe('createPermissionContextFromMembership', () => {
 		});
 
 		expect(ctx.scopedGroupId).toBe('group-123');
+		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+	});
+
+	it('uses stored capability and multi-Group scope when available', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			can_view_personnel: false,
+			can_edit_personnel: false,
+			member_preset: 'viewer',
+			capability_overrides: { personnel: 'operate' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-a', 'group-b']
+		});
+
+		expect(ctx.capabilityMap.personnel).toBe('operate');
+		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
 
 	it('ignores scoped_group_id for privileged roles', () => {

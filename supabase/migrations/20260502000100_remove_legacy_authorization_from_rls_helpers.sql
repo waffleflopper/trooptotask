@@ -38,6 +38,7 @@ CREATE OR REPLACE FUNCTION "public"."member_access_has_capability"(
   "p_required_capability" text
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -64,6 +65,7 @@ CREATE OR REPLACE FUNCTION "public"."member_access_group_scope_matches"(
   "p_group_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -88,6 +90,7 @@ ALTER FUNCTION "public"."member_access_group_scope_matches"(uuid, uuid) OWNER TO
 CREATE OR REPLACE FUNCTION "public"."can_view_calendar"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'view');
 $$;
@@ -95,6 +98,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_calendar"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'operate');
 $$;
@@ -102,6 +106,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'configure');
 $$;
@@ -109,6 +114,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_personnel"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'view');
 $$;
@@ -116,6 +122,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_personnel"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'operate');
 $$;
@@ -123,6 +130,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_manage_groups"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'configure');
 $$;
@@ -130,6 +138,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_training"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'training', 'view');
 $$;
@@ -137,6 +146,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_training"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'training', 'operate');
 $$;
@@ -144,6 +154,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_manage_training_configuration"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'training', 'configure');
 $$;
@@ -151,6 +162,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_onboarding"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'onboarding', 'view');
 $$;
@@ -158,6 +170,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_onboarding"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'onboarding', 'operate');
 $$;
@@ -165,6 +178,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_critical_tasks"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'criticalTasks', 'view');
 $$;
@@ -172,6 +186,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_critical_tasks"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'criticalTasks', 'operate');
 $$;
@@ -179,6 +194,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'ratingScheme', 'view');
 $$;
@@ -186,6 +202,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'ratingScheme', 'operate');
 $$;
@@ -193,6 +210,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_view_leaders_book"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'view');
 $$;
@@ -200,6 +218,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."can_edit_leaders_book"("p_organization_id" uuid)
 RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'operate');
 $$;
@@ -209,6 +228,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_personnel_record"(
   "p_group_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'view')
      AND "public"."member_access_group_scope_matches"("p_organization_id", "p_group_id");
@@ -219,6 +239,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_record"(
   "p_group_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'personnel', 'operate')
      AND "public"."member_access_group_scope_matches"("p_organization_id", "p_group_id");
@@ -229,6 +250,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_personnel_training_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'training', 'view')
      AND EXISTS (
@@ -245,6 +267,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_training_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'training', 'operate')
      AND EXISTS (
@@ -261,6 +284,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_availability_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'view')
      AND EXISTS (
@@ -277,6 +301,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_availability_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'operate')
      AND EXISTS (
@@ -294,6 +319,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_daily_assignment_record"(
   "p_assignee_id" text
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'view')
      AND EXISTS (
@@ -322,6 +348,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_daily_assignment_record"(
   "p_assignee_id" text
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'operate')
      AND EXISTS (
@@ -349,6 +376,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_daily_assignment_record"(
   "p_assignee_id" text
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'view')
      AND EXISTS (
@@ -365,6 +393,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_daily_assignment_record"(
   "p_assignee_id" text
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'calendar', 'operate')
      AND EXISTS (
@@ -381,6 +410,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_personnel_ict_completion_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'criticalTasks', 'view')
      AND EXISTS (
@@ -397,6 +427,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_ict_completion_record"(
   "p_personnel_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'criticalTasks', 'operate')
      AND EXISTS (
@@ -413,6 +444,7 @@ CREATE OR REPLACE FUNCTION "public"."can_view_rating_scheme_record"(
   "p_rated_person_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'ratingScheme', 'view')
      AND EXISTS (
@@ -429,6 +461,7 @@ CREATE OR REPLACE FUNCTION "public"."can_edit_rating_scheme_record"(
   "p_rated_person_id" uuid
 ) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   SELECT "public"."member_access_has_capability"("p_organization_id", 'ratingScheme', 'operate')
      AND EXISTS (

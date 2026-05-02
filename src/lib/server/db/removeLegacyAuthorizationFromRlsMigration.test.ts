@@ -37,6 +37,12 @@ describe('legacy authorization removal from RLS helpers migration', () => {
 		expect(activeHelperSql).not.toContain('"public"."is_full_editor_for_org"');
 	});
 
+	it('pins search_path on SQL security definer helpers', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).not.toContain('language "sql" stable security definer as $$');
+	});
+
 	it('covers viewer, operator, editor, owner/admin, multi-Group scope, and out-of-scope database behavior', () => {
 		const normalized = normalizedSql();
 

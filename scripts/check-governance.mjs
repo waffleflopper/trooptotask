@@ -8,6 +8,21 @@ const driftLedgerPath = path.join(repoRoot, 'docs/architecture/DRIFT_LEDGER.md')
 const driftLedger = readFileSync(driftLedgerPath, 'utf8');
 
 const errors = [];
+const LEGACY_AUTHORIZATION_SIGNALS = [
+	{ label: 'isFullEditor', pattern: /\bisFullEditor\b/ },
+	{ label: 'requireFullEditor', pattern: /\brequireFullEditor\b/ },
+	{ label: 'requireEdit(', pattern: /\brequireEdit\(/ },
+	{ label: 'canEdit*', pattern: /\bcanEdit[A-Z][A-Za-z0-9_]*/ },
+	{ label: 'scopedGroupId', pattern: /\bscopedGroupId\b/ },
+	{ label: 'scoped_group_id', pattern: /\bscoped_group_id\b/ },
+	{ label: 'can_view_*', pattern: /\bcan_view_[a-z_]+\b/ },
+	{ label: 'can_edit_*', pattern: /\bcan_edit_[a-z_]+\b/ }
+];
+const VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS = new Set([
+	'compatibility-adapter',
+	'historical-migration',
+	'local-seed-fixture'
+]);
 
 function normalizePath(filePath) {
 	return filePath.split(path.sep).join('/');
@@ -95,9 +110,38 @@ function collectDeprecatedDemoSandboxSignals(content) {
 	return [...signals];
 }
 
+function collectLegacyAuthorizationSignals(content) {
+	const signals = new Set();
+
+	for (const signal of LEGACY_AUTHORIZATION_SIGNALS) {
+		if (signal.pattern.test(content)) {
+			signals.add(signal.label);
+		}
+	}
+
+	return [...signals];
+}
+
 function contentHasSignal(content, signal) {
 	const escaped = signal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	return new RegExp(`\\b${escaped}\\b`).test(content);
+}
+
+function contentHasLegacyAuthorizationSignal(content, signal) {
+	return collectLegacyAuthorizationSignals(content).includes(signal);
+}
+
+function isProductionSourceFile(filePath) {
+	if (!/\.(ts|js|svelte)$/.test(filePath)) return false;
+	if (/\.test\.(ts|js)$/.test(filePath)) return false;
+	if (filePath.includes('/test-stubs/')) return false;
+	return true;
+}
+
+function legacyAuthorizationScanFiles() {
+	const sourceFiles = walkRelative('src').filter(isProductionSourceFile);
+	const migrationFiles = walkRelative('supabase').filter((filePath) => /\.sql$/.test(filePath));
+	return [...sourceFiles, ...migrationFiles];
 }
 
 function ensureRequiredFiles() {
@@ -260,10 +304,67 @@ function checkDeprecatedDemoSandboxAllowlist() {
 	}
 }
 
+function checkLegacyAuthorizationAllowlist() {
+	const actualSignals = [];
+
+	for (const filePath of legacyAuthorizationScanFiles()) {
+		if (!existsSync(path.join(repoRoot, filePath))) continue;
+		for (const signal of collectLegacyAuthorizationSignals(readRelativeFile(filePath))) {
+			actualSignals.push(`${filePath}::${signal}`);
+		}
+	}
+
+	const allowlistedSignals = [];
+
+	for (const entry of baseline.legacyAuthorizationAllowlist ?? []) {
+		const context = `Legacy authorization allowlist entry ${entry.path}`;
+		ensureDriftIdsExist(entry.driftIds, context);
+
+		if (!VALID_LEGACY_AUTHORIZATION_CLASSIFICATIONS.has(entry.classification)) {
+			errors.push(`${context} uses unknown classification: ${entry.classification}`);
+		}
+
+		if (!entry.ownerIssue) {
+			errors.push(`${context} must name the owning issue or decision point`);
+		}
+
+		if (!existsSync(path.join(repoRoot, entry.path))) {
+			errors.push(`${context} points to a missing file`);
+			continue;
+		}
+
+		const content = readRelativeFile(entry.path);
+		for (const signal of entry.patterns ?? []) {
+			allowlistedSignals.push(`${entry.path}::${signal}`);
+			if (!contentHasLegacyAuthorizationSignal(content, signal)) {
+				errors.push(`${context} is stale because the signal ${signal} is no longer present`);
+			}
+		}
+	}
+
+	const allowlistedSet = new Set(allowlistedSignals);
+	const actualSet = new Set(actualSignals);
+
+	for (const signal of actualSignals.sort()) {
+		if (!allowlistedSet.has(signal)) {
+			errors.push(
+				`Undocumented legacy authorization entry point: ${signal}. Document it in docs/architecture/GOVERNANCE_BASELINE.json and docs/architecture/LEGACY_AUTHORIZATION_INVENTORY.md, or remove the runtime dependency.`
+			);
+		}
+	}
+
+	for (const signal of allowlistedSignals.sort()) {
+		if (!actualSet.has(signal)) {
+			errors.push(`Stale legacy authorization allowlist entry: ${signal}`);
+		}
+	}
+}
+
 ensureRequiredFiles();
 checkRouteSupabaseAllowlist();
 checkFeaturePermissionCouplings();
 checkDeprecatedDemoSandboxAllowlist();
+checkLegacyAuthorizationAllowlist();
 
 if (errors.length > 0) {
 	console.error('Governance check failed:\n');
@@ -278,3 +379,4 @@ console.log(`- required files: ${baseline.requiredFiles.length}`);
 console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
 console.log(`- documented demo/sandbox exception entries: ${(baseline.deprecatedDemoSandboxAllowlist ?? []).length}`);
 console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);
+console.log(`- documented legacy authorization entries: ${(baseline.legacyAuthorizationAllowlist ?? []).length}`);

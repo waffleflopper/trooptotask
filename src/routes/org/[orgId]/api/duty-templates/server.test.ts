@@ -65,8 +65,7 @@ describe('POST /api/duty-templates', () => {
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: true,
-				isFullEditor: true,
-				scopedGroupId: 'group-hq'
+				scopeSet: { kind: 'groups', groupIds: ['group-hq'] }
 			}
 		});
 

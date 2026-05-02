@@ -1,9 +1,11 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const DELETE = handle<{ rosterId: string }, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
 	parseInput: (event: RequestEvent) => ({
 		rosterId: event.params.rosterId as string
 	}),

@@ -1,8 +1,21 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { resolveCurrentPresetPermissions, resolveCurrentUpdatePermissions } from '$lib/access/memberAccessShape';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	currentPresetToMemberAccessStorage,
+	DURABLE_FEATURE_LANES,
+	isCapabilityLevel,
+	resolveCurrentPresetPermissions,
+	resolveCurrentUpdatePermissions,
+	serializeScopeSetForStorage,
+	targetMemberAccessToCurrentPermissionFlags,
+	targetMemberAccessToStorage,
+	type CapabilityOverrideMap,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
-import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
+import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
+import { requireGovernancePolicy } from './governancePolicy';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -10,6 +23,10 @@ export interface OrganizationInvitationCreateInput {
 	invitedBy: string;
 	scopedGroupId: string | null;
 	permissions: OrganizationMemberPermissions;
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
 }
 
 export interface OrganizationMembershipUpdateInput {
@@ -18,6 +35,10 @@ export interface OrganizationMembershipUpdateInput {
 	role: 'admin' | 'member';
 	scopedGroupId: string | null;
 	permissions: OrganizationMemberPermissions;
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
 }
 
 interface OrganizationMembershipRecord {
@@ -40,14 +61,25 @@ interface OrganizationSettingsMemberManagementPorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	notifications: NotificationPort;
+	readOnlyGuard?: ReadOnlyGuard;
 	settings: OrganizationSettingsMemberManagementPort;
 }
 
 interface InviteOrganizationMemberInput {
 	email: string;
 	preset: string;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
+	capabilityOverrides?: CapabilityOverrideMap | null;
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
 	actorEmail?: string | null;
+}
+
+interface MemberAccessStorageFields {
+	memberPreset: StoredMemberPreset;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups';
+	accessScopeGroupIds: string[];
 }
 
 interface RevokeOrganizationInvitationInput {
@@ -62,8 +94,11 @@ interface RemoveOrganizationMemberInput {
 interface UpdateOrganizationMemberPermissionsInput {
 	membershipId: string;
 	preset: string;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	customPermissions?: Partial<OrganizationMemberPermissions> | null;
+	capabilityOverrides?: CapabilityOverrideMap | null;
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
 	actorEmail?: string | null;
 }
 
@@ -75,7 +110,7 @@ export async function inviteOrganizationMember(
 	inviteEmail: string;
 	inviteMessage: string;
 }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
 
 	const actorUserId = requireActorUserId(ports.auth);
 	const email = normalizeEmail(input.email);
@@ -89,13 +124,22 @@ export async function inviteOrganizationMember(
 		fail(400, 'An invitation for this email is already pending');
 	}
 
-	const permissions = resolveCurrentPresetPermissions(input.preset);
+	const permissions = isTargetMemberPreset(input.preset)
+		? targetMemberAccessToCurrentPermissionFlags({
+				membershipRole: 'member',
+				memberPreset: input.preset,
+				capabilityOverrides: input.capabilityOverrides,
+				scopeSet: buildScopeSet(input)
+			})
+		: resolveCurrentPresetPermissions(input.preset);
+	const accessStorage = buildCurrentPresetStorageFields(input);
 	const errorMessage = await ports.settings.createInvitation({
 		organizationId: ports.auth.orgId,
 		email,
 		invitedBy: actorUserId,
-		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
-		permissions
+		scopedGroupId: getLegacyScopedGroupId(input),
+		permissions,
+		...accessStorage
 	});
 
 	if (errorMessage) {
@@ -127,7 +171,7 @@ export async function revokeOrganizationInvitation(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: RevokeOrganizationInvitationInput
 ): Promise<{ success: true }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.revokeInvitation);
 
 	if (!validateUUID(input.inviteId)) {
 		fail(400, 'Invalid invitation ID');
@@ -151,7 +195,7 @@ export async function removeOrganizationMember(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: RemoveOrganizationMemberInput
 ): Promise<{ success: true }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.removeMember);
 
 	if (!validateUUID(input.membershipId)) {
 		fail(400, 'Invalid membership ID');
@@ -214,20 +258,30 @@ export async function updateOrganizationMemberPermissions(
 		fail(400, 'Cannot modify owner permissions');
 	}
 
-	if (input.preset === 'admin' || targetMembership?.role === 'admin') {
-		ports.auth.requireOwner();
+	const updatesAdminAccess = input.preset === 'admin' || targetMembership?.role === 'admin';
+	if (updatesAdminAccess) {
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	} else {
-		ports.auth.requireManageMembers();
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
 	}
 
-	const permissions = resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
+	const permissions = isTargetMemberPreset(input.preset)
+		? targetMemberAccessToCurrentPermissionFlags({
+				membershipRole: 'member',
+				memberPreset: input.preset,
+				capabilityOverrides: input.capabilityOverrides,
+				scopeSet: buildScopeSet(input)
+			})
+		: resolveCurrentUpdatePermissions(input.preset, input.customPermissions);
+	const accessStorage = buildCurrentPresetStorageFields(input);
 	const role = input.preset === 'admin' ? 'admin' : 'member';
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,
 		role,
-		scopedGroupId: input.preset === 'team-leader' ? input.scopedGroupId : null,
-		permissions
+		scopedGroupId: getLegacyScopedGroupId(input),
+		permissions,
+		...accessStorage
 	});
 
 	if (errorMessage) {
@@ -272,4 +326,71 @@ function requireActorUserId(auth: AuthContext): string {
 
 function normalizeEmail(email: string): string {
 	return sanitizeString(email, 254).toLowerCase();
+}
+
+function buildCurrentPresetStorageFields(input: {
+	preset: string;
+	scopedGroupId?: string | null;
+	customPermissions?: Partial<OrganizationMemberPermissions> | null;
+	capabilityOverrides?: CapabilityOverrideMap | null;
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
+}): MemberAccessStorageFields {
+	const accessStorage = isTargetMemberPreset(input.preset)
+		? targetMemberAccessToStorage({
+				membershipRole: 'member',
+				memberPreset: input.preset,
+				capabilityOverrides: input.capabilityOverrides,
+				scopeSet: buildScopeSet(input)
+			})
+		: currentPresetToMemberAccessStorage(input);
+	const serializedScope = serializeScopeSetForStorage(accessStorage.scopeSet);
+
+	return {
+		memberPreset: accessStorage.memberPreset,
+		capabilityOverrides: accessStorage.capabilityOverrides,
+		accessScopeKind: serializedScope.access_scope_kind,
+		accessScopeGroupIds: serializedScope.access_scope_group_ids
+	};
+}
+
+function buildScopeSet(input: {
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
+	scopedGroupId?: string | null;
+}) {
+	if (input.accessScopeKind !== 'groups') {
+		return { kind: 'organization' } as const;
+	}
+
+	const groupIds = (input.accessScopeGroupIds ?? [input.scopedGroupId ?? '']).filter(validateUUID);
+	return groupIds.length > 0 ? ({ kind: 'groups', groupIds } as const) : ({ kind: 'organization' } as const);
+}
+
+function getLegacyScopedGroupId(input: {
+	preset: string;
+	scopedGroupId?: string | null;
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
+}): string | null {
+	if (isTargetMemberPreset(input.preset)) {
+		const scopeSet = buildScopeSet(input);
+		return scopeSet.kind === 'groups' ? (scopeSet.groupIds[0] ?? null) : null;
+	}
+	return input.preset === 'team-leader' ? (input.scopedGroupId ?? null) : null;
+}
+
+function isTargetMemberPreset(preset: string): preset is StoredMemberPreset {
+	return preset === 'viewer' || preset === 'operator' || preset === 'editor';
+}
+
+export function parseCapabilityOverrides(formData: FormData): CapabilityOverrideMap {
+	const overrides: CapabilityOverrideMap = {};
+	for (const lane of DURABLE_FEATURE_LANES) {
+		const value = formData.get(`capability:${lane}`);
+		if (isCapabilityLevel(value)) {
+			overrides[lane] = value;
+		}
+	}
+	return overrides;
 }

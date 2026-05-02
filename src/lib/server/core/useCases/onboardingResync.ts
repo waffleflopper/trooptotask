@@ -9,6 +9,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
+import { requireOnboardingConfigurePolicy, requireOnboardingManagePolicyForOnboarding } from './onboardingPolicy';
 
 interface StepProgressRow {
 	id: string;
@@ -171,12 +172,8 @@ async function performDiff(ctx: WritePorts, onboardingId: string, templateId: st
 }
 
 export async function resyncOnboarding(ctx: WritePorts, onboardingId: string): Promise<ResyncResult> {
-	ctx.auth.requireFullEditor();
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingConfigurePolicy(ctx, onboardingId);
+	await requireOnboardingManagePolicyForOnboarding(ctx, onboardingId);
 
 	const onboarding = await ctx.store.findOne<{
 		id: string;
@@ -222,12 +219,8 @@ interface SwitchResult extends ResyncResult {
 }
 
 export async function switchTemplate(ctx: WritePorts, input: SwitchTemplateInput): Promise<SwitchResult> {
-	ctx.auth.requireFullEditor();
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
+	await requireOnboardingConfigurePolicy(ctx, input.onboardingId);
+	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
 
 	const onboarding = await ctx.store.findOne<{
 		id: string;

@@ -7,6 +7,7 @@ import type { GroupScopeRule } from '$lib/server/core/ports';
 const ORG = 'org-1';
 const GROUP_A = 'group-a';
 const GROUP_B = 'group-b';
+const GROUP_C = 'group-c';
 
 function seedTestData(store: ReturnType<typeof createInMemoryDataStore>) {
 	// Personnel in different groups
@@ -62,6 +63,19 @@ describe('ScopedDataStore', () => {
 
 				const bob = await scoped.findOne<{ id: string }>('personnel', ORG, { id: 'p-2' });
 				expect(bob).toBeNull();
+			});
+
+			it('findOne only returns personnel in any scoped group for multi-group members', async () => {
+				const inner = createInMemoryDataStore();
+				seedTestData(inner);
+				inner.seed('personnel', [{ id: 'p-4', organization_id: ORG, name: 'Drew', group_id: GROUP_C }]);
+				const scoped = createScopedDataStore(inner, { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }, scopeRules);
+
+				const bob = await scoped.findOne<{ id: string }>('personnel', ORG, { id: 'p-2' });
+				expect(bob).not.toBeNull();
+
+				const drew = await scoped.findOne<{ id: string }>('personnel', ORG, { id: 'p-4' });
+				expect(drew).toBeNull();
 			});
 
 			it('findManyWithCount only counts personnel in the scoped group', async () => {

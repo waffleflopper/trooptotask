@@ -1,3 +1,5 @@
+import type { CapabilityOverrideMap, StoredMemberPreset } from '$lib/access/memberAccessShape';
+
 export interface OrganizationInvitationAccessShape {
 	organizationId: string;
 	canViewCalendar: boolean | null;
@@ -15,7 +17,11 @@ export interface OrganizationInvitationAccessShape {
 	canViewLeadersBook: boolean | null;
 	canEditLeadersBook: boolean | null;
 	canManageMembers: boolean | null;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
+	memberPreset?: StoredMemberPreset | null;
+	capabilityOverrides?: CapabilityOverrideMap | null;
+	accessScopeKind?: 'organization' | 'groups' | null;
+	accessScopeGroupIds?: string[] | null;
 }
 
 export interface OrganizationMembershipDraft {
@@ -39,6 +45,10 @@ export interface OrganizationMembershipDraft {
 	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 	scopedGroupId: string | null;
+	memberPreset: StoredMemberPreset | null;
+	capabilityOverrides: CapabilityOverrideMap;
+	accessScopeKind: 'organization' | 'groups' | null;
+	accessScopeGroupIds: string[];
 }
 
 export function deriveMembershipFromInvitation(input: {
@@ -72,7 +82,11 @@ export function deriveMembershipFromInvitation(input: {
 		canViewLeadersBook: invitation.canViewLeadersBook ?? true,
 		canEditLeadersBook: invitation.canEditLeadersBook ?? true,
 		canManageMembers: invitation.canManageMembers ?? false,
-		scopedGroupId: invitation.scopedGroupId ?? null
+		scopedGroupId: invitation.scopedGroupId ?? null,
+		memberPreset: invitation.memberPreset ?? null,
+		capabilityOverrides: invitation.capabilityOverrides ?? {},
+		accessScopeKind: invitation.accessScopeKind ?? null,
+		accessScopeGroupIds: invitation.accessScopeGroupIds ?? []
 	};
 }
 

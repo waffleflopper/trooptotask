@@ -1,27 +1,36 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 
 const useCases = createPersonnelUseCases();
 
-export const POST = handle<Record<string, unknown>, unknown>({
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => useCases.create(ctx, input)
-});
+};
 
-export const PUT = handle<Record<string, unknown>, unknown>({
+export const POST = handle(_postConfig);
+
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => useCases.update(ctx, input)
-});
+};
 
-export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
+export const PUT = handle(_putConfig);
+
+export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const id = input.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
@@ -39,11 +48,14 @@ export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
 		}
 		return json(result);
 	}
-});
+};
 
-export const PATCH = handle<Record<string, unknown>, Record<string, unknown>>({
+export const DELETE = handle(_deleteConfig);
+
+export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	permission: 'privileged',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
 		return {
@@ -66,11 +78,20 @@ export const PATCH = handle<Record<string, unknown>, Record<string, unknown>>({
 			rank: string;
 			first_name: string;
 			last_name: string;
+			group_id: string | null;
 			archived_at: string | null;
 		}>('personnel', ctx.auth.orgId, { id: id as string });
 
 		if (!person) fail(404, 'Personnel not found');
 		if (!person.archived_at) fail(400, 'Personnel is not archived');
+
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.restoreRecords,
+			policyResourceForGroup(person.group_id),
+			'personnel',
+			id as string
+		);
 
 		await ctx.store.update('personnel', ctx.auth.orgId, id as string, { archived_at: null });
 
@@ -93,4 +114,6 @@ export const PATCH = handle<Record<string, unknown>, Record<string, unknown>>({
 		}
 		return json(result);
 	}
-});
+};
+
+export const PATCH = handle(_patchConfig);

@@ -87,7 +87,7 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 	});
 
 	it('denies out-of-scope personnel history through scoped store reads', async () => {
-		const ctx = createTestContext({ auth: { scopedGroupId: 'group-a' } });
+		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 		ctx.store.seed('personnel', [
 			{
 				id: 'p-outside',

@@ -9,6 +9,7 @@ import {
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -36,18 +37,17 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			orgId: t.auth.orgId,
 			userId: t.auth.userId,
 			role: t.auth.role,
-			scopedGroupId: t.auth.scopedGroupId,
 			isPrivileged: t.auth.isPrivileged,
-			isFullEditor: t.auth.isFullEditor,
 			requireView: t.auth.requireView,
-			requireEdit: t.auth.requireEdit,
 			requirePrivileged: t.auth.requirePrivileged,
 			requireOwner: t.auth.requireOwner,
-			requireFullEditor: t.auth.requireFullEditor,
 			requireManageMembers: t.auth.requireManageMembers,
 			requireGroupAccess: t.auth.requireGroupAccess,
 			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
-			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord
+			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord,
+			capabilityMap: t.auth.capabilityMap,
+			compatibilityLanes: t.auth.compatibilityLanes,
+			scopeSet: t.auth.scopeSet
 		},
 		readOnly: t.readOnly
 	});
@@ -82,15 +82,8 @@ describe('handleUseCaseRequest', () => {
 			expect(viewCalled).toBe(true);
 		});
 
-		it('calls requireEdit for mutation routes', async () => {
-			let editCalled = false;
-			const t = buildTestCtx({
-				auth: {
-					requireEdit() {
-						editCalled = true;
-					}
-				}
-			});
+		it('rejects mutation routes without policy authorization or use-case deferral', async () => {
+			const t = buildTestCtx();
 
 			const config: RouteConfig<void, string> = {
 				permission: 'personnel',
@@ -98,8 +91,9 @@ describe('handleUseCaseRequest', () => {
 				fn: async () => 'ok'
 			};
 
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(editCalled).toBe(true);
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toThrow(
+				'Mutation route for personnel must declare policyAction or deferPolicyToUseCase'
+			);
 		});
 
 		it('calls requirePrivileged for privileged permission', async () => {
@@ -158,6 +152,119 @@ describe('handleUseCaseRequest', () => {
 			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(called).toBe(true);
 		});
+
+		it('uses policy decisions when a policy action is declared', async () => {
+			const t = buildTestCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'group', groupId: 'group-bravo' },
+				fn: async () => 'ok'
+			};
+
+			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			expect(result).toBe('ok');
+		});
+
+		it('audits denied policy writes before rejecting the request', async () => {
+			const t = buildTestCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'configure',
+						criticalTasks: 'view',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'unreachable'
+			};
+
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+				status: 403
+			});
+			expect(t.auditPort.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					severity: 'warning',
+					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
+						reasonCode: 'denied:missing-capability'
+					})
+				})
+			]);
+		});
+
+		it('uses policy read-only overlays for policy-backed mutations', async () => {
+			const t = buildTestCtx({
+				readOnly: true,
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'unreachable'
+			};
+
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+				status: 403,
+				message: 'Organization is in read-only mode'
+			});
+			expect(t.auditPort.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
+						reasonCode: 'denied:read-only-overlay',
+						blockingOverlay: 'read-only-mode'
+					})
+				})
+			]);
+		});
 	});
 
 	describe('read-only guard', () => {
@@ -165,7 +272,7 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx({ readOnly: true });
 
 			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
+				permission: 'privileged',
 				mutation: true,
 				fn: async () => 'ok'
 			};
@@ -207,6 +314,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<{ name: string }, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -221,6 +329,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<{ name: string }, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -236,6 +345,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<void, { id: string }> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				fn: async () => ({ id: 'new-1' }),
 				audit: {
 					action: 'person.created',
@@ -260,6 +370,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<void, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				fn: async () => {
 					throw new Error('boom');
 				},

@@ -42,6 +42,8 @@
 			orgName: data.orgName ?? '',
 			userId: data.userId ?? null,
 			userRole: data.userRole ?? 'member',
+			capabilityMap: data.capabilityMap,
+			scopeSet: data.scopeSet,
 			permissions: data.permissions ?? NO_PERMISSIONS,
 			scopedGroupId: data.scopedGroupId ?? null,
 			isReadOnly: data.effectiveTier?.isReadOnly ?? false
@@ -141,6 +143,7 @@
 		orgName={data.orgName}
 		userRole={data.userRole ?? 'member'}
 		permissions={data.permissions!}
+		capabilityMap={data.capabilityMap}
 		allOrgs={data.allOrgs ?? []}
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
@@ -153,7 +156,7 @@
 		{@render children()}
 	</main>
 
-	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} />
+	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} capabilityMap={data.capabilityMap} />
 
 	{#if showFeedback}
 		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}

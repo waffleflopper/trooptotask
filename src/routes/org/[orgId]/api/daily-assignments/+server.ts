@@ -4,6 +4,7 @@ import { clearDailyAssignment, setDailyAssignment } from '$lib/server/core/useCa
 export const POST = handle<Record<string, unknown>, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		if (input.assigneeId) {
 			return setDailyAssignment(ctx, input);
@@ -17,6 +18,7 @@ export const POST = handle<Record<string, unknown>, unknown>({
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		await clearDailyAssignment(ctx, { date: input.date as string, assignmentTypeId: input.assignmentTypeId as string });
 		return { success: true };

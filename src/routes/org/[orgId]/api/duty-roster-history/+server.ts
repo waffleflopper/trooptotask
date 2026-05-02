@@ -1,5 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { isManualHistoryImport } from '$features/duty-roster/run';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
@@ -33,6 +34,7 @@ function validateManualHistoryImport(input: Record<string, unknown>) {
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'calendar',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
 	fn: async (ctx, input) => {
 		validateManualHistoryImport(input);
 		const insertData = {

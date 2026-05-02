@@ -16,8 +16,7 @@
 		const pageData: TrainingPageData = {
 			orgId: data.orgId,
 			orgName: data.orgName,
-			userPreferences: data.userPreferences,
-			permissions: data.permissions
+			userPreferences: data.userPreferences
 		};
 		ctx = new TrainingPageContext(pageData, modals, org);
 	});

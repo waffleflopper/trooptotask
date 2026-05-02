@@ -17,8 +17,7 @@ describe('organizationInvitationMembership', () => {
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
-			canManageMembers: true,
-			scopedGroupId: null
+			canManageMembers: true
 		};
 
 		expect(isAdminInvitation(invitation)).toBe(true);
@@ -76,7 +75,45 @@ describe('organizationInvitationMembership', () => {
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
 			canManageMembers: false,
-			scopedGroupId: 'group-1'
+			scopedGroupId: 'group-1',
+			memberPreset: null,
+			capabilityOverrides: {},
+			accessScopeKind: null,
+			accessScopeGroupIds: []
+		});
+	});
+
+	it('carries stored member access from invitation to membership without recomputing preset lineage', () => {
+		const membership = deriveMembershipFromInvitation({
+			invitation: {
+				organizationId: 'org-1',
+				canViewCalendar: true,
+				canEditCalendar: false,
+				canViewPersonnel: true,
+				canEditPersonnel: false,
+				canViewTraining: true,
+				canEditTraining: false,
+				canViewCriticalTasks: true,
+				canEditCriticalTasks: false,
+				canViewOnboarding: true,
+				canEditOnboarding: false,
+				canViewLeadersBook: true,
+				canEditLeadersBook: false,
+				canManageMembers: false,
+				memberPreset: 'viewer',
+				capabilityOverrides: { calendar: 'operate' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-alpha', 'group-bravo']
+			},
+			userId: 'user-1',
+			email: 'user@example.com'
+		});
+
+		expect(membership).toMatchObject({
+			memberPreset: 'viewer',
+			capabilityOverrides: { calendar: 'operate' },
+			accessScopeKind: 'groups',
+			accessScopeGroupIds: ['group-alpha', 'group-bravo']
 		});
 	});
 
@@ -95,8 +132,7 @@ describe('organizationInvitationMembership', () => {
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
-			canManageMembers: false,
-			scopedGroupId: null
+			canManageMembers: false
 		};
 
 		expect(isAdminInvitation(invitation)).toBe(false);

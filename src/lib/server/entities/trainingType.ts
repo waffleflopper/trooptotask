@@ -6,13 +6,14 @@
  * arrays drive auto-applicability filtering; `exemptPersonnelIds` overrides per-person.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { TrainingType } from '$features/training/training.types';
 
 export const TrainingTypeEntity = defineEntity<TrainingType>({
 	table: 'training_types',
 	permission: 'training',
-	requireFullEditor: true,
+	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	groupScope: 'none',
 	audit: { resourceType: 'training_type', detailFields: ['name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],

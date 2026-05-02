@@ -37,26 +37,85 @@ describe('batchDailyAssignments', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('enforces group scope on assignee IDs', async () => {
+	it('enforces policy scope on assignee IDs', async () => {
 		const ctx = buildContext({
 			auth: {
-				async requireGroupAccessBatch() {
-					throw Object.assign(new Error('Group access denied'), { status: 403 });
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: 'group-c' }]);
+
 		await expect(
 			batchDailyAssignments(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
 			})
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+	});
+
+	it('denies clearing an affected slot when the existing assignee is outside policy scope', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [{ id: 'person-outside', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'existing-outside',
+				organization_id: 'test-org',
+				date: '2026-03-22',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-outside'
+			}
+		]);
+
+		await expect(
+			batchDailyAssignments(ctx, {
+				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+
+		const rawStore = ctx.rawStore;
+		expect(rawStore).toBeDefined();
+		if (!rawStore) throw new Error('Expected rawStore in scoped batch assignment test');
+		const remaining = await rawStore.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0]?.id).toBe('existing-outside');
 	});
 
 	it('allows group assignees without running personnel group checks', async () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccessBatch } });
+		const ctx = buildContext({
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccessBatch }
+		});
 
 		ctx.store.seed('assignment_types', [
 			{

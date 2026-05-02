@@ -24,8 +24,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
-		scopedGroupId: null,
 		readOnly: false,
 		permissions: {
 			canViewCalendar: true,

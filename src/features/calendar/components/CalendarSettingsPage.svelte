@@ -5,6 +5,7 @@
 	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
 	import Trash2Icon from '$lib/components/ui/icons/Trash2Icon.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
@@ -27,8 +28,11 @@
 		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
 	const rowIn = reducedMotion ? { y: 0, duration: 0 } : { y: -8, duration: 180, easing: expoOut };
 	const rowOut = reducedMotion ? { y: 0, duration: 0 } : { y: -4, duration: 120, easing: cubicIn };
-	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
-	const canMutate = $derived(!org.readOnly && (org.isPrivileged || org.isFullEditor));
+	const configureAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
+	);
+	const canManageConfig = $derived(configureAffordance.visible);
+	const canMutate = $derived(configureAffordance.allowed);
 
 	// ---- Status Types ----
 	let newStatusName = $state('');

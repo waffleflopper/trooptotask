@@ -176,8 +176,8 @@
 			{:else if trainingTypesStore.items.length === 0}
 				<EmptyState
 					message="No training types defined yet."
-					actionLabel={ctx.canEditTraining ? 'Manage Types' : undefined}
-					onAction={ctx.canEditTraining ? () => goto(`/org/${ctx.orgId}/training/types`) : undefined}
+					actionLabel={ctx.canManageConfig ? 'Manage Types' : undefined}
+					onAction={ctx.canManageConfig ? () => goto(`/org/${ctx.orgId}/training/types`) : undefined}
 				/>
 			{:else if ctx.filteredPersonnel.length === 0}
 				<EmptyState message="No personnel found." />
@@ -188,16 +188,16 @@
 							personnel={ctx.filteredPersonnel}
 							trainingTypes={filteredTypes}
 							trainings={personnelTrainingsStore.items}
-							onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-							onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+							onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
+							onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 						/>
 					{:else}
 						<TrainingMatrix
 							personnel={ctx.filteredPersonnel}
 							trainingTypes={filteredTypes}
 							trainings={personnelTrainingsStore.items}
-							onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-							onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+							onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
+							onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 							groupBy={{
 								key: (p) => p.groupName || 'Unassigned',
 								compare: (a, b) => {

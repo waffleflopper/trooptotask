@@ -1,9 +1,10 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { importPersonnelBatch } from '$lib/server/core/useCases/personnelBatch';
 
-export const POST = handle<Record<string, unknown>, unknown>({
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) =>
 		importPersonnelBatch(ctx, {
 			records: input.records as Array<{
@@ -17,4 +18,6 @@ export const POST = handle<Record<string, unknown>, unknown>({
 				deros?: string | null;
 			}>
 		})
-});
+};
+
+export const POST = handle(_postConfig);

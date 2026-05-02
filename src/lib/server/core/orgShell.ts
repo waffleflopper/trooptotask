@@ -9,6 +9,7 @@
  */
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	OnboardingTemplate,
@@ -41,8 +42,10 @@ export interface OrgShellData {
 	userId: string | null;
 	userPreferences: UserOrgPreferences;
 	userRole: 'owner' | 'admin' | 'member';
+	capabilityMap: CapabilityMap;
+	scopeSet: ScopeSet;
 	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	isOwner: boolean;
 	isAdmin: boolean;
 	isFullEditor: boolean;
@@ -151,8 +154,10 @@ export interface MembershipInfo {
 	orgId: string;
 	userId: string | null;
 	role: 'owner' | 'admin' | 'member';
+	capabilityMap: CapabilityMap;
+	scopeSet: ScopeSet;
 	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	orgSuspended?: boolean;
 }
 

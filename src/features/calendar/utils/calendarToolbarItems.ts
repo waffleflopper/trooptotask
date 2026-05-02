@@ -2,7 +2,8 @@ import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
 
 export interface CalendarToolbarInput {
 	orgId: string;
-	canEditCalendar: boolean;
+	canManageAvailability: boolean;
+	canManageAssignments: boolean;
 	canManageConfig: boolean;
 	readOnly: boolean;
 	showStatusText: boolean;
@@ -35,7 +36,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarA
 	const items: ToolbarActionConfig[] = [];
 	const readOnlyReason = input.readOnly ? 'Read-only mode' : undefined;
 
-	if (input.canEditCalendar && input.canManageConfig) {
+	if (input.canManageAvailability) {
 		items.push({
 			id: 'bulk-status',
 			label: 'Bulk Status',
@@ -64,6 +65,24 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarA
 				}
 			]
 		});
+	}
+
+	if (input.canManageAssignments) {
+		const planningItems: NonNullable<ToolbarActionConfig['menuItems']> = [];
+		if (input.canManageConfig) {
+			planningItems.push({
+				label: 'Duty Roster',
+				href: `/org/${input.orgId}/calendar/duty-roster`,
+				disabled: input.readOnly,
+				disabledReason: readOnlyReason
+			});
+		}
+		planningItems.push({
+			label: 'Assignment Planner',
+			href: `/org/${input.orgId}/calendar/assignments`,
+			disabled: input.readOnly,
+			disabledReason: readOnlyReason
+		});
 
 		items.push({
 			id: 'planning',
@@ -72,20 +91,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarA
 			displayMode: 'full',
 			disabled: input.readOnly,
 			disabledReason: readOnlyReason,
-			menuItems: [
-				{
-					label: 'Duty Roster',
-					href: `/org/${input.orgId}/calendar/duty-roster`,
-					disabled: input.readOnly,
-					disabledReason: readOnlyReason
-				},
-				{
-					label: 'Assignment Planner',
-					href: `/org/${input.orgId}/calendar/assignments`,
-					disabled: input.readOnly,
-					disabledReason: readOnlyReason
-				}
-			]
+			menuItems: planningItems
 		});
 	}
 

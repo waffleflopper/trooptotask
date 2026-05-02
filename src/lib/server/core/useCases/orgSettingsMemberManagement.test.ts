@@ -85,6 +85,92 @@ function createOrganizationSettingsMemberManagementPort(
 }
 
 describe('inviteOrganizationMember', () => {
+	it('denies admin invitations in read-only mode with policy audit metadata', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			},
+			readOnly: true
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					settings: port
+				},
+				{
+					email: 'new.user@example.com',
+					preset: 'full-editor',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
+		});
+
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.inviteMember',
+					reasonCode: 'denied:read-only-overlay',
+					blockingOverlay: 'read-only-mode'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('denies high-access members who are not admin or owner before creating invitations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					preset: 'full-editor',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.invitationLookups).toEqual([]);
+		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.inviteMember',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid invitation emails before querying pending invites', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
@@ -95,7 +181,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'not-an-email',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -117,7 +202,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'USER@EXAMPLE.COM ',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -161,7 +245,18 @@ describe('inviteOrganizationMember', () => {
 				email: 'new.user@example.com',
 				invitedBy: 'actor-1',
 				scopedGroupId: 'group-1',
-				permissions: PERMISSION_PRESETS['team-leader']
+				permissions: PERMISSION_PRESETS['team-leader'],
+				memberPreset: 'operator',
+				capabilityOverrides: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['group-1']
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([
@@ -231,6 +326,51 @@ describe('revokeOrganizationInvitation', () => {
 });
 
 describe('removeOrganizationMember', () => {
+	it('denies high-access members who are not admin or owner before removing memberships', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			removeOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.membershipLookups).toEqual([]);
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.removeMember',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects removing the current actor from the organization', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -368,6 +508,98 @@ describe('removeOrganizationMember', () => {
 });
 
 describe('updateOrganizationMemberPermissions', () => {
+	it('denies admins before granting another member admin access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin',
+				requireOwner: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					preset: 'admin',
+					customPermissions: buildPermissions(),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateAdminAccess',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
+	it('denies high-access members who are not admin or owner before updating access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		await expect(
+			updateOrganizationMemberPermissions(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					preset: 'full-editor',
+					customPermissions: buildPermissions(),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.updatedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.updateMemberAccess',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('blocks owner permission changes before auth escalation checks', async () => {
 		const requireOwner = vi.fn();
 		const requireManageMembers = vi.fn();
@@ -391,7 +623,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					preset: 'admin',
-					scopedGroupId: null,
 					customPermissions: buildPermissions(),
 					actorEmail: 'actor@example.com'
 				}
@@ -431,7 +662,6 @@ describe('updateOrganizationMemberPermissions', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				preset: 'admin',
-				scopedGroupId: null,
 				customPermissions: buildPermissions(),
 				actorEmail: 'actor@example.com'
 			}
@@ -439,7 +669,7 @@ describe('updateOrganizationMemberPermissions', () => {
 
 		expect(result).toEqual({ permissionSuccess: true });
 		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
-		expect(requireOwner).toHaveBeenCalledOnce();
+		expect(requireOwner).not.toHaveBeenCalled();
 		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{
@@ -447,7 +677,11 @@ describe('updateOrganizationMemberPermissions', () => {
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'admin',
 				scopedGroupId: null,
-				permissions: PERMISSION_PRESETS.admin
+				permissions: PERMISSION_PRESETS.admin,
+				memberPreset: 'editor',
+				capabilityOverrides: {},
+				accessScopeKind: 'organization',
+				accessScopeGroupIds: []
 			}
 		]);
 		expect(ctx.auditPort.events).toEqual([
@@ -475,7 +709,7 @@ describe('updateOrganizationMemberPermissions', () => {
 		]);
 	});
 
-	it('uses manage-members auth for non-admin updates and keeps the permission-change notification path', async () => {
+	it('uses governance policy for non-admin updates and keeps the permission-change notification path', async () => {
 		const requireOwner = vi.fn();
 		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
@@ -504,14 +738,13 @@ describe('updateOrganizationMemberPermissions', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				preset: 'custom',
-				scopedGroupId: null,
 				customPermissions,
 				actorEmail: 'actor@example.com'
 			}
 		);
 
 		expect(result).toEqual({ permissionSuccess: true });
-		expect(requireManageMembers).toHaveBeenCalledOnce();
+		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.updatedMemberships).toEqual([
 			{
@@ -519,7 +752,17 @@ describe('updateOrganizationMemberPermissions', () => {
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				role: 'member',
 				scopedGroupId: null,
-				permissions: customPermissions
+				permissions: customPermissions,
+				memberPreset: 'viewer',
+				capabilityOverrides: {
+					calendar: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
+				accessScopeKind: 'organization',
+				accessScopeGroupIds: []
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -543,6 +786,72 @@ describe('updateOrganizationMemberPermissions', () => {
 					preset: 'custom'
 				},
 				severity: 'warning'
+			}
+		]);
+	});
+
+	it('persists target member access presets with explicit lane overrides and multi-group scope', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		const result = await updateOrganizationMemberPermissions(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				preset: 'operator',
+				capabilityOverrides: {
+					calendar: 'configure',
+					ratingScheme: 'none'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'],
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toEqual({ permissionSuccess: true });
+		expect(port.updatedMemberships).toEqual([
+			{
+				organizationId: 'org-1',
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				role: 'member',
+				scopedGroupId: '22222222-2222-4222-8222-222222222222',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: false,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: false,
+					canEditRatingScheme: false,
+					canViewLeadersBook: true,
+					canEditLeadersBook: false,
+					canManageMembers: false
+				},
+				memberPreset: 'operator',
+				capabilityOverrides: {
+					calendar: 'configure',
+					ratingScheme: 'none'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
 			}
 		]);
 	});

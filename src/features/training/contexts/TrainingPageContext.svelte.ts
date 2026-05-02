@@ -11,6 +11,8 @@ import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGroupi
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -23,6 +25,8 @@ import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
+const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
+
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)
 // ---------------------------------------------------------------------------
@@ -30,10 +34,6 @@ export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
 	userPreferences?: UserOrgPreferences;
-	permissions?: {
-		canViewTraining?: boolean;
-		canEditTraining?: boolean;
-	} | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,19 +61,37 @@ export class TrainingPageContext {
 
 	// ---- permission flags ----
 	get canManageConfig(): boolean {
-		return (this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor) ?? false;
+		return this.trainingConfigureAffordance.visible;
 	}
 
 	get readOnly(): boolean {
-		return subscriptionStore.billingEnabled && subscriptionStore.isReadOnly;
+		return this.#org.readOnly || (subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	}
 
 	get canViewTraining(): boolean {
-		return this.#data.permissions?.canViewTraining ?? true;
+		return this.trainingViewAffordance.allowed;
 	}
 
-	get canEditTraining(): boolean {
-		return this.#data.permissions?.canEditTraining ?? false;
+	get canRecordTraining(): boolean {
+		return this.trainingRecordAffordance.allowed;
+	}
+
+	get trainingViewAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, TRAINING_POLICY_RESOURCE);
+	}
+
+	get trainingRecordAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.recordCompletions,
+			TRAINING_POLICY_RESOURCE
+		);
+	}
+
+	get trainingConfigureAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			TRAINING_POLICY_RESOURCE
+		);
 	}
 
 	// ---- data accessors ----

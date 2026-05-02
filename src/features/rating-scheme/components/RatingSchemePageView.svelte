@@ -6,7 +6,6 @@
 		type WorkflowStatus
 	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		Toolbar,
@@ -52,9 +51,10 @@
 	const setWorkflowFilter = (value: string) => {
 		ctx.workflowFilter = value as WorkflowStatus | 'all';
 	};
-	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRatingScheme = $derived(ctx.canViewRatingScheme);
-	const canEditRatingScheme = $derived(ctx.canEditRatingScheme);
+	const ratingSchemeWriteAffordance = $derived(ctx.ratingSchemeWriteAffordance);
+	const showRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.visible);
+	const canUseRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.allowed);
 	const ratingStats = $derived(ctx.ratingStats);
 	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
 	const activeFilterCount = $derived(
@@ -90,12 +90,13 @@
 			}
 		];
 
-		if (canEditRatingScheme) {
+		if (showRatingSchemeWriteActions) {
 			items.push({
 				id: 'add-entry',
 				label: 'Add Entry',
 				onclick: () => ctx.handleAddRatingEntry(),
-				disabled: readOnly,
+				disabled: !canUseRatingSchemeWriteActions,
+				disabledReason: ratingSchemeWriteAffordance.explanation,
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'
@@ -227,13 +228,13 @@
 						<RatingSchemeGroupedView
 							entries={ctx.filteredRatingEntries}
 							personnel={personnelLookup}
-							onEdit={canEditRatingScheme ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
+							onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
 						/>
 					{:else}
 						<RatingSchemeTableView
 							entries={ctx.filteredRatingEntries}
 							personnel={personnelLookup}
-							onEdit={canEditRatingScheme ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
+							onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
 						/>
 					{/if}
 				</div>

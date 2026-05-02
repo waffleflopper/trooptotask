@@ -9,6 +9,7 @@
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import type { WritePorts } from '$lib/server/core/ports';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy } from './calendarPolicy';
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
@@ -28,11 +29,6 @@ export async function createAvailabilityBatch(
 	ctx: WritePorts,
 	input: CreateAvailabilityBatchInput
 ): Promise<{ inserted: unknown[] }> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -43,9 +39,8 @@ export async function createAvailabilityBatch(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	// Enforce group scope in one batch call
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	await ctx.auth.requireGroupAccessBatch(uniquePersonnelIds);
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, uniquePersonnelIds);
 
 	// Transform and bulk insert
 	const rows = records.map((r) => entity.toDbInsert(r, ctx.auth.orgId));
@@ -68,11 +63,6 @@ export async function deleteAvailabilityBatch(
 	ctx: WritePorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { ids } = input;
 
 	if (!Array.isArray(ids) || ids.length === 0) {
@@ -84,9 +74,16 @@ export async function deleteAvailabilityBatch(
 	}
 
 	// Enforce group scope — look up personnel IDs from entries being deleted
-	if (ctx.auth.scopedGroupId) {
-		await Promise.all(ids.map((id) => ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id')));
-	}
+	const lookupStore = ctx.rawStore ?? ctx.store;
+	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
+		inFilters: { id: ids },
+		select: 'personnel_id'
+	});
+	await requireCalendarPersonnelPolicy(
+		ctx,
+		CALENDAR_POLICY_ACTIONS.manageAvailability,
+		existingRows.map((row) => row.personnel_id).filter((id): id is string => typeof id === 'string')
+	);
 
 	// Batch delete all entries in one round-trip
 	const deletedCount = await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, ids);

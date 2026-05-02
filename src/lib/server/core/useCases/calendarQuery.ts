@@ -3,8 +3,7 @@
  *
  * `fetchCalendarData(ctx, { rangeStart, rangeEnd })` returns availability entries,
  * special days, assignment types, daily assignments, and pinned groups for the given
- * ISO-string date window. All collections are group-scoped if the caller has a
- * `scopedGroupId` on their AuthContext.
+ * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
  *
  * For onboarding-specific calendar data, see `onboardingCalendarQuery.ts`.
  */
@@ -22,6 +21,14 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listDutyEventsInRange } from '$lib/server/core/useCases/dutyEventCrud';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
+import {
+	filterRowsByCalendarAssigneeScope,
+	groupInFilter,
+	personnelInFilter,
+	resolveCalendarAssigneeScope,
+	type CalendarAssigneeScope
+} from './calendarScope';
 
 export interface CalendarDateRange {
 	rangeStart: string;
@@ -70,10 +77,11 @@ export interface CalendarBootstrap {
 }
 
 export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
+	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	const [
 		availabilityRows,
@@ -86,6 +94,7 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
 		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 			select: AvailabilityEntryEntity.select,
+			...personnelInFilter(calendarScope, 'personnel_id'),
 			rangeFilters: [
 				{ column: 'end_date', op: 'gte', value: rangeStart },
 				{ column: 'start_date', op: 'lte', value: rangeEnd }
@@ -129,22 +138,26 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
-		dailyAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
+		dailyAssignments: DailyAssignmentEntity.fromDbArray(
+			filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
+		),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-		advancedDutyEvents
+		advancedDutyEvents: filterDutyEventsByCalendarScope(advancedDutyEvents, calendarScope)
 	};
 }
 
 export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarRangeData> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
+	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
 		const [availabilityRows, specialDayRows, dailyAssignmentRows, advancedDutyEvents] = await Promise.all([
 			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 				select: AvailabilityEntryEntity.select,
+				...personnelInFilter(calendarScope, 'personnel_id'),
 				rangeFilters: [
 					{ column: 'end_date', op: 'gte', value: rangeStart },
 					{ column: 'start_date', op: 'lte', value: rangeEnd }
@@ -171,8 +184,10 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 			rangeEnd,
 			availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 			specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
-			dailyAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
-			advancedDutyEvents
+			dailyAssignments: DailyAssignmentEntity.fromDbArray(
+				filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
+			),
+			advancedDutyEvents: filterDutyEventsByCalendarScope(advancedDutyEvents, calendarScope)
 		};
 	});
 }
@@ -181,14 +196,16 @@ export async function fetchCalendarBootstrap(
 	ctx: QueryPorts,
 	input: CalendarBootstrapQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
 	const specialDaysRange = input.specialDaysRange ?? input;
+	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 	const availabilityEntries = ctx.store
 		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 			select: AvailabilityEntryEntity.select,
+			...personnelInFilter(calendarScope, 'personnel_id'),
 			rangeFilters: [
 				{ column: 'end_date', op: 'gte', value: rangeStart },
 				{ column: 'start_date', op: 'lte', value: rangeEnd }
@@ -211,7 +228,7 @@ export async function fetchCalendarBootstrap(
 				{ column: 'date', op: 'lte', value: rangeEnd }
 			]
 		})
-		.then((rows) => DailyAssignmentEntity.fromDbArray(rows));
+		.then((rows) => DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, calendarScope)));
 
 	const [
 		assignmentTypeRows,
@@ -238,10 +255,12 @@ export async function fetchCalendarBootstrap(
 		withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
 		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 			select: PersonnelEntity.select,
+			...groupInFilter(calendarScope, 'group_id'),
 			isNull: { archived_at: true },
 			orderBy: [{ column: 'last_name', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			...groupInFilter(calendarScope, 'id'),
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
@@ -262,10 +281,21 @@ export async function fetchCalendarBootstrap(
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		dailyAssignments,
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-		advancedDutyEvents,
+		advancedDutyEvents: filterDutyEventsByCalendarScope(advancedDutyEvents, calendarScope),
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		lossWarningWindowDays
 	};
+}
+
+function filterDutyEventsByCalendarScope(events: DutyEvent[], scope: CalendarAssigneeScope | null): DutyEvent[] {
+	if (!scope) {
+		return events;
+	}
+
+	const allowedAssigneeIds = new Set([...scope.personnelIds, ...scope.groupIds]);
+	return events.filter((event) =>
+		event.slotInstances.some((slot) => typeof slot.assigneeId === 'string' && allowedAssigneeIds.has(slot.assigneeId))
+	);
 }

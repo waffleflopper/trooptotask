@@ -5,6 +5,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {
@@ -21,7 +22,10 @@
 	let { data } = $props();
 
 	const org = getOrgContext();
-	const canMutate = $derived(!org.readOnly && (org.isPrivileged || org.isFullEditor));
+	const configureAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
+	);
+	const canMutate = $derived(configureAffordance.allowed);
 	const workspaceData = $derived(data.training?.data);
 
 	// --- State ---

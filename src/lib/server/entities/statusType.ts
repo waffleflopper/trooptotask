@@ -1,16 +1,17 @@
 /**
  * Status type entity — maps `status_types` (named availability statuses shown on the calendar).
- * `requireFullEditor: true` — only full editors can add/edit/delete status types.
+ * Calendar configuration policy decisions authorize mutations.
  * `color`/`textColor` are hex strings controlling how the status appears on the calendar.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import { DA6_AVAILABILITY_TREATMENTS, type StatusType } from '$lib/types';
 
 export const StatusTypeEntity = defineEntity<StatusType>({
 	table: 'status_types',
 	permission: 'calendar',
-	requireFullEditor: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	groupScope: 'none',
 	audit: { resourceType: 'status_type', detailFields: ['name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],

@@ -5,7 +5,7 @@ import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
@@ -76,19 +76,24 @@ const permissions = {
 };
 
 function makeOrg(): OrgContext {
-	return {
+	return createOrgContext({
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		userId: 'user-1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'none',
+			personnel: 'none',
+			training: 'none',
+			criticalTasks: 'none',
+			onboarding: 'none',
+			ratingScheme: 'operate'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions,
 		scopedGroupId: null,
-		readOnly: false
-	};
+		isReadOnly: false
+	});
 }
 
 function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {

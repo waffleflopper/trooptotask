@@ -14,29 +14,47 @@
  */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isFullEditor as hasFullEditorPermissions } from '$lib/access/memberAccessShape';
+import {
+	createCompatibilityLaneMap,
+	resolveStoredMemberAccessShape,
+	toMemberAccessShape,
+	type CapabilityMap,
+	type CompatibilityLaneMap,
+	type CapabilityOverrideMap,
+	type ScopeSet,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { FeatureArea } from './core/ports';
 import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
 
 export type { FeatureArea };
 
+const PRIVILEGED_CAPABILITY_MAP: CapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
+};
+const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
+
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isOwner: boolean;
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
-	readonly isFullEditor: boolean;
-	readonly scopedGroupId: string | null;
+	readonly capabilityMap: CapabilityMap;
+	readonly compatibilityLanes: CompatibilityLaneMap;
+	readonly scopeSet: ScopeSet;
 	readonly canView: Record<FeatureArea, boolean>;
 	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
 
-	requireEdit(area: FeatureArea): void;
 	requireView(area: FeatureArea): void;
 	requirePrivileged(): void;
 	requireOwner(): void;
-	requireFullEditor(): void;
 	requireManageMembers(): void;
 
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
@@ -66,17 +84,16 @@ export function createSandboxContext(): PermissionContext {
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
+		capabilityMap: buildPrivilegedCapabilityMap(),
+		compatibilityLanes: buildPrivilegedCompatibilityLanes(),
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
 
-		requireEdit(): void {},
 		requireView(): void {},
 		requirePrivileged(): void {},
 		requireOwner(): void {},
-		requireFullEditor(): void {},
 		requireManageMembers(): void {},
 
 		async requireGroupAccess(): Promise<void> {},
@@ -106,6 +123,10 @@ export interface MembershipRow {
 	can_view_leaders_book: boolean;
 	can_edit_leaders_book: boolean;
 	can_manage_members: boolean;
+	member_preset?: StoredMemberPreset | null;
+	capability_overrides?: CapabilityOverrideMap | null;
+	access_scope_kind?: ScopeSet['kind'] | null;
+	access_scope_group_ids?: string[] | null;
 }
 
 /**
@@ -162,7 +183,14 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canManageMembers: !!membership.can_manage_members
 	};
 
-	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
+	const accessShape = isPrivileged
+		? {
+				capabilityMap: buildPrivilegedCapabilityMap(),
+				compatibilityLanes: buildPrivilegedCompatibilityLanes(),
+				scopeSet: { kind: 'organization' } as ScopeSet
+			}
+		: resolveMembershipAccessShape(membership, memberPermissions, scopedGroupId);
+	const scopedGroupAccess = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : null;
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
@@ -182,17 +210,12 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isOwner,
 		isAdmin,
 		isPrivileged,
-		isFullEditor,
-		scopedGroupId,
+		capabilityMap: accessShape.capabilityMap,
+		compatibilityLanes: accessShape.compatibilityLanes,
+		scopeSet: accessShape.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
-
-		requireEdit(area: FeatureArea): void {
-			if (!canEdit[area]) {
-				throw error(403, `You do not have permission to edit ${areaLabel(area)} data`);
-			}
-		},
 
 		requireView(area: FeatureArea): void {
 			if (!canView[area]) {
@@ -212,12 +235,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			}
 		},
 
-		requireFullEditor(): void {
-			if (!isPrivileged && !isFullEditor) {
-				throw error(403, 'This action requires full editor, admin, or owner permissions');
-			}
-		},
-
 		requireManageMembers(): void {
 			if (!canManageMembers) {
 				throw error(403, 'You do not have permission to manage this organization');
@@ -226,12 +243,12 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
+			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
 		},
 
 		async requireGroupAccessBatch(supabaseClient: SupabaseClient, personnelIds: string[]): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccessBatch(resolver, scopedGroupId, personnelIds);
+			await enforceGroupAccessBatch(resolver, scopedGroupAccess, personnelIds);
 		},
 
 		async requireGroupAccessByRecord(
@@ -241,7 +258,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			orgId: string,
 			personnelIdColumn: string
 		): Promise<void> {
-			if (!scopedGroupId) return;
+			if (!scopedGroupAccess) return;
 
 			const { data: record } = await supabaseClient
 				.from(table)
@@ -256,7 +273,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			if (!personnelId) return;
 
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
+			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
 		}
 	};
 
@@ -280,7 +297,7 @@ export async function getMembershipRow(
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
@@ -291,4 +308,56 @@ export async function getMembershipRow(
 	}
 
 	return membership as MembershipRow;
+}
+
+function buildPrivilegedCapabilityMap(): CapabilityMap {
+	return { ...PRIVILEGED_CAPABILITY_MAP };
+}
+
+function buildPrivilegedCompatibilityLanes(): CompatibilityLaneMap {
+	return { ...PRIVILEGED_COMPATIBILITY_LANES };
+}
+
+function resolveMembershipAccessShape(
+	membership: MembershipRow,
+	permissions: OrganizationMemberPermissions,
+	scopedGroupId: string | null
+): { capabilityMap: CapabilityMap; compatibilityLanes: CompatibilityLaneMap; scopeSet: ScopeSet } {
+	if (isStoredMemberPreset(membership.member_preset)) {
+		const shape = resolveStoredMemberAccessShape({
+			membershipRole: membership.role,
+			memberPreset: membership.member_preset,
+			capabilityOverrides: membership.capability_overrides,
+			scopeSet: toStoredScopeSet(membership),
+			canManageMembers: membership.can_manage_members
+		});
+		return {
+			capabilityMap: shape.capabilityMap,
+			compatibilityLanes: shape.compatibilityLanes,
+			scopeSet: shape.scopeSet
+		};
+	}
+
+	const shape = toMemberAccessShape({
+		membershipRole: membership.role,
+		permissions,
+		scopedGroupId
+	});
+	return {
+		capabilityMap: shape.capabilityMap,
+		compatibilityLanes: shape.compatibilityLanes,
+		scopeSet: shape.scopeSet
+	};
+}
+
+function isStoredMemberPreset(value: unknown): value is StoredMemberPreset {
+	return value === 'viewer' || value === 'operator' || value === 'editor';
+}
+
+function toStoredScopeSet(membership: MembershipRow): ScopeSet {
+	if (membership.access_scope_kind === 'groups' && Array.isArray(membership.access_scope_group_ids)) {
+		return { kind: 'groups', groupIds: membership.access_scope_group_ids };
+	}
+
+	return { kind: 'organization' };
 }

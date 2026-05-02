@@ -10,8 +10,15 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import {
+	createCapabilityMap,
+	resolveMemberAccessShapeFromStoredOrCurrent,
+	type CapabilityMap,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { MembershipRow } from '$lib/server/permissionContext';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	DeferredData,
@@ -75,6 +82,8 @@ function createDemoRootOrgShellRequest(config: {
 				orgId: config.orgId,
 				userId: null,
 				role: config.role,
+				capabilityMap: resolveDemoCapabilityMap(config.permissions, config.role),
+				scopeSet: { kind: 'organization' },
 				permissions: config.permissions,
 				scopedGroupId: null
 			},
@@ -94,6 +103,21 @@ function createDemoRootOrgShellRequest(config: {
 			}
 		})
 	};
+}
+
+function resolveDemoCapabilityMap(
+	permissions: OrganizationMemberPermissions,
+	role: 'owner' | 'admin' | 'member'
+): CapabilityMap {
+	if (role === 'owner' || role === 'admin') {
+		return createCapabilityMap('configure');
+	}
+
+	return resolveMemberAccessShapeFromStoredOrCurrent({
+		membershipRole: role,
+		permissions,
+		scopedGroupId: null
+	}).capabilityMap;
 }
 
 export interface SupabaseRootOrgLoadPortDeps {
@@ -274,11 +298,14 @@ export function createSupabaseOrgAccessPort(config: {
 				canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
 				canManageMembers: isPrivileged || membership.can_manage_members
 			};
+			const accessShape = resolveMembershipClientAccessShape(membership, permissions, isPrivileged);
 
 			return {
 				orgId: config.orgId,
 				userId: config.userId,
 				role: membership.role,
+				capabilityMap: accessShape.capabilityMap,
+				scopeSet: accessShape.scopeSet,
 				permissions,
 				scopedGroupId: isPrivileged ? null : (membership.scoped_group_id ?? null),
 				// orgSuspended is checked and short-circuits before this adapter is ever
@@ -307,7 +334,7 @@ async function loadMembershipRow(config: {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
 		.select(
-			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)
@@ -322,6 +349,34 @@ async function loadMembershipRow(config: {
 	}
 
 	return data as MembershipRow;
+}
+
+function resolveMembershipClientAccessShape(
+	membership: MembershipRow,
+	permissions: OrganizationMemberPermissions,
+	isPrivileged: boolean
+): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
+	if (isPrivileged) {
+		return {
+			capabilityMap: createCapabilityMap('configure'),
+			scopeSet: { kind: 'organization' }
+		};
+	}
+
+	const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+		membershipRole: membership.role,
+		permissions,
+		scopedGroupId: membership.scoped_group_id,
+		memberPreset: membership.member_preset,
+		capabilityOverrides: membership.capability_overrides,
+		accessScopeKind: membership.access_scope_kind,
+		accessScopeGroupIds: membership.access_scope_group_ids
+	});
+
+	return {
+		capabilityMap: shape.capabilityMap,
+		scopeSet: shape.scopeSet
+	};
 }
 
 export function createSupabaseOrgChromePort(config: {
@@ -584,6 +639,8 @@ export function createSupabaseTrainingWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -591,6 +648,8 @@ export function createSupabaseTrainingWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'training',
+			policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}
@@ -693,6 +752,8 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -700,6 +761,8 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'critical-tasks',
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}
@@ -737,6 +800,8 @@ export function createSupabaseOnboardingWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'onboarding',
+				policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -744,6 +809,8 @@ export function createSupabaseOnboardingWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'onboarding',
+			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}
@@ -801,7 +868,7 @@ export function createSupabaseRatingSchemeWorkspacePort(
 			}
 
 			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'rating-scheme',
+				permission: 'none',
 				fn: async (ctx) => fetchRatingSchemeBootstrap(ctx)
 			});
 

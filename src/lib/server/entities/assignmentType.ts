@@ -1,17 +1,18 @@
 /**
  * Assignment type entity — maps `assignment_types` (the named duty slots, e.g., "CQ", "SDO").
- * `requireFullEditor: true` — only full editors (not read-only members) can mutate.
+ * Calendar configuration policy decisions authorize mutations.
  * `assignTo` controls whether this type assigns to individual `personnel` or a `group`.
  * `exemptPersonnelIds` is a Postgres array of UUIDs stored directly on the row.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { AssignmentType } from '$lib/types';
 
 export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 	table: 'assignment_types',
 	permission: 'calendar',
-	requireFullEditor: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	groupScope: 'none',
 	audit: { resourceType: 'assignment_type', detailFields: ['name', 'short_name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],

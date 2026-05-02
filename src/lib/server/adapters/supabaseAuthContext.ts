@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthContext, FeatureArea } from '../core/ports';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
@@ -30,16 +31,16 @@ export function createSupabaseAuthContextAdapter(
 		get isPrivileged() {
 			return permCtx.isPrivileged;
 		},
-		get isFullEditor() {
-			return permCtx.isFullEditor;
+		get capabilityMap() {
+			return permCtx.capabilityMap;
 		},
-		get scopedGroupId() {
-			return permCtx.scopedGroupId;
+		get compatibilityLanes() {
+			return permCtx.compatibilityLanes;
+		},
+		get scopeSet() {
+			return permCtx.scopeSet;
 		},
 
-		requireEdit(area: FeatureArea): void {
-			permCtx.requireEdit(area);
-		},
 		requireView(area: FeatureArea): void {
 			permCtx.requireView(area);
 		},
@@ -48,9 +49,6 @@ export function createSupabaseAuthContextAdapter(
 		},
 		requireOwner(): void {
 			permCtx.requireOwner();
-		},
-		requireFullEditor(): void {
-			permCtx.requireFullEditor();
 		},
 		requireManageMembers(): void {
 			permCtx.requireManageMembers();
@@ -74,14 +72,20 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 		orgId,
 		role: 'owner',
 		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		compatibilityLanes: createCompatibilityLaneMap('configure'),
+		scopeSet: { kind: 'organization' },
 
-		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},
 		requireOwner() {},
-		requireFullEditor() {},
 		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},

@@ -7,12 +7,15 @@
  *
  * Empty string fields are coerced to null before persistence (optional fields pattern).
  */
-import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
+import { requireFeaturePolicy } from './featurePolicy';
+import { requireGovernancePolicy } from './governancePolicy';
 
 const entity = RatingSchemeEntryEntity;
 const AUDIT_RESOURCE = 'rating_scheme';
+type RatingSchemePolicyPorts = WriteWithNotificationsPorts & { rawStore?: WriteWithNotificationsPorts['store'] };
 
 /** Coerce empty strings to null for optional fields */
 function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unknown> {
@@ -21,6 +24,70 @@ function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unkno
 		if (result[key] === '') result[key] = null;
 	}
 	return result;
+}
+
+function optionalPersonnelId(value: unknown): string | null | undefined {
+	if (typeof value === 'string' || value === null || value === undefined) {
+		return value;
+	}
+
+	throw new TypeError('Expected rating scheme personnel id to be a string, null, or undefined');
+}
+
+async function policyResourceForRatedPerson(
+	ctx: RatingSchemePolicyPorts,
+	personnelId: string | null | undefined
+): Promise<PolicyResource> {
+	if (!personnelId) {
+		return { kind: 'unscoped' };
+	}
+
+	const person = await (ctx.rawStore ?? ctx.store).findOne<{ group_id: string | null }>('personnel', ctx.auth.orgId, {
+		id: personnelId
+	});
+	if (!person?.group_id) {
+		return { kind: 'unscoped' };
+	}
+
+	return { kind: 'group', groupId: person.group_id };
+}
+
+async function policyResourceForRatingSchemeEntry(ctx: RatingSchemePolicyPorts, id: string): Promise<PolicyResource> {
+	const entry = await (ctx.rawStore ?? ctx.store).findOne<{ rated_person_id: string | null }>(
+		entity.table,
+		ctx.auth.orgId,
+		{
+			id
+		}
+	);
+	return policyResourceForRatedPerson(ctx, entry?.rated_person_id);
+}
+
+async function requireRatingSchemeUpdatePolicy(
+	ctx: WriteWithNotificationsPorts,
+	resource: PolicyResource,
+	resourceId?: string
+): Promise<void> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
+		resource,
+		AUDIT_RESOURCE,
+		resourceId
+	);
+}
+
+export async function requireRatingSchemeEntryDeletionRequestPolicy(
+	ctx: WriteWithNotificationsPorts,
+	id: string
+): Promise<void> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
+		await policyResourceForRatingSchemeEntry(ctx, id),
+		AUDIT_RESOURCE,
+		id
+	);
 }
 
 export interface RatingSchemeEntryUseCases {
@@ -32,18 +99,11 @@ export interface RatingSchemeEntryUseCases {
 export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 	return {
 		async create(ctx, data) {
-			ctx.auth.requireEdit('rating-scheme');
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
 			const validated = entity.createSchema.parse(data);
-
-			if (validated.ratedPersonId && typeof validated.ratedPersonId === 'string') {
-				await ctx.auth.requireGroupAccess(validated.ratedPersonId);
-			}
+			await requireRatingSchemeUpdatePolicy(
+				ctx,
+				await policyResourceForRatedPerson(ctx, optionalPersonnelId(validated.ratedPersonId))
+			);
 
 			const dbData = coerceEmptyStrings(entity.toDbInsert(validated, ctx.auth.orgId));
 			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
@@ -58,17 +118,17 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 		},
 
 		async update(ctx, data) {
-			ctx.auth.requireEdit('rating-scheme');
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
 			const validated = entity.updateSchema.parse(data);
 			const { id } = validated as { id: string };
 
-			await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'rated_person_id');
+			await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatingSchemeEntry(ctx, id), id);
+			if (validated.ratedPersonId !== undefined) {
+				await requireRatingSchemeUpdatePolicy(
+					ctx,
+					await policyResourceForRatedPerson(ctx, optionalPersonnelId(validated.ratedPersonId)),
+					id
+				);
+			}
 
 			const dbData = coerceEmptyStrings(entity.toDbUpdate(validated));
 			const row = await ctx.store.update<Record<string, unknown>>(
@@ -89,19 +149,13 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 		},
 
 		async remove(ctx, id) {
-			ctx.auth.requireEdit('rating-scheme');
+			await requireRatingSchemeEntryDeletionRequestPolicy(ctx, id);
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
-			await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'rated_person_id');
-
-			// Non-privileged, non-full-editor users need deletion approval
-			if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
+			if (!ctx.auth.isPrivileged) {
 				return { requiresApproval: true };
 			}
+
+			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry);
 
 			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 

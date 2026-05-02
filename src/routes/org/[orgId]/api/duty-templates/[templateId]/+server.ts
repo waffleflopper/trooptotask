@@ -10,6 +10,7 @@ const templateIdInputSchema = z.object({
 export const _deleteConfig: RouteConfig<{ templateId: string }, DutyTemplate> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: templateIdInputSchema,
 	fn: (ctx, input) => archiveDutyTemplate(ctx, input)
 };

@@ -66,6 +66,45 @@ describe('POST /billing/checkout', () => {
 		});
 	});
 
+	it('denies non-owner checkout attempts through billing policy before reading organization billing state', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin'
+			}
+		});
+		buildRouteContextMock.mockResolvedValue(ctx);
+
+		await expect(
+			POST({
+				request: new Request(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ tier: 'team' })
+				}),
+				locals: {
+					user: { email: 'admin@example.com' }
+				},
+				params: { orgId: ctx.auth.orgId },
+				url: new URL(`http://localhost/org/${ctx.auth.orgId}/billing/checkout`)
+			} as never)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.accessBilling',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('allows owners to create a checkout session when the organization is read-only', async () => {
 		const ctx = createTestContext({ readOnly: true });
 		ctx.rawStore.seed('organizations', [

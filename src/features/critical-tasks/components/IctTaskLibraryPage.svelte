@@ -16,6 +16,7 @@
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
+	import { criticalTasksConfigureLibraryAffordance } from '$features/critical-tasks/utils/criticalTasksPolicy';
 	import {
 		countCompletionRecordsForTask,
 		formatMosApplicability,
@@ -36,7 +37,9 @@
 
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
-	const canManage = $derived(org.isPrivileged && !org.readOnly);
+	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));
+	const canViewLibrary = $derived(configureLibraryAffordance.visible);
+	const canManage = $derived(configureLibraryAffordance.allowed);
 
 	const storesHydratedForOrg = $derived(ictTasksStore.orgId === orgId && personnelIctCompletionsStore.orgId === orgId);
 	const loading = $derived(!storesHydratedForOrg || ictTasksStore.loading || personnelIctCompletionsStore.loading);
@@ -335,10 +338,10 @@
 	<title>ICT Task Library - Troop to Task</title>
 </svelte:head>
 
-{#if !org.isPrivileged}
+{#if !canViewLibrary}
 	<section class="page-message" aria-labelledby="library-restricted-title">
 		<h2 id="library-restricted-title">Access Restricted</h2>
-		<p>Only organization owners and admins can manage ICT task definitions.</p>
+		<p>Critical Tasks configure access is required to manage ICT task definitions.</p>
 	</section>
 {:else}
 	<div class="library-page-shell">

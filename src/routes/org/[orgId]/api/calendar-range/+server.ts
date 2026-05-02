@@ -41,6 +41,7 @@ const calendarRangeInput = z
 
 export const _getConfig: RouteConfig<z.infer<typeof calendarRangeInput>> = {
 	permission: 'calendar',
+	deferPolicyToUseCase: true,
 	input: calendarRangeInput,
 	parseInput: (event) => ({
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',

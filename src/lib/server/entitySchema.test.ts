@@ -348,7 +348,7 @@ describe('defineEntity() methods config', () => {
 });
 
 describe('defineEntity() metadata preservation', () => {
-	it('preserves permission, requireFullEditor, audit, and orderBy when provided', () => {
+	it('preserves permission, audit, and orderBy when provided', () => {
 		const entity = defineEntity({
 			table: 'with_meta',
 			groupScope: 'none',
@@ -357,12 +357,10 @@ describe('defineEntity() metadata preservation', () => {
 				name: field(z.string())
 			},
 			permission: 'training',
-			requireFullEditor: true,
 			audit: 'training_type',
 			orderBy: [{ column: 'name', ascending: true }]
 		});
 		expect(entity.permission).toBe('training');
-		expect(entity.requireFullEditor).toBe(true);
 		expect(entity.audit).toBe('training_type');
 		expect(entity.orderBy).toEqual([{ column: 'name', ascending: true }]);
 	});
@@ -377,7 +375,6 @@ describe('defineEntity() metadata preservation', () => {
 			}
 		});
 		expect(entity.permission).toBeUndefined();
-		expect(entity.requireFullEditor).toBeUndefined();
 		expect(entity.audit).toBeUndefined();
 		expect(entity.orderBy).toBeUndefined();
 	});

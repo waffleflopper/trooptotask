@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
@@ -46,6 +47,8 @@ describe('GET /api/training-reports/export', () => {
 		]);
 
 		expect(_getConfig.permission).toBe('training');
+		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
+		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, {
 			sortColumn: 'name',

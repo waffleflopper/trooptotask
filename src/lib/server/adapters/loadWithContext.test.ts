@@ -28,14 +28,10 @@ describe('loadWithContextCore', () => {
 
 	it('skips permission check when permission is "none"', async () => {
 		let viewCalled = false;
-		let editCalled = false;
 		const ctx = buildCtx({
 			auth: {
 				requireView() {
 					viewCalled = true;
-				},
-				requireEdit() {
-					editCalled = true;
 				}
 			}
 		});
@@ -46,7 +42,6 @@ describe('loadWithContextCore', () => {
 		});
 
 		expect(viewCalled).toBe(false);
-		expect(editCalled).toBe(false);
 		expect(result).toEqual({ data: 'hello' });
 	});
 

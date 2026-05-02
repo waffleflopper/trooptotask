@@ -3,6 +3,7 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export interface CriticalTasksReportsPageLoadDeps {
 	loadWithContext?: typeof loadWithContext;
@@ -18,6 +19,8 @@ export function _createCriticalTasksReportsPageLoad(_deps: CriticalTasksReportsP
 		return {
 			initialDashboard: await loadWithContextFn(locals, cookies, params.orgId, {
 				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+				policyResource: { kind: 'unscoped' },
 				fn: (ctx) => fetchDashboardFn(ctx)
 			})
 		};

@@ -67,11 +67,11 @@ The current v1 UI shortcut such as **Admin**, **Full Editor**, **Team Leader**, 
 _Avoid_: Role, future preset
 
 **Member Preset**:
-The approved replacement default member-access bundle, with starter presets **Viewer**, **Operator**, and **Editor**.
+The approved replacement default member-access bundle, with starter presets **Viewer**, **Operator**, and **Editor**. Viewer is read-oriented, Operator is for day-to-day feature work, and Editor is for feature-lane configuration. A **Member Preset** does not grant **Organization Governance Actions** by itself.
 _Avoid_: Role, admin
 
 **Capability Level**:
-The approved replacement per-feature authority level: `none`, `view`, `operate`, or `configure`.
+The approved replacement per-feature authority level: `none`, `view`, `operate`, or `configure`. `operate` allows normal lane work without lane configuration; `configure` allows changing that lane's settings or workflow shape. **Organization Governance Actions** stay outside **Capability Levels**.
 _Avoid_: Permission flag
 
 **Capability Map**:
@@ -95,15 +95,63 @@ The current single-group restriction stored through `scoped_group_id`.
 _Avoid_: Team leader role, future scope set
 
 **Scope Set**:
-The approved replacement member scope model: organization-wide or one or more **Groups** shared across all scoped **Feature Lanes**.
-_Avoid_: Per-feature scope matrix
+The approved replacement positive-grant member scope model shared across all scoped **Feature Lanes**. A **Scope Set** may represent organization-wide access, one or more whole **Groups**, and later named **Personnel Scope** entries for specific **Personnel Records** across Groups.
+_Avoid_: Per-feature scope matrix, negative grants
+
+**Personnel Scope**:
+A future person-level entry inside a **Scope Set** that grants access to selected **Personnel Records** without granting every person in their **Groups**.
+_Avoid_: Ghost group
 
 **Policy Overlay**:
 A cross-cutting rule that can change the final allow or deny result after role, capability, and scope are evaluated.
 _Avoid_: Permission, preset
 
+**Policy Action**:
+A stable authorization action evaluated by the policy module, such as `training.completion.record` or `organization.member.invite`, independent of the route, page, or button that requested it.
+_Avoid_: Route permission, page permission
+
+**Workflow-Level Action**:
+A **Policy Action** sized around a meaningful user workflow, split only when capability level, audit treatment, or UX explanation needs differ.
+_Avoid_: Button permission, giant feature edit
+
+**Action Catalog**:
+The approved registry of **Policy Actions**, including each action's owning **Feature Lane** or **Organization Governance Action**.
+_Avoid_: Ad hoc permission checks
+
+**Policy Evaluator**:
+The pure TypeScript function or module that turns already-loaded policy inputs into a structured **Policy Decision** without querying Supabase or another provider directly.
+_Avoid_: Supabase policy helper
+
+**Policy Adapter**:
+The provider-aware translation layer that loads organization membership, capabilities, scope, resource context, and overlays, then passes provider-agnostic inputs into the **Policy Evaluator**.
+_Avoid_: Business-logic query shortcut
+
+**Policy Reason Code**:
+A stable machine-readable code on a **Policy Decision**, such as `allowed.capability`, `denied.missingCapability`, `denied.outOfScope`, `denied.readOnlyMode`, or `denied.ownerOnly`.
+_Avoid_: Free-form denial text
+
+**Policy Audit Event**:
+A selective audit record produced from a **Policy Decision** for denied or suspicious attempts and sensitive successful actions.
+_Avoid_: Every allowed read
+
+**Audit Capture Rule**:
+The allowlist rule that decides whether a **Policy Decision** should become a **Policy Audit Event**.
+_Avoid_: Log everything
+
+**Authoritative Policy Decision**:
+A server-side **Policy Decision** that enforces writes and sensitive reads.
+_Avoid_: Client-only check
+
+**Advisory Policy Decision**:
+A client-side or preloaded **Policy Decision** used only for UX hints such as hiding buttons, disabling controls, or explaining access.
+_Avoid_: Security enforcement
+
+**Vertical Authorization Slice**:
+A migration slice that moves one meaningful authorization workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.
+_Avoid_: Half-migrated authz layer
+
 **Policy Decision**:
-The effective allow or deny outcome for a requested action after role, capability, scope, and policy overlays are evaluated.
+The structured effective outcome for a requested action after role, capability, scope, and policy overlays are evaluated. A **Policy Decision** should include the allow/deny result, a stable **Policy Reason Code**, and explanation metadata such as matched capability, matched scope, blocking overlay, action, lane, and resource so the app can explain and potentially audit attempted access.
 _Avoid_: Checkbox
 
 **Read-Only Mode**:
@@ -206,7 +254,27 @@ _Avoid_: Training type
 - An **Organization Member** belongs to exactly one **Organization** and receives one **Membership Role**.
 - In the current model, an **Organization Member** receives **Permission Flags** and may receive one **Group Scope**.
 - In the approved replacement model, a member receives one **Member Preset**, one **Capability Map**, and one shared **Scope Set**.
+- A high-access member may receive broad `configure` access across **Feature Lanes** without becoming an `admin`.
 - A **Scope Set** applies across all scoped **Feature Lanes**; it does not vary by feature.
+- A **Scope Set** should move toward multiple whole-**Group** grants sooner than later and keep room for future **Personnel Scope** entries across Groups.
+- **Scope Set** grants are positive-only in the approved replacement model; do not introduce deny exceptions or "all except" scope semantics without a later explicit decision.
+- `operate` is for day-to-day feature work; `configure` is for feature-lane configuration; neither implies member management, billing, ownership transfer, or destructive organization-danger authority.
+- A **Policy Decision** should be structured even when a call site initially only uses the final allow/deny result.
+- Structured **Policy Decisions** should support user-facing explanations and audit capture for denied or suspicious access attempts.
+- Every **Policy Decision** should include a stable **Policy Reason Code**; human-facing copy should be mapped from reason codes outside the evaluator.
+- **Policy Reason Codes** should be searchable and testable, while optional decision metadata carries matched action, lane, scope, overlay, and resource details.
+- Audit capture should be selective: denied writes, suspicious denied access patterns, **Organization Governance Actions**, owner-only actions, billing changes, and member-management changes are audit-worthy by default.
+- Do not audit every ordinary allowed read; **Audit Capture Rules** should decide when a **Policy Decision** becomes a **Policy Audit Event**.
+- Server-side **Authoritative Policy Decisions** enforce writes and sensitive reads; client-side **Advisory Policy Decisions** are UX hints only.
+- UI placement, hidden buttons, and disabled controls must not be treated as security enforcement.
+- Policy evaluation should be action-first: routes, pages, and buttons ask about stable **Policy Actions** rather than defining authorization meaning themselves.
+- The first **Action Catalog** should use **Workflow-Level Actions** rather than one action per button or one giant action per feature.
+- Split **Policy Actions** when two actions need different **Capability Levels**, audit treatment, or UX explanations.
+- The replacement rollout should use **Vertical Authorization Slices** filed as implementation issues, not a long-lived compatibility layer that leaves the old permission system in place.
+- Current **Permission Flags** and **Group Scope** are tolerated current-state only; replacement slices should retire them from the workflows they touch.
+- Every **Policy Action** should be owned by a **Feature Lane** or by **Organization Governance Action** semantics.
+- The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
+- The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
 - **Leader's Book** remains a **Compatibility Lane** and not part of the current durable first-class lane map.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
@@ -258,8 +326,17 @@ _Avoid_: Training type
 - **Admin** is a fixed governance role, not a member preset.
 - **Team Leader** is a current UI label and a future composed state, not a canonical replacement preset.
 - **Permission Flag** is the current implementation concept. **Capability Level** and **Capability Map** describe the approved replacement model.
-- **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and can eventually support `1..n` groups.
+- **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and should support multiple Groups, with future room for **Personnel Scope** entries.
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
+- **Scope Set** is positive-grant only. Do not model negative grants, deny exceptions, or "all except person X" semantics in the first replacement model.
+- Do not model selected people across Groups as a fake **Group**. Use future **Personnel Scope** language for person-level access inside a **Scope Set**.
+- Do not derive authorization meaning from route, page, or button placement. Use stable **Policy Actions** from the **Action Catalog**.
+- Do not let the **Policy Evaluator** query `locals.supabase` or any provider client directly. Use a **Policy Adapter** to translate provider data into policy inputs.
+- Do not put free-form explanation text in the **Policy Evaluator** as the canonical reason. Return a stable **Policy Reason Code** and map copy elsewhere.
+- Do not log every **Policy Decision** by default. Use **Audit Capture Rules** so authorization audit trails stay useful instead of noisy.
+- Do not rely on client-side **Advisory Policy Decisions** to protect data or writes. Re-check with an **Authoritative Policy Decision** server-side.
+- Do not let the **Action Catalog** collapse into either tiny button permissions or broad catch-all feature edits.
+- Do not plan the authz replacement as "new model over old storage forever." Use vertical slices to remove old permission-system dependencies from each migrated workflow.
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or platform/admin role.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.

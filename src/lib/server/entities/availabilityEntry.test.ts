@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { AvailabilityEntryEntity } from './availabilityEntry';
 import type { AvailabilityEntry } from '$lib/types';
 
@@ -158,5 +159,9 @@ describe('AvailabilityEntryEntity', () => {
 
 	it('only allows POST and DELETE methods', () => {
 		expect(AvailabilityEntryEntity.methods).toEqual(['POST', 'DELETE']);
+	});
+
+	it('uses Calendar manage availability policy decisions for mutations', () => {
+		expect(AvailabilityEntryEntity.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.manageAvailability);
 	});
 });

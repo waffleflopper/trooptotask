@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './supabaseAuthContext';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -19,16 +20,22 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		isOwner: false,
 		isAdmin: true,
 		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		compatibilityLanes: createCompatibilityLaneMap('configure'),
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
-		requireEdit: vi.fn(),
 		requireView: vi.fn(),
 		requirePrivileged: vi.fn(),
 		requireOwner: vi.fn(),
-		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
 		requireGroupAccess: vi.fn().mockResolvedValue(undefined),
 		requireGroupAccessBatch: vi.fn().mockResolvedValue(undefined),
@@ -46,8 +53,7 @@ describe('SupabaseAuthContextAdapter', () => {
 		const permCtx = makePermissionContext({
 			role: 'member',
 			isPrivileged: false,
-			isFullEditor: true,
-			scopedGroupId: 'group-A'
+			scopeSet: { kind: 'groups', groupIds: ['group-A'] }
 		});
 
 		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
@@ -56,16 +62,7 @@ describe('SupabaseAuthContextAdapter', () => {
 		expect(auth.orgId).toBe('org-456');
 		expect(auth.role).toBe('member');
 		expect(auth.isPrivileged).toBe(false);
-		expect(auth.isFullEditor).toBe(true);
-		expect(auth.scopedGroupId).toBe('group-A');
-	});
-
-	it('delegates requireEdit to PermissionContext', () => {
-		const permCtx = makePermissionContext();
-		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
-
-		auth.requireEdit('personnel');
-		expect(permCtx.requireEdit).toHaveBeenCalledWith('personnel');
+		expect(auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-A'] });
 	});
 
 	it('delegates requireView to PermissionContext', () => {
@@ -90,14 +87,6 @@ describe('SupabaseAuthContextAdapter', () => {
 
 		auth.requireOwner();
 		expect(permCtx.requireOwner).toHaveBeenCalled();
-	});
-
-	it('delegates requireFullEditor to PermissionContext', () => {
-		const permCtx = makePermissionContext();
-		const auth = createSupabaseAuthContextAdapter(permCtx, fakeSupabase, userId, orgId);
-
-		auth.requireFullEditor();
-		expect(permCtx.requireFullEditor).toHaveBeenCalled();
 	});
 
 	it('delegates requireGroupAccess with captured supabase client', async () => {
@@ -139,17 +128,15 @@ describe('createSandboxAuthContext', () => {
 		expect(auth.orgId).toBe('org-sandbox');
 		expect(auth.role).toBe('owner');
 		expect(auth.isPrivileged).toBe(true);
-		expect(auth.scopedGroupId).toBeNull();
+		expect(auth.scopeSet).toEqual({ kind: 'organization' });
 	});
 
 	it('does not throw on any require* call', async () => {
 		const auth = createSandboxAuthContext('org-sandbox');
 
-		expect(() => auth.requireEdit('personnel')).not.toThrow();
 		expect(() => auth.requireView('training')).not.toThrow();
 		expect(() => auth.requirePrivileged()).not.toThrow();
 		expect(() => auth.requireOwner()).not.toThrow();
-		expect(() => auth.requireFullEditor()).not.toThrow();
 		await expect(auth.requireGroupAccess('p-1')).resolves.toBeUndefined();
 		await expect(auth.requireGroupAccessBatch(['p-1'])).resolves.toBeUndefined();
 		await expect(auth.requireGroupAccessByRecord('t', 'r', 'c')).resolves.toBeUndefined();

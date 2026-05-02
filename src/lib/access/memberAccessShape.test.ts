@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
 	currentPresetToMemberAccessShape,
+	currentPresetToMemberAccessStorage,
+	createCompatibilityLaneMap,
 	getPermissionPreset,
 	isFullEditor,
 	PERMISSION_PRESETS,
+	resolveMemberAccessShapeFromStoredOrCurrent,
+	resolveStoredMemberAccessShape,
 	resolveCurrentPresetPermissions,
 	resolveCurrentUpdatePermissions,
+	serializeScopeSetForStorage,
 	toCurrentPermissionFlags,
 	toMemberAccessShape,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
@@ -66,7 +71,7 @@ describe('member access shape', () => {
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.admin);
 	});
 
-	it('keeps Leaders Book outside the durable capability map', () => {
+	it("keeps Leader's Book outside the durable capability map", () => {
 		const shape = currentPresetToMemberAccessShape({ preset: 'viewer' });
 
 		expect(Object.keys(shape.capabilityMap)).not.toContain('leadersBook');
@@ -98,7 +103,7 @@ describe('member access shape', () => {
 				onboarding: 'operate',
 				ratingScheme: 'operate'
 			},
-			compatibilityLanes: { leadersBook: 'operate' }
+			compatibilityLanes: createCompatibilityLaneMap('operate')
 		};
 
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.viewer);
@@ -112,6 +117,77 @@ describe('member access shape', () => {
 			criticalTasks: 'operate',
 			onboarding: 'operate',
 			ratingScheme: 'operate'
+		});
+	});
+
+	it('resolves a stored platform preset with explicit lane overrides while preserving preset lineage', () => {
+		const shape = resolveStoredMemberAccessShape({
+			membershipRole: 'member',
+			memberPreset: 'viewer',
+			capabilityOverrides: {
+				calendar: 'operate',
+				ratingScheme: 'none'
+			},
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo', 'group-alpha'] }
+		});
+
+		expect(shape.memberPreset).toBe('viewer');
+		expect(shape.capabilityMap).toEqual({
+			...TARGET_MEMBER_PRESET_CAPABILITIES.viewer,
+			calendar: 'operate',
+			ratingScheme: 'none'
+		});
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+		expect(shape.canManageMembers).toBe(false);
+	});
+
+	it('resolves stored-or-current access from stored columns when they exist', () => {
+		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: 'member',
+			permissions: PERMISSION_PRESETS['full-editor'],
+			scopedGroupId: null,
+			memberPreset: 'viewer',
+			capabilityOverrides: { calendar: 'operate', ratingScheme: 'none', unknown: 'configure' },
+			accessScopeKind: 'groups',
+			accessScopeGroupIds: ['group-alpha', 'group-alpha', 'group-bravo']
+		});
+
+		expect(shape.memberPreset).toBe('viewer');
+		expect(shape.capabilityMap.calendar).toBe('operate');
+		expect(shape.capabilityMap.ratingScheme).toBe('none');
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+	});
+
+	it('falls back to current permission flags when stored access columns are missing', () => {
+		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: 'member',
+			permissions: PERMISSION_PRESETS['full-editor'],
+			scopedGroupId: 'group-alpha'
+		});
+
+		expect(shape.memberPreset).toBe('operator');
+		expect(shape.capabilityMap).toEqual(TARGET_MEMBER_PRESET_CAPABILITIES.editor);
+		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha'] });
+	});
+
+	it('translates current Team Leader storage as Operator lineage plus configure overrides and multi-group-ready scope columns', () => {
+		const storage = currentPresetToMemberAccessStorage({
+			preset: 'team-leader',
+			scopedGroupId: 'group-alpha'
+		});
+
+		expect(storage.memberPreset).toBe('operator');
+		expect(storage.capabilityOverrides).toEqual({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		});
+		expect(serializeScopeSetForStorage(storage.scopeSet)).toEqual({
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-alpha']
 		});
 	});
 

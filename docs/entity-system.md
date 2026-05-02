@@ -43,7 +43,7 @@ export const MyEntity = defineEntity<MyType>({
 | `select` | `string` | Custom select expression (default `'*'`) |
 | `orderBy` | `Array<{ column, ascending? }>` | Default sort order |
 | `permission` | `FeatureArea` | Feature area required for CRUD access |
-| `requireFullEditor` | `boolean` | Restrict mutations to full editors only |
+| `policyAction` | `FeatureLanePolicyAction` | Authorize mutations through a Policy Decision |
 | `audit` | `string \| { resourceType, action?, detailFields? }` | Audit log config |
 | `methods` | `EntityMethod[]` | HTTP verbs to allow; defaults to `['POST', 'PUT', 'DELETE']` |
 | `customTransform` | `(row) => T` | Custom DB row → type mapping (for joins, etc.) |
@@ -94,7 +94,7 @@ const handlers = crudHandlers({
   entity: MyEntity,
   permission: 'myFeature',     // FeatureArea
   auditResource: 'MyThing',    // audit log label
-  requireFullEditor: false,    // optional, default false
+  policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
   beforeDelete: async (ctx, id) => { /* optional hook */ },
   afterDelete: async (ctx, id) => { /* optional hook */ }
 });
@@ -105,7 +105,7 @@ export const DELETE = handlers.DELETE;
 ```
 
 `crudHandlers()` automatically enforces:
-- Permission check (`requireEdit(permission)`)
+- Policy Decision authorization (`policyAction`)
 - Read-only guard on mutations
 - Zod validation via `entity.createSchema` / `entity.updateSchema`
 - Group scope enforcement

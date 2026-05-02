@@ -18,10 +18,21 @@ import type {
 	HydrationPlan
 } from './orgShell';
 
+const viewerCapabilityMap: MembershipInfo['capabilityMap'] = {
+	calendar: 'view',
+	personnel: 'view',
+	training: 'view',
+	criticalTasks: 'view',
+	onboarding: 'none',
+	ratingScheme: 'none'
+};
+
 const baseMembership: MembershipInfo = {
 	orgId: 'org-1',
 	userId: 'user-1',
 	role: 'member',
+	capabilityMap: viewerCapabilityMap,
+	scopeSet: { kind: 'organization' },
 	permissions: {
 		canViewCalendar: true,
 		canEditCalendar: false,
@@ -36,8 +47,7 @@ const baseMembership: MembershipInfo = {
 		canViewLeadersBook: false,
 		canEditLeadersBook: false,
 		canManageMembers: false
-	},
-	scopedGroupId: null
+	}
 };
 
 const baseOrgState: OrgState = {

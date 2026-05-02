@@ -73,7 +73,6 @@ describe('duty roster page', () => {
 					orgId: 'org-1',
 					orgName: 'Test Org',
 					calendar: { data: makeBootstrap() },
-					scopedGroupId: null,
 					rosterHistory: [],
 					advancedDutyTemplates: [],
 					advancedDutyEvents: [],

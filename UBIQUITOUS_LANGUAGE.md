@@ -4,17 +4,17 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Product Boundaries
 
-| Term                          | Definition                                                                                                                                                                  | Aliases to avoid                                                             |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **TroopToTask**               | The v1 SaaS product for military unit management workflows.                                                                                                                 | App, tool, system                                                            |
-| **Organization**              | The v1 workspace and tenancy boundary that owns operational data, memberships, settings, and billing state.                                                                 | Account, Unit, tenant, workspace                                             |
-| **Group**                     | A configurable roster subdivision inside an **Organization** used for grouping, filtering, and scoped access.                                                               | Element, squad, platoon, section, team when speaking about the product model |
-| **Organization Member**       | An authenticated app user who belongs to an **Organization**.                                                                                                               | User when access semantics matter                                            |
-| **Membership Role**           | The fixed organization-governance role on an **Organization Member**: `owner`, `admin`, or `member`.                                                                        | Team leader, viewer, editor                                                  |
-| **Current Permission Preset** | The current v1 UI shortcut such as **Admin**, **Full Editor**, **Team Leader**, **Viewer**, or **Custom** that expands to permission flags and optional single-group scope. | Role, future preset                                                          |
-| **Member Preset**             | The approved replacement default member-access bundle; the starter presets are **Viewer**, **Operator**, and **Editor**.                                                    | Role, admin                                                                  |
-| **Group Scope**               | The current single-group restriction stored today via `scoped_group_id`.                                                                                                    | Team leader role, future scope set                                           |
-| **Scope Set**                 | The approved replacement member scope model: organization-wide or one or more **Group**s shared across all scoped feature lanes.                                            | Per-feature scope matrix                                                     |
+| Term                          | Definition                                                                                                                                                                              | Aliases to avoid                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **TroopToTask**               | The v1 SaaS product for military unit management workflows.                                                                                                                             | App, tool, system                                                            |
+| **Organization**              | The v1 workspace and tenancy boundary that owns operational data, memberships, settings, and billing state.                                                                             | Account, Unit, tenant, workspace                                             |
+| **Group**                     | A configurable roster subdivision inside an **Organization** used for grouping, filtering, and scoped access.                                                                           | Element, squad, platoon, section, team when speaking about the product model |
+| **Organization Member**       | An authenticated app user who belongs to an **Organization**.                                                                                                                           | User when access semantics matter                                            |
+| **Membership Role**           | The fixed organization-governance role on an **Organization Member**: `owner`, `admin`, or `member`.                                                                                    | Team leader, viewer, editor                                                  |
+| **Current Permission Preset** | The current v1 UI shortcut such as **Admin**, **Full Editor**, **Team Leader**, **Viewer**, or **Custom** that expands to permission flags and optional single-group scope.             | Role, future preset                                                          |
+| **Member Preset**             | The approved replacement default member-access bundle; the starter presets are **Viewer**, **Operator**, and **Editor**.                                                                | Role, admin                                                                  |
+| **Group Scope**               | The current single-group restriction stored today via `scoped_group_id`.                                                                                                                | Team leader role, future scope set                                           |
+| **Scope Set**                 | The approved replacement positive-grant member scope model shared across all scoped feature lanes: organization-wide, one or more **Group**s, and later selected **Personnel Records**. | Per-feature scope matrix, negative grants                                    |
 
 ## Product Shell And Navigation
 
@@ -30,19 +30,20 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## People And Roster
 
-| Term                 | Definition                                                                                                                               | Aliases to avoid                                               |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Personnel Record** | The stored v1 roster record for a person assigned to an **Organization**.                                                                | User, member, Soldier when discussing persistence              |
-| **Soldier**          | The military-facing way leaders often talk about a person represented by a **Personnel Record**.                                         | Personnel record when talking about the person in the workflow |
-| **Duty Role**        | The preferred canonical term for a person's local functional role, billet, or position title inside the unit.                            | Clinic role, bare role                                         |
-| **Clinic Role**      | The legacy v1 runtime and schema field name kept for compatibility while docs, UX copy, exports, and new abstractions say **Duty Role**. | Canonical term                                                 |
-| **Rank**             | The military grade recorded on a **Personnel Record**.                                                                                   | Grade, pay grade                                               |
-| **MOS**              | The military occupational specialty code recorded on a **Personnel Record**.                                                             | Job, specialty                                                 |
-| **Roster**           | The working collection of **Personnel Records** shown for an **Organization** or filtered **Group**.                                     | Personnel page data, list of users                             |
-| **Roster View Mode** | The selected way to organize the **Roster**, currently alphabetical or by **Group**.                                                     | Sort toggle when grouping semantics matter                     |
-| **Personnel Search** | A text filter that narrows the **Roster** by typed characters across name, **Rank**, **MOS**, **Duty Role**, or **Group**.               | Global search, personnel picker                                |
-| **Group Filter**     | A page-scoped control that narrows a feature surface to one **Group**.                                                                   | Unit filter, element filter                                    |
-| **Personnel Filter** | A page-scoped control that narrows a feature surface to one **Personnel Record**.                                                        | Soldier filter when persistence semantics matter               |
+| Term                 | Definition                                                                                                                                       | Aliases to avoid                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| **Personnel Record** | The stored v1 roster record for a person assigned to an **Organization**.                                                                        | User, member, Soldier when discussing persistence              |
+| **Soldier**          | The military-facing way leaders often talk about a person represented by a **Personnel Record**.                                                 | Personnel record when talking about the person in the workflow |
+| **Personnel Scope**  | A future person-level entry inside a **Scope Set** that grants access to selected **Personnel Records** without granting their whole **Groups**. | Ghost group, fake group                                        |
+| **Duty Role**        | The preferred canonical term for a person's local functional role, billet, or position title inside the unit.                                    | Clinic role, bare role                                         |
+| **Clinic Role**      | The legacy v1 runtime and schema field name kept for compatibility while docs, UX copy, exports, and new abstractions say **Duty Role**.         | Canonical term                                                 |
+| **Rank**             | The military grade recorded on a **Personnel Record**.                                                                                           | Grade, pay grade                                               |
+| **MOS**              | The military occupational specialty code recorded on a **Personnel Record**.                                                                     | Job, specialty                                                 |
+| **Roster**           | The working collection of **Personnel Records** shown for an **Organization** or filtered **Group**.                                             | Personnel page data, list of users                             |
+| **Roster View Mode** | The selected way to organize the **Roster**, currently alphabetical or by **Group**.                                                             | Sort toggle when grouping semantics matter                     |
+| **Personnel Search** | A text filter that narrows the **Roster** by typed characters across name, **Rank**, **MOS**, **Duty Role**, or **Group**.                       | Global search, personnel picker                                |
+| **Group Filter**     | A page-scoped control that narrows a feature surface to one **Group**.                                                                           | Unit filter, element filter                                    |
+| **Personnel Filter** | A page-scoped control that narrows a feature surface to one **Personnel Record**.                                                                | Soldier filter when persistence semantics matter               |
 
 ## Calendar Planning
 
@@ -91,18 +92,29 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 
 ## Authorization And Governance
 
-| Term                               | Definition                                                                                                                                  | Aliases to avoid         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **Permission Flag**                | A current boolean permission on an organization membership or invitation row.                                                               | Capability, grant        |
-| **Capability Level**               | The approved replacement per-feature authority level: `none`, `view`, `operate`, or `configure`.                                            | Permission flag          |
-| **Capability Map**                 | The lane-by-lane set of **Capability Level** values assigned to a member after preset defaults and overrides are applied.                   | Role permissions blob    |
-| **Feature Lane**                   | The permission surface for one product feature area.                                                                                        | Shared permission bucket |
-| **Lane Ownership**                 | The durable permission owner for a feature, independent of temporary route, page, or screen placement.                                      | Current page nesting     |
-| **Compatibility Lane**             | A temporary permission surface kept during migration so legacy flows still work while the durable lane map is remediated.                   | Durable feature lane     |
-| **Policy Overlay**                 | A cross-cutting rule that can still change the final allow or deny result after role, capability, and scope are evaluated.                  | Permission, preset       |
-| **Policy Decision**                | The effective allow or deny outcome for a requested action after role, capability or flag, scope, and policy overlays are evaluated.        | Checkbox                 |
-| **Organization Governance Action** | An action that changes organization access, settings, billing, or destructive org state and therefore stays reserved to `admin` or `owner`. | Feature edit             |
-| **Read-Only Mode**                 | A billing-driven state where writes are blocked even if a member would otherwise have edit access.                                          | Broken permissions       |
+| Term                               | Definition                                                                                                                                                                                          | Aliases to avoid          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| **Permission Flag**                | A current boolean permission on an organization membership or invitation row.                                                                                                                       | Capability, grant         |
+| **Capability Level**               | The approved replacement per-feature authority level: `none`, `view`, `operate`, or `configure`; `operate` is day-to-day lane work, while `configure` is feature-lane configuration.                | Permission flag           |
+| **Capability Map**                 | The lane-by-lane set of **Capability Level** values assigned to a member after preset defaults and overrides are applied.                                                                           | Role permissions blob     |
+| **Feature Lane**                   | The permission surface for one product feature area.                                                                                                                                                | Shared permission bucket  |
+| **Lane Ownership**                 | The durable permission owner for a feature, independent of temporary route, page, or screen placement.                                                                                              | Current page nesting      |
+| **Compatibility Lane**             | A temporary permission surface kept during migration so legacy flows still work while the durable lane map is remediated.                                                                           | Durable feature lane      |
+| **Policy Overlay**                 | A cross-cutting rule that can still change the final allow or deny result after role, capability, and scope are evaluated.                                                                          | Permission, preset        |
+| **Policy Action**                  | A stable authorization action evaluated by the policy module, independent of the route, page, or button that requested it.                                                                          | Route permission          |
+| **Workflow-Level Action**          | A **Policy Action** sized around a meaningful user workflow, split only when capability level, audit treatment, or UX explanation needs differ.                                                     | Button permission         |
+| **Action Catalog**                 | The approved registry of **Policy Actions**, including each action's owning **Feature Lane** or **Organization Governance Action**.                                                                 | Ad hoc checks             |
+| **Policy Evaluator**               | The pure TypeScript function or module that turns already-loaded policy inputs into a structured **Policy Decision** without querying Supabase or another provider directly.                        | Supabase policy helper    |
+| **Policy Adapter**                 | The provider-aware translation layer that loads organization membership, capabilities, scope, resource context, and overlays for the **Policy Evaluator**.                                          | Business-logic shortcut   |
+| **Policy Reason Code**             | A stable machine-readable code on a **Policy Decision**, such as `allowed.capability`, `denied.missingCapability`, `denied.outOfScope`, `denied.readOnlyMode`, or `denied.ownerOnly`.               | Free-form denial text     |
+| **Policy Audit Event**             | A selective audit record produced from a **Policy Decision** for denied or suspicious attempts and sensitive successful actions.                                                                    | Every allowed read        |
+| **Audit Capture Rule**             | The allowlist rule that decides whether a **Policy Decision** should become a **Policy Audit Event**.                                                                                               | Log everything            |
+| **Authoritative Policy Decision**  | A server-side **Policy Decision** that enforces writes and sensitive reads.                                                                                                                         | Client-only check         |
+| **Advisory Policy Decision**       | A client-side or preloaded **Policy Decision** used only for UX hints such as hiding buttons, disabling controls, or explaining access.                                                             | Security enforcement      |
+| **Vertical Authorization Slice**   | A migration slice that moves one meaningful authorization workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.                       | Half-migrated authz layer |
+| **Policy Decision**                | The structured effective outcome for a requested action after role, capability or flag, scope, and policy overlays are evaluated, including a stable reason code and metadata for UX and audit use. | Checkbox                  |
+| **Organization Governance Action** | An action that changes organization access, settings, billing, or destructive org state and therefore stays reserved to `admin` or `owner`.                                                         | Feature edit              |
+| **Read-Only Mode**                 | A billing-driven state where writes are blocked even if a member would otherwise have edit access.                                                                                                  | Broken permissions        |
 
 ## Feature Surfaces
 
@@ -130,7 +142,26 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - In the current model, an **Organization Member** also receives **Permission Flags** and an optional single-**Group** **Group Scope**.
 - In the approved replacement model, a member receives a **Member Preset**, a **Capability Map**, and a shared **Scope Set**.
 - A **Member Preset** seeds the **Capability Map**, and explicit overrides adjust individual **Feature Lanes** without severing preset lineage.
+- **Viewer**, **Operator**, and **Editor** are member-access presets, not governance roles; even broad feature-lane `configure` access does not make a member an `admin`.
 - A **Scope Set** applies across all scoped **Feature Lanes**; it does not vary by feature.
+- A **Scope Set** should move toward multiple whole-**Group** grants sooner than later and keep room for future **Personnel Scope** entries across Groups.
+- **Scope Set** grants are positive-only; deny exceptions and "all except" scope semantics require a later explicit decision.
+- A **Policy Decision** should carry structured explanation fields even when a call site initially only reads the final allow/deny result.
+- Structured **Policy Decisions** should support user-facing explanations and audit capture for denied or suspicious access attempts.
+- Every **Policy Decision** should include a stable **Policy Reason Code**; human-facing copy should be mapped from reason codes outside the evaluator.
+- **Policy Reason Codes** should be searchable and testable, while optional decision metadata carries matched action, lane, scope, overlay, and resource details.
+- Audit capture should be selective: denied writes, suspicious denied access patterns, **Organization Governance Actions**, owner-only actions, billing changes, and member-management changes are audit-worthy by default.
+- Do not audit every ordinary allowed read; **Audit Capture Rules** should decide when a **Policy Decision** becomes a **Policy Audit Event**.
+- Server-side **Authoritative Policy Decisions** enforce writes and sensitive reads; client-side **Advisory Policy Decisions** are UX hints only.
+- UI placement, hidden buttons, and disabled controls must not be treated as security enforcement.
+- Policy evaluation should be action-first: routes, pages, and buttons ask about stable **Policy Actions** rather than defining authorization meaning themselves.
+- The first **Action Catalog** should use **Workflow-Level Actions** rather than one action per button or one giant action per feature.
+- Split **Policy Actions** when two actions need different **Capability Levels**, audit treatment, or UX explanations.
+- The replacement rollout should use **Vertical Authorization Slices** filed as implementation issues, not a long-lived compatibility layer that leaves the old permission system in place.
+- Current **Permission Flags** and **Group Scope** are tolerated current-state only; replacement slices should retire them from the workflows they touch.
+- Every **Policy Action** should be owned by a **Feature Lane** or by **Organization Governance Action** semantics.
+- The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
+- The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
 - **Leader's Book** remains a **Compatibility Lane** and not part of the durable first-class lane map.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
@@ -218,10 +249,20 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Group** is the canonical v1 subdivision term. Do not silently replace it with **Element** in current-state v1 docs.
 - **Membership Role**, **Current Permission Preset**, and **Member Preset** are different concepts. `owner` / `admin` / `member` are fixed governance roles; current UI presets are convenience shapes over booleans; the approved replacement presets are **Viewer**, **Operator**, and **Editor**.
 - **Admin** is a fixed governance role, not a member preset.
+- A member with many `configure` **Capability Levels** is a high-access member, not an `admin`, unless their **Membership Role** is actually `admin` or `owner`.
 - **Team Leader** is a current UI label and a future composed state, not a canonical replacement preset.
 - **Permission Flag** is the current implementation concept. **Capability Level** and **Capability Map** describe the approved replacement model, not today's persisted booleans.
-- **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and can eventually support `1..n` groups.
+- **Group Scope** is the current single-group implementation. **Scope Set** is the approved replacement target and should support multiple Groups, with future room for **Personnel Scope** entries.
 - **Scope Set** is shared across features. Do not treat scope as a per-feature matrix.
+- **Scope Set** is positive-grant only. Do not model negative grants, deny exceptions, or "all except person X" semantics in the first replacement model.
+- Do not model selected people across Groups as a fake **Group**. Use future **Personnel Scope** language for person-level access inside a **Scope Set**.
+- Do not derive authorization meaning from route, page, or button placement. Use stable **Policy Actions** from the **Action Catalog**.
+- Do not let the **Policy Evaluator** query `locals.supabase` or any provider client directly. Use a **Policy Adapter** to translate provider data into policy inputs.
+- Do not put free-form explanation text in the **Policy Evaluator** as the canonical reason. Return a stable **Policy Reason Code** and map copy elsewhere.
+- Do not log every **Policy Decision** by default. Use **Audit Capture Rules** so authorization audit trails stay useful instead of noisy.
+- Do not rely on client-side **Advisory Policy Decisions** to protect data or writes. Re-check with an **Authoritative Policy Decision** server-side.
+- Do not let the **Action Catalog** collapse into either tiny button permissions or broad catch-all feature edits.
+- Do not plan the authz replacement as "new model over old storage forever." Use vertical slices to remove old permission-system dependencies from each migrated workflow.
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or a platform/admin role. Prefer **Duty Role** for personnel position data.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.

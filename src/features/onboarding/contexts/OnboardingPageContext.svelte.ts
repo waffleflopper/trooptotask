@@ -14,6 +14,9 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$lib/types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+
+const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 
 // ── Modal IDs ─────────────────────────────────────────────────
 
@@ -177,16 +180,22 @@ export class OnboardingPageContext {
 
 	// ── Permission flags (derived from OrgContext) ─────────────
 
-	get canEditOnboarding(): boolean {
-		return this.#org.permissions?.canEditOnboarding ?? false;
+	get canManageWorkflows(): boolean {
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.manageWorkflows, {
+			kind: 'unscoped'
+		}).visible;
 	}
 
 	get canViewOnboarding(): boolean {
-		return this.#org.permissions?.canViewOnboarding ?? false;
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.viewWorkflows, {
+			kind: 'unscoped'
+		}).visible;
 	}
 
 	get canManageConfig(): boolean {
-		return this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor;
+		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.configureWorkflows, {
+			kind: 'unscoped'
+		}).visible;
 	}
 
 	// ── Derived ────────────────────────────────────────────────
@@ -236,6 +245,18 @@ export class OnboardingPageContext {
 
 	getPersonGroupName(personnelId: string): string | null {
 		return getPersonGroupDisplayName(personnelId, personnelStore.items);
+	}
+
+	getPersonnelPolicyResource(personnelId: string): PolicyResource {
+		const personnel = personnelStore.items.find((p) => p.id === personnelId);
+		return personnel?.groupId ? { kind: 'group', groupId: personnel.groupId } : { kind: 'organization' };
+	}
+
+	canManageOnboarding(onboarding: PersonnelOnboarding): boolean {
+		return this.#org.affordanceForFeatureAction(
+			ONBOARDING_POLICY_ACTIONS.manageWorkflows,
+			this.getPersonnelPolicyResource(onboarding.personnelId)
+		).visible;
 	}
 
 	getTemplateName(templateId: string | null): string {

@@ -1,5 +1,7 @@
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DataStore, UseCaseContext } from '$lib/server/core/ports';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelAwardTrackingInput {
 	personnelId: string;
@@ -30,18 +32,21 @@ export async function setPersonnelAwardTrackingAcknowledged(
 	ctx: UseCaseContext,
 	input: PersonnelAwardTrackingInput
 ): Promise<PersonnelAwardTrackingResult> {
-	ctx.auth.requireEdit('personnel');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { personnelId, acknowledged } = input;
 	if (!personnelId) fail(400, 'personnelId is required');
 
-	await ctx.auth.requireGroupAccess(personnelId);
-
-	const person = await ctx.rawStore.findOne<{ id: string }>('personnel', ctx.auth.orgId, { id: personnelId });
+	const person = await ctx.rawStore.findOne<{ id: string; group_id: string | null }>('personnel', ctx.auth.orgId, {
+		id: personnelId
+	});
 	if (!person) fail(404, 'Personnel not found');
+
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		policyResourceForGroup(person.group_id),
+		'personnel',
+		personnelId
+	);
 
 	const existing = await ctx.rawStore.findOne<PersonnelExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
 		personnel_id: personnelId

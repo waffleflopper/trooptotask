@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import {
 	toggleCheckbox,
 	advanceStage,
@@ -7,6 +8,15 @@ import {
 	addNote,
 	removeInactiveStep
 } from './onboardingStepProgress';
+
+const viewOnlyCapabilityMap: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'view',
+	ratingScheme: 'none'
+};
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -353,18 +363,27 @@ describe('refreshTrainingSteps', () => {
 		expect(firstAid?.completed).toBe(false);
 	});
 
-	it('requires onboarding edit permission before refreshing training steps', async () => {
+	it('requires Onboarding operate policy before refreshing training steps', async () => {
 		const ctx = buildContext({
 			auth: {
-				requireEdit() {
-					throw Object.assign(new Error('Forbidden'), { status: 403 });
-				}
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: viewOnlyCapabilityMap
 			}
 		});
 		seedOnboarding(ctx);
 		seedTrainingStep(ctx);
 
 		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({
+					policyAction: 'onboarding.manageWorkflows',
+					reasonCode: 'denied:missing-capability'
+				})
+			})
+		);
 	});
 
 	it('returns computed statuses without persisting updates when organization is read-only', async () => {

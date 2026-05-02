@@ -7,7 +7,8 @@
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
-	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
+	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
@@ -20,16 +21,16 @@
 			calendar?: {
 				data?: CalendarWorkspaceData;
 			};
-			scopedGroupId?: string | null;
-			permissions?: { canViewCalendar?: boolean; canEditCalendar?: boolean } | null;
 		};
 	}
 
 	let { data }: Props = $props();
 
 	const org = getOrgContext();
-	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
-	const canMutate = $derived(!org.readOnly && !!data.permissions?.canEditCalendar && canManageConfig);
+	const assignmentAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments)
+	);
+	const canMutate = $derived(assignmentAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
@@ -39,7 +40,7 @@
 			fallbackGroupName: data.orgName ?? ''
 		})
 	);
-	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const relatedLinks = $derived([
 		{ label: 'Duty Roster', href: `/org/${org.orgId}/calendar/duty-roster` },
 		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
@@ -58,7 +59,7 @@
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
-			<p>Only organization admins and full editors can manage monthly assignments.</p>
+			<p>Calendar operation access is required to manage monthly assignments.</p>
 		</section>
 	{:else}
 		<MonthlyAssignmentPlanner

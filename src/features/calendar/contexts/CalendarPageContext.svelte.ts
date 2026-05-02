@@ -8,7 +8,8 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
-import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
+import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import {
 	getDefaultUserOrgPreferences,
@@ -52,11 +53,6 @@ export interface CalendarPageData {
 	calendar?: {
 		data?: CalendarWorkspaceData;
 	};
-	scopedGroupId?: string | null;
-	permissions?: {
-		canViewCalendar?: boolean;
-		canEditCalendar?: boolean;
-	} | null;
 	activeOnboardingPersonnelIds?: string[];
 	// Allow additional layout fields to pass through without type errors
 	[key: string]: unknown;
@@ -140,7 +136,19 @@ export class CalendarPageContext {
 	}
 
 	get canManageConfig(): boolean {
-		return !!(this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor);
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes).allowed;
+	}
+
+	get canViewCalendar(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability).allowed;
+	}
+
+	get canManageAvailability(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability).allowed;
+	}
+
+	get canManageAssignments(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments).allowed;
 	}
 
 	// ---- derived: personnel groupings --------------------------------------
@@ -152,7 +160,7 @@ export class CalendarPageContext {
 	}
 
 	get scopedPBG() {
-		return scopePersonnelByGroup(this.personnelByGroup, this.#data.scopedGroupId ?? null);
+		return scopePersonnelByGroupScopeSet(this.personnelByGroup, this.#org.scopeSet);
 	}
 
 	get allPersonnelFlat(): Personnel[] {
@@ -314,15 +322,13 @@ export class CalendarPageContext {
 	}
 
 	handleCellClick(person: Personnel, date: Date): void {
-		if (!this.#data.permissions?.canEditCalendar) return;
-		if (this.#data.scopedGroupId && !this.scopedPersonnelIds.has(person.id)) return;
+		if (!this.canManageAvailabilityForPerson(person)) return;
 		this.selectedPerson = person;
 		this.selectedDate = date;
 	}
 
 	handlePersonClick(person: Personnel): void {
-		if (!this.#data.permissions?.canEditCalendar) return;
-		if (this.#data.scopedGroupId && !this.scopedPersonnelIds.has(person.id)) return;
+		if (!this.canManageAvailabilityForPerson(person)) return;
 		this.selectedPerson = person;
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- selectedDate stores a replacement Date instance and is not mutated in place.
 		this.selectedDate = new Date();
@@ -357,6 +363,11 @@ export class CalendarPageContext {
 		}
 	}
 
+	private canManageAvailabilityForPerson(person: Personnel): boolean {
+		const resource = policyResourceForPersonnel(person);
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, resource).allowed;
+	}
+
 	private groupFilterValue(group: { group: string; personnel: Personnel[] }): string {
 		return group.personnel.find((person) => person.groupId)?.groupId ?? `name:${group.group}`;
 	}
@@ -376,4 +387,8 @@ export class CalendarPageContext {
 
 		return searchableValues.some((value) => value?.toLowerCase().includes(query));
 	}
+}
+
+function policyResourceForPersonnel(person: Personnel): PolicyResource {
+	return person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' };
 }

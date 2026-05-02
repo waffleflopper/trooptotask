@@ -15,7 +15,6 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -31,8 +30,34 @@ const { mockOrgContext } = vi.hoisted(() => ({
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
+		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string; accessMode: string }) {
+			const levels = ['none', 'view', 'operate', 'configure'];
+			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
+			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
+			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
+			return {
+				allowed: hasCapability && !readOnlyBlocked,
+				visible: hasCapability,
+				disabled: hasCapability && readOnlyBlocked,
+				reason: readOnlyBlocked
+					? 'denied:read-only-overlay'
+					: hasCapability
+						? 'allowed:capability'
+						: 'denied:missing-capability',
+				explanation: '',
+				decision: {}
+			};
+		}
 	}
 }));
 

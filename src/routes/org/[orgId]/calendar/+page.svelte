@@ -102,7 +102,6 @@
 						}
 					}
 				: undefined,
-			scopedGroupId: data.scopedGroupId,
 			permissions: data.permissions,
 			activeOnboardingPersonnelIds: calendarBootstrap?.data.activeOnboardingPersonnelIds
 		})

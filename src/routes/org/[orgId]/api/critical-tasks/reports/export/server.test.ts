@@ -200,7 +200,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('does not leak other-group readiness data for scoped viewers', async () => {
-		const ctx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,

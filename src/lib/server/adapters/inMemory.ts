@@ -11,8 +11,7 @@
  * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
  *   matching the narrower port subsets accepted by individual use cases.
  *
- * Group scoping works automatically: if `auth.scopedGroupId` is set on the test auth context,
- * the data store is wrapped in `createScopedDataStore` using the production scope rules.
+ * Group scoping works automatically from `auth.scopeSet`.
  */
 import type {
 	CriticalTasksReadModelPort,
@@ -37,6 +36,12 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
+import {
+	createCompatibilityLaneMap,
+	type CapabilityMap,
+	type CompatibilityLaneMap,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
@@ -45,6 +50,18 @@ import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalT
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
+
+const FULL_CAPABILITY_MAP: CapabilityMap = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
+};
+const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
+
+type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -293,19 +310,18 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 	};
 }
 
-export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthContext {
+export function createTestAuthContext(overrides?: TestAuthContextOverrides): AuthContext {
 	const defaults: AuthContext = {
 		userId: 'test-user',
 		orgId: 'test-org',
 		role: 'owner',
 		isPrivileged: true,
-		isFullEditor: true,
-		scopedGroupId: null,
-		requireEdit() {},
+		capabilityMap: FULL_CAPABILITY_MAP,
+		compatibilityLanes: FULL_COMPATIBILITY_LANES,
+		scopeSet: { kind: 'organization' } satisfies ScopeSet,
 		requireView() {},
 		requirePrivileged() {},
 		requireOwner() {},
-		requireFullEditor() {},
 		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
@@ -364,12 +380,11 @@ export function createTestNotificationPort(): NotificationPort & { notifications
 
 function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
 	const rawStore = createInMemoryDataStore();
-
-	if (!auth.scopedGroupId) {
+	if (auth.scopeSet.kind === 'organization') {
 		return { store: rawStore, rawStore };
 	}
 
-	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopedGroupId, defaultScopeRules), {
+	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopeSet, defaultScopeRules), {
 		seed: rawStore.seed
 	}) as InMemoryDataStore;
 
@@ -531,6 +546,7 @@ export function createWritePortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -552,6 +568,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -577,6 +594,7 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),

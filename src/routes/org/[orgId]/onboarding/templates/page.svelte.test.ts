@@ -5,17 +5,31 @@ import Page from './+page.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
 
 let orgReadOnly = false;
+let canConfigure = true;
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
 		orgId: 'org-1',
-		readOnly: orgReadOnly
+		readOnly: orgReadOnly,
+		affordanceForFeatureAction: () => ({
+			visible: canConfigure || orgReadOnly,
+			disabled: orgReadOnly,
+			allowed: canConfigure && !orgReadOnly,
+			reason: orgReadOnly
+				? 'denied:read-only-overlay'
+				: canConfigure
+					? 'allowed:capability'
+					: 'denied:missing-capability',
+			explanation: '',
+			decision: {}
+		})
 	})
 }));
 
 afterEach(() => {
 	cleanup();
 	orgReadOnly = false;
+	canConfigure = true;
 });
 
 function renderTemplatesPage({
@@ -81,6 +95,15 @@ describe('onboarding templates page', () => {
 
 	it('hides template creation when the organization is read-only', () => {
 		orgReadOnly = true;
+
+		renderTemplatesPage();
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
+		expect(within(toolbar).queryByRole('button', { name: 'Add Template' })).toBeNull();
+	});
+
+	it('hides template creation without Onboarding configure affordance', () => {
+		canConfigure = false;
 
 		renderTemplatesPage();
 

@@ -181,7 +181,7 @@ describe('fetchTrainingReportsData', () => {
 	});
 
 	it('limits report rows to the caller scoped group', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
 		store.seed('personnel', [
@@ -263,7 +263,7 @@ describe('fetchTrainingReportsData', () => {
 	});
 
 	it('generates an authorized full CSV export without applying detail pagination', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
 		store.seed('personnel', [
@@ -362,6 +362,27 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.trainings).toHaveLength(1);
 		expect(result.trainings[0].personnelId).toBe('p-1');
 		expect(result.trainings[0].trainingTypeId).toBe('tt-1');
+	});
+
+	it('denies report reads without Training view capability', async () => {
+		const ctx = createQueryPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(fetchTrainingReportsData(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(generateTrainingReportCsv(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('returns empty array when no training records exist', async () => {

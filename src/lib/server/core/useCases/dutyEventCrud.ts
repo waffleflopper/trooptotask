@@ -13,6 +13,7 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import { findDutyCoverageConflicts } from './dutyAvailability';
 import {
 	buildAdvancedDutyCoverage,
@@ -2275,7 +2276,7 @@ export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
 }
 
 export async function listDutyEventsForCalendar(ctx: QueryPorts): Promise<DutyEvent[]> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
 		orderBy: [
@@ -2291,7 +2292,7 @@ export async function listDutyEventsInRange(
 	ctx: QueryPorts,
 	input: { rangeStart: string; rangeEnd: string }
 ): Promise<DutyEvent[]> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	// Use coverage window overlap rather than event_date equality so that overnight
 	// duty events (coverage spanning into the next calendar day) appear on every day

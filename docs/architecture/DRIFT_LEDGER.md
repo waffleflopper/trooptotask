@@ -13,7 +13,8 @@ Each entry separates:
 
 - Current-state truth:
   - membership role is `owner`, `admin`, or `member`
-  - access is primarily expressed as per-feature booleans plus optional `scoped_group_id`
+  - migrated Policy Decision workflows now use stored member presets, capability overrides, and shared scope sets as their active runtime inputs
+  - per-feature booleans plus optional `scoped_group_id` remain only as compatibility inputs for explicitly unmigrated flows and older membership rows
   - UI presets and derived labels are convenience shapes over that model
   - platform admin uses a separate role system outside organization-membership authz
 - Intended direction:
@@ -28,6 +29,7 @@ Each entry separates:
 - Guardrail until fixed:
   - document the current model honestly, but do not deepen it by accident
   - do not invent partial-admin member shapes or per-feature scope matrices
+  - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
 - Recommended next slice:
   - staged implementation of the approved member-access model while preserving initial single-group compatibility
 
@@ -65,6 +67,7 @@ Each entry separates:
   - it now renders through the first-class Evals primary nav route, without requiring Personnel access
   - `Leader's Book` still exists in permissions, help, dashboard links, exports, settings, and plans
   - the main navigation currently hides `Leader's Book` during redesign and the route redirects away
+  - `#765` policy-converted remaining supported `Leader's Book` compatibility authorization with explicit Policy Decision actions and a separate compatibility lane map
 - Intended direction:
   - Rating Scheme owns evaluation-tracking records and workflows and remains its own first-class lane
   - Rating Scheme should be independently grantable from both `Personnel` and `Leader's Book`
@@ -72,10 +75,12 @@ Each entry separates:
   - temporary screen placement and current nav visibility do not define lane ownership during the current transition
   - `Leader's Book` remains a real documented transitional compatibility lane for counseling records, development goals, and the future per-Soldier leader-reference or administrative surface while its remake is pending
   - `Leader's Book` is not part of the current durable first-class lane map; a later ADR may revisit that once the rebuilt feature is real enough to evaluate
+  - `Leader's Book` compatibility Policy Decisions must stay outside the durable preset taxonomy until that future decision is made
 - Why this matters:
   - boundary confusion leaks into permissions, exports, copy, and remediation planning
 - Guardrail going forward:
   - do not re-borrow the Personnel or `Leader's Book` lanes for Rating Scheme access; route placement and nav treatment still do not define lane ownership
+  - do not add hidden `Leader's Book` runtime authorization checks through `isFullEditor`, `requireFullEditor`, or feature edit flags; use the explicit compatibility Policy Decision actions
 - Recommended next slice:
   - revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt feature is concrete enough to evaluate
 

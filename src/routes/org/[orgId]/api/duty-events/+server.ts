@@ -6,6 +6,7 @@ import { dutyEventSnapshotApplyInputSchema } from './schemas';
 export const _postConfig: RouteConfig<DutyEventApplyInput, DutyEvent> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: dutyEventSnapshotApplyInputSchema,
 	fn: (ctx, input) => applyDutyEventFromTemplate(ctx, input)
 };

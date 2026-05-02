@@ -59,7 +59,6 @@
 		orgId: resolvedData.orgId,
 		orgName: resolvedData.orgName,
 		calendar: resolvedData.calendar ? { data: resolvedData.calendar.data } : undefined,
-		scopedGroupId: resolvedData.scopedGroupId,
 		rosterHistory: resolvedData.rosterHistory,
 		advancedDutyTemplates: resolvedData.advancedDutyTemplates,
 		advancedDutyEvents: resolvedData.advancedDutyEvents,

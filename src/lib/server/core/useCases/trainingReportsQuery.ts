@@ -8,6 +8,7 @@
  * the reports UI can filter and group dynamically.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
@@ -24,6 +25,7 @@ import {
 	type PivotRow,
 	type ReportFilters
 } from '$features/training/utils/reportCalculations';
+import { requireFeaturePolicy } from './featurePolicy';
 
 export interface TrainingReportsData {
 	trainings: PersonnelTraining[];
@@ -98,9 +100,14 @@ const statusOrder: Record<TrainingStatus, number> = {
 };
 
 export async function fetchTrainingReportsData(ctx: QueryPorts): Promise<TrainingReportsData> {
+	await requireTrainingRecordView(ctx);
 	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
 	const trainings = PersonnelTrainingEntity.fromDbArray(rows);
 	return { trainings };
+}
+
+async function requireTrainingRecordView(ctx: QueryPorts): Promise<void> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 }
 
 function normalizePagination(pagination: TrainingReportInput['pagination']): TrainingReportPagination {
@@ -143,6 +150,7 @@ interface BuiltTrainingReport {
 }
 
 async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
+	await requireTrainingRecordView(ctx);
 	const orgId = ctx.auth.orgId;
 	const filters = input.filters ?? {};
 	const sort = normalizeSort(input.sort);

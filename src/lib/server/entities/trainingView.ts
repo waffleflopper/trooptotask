@@ -4,13 +4,14 @@
  * Views are per-org (not per-user). `createdBy` is the user ID of the creator, read-only.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { TrainingView } from '$features/training/training.types';
 
 export const TrainingViewEntity = defineEntity<TrainingView>({
 	table: 'training_views',
 	permission: 'training',
-	requireFullEditor: true,
+	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	groupScope: 'none',
 	audit: { resourceType: 'training_view', detailFields: ['name'] },
 	orderBy: [{ column: 'name', ascending: true }],

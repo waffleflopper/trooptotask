@@ -15,6 +15,7 @@ import { dutyEventIdInputSchema, existingDutyEventUpdateInputSchema } from '../s
 export const _putConfig: RouteConfig<ExistingDutyEventUpdateInput, DutyEvent> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: existingDutyEventUpdateInputSchema,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {
@@ -46,6 +47,7 @@ export const PUT = handle<ExistingDutyEventUpdateInput, DutyEvent>({
 export const _deleteConfig: RouteConfig<{ dutyEventId: string }, DutyEventRunDeleteResult> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: dutyEventIdInputSchema,
 	fn: (ctx, input) => deleteDutyEventById(ctx, input)
 };

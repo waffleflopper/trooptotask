@@ -14,6 +14,7 @@
 		"docs/architecture/ADR_BACKLOG.md",
 		"docs/architecture/ADR_GUIDANCE.md",
 		"docs/architecture/GOVERNANCE_CHECKS.md",
+		"docs/architecture/LEGACY_AUTHORIZATION_INVENTORY.md",
 		"docs/architecture/V1_RETROFIT_SKILLS_GUIDE.md",
 		"docs/architecture/adrs/0000-template.md"
 	],
@@ -27,7 +28,9 @@
 			"path": "src/routes/admin/access-requests/+page.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Admin access-request orchestration still performs route-level provider work.",
-			"driftIds": ["D-02"]
+			"driftIds": [
+				"D-02"
+			]
 		},
 		{
 			"path": "src/routes/api/auth/establish-session/+server.ts",
@@ -78,13 +81,17 @@
 			"path": "src/routes/api/cleanup-demo-sandboxes/+server.ts",
 			"classification": "deprecated-exception",
 			"reason": "Demo/sandbox cleanup remains a deprecated exceptional path.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/routes/api/platform-invites/+server.ts",
 			"classification": "legacy-drift",
 			"reason": "Platform invite management still performs provider work directly in the route layer.",
-			"driftIds": ["D-02"]
+			"driftIds": [
+				"D-02"
+			]
 		},
 		{
 			"path": "src/routes/auth/accept-invite/+page.server.ts",
@@ -125,7 +132,9 @@
 			"path": "src/routes/org/[orgId]/critical-tasks/+layout.server.ts",
 			"classification": "legacy-drift",
 			"reason": "Critical Tasks layout still queries directly in route code.",
-			"driftIds": ["D-02"]
+			"driftIds": [
+				"D-02"
+			]
 		},
 		{
 			"path": "src/routes/suspended/+page.server.ts",
@@ -137,44 +146,448 @@
 		{
 			"path": "src/hooks.server.ts",
 			"classification": "auth-gateway-bypass",
-			"patterns": ["demo_mode", "demo_sandbox"],
+			"patterns": [
+				"demo_mode",
+				"demo_sandbox"
+			],
 			"reason": "Deprecated demo cookies still influence the unauthenticated org-route gate.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
 			"classification": "in-memory-org-shell-bypass",
-			"patterns": ["demo_mode", "demo_sandbox", "createDemoRootOrgShellRequest"],
+			"patterns": [
+				"demo_mode",
+				"demo_sandbox",
+				"createDemoRootOrgShellRequest"
+			],
 			"reason": "The root org shell still fabricates demo/sandbox memberships instead of requiring a real membership row.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/lib/server/supabase.ts",
 			"classification": "service-role-api-bypass",
-			"patterns": ["demo_mode", "demo_sandbox"],
+			"patterns": [
+				"demo_mode",
+				"demo_sandbox"
+			],
 			"reason": "Sandbox API context can still swap real membership-backed access for a service-role client based on cookies.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/lib/server/adapters/httpAdapter.ts",
 			"classification": "no-op-auth-bridge",
-			"patterns": ["createSandboxAuthContext"],
+			"patterns": [
+				"createSandboxAuthContext"
+			],
 			"reason": "The HTTP adapter still routes sandbox requests through the no-op sandbox auth context.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/lib/server/adapters/supabaseAuthContext.ts",
 			"classification": "no-op-auth-context",
-			"patterns": ["createSandboxAuthContext"],
+			"patterns": [
+				"createSandboxAuthContext"
+			],
 			"reason": "Sandbox auth still has an all-pass auth-context implementation that is tolerated only during decommissioning.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
 		},
 		{
 			"path": "src/routes/api/cleanup-demo-sandboxes/+server.ts",
 			"classification": "cleanup-exception",
-			"patterns": ["cleanup_expired_demo_sandboxes"],
+			"patterns": [
+				"cleanup_expired_demo_sandboxes"
+			],
 			"reason": "Sandbox cleanup remains a deprecated exceptional maintenance path until the runtime callers and schema are removed.",
-			"driftIds": ["D-06"]
+			"driftIds": [
+				"D-06"
+			]
+		}
+	],
+	"legacyAuthorizationAllowlist": [
+		{
+			"path": "src/features/groups/components/OrganizationMemberManager.svelte",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Member management still displays and submits legacy edit flags and single-Group scope while Capability Map and Scope Set are rolled out.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/access/memberAccessShape.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data; #765 keeps Leader's Book compatibility explicit through a separate policy lane map.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Dashboard org access reads legacy membership columns only to translate them into Capability Map and Scope Set data.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Member management persistence still round-trips legacy columns while the replacement access shape rolls out.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Org shell loading still reads legacy booleans and single-Group scope only to translate membership rows into Capability Map and Scope Set data.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/auto-accept-org-invites.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Invite acceptance still transfers legacy permission columns and single-Group scope during compatibility migration.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/core/orgShell.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Org shell domain types still expose legacy full-editor and single-Group scope compatibility data.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/core/useCases/loadOrgShell.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Org shell load now exposes Capability Map and Scope Set while retaining full-editor and single-Group compatibility values for transitional callers.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/core/useCases/orgSettingsMemberManagement.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Org settings member management accepts legacy single-Group form input only to persist the replacement Scope Set and compatibility columns.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/core/useCases/organizationInvitationMembership.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Organization invitation membership maps legacy invite fields into member access compatibility data during invite acceptance.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/groupAccess.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"scopedGroupId"
+			],
+			"ownerIssue": "#766",
+			"reason": "Group access helper remains only for compatibility callers while migrated workflows use Scope Set and Policy Decisions.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/server/permissionContext.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Permission context still translates legacy membership columns into Capability Map and Scope Set data for org-shell compatibility.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/stores/orgContext.svelte.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Client org context derives new advisory affordances from Capability Map, Scope Set, and the #765 Leader's Book compatibility policy lane while retaining full-editor and single-Group compatibility fields for transitional callers.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/types.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"isFullEditor",
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#767",
+			"reason": "Shared route data types retain legacy compatibility fields for older route data while new authorization uses Capability Map, Scope Set, and Policy Decisions.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/lib/utils/scopePersonnel.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Client-side personnel filtering keeps the old single-Group helper beside the Scope Set helper for transitional callers.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/routes/org/[orgId]/+layout.svelte",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Org layout passes Capability Map and Scope Set into client context while retaining legacy edit and single-Group compatibility data for transitional callers.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/+page.server.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Settings page load maps legacy member access fields for the member-management compatibility surface.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "src/routes/org/[orgId]/settings/+page.svelte",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId"
+			],
+			"ownerIssue": "#757",
+			"reason": "Settings page passes legacy member access fields only into the member-management compatibility UI.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260413001158_remote_schema.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical remote schema snapshot preserves legacy authorization columns and helpers.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260414000100_critical_tasks_foundation.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical Critical Tasks foundation migration preserves legacy RLS/helper behavior.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260421000100_critical_tasks_permission_lane.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical Critical Tasks lane migration still defines legacy database helper compatibility.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260423000100_rating_scheme_permission_lane.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical Rating Scheme lane migration still defines legacy database helper compatibility.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260423000200_rating_scheme_helper_search_path.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical helper search-path migration references legacy database helper names.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260423000300_ensure_rating_scheme_personnel_lookup.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Historical Rating Scheme personnel lookup migration still preserves single-Group scope helper behavior.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260501000100_member_access_storage.sql",
+			"classification": "historical-migration",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Member access storage migration intentionally backfills replacement access data from legacy columns.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/migrations/20260502000100_remove_legacy_authorization_from_rls_helpers.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#767",
+			"reason": "Active RLS helper names remain as the existing policy API, but their bodies now authorize through member preset, capability override, and Scope Set storage.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
+			"path": "supabase/seed.sql",
+			"classification": "local-seed-fixture",
+			"patterns": [
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#766",
+			"reason": "Local seed data still includes legacy authorization columns as fixture compatibility.",
+			"driftIds": [
+				"D-01"
+			]
 		}
 	],
 	"featurePermissionCouplings": []

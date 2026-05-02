@@ -9,8 +9,10 @@
  * and `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
+import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -24,20 +26,16 @@ export interface PersonnelUseCases {
 export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
-			ctx.auth.requireEdit('personnel');
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.createRecords,
+				policyResourceForGroup(data.groupId),
+				AUDIT_RESOURCE
+			);
 
 			const capCheck = await ctx.subscription.canAddPersonnel();
 			if (!capCheck.allowed) {
 				fail(403, capCheck.message ?? 'Personnel limit reached');
-			}
-
-			if (ctx.auth.scopedGroupId && data.groupId !== ctx.auth.scopedGroupId) {
-				fail(403, 'You can only add personnel to your assigned group');
 			}
 
 			const validated = entity.createSchema.parse(data);
@@ -58,21 +56,31 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		},
 
 		async update(ctx, data) {
-			ctx.auth.requireEdit('personnel');
+			const validated = entity.updateSchema.parse(data);
+			const { id, groupId: nextGroupId } = validated as { id: string; groupId?: string | null };
+			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResourceForGroup(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
+
+			if (nextGroupId !== undefined) {
+				await requireFeaturePolicy(
+					ctx,
+					POLICY_ACTION_CATALOG.personnel.manageRecords,
+					policyResourceForGroup(nextGroupId),
+					AUDIT_RESOURCE,
+					id
+				);
 			}
 
-			const validated = entity.updateSchema.parse(data);
-			const { id } = validated as { id: string };
-
-			await ctx.auth.requireGroupAccess(id);
-
 			const dbData = entity.toDbUpdate(validated);
-			if ((validated as Record<string, unknown>).groupId !== undefined) {
-				dbData.group_id = (validated as Record<string, unknown>).groupId || null;
+			if (nextGroupId !== undefined) {
+				dbData.group_id = nextGroupId || null;
 			}
 
 			const row = await ctx.store.update<Record<string, unknown>>(
@@ -93,18 +101,31 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		},
 
 		async archive(ctx, id) {
-			ctx.auth.requireEdit('personnel');
+			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
 
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResourceForGroup(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
 
-			await ctx.auth.requireGroupAccess(id);
-
-			if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
+			const directArchiveDecision = await evaluateFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.archiveRecords,
+				policyResourceForGroup(currentRecord?.group_id)
+			);
+			if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
 				return { requiresApproval: true };
 			}
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.archiveRecords,
+				policyResourceForGroup(currentRecord?.group_id),
+				AUDIT_RESOURCE,
+				id
+			);
 
 			await ctx.store.update(entity.table, ctx.auth.orgId, id, {
 				archived_at: new Date().toISOString()

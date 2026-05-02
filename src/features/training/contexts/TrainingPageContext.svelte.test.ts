@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -31,15 +32,20 @@ vi.mock('$lib/preferences/userPreferences.client', () => ({
 // ---------------------------------------------------------------------------
 
 function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const org = createOrgContext({
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		userId: 'user-1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -56,9 +62,49 @@ function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 			canManageMembers: false
 		},
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
+}
+
+function makeCapabilityMap(training: CapabilityMap['training']): CapabilityMap {
+	return {
+		calendar: 'none',
+		personnel: 'none',
+		training,
+		criticalTasks: 'none',
+		onboarding: 'none',
+		ratingScheme: 'none'
 	};
+}
+
+function makePolicyOrg(options: { training: CapabilityMap['training']; readOnly?: boolean }): OrgContext {
+	return createOrgContext({
+		orgId: 'org-1',
+		orgName: 'Test Org',
+		userId: 'user-1',
+		userRole: 'member',
+		capabilityMap: makeCapabilityMap(options.training),
+		scopeSet: { kind: 'organization' },
+		permissions: {
+			canViewCalendar: false,
+			canEditCalendar: false,
+			canViewPersonnel: false,
+			canEditPersonnel: false,
+			canViewTraining: true,
+			canEditTraining: false,
+			canViewCriticalTasks: false,
+			canEditCriticalTasks: false,
+			canViewOnboarding: false,
+			canEditOnboarding: false,
+			canViewLeadersBook: false,
+			canEditLeadersBook: false,
+			canManageMembers: false
+		},
+		scopedGroupId: null,
+		isReadOnly: options.readOnly ?? false
+	});
 }
 
 function makeModals(): ModalRegistry {
@@ -166,28 +212,68 @@ describe('TrainingPageContext', () => {
 	});
 
 	describe('canManageConfig', () => {
-		it('is false for a plain member', () => {
-			const org = makeOrg({ isOwner: false, isAdmin: false, isFullEditor: false });
+		it('is false without Training configure capability', () => {
+			const org = makePolicyOrg({ training: 'operate' });
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(false);
 		});
 
-		it('is true for an owner', () => {
-			const org = makeOrg({ isOwner: true });
+		it('uses Training configure policy instead of legacy full-editor state', () => {
+			const org = makePolicyOrg({ training: 'configure' });
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(true);
 		});
 
-		it('is true for an admin', () => {
-			const org = makeOrg({ isAdmin: true });
+		it('keeps configuration affordances visible during read-only mode', () => {
+			const org = makePolicyOrg({ training: 'configure', readOnly: true });
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(true);
 		});
+	});
 
-		it('is true for a full editor', () => {
-			const org = makeOrg({ isFullEditor: true });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
-			expect(ctx.canManageConfig).toBe(true);
+	describe('training policy affordances', () => {
+		it('allows an operator to record completions even when legacy canEditTraining is false', () => {
+			const org = makePolicyOrg({ training: 'operate' });
+			const ctx = new TrainingPageContext(
+				makeData({
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: false
+					}
+				}),
+				modals,
+				org
+			);
+
+			expect(ctx.canViewTraining).toBe(true);
+			expect(ctx.canRecordTraining).toBe(true);
+		});
+
+		it('denies record affordances for view-only and read-only policy states', () => {
+			const viewOnly = new TrainingPageContext(makeData(), modals, makePolicyOrg({ training: 'view' }));
+			const readOnlyOperator = new TrainingPageContext(
+				makeData(),
+				modals,
+				makePolicyOrg({ training: 'operate', readOnly: true })
+			);
+
+			expect(viewOnly.canRecordTraining).toBe(false);
+			expect(readOnlyOperator.canRecordTraining).toBe(false);
+		});
+
+		it('uses Training view policy instead of legacy canViewTraining', () => {
+			const ctx = new TrainingPageContext(
+				makeData({
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					}
+				}),
+				modals,
+				makePolicyOrg({ training: 'none' })
+			);
+
+			expect(ctx.canViewTraining).toBe(false);
 		});
 	});
 
@@ -251,7 +337,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('excludes config items for plain member', () => {
-			const org = makeOrg({ isOwner: false, isAdmin: false, isFullEditor: false });
+			const org = makePolicyOrg({ training: 'operate' });
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Bulk Import');
@@ -259,8 +345,8 @@ describe('TrainingPageContext', () => {
 			expect(labels).not.toContain('Reorder Columns');
 		});
 
-		it('includes config items for owner', () => {
-			const org = makeOrg({ isOwner: true });
+		it('includes config items with Training configure capability', () => {
+			const org = makePolicyOrg({ training: 'configure' });
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Bulk Import');

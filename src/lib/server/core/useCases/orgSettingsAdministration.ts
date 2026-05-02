@@ -1,6 +1,8 @@
-import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
+import { requireGovernancePolicy } from './governancePolicy';
 
 export interface OrganizationSettingsAdministrationPort {
 	renameOrganization(orgId: string, name: string): Promise<string | null>;
@@ -13,6 +15,7 @@ interface OrganizationSettingsAdministrationPorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	notifications: NotificationPort;
+	readOnlyGuard?: ReadOnlyGuard;
 	administration: OrganizationSettingsAdministrationPort;
 }
 
@@ -32,7 +35,7 @@ export async function renameOrganization(
 	ports: OrganizationSettingsAdministrationPorts,
 	input: RenameOrganizationInput
 ): Promise<{ nameSuccess: true }> {
-	ports.auth.requireManageMembers();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.rename);
 
 	const name = sanitizeString(input.name, 100);
 	if (!name) {
@@ -57,7 +60,7 @@ export async function transferOrganizationOwnership(
 	ports: OrganizationSettingsAdministrationPorts,
 	input: TransferOrganizationOwnershipInput
 ): Promise<{ transferSuccess: true }> {
-	ports.auth.requireOwner();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.transferOwnership);
 
 	if (!validateUUID(input.newOwnerId)) {
 		fail(400, 'Invalid user ID');
@@ -91,7 +94,7 @@ export async function deleteOrganization(
 	ports: OrganizationSettingsAdministrationPorts,
 	input: DeleteOrganizationInput
 ): Promise<{ success: true }> {
-	ports.auth.requireOwner();
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.deleteOrganization);
 
 	const organization = await ports.administration.lookupOrganization(ports.auth.orgId);
 	if (organization.errorMessage) {

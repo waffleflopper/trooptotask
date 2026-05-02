@@ -111,6 +111,30 @@ describe('Personnel — create', () => {
 		expect(result).toMatchObject({ firstName: 'John' });
 	});
 
+	it('allows multi-Group scoped users to create in any assigned group', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: 'group-a',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		const { create } = createPersonnelUseCases();
+
+		const result = (await create(ctx, { ...validInput, groupId: 'group-b' })) as Record<string, unknown>;
+
+		expect(result).toMatchObject({ firstName: 'John', groupId: 'group-b' });
+	});
+
 	it('rejects create when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
 		const { create } = createPersonnelUseCases();

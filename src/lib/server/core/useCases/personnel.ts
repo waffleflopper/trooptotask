@@ -38,10 +38,6 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				fail(403, capCheck.message ?? 'Personnel limit reached');
 			}
 
-			if (ctx.auth.scopedGroupId && data.groupId !== ctx.auth.scopedGroupId) {
-				fail(403, 'You can only add personnel to your assigned group');
-			}
-
 			const validated = entity.createSchema.parse(data);
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;

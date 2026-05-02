@@ -13,6 +13,10 @@ interface FeaturePolicyPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 }
 
+export function policyResourceForGroup(groupId: unknown): PolicyResource {
+	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
+}
+
 export async function requireFeaturePolicy(
 	ports: FeaturePolicyPorts,
 	action: FeatureLanePolicyAction,
@@ -55,13 +59,12 @@ export async function requireFeaturePolicy(
 }
 
 function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string): string {
-	if (reasonCode === 'denied:read-only-overlay') {
-		return 'Organization is in read-only mode';
+	switch (reasonCode) {
+		case 'denied:read-only-overlay':
+			return 'Organization is in read-only mode';
+		case 'denied:out-of-scope':
+			return 'You do not have access to records outside your assigned scope';
+		default:
+			return `You do not have permission to use ${lane} data`;
 	}
-
-	if (reasonCode === 'denied:out-of-scope') {
-		return 'You do not have access to records outside your assigned scope';
-	}
-
-	return `You do not have permission to use ${lane} data`;
 }

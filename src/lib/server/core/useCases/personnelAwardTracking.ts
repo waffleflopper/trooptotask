@@ -1,7 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DataStore, UseCaseContext } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelAwardTrackingInput {
 	personnelId: string;
@@ -43,7 +43,7 @@ export async function setPersonnelAwardTrackingAcknowledged(
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		person.group_id ? { kind: 'group', groupId: person.group_id } : { kind: 'organization' },
+		policyResourceForGroup(person.group_id),
 		'personnel',
 		personnelId
 	);

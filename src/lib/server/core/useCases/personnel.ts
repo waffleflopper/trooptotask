@@ -9,10 +9,10 @@
  * and `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -29,7 +29,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			await requireFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.personnel.manageRecords,
-				toPersonnelPolicyResource(data.groupId),
+				policyResourceForGroup(data.groupId),
 				AUDIT_RESOURCE
 			);
 
@@ -67,7 +67,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			await requireFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.personnel.manageRecords,
-				toPersonnelPolicyResource(currentRecord?.group_id),
+				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
 				id
 			);
@@ -76,7 +76,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				await requireFeaturePolicy(
 					ctx,
 					POLICY_ACTION_CATALOG.personnel.manageRecords,
-					toPersonnelPolicyResource((validated as Record<string, unknown>).groupId),
+					policyResourceForGroup((validated as Record<string, unknown>).groupId),
 					AUDIT_RESOURCE,
 					id
 				);
@@ -110,7 +110,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			await requireFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.personnel.manageRecords,
-				toPersonnelPolicyResource(currentRecord?.group_id),
+				policyResourceForGroup(currentRecord?.group_id),
 				AUDIT_RESOURCE,
 				id
 			);
@@ -132,8 +132,4 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			});
 		}
 	};
-}
-
-function toPersonnelPolicyResource(groupId: unknown): PolicyResource {
-	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
 }

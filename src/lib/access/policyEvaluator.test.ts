@@ -322,11 +322,72 @@ describe('policy evaluator', () => {
 		expect(POLICY_REASON_CODES).toEqual({
 			allowedCapability: 'allowed:capability',
 			allowedGovernance: 'allowed:governance',
+			allowedIdentityOwner: 'allowed:identity-owner',
 			deniedMissingCapability: 'denied:missing-capability',
 			deniedOutOfScope: 'denied:out-of-scope',
 			deniedReadOnlyOverlay: 'denied:read-only-overlay',
 			deniedOwnerOnly: 'denied:owner-only',
-			deniedGovernanceRole: 'denied:governance-role'
+			deniedGovernanceRole: 'denied:governance-role',
+			deniedUnauthenticated: 'denied:unauthenticated',
+			deniedNotResourceOwner: 'denied:not-resource-owner'
+		});
+	});
+
+	it('authorizes identity-owned workflows by authenticated user and resource ownership', () => {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', userId: 'user-a' },
+			action: POLICY_ACTION_CATALOG.identity.updateOwnNotifications,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			resource: { kind: 'user', userId: 'user-a' },
+			overlays: []
+		});
+
+		expect(decision).toMatchObject({
+			allowed: true,
+			reasonCode: 'allowed:identity-owner',
+			action: { owner: { kind: 'identity-owned' } },
+			audit: { capture: true, category: 'write' }
+		});
+		expect(decision.matchedCapability).toBeUndefined();
+		expect(decision.matchedScope).toBeUndefined();
+	});
+
+	it('denies identity-owned workflows for cross-user resources before mutation', () => {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', userId: 'user-a' },
+			action: POLICY_ACTION_CATALOG.identity.deleteOwnNotifications,
+			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'user', userId: 'user-b' },
+			overlays: []
+		});
+
+		expect(decision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:not-resource-owner',
+			audit: { capture: true, category: 'denied' }
+		});
+		expect(decision.matchedCapability).toBeUndefined();
+	});
+
+	it('lets read-only overlays block identity-owned writes', () => {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member', userId: 'user-a' },
+			action: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
+			capabilityMap: baseCapabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'user', userId: 'user-a' },
+			overlays: [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Read-only mode' }]
+		});
+
+		expect(decision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:read-only-overlay',
+			blockingOverlay: { kind: 'read-only-mode' }
 		});
 	});
 

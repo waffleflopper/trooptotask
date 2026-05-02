@@ -22,7 +22,21 @@ describe('createDeletionRequest', () => {
 	};
 
 	it('creates a pending deletion request and audit logs', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				}
+			}
+		});
 
 		await createDeletionRequest(ctx, validInput);
 
@@ -55,6 +69,58 @@ describe('createDeletionRequest', () => {
 	it('rejects when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
 		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('rejects create when there is no authenticated requester', async () => {
+		const ctx = buildContext({ auth: { userId: null } });
+
+		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 401 });
+	});
+
+	it('allows viewer, operator, editor, and owner/admin requesters through requester-owned policy', async () => {
+		for (const auth of [
+			{
+				userId: 'viewer-user',
+				role: 'member' as const,
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'view' as const,
+					personnel: 'view' as const,
+					training: 'view' as const,
+					criticalTasks: 'view' as const,
+					onboarding: 'view' as const,
+					ratingScheme: 'view' as const
+				}
+			},
+			{
+				userId: 'operator-user',
+				role: 'member' as const,
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'operate' as const,
+					personnel: 'operate' as const,
+					training: 'operate' as const,
+					criticalTasks: 'operate' as const,
+					onboarding: 'operate' as const,
+					ratingScheme: 'operate' as const
+				}
+			},
+			{ userId: 'editor-user', role: 'member' as const, isPrivileged: false, isFullEditor: true },
+			{ userId: 'owner-user', role: 'owner' as const, isPrivileged: true }
+		]) {
+			const ctx = buildContext({ auth });
+
+			await createDeletionRequest(ctx, {
+				...validInput,
+				resourceId: `${auth.userId}-resource`
+			});
+
+			const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
+			expect(stored).toHaveLength(1);
+			expect(stored[0]).toMatchObject({ requested_by: auth.userId, status: 'pending' });
+		}
 	});
 
 	it('notifies admins on create', async () => {
@@ -231,6 +297,37 @@ describe('approveDeletionRequest', () => {
 
 		expect(ctx.notifications.notifications).toHaveLength(0);
 	});
+
+	it('rejects approval through governance policy for ordinary members even with feature configure capability', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: true,
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+		seedPendingRequest(ctx);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toEqual([
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: expect.objectContaining({
+					policyAction: 'organization.reviewDeletionRequests',
+					reasonCode: 'denied:governance-role'
+				})
+			})
+		]);
+	});
 });
 
 describe('denyDeletionRequest', () => {
@@ -318,19 +415,25 @@ describe('cancelDeletionRequest', () => {
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request!.status).toBe('pending');
 	});
+
+	it('lets read-only overlays block requester-owned cancellation', async () => {
+		const ctx = buildContext({ auth: { userId: 'requester-user' }, readOnly: true });
+		seedPendingRequest(ctx);
+
+		await expect(cancelDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 403 });
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'pending' });
+	});
 });
 
-describe('permission guards', () => {
-	it('approve rejects non-privileged users', async () => {
+describe('governance policy guards', () => {
+	it('approve rejects non-admin and non-owner users', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				requirePrivileged() {
-					const e = new Error('Privileged role required');
-					(e as unknown as Record<string, unknown>).status = 403;
-					throw e;
-				}
+				isFullEditor: false
 			}
 		});
 		seedPendingRequest(ctx);
@@ -338,16 +441,12 @@ describe('permission guards', () => {
 		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('deny rejects non-privileged users', async () => {
+	it('deny rejects non-admin and non-owner users', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				requirePrivileged() {
-					const e = new Error('Privileged role required');
-					(e as unknown as Record<string, unknown>).status = 403;
-					throw e;
-				}
+				isFullEditor: false
 			}
 		});
 		seedPendingRequest(ctx);

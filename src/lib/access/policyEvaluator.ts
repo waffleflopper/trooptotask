@@ -14,20 +14,26 @@ export type OrganizationGovernanceAccess = 'admin-or-owner' | 'owner-only';
 export type PolicyReasonCode =
 	| 'allowed:capability'
 	| 'allowed:governance'
+	| 'allowed:identity-owner'
 	| 'denied:missing-capability'
 	| 'denied:out-of-scope'
 	| 'denied:read-only-overlay'
 	| 'denied:owner-only'
-	| 'denied:governance-role';
+	| 'denied:governance-role'
+	| 'denied:unauthenticated'
+	| 'denied:not-resource-owner';
 
 export const POLICY_REASON_CODES = {
 	allowedCapability: 'allowed:capability',
 	allowedGovernance: 'allowed:governance',
+	allowedIdentityOwner: 'allowed:identity-owner',
 	deniedMissingCapability: 'denied:missing-capability',
 	deniedOutOfScope: 'denied:out-of-scope',
 	deniedReadOnlyOverlay: 'denied:read-only-overlay',
 	deniedOwnerOnly: 'denied:owner-only',
-	deniedGovernanceRole: 'denied:governance-role'
+	deniedGovernanceRole: 'denied:governance-role',
+	deniedUnauthenticated: 'denied:unauthenticated',
+	deniedNotResourceOwner: 'denied:not-resource-owner'
 } as const satisfies Record<string, PolicyReasonCode>;
 
 export interface FeatureLanePolicyAction {
@@ -51,9 +57,22 @@ export interface OrganizationGovernancePolicyAction {
 	};
 }
 
-export type PolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+export interface IdentityOwnedPolicyAction {
+	id: string;
+	label: string;
+	accessMode: Exclude<PolicyActionAccessMode, 'governance'>;
+	owner: {
+		kind: 'identity-owned';
+	};
+}
 
-export type PolicyResource = { kind: 'organization' } | { kind: 'group'; groupId: string } | { kind: 'unscoped' };
+export type PolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
+
+export type PolicyResource =
+	| { kind: 'organization' }
+	| { kind: 'group'; groupId: string }
+	| { kind: 'user'; userId: string }
+	| { kind: 'unscoped' };
 
 export interface PolicyOverlay {
 	id: string;
@@ -63,6 +82,7 @@ export interface PolicyOverlay {
 
 export interface PolicyActor {
 	membershipRole: MembershipRole;
+	userId?: string | null;
 }
 
 export interface PolicyEvaluationInput {
@@ -300,6 +320,43 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'organization.deleteOrganization',
 			label: 'Delete organization',
 			access: 'owner-only'
+		}),
+		reviewDeletionRequests: governanceAction({
+			id: 'organization.reviewDeletionRequests',
+			label: 'Review deletion requests',
+			access: 'admin-or-owner'
+		})
+	},
+	identity: {
+		readOwnNotifications: identityAction({
+			id: 'identity.readOwnNotifications',
+			label: 'Read own notifications',
+			accessMode: 'read'
+		}),
+		updateOwnNotifications: identityAction({
+			id: 'identity.updateOwnNotifications',
+			label: 'Update own notifications',
+			accessMode: 'write'
+		}),
+		deleteOwnNotifications: identityAction({
+			id: 'identity.deleteOwnNotifications',
+			label: 'Delete own notifications',
+			accessMode: 'write'
+		}),
+		createOwnDeletionRequest: identityAction({
+			id: 'identity.createOwnDeletionRequest',
+			label: 'Create own deletion request',
+			accessMode: 'write'
+		}),
+		cancelOwnDeletionRequest: identityAction({
+			id: 'identity.cancelOwnDeletionRequest',
+			label: 'Cancel own deletion request',
+			accessMode: 'write'
+		}),
+		listOwnDeletionRequests: identityAction({
+			id: 'identity.listOwnDeletionRequests',
+			label: 'List own deletion requests',
+			accessMode: 'read'
 		})
 	}
 } as const;
@@ -333,6 +390,19 @@ function governanceAction(input: {
 	};
 }
 
+function identityAction(input: {
+	id: string;
+	label: string;
+	accessMode: IdentityOwnedPolicyAction['accessMode'];
+}): IdentityOwnedPolicyAction {
+	return {
+		id: input.id,
+		label: input.label,
+		accessMode: input.accessMode,
+		owner: { kind: 'identity-owned' }
+	};
+}
+
 export const policyEvaluator: PolicyEvaluator = {
 	evaluate: evaluatePolicyDecision
 };
@@ -340,6 +410,10 @@ export const policyEvaluator: PolicyEvaluator = {
 export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDecision {
 	if (isGovernanceAction(input.action)) {
 		return evaluateGovernancePolicy(input, input.action);
+	}
+
+	if (isIdentityOwnedAction(input.action)) {
+		return evaluateIdentityOwnedPolicy(input);
 	}
 
 	const action = input.action;
@@ -384,6 +458,40 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 
 function isGovernanceAction(action: PolicyAction): action is OrganizationGovernancePolicyAction {
 	return action.owner.kind === 'organization-governance';
+}
+
+function isIdentityOwnedAction(action: PolicyAction): action is IdentityOwnedPolicyAction {
+	return action.owner.kind === 'identity-owned';
+}
+
+function evaluateIdentityOwnedPolicy(input: PolicyEvaluationInput): PolicyDecision {
+	if (!input.actor.userId) {
+		return buildDecision(input, {
+			allowed: false,
+			reasonCode: POLICY_REASON_CODES.deniedUnauthenticated
+		});
+	}
+
+	if (input.resource.kind !== 'user' || input.resource.userId !== input.actor.userId) {
+		return buildDecision(input, {
+			allowed: false,
+			reasonCode: POLICY_REASON_CODES.deniedNotResourceOwner
+		});
+	}
+
+	const blockingOverlay = findBlockingOverlay(input);
+	if (blockingOverlay) {
+		return buildDecision(input, {
+			allowed: false,
+			reasonCode: POLICY_REASON_CODES.deniedReadOnlyOverlay,
+			blockingOverlay
+		});
+	}
+
+	return buildDecision(input, {
+		allowed: true,
+		reasonCode: POLICY_REASON_CODES.allowedIdentityOwner
+	});
 }
 
 function evaluateGovernancePolicy(

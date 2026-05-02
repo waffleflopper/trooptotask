@@ -99,12 +99,14 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - Final allow or deny decisions should come from:
   - governance role
+  - authenticated user identity and resource ownership for self-service workflows
   - stable policy action
   - capability map
   - shared scope set
   - policy overlays
 - Policy evaluation should be action-first. Routes, pages, and buttons should request decisions for stable policy actions instead of defining authorization meaning from UI placement or route shape.
-- Every policy action should be owned by a durable feature lane or by organization-governance semantics.
+- Every policy action should be owned by a durable feature lane, organization-governance semantics, or an explicitly identity-owned self-service workflow.
+- Identity-owned actions cover workflows where an authenticated member acts only on their own resources, such as personal notifications or their own deletion request submission/cancellation. They must validate resource ownership before mutation and must not borrow feature edit capability or full-editor compatibility.
 - The first action catalog should use workflow-level actions: meaningful user workflows rather than one action per button or one catch-all action per feature.
 - Split actions when they need different capability levels, audit treatment, or UX explanations.
 - The replacement should proceed through vertical authorization slices, filed as implementation issues, that carry one meaningful workflow through storage, adapter, evaluator, route enforcement, UI affordance, audit behavior, and tests together.

@@ -5,11 +5,14 @@
 	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 	import { sortMembers } from '$features/groups/utils/sortMembers';
 	import {
+		DURABLE_FEATURE_LANES,
+		isCapabilityLevel,
 		resolveStoredMemberAccessShape,
 		TARGET_MEMBER_PRESET_CAPABILITIES,
 		type CapabilityLevel,
 		type CapabilityMap,
 		type DurableFeatureLane,
+		type MemberAccessShape,
 		type MemberPreset,
 		type ScopeSet,
 		type StoredMemberPreset
@@ -48,9 +51,11 @@
 	type AuditLog = (typeof data.auditLog.logs)[number];
 	type RoleCount = { owner: number; admin: number; member: number };
 	type EditablePreset = StoredMemberPreset | 'admin';
+	type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
 	type ScopeKind = ScopeSet['kind'];
 	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
 	type AccessLaneConfig = { id: DurableFeatureLane; label: string };
+	type AccessOption = { value: EditablePreset; label: string; helper: string };
 
 	const standardSections: SectionConfig[] = [
 		{ id: 'organization', label: 'Organization', eyebrow: 'Profile' },
@@ -125,7 +130,7 @@
 	const transferOwnershipCandidates = $derived(
 		sortedMembers.filter((member: OrganizationMember) => data.isOwner && member.role !== 'owner' && member.userId)
 	);
-	const accessOptions: Array<{ value: EditablePreset; label: string; helper: string }> = [
+	const accessOptions: AccessOption[] = [
 		{ value: 'admin', label: 'Admin', helper: 'Governance role. Can manage organization access.' },
 		{ value: 'editor', label: 'Editor', helper: 'Configure feature lanes without admin governance.' },
 		{ value: 'operator', label: 'Operator', helper: 'Day-to-day work across granted lanes.' },
@@ -134,14 +139,15 @@
 	const availablePresetOptions = $derived(
 		data.isOwner ? accessOptions : accessOptions.filter((option) => option.value !== 'admin')
 	);
-	const accessLanes: AccessLaneConfig[] = [
-		{ id: 'calendar', label: 'Calendar' },
-		{ id: 'personnel', label: 'Personnel' },
-		{ id: 'training', label: 'Training' },
-		{ id: 'criticalTasks', label: 'Critical Tasks' },
-		{ id: 'onboarding', label: 'Onboarding' },
-		{ id: 'ratingScheme', label: 'Rating Scheme' }
-	];
+	const accessLaneLabels: Record<DurableFeatureLane, string> = {
+		calendar: 'Calendar',
+		personnel: 'Personnel',
+		training: 'Training',
+		criticalTasks: 'Critical Tasks',
+		onboarding: 'Onboarding',
+		ratingScheme: 'Rating Scheme'
+	};
+	const accessLanes: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({ id, label: accessLaneLabels[id] }));
 	const capabilityOptions: Array<{ value: CapabilityLevel; label: string }> = [
 		{ value: 'none', label: 'None' },
 		{ value: 'view', label: 'View' },
@@ -340,11 +346,17 @@
 		memberSelectedScopeGroupIds = remainingScopeGroups;
 	}
 
-	function accessBadgeClass(memberPreset: MemberPreset | 'admin' | 'owner'): string {
+	function getMemberAccessBadge(member: OrganizationMember, accessShape: MemberAccessShape): MemberAccessBadge {
+		if (member.role === 'owner') return 'owner';
+		if (member.role === 'admin') return 'admin';
+		return accessShape.memberPreset;
+	}
+
+	function accessBadgeClass(memberPreset: MemberAccessBadge): string {
 		return `member-role member-role--${memberPreset.replace(/[^a-z0-9]+/g, '-')}`;
 	}
 
-	function getAccessLabel(memberPreset: MemberPreset | 'admin' | 'owner'): string {
+	function getAccessLabel(memberPreset: MemberAccessBadge): string {
 		switch (memberPreset) {
 			case 'owner':
 				return 'Owner';
@@ -407,7 +419,7 @@
 		const record = value as Record<string, unknown>;
 		for (const lane of accessLanes) {
 			const level = record[lane.id];
-			if (level === 'none' || level === 'view' || level === 'operate' || level === 'configure') {
+			if (isCapabilityLevel(level)) {
 				overrides[lane.id] = level;
 			}
 		}
@@ -703,6 +715,7 @@
 					<div class="member-ledger" role="list" aria-label="Organization members">
 						{#each sortedMembers as member (member.id)}
 							{@const accessShape = getMemberAccessShape(member)}
+							{@const accessBadge = getMemberAccessBadge(member, accessShape)}
 							{@const selectedPreset =
 								memberSelectedPreset[member.id] ?? (member.role === 'admin' ? 'admin' : accessShape.memberPreset)}
 							{@const selectedScopeKind = getSelectedScopeKind(member)}
@@ -714,11 +727,7 @@
 									<p class="member-email">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
 									<p class="member-meta">{formatScopeSet(accessShape.scopeSet)}</p>
 									<div class="access-summary">
-										<span
-											>{getAccessLabel(
-												member.role === 'owner' ? 'owner' : member.role === 'admin' ? 'admin' : accessShape.memberPreset
-											)}</span
-										>
+										<span>{getAccessLabel(accessBadge)}</span>
 										{#each overrides as override (override)}
 											<span>{override}</span>
 										{/each}
@@ -728,14 +737,8 @@
 									</div>
 								</div>
 								<div class="member-actions">
-									<span
-										class={accessBadgeClass(
-											member.role === 'owner' ? 'owner' : member.role === 'admin' ? 'admin' : accessShape.memberPreset
-										)}
-									>
-										{getAccessLabel(
-											member.role === 'owner' ? 'owner' : member.role === 'admin' ? 'admin' : accessShape.memberPreset
-										)}
+									<span class={accessBadgeClass(accessBadge)}>
+										{getAccessLabel(accessBadge)}
 									</span>
 									{#if member.role === 'owner'}
 										{#if isCurrentMember(member)}<span class="member-you">You</span>{/if}

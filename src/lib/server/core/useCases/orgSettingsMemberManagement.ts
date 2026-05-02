@@ -2,13 +2,14 @@ import type { OrganizationMemberPermissions } from '$lib/types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	currentPresetToMemberAccessStorage,
+	DURABLE_FEATURE_LANES,
+	isCapabilityLevel,
 	resolveCurrentPresetPermissions,
 	resolveCurrentUpdatePermissions,
 	serializeScopeSetForStorage,
 	targetMemberAccessToCurrentPermissionFlags,
 	targetMemberAccessToStorage,
 	type CapabilityOverrideMap,
-	type CapabilityLevel,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/server/core/errors';
@@ -385,10 +386,10 @@ function isTargetMemberPreset(preset: string): preset is StoredMemberPreset {
 
 export function parseCapabilityOverrides(formData: FormData): CapabilityOverrideMap {
 	const overrides: CapabilityOverrideMap = {};
-	for (const lane of ['calendar', 'personnel', 'training', 'criticalTasks', 'onboarding', 'ratingScheme'] as const) {
+	for (const lane of DURABLE_FEATURE_LANES) {
 		const value = formData.get(`capability:${lane}`);
-		if (value === 'none' || value === 'view' || value === 'operate' || value === 'configure') {
-			overrides[lane] = value as CapabilityLevel;
+		if (isCapabilityLevel(value)) {
+			overrides[lane] = value;
 		}
 	}
 	return overrides;

@@ -20,7 +20,7 @@ export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, Capabilit
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
 
-const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
+export const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
 	'calendar',
 	'personnel',
 	'training',
@@ -28,6 +28,7 @@ const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
 	'onboarding',
 	'ratingScheme'
 ];
+export const CAPABILITY_LEVELS: CapabilityLevel[] = ['none', 'view', 'operate', 'configure'];
 
 export interface MemberAccessShape {
 	membershipRole: MembershipRole;
@@ -394,12 +395,16 @@ function filterCapabilityOverrides(capabilityOverrides?: CapabilityOverrideMap |
 
 	for (const lane of DURABLE_FEATURE_LANES) {
 		const level = capabilityOverrides[lane];
-		if (level === 'none' || level === 'view' || level === 'operate' || level === 'configure') {
+		if (isCapabilityLevel(level)) {
 			overrides[lane] = level;
 		}
 	}
 
 	return overrides;
+}
+
+export function isCapabilityLevel(value: unknown): value is CapabilityLevel {
+	return CAPABILITY_LEVELS.includes(value as CapabilityLevel);
 }
 
 function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {

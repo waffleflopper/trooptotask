@@ -36,7 +36,34 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			canManageMembers: true
 		},
 		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
+		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string; accessMode: string }) {
+			const levels = ['none', 'view', 'operate', 'configure'];
+			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
+			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
+			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
+			return {
+				allowed: hasCapability && !readOnlyBlocked,
+				visible: hasCapability,
+				disabled: hasCapability && readOnlyBlocked,
+				reason: readOnlyBlocked
+					? 'denied:read-only-overlay'
+					: hasCapability
+						? 'allowed:capability'
+						: 'denied:missing-capability',
+				explanation: '',
+				decision: {}
+			};
+		}
 	},
 	parseFileMock: vi.fn()
 }));
@@ -141,6 +168,11 @@ describe('critical tasks page', () => {
 		mockOrgContext.isAdmin = false;
 		mockOrgContext.isPrivileged = true;
 		mockOrgContext.isFullEditor = true;
+		mockOrgContext.capabilityMap.criticalTasks = 'configure';
+		mockOrgContext.scopeSet = { kind: 'organization' };
+		mockOrgContext.permissions.canViewCriticalTasks = true;
+		mockOrgContext.permissions.canEditCriticalTasks = true;
+		mockOrgContext.readOnly = false;
 		personnelStore.startLoading();
 		groupsStore.startLoading();
 		ictTasksStore.startLoading();
@@ -253,6 +285,41 @@ describe('critical tasks page', () => {
 		for (const action of orderedActions) {
 			expect(action.classList.contains('toolbar-action--compact')).toBe(false);
 		}
+	});
+
+	it('uses Critical Tasks Policy Decisions instead of legacy view and edit flags for page affordances', () => {
+		mockOrgContext.role = 'member';
+		mockOrgContext.isOwner = false;
+		mockOrgContext.isAdmin = false;
+		mockOrgContext.isPrivileged = false;
+		mockOrgContext.isFullEditor = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'configure';
+		mockOrgContext.permissions.canViewCriticalTasks = false;
+		mockOrgContext.permissions.canEditCriticalTasks = false;
+		personnelStore.load([person()], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewCriticalTasks: false,
+						canEditCriticalTasks: false
+					}
+				}
+			}
+		});
+
+		expect(screen.queryByRole('heading', { name: 'Access Restricted' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Task Library' }).getAttribute('href')).toBe(
+			'/org/org-1/critical-tasks/library'
+		);
+		expect(screen.getByRole('button', { name: 'Import Completions' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Record Completion' })).toBeTruthy();
 	});
 
 	it('opens the completion import modal from the page toolbar', async () => {
@@ -551,6 +618,7 @@ describe('critical tasks page', () => {
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isPrivileged = false;
 		mockOrgContext.isFullEditor = true;
+		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		personnelStore.load([], 'org-1');
 		groupsStore.load([], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');

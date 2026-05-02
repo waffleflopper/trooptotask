@@ -12,6 +12,7 @@ import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -23,6 +24,8 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+
+const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)
@@ -58,9 +61,7 @@ export class TrainingPageContext {
 
 	// ---- permission flags ----
 	get canManageConfig(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, {
-			kind: 'unscoped'
-		}).visible;
+		return this.trainingConfigureAffordance.visible;
 	}
 
 	get readOnly(): boolean {
@@ -68,14 +69,29 @@ export class TrainingPageContext {
 	}
 
 	get canViewTraining(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, { kind: 'unscoped' })
-			.allowed;
+		return this.trainingViewAffordance.allowed;
 	}
 
 	get canRecordTraining(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.recordCompletions, {
-			kind: 'unscoped'
-		}).allowed;
+		return this.trainingRecordAffordance.allowed;
+	}
+
+	get trainingViewAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, TRAINING_POLICY_RESOURCE);
+	}
+
+	get trainingRecordAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.recordCompletions,
+			TRAINING_POLICY_RESOURCE
+		);
+	}
+
+	get trainingConfigureAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			TRAINING_POLICY_RESOURCE
+		);
 	}
 
 	// ---- data accessors ----

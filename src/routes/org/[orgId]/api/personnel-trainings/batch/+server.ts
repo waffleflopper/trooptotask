@@ -1,11 +1,13 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { importTrainingRecords } from '$lib/server/core/useCases/trainingRecordsBatch';
 
-export const _postConfig = {
+type ImportTrainingRecordsInput = Parameters<typeof importTrainingRecords>[1];
+
+export const _postConfig: RouteConfig<ImportTrainingRecordsInput, unknown> = {
 	permission: 'training',
 	mutation: true,
 	deferPolicyToUseCase: true,
 	fn: (ctx, input) => importTrainingRecords(ctx, input)
-} satisfies Parameters<typeof handle<Parameters<typeof importTrainingRecords>[1], unknown>>[0];
+};
 
 export const POST = handle(_postConfig);

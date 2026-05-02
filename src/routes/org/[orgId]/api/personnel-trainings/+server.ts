@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
 import {
@@ -8,21 +8,21 @@ import {
 	updateTrainingRecord
 } from '$lib/server/core/useCases/trainingRecords';
 
-export const _postConfig = {
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'training',
 	mutation: true,
 	deferPolicyToUseCase: true,
 	fn: (ctx, input) => createTrainingRecord(ctx, input)
-} satisfies Parameters<typeof handle<Record<string, unknown>, unknown>>[0];
+};
 
-export const _putConfig = {
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'training',
 	mutation: true,
 	deferPolicyToUseCase: true,
 	fn: (ctx, input) => updateTrainingRecord(ctx, input)
-} satisfies Parameters<typeof handle<Record<string, unknown>, unknown>>[0];
+};
 
-export const _deleteConfig = {
+export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	permission: 'training',
 	mutation: true,
 	deferPolicyToUseCase: true,
@@ -43,7 +43,7 @@ export const _deleteConfig = {
 		}
 		return json(result);
 	}
-} satisfies Parameters<typeof handle<Record<string, unknown>, Record<string, unknown>>>[0];
+};
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);

@@ -33,6 +33,18 @@ interface TrainingRecordResourceRow {
 	personnel_id: string;
 }
 
+function canHardDeleteTrainingRecord(ctx: WritePorts, resource: PolicyResource): boolean {
+	return evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: { membershipRole: ctx.auth.role },
+		action: POLICY_ACTION_CATALOG.training.configureRequirements,
+		capabilityMap: ctx.auth.capabilityMap,
+		scopeSet: ctx.auth.scopeSet,
+		resource,
+		overlays: []
+	}).allowed;
+}
+
 async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string): Promise<PolicyResource> {
 	const record = await ctx.store.findOne<TrainingRecordResourceRow>(
 		entity.table,
@@ -175,17 +187,7 @@ export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise
 	const resource = await policyResourceForTrainingRecord(ctx, id);
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.recordCompletions, resource, AUDIT_RESOURCE, id);
 
-	const hardDeleteDecision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ctx.auth.role },
-		action: POLICY_ACTION_CATALOG.training.configureRequirements,
-		capabilityMap: ctx.auth.capabilityMap,
-		scopeSet: ctx.auth.scopeSet,
-		resource,
-		overlays: []
-	});
-
-	if (!hardDeleteDecision.allowed) {
+	if (!canHardDeleteTrainingRecord(ctx, resource)) {
 		return { requiresApproval: true };
 	}
 

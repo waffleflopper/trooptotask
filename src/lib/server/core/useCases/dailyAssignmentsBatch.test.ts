@@ -37,19 +37,33 @@ describe('batchDailyAssignments', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('enforces group scope on assignee IDs', async () => {
+	it('enforces policy scope on assignee IDs', async () => {
 		const ctx = buildContext({
 			auth: {
-				async requireGroupAccessBatch() {
-					throw Object.assign(new Error('Group access denied'), { status: 403 });
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: 'group-c' }]);
+
 		await expect(
 			batchDailyAssignments(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
 			})
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 	});
 
 	it('allows group assignees without running personnel group checks', async () => {

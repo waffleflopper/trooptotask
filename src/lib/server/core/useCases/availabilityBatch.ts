@@ -39,10 +39,8 @@ export async function createAvailabilityBatch(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	// Enforce group scope in one batch call
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
 	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, uniquePersonnelIds);
-	await ctx.auth.requireGroupAccessBatch(uniquePersonnelIds);
 
 	// Transform and bulk insert
 	const rows = records.map((r) => entity.toDbInsert(r, ctx.auth.orgId));
@@ -86,9 +84,6 @@ export async function deleteAvailabilityBatch(
 		CALENDAR_POLICY_ACTIONS.manageAvailability,
 		existingRows.map((row) => row.personnel_id).filter((id): id is string => typeof id === 'string')
 	);
-	if (ctx.auth.scopedGroupId) {
-		await Promise.all(ids.map((id) => ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id')));
-	}
 
 	// Batch delete all entries in one round-trip
 	const deletedCount = await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, ids);

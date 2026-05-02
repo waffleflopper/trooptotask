@@ -11,8 +11,8 @@
  * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
  *   matching the narrower port subsets accepted by individual use cases.
  *
- * Group scoping works automatically: if `auth.scopedGroupId` is set on the test auth context,
- * the data store is wrapped in `createScopedDataStore` using the production scope rules.
+ * Group scoping works automatically from `auth.scopeSet`; a legacy `scopedGroupId`
+ * override is translated only as test compatibility scaffolding.
  */
 import type {
 	CriticalTasksReadModelPort,

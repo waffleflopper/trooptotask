@@ -4,7 +4,6 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { createCrudUseCases } from './crud';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const TT_ID = '00000000-0000-4000-a000-000000000001';
 const PT_1 = '00000000-0000-4000-a000-000000000011';
@@ -16,8 +15,7 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: TrainingTypeEntity,
 	permission: TrainingTypeEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingTypeEntity),
-	requireFullEditor: TrainingTypeEntity.requireFullEditor,
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
+	policyAction: TrainingTypeEntity.policyAction,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
 			training_type_id: id

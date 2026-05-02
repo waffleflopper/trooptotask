@@ -110,6 +110,22 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
 
+	it('does not let legacy flags or scoped_group_id override stored member access', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			scoped_group_id: 'legacy-group',
+			can_view_calendar: false,
+			can_edit_calendar: false,
+			member_preset: 'viewer',
+			capability_overrides: { calendar: 'operate' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(ctx.capabilityMap.calendar).toBe('operate');
+		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
+	});
+
 	it('ignores scoped_group_id for privileged roles', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,

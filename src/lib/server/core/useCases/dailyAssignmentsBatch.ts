@@ -76,7 +76,6 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		upserts.map((record) => record.assignmentTypeId)
 	);
 
-	// Enforce group scope on all assignee personnel IDs
 	const assigneeIds = [
 		...new Set(
 			upserts
@@ -85,9 +84,6 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		)
 	];
 	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, assigneeIds);
-	if (assigneeIds.length > 0) {
-		await ctx.auth.requireGroupAccessBatch(assigneeIds);
-	}
 
 	if (assigneeIds.length > 0) {
 		const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {

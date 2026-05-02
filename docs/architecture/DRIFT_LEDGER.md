@@ -13,7 +13,8 @@ Each entry separates:
 
 - Current-state truth:
   - membership role is `owner`, `admin`, or `member`
-  - access is primarily expressed as per-feature booleans plus optional `scoped_group_id`
+  - migrated Policy Decision workflows now use stored member presets, capability overrides, and shared scope sets as their active runtime inputs
+  - per-feature booleans plus optional `scoped_group_id` remain only as compatibility inputs for explicitly unmigrated flows and older membership rows
   - UI presets and derived labels are convenience shapes over that model
   - platform admin uses a separate role system outside organization-membership authz
 - Intended direction:
@@ -28,6 +29,7 @@ Each entry separates:
 - Guardrail until fixed:
   - document the current model honestly, but do not deepen it by accident
   - do not invent partial-admin member shapes or per-feature scope matrices
+  - do not reintroduce legacy permission flags or `scoped_group_id` as active authorization checks for migrated Policy Decision workflows
 - Recommended next slice:
   - staged implementation of the approved member-access model while preserving initial single-group compatibility
 

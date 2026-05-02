@@ -52,7 +52,7 @@ interface BuildContextResult {
 }
 
 function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
-	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId;
+	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 
 async function createRequestAuthContext(config: {
@@ -563,7 +563,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
-		requireFullEditor: entity.requireFullEditor,
+		requireFullEditor: policyAction ? undefined : entity.requireFullEditor,
 		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined

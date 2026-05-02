@@ -20,10 +20,12 @@ This document separates what v1 authorization and provider ownership look like t
   - `owner`
   - `admin`
   - `member`
-- Effective access is currently derived from:
+- Effective access for migrated Policy Decision workflows is derived from:
   - the membership role
-  - per-feature boolean permission flags
-  - optional `scoped_group_id`
+  - the stored member preset and per-lane capability overrides
+  - the stored shared scope set
+  - policy overlays such as read-only mode
+- Legacy per-feature boolean permission flags and `scoped_group_id` remain compatibility inputs for explicitly unmigrated flows and older membership rows, but they are not the active authorization substrate for migrated workflows once stored member-access columns are present.
 - Platform admin uses a separate role system (`super_admin`, `support`, `billing`) and is not part of organization-membership authorization.
 - Authorization is enforced in more than one layer:
   - app-layer permission context and auth context

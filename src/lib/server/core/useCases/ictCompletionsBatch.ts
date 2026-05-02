@@ -102,7 +102,6 @@ export async function importIctCompletionsBatch(
 			const resource = toPersonnelPolicyResource(personnelById.get(personnelId));
 			await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, resource);
 		}
-		await ctx.auth.requireGroupAccessBatch(matchedPersonnelIds);
 	}
 
 	const matchedTaskIds = [...new Set(preliminaryReview.validRows.map((row) => row.ictTaskId))];

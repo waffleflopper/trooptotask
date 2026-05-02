@@ -48,52 +48,12 @@ async function getAssignmentTarget(ctx: WritePorts, assignmentTypeId: string): P
 	return (await getAssignmentTargets(ctx, [assignmentTypeId])).get(assignmentTypeId) ?? 'personnel';
 }
 
-async function getPersonnelAssigneeIds(
-	ctx: WritePorts,
-	records: Array<{ assignmentTypeId: string; assigneeId: string }>
-): Promise<string[]> {
-	const targets = await getAssignmentTargets(
-		ctx,
-		records.map((record) => record.assignmentTypeId)
-	);
-
-	return [
-		...new Set(
-			records
-				.filter((record) => record.assigneeId && targets.get(record.assignmentTypeId) !== 'group')
-				.map((record) => record.assigneeId)
-		)
-	];
-}
-
 async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<string, unknown>): Promise<void> {
 	const lookupStore = ctx.rawStore ?? ctx.store;
 	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
 		select: 'assignee_id, assignment_type_id'
 	});
 	await requireCalendarAssignmentRowsPolicy(ctx, existingRows);
-
-	if (!ctx.auth.scopedGroupId) return;
-
-	const assignmentTargets = await getAssignmentTargets(
-		ctx,
-		existingRows.map((row) => row.assignment_type_id).filter((id): id is string => typeof id === 'string')
-	);
-	const personnelAssigneeIds = [
-		...new Set(
-			existingRows
-				.filter((row) => typeof row.assignee_id === 'string')
-				.filter((row) => {
-					if (typeof row.assignment_type_id !== 'string') return true;
-					return assignmentTargets.get(row.assignment_type_id) !== 'group';
-				})
-				.map((row) => row.assignee_id as string)
-		)
-	];
-
-	if (personnelAssigneeIds.length > 0) {
-		await ctx.auth.requireGroupAccessBatch(personnelAssigneeIds);
-	}
 }
 
 async function requireExistingAssignmentAccessById(
@@ -112,17 +72,6 @@ async function requireExistingAssignmentAccessById(
 	}
 
 	await requireCalendarAssignmentRowsPolicy(ctx, [existingRow]);
-
-	if (!ctx.auth.scopedGroupId) return existingRow;
-
-	const assigneeId = existingRow?.assignee_id;
-	const assignmentTypeId = existingRow?.assignment_type_id;
-
-	if (typeof assigneeId === 'string' && typeof assignmentTypeId === 'string') {
-		const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
-		if (assignmentTarget === 'group') return existingRow;
-		await ctx.auth.requireGroupAccess(assigneeId);
-	}
 
 	return existingRow;
 }
@@ -180,12 +129,7 @@ export interface ReplaceInput {
 export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInput): Promise<unknown[]> {
 	const { date, records } = input;
 
-	// Enforce group scope on all assignee personnel IDs
-	const assigneeIds = await getPersonnelAssigneeIds(ctx, records);
 	await requireCalendarAssignmentPolicy(ctx, records);
-	if (assigneeIds.length > 0) {
-		await ctx.auth.requireGroupAccessBatch(assigneeIds);
-	}
 	const assignmentTargets = await getAssignmentTargets(
 		ctx,
 		records.map((record) => record.assignmentTypeId)
@@ -220,12 +164,8 @@ export async function createDailyAssignment(ctx: WritePorts, input: Record<strin
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const assignmentTypeId = validated.assignmentTypeId as string;
 	const assigneeId = validated.assigneeId as string;
-	const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
 
 	await requireCalendarAssignmentPolicy(ctx, [{ assignmentTypeId, assigneeId }]);
-	if (assignmentTarget !== 'group') {
-		await ctx.auth.requireGroupAccess(assigneeId);
-	}
 
 	const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 	const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
@@ -272,7 +212,6 @@ export async function setDailyAssignment(ctx: WritePorts, input: Record<string, 
 	const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
 
 	if (assignmentTarget !== 'group') {
-		await ctx.auth.requireGroupAccess(assigneeId);
 		await ensureManualAssignmentAvailability(ctx, { date, assigneeId });
 	}
 	await clearDailyAssignment(ctx, { date, assignmentTypeId });
@@ -304,7 +243,6 @@ export async function updateDailyAssignment(ctx: WritePorts, input: Record<strin
 			fail(404, 'Daily assignment not found');
 		}
 		if (assignmentTypeId && (await getAssignmentTarget(ctx, assignmentTypeId)) !== 'group') {
-			await ctx.auth.requireGroupAccess(assigneeId);
 			await ensureManualAssignmentAvailability(ctx, { date, assigneeId });
 		}
 	}

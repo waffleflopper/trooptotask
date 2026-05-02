@@ -3,14 +3,12 @@ import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const useCases = createCrudUseCases({
 	entity: TrainingViewEntity,
 	permission: TrainingViewEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingViewEntity),
-	requireFullEditor: TrainingViewEntity.requireFullEditor,
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements
+	policyAction: TrainingViewEntity.policyAction
 });
 
 describe('TrainingView CRUD use case', () => {

@@ -1,9 +1,7 @@
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { entityHandlers } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const { POST, PUT, DELETE } = entityHandlers(TrainingTypeEntity, {
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
 			training_type_id: id

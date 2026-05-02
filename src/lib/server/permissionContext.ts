@@ -341,7 +341,7 @@ function resolveMembershipAccessShape(
 			membershipRole: membership.role,
 			memberPreset: membership.member_preset,
 			capabilityOverrides: membership.capability_overrides,
-			scopeSet: toScopeSet(membership),
+			scopeSet: toStoredScopeSet(membership),
 			canManageMembers: membership.can_manage_members
 		});
 		return {
@@ -365,12 +365,10 @@ function isStoredMemberPreset(value: unknown): value is StoredMemberPreset {
 	return value === 'viewer' || value === 'operator' || value === 'editor';
 }
 
-function toScopeSet(membership: MembershipRow): ScopeSet {
+function toStoredScopeSet(membership: MembershipRow): ScopeSet {
 	if (membership.access_scope_kind === 'groups' && Array.isArray(membership.access_scope_group_ids)) {
 		return { kind: 'groups', groupIds: membership.access_scope_group_ids };
 	}
 
-	return membership.scoped_group_id
-		? { kind: 'groups', groupIds: [membership.scoped_group_id] }
-		: { kind: 'organization' };
+	return { kind: 'organization' };
 }

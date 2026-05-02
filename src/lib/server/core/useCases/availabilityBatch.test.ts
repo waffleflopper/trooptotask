@@ -77,19 +77,32 @@ describe('createAvailabilityBatch', () => {
 		});
 	});
 
-	it('enforces group scope on all personnel IDs in the batch', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('enforces policy scope on all personnel IDs in the batch', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch() {
-					throw groupAccessError;
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' }
+		]);
 
-		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({ status: 403 });
+		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(stored).toHaveLength(0);
@@ -247,28 +260,37 @@ describe('deleteAvailabilityBatch', () => {
 		});
 	});
 
-	it('enforces group scope by looking up personnel from entries', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('enforces policy scope by looking up personnel from entries', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessByRecord() {
-					throw groupAccessError;
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
 		ctx.store.seed('personnel', [
 			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' },
 			{ id: 'p-3', organization_id: 'test-org', group_id: 'group-a' }
 		]);
 		seedEntries(ctx);
 
-		await expect(deleteAvailabilityBatch(ctx, { ids: ['e-1', 'e-2'] })).rejects.toMatchObject({ status: 403 });
+		await expect(deleteAvailabilityBatch(ctx, { ids: ['e-1', 'e-2'] })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 
 		// Nothing deleted
-		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
+		const remaining = await ctx.rawStore!.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(3);
 	});
 });

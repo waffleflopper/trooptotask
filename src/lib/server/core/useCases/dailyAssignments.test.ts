@@ -62,43 +62,61 @@ describe('replaceDailyAssignments', () => {
 		});
 	});
 
-	it('enforces group scope on all assignee IDs in the batch', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('enforces policy scope on all assignee IDs in the batch', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch() {
-					throw groupAccessError;
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' }]);
 
 		await expect(
 			replaceDailyAssignments(ctx, {
 				date: '2025-04-01',
 				records: [{ assignmentTypeId: 'at-1', assigneeId: 'p-outside-group' }]
 			})
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 
 		// Nothing should have been inserted
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
 
-	it('rejects replacing a day when an existing assignment is outside the scoped group', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('rejects replacing a day when an existing assignment is outside the policy scope', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch(personnelIds: string[]) {
-					if (personnelIds.includes('p-outside-group')) {
-						throw groupAccessError;
-					}
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [
+			{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' },
+			{ id: 'p-in-group', organization_id: 'test-org', group_id: 'group-a' }
+		]);
 
 		ctx.store.seed('daily_assignments', [
 			{
@@ -115,7 +133,10 @@ describe('replaceDailyAssignments', () => {
 				date: '2025-04-01',
 				records: [{ assignmentTypeId: 'at-2', assigneeId: 'p-in-group' }]
 			})
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(1);
@@ -268,19 +289,29 @@ describe('createDailyAssignment', () => {
 		});
 	});
 
-	it('enforces group scope on assigneeId', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('enforces policy scope on assigneeId', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccess() {
-					throw groupAccessError;
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-c' }]);
 
-		await expect(createDailyAssignment(ctx, validInput)).rejects.toMatchObject({ status: 403 });
+		await expect(createDailyAssignment(ctx, validInput)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
 
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(0);
@@ -695,19 +726,24 @@ describe('updateDailyAssignment', () => {
 });
 
 describe('clearDailyAssignment', () => {
-	it('rejects clearing an assignment slot when the existing assignee is outside the scoped group', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+	it('rejects clearing an assignment slot when the existing assignee is outside the policy scope', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch(personnelIds: string[]) {
-					if (personnelIds.includes('p-outside-group')) {
-						throw groupAccessError;
-					}
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
 				}
 			}
 		});
+		ctx.store.seed('personnel', [{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' }]);
 
 		ctx.store.seed('daily_assignments', [
 			{
@@ -720,7 +756,8 @@ describe('clearDailyAssignment', () => {
 		]);
 
 		await expect(clearDailyAssignment(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1' })).rejects.toMatchObject({
-			status: 403
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
 		});
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');

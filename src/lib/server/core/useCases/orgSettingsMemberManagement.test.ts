@@ -798,4 +798,71 @@ describe('updateOrganizationMemberPermissions', () => {
 			}
 		]);
 	});
+
+	it('persists target member access presets with explicit lane overrides and multi-group scope', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'admin'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-1',
+				role: 'member',
+				email: 'member@example.com'
+			}
+		});
+
+		const result = await updateOrganizationMemberPermissions(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				preset: 'operator',
+				scopedGroupId: null,
+				capabilityOverrides: {
+					calendar: 'configure',
+					ratingScheme: 'none'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'],
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toEqual({ permissionSuccess: true });
+		expect(port.updatedMemberships).toEqual([
+			{
+				organizationId: 'org-1',
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				role: 'member',
+				scopedGroupId: '22222222-2222-4222-8222-222222222222',
+				permissions: {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: false,
+					canViewTraining: true,
+					canEditTraining: false,
+					canViewCriticalTasks: true,
+					canEditCriticalTasks: false,
+					canViewOnboarding: true,
+					canEditOnboarding: false,
+					canViewRatingScheme: false,
+					canEditRatingScheme: false,
+					canViewLeadersBook: true,
+					canEditLeadersBook: false,
+					canManageMembers: false
+				},
+				memberPreset: 'operator',
+				capabilityOverrides: {
+					calendar: 'configure',
+					ratingScheme: 'none'
+				},
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
+			}
+		]);
+	});
 });

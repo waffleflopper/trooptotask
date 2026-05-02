@@ -58,6 +58,14 @@ export interface MemberAccessStorage {
 	scopeSet: ScopeSet;
 }
 
+export interface TargetMemberAccessInput {
+	membershipRole?: MembershipRole;
+	memberPreset: string;
+	capabilityOverrides?: CapabilityOverrideMap | null;
+	scopeSet?: ScopeSet | null;
+	canManageMembers?: boolean | null;
+}
+
 export interface SerializedScopeSetStorage {
 	access_scope_kind: ScopeSet['kind'];
 	access_scope_group_ids: string[];
@@ -222,6 +230,37 @@ export function currentPresetToMemberAccessStorage(input: {
 		capabilityOverrides: diffCapabilityOverrides(TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset], shape.capabilityMap),
 		scopeSet: normalizeScopeSet(shape.scopeSet)
 	};
+}
+
+export function targetMemberAccessToStorage(input: TargetMemberAccessInput): MemberAccessStorage {
+	const memberPreset = normalizeStoredMemberPreset(input.memberPreset);
+	const shape = resolveStoredMemberAccessShape({
+		membershipRole: input.membershipRole ?? 'member',
+		memberPreset,
+		capabilityOverrides: input.capabilityOverrides,
+		scopeSet: input.scopeSet,
+		canManageMembers: input.canManageMembers
+	});
+
+	return {
+		memberPreset,
+		capabilityOverrides: diffCapabilityOverrides(TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset], shape.capabilityMap),
+		scopeSet: normalizeScopeSet(shape.scopeSet)
+	};
+}
+
+export function targetMemberAccessToCurrentPermissionFlags(
+	input: TargetMemberAccessInput
+): OrganizationMemberPermissions {
+	return toCurrentPermissionFlags(
+		resolveStoredMemberAccessShape({
+			membershipRole: input.membershipRole ?? 'member',
+			memberPreset: normalizeStoredMemberPreset(input.memberPreset),
+			capabilityOverrides: input.capabilityOverrides,
+			scopeSet: input.scopeSet,
+			canManageMembers: input.canManageMembers
+		})
+	);
 }
 
 export function serializeScopeSetForStorage(scopeSet: ScopeSet): SerializedScopeSetStorage {
@@ -425,6 +464,13 @@ function normalizeCurrentPreset(preset: string): Exclude<CurrentPermissionPreset
 		return 'custom';
 	}
 	return 'full-editor';
+}
+
+function normalizeStoredMemberPreset(preset: string): StoredMemberPreset {
+	if (preset === 'viewer' || preset === 'operator' || preset === 'editor') {
+		return preset;
+	}
+	return 'editor';
 }
 
 function normalizeCustomPermissions(

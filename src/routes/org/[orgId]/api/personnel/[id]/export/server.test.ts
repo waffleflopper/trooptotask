@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
@@ -25,7 +26,7 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('GET /api/personnel/[id]/export', () => {
-	it('requires Leader Book view policy before including counseling and development goals', async () => {
+	it("requires Leader's Book view policy before including counseling and development goals", async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -38,7 +39,7 @@ describe('GET /api/personnel/[id]/export', () => {
 					onboarding: 'configure',
 					ratingScheme: 'configure'
 				},
-				compatibilityLanes: { leadersBook: 'none' },
+				compatibilityLanes: createCompatibilityLaneMap('none'),
 				requirePrivileged() {}
 			}
 		});

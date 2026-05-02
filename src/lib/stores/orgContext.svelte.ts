@@ -17,6 +17,7 @@
 import { setContext, getContext } from 'svelte';
 import {
 	capabilityMeets,
+	createCompatibilityLaneMap,
 	hasOrganizationWideConfigureAccess,
 	resolveMemberAccessShapeFromStoredOrCurrent,
 	type CapabilityLevel,
@@ -104,7 +105,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		if (current.capabilityMap && current.scopeSet) {
 			return {
 				capabilityMap: current.capabilityMap,
-				compatibilityLanes: current.compatibilityLanes ?? { leadersBook: current.capabilityMap.personnel },
+				compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(current.capabilityMap.personnel),
 				scopeSet: current.scopeSet
 			};
 		}

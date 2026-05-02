@@ -16,6 +16,7 @@ import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	isFullEditor as hasFullEditorPermissions,
+	createCompatibilityLaneMap,
 	resolveStoredMemberAccessShape,
 	toMemberAccessShape,
 	type CapabilityMap,
@@ -38,9 +39,7 @@ const PRIVILEGED_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
-const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = {
-	leadersBook: 'configure'
-};
+const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';

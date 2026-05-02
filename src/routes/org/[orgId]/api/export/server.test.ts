@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('POST /api/export', () => {
-	it('requires Leader Book view policy before exporting counseling and goals', async () => {
+	it("requires Leader's Book view policy before exporting counseling and goals", async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -17,7 +18,7 @@ describe('POST /api/export', () => {
 					onboarding: 'configure',
 					ratingScheme: 'configure'
 				},
-				compatibilityLanes: { leadersBook: 'none' },
+				compatibilityLanes: createCompatibilityLaneMap('none'),
 				requireManageMembers() {}
 			}
 		});

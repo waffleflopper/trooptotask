@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createOrgContext } from './orgContext.svelte';
 import type { OrganizationMemberPermissions } from '$lib/types';
@@ -224,7 +225,7 @@ describe('createOrgContext', () => {
 		expect(ctx.hasCapability('calendar', 'operate')).toBe(false);
 	});
 
-	it('uses compatibility lanes for Leader Book client affordances without durable lane promotion', () => {
+	it("uses compatibility lanes for Leader's Book client affordances without durable lane promotion", () => {
 		const ctx = createOrgContext(
 			makeInput({
 				capabilityMap: {
@@ -235,7 +236,7 @@ describe('createOrgContext', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				compatibilityLanes: { leadersBook: 'view' },
+				compatibilityLanes: createCompatibilityLaneMap('view'),
 				scopeSet: { kind: 'organization' }
 			})
 		);

@@ -32,19 +32,21 @@ export const POLICY_REASON_CODES = {
 	deniedGovernanceRole: 'denied:governance-role'
 } as const satisfies Record<string, PolicyReasonCode>;
 
+type FeatureLanePolicyActionOwner =
+	| {
+			kind: 'feature-lane';
+			lane: DurableFeatureLane;
+	  }
+	| {
+			kind: 'compatibility-feature-lane';
+			lane: CompatibilityFeatureLane;
+	  };
+
 export interface FeatureLanePolicyAction {
 	id: string;
 	label: string;
 	accessMode: Exclude<PolicyActionAccessMode, 'governance'>;
-	owner:
-		| {
-				kind: 'feature-lane';
-				lane: DurableFeatureLane;
-		  }
-		| {
-				kind: 'compatibility-feature-lane';
-				lane: CompatibilityFeatureLane;
-		  };
+	owner: FeatureLanePolicyActionOwner;
 	requiredCapability: Exclude<CapabilityLevel, 'none'>;
 }
 

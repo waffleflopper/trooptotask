@@ -111,7 +111,7 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
 
-	it('keeps Leader Book compatibility capability separate from the durable capability map', () => {
+	it("keeps Leader's Book compatibility capability separate from the durable capability map", () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
 			can_view_leaders_book: false,

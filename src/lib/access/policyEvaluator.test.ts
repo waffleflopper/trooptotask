@@ -7,6 +7,7 @@ import {
 	type PolicyEvaluationInput,
 	type PolicyEvaluator
 } from './policyEvaluator';
+import { createCompatibilityLaneMap } from './memberAccessShape';
 
 const baseCapabilityMap: PolicyEvaluationInput['capabilityMap'] = {
 	calendar: 'none',
@@ -18,7 +19,7 @@ const baseCapabilityMap: PolicyEvaluationInput['capabilityMap'] = {
 };
 
 describe('policy evaluator', () => {
-	it('policy-converts Leader Book compatibility workflows without adding it to the durable lane map', () => {
+	it("policy-converts Leader's Book compatibility workflows without adding it to the durable lane map", () => {
 		expect(POLICY_ACTION_CATALOG.leadersBook.viewRecords).toMatchObject({
 			id: 'leadersBook.viewRecords',
 			accessMode: 'read',
@@ -32,7 +33,7 @@ describe('policy evaluator', () => {
 			actor: { membershipRole: 'member' },
 			action: POLICY_ACTION_CATALOG.leadersBook.updateRecords,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
-			compatibilityLanes: { leadersBook: 'operate' },
+			compatibilityLanes: createCompatibilityLaneMap('operate'),
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 			resource: { kind: 'group', groupId: 'group-alpha' },
 			overlays: []
@@ -47,13 +48,13 @@ describe('policy evaluator', () => {
 		});
 	});
 
-	it('denies Leader Book compatibility actions through stable policy reasons', () => {
+	it("denies Leader's Book compatibility actions through stable policy reasons", () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'member' },
 			action: POLICY_ACTION_CATALOG.leadersBook.viewRecords,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
-			compatibilityLanes: { leadersBook: 'none' },
+			compatibilityLanes: createCompatibilityLaneMap('none'),
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' },
 			overlays: []
@@ -67,13 +68,13 @@ describe('policy evaluator', () => {
 		});
 	});
 
-	it('lets read-only overlays block Leader Book compatibility writes after capability and scope pass', () => {
+	it("lets read-only overlays block Leader's Book compatibility writes after capability and scope pass", () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'member' },
 			action: POLICY_ACTION_CATALOG.leadersBook.updateRecords,
 			capabilityMap: baseCapabilityMap,
-			compatibilityLanes: { leadersBook: 'operate' },
+			compatibilityLanes: createCompatibilityLaneMap('operate'),
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' },
 			overlays: [{ id: 'billing-read-only', kind: 'read-only-mode', label: 'Billing read-only mode' }]

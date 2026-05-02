@@ -37,7 +37,12 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
-import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import {
+	createCompatibilityLaneMap,
+	type CapabilityMap,
+	type CompatibilityLaneMap,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
@@ -55,9 +60,7 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
-const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = {
-	leadersBook: 'configure'
-};
+const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
 
 function getOrgColumn(table: string): string {
 	switch (table) {

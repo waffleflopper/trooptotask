@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthContext, FeatureArea } from '../core/ports';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
@@ -93,7 +94,7 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
-		compatibilityLanes: { leadersBook: 'configure' },
+		compatibilityLanes: createCompatibilityLaneMap('configure'),
 		scopeSet: { kind: 'organization' },
 
 		requireEdit() {},

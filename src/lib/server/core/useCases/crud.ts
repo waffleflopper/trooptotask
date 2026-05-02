@@ -9,10 +9,12 @@
  * use cases in isolation. See `CrudConfig` for the escape-hatch interface.
  */
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
+import type { DataStore, WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { requirePolicyDecision } from './policyAuthorization';
 
 /**
  * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
@@ -26,6 +28,7 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	auditResource: string;
 	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
+	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
@@ -47,24 +50,32 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
 
+	async function enforceWritePolicy(ctx: C, resource: PolicyResource): Promise<void> {
+		if (config.policyAction) {
+			await requirePolicyDecision(ctx, config.policyAction, resource);
+			return;
+		}
+
+		if (config.requirePrivileged) {
+			ctx.auth.requirePrivileged();
+		} else if (config.requireFullEditor) {
+			ctx.auth.requireFullEditor();
+		}
+		ctx.auth.requireEdit(permission);
+
+		const isReadOnly = await ctx.readOnlyGuard.check();
+		if (isReadOnly) {
+			fail(403, 'Organization is in read-only mode');
+		}
+	}
+
 	return {
 		async create(ctx, data) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
 			const validated = parseOrFail(entity.createSchema, data);
+			await enforceWritePolicy(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
 
 			// Group scope: if entity has a personnelIdField, enforce access
-			if (entity.personnelIdField) {
+			if (!config.policyAction && entity.personnelIdField) {
 				const personnelId = validated[entity.personnelIdField];
 				if (personnelId && typeof personnelId === 'string') {
 					await ctx.auth.requireGroupAccess(personnelId);
@@ -84,23 +95,12 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
-
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
+			await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
 
 			// Group scope: enforce by record lookup
-			if (entity.groupScope !== 'none' && entity.personnelIdField) {
+			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
 				const personnelColumn = entity.groupScope.personnelColumn;
 				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
 			}
@@ -124,20 +124,10 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
 
 			// Group scope: enforce by record lookup
-			if (entity.groupScope !== 'none' && entity.personnelIdField) {
+			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
 				const personnelColumn = entity.groupScope.personnelColumn;
 				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
 			}
@@ -159,4 +149,53 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			}
 		}
 	};
+}
+
+async function resolvePolicyResourceForCreate<C extends WritePorts>(
+	ctx: C,
+	entity: EntityDefinition,
+	data: Record<string, unknown>
+): Promise<PolicyResource> {
+	if (!entity.personnelIdField) {
+		return { kind: 'organization' };
+	}
+
+	const personnelId = data[entity.personnelIdField];
+	if (typeof personnelId !== 'string') {
+		return { kind: 'organization' };
+	}
+
+	return resolvePersonnelPolicyResource(ctx, personnelId);
+}
+
+async function resolvePolicyResourceForRecord<C extends WritePorts>(
+	ctx: C,
+	entity: EntityDefinition,
+	recordId: string
+): Promise<PolicyResource> {
+	if (entity.groupScope === 'none' || !entity.personnelIdField) {
+		return { kind: 'organization' };
+	}
+
+	const store = getUnscopedStore(ctx);
+	const record = await store.findOne<Record<string, unknown>>(entity.table, ctx.auth.orgId, { id: recordId });
+	const personnelId = record?.[entity.groupScope.personnelColumn];
+	if (typeof personnelId !== 'string') {
+		return { kind: 'organization' };
+	}
+
+	return resolvePersonnelPolicyResource(ctx, personnelId);
+}
+
+async function resolvePersonnelPolicyResource<C extends WritePorts>(
+	ctx: C,
+	personnelId: string
+): Promise<PolicyResource> {
+	const store = getUnscopedStore(ctx);
+	const person = await store.findOne<{ group_id?: string | null }>('personnel', ctx.auth.orgId, { id: personnelId });
+	return person?.group_id ? { kind: 'group', groupId: person.group_id } : { kind: 'organization' };
+}
+
+function getUnscopedStore<C extends WritePorts>(ctx: C): DataStore {
+	return ctx.rawStore ?? ctx.store;
 }

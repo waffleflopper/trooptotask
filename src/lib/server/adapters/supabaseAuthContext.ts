@@ -36,6 +36,12 @@ export function createSupabaseAuthContextAdapter(
 		get scopedGroupId() {
 			return permCtx.scopedGroupId;
 		},
+		get capabilityMap() {
+			return permCtx.capabilityMap;
+		},
+		get scopeSet() {
+			return permCtx.scopeSet;
+		},
 
 		requireEdit(area: FeatureArea): void {
 			permCtx.requireEdit(area);
@@ -76,6 +82,15 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 
 		requireEdit() {},
 		requireView() {},

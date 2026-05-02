@@ -37,6 +37,7 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
@@ -294,6 +295,15 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 }
 
 export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthContext {
+	const capabilityMap: CapabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	};
+	const scopeSet: ScopeSet = { kind: 'organization' };
 	const defaults: AuthContext = {
 		userId: 'test-user',
 		orgId: 'test-org',
@@ -301,6 +311,8 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		isPrivileged: true,
 		isFullEditor: true,
 		scopedGroupId: null,
+		capabilityMap,
+		scopeSet,
 		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},
@@ -312,7 +324,14 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		async requireGroupAccessByRecord() {}
 	};
 
-	return { ...defaults, ...overrides };
+	const next = { ...defaults, ...overrides };
+	if (overrides?.scopedGroupId && !overrides.scopeSet) {
+		next.scopeSet = { kind: 'groups', groupIds: [overrides.scopedGroupId] };
+	}
+	if (overrides?.scopeSet?.kind === 'groups' && !overrides.scopedGroupId) {
+		next.scopedGroupId = overrides.scopeSet.groupIds[0] ?? null;
+	}
+	return next;
 }
 
 interface AuditEvent {
@@ -365,11 +384,11 @@ export function createTestNotificationPort(): NotificationPort & { notifications
 function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
 	const rawStore = createInMemoryDataStore();
 
-	if (!auth.scopedGroupId) {
+	if (auth.scopeSet.kind === 'organization') {
 		return { store: rawStore, rawStore };
 	}
 
-	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopedGroupId, defaultScopeRules), {
+	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopeSet, defaultScopeRules), {
 		seed: rawStore.seed
 	}) as InMemoryDataStore;
 
@@ -531,6 +550,7 @@ export function createWritePortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -552,6 +572,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -577,6 +598,7 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),

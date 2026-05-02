@@ -9,6 +9,7 @@
  *
  * Writes are not intercepted. Enforce write authorization at the use-case level.
  */
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/server/core/ports';
 
 /**
@@ -17,10 +18,12 @@ import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/se
  */
 export function createScopedDataStore(
 	inner: DataStore,
-	scopedGroupId: string | null,
+	scope: ScopeSet | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	if (!scopedGroupId) return inner;
+	const scopedGroupIds = normalizeScopedGroupIds(scope);
+	if (!scopedGroupIds) return inner;
+	const groupIds = scopedGroupIds;
 
 	let cachedPersonnelIds: string[] | null = null;
 
@@ -33,9 +36,12 @@ export function createScopedDataStore(
 			return cachedPersonnelIds;
 		}
 
-		const personnel = await inner.findMany<{ id: string }>('personnel', orgId, {
-			[personnelRule.groupColumn]: scopedGroupId
-		});
+		const personnel = await inner.findMany<{ id: string }>(
+			'personnel',
+			orgId,
+			groupIds.length === 1 ? { [personnelRule.groupColumn]: groupIds[0] } : undefined,
+			groupIds.length > 1 ? { inFilters: { [personnelRule.groupColumn]: groupIds } } : undefined
+		);
 		cachedPersonnelIds = personnel.map((p) => p.id);
 		return cachedPersonnelIds;
 	}
@@ -50,8 +56,15 @@ export function createScopedDataStore(
 		if (!rule) return { filters, options };
 
 		if (rule.type === 'group') {
+			if (groupIds.length > 1) {
+				return {
+					filters,
+					options: mergeInFilter(options, rule.groupColumn, groupIds)
+				};
+			}
+
 			return {
-				filters: { ...filters, [rule.groupColumn]: scopedGroupId },
+				filters: { ...filters, [rule.groupColumn]: groupIds[0] },
 				options
 			};
 		}
@@ -163,5 +176,24 @@ export function createScopedDataStore(
 		deleteWhereAny: inner.deleteWhereAny.bind(inner),
 		deleteManyByIds: inner.deleteManyByIds.bind(inner),
 		insertMany: inner.insertMany.bind(inner)
+	};
+}
+
+function normalizeScopedGroupIds(scope: ScopeSet | string | null): string[] | null {
+	if (!scope) return null;
+	if (typeof scope === 'string') return scope ? [scope] : null;
+	if (scope.kind !== 'groups') return null;
+
+	const groupIds = Array.from(new Set(scope.groupIds.filter(Boolean)));
+	return groupIds.length > 0 ? groupIds : null;
+}
+
+function mergeInFilter(options: FindOptions | undefined, column: string, values: string[]): FindOptions {
+	return {
+		...(options ?? {}),
+		inFilters: {
+			...(options?.inFilters ?? {}),
+			[column]: values
+		}
 	};
 }

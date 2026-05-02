@@ -9,6 +9,7 @@ import {
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -47,7 +48,9 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			requireManageMembers: t.auth.requireManageMembers,
 			requireGroupAccess: t.auth.requireGroupAccess,
 			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
-			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord
+			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord,
+			capabilityMap: t.auth.capabilityMap,
+			scopeSet: t.auth.scopeSet
 		},
 		readOnly: t.readOnly
 	});
@@ -157,6 +160,83 @@ describe('handleUseCaseRequest', () => {
 
 			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(called).toBe(true);
+		});
+
+		it('uses policy decisions instead of legacy edit flags when a policy action is declared', async () => {
+			let editCalled = false;
+			const t = buildTestCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] },
+					scopedGroupId: 'group-alpha',
+					requireEdit() {
+						editCalled = true;
+						throw new Error('legacy edit flag should not decide this route');
+					}
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'group', groupId: 'group-bravo' },
+				fn: async () => 'ok'
+			};
+
+			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			expect(result).toBe('ok');
+			expect(editCalled).toBe(false);
+		});
+
+		it('audits denied policy writes before rejecting the request', async () => {
+			const t = buildTestCtx({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'configure',
+						criticalTasks: 'view',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'unreachable'
+			};
+
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+				status: 403
+			});
+			expect(t.auditPort.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					severity: 'warning',
+					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
+						reasonCode: 'denied:missing-capability'
+					})
+				})
+			]);
 		});
 	});
 

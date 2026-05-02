@@ -11,6 +11,7 @@
  */
 import { z } from 'zod';
 import type { FeatureArea } from './core/ports';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 
 export interface FieldMeta {
 	column: string | undefined;
@@ -54,6 +55,7 @@ export interface EntityConfig<T = unknown> {
 	schema: EntitySchema;
 	customTransform?: (row: Record<string, unknown>) => T;
 	permission?: FeatureArea;
+	policyAction?: FeatureLanePolicyAction;
 	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
@@ -77,6 +79,7 @@ export interface EntityDefinition<T = unknown> {
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	select: string;
 	permission?: FeatureArea;
+	policyAction?: FeatureLanePolicyAction;
 	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
@@ -214,6 +217,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		updateSchema,
 		select,
 		permission: config.permission,
+		policyAction: config.policyAction,
 		requireFullEditor: config.requireFullEditor,
 		requirePrivileged: config.requirePrivileged,
 		audit: config.audit,

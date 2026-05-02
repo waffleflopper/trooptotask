@@ -200,6 +200,58 @@ describe('policy evaluator', () => {
 		});
 	});
 
+	it('defines Critical Tasks workflow actions on the Critical Tasks lane', () => {
+		expect(POLICY_ACTION_CATALOG.criticalTasks.viewReadiness).toMatchObject({
+			id: 'criticalTasks.viewReadiness',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'criticalTasks' },
+			requiredCapability: 'view'
+		});
+		expect(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion).toMatchObject({
+			id: 'criticalTasks.recordCompletion',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'criticalTasks' },
+			requiredCapability: 'operate'
+		});
+		expect(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary).toMatchObject({
+			id: 'criticalTasks.configureLibrary',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'criticalTasks' },
+			requiredCapability: 'configure'
+		});
+
+		const operateDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+			capabilityMap: { ...baseCapabilityMap, training: 'none', criticalTasks: 'operate' },
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] },
+			resource: { kind: 'group', groupId: 'group-bravo' },
+			overlays: []
+		});
+		expect(operateDecision).toMatchObject({
+			allowed: true,
+			matchedCapability: { lane: 'criticalTasks', actual: 'operate', required: 'operate' },
+			matchedScope: { kind: 'group', groupId: 'group-bravo' },
+			audit: { capture: true, category: 'write' }
+		});
+
+		const configureDecision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
+			capabilityMap: { ...baseCapabilityMap, training: 'configure', criticalTasks: 'operate' },
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+		expect(configureDecision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:missing-capability',
+			matchedCapability: { lane: 'criticalTasks', actual: 'operate', required: 'configure' }
+		});
+	});
+
 	it('exposes stable reason code constants through the public module', () => {
 		expect(POLICY_REASON_CODES).toEqual({
 			allowedCapability: 'allowed:capability',

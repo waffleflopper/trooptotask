@@ -1,5 +1,6 @@
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -16,7 +17,8 @@ export function _createCriticalTasksLibraryPageLoad(deps: CriticalTasksLibraryPa
 
 		return {
 			criticalTasksLibrary: await loadWithContextFn(locals, cookies, orgId, {
-				permission: 'privileged',
+				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 				fn: async () => ({})
 			})
 		};

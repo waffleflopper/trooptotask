@@ -38,6 +38,7 @@
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
 	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));
+	const canViewLibrary = $derived(configureLibraryAffordance.visible);
 	const canManage = $derived(configureLibraryAffordance.allowed);
 
 	const storesHydratedForOrg = $derived(ictTasksStore.orgId === orgId && personnelIctCompletionsStore.orgId === orgId);
@@ -337,7 +338,7 @@
 	<title>ICT Task Library - Troop to Task</title>
 </svelte:head>
 
-{#if !canManage}
+{#if !canViewLibrary}
 	<section class="page-message" aria-labelledby="library-restricted-title">
 		<h2 id="library-restricted-title">Access Restricted</h2>
 		<p>Critical Tasks configure access is required to manage ICT task definitions.</p>

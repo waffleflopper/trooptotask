@@ -226,6 +226,8 @@ describe('IctTaskLibraryPage', () => {
 
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
+		expect(screen.queryByRole('heading', { name: 'Access Restricted' })).toBeNull();
+		expect(screen.getByRole('list', { name: 'ICT task library' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Import CSV' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'New Task' })).toBeNull();
 	});

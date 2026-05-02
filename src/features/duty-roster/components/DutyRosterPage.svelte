@@ -73,14 +73,12 @@
 	type AdvancedWorkspaceView = 'active-run' | 'draft-snapshots' | 'applied-events';
 
 	const org = getOrgContext();
-	const canManageConfig = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes).allowed
+	const canManageCalendarAssignments = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments).allowed
 	);
-	const canMutate = $derived(!org.readOnly && canManageConfig);
-	const canAccessAdvancedDuty = $derived(
-		org.scopeSet.kind === 'organization' &&
-			org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments).allowed
-	);
+	const hasOrganizationScope = $derived(org.scopeSet.kind === 'organization');
+	const canMutate = $derived(!org.readOnly && canManageCalendarAssignments);
+	const canAccessAdvancedDuty = $derived(hasOrganizationScope && canManageCalendarAssignments);
 	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty && org.isPrivileged);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<DutyRosterSection>('advanced-workspace');
@@ -686,7 +684,7 @@
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
-			<p>Calendar configuration access is required to manage duty rosters.</p>
+			<p>Calendar operation access is required to manage duty rosters.</p>
 		</section>
 	{:else if activeTab === 'simple-roster'}
 		<DutyRosterWizard

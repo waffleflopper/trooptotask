@@ -11,6 +11,7 @@ import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGroupi
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -30,10 +31,6 @@ export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
 	userPreferences?: UserOrgPreferences;
-	permissions?: {
-		canViewTraining?: boolean;
-		canEditTraining?: boolean;
-	} | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,19 +58,24 @@ export class TrainingPageContext {
 
 	// ---- permission flags ----
 	get canManageConfig(): boolean {
-		return (this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor) ?? false;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, {
+			kind: 'unscoped'
+		}).visible;
 	}
 
 	get readOnly(): boolean {
-		return subscriptionStore.billingEnabled && subscriptionStore.isReadOnly;
+		return this.#org.readOnly || (subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	}
 
 	get canViewTraining(): boolean {
-		return this.#data.permissions?.canViewTraining ?? true;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, { kind: 'unscoped' })
+			.allowed;
 	}
 
-	get canEditTraining(): boolean {
-		return this.#data.permissions?.canEditTraining ?? false;
+	get canRecordTraining(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.recordCompletions, {
+			kind: 'unscoped'
+		}).allowed;
 	}
 
 	// ---- data accessors ----

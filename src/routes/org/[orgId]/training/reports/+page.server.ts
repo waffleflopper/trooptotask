@@ -1,4 +1,5 @@
 import type { PageServerLoadEvent } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	fetchTrainingReportPage,
@@ -29,6 +30,8 @@ export function _createTrainingReportsPageLoad(deps: TrainingReportsPageLoadDeps
 		return {
 			trainingReport: await loadWithContextFn(locals, cookies, orgId, {
 				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+				policyResource: { kind: 'unscoped' },
 				fn: (ctx) => fetchTrainingReportPageFn(ctx, INITIAL_REPORT_INPUT)
 			})
 		};

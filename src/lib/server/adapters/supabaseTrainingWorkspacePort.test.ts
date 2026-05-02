@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
 
 const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
@@ -74,7 +75,12 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 			expect.anything(),
 			expect.anything(),
 			'11111111-1111-1111-1111-111111111111',
-			expect.objectContaining({ permission: 'training', defer: true })
+			expect.objectContaining({
+				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+				policyResource: { kind: 'unscoped' },
+				defer: true
+			})
 		);
 		expect(bootstrap).toBeDefined();
 		expect(bootstrap?.personnel).toBeInstanceOf(Promise);

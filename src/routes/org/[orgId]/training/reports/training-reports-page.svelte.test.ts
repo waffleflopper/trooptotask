@@ -34,7 +34,15 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canManageMembers: true
 		},
 		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		affordanceForFeatureAction: () => ({
+			allowed: true,
+			visible: true,
+			disabled: false,
+			reason: 'allowed:capability',
+			explanation: '',
+			decision: {}
+		})
 	})
 }));
 

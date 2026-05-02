@@ -8,21 +8,24 @@ import {
 	updateTrainingRecord
 } from '$lib/server/core/useCases/trainingRecords';
 
-export const POST = handle<Record<string, unknown>, unknown>({
+export const _postConfig = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => createTrainingRecord(ctx, input)
-});
+} satisfies Parameters<typeof handle<Record<string, unknown>, unknown>>[0];
 
-export const PUT = handle<Record<string, unknown>, unknown>({
+export const _putConfig = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => updateTrainingRecord(ctx, input)
-});
+} satisfies Parameters<typeof handle<Record<string, unknown>, unknown>>[0];
 
-export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
+export const _deleteConfig = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const id = input?.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
@@ -40,4 +43,8 @@ export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
 		}
 		return json(result);
 	}
-});
+} satisfies Parameters<typeof handle<Record<string, unknown>, Record<string, unknown>>>[0];
+
+export const POST = handle(_postConfig);
+export const PUT = handle(_putConfig);
+export const DELETE = handle(_deleteConfig);

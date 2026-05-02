@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _createTrainingReportsPageLoad } from './+page.server';
 
 describe('training reports page server load', () => {
-	it('loads the initial report page through the training permission boundary', async () => {
+	it('loads the initial report page through the Training view policy boundary', async () => {
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn({} as never));
 		const fetchTrainingReportPage = vi.fn(async () => ({
 			dashboard: {
@@ -37,7 +38,11 @@ describe('training reports page server load', () => {
 			expect.anything(),
 			expect.anything(),
 			'org-1',
-			expect.objectContaining({ permission: 'training' })
+			expect.objectContaining({
+				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+				policyResource: { kind: 'unscoped' }
+			})
 		);
 		expect(fetchTrainingReportPage).toHaveBeenCalledWith(expect.anything(), {
 			sort: { column: 'name', direction: 'asc' }

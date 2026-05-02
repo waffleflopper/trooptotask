@@ -42,7 +42,7 @@
 		orgId={ctx.orgId}
 		personnel={ctx.personnel}
 		groups={ctx.groups}
-		canEdit={ctx.canEditTraining}
+		canEdit={ctx.canRecordTraining}
 		onClose={modals.closerFor('sign-in-rosters')}
 	/>
 {/if}

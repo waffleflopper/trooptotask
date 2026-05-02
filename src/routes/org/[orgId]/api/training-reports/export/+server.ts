@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { generateTrainingReportCsv } from '$lib/server/core/useCases/trainingReportsQuery';
 import {
 	PRIVATE_REPORT_HEADERS,
@@ -10,6 +11,8 @@ import {
 
 export const _getConfig: RouteConfig<TrainingReportRouteInput, string> = {
 	permission: 'training',
+	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+	policyResource: { kind: 'unscoped' },
 	input: trainingReportInput,
 	parseInput: (event) => parseTrainingReportInput(event.url),
 	fn: async (ctx, input) => generateTrainingReportCsv(ctx, toTrainingReportInput(input)),

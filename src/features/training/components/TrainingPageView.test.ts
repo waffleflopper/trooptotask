@@ -73,7 +73,7 @@ interface TrainingPageViewTestCtx {
 	canManageConfig: boolean;
 	readOnly: boolean;
 	canViewTraining: boolean;
-	canEditTraining: boolean;
+	canRecordTraining: boolean;
 	trainingOverflowItems: unknown[];
 	groups: Group[];
 	selectedGroupId: string;
@@ -93,7 +93,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		canManageConfig: true,
 		readOnly: false,
 		canViewTraining: true,
-		canEditTraining: true,
+		canRecordTraining: true,
 		trainingOverflowItems: [],
 		groups,
 		selectedGroupId: '',

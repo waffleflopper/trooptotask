@@ -39,6 +39,7 @@ import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPers
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
@@ -502,6 +503,7 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 // ---------------------------------------------------------------------------
 
 export interface EntityHandlerHooks {
+	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
@@ -529,6 +531,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		auditResource: getEntityAuditResource(entity),
 		requireFullEditor: entity.requireFullEditor,
 		requirePrivileged: entity.requirePrivileged,
+		policyAction: hooks?.policyAction,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
 	};

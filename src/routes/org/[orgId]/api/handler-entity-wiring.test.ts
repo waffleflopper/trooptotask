@@ -8,6 +8,7 @@ import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry'
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function requireConfig<T>(config: T | undefined, label: string): T {
 	expect(config).toBeDefined();
@@ -438,5 +439,40 @@ describe('handle() + entity pipeline integration', () => {
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
 		).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('entityHandlers can pass policy actions into entity CRUD use cases', async () => {
+		const handlers = entityHandlers(SpecialDayEntity, {
+			policyAction: POLICY_ACTION_CATALOG.training.configureRequirements
+		});
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		const config = requireConfig(handlers._configs.POST, 'POST');
+
+		await expect(
+			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({
+					policyAction: 'training.configureRequirements',
+					reasonCode: 'denied:missing-capability'
+				})
+			})
+		);
 	});
 });

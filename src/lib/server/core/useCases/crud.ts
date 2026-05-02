@@ -12,6 +12,8 @@ import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from './featurePolicy';
 import type { z } from 'zod';
 
 /**
@@ -26,6 +28,7 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	auditResource: string;
 	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
+	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
@@ -47,19 +50,28 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
 
+	async function requireCrudAuthorization(ctx: C): Promise<void> {
+		if (config.policyAction) {
+			await requireFeaturePolicy(ctx, config.policyAction, { kind: 'organization' }, auditResource);
+			return;
+		}
+
+		if (config.requirePrivileged) {
+			ctx.auth.requirePrivileged();
+		} else if (config.requireFullEditor) {
+			ctx.auth.requireFullEditor();
+		}
+		ctx.auth.requireEdit(permission);
+
+		const isReadOnly = await ctx.readOnlyGuard.check();
+		if (isReadOnly) {
+			fail(403, 'Organization is in read-only mode');
+		}
+	}
+
 	return {
 		async create(ctx, data) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireCrudAuthorization(ctx);
 
 			const validated = parseOrFail(entity.createSchema, data);
 
@@ -84,17 +96,7 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireCrudAuthorization(ctx);
 
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
@@ -124,17 +126,7 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			ctx.auth.requireEdit(permission);
-
-			const isReadOnly = await ctx.readOnlyGuard.check();
-			if (isReadOnly) {
-				fail(403, 'Organization is in read-only mode');
-			}
+			await requireCrudAuthorization(ctx);
 
 			// Group scope: enforce by record lookup
 			if (entity.groupScope !== 'none' && entity.personnelIdField) {

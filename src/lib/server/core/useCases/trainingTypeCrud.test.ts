@@ -4,6 +4,7 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { createCrudUseCases } from './crud';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const TT_ID = '00000000-0000-4000-a000-000000000001';
 const PT_1 = '00000000-0000-4000-a000-000000000011';
@@ -16,6 +17,7 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	permission: TrainingTypeEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingTypeEntity),
 	requireFullEditor: TrainingTypeEntity.requireFullEditor,
+	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
 			training_type_id: id
@@ -43,6 +45,71 @@ describe('TrainingType CRUD use case', () => {
 
 		expect(result).toMatchObject({ name: 'First Aid' });
 		expect(ctx.audit.events[0].action).toBe('training_type.created');
+	});
+
+	it('denies type configuration without Training configure capability and audits the attempt', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(
+			useCases.create(ctx, {
+				name: 'First Aid',
+				description: 'Basic first aid training',
+				expirationMonths: 12,
+				sortOrder: 1
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training_type',
+				details: expect.objectContaining({
+					policyAction: 'training.configureRequirements',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
+	});
+
+	it('allows type configuration with Training configure capability', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		const result = (await useCases.create(ctx, {
+			name: 'First Aid',
+			description: 'Basic first aid training',
+			expirationMonths: 12,
+			sortOrder: 1
+		})) as { name: string };
+
+		expect(result.name).toBe('First Aid');
 	});
 
 	it('cascade-deletes personnel_trainings before deleting training type', async () => {

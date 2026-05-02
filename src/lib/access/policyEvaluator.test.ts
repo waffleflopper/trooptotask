@@ -107,6 +107,27 @@ describe('policy evaluator', () => {
 		});
 	});
 
+	it('defines Training workflow actions with distinct record and configuration capabilities', () => {
+		expect(POLICY_ACTION_CATALOG.training.viewRecords).toMatchObject({
+			id: 'training.viewRecords',
+			accessMode: 'read',
+			owner: { kind: 'feature-lane', lane: 'training' },
+			requiredCapability: 'view'
+		});
+		expect(POLICY_ACTION_CATALOG.training.recordCompletions).toMatchObject({
+			id: 'training.recordCompletions',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'training' },
+			requiredCapability: 'operate'
+		});
+		expect(POLICY_ACTION_CATALOG.training.configureRequirements).toMatchObject({
+			id: 'training.configureRequirements',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'training' },
+			requiredCapability: 'configure'
+		});
+	});
+
 	it('lets read-only overlays block writes after capability and scope pass', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',

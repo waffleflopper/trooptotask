@@ -3,12 +3,14 @@ import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const useCases = createCrudUseCases({
 	entity: TrainingViewEntity,
 	permission: TrainingViewEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingViewEntity),
-	requireFullEditor: TrainingViewEntity.requireFullEditor
+	requireFullEditor: TrainingViewEntity.requireFullEditor,
+	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements
 });
 
 describe('TrainingView CRUD use case', () => {
@@ -27,5 +29,41 @@ describe('TrainingView CRUD use case', () => {
 			action: 'training_view.created',
 			resourceType: 'training_view'
 		});
+	});
+
+	it('denies saved-view configuration without Training configure capability', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(
+			useCases.create(ctx, {
+				name: 'Default View',
+				columnIds: ['col-1', 'col-2']
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training_view',
+				details: expect.objectContaining({
+					policyAction: 'training.configureRequirements',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
 	});
 });

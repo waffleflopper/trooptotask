@@ -7,10 +7,12 @@
  * For raw records without aggregation (e.g., the reports export page), use `trainingReportsQuery.ts`.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, TrainingStatus, PersonnelTraining } from '$features/training/training.types';
 import { getTrainingStats, getDelinquentTrainings, type TrainingStats } from '$features/training/utils/trainingStatus';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import { requireFeaturePolicy } from './featurePolicy';
 
 export interface TrainingIssue {
 	personName: string;
@@ -101,6 +103,7 @@ function buildTrainingSummary(
 }
 
 async function fetchTrainings(ctx: QueryPorts): Promise<PersonnelTraining[]> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
 	return PersonnelTrainingEntity.fromDbArray(rows);
 }
@@ -185,6 +188,7 @@ export async function fetchOnboardingTrainingCompletions(
 ): Promise<Set<string>> {
 	if (input.personnelIds.length === 0) return new Set();
 
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId, undefined, {
 		select: 'personnel_id, training_type_id'
 	});

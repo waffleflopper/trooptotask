@@ -30,9 +30,48 @@ function seedTrainingType(
 	return defaults;
 }
 
+function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
+	ctx.store.seed('personnel', [
+		{
+			id: 'p-1',
+			organization_id: 'test-org',
+			rank: 'SGT',
+			last_name: 'Alpha',
+			first_name: 'Ann',
+			mos: '11B',
+			clinic_role: 'Rifleman',
+			group_id: 'group-a',
+			archived_at: null
+		},
+		{
+			id: 'p-2',
+			organization_id: 'test-org',
+			rank: 'SPC',
+			last_name: 'Bravo',
+			first_name: 'Ben',
+			mos: '11B',
+			clinic_role: 'Rifleman',
+			group_id: 'group-b',
+			archived_at: null
+		},
+		{
+			id: 'p-3',
+			organization_id: 'test-org',
+			rank: 'CPL',
+			last_name: 'Charlie',
+			first_name: 'Cam',
+			mos: '11B',
+			clinic_role: 'Rifleman',
+			group_id: 'group-c',
+			archived_at: null
+		}
+	]);
+}
+
 describe('importTrainingRecords', () => {
 	it('inserts all valid records and logs audit event', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 
 		const result = await importTrainingRecords(ctx, {
@@ -70,6 +109,7 @@ describe('importTrainingRecords', () => {
 
 	it('calculates expiration date from training type expiration_months', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: 6 });
 
 		const result = await importTrainingRecords(ctx, {
@@ -87,6 +127,7 @@ describe('importTrainingRecords', () => {
 
 	it('uses completion date directly as expiration for date-only types', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null, expiration_date_only: true });
 
 		const result = await importTrainingRecords(ctx, {
@@ -104,6 +145,7 @@ describe('importTrainingRecords', () => {
 
 	it('errors when expiration-date-only type has no completion date', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null, expiration_date_only: true });
 
 		const result = await importTrainingRecords(ctx, {
@@ -117,6 +159,7 @@ describe('importTrainingRecords', () => {
 
 	it('handles exempt records by updating training type exempt list', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: ['p-existing'] });
 
 		const result = await importTrainingRecords(ctx, {
@@ -136,6 +179,7 @@ describe('importTrainingRecords', () => {
 
 	it('rejects exempt status when training type does not allow exemptions', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { can_be_exempted: false });
 
 		const result = await importTrainingRecords(ctx, {
@@ -149,6 +193,7 @@ describe('importTrainingRecords', () => {
 
 	it('updates existing records and inserts new ones in same batch', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: 12 });
 
 		// Seed an existing training record
@@ -207,31 +252,118 @@ describe('importTrainingRecords', () => {
 	});
 
 	it('enforces group scope on all personnel IDs in the batch', async () => {
-		const groupAccessError = new Error('Group access denied');
-		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch() {
-					throw groupAccessError;
-				}
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
 			}
 		});
+		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 
 		await expect(
 			importTrainingRecords(ctx, {
-				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }]
+				records: [{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }]
 			})
 		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training_record',
+				details: expect.objectContaining({
+					policyAction: 'training.recordCompletions',
+					reasonCode: 'denied:out-of-scope'
+				}),
+				severity: 'warning'
+			})
+		);
 
 		// Nothing inserted
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
 
+	it('allows batch record writes across the caller multi-Group scope set', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+			}
+		});
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+
+		const result = await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: 'p-3', trainingTypeId: 'tt-1', completionDate: '2025-06-02', status: 'completed' }
+			]
+		});
+
+		expect(result.inserted).toHaveLength(2);
+	});
+
+	it('requires configure capability before changing per-type exemption applicability', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { can_be_exempted: true });
+
+		await expect(
+			importTrainingRecords(ctx, {
+				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training_type',
+				details: expect.objectContaining({
+					policyAction: 'training.configureRequirements',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
+	});
+
 	it('rejects when organization is in read-only mode', async () => {
 		const ctx = buildContext({ readOnly: true });
+		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 
 		await expect(
@@ -252,6 +384,7 @@ describe('importTrainingRecords', () => {
 
 	it('collects per-record error for unknown training type while succeeding on valid records', async () => {
 		const ctx = buildContext();
+		seedPersonnel(ctx);
 		seedTrainingType(ctx); // tt-1 exists
 
 		const result = await importTrainingRecords(ctx, {

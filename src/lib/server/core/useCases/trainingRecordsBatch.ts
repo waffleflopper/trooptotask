@@ -7,9 +7,11 @@
  * For single-record mutations, see `trainingRecords.ts`.
  */
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { calculateExpirationDate } from './trainingRecords';
 import type { WritePorts } from '$lib/server/core/ports';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -39,15 +41,36 @@ interface BatchImportResult {
 	errors: BatchError[];
 }
 
+interface PersonnelGroupRow {
+	id: string;
+	group_id: string | null;
+}
+
+async function policyResourcesForPersonnel(
+	ctx: WritePorts,
+	personnelIds: string[]
+): Promise<Map<string, PolicyResource>> {
+	if (personnelIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await ctx.store.findMany<PersonnelGroupRow>('personnel', ctx.auth.orgId, undefined, {
+		inFilters: { id: personnelIds },
+		select: 'id, group_id'
+	});
+	const resources = new Map(rows.map((row) => [row.id, policyResourceForGroup(row.group_id)]));
+	for (const personnelId of personnelIds) {
+		if (!resources.has(personnelId)) {
+			resources.set(personnelId, { kind: 'organization' });
+		}
+	}
+	return resources;
+}
+
 export async function importTrainingRecords(
 	ctx: WritePorts,
 	input: ImportTrainingRecordsInput
 ): Promise<BatchImportResult> {
-	ctx.auth.requireEdit('training');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -58,9 +81,28 @@ export async function importTrainingRecords(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	// Enforce group scope in one batch call
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	await ctx.auth.requireGroupAccessBatch(uniquePersonnelIds);
+	const personnelResources = await policyResourcesForPersonnel(ctx, uniquePersonnelIds);
+	for (const personnelId of uniquePersonnelIds) {
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.training.recordCompletions,
+			personnelResources.get(personnelId) ?? { kind: 'organization' },
+			AUDIT_RESOURCE,
+			personnelId
+		);
+	}
+
+	const exemptTrainingTypeIds = [...new Set(records.filter((r) => r.status === 'exempt').map((r) => r.trainingTypeId))];
+	for (const trainingTypeId of exemptTrainingTypeIds) {
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			{ kind: 'organization' },
+			'training_type',
+			trainingTypeId
+		);
+	}
 
 	// Prefetch training types in single query
 	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];

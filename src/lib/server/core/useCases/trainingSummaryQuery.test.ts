@@ -38,6 +38,30 @@ function makeTrainingType(id: string, name = 'CPR') {
 }
 
 describe('fetchTrainingSummary', () => {
+	it('denies summary reads without Training view capability', async () => {
+		const ctx = createQueryPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(
+			fetchTrainingSummary(ctx, {
+				personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
+				trainingTypes: [makeTrainingType('tt1')] as never[]
+			})
+		).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('fetches trainings via ctx.store and returns stats + issues', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

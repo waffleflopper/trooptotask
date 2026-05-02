@@ -183,9 +183,9 @@ export function toMemberAccessShape(input: CurrentMemberAccessInput): MemberAcce
 			onboarding: toCapabilityLevel(permissions.canViewOnboarding, permissions.canEditOnboarding),
 			ratingScheme: toCapabilityLevel(permissions.canViewRatingScheme, permissions.canEditRatingScheme)
 		},
-		compatibilityLanes: {
-			leadersBook: toCapabilityLevel(permissions.canViewLeadersBook, permissions.canEditLeadersBook)
-		},
+		compatibilityLanes: createCompatibilityLaneMap(
+			toCapabilityLevel(permissions.canViewLeadersBook, permissions.canEditLeadersBook)
+		),
 		scopeSet: input.scopedGroupId ? { kind: 'groups', groupIds: [input.scopedGroupId] } : { kind: 'organization' },
 		canManageMembers: permissions.canManageMembers || membershipRole === 'owner' || membershipRole === 'admin'
 	};
@@ -227,9 +227,7 @@ export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): 
 		membershipRole: input.membershipRole,
 		memberPreset,
 		capabilityMap,
-		compatibilityLanes: {
-			leadersBook: capabilityMap.personnel
-		},
+		compatibilityLanes: createCompatibilityLaneMap(capabilityMap.personnel),
 		scopeSet: normalizeScopeSet(input.scopeSet),
 		canManageMembers:
 			input.membershipRole === 'owner' || input.membershipRole === 'admin' || input.canManageMembers === true
@@ -328,6 +326,12 @@ export function createCapabilityMap(level: CapabilityLevel): CapabilityMap {
 		criticalTasks: level,
 		onboarding: level,
 		ratingScheme: level
+	};
+}
+
+export function createCompatibilityLaneMap(level: CapabilityLevel): CompatibilityLaneMap {
+	return {
+		leadersBook: level
 	};
 }
 

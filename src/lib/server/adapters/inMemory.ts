@@ -37,7 +37,12 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import {
+	createCompatibilityLaneMap,
+	type CapabilityMap,
+	type CompatibilityLaneMap,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
@@ -55,6 +60,7 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
+const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -312,6 +318,7 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		isFullEditor: true,
 		scopedGroupId: null,
 		capabilityMap: FULL_CAPABILITY_MAP,
+		compatibilityLanes: FULL_COMPATIBILITY_LANES,
 		scopeSet: { kind: 'organization' } satisfies ScopeSet,
 		requireEdit() {},
 		requireView() {},

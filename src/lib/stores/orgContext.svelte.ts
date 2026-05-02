@@ -17,10 +17,12 @@
 import { setContext, getContext } from 'svelte';
 import {
 	capabilityMeets,
+	createCompatibilityLaneMap,
 	hasOrganizationWideConfigureAccess,
 	resolveMemberAccessShapeFromStoredOrCurrent,
 	type CapabilityLevel,
 	type CapabilityMap,
+	type CompatibilityLaneMap,
 	type DurableFeatureLane,
 	type ScopeSet
 } from '$lib/access/memberAccessShape';
@@ -48,6 +50,7 @@ export interface OrgContext {
 	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
 	readonly isFullEditor: boolean;
 	readonly capabilityMap: CapabilityMap;
+	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
 	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
 	readonly permissions: OrganizationMemberPermissions;
@@ -69,6 +72,7 @@ export interface CreateOrgContextInput {
 	userId: string | null;
 	userRole: 'owner' | 'admin' | 'member';
 	capabilityMap?: CapabilityMap;
+	compatibilityLanes?: CompatibilityLaneMap;
 	scopeSet?: ScopeSet;
 	permissions: OrganizationMemberPermissions;
 	scopedGroupId: string | null;
@@ -101,6 +105,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		if (current.capabilityMap && current.scopeSet) {
 			return {
 				capabilityMap: current.capabilityMap,
+				compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(current.capabilityMap.personnel),
 				scopeSet: current.scopeSet
 			};
 		}
@@ -113,6 +118,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 
 		return {
 			capabilityMap: shape.capabilityMap,
+			compatibilityLanes: shape.compatibilityLanes,
 			scopeSet: shape.scopeSet
 		};
 	};
@@ -147,6 +153,9 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		},
 		get capabilityMap() {
 			return getAccessShape().capabilityMap;
+		},
+		get compatibilityLanes() {
+			return getAccessShape().compatibilityLanes;
 		},
 		get scopeSet() {
 			return getAccessShape().scopeSet;
@@ -184,7 +193,7 @@ function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource):
 
 function evaluateClientAffordance(
 	input: CreateOrgContextInput,
-	accessShape: { capabilityMap: CapabilityMap; scopeSet: ScopeSet },
+	accessShape: { capabilityMap: CapabilityMap; compatibilityLanes: CompatibilityLaneMap; scopeSet: ScopeSet },
 	action: PolicyAction,
 	resource: PolicyResource
 ): ClientAffordance {
@@ -193,6 +202,7 @@ function evaluateClientAffordance(
 		actor: { membershipRole: input.userRole },
 		action,
 		capabilityMap: accessShape.capabilityMap,
+		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet,
 		resource,
 		overlays: input.isReadOnly

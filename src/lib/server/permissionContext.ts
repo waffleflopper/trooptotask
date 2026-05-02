@@ -16,9 +16,11 @@ import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	isFullEditor as hasFullEditorPermissions,
+	createCompatibilityLaneMap,
 	resolveStoredMemberAccessShape,
 	toMemberAccessShape,
 	type CapabilityMap,
+	type CompatibilityLaneMap,
 	type CapabilityOverrideMap,
 	type ScopeSet,
 	type StoredMemberPreset
@@ -37,6 +39,7 @@ const PRIVILEGED_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
+const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';
@@ -46,6 +49,7 @@ export interface PermissionContext {
 	readonly isFullEditor: boolean;
 	readonly scopedGroupId: string | null;
 	readonly capabilityMap: CapabilityMap;
+	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
 	readonly canView: Record<FeatureArea, boolean>;
 	readonly canEdit: Record<FeatureArea, boolean>;
@@ -88,6 +92,7 @@ export function createSandboxContext(): PermissionContext {
 		isFullEditor: false,
 		scopedGroupId: null,
 		capabilityMap: buildPrivilegedCapabilityMap(),
+		compatibilityLanes: buildPrivilegedCompatibilityLanes(),
 		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
@@ -191,6 +196,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 	const accessShape = isPrivileged
 		? {
 				capabilityMap: buildPrivilegedCapabilityMap(),
+				compatibilityLanes: buildPrivilegedCompatibilityLanes(),
 				scopeSet: { kind: 'organization' } as ScopeSet
 			}
 		: resolveMembershipAccessShape(membership, memberPermissions, scopedGroupId);
@@ -217,6 +223,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isFullEditor,
 		scopedGroupId,
 		capabilityMap: accessShape.capabilityMap,
+		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet,
 		canView,
 		canEdit,
@@ -331,11 +338,15 @@ function buildPrivilegedCapabilityMap(): CapabilityMap {
 	return { ...PRIVILEGED_CAPABILITY_MAP };
 }
 
+function buildPrivilegedCompatibilityLanes(): CompatibilityLaneMap {
+	return { ...PRIVILEGED_COMPATIBILITY_LANES };
+}
+
 function resolveMembershipAccessShape(
 	membership: MembershipRow,
 	permissions: OrganizationMemberPermissions,
 	scopedGroupId: string | null
-): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
+): { capabilityMap: CapabilityMap; compatibilityLanes: CompatibilityLaneMap; scopeSet: ScopeSet } {
 	if (isStoredMemberPreset(membership.member_preset)) {
 		const shape = resolveStoredMemberAccessShape({
 			membershipRole: membership.role,
@@ -346,6 +357,7 @@ function resolveMembershipAccessShape(
 		});
 		return {
 			capabilityMap: shape.capabilityMap,
+			compatibilityLanes: shape.compatibilityLanes,
 			scopeSet: shape.scopeSet
 		};
 	}
@@ -357,6 +369,7 @@ function resolveMembershipAccessShape(
 	});
 	return {
 		capabilityMap: shape.capabilityMap,
+		compatibilityLanes: shape.compatibilityLanes,
 		scopeSet: shape.scopeSet
 	};
 }

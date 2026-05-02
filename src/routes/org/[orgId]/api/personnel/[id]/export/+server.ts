@@ -4,6 +4,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import ExcelJS from 'exceljs';
+import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface PersonnelExportOutput {
 	_buffer: ArrayBuffer;
@@ -17,6 +18,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
 		const id = input.personnelId;
+		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		const [person, trainings, counseling, goals, availability, trainingTypes, counselingTypes, statusTypes, groups] =
 			await Promise.all([

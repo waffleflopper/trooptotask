@@ -2,6 +2,8 @@ import {
 	capabilityMeets,
 	type CapabilityLevel,
 	type CapabilityMap,
+	type CompatibilityFeatureLane,
+	type CompatibilityLaneMap,
 	type DurableFeatureLane,
 	type MembershipRole,
 	type ScopeSet
@@ -30,14 +32,21 @@ export const POLICY_REASON_CODES = {
 	deniedGovernanceRole: 'denied:governance-role'
 } as const satisfies Record<string, PolicyReasonCode>;
 
+type FeatureLanePolicyActionOwner =
+	| {
+			kind: 'feature-lane';
+			lane: DurableFeatureLane;
+	  }
+	| {
+			kind: 'compatibility-feature-lane';
+			lane: CompatibilityFeatureLane;
+	  };
+
 export interface FeatureLanePolicyAction {
 	id: string;
 	label: string;
 	accessMode: Exclude<PolicyActionAccessMode, 'governance'>;
-	owner: {
-		kind: 'feature-lane';
-		lane: DurableFeatureLane;
-	};
+	owner: FeatureLanePolicyActionOwner;
 	requiredCapability: Exclude<CapabilityLevel, 'none'>;
 }
 
@@ -70,13 +79,14 @@ export interface PolicyEvaluationInput {
 	actor: PolicyActor;
 	action: PolicyAction;
 	capabilityMap: CapabilityMap;
+	compatibilityLanes?: CompatibilityLaneMap;
 	scopeSet: ScopeSet;
 	resource: PolicyResource;
 	overlays?: PolicyOverlay[];
 }
 
 export interface MatchedCapability {
-	lane: DurableFeatureLane;
+	lane: DurableFeatureLane | CompatibilityFeatureLane;
 	actual: CapabilityLevel;
 	required: Exclude<CapabilityLevel, 'none'>;
 }
@@ -343,6 +353,22 @@ export const POLICY_ACTION_CATALOG = {
 			requiredCapability: 'view'
 		})
 	},
+	leadersBook: {
+		viewRecords: compatibilityFeatureAction({
+			id: 'leadersBook.viewRecords',
+			label: "View Leader's Book records",
+			lane: 'leadersBook',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		updateRecords: compatibilityFeatureAction({
+			id: 'leadersBook.updateRecords',
+			label: "Update Leader's Book records",
+			lane: 'leadersBook',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		})
+	},
 	organization: {
 		accessGovernance: governanceAction({
 			id: 'organization.accessGovernance',
@@ -418,6 +444,22 @@ function featureAction(input: {
 	};
 }
 
+function compatibilityFeatureAction(input: {
+	id: string;
+	label: string;
+	lane: CompatibilityFeatureLane;
+	accessMode: FeatureLanePolicyAction['accessMode'];
+	requiredCapability: FeatureLanePolicyAction['requiredCapability'];
+}): FeatureLanePolicyAction {
+	return {
+		id: input.id,
+		label: input.label,
+		accessMode: input.accessMode,
+		owner: { kind: 'compatibility-feature-lane', lane: input.lane },
+		requiredCapability: input.requiredCapability
+	};
+}
+
 function governanceAction(input: {
 	id: string;
 	label: string;
@@ -441,7 +483,7 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 	}
 
 	const action = input.action;
-	const matchedCapability = matchCapability(input.capabilityMap, action);
+	const matchedCapability = matchCapability(input.capabilityMap, input.compatibilityLanes, action);
 
 	if (!capabilityMeets(matchedCapability.actual, matchedCapability.required)) {
 		return buildDecision(input, {
@@ -553,7 +595,19 @@ function deriveAudit(action: PolicyAction, allowed: boolean): PolicyDecision['au
 	return { capture: false, category: 'ordinary-read' };
 }
 
-function matchCapability(capabilityMap: CapabilityMap, action: FeatureLanePolicyAction): MatchedCapability {
+function matchCapability(
+	capabilityMap: CapabilityMap,
+	compatibilityLanes: CompatibilityLaneMap | undefined,
+	action: FeatureLanePolicyAction
+): MatchedCapability {
+	if (action.owner.kind === 'compatibility-feature-lane') {
+		return {
+			lane: action.owner.lane,
+			actual: compatibilityLanes?.[action.owner.lane] ?? 'none',
+			required: action.requiredCapability
+		};
+	}
+
 	return {
 		lane: action.owner.lane,
 		actual: capabilityMap[action.owner.lane] ?? 'none',

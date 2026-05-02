@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createOrgContext } from './orgContext.svelte';
 import type { OrganizationMemberPermissions } from '$lib/types';
@@ -222,6 +223,29 @@ describe('createOrgContext', () => {
 		expect(ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements).allowed).toBe(true);
 		expect(ctx.hasCapability('training', 'configure')).toBe(true);
 		expect(ctx.hasCapability('calendar', 'operate')).toBe(false);
+	});
+
+	it("uses compatibility lanes for Leader's Book client affordances without durable lane promotion", () => {
+		const ctx = createOrgContext(
+			makeInput({
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				compatibilityLanes: createCompatibilityLaneMap('view'),
+				scopeSet: { kind: 'organization' }
+			})
+		);
+
+		expect(Object.keys(ctx.capabilityMap)).not.toContain('leadersBook');
+		expect(ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.leadersBook.viewRecords).allowed).toBe(true);
+		expect(ctx.affordanceForFeatureAction(POLICY_ACTION_CATALOG.leadersBook.updateRecords).reason).toBe(
+			'denied:missing-capability'
+		);
 	});
 
 	it('uses governance role for organization affordances instead of member feature capabilities', () => {

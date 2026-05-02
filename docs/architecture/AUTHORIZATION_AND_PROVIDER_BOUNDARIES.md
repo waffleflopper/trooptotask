@@ -41,6 +41,7 @@ This document separates what v1 authorization and provider ownership look like t
   - rating-scheme-only members can use that Evals route without Personnel access
   - its record model remains distinct from counseling and development-goal records
 - `Leader's Book` is currently hidden from primary nav and its route redirects during redesign, but its permissions and compatibility surfaces still exist in settings, help, dashboard actions, exports, and plans.
+- The `#765` decision policy-converts that transitional compatibility lane. Supported Leader's Book reads and writes use explicit Policy Decision actions backed by a separate compatibility lane map, not the durable first-class capability map.
 - Some settings and admin actions still bypass use-case boundaries, but organization settings rename now runs through an app-owned use case and Supabase adapter.
 
 ### Current provider-boundary drift
@@ -134,6 +135,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - The lane map covers product feature surfaces only.
 - Governance concerns such as member management, organization settings, billing, destructive org-danger actions, and platform-admin concerns remain outside the feature-lane map and stay governed by fixed roles plus policy overlays.
 - `Leader's Book` remains a documented transitional compatibility lane while the remake is pending; it is not part of the current durable first-class lane map and it should not shape the long-term preset taxonomy more than necessary.
+- During this transition, `Leader's Book` has explicit Policy Decision actions for viewing and updating counseling, development-goal, and leader-reference compatibility records. Those actions read from compatibility lane data so the policy model is explicit without promoting `Leader's Book` into `DURABLE_FEATURE_LANES`.
 - A later ADR or equivalent design review may revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once that rebuilt shape is settled.
 - Temporary route or screen placement does not define durable lane ownership.
 - Current primary-nav visibility also does not define feature existence or lane ownership during this transition.

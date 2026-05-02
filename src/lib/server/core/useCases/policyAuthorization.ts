@@ -9,7 +9,7 @@ import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 
 interface PolicyPorts {
-	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'>;
+	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'>;
 	audit: AuditPort;
 	readOnlyGuard?: ReadOnlyGuard;
 }
@@ -25,6 +25,7 @@ export async function requirePolicyDecision(
 		actor: { membershipRole: ports.auth.role },
 		action,
 		capabilityMap: ports.auth.capabilityMap,
+		compatibilityLanes: ports.auth.compatibilityLanes,
 		scopeSet: ports.auth.scopeSet,
 		resource,
 		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []

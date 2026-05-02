@@ -1,9 +1,44 @@
 import { describe, expect, it } from 'vitest';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('POST /api/export', () => {
+	it("requires Leader's Book view policy before exporting counseling and goals", async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
+				compatibilityLanes: createCompatibilityLaneMap('none'),
+				requireManageMembers() {}
+			}
+		});
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'leader@example.com' })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to perform this action'
+		});
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'leadersBook.viewRecords',
+				details: expect.objectContaining({
+					policyAction: 'leadersBook.viewRecords',
+					reasonCode: 'denied:missing-capability'
+				})
+			})
+		);
+	});
+
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

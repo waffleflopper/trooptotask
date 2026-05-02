@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './supabaseAuthContext';
+import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -29,6 +30,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
+		compatibilityLanes: createCompatibilityLaneMap('configure'),
 		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },

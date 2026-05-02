@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	currentPresetToMemberAccessShape,
 	currentPresetToMemberAccessStorage,
+	createCompatibilityLaneMap,
 	getPermissionPreset,
 	isFullEditor,
 	PERMISSION_PRESETS,
@@ -70,7 +71,7 @@ describe('member access shape', () => {
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.admin);
 	});
 
-	it('keeps Leaders Book outside the durable capability map', () => {
+	it("keeps Leader's Book outside the durable capability map", () => {
 		const shape = currentPresetToMemberAccessShape({ preset: 'viewer' });
 
 		expect(Object.keys(shape.capabilityMap)).not.toContain('leadersBook');
@@ -102,7 +103,7 @@ describe('member access shape', () => {
 				onboarding: 'operate',
 				ratingScheme: 'operate'
 			},
-			compatibilityLanes: { leadersBook: 'operate' }
+			compatibilityLanes: createCompatibilityLaneMap('operate')
 		};
 
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.viewer);

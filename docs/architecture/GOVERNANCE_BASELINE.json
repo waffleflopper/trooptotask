@@ -180,14 +180,6 @@
 	],
 	"legacyAuthorizationAllowlist": [
 		{
-			"path": "src/features/critical-tasks/components/IctPersonnelDetailPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#762",
-			"reason": "Critical Tasks detail affordances still read legacy canEditCriticalTasks data until the remaining workflow migration finishes.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/features/duty-roster/components/DutyRosterPage.svelte",
 			"classification": "runtime-affordance",
 			"patterns": ["isFullEditor", "scopedGroupId"],
@@ -522,14 +514,6 @@
 			"patterns": ["scopedGroupId"],
 			"ownerIssue": "#759",
 			"reason": "Duty roster route still passes single-Group scope compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/routes/org/[orgId]/critical-tasks/+page.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#762",
-			"reason": "Critical Tasks route still passes legacy edit compatibility data.",
 			"driftIds": ["D-01"]
 		},
 		{

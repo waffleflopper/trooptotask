@@ -69,16 +69,7 @@ export async function requireFeaturePolicy(
 	resourceType: string,
 	resourceId?: string
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
-		action,
-		capabilityMap: ports.auth.capabilityMap,
-		scopeSet: ports.auth.scopeSet,
-		resource,
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+	const decision = await evaluateFeaturePolicy(ports, action, resource);
 
 	if (decision.allowed) {
 		return;

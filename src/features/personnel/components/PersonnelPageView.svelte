@@ -41,11 +41,9 @@
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canManageRoster = $derived(ctx.canAddPersonnel);
-	const editablePersonnelIds = $derived.by(
-		() =>
-			new Set(personnelStore.items.filter((person) => ctx.canManagePersonnelRecord(person)).map((person) => person.id))
+	const canManageAnyRosterRecord = $derived.by(() =>
+		personnelStore.items.some((person) => ctx.canManagePersonnelRecord(person))
 	);
-	const canManageAnyRosterRecord = $derived(editablePersonnelIds.size > 0);
 
 	const personnelActionItems = $derived.by<ToolbarActionConfig[]>(() => {
 		const items: ToolbarActionConfig[] = [];

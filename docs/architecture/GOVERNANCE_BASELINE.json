@@ -501,6 +501,14 @@
 			"driftIds": ["D-01"]
 		},
 		{
+			"path": "supabase/migrations/20260502000100_remove_legacy_authorization_from_rls_helpers.sql",
+			"classification": "compatibility-adapter",
+			"patterns": ["can_view_*", "can_edit_*"],
+			"ownerIssue": "#767",
+			"reason": "Active RLS helper names remain as the existing policy API, but their bodies now authorize through member preset, capability override, and Scope Set storage.",
+			"driftIds": ["D-01"]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": ["scoped_group_id", "can_view_*", "can_edit_*"],

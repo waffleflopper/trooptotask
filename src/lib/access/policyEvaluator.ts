@@ -128,6 +128,27 @@ export const POLICY_ACTION_CATALOG = {
 			lane: 'calendar',
 			accessMode: 'write',
 			requiredCapability: 'operate'
+		}),
+		configureStatusTypes: featureAction({
+			id: 'calendar.configureStatusTypes',
+			label: 'Configure calendar status types',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		configureSpecialDays: featureAction({
+			id: 'calendar.configureSpecialDays',
+			label: 'Configure calendar special days',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		configureAssignmentTypes: featureAction({
+			id: 'calendar.configureAssignmentTypes',
+			label: 'Configure calendar assignment types',
+			lane: 'calendar',
+			accessMode: 'write',
+			requiredCapability: 'configure'
 		})
 	},
 	personnel: {

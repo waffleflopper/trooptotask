@@ -87,11 +87,11 @@ export function createSandboxContext(): PermissionContext {
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
+		capabilityMap: buildPrivilegedCapabilityMap(),
+		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
-		scopeSet: { kind: 'organization' },
-		capabilityMap: buildPrivilegedCapabilityMap(),
 
 		requireEdit(): void {},
 		requireView(): void {},
@@ -216,11 +216,11 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isPrivileged,
 		isFullEditor,
 		scopedGroupId,
+		capabilityMap: accessShape.capabilityMap,
+		scopeSet: accessShape.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
-		capabilityMap: accessShape.capabilityMap,
-		scopeSet: accessShape.scopeSet,
 
 		requireEdit(area: FeatureArea): void {
 			if (!canEdit[area]) {

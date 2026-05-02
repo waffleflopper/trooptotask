@@ -12,6 +12,7 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: StatusTypeEntity,
 	permission: StatusTypeEntity.permission!,
 	auditResource: getEntityAuditResource(StatusTypeEntity),
+	policyAction: StatusTypeEntity.policyAction,
 	requireFullEditor: StatusTypeEntity.requireFullEditor,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
@@ -40,6 +41,61 @@ describe('StatusType CRUD use case', () => {
 
 		expect(result).toMatchObject({ name: 'On Leave' });
 		expect(ctx.audit.events[0].action).toBe('status_type.created');
+	});
+
+	it('requires Calendar configure capability through the CRUD interface', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+
+		await expect(
+			useCases.create(ctx, {
+				name: 'On Leave',
+				color: '#00ff00',
+				textColor: '#000000',
+				sortOrder: 1
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar configuration access'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.configureStatusTypes',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
+	});
+
+	it('allows Calendar configure capability without relying on full-editor legacy checks', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				isFullEditor: false,
+				requireFullEditor() {
+					throw new Error('legacy full-editor check should not run');
+				}
+			}
+		});
+
+		const result = (await useCases.create(ctx, {
+			name: 'TDY',
+			color: '#00ff00',
+			textColor: '#000000',
+			sortOrder: 2
+		})) as { name: string };
+
+		expect(result.name).toBe('TDY');
 	});
 
 	it('cascade-deletes availability_entries before deleting status type', async () => {

@@ -5555,6 +5555,26 @@ async function copyTemplateTo(from: ReturnType<typeof createTestContext>, to: Re
 }
 
 describe('advanced duty event access enforcement', () => {
+	it('requires Calendar view capability for applied advanced duty calendar reads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+
+		await expect(listDutyEventsForCalendar(ctx)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to view calendar data'
+		});
+	});
+
 	it('allows calendar viewers to load applied advanced duty events for simple-lane availability checks', async () => {
 		const adminCtx = createTestContext();
 		adminCtx.store.seed('personnel', [

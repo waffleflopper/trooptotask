@@ -94,6 +94,88 @@ describe('createAvailabilityBatch', () => {
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
+
+	it('requires Calendar operate capability and records denied-write audit details', async () => {
+		const ctx = buildContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+
+		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar operation access'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.manageAvailability',
+				reasonCode: 'denied:missing-capability'
+			},
+			severity: 'warning'
+		});
+	});
+
+	it('denies Calendar writes outside a multi-Group scope through policy decisions', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopedGroupId: null,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' }
+		]);
+
+		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			details: {
+				policyAction: 'calendar.manageAvailability',
+				reasonCode: 'denied:out-of-scope',
+				resource: { kind: 'group', groupId: 'group-c' }
+			}
+		});
+	});
+
+	it('lets read-only overlays block Calendar operate writes through policy decisions', async () => {
+		const ctx = buildContext({ readOnly: true });
+
+		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
+			status: 403,
+			message: 'Organization is in read-only mode'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			details: {
+				policyAction: 'calendar.manageAvailability',
+				reasonCode: 'denied:read-only-overlay',
+				blockingOverlay: 'read-only-mode'
+			}
+		});
+	});
 });
 
 describe('deleteAvailabilityBatch', () => {

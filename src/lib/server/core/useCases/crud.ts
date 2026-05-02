@@ -14,6 +14,7 @@ import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { requireCalendarPolicy } from './calendarPolicy';
 import { requirePolicyDecision } from './policyAuthorization';
 
 /**
@@ -52,6 +53,10 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 
 	async function enforceWritePolicy(ctx: C, resource: PolicyResource): Promise<void> {
 		if (config.policyAction) {
+			if (config.policyAction.owner.lane === 'calendar') {
+				await requireCalendarPolicy(ctx, config.policyAction, resource);
+				return;
+			}
 			await requirePolicyDecision(ctx, config.policyAction, resource);
 			return;
 		}

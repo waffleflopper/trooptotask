@@ -12,6 +12,7 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: AssignmentTypeEntity,
 	permission: AssignmentTypeEntity.permission!,
 	auditResource: getEntityAuditResource(AssignmentTypeEntity),
+	policyAction: AssignmentTypeEntity.policyAction,
 	requireFullEditor: AssignmentTypeEntity.requireFullEditor,
 	afterDelete: async (ctx) => {
 		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
@@ -36,6 +37,42 @@ describe('AssignmentType CRUD use case', () => {
 
 		expect(result).toMatchObject({ name: 'Guard Duty', shortName: 'GD' });
 		expect(ctx.audit.events[0].action).toBe('assignment_type.created');
+	});
+
+	it('requires Calendar configure capability through the CRUD interface', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+
+		await expect(
+			useCases.create(ctx, {
+				name: 'Guard Duty',
+				shortName: 'GD',
+				assignTo: 'personnel',
+				color: '#ff0000',
+				sortOrder: 1
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar configuration access'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.configureAssignmentTypes',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
 	});
 
 	it('notifies admins after delete', async () => {

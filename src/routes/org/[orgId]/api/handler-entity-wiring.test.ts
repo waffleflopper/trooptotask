@@ -410,12 +410,20 @@ describe('handle() + entity pipeline integration', () => {
 		expect(stored).toHaveLength(1);
 	});
 
-	it('handle pipeline enforces permission before entity operations', async () => {
+	it('handle pipeline defers SpecialDay mutations to calendar policy decisions before entity operations', async () => {
 		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext({
 			auth: {
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				},
 				requireEdit() {
-					throw Object.assign(new Error('Forbidden'), { status: 403 });
+					throw new Error('legacy edit flag should not decide SpecialDay mutations');
 				}
 			}
 		});
@@ -424,7 +432,19 @@ describe('handle() + entity pipeline integration', () => {
 
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires Calendar configuration access'
+		});
+
+		expect(ctx.audit.events[0]).toMatchObject({
+			action: 'policy.denied',
+			resourceType: 'calendar',
+			details: {
+				policyAction: 'calendar.configureSpecialDays',
+				reasonCode: 'denied:missing-capability'
+			}
+		});
 
 		const stored = await ctx.store.findMany('special_days', 'test-org');
 		expect(stored).toHaveLength(0);

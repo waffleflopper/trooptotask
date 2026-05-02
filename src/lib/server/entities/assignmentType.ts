@@ -5,12 +5,14 @@
  * `exemptPersonnelIds` is a Postgres array of UUIDs stored directly on the row.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { AssignmentType } from '$lib/types';
 
 export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 	table: 'assignment_types',
 	permission: 'calendar',
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	requireFullEditor: true,
 	groupScope: 'none',
 	audit: { resourceType: 'assignment_type', detailFields: ['name', 'short_name'] },

@@ -12,11 +12,13 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
 import { findDutyCoverageConflicts } from './dutyAvailability';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from './calendarPolicy';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 
 type AssignmentTarget = 'personnel' | 'group';
+type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };
 
 async function getAssignmentTargets(
 	ctx: WritePorts,
@@ -65,11 +67,14 @@ async function getPersonnelAssigneeIds(
 }
 
 async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<string, unknown>): Promise<void> {
-	if (!ctx.auth.scopedGroupId) return;
-
-	const existingRows = await ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
+	const lookupStore = ctx.rawStore ?? ctx.store;
+	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
 		select: 'assignee_id, assignment_type_id'
 	});
+	await requireCalendarAssignmentRowsPolicy(ctx, existingRows);
+
+	if (!ctx.auth.scopedGroupId) return;
+
 	const assignmentTargets = await getAssignmentTargets(
 		ctx,
 		existingRows.map((row) => row.assignment_type_id).filter((id): id is string => typeof id === 'string')
@@ -91,22 +96,79 @@ async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<
 	}
 }
 
-async function requireExistingAssignmentAccessById(ctx: WritePorts, id: string): Promise<void> {
-	if (!ctx.auth.scopedGroupId) return;
-
-	const existingRow = await ctx.store.findOne<Record<string, unknown>>(
+async function requireExistingAssignmentAccessById(
+	ctx: WritePorts,
+	id: string
+): Promise<Record<string, unknown> | null> {
+	const lookupStore = ctx.rawStore ?? ctx.store;
+	const existingRow = await lookupStore.findOne<Record<string, unknown>>(
 		entity.table,
 		ctx.auth.orgId,
 		{ id },
 		'assignee_id, assignment_type_id'
 	);
+	if (!existingRow) {
+		return null;
+	}
+
+	await requireCalendarAssignmentRowsPolicy(ctx, [existingRow]);
+
+	if (!ctx.auth.scopedGroupId) return existingRow;
+
 	const assigneeId = existingRow?.assignee_id;
 	const assignmentTypeId = existingRow?.assignment_type_id;
 
 	if (typeof assigneeId === 'string' && typeof assignmentTypeId === 'string') {
 		const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
-		if (assignmentTarget === 'group') return;
+		if (assignmentTarget === 'group') return existingRow;
 		await ctx.auth.requireGroupAccess(assigneeId);
+	}
+
+	return existingRow;
+}
+
+async function requireCalendarAssignmentRowsPolicy(ctx: WritePorts, rows: Record<string, unknown>[]): Promise<void> {
+	await requireCalendarAssignmentPolicy(
+		ctx,
+		rows
+			.map((row) => ({
+				assignmentTypeId: row.assignment_type_id,
+				assigneeId: row.assignee_id
+			}))
+			.filter(
+				(record): record is AssignmentPolicyRecord =>
+					typeof record.assignmentTypeId === 'string' && typeof record.assigneeId === 'string'
+			)
+	);
+}
+
+async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
+	if (records.length === 0) {
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability);
+		return;
+	}
+
+	const assignmentTargets = await getAssignmentTargets(
+		ctx,
+		records.map((record) => record.assignmentTypeId)
+	);
+	const personnelAssigneeIds: string[] = [];
+	const groupAssigneeIds: string[] = [];
+
+	for (const record of records) {
+		if (assignmentTargets.get(record.assignmentTypeId) === 'group') {
+			groupAssigneeIds.push(record.assigneeId);
+		} else {
+			personnelAssigneeIds.push(record.assigneeId);
+		}
+	}
+
+	if (personnelAssigneeIds.length > 0) {
+		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelAssigneeIds);
+	}
+
+	for (const groupId of new Set(groupAssigneeIds.filter(Boolean))) {
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, { kind: 'group', groupId });
 	}
 }
 
@@ -116,15 +178,11 @@ export interface ReplaceInput {
 }
 
 export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInput): Promise<unknown[]> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { date, records } = input;
 
 	// Enforce group scope on all assignee personnel IDs
 	const assigneeIds = await getPersonnelAssigneeIds(ctx, records);
+	await requireCalendarAssignmentPolicy(ctx, records);
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
 	}
@@ -159,16 +217,13 @@ export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInp
 }
 
 export async function createDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const assignmentTypeId = validated.assignmentTypeId as string;
 	const assigneeId = validated.assigneeId as string;
+	const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
 
-	if ((await getAssignmentTarget(ctx, assignmentTypeId)) !== 'group') {
+	await requireCalendarAssignmentPolicy(ctx, [{ assignmentTypeId, assigneeId }]);
+	if (assignmentTarget !== 'group') {
 		await ctx.auth.requireGroupAccess(assigneeId);
 	}
 
@@ -209,15 +264,11 @@ async function ensureManualAssignmentAvailability(
 }
 
 export async function setDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const date = validated.date as string;
 	const assignmentTypeId = validated.assignmentTypeId as string;
 	const assigneeId = validated.assigneeId as string;
+	await requireCalendarAssignmentPolicy(ctx, [{ assignmentTypeId, assigneeId }]);
 	const assignmentTarget = await getAssignmentTarget(ctx, assignmentTypeId);
 
 	if (assignmentTarget !== 'group') {
@@ -230,11 +281,6 @@ export async function setDailyAssignment(ctx: WritePorts, input: Record<string, 
 }
 
 export async function updateDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const validated = entity.updateSchema.parse(input) as Record<string, unknown>;
 	const { id } = validated as { id: string };
 	const assigneeId = validated.assigneeId as string | undefined;
@@ -253,6 +299,7 @@ export async function updateDailyAssignment(ctx: WritePorts, input: Record<strin
 			typeof validated.assignmentTypeId === 'string'
 				? validated.assignmentTypeId
 				: String(existingRow?.assignment_type_id ?? '');
+		await requireCalendarAssignmentPolicy(ctx, [{ assignmentTypeId, assigneeId }]);
 		if (!date) {
 			fail(404, 'Daily assignment not found');
 		}
@@ -275,12 +322,12 @@ export async function updateDailyAssignment(ctx: WritePorts, input: Record<strin
 }
 
 export async function deleteDailyAssignment(ctx: WritePorts, id: string): Promise<void> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
-	await requireExistingAssignmentAccessById(ctx, id);
+	const existingRow = await requireExistingAssignmentAccessById(ctx, id);
+	const assignmentTypeId = existingRow?.assignment_type_id;
+	const assigneeId = existingRow?.assignee_id;
+	if (typeof assignmentTypeId !== 'string' || typeof assigneeId !== 'string') {
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability);
+	}
 
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 
@@ -295,11 +342,6 @@ export async function clearDailyAssignment(
 	ctx: WritePorts,
 	input: { date: string; assignmentTypeId: string }
 ): Promise<void> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	await requireExistingAssignmentAccess(ctx, {
 		date: input.date,
 		assignment_type_id: input.assignmentTypeId

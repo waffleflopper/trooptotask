@@ -4,12 +4,14 @@
  * `color`/`textColor` are hex strings controlling how the status appears on the calendar.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import { DA6_AVAILABILITY_TREATMENTS, type StatusType } from '$lib/types';
 
 export const StatusTypeEntity = defineEntity<StatusType>({
 	table: 'status_types',
 	permission: 'calendar',
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	requireFullEditor: true,
 	groupScope: 'none',
 	audit: { resourceType: 'status_type', detailFields: ['name'] },

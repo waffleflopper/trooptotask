@@ -104,6 +104,52 @@ describe('createDeletionRequest', () => {
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
 		expect(stored).toHaveLength(1);
 	});
+
+	it('allows Rating Scheme deletion requests through Rating Scheme policy decisions without Personnel access', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				requireEdit(area) {
+					if (area === 'personnel') {
+						throw new Error('legacy Personnel edit should not authorize Rating Scheme deletion requests');
+					}
+				},
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+		ctx.store.seed('rating_scheme_entries', [
+			{
+				id: 'rs-1',
+				organization_id: 'test-org',
+				rated_person_id: 'person-1',
+				eval_type: 'OER',
+				status: 'draft'
+			}
+		]);
+
+		await expect(
+			createDeletionRequest(ctx, {
+				resourceType: 'rating_scheme_entry',
+				resourceId: 'rs-1',
+				resourceDescription: 'SGT Smith OER',
+				resourceUrl: '/org/test-org/evals',
+				userEmail: 'operator@example.com'
+			})
+		).resolves.toMatchObject({
+			resource_type: 'rating_scheme_entry',
+			resource_id: 'rs-1',
+			status: 'pending'
+		});
+	});
 });
 
 function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {

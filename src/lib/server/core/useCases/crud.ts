@@ -71,8 +71,14 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 
 	return {
 		async create(ctx, data) {
+			if (!config.policyAction) {
+				await enforceWritePolicy(ctx, { kind: 'organization' });
+			}
+
 			const validated = parseOrFail(entity.createSchema, data);
-			await enforceWritePolicy(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
+			if (config.policyAction) {
+				await enforceWritePolicy(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
+			}
 
 			// Group scope: if entity has a personnelIdField, enforce access
 			if (!config.policyAction && entity.personnelIdField) {
@@ -95,9 +101,15 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
+			if (!config.policyAction) {
+				await enforceWritePolicy(ctx, { kind: 'organization' });
+			}
+
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
-			await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
+			if (config.policyAction) {
+				await enforceWritePolicy(ctx, await resolvePolicyResourceForRecord(ctx, entity, id));
+			}
 
 			// Group scope: enforce by record lookup
 			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {

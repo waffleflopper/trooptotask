@@ -79,6 +79,19 @@ describe('createCrudUseCases', () => {
 			expect(stored).toHaveLength(0);
 		});
 
+		it('checks legacy edit permission before validating create input', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireEdit() {
+						throw new Error('No edit permission');
+					}
+				}
+			});
+			const { create } = createCrudUseCases(crudConfig);
+
+			await expect(create(ctx, { notes: 'missing personnel' })).rejects.toThrow('No edit permission');
+		});
+
 		it('throws when organization is read-only', async () => {
 			const ctx = buildContext({ readOnly: true });
 			const { create } = createCrudUseCases(crudConfig);
@@ -217,6 +230,19 @@ describe('createCrudUseCases', () => {
 			const { update } = createCrudUseCases(crudConfig);
 
 			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toThrow('No edit permission');
+		});
+
+		it('checks legacy edit permission before validating update input', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireEdit() {
+						throw new Error('No edit permission');
+					}
+				}
+			});
+			const { update } = createCrudUseCases(crudConfig);
+
+			await expect(update(ctx, { notes: 'missing id' })).rejects.toThrow('No edit permission');
 		});
 
 		it('throws when organization is read-only', async () => {

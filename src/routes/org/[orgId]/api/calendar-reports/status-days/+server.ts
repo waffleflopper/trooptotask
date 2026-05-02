@@ -4,8 +4,12 @@ import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
-import type { QueryPorts } from '$lib/server/core/ports';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
+import {
+	filterRowsByCalendarAssigneeScope,
+	personnelInFilter,
+	resolveCalendarAssigneeScope
+} from '$lib/server/core/useCases/calendarScope';
 
 export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unknown> = {
 	permission: 'calendar',
@@ -24,7 +28,7 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 		if (startDate > endDate) fail(400, 'startDate must be before or equal to endDate');
 		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
-		const scope = await resolveCalendarReportScope(ctx);
+		const scope = await resolveCalendarAssigneeScope(ctx);
 
 		const [entries, assignments, assignmentTypes] = await Promise.all([
 			ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
@@ -54,45 +58,3 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 };
 
 export const GET = handle(_getConfig);
-
-interface CalendarReportScope {
-	groupIds: string[];
-	personnelIds: string[];
-}
-
-async function resolveCalendarReportScope(ctx: QueryPorts): Promise<CalendarReportScope | null> {
-	if (ctx.auth.scopeSet.kind !== 'groups') {
-		return null;
-	}
-
-	const groupIds = [...new Set(ctx.auth.scopeSet.groupIds.filter(Boolean))];
-	if (groupIds.length === 0) {
-		return { groupIds: [], personnelIds: [] };
-	}
-
-	const personnelRows = await ctx.store.findMany<{ id: string }>('personnel', ctx.auth.orgId, undefined, {
-		inFilters: { group_id: groupIds },
-		select: 'id'
-	});
-
-	return {
-		groupIds,
-		personnelIds: personnelRows.map((row) => row.id)
-	};
-}
-
-function personnelInFilter(scope: CalendarReportScope | null, column: string) {
-	return scope ? { inFilters: { [column]: scope.personnelIds } } : {};
-}
-
-function filterRowsByCalendarAssigneeScope(
-	rows: Record<string, unknown>[],
-	scope: CalendarReportScope | null
-): Record<string, unknown>[] {
-	if (!scope) {
-		return rows;
-	}
-
-	const allowedAssigneeIds = new Set([...scope.personnelIds, ...scope.groupIds]);
-	return rows.filter((row) => typeof row.assignee_id === 'string' && allowedAssigneeIds.has(row.assignee_id));
-}

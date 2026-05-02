@@ -5,6 +5,7 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
+import { groupInFilter, resolveCalendarGroupScope } from './calendarScope';
 
 export interface CalendarReportData {
 	allPersonnel: Personnel[];
@@ -16,7 +17,7 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
 	const orgId = ctx.auth.orgId;
-	const scope = await resolveCalendarReportScope(ctx);
+	const scope = resolveCalendarGroupScope(ctx);
 
 	const [allPersonnelRows, statusTypeRows, groupRows] = await Promise.all([
 		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
@@ -39,22 +40,4 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		groups: GroupEntity.fromDbArray(groupRows)
 	};
-}
-
-interface CalendarReportScope {
-	groupIds: string[];
-}
-
-async function resolveCalendarReportScope(ctx: QueryWithRawStorePorts): Promise<CalendarReportScope | null> {
-	if (ctx.auth.scopeSet.kind !== 'groups') {
-		return null;
-	}
-
-	return {
-		groupIds: [...new Set(ctx.auth.scopeSet.groupIds.filter(Boolean))]
-	};
-}
-
-function groupInFilter(scope: CalendarReportScope | null, column: string) {
-	return scope ? { inFilters: { [column]: scope.groupIds } } : {};
 }

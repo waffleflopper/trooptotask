@@ -284,22 +284,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/features/rating-scheme/components/RatingSchemePageView.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#764",
-			"reason": "Rating Scheme page affordances still read legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/rating-scheme/contexts/RatingSchemePageContext.svelte.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*"],
-			"ownerIssue": "#764",
-			"reason": "Rating Scheme client context still uses full-editor and edit compatibility gates.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/features/training/components/TrainingModals.svelte",
 			"classification": "runtime-affordance",
 			"patterns": ["canEdit*"],
@@ -505,14 +489,6 @@
 			"patterns": ["isFullEditor"],
 			"ownerIssue": "#760",
 			"reason": "Personnel use case still checks full-editor compatibility for selected workflows.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["isFullEditor"],
-			"ownerIssue": "#764",
-			"reason": "Rating Scheme CRUD still uses full-editor compatibility for selected behaviors.",
 			"driftIds": ["D-01"]
 		},
 		{

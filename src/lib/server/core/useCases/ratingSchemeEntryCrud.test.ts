@@ -314,9 +314,21 @@ describe('Rating scheme entry — delete', () => {
 		expect(notifications).toHaveLength(1);
 	});
 
-	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
+	it('returns requiresApproval for non-governance members with Rating Scheme capability', async () => {
 		const ctx = buildContext({
-			auth: { isPrivileged: false, isFullEditor: false, role: 'member' }
+			auth: {
+				isPrivileged: false,
+				isFullEditor: false,
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'configure'
+				}
+			}
 		});
 		const { remove } = createRatingSchemeEntryUseCases();
 
@@ -334,6 +346,41 @@ describe('Rating scheme entry — delete', () => {
 		expect(result).toMatchObject({ requiresApproval: true });
 
 		// Entry should NOT be deleted
+		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
+		expect(stored).not.toBeNull();
+	});
+
+	it('does not allow full-editor compatibility to directly delete Rating Scheme entries', async () => {
+		const ctx = buildContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true,
+				role: 'member',
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
+		const { remove } = createRatingSchemeEntryUseCases();
+
+		ctx.store.seed('rating_scheme_entries', [
+			{
+				id: 'rs-1',
+				rated_person_id: 'person-1',
+				eval_type: 'OER',
+				status: 'draft',
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await remove(ctx, 'rs-1');
+		expect(result).toMatchObject({ requiresApproval: true });
+
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
 		expect(stored).not.toBeNull();
 	});
@@ -365,7 +412,7 @@ describe('Rating scheme entry — delete', () => {
 				resourceType: 'rating_scheme',
 				resourceId: 'rs-1',
 				details: expect.objectContaining({
-					policyAction: 'ratingScheme.updateEntries',
+					policyAction: 'ratingScheme.requestEntryDeletion',
 					reasonCode: 'denied:read-only-overlay'
 				})
 			})

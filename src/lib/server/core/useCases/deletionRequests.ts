@@ -13,6 +13,9 @@
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from './featurePolicy';
+import { requireRatingSchemeEntryDeletionRequestPolicy } from './ratingSchemeEntryCrud';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -37,6 +40,8 @@ export async function createDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
+	await requireDeletionRequestPolicy(ctx, input);
+
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) fail(403, 'Organization is in read-only mode');
 
@@ -86,6 +91,24 @@ export async function createDeletionRequest(
 	);
 
 	return row;
+}
+
+async function requireDeletionRequestPolicy(
+	ctx: WriteWithNotificationsPorts,
+	input: Pick<CreateDeletionRequestInput, 'resourceType' | 'resourceId'>
+): Promise<void> {
+	if (input.resourceType === 'rating_scheme_entry') {
+		await requireRatingSchemeEntryDeletionRequestPolicy(ctx, input.resourceId);
+		return;
+	}
+
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		{ kind: 'unscoped' },
+		AUDIT_RESOURCE,
+		input.resourceId
+	);
 }
 
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {

@@ -11,6 +11,7 @@ import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEv
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
+import { requireGovernancePolicy } from './governancePolicy';
 
 const entity = RatingSchemeEntryEntity;
 const AUDIT_RESOURCE = 'rating_scheme';
@@ -76,6 +77,19 @@ async function requireRatingSchemeUpdatePolicy(
 	);
 }
 
+export async function requireRatingSchemeEntryDeletionRequestPolicy(
+	ctx: WriteWithNotificationsPorts,
+	id: string
+): Promise<void> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
+		await policyResourceForRatingSchemeEntry(ctx, id),
+		AUDIT_RESOURCE,
+		id
+	);
+}
+
 export interface RatingSchemeEntryUseCases {
 	create(ctx: WriteWithNotificationsPorts, data: Record<string, unknown>): Promise<unknown>;
 	update(ctx: WriteWithNotificationsPorts, data: Record<string, unknown>): Promise<unknown>;
@@ -135,12 +149,13 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 		},
 
 		async remove(ctx, id) {
-			await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatingSchemeEntry(ctx, id), id);
+			await requireRatingSchemeEntryDeletionRequestPolicy(ctx, id);
 
-			// Non-privileged, non-full-editor users need deletion approval
-			if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
+			if (!ctx.auth.isPrivileged) {
 				return { requiresApproval: true };
 			}
+
+			await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry);
 
 			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 

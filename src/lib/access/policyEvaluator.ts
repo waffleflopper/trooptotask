@@ -235,6 +235,13 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'write',
 			requiredCapability: 'operate'
 		}),
+		requestEntryDeletion: featureAction({
+			id: 'ratingScheme.requestEntryDeletion',
+			label: 'Request rating scheme entry deletion',
+			lane: 'ratingScheme',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
 		configureWorkflows: featureAction({
 			id: 'ratingScheme.configureWorkflows',
 			label: 'Configure rating scheme workflows',
@@ -300,6 +307,11 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'organization.deleteOrganization',
 			label: 'Delete organization',
 			access: 'owner-only'
+		}),
+		deleteRatingSchemeEntry: governanceAction({
+			id: 'organization.deleteRatingSchemeEntry',
+			label: 'Delete rating scheme entry',
+			access: 'admin-or-owner'
 		})
 	}
 } as const;

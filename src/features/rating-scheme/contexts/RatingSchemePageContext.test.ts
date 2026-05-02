@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type CreateOrgContextInput, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
 
@@ -64,8 +64,8 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const org = createOrgContext({
+function makeOrg(overrides: Partial<CreateOrgContextInput> = {}): OrgContext {
+	return createOrgContext({
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		userId: 'user-1',
@@ -81,10 +81,9 @@ function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 		scopeSet: { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		isReadOnly: false
+		isReadOnly: false,
+		...overrides
 	});
-
-	return Object.assign({}, org, overrides);
 }
 
 function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePageData {
@@ -139,5 +138,80 @@ describe('RatingSchemePageContext', () => {
 
 		ctx.handleEditRatingEntry(entries[0]);
 		expect(modals.payload<{ entry: RatingSchemeEntry }>('rating-modal')?.entry).toBe(entries[0]);
+	});
+
+	it('uses Rating Scheme advisory policy decisions instead of legacy Personnel or Leaders Book permissions', () => {
+		const ctx = new RatingSchemePageContext(
+			makeData({
+				permissions: {
+					...makeData().permissions!,
+					canViewPersonnel: true,
+					canEditPersonnel: true,
+					canViewRatingScheme: false,
+					canEditRatingScheme: false,
+					canEditLeadersBook: true
+				}
+			}),
+			new ModalRegistry(),
+			makeOrg({
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				}
+			}),
+			entries
+		);
+
+		expect(ctx.canViewRatingScheme).toBe(true);
+		expect(ctx.showRatingSchemeWriteActions).toBe(true);
+		expect(ctx.canUseRatingSchemeWriteActions).toBe(true);
+	});
+
+	it('keeps Rating Scheme write affordances visible but disabled in read-only mode', () => {
+		const ctx = new RatingSchemePageContext(
+			makeData(),
+			new ModalRegistry(),
+			makeOrg({
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				},
+				isReadOnly: true
+			}),
+			entries
+		);
+
+		expect(ctx.showRatingSchemeWriteActions).toBe(true);
+		expect(ctx.canUseRatingSchemeWriteActions).toBe(false);
+		expect(ctx.ratingSchemeWriteAffordance.disabled).toBe(true);
+	});
+
+	it('does not expose Rating Scheme access through adjacent Personnel capability', () => {
+		const ctx = new RatingSchemePageContext(
+			makeData(),
+			new ModalRegistry(),
+			makeOrg({
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}),
+			entries
+		);
+
+		expect(ctx.canViewRatingScheme).toBe(false);
+		expect(ctx.showRatingSchemeWriteActions).toBe(false);
 	});
 });

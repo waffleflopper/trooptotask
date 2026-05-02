@@ -111,6 +111,12 @@ describe('policy evaluator', () => {
 			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
 			requiredCapability: 'operate'
 		});
+		expect(POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion).toMatchObject({
+			id: 'ratingScheme.requestEntryDeletion',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'ratingScheme' },
+			requiredCapability: 'operate'
+		});
 		expect(POLICY_ACTION_CATALOG.ratingScheme.configureWorkflows).toMatchObject({
 			id: 'ratingScheme.configureWorkflows',
 			accessMode: 'write',

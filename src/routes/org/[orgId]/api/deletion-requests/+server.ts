@@ -8,7 +8,7 @@ import {
 } from '$lib/server/core/useCases/deletionRequests';
 
 export const GET = handle<{ status?: string }, unknown>({
-	permission: 'personnel',
+	permission: 'none',
 	parseInput: (event: RequestEvent) => ({
 		status: event.url.searchParams.get('status') ?? undefined
 	}),
@@ -17,8 +17,9 @@ export const GET = handle<{ status?: string }, unknown>({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const POST = handle<any, unknown>({
-	permission: 'personnel',
+	permission: 'none',
 	mutation: true,
+	allowReadOnlyMutation: true,
 	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
 		return {
@@ -31,7 +32,7 @@ export const POST = handle<any, unknown>({
 });
 
 export const DELETE = handle<Record<string, unknown>, unknown>({
-	permission: 'personnel',
+	permission: 'none',
 	mutation: true,
 	fn: async (ctx, input) => {
 		await cancelDeletionRequest(ctx, input.id as string);

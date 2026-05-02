@@ -5,7 +5,7 @@ import {
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
-import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
@@ -13,8 +13,52 @@ interface FeaturePolicyPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 }
 
+interface FeaturePolicyResourcePorts {
+	store: Pick<DataStore, 'findOne' | 'findMany'>;
+	auth: Pick<AuthContext, 'orgId'>;
+}
+
+interface PersonnelPolicyResourceRow {
+	id: string;
+	group_id: string | null;
+}
+
 export function policyResourceForGroup(groupId: unknown): PolicyResource {
 	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
+}
+
+export async function policyResourceForPersonnel(
+	ports: FeaturePolicyResourcePorts,
+	personnelId: string
+): Promise<PolicyResource> {
+	const personnel = await ports.store.findOne<Pick<PersonnelPolicyResourceRow, 'group_id'>>(
+		'personnel',
+		ports.auth.orgId,
+		{ id: personnelId },
+		'group_id'
+	);
+	return policyResourceForGroup(personnel?.group_id);
+}
+
+export async function policyResourcesForPersonnel(
+	ports: FeaturePolicyResourcePorts,
+	personnelIds: string[]
+): Promise<Map<string, PolicyResource>> {
+	if (personnelIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await ports.store.findMany<PersonnelPolicyResourceRow>('personnel', ports.auth.orgId, undefined, {
+		inFilters: { id: personnelIds },
+		select: 'id, group_id'
+	});
+	const resources = new Map(rows.map((row) => [row.id, policyResourceForGroup(row.group_id)]));
+	for (const personnelId of personnelIds) {
+		if (!resources.has(personnelId)) {
+			resources.set(personnelId, { kind: 'organization' });
+		}
+	}
+	return resources;
 }
 
 export async function requireFeaturePolicy(

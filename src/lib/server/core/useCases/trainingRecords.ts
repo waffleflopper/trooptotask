@@ -12,7 +12,7 @@ import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEv
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { WritePorts } from '$lib/server/core/ports';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -29,22 +29,8 @@ interface TrainingTypeRow {
 	expiration_date_only: boolean;
 }
 
-interface PersonnelGroupRow {
-	group_id: string | null;
-}
-
 interface TrainingRecordResourceRow {
 	personnel_id: string;
-}
-
-async function policyResourceForPersonnel(ctx: WritePorts, personnelId: string): Promise<PolicyResource> {
-	const personnel = await ctx.store.findOne<PersonnelGroupRow>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'group_id'
-	);
-	return policyResourceForGroup(personnel?.group_id);
 }
 
 async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string): Promise<PolicyResource> {

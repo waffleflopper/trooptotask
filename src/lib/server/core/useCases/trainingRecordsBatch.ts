@@ -7,11 +7,11 @@
  * For single-record mutations, see `trainingRecords.ts`.
  */
 import { fail } from '$lib/server/core/errors';
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { calculateExpirationDate } from './trainingRecords';
 import type { WritePorts } from '$lib/server/core/ports';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { policyResourcesForPersonnel, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -39,32 +39,6 @@ interface BatchImportResult {
 	updated: unknown[];
 	exempted: Array<{ index: number; personnelId: string; trainingTypeId: string }>;
 	errors: BatchError[];
-}
-
-interface PersonnelGroupRow {
-	id: string;
-	group_id: string | null;
-}
-
-async function policyResourcesForPersonnel(
-	ctx: WritePorts,
-	personnelIds: string[]
-): Promise<Map<string, PolicyResource>> {
-	if (personnelIds.length === 0) {
-		return new Map();
-	}
-
-	const rows = await ctx.store.findMany<PersonnelGroupRow>('personnel', ctx.auth.orgId, undefined, {
-		inFilters: { id: personnelIds },
-		select: 'id, group_id'
-	});
-	const resources = new Map(rows.map((row) => [row.id, policyResourceForGroup(row.group_id)]));
-	for (const personnelId of personnelIds) {
-		if (!resources.has(personnelId)) {
-			resources.set(personnelId, { kind: 'organization' });
-		}
-	}
-	return resources;
 }
 
 export async function importTrainingRecords(

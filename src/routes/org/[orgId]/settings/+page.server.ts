@@ -20,6 +20,7 @@ import {
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
+	parseCapabilityOverrides,
 	removeOrganizationMember,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
@@ -82,6 +83,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				email: m.email as string,
 				role: m.role as string,
 				scopedGroupId: m.scoped_group_id as string | null,
+				memberPreset: m.member_preset as string | null,
+				capabilityOverrides: (m.capability_overrides as Record<string, unknown> | null) ?? {},
+				accessScopeKind: m.access_scope_kind as string | null,
+				accessScopeGroupIds: (m.access_scope_group_ids as string[] | null) ?? [],
 				createdAt: m.created_at as string,
 				canViewCalendar: m.can_view_calendar as boolean,
 				canEditCalendar: m.can_edit_calendar as boolean,
@@ -108,6 +113,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				status: inv.status as string,
 				createdAt: inv.created_at as string,
 				scopedGroupId: inv.scoped_group_id as string | null,
+				memberPreset: inv.member_preset as string | null,
+				capabilityOverrides: (inv.capability_overrides as Record<string, unknown> | null) ?? {},
+				accessScopeKind: inv.access_scope_kind as string | null,
+				accessScopeGroupIds: (inv.access_scope_group_ids as string[] | null) ?? [],
 				canViewCalendar: inv.can_view_calendar as boolean,
 				canEditCalendar: inv.can_edit_calendar as boolean,
 				canViewPersonnel: inv.can_view_personnel as boolean,
@@ -235,6 +244,9 @@ export const actions: Actions = {
 					email: (formData.get('email') as string) ?? '',
 					preset: (formData.get('preset') as string) ?? '',
 					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
+					capabilityOverrides: parseCapabilityOverrides(formData),
+					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
+					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
 					actorEmail: user.email
 				}
 			);
@@ -313,6 +325,9 @@ export const actions: Actions = {
 					preset: (formData.get('preset') as string) ?? '',
 					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
 					customPermissions: parseCustomPermissions(formData),
+					capabilityOverrides: parseCapabilityOverrides(formData),
+					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
+					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
 					actorEmail: user.email
 				}
 			);

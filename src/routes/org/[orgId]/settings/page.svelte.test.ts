@@ -53,6 +53,10 @@ function member(id: string, email: string, role: 'owner' | 'admin' | 'member', o
 		role,
 		scopedGroupId: null,
 		createdAt: '2026-04-01T00:00:00Z',
+		memberPreset: role === 'member' ? 'editor' : 'editor',
+		capabilityOverrides: {},
+		accessScopeKind: 'organization',
+		accessScopeGroupIds: [],
 		...fullEditorPermissions,
 		...(role === 'admin' || role === 'owner' ? { canManageMembers: true } : {}),
 		...overrides
@@ -84,7 +88,10 @@ const baseData = {
 		member('member-4', 'member-b@example.com', 'member')
 	],
 	invitations: [],
-	groups: [],
+	groups: [
+		{ id: 'group-alpha', name: '1st Platoon' },
+		{ id: 'group-bravo', name: '2nd Platoon' }
+	],
 	exportInfo: {
 		exportsUsed: 0,
 		exportsLimit: Infinity,
@@ -193,7 +200,20 @@ describe('org settings page', () => {
 	it('renders the members tab as a roster-access workspace instead of the old card manager', async () => {
 		render(Page, {
 			props: {
-				data: baseData as never,
+				data: {
+					...baseData,
+					members: [
+						member('member-1', 'owner@example.com', 'owner'),
+						member('member-2', 'admin@example.com', 'admin'),
+						member('member-3', 'member-a@example.com', 'member', {
+							memberPreset: 'viewer',
+							capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' },
+							accessScopeKind: 'groups',
+							accessScopeGroupIds: ['group-alpha', 'group-bravo']
+						}),
+						member('member-4', 'member-b@example.com', 'member')
+					]
+				} as never,
 				form: null as never
 			}
 		});
@@ -202,22 +222,70 @@ describe('org settings page', () => {
 
 		expect(screen.getAllByText('Access Control').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByRole('heading', { name: 'Members' }).length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Who can see and edit the roster, and how new invitations are granted.')).toBeTruthy();
+		expect(
+			screen.getByText('Manage member presets, lane overrides, and shared scope without changing governance roles.')
+		).toBeTruthy();
 		expect(screen.getByRole('link', { name: '+ Invite Member' }).getAttribute('href')).toBe('#invite-member-section');
-		expect(screen.getByRole('heading', { name: 'Roster Access' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Access Management' })).toBeTruthy();
+		expect(screen.getByText('Member presets do not grant admin authority.')).toBeTruthy();
 		expect(screen.getByText('4 Members')).toBeTruthy();
 		expect(screen.getByText('owner@example.com')).toBeTruthy();
 		expect(screen.getByText('admin@example.com')).toBeTruthy();
 		expect(screen.getByText('member-a@example.com')).toBeTruthy();
-		expect(screen.getAllByText('Change Role')).toHaveLength(3);
+		expect(screen.getAllByText('Viewer').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('Calendar: Operate')).toBeTruthy();
+		expect(screen.getByText('Rating Scheme: None')).toBeTruthy();
+		expect(screen.getByText('1st Platoon, 2nd Platoon')).toBeTruthy();
+		expect(screen.getAllByText('Admin governance').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText('Manage Access')).toHaveLength(3);
 		expect(screen.getAllByText('Remove')).toHaveLength(3);
 		expect(screen.getByRole('heading', { name: 'Invite Member' })).toBeTruthy();
 		expect(screen.getByLabelText('Send invitation').getAttribute('placeholder')).toBe('colleague@example.com');
 		expect(screen.getByText('Invitee logs in to T2T to accept. No email is sent automatically.')).toBeTruthy();
+		expect(screen.getByLabelText('Invite member preset')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Invite' })).toBeTruthy();
-		expect(screen.queryByText('Default group assignment')).toBeNull();
+		expect(screen.queryByText('Change Role')).toBeNull();
 		expect(screen.queryByText('Organization Members')).toBeNull();
 		expect(screen.queryByText('Invite New Member')).toBeNull();
+	});
+
+	it('updates capability defaults when a member preset changes in the access editor', async () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					members: [
+						member('member-1', 'owner@example.com', 'owner'),
+						member('member-2', 'admin@example.com', 'admin'),
+						member('member-3', 'member-a@example.com', 'member', {
+							memberPreset: 'viewer',
+							capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' }
+						})
+					]
+				} as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Members/ }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Manage Access' }).at(-1)!);
+
+		const accessPreset = screen.getByRole('combobox', { name: /Access assignment/ }) as HTMLSelectElement;
+		const calendarCapability = screen.getByLabelText(
+			'Calendar capability for member-a@example.com'
+		) as HTMLSelectElement;
+		const ratingSchemeCapability = screen.getByLabelText(
+			'Rating Scheme capability for member-a@example.com'
+		) as HTMLSelectElement;
+
+		expect(accessPreset.value).toBe('viewer');
+		expect(calendarCapability.value).toBe('operate');
+		expect(ratingSchemeCapability.value).toBe('none');
+
+		await fireEvent.change(accessPreset, { target: { value: 'editor' } });
+
+		expect(calendarCapability.value).toBe('configure');
+		expect(ratingSchemeCapability.value).toBe('configure');
 	});
 
 	it('renders the policies tab as operational defaults instead of the old policy card', async () => {

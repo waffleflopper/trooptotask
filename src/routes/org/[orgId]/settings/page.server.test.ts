@@ -565,6 +565,7 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
 				settings: { kind: 'settings-port' }
 			},
 			{
@@ -588,6 +589,9 @@ describe('org settings page server actions', () => {
 					canEditLeadersBook: false,
 					canManageMembers: true
 				},
+				capabilityOverrides: {},
+				accessScopeKind: null,
+				accessScopeGroupIds: [],
 				actorEmail: 'user@example.com'
 			}
 		);

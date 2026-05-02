@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrainingType } from '$features/training/training.types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const { loadWithContextMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn()
@@ -39,7 +40,16 @@ describe('onboarding templates page server load', () => {
 			})
 		} as never);
 
-		expect(loadWithContextMock).toHaveBeenCalledOnce();
+		expect(loadWithContextMock).toHaveBeenCalledWith(
+			{ session: null },
+			{},
+			'org-1',
+			expect.objectContaining({
+				permission: 'onboarding',
+				policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
+				policyResource: { kind: 'unscoped' }
+			})
+		);
 		expect(result).toEqual({
 			session: null,
 			orgId: 'org-1',

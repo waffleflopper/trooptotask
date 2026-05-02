@@ -14,6 +14,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { getTrainingStepCompletionStatuses } from './onboardingStepProgress';
 import type { WritePorts } from '$lib/server/core/ports';
+import { requireOnboardingViewPolicy } from './onboardingPolicy';
 
 export interface OnboardingBootstrap {
 	onboardingTemplates: OnboardingTemplate[];
@@ -41,6 +42,8 @@ function applyTrainingCompletionStatuses(
 }
 
 export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<OnboardingBootstrap> {
+	await requireOnboardingViewPolicy(ctx);
+
 	const orgId = ctx.auth.orgId;
 
 	const [templateRows, templateStepRows, onboardingRows, personnelRows, groupRows, trainingTypeRows] =
@@ -78,7 +81,7 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 	// When scoped, query personnel (which the scoped store does filter by group) to get the
 	// personnel ID set, then restrict onboardings to those members.
 	let onboardings = allOnboardings;
-	if (ctx.auth.scopedGroupId) {
+	if (ctx.auth.scopeSet.kind === 'groups') {
 		const scopedPersonnelIds = new Set(personnel.map((p) => p.id));
 		onboardings = allOnboardings.filter((o) => scopedPersonnelIds.has(o.personnelId));
 	}

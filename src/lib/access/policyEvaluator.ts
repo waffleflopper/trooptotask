@@ -283,6 +283,29 @@ export const POLICY_ACTION_CATALOG = {
 			requiredCapability: 'configure'
 		})
 	},
+	onboarding: {
+		viewWorkflows: featureAction({
+			id: 'onboarding.viewWorkflows',
+			label: 'View onboarding workflows',
+			lane: 'onboarding',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		manageWorkflows: featureAction({
+			id: 'onboarding.manageWorkflows',
+			label: 'Manage onboarding workflows',
+			lane: 'onboarding',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		configureWorkflows: featureAction({
+			id: 'onboarding.configureWorkflows',
+			label: 'Configure onboarding workflows',
+			lane: 'onboarding',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		})
+	},
 	ratingScheme: {
 		viewEntries: featureAction({
 			id: 'ratingScheme.viewEntries',

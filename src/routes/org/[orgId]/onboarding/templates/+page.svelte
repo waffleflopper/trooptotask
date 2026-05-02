@@ -11,6 +11,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
 	import type {
 		OnboardingTemplate,
@@ -68,7 +69,10 @@
 
 	const trainingTypes: TrainingType[] = $derived(data.trainingTypes ?? []);
 
-	const canMutate = $derived(!org.readOnly);
+	const configureAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
+	);
+	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
 	const onboardingNavItems = $derived<ToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
 	]);

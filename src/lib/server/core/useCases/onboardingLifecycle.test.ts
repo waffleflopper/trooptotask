@@ -1,11 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle';
 
-function buildContext(overrides?: { readOnly?: boolean; role?: 'owner' | 'admin' | 'member' }) {
+const operatorCapabilityMap: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'operate',
+	ratingScheme: 'none'
+};
+
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext({
-		readOnly: overrides?.readOnly,
-		auth: { role: overrides?.role ?? 'owner' }
+		...overrides,
+		auth: { role: 'owner', ...overrides?.auth }
 	});
 }
 
@@ -98,6 +108,56 @@ describe('startOnboarding', () => {
 		// Attempt second should fail
 		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
 			'Soldier already has an active onboarding'
+		);
+	});
+
+	it('starts through Onboarding operate policy without the legacy edit flag and audits policy denials', async () => {
+		const allowed = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: operatorCapabilityMap,
+				scopeSet: { kind: 'groups', groupIds: ['g-1'] },
+				requireEdit() {
+					throw Object.assign(new Error('Legacy edit gate should not run'), { status: 500 });
+				}
+			}
+		});
+		allowed.store.seed('personnel', [{ id: 'p-1', group_id: 'g-1', organization_id: 'test-org' }]);
+		seedTemplateWithSteps(allowed);
+
+		await expect(startOnboarding(allowed, { personnelId: 'p-1', templateId: 'tmpl-1' })).resolves.toMatchObject({
+			personnelId: 'p-1'
+		});
+
+		const denied = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				capabilityMap: operatorCapabilityMap,
+				scopeSet: { kind: 'groups', groupIds: ['g-1'] },
+				requireEdit() {
+					throw Object.assign(new Error('Legacy edit gate should not run'), { status: 500 });
+				}
+			}
+		});
+		denied.store.seed('personnel', [{ id: 'p-2', group_id: 'g-2', organization_id: 'test-org' }]);
+		seedTemplateWithSteps(denied);
+
+		await expect(startOnboarding(denied, { personnelId: 'p-2', templateId: 'tmpl-1' })).rejects.toMatchObject({
+			status: 403
+		});
+		expect(denied.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel_onboarding',
+				details: expect.objectContaining({
+					policyAction: 'onboarding.manageWorkflows',
+					reasonCode: 'denied:out-of-scope'
+				})
+			})
 		);
 	});
 

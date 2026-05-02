@@ -57,7 +57,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 
 		async update(ctx, data) {
 			const validated = entity.updateSchema.parse(data);
-			const { id } = validated as { id: string };
+			const { id, groupId: nextGroupId } = validated as { id: string; groupId?: string | null };
 			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
 
 			await requireFeaturePolicy(
@@ -68,19 +68,19 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				id
 			);
 
-			if ((validated as Record<string, unknown>).groupId !== undefined) {
+			if (nextGroupId !== undefined) {
 				await requireFeaturePolicy(
 					ctx,
 					POLICY_ACTION_CATALOG.personnel.manageRecords,
-					policyResourceForGroup((validated as Record<string, unknown>).groupId),
+					policyResourceForGroup(nextGroupId),
 					AUDIT_RESOURCE,
 					id
 				);
 			}
 
 			const dbData = entity.toDbUpdate(validated);
-			if ((validated as Record<string, unknown>).groupId !== undefined) {
-				dbData.group_id = (validated as Record<string, unknown>).groupId || null;
+			if (nextGroupId !== undefined) {
+				dbData.group_id = nextGroupId || null;
 			}
 
 			const row = await ctx.store.update<Record<string, unknown>>(

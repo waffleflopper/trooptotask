@@ -13,18 +13,14 @@ import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/se
 
 /**
  * Decorator that wraps any DataStore and auto-filters reads by group scope.
- * Returns the inner store unchanged when scopedGroupId is null (zero overhead for admins/owners).
+ * Returns the inner store unchanged when there are no scoped Group IDs.
  */
 export function createScopedDataStore(
 	inner: DataStore,
 	scopedGroupIds: string[] | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	const groupIds = Array.isArray(scopedGroupIds)
-		? scopedGroupIds.filter(Boolean)
-		: scopedGroupIds
-			? [scopedGroupIds]
-			: [];
+	const groupIds = normalizeScopedGroupIds(scopedGroupIds);
 	if (groupIds.length === 0) return inner;
 
 	let cachedPersonnelIds: string[] | null = null;
@@ -191,4 +187,12 @@ export function createScopedDataStore(
 		deleteManyByIds: inner.deleteManyByIds.bind(inner),
 		insertMany: inner.insertMany.bind(inner)
 	};
+}
+
+function normalizeScopedGroupIds(scopedGroupIds: string[] | string | null): string[] {
+	if (Array.isArray(scopedGroupIds)) {
+		return scopedGroupIds.filter(Boolean);
+	}
+
+	return scopedGroupIds ? [scopedGroupIds] : [];
 }

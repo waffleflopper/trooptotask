@@ -9,6 +9,8 @@ import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { stripOrganizationId } from './stripOrganizationId';
+import { requirePolicyDecision } from './policyAuthorization';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -55,14 +57,15 @@ function toBatchErrors(
 	);
 }
 
+function toPersonnelPolicyResource(person?: { groupId?: string | null }) {
+	return person?.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const };
+}
+
 export async function importIctCompletionsBatch(
 	ctx: WritePorts,
 	input: IctCompletionBatchImportInput
 ): Promise<IctCompletionBatchImportResult> {
-	ctx.auth.requireEdit('critical-tasks');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+	await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, { kind: 'unscoped' });
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
 		fail(400, 'records array is required');
@@ -94,6 +97,11 @@ export async function importIctCompletionsBatch(
 
 	const matchedPersonnelIds = [...new Set(preliminaryReview.validRows.map((row) => row.personnelId))];
 	if (matchedPersonnelIds.length > 0) {
+		const personnelById = new Map(personnel.map((person) => [person.id, person]));
+		for (const personnelId of matchedPersonnelIds) {
+			const resource = toPersonnelPolicyResource(personnelById.get(personnelId));
+			await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, resource);
+		}
 		await ctx.auth.requireGroupAccessBatch(matchedPersonnelIds);
 	}
 

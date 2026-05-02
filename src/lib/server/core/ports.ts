@@ -219,6 +219,7 @@ export interface StoragePort {
 /** The 4 ports every standard write operation needs */
 export interface WritePorts {
 	store: DataStore;
+	rawStore?: DataStore;
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;

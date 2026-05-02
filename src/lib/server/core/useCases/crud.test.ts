@@ -4,6 +4,7 @@ import { defineEntity, field } from '$lib/server/entitySchema';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 // Minimal test entity — like a simplified training record
 interface TestRecord {
@@ -78,6 +79,19 @@ describe('createCrudUseCases', () => {
 			expect(stored).toHaveLength(0);
 		});
 
+		it('checks legacy edit permission before validating create input', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireEdit() {
+						throw new Error('No edit permission');
+					}
+				}
+			});
+			const { create } = createCrudUseCases(crudConfig);
+
+			await expect(create(ctx, { notes: 'missing personnel' })).rejects.toThrow('No edit permission');
+		});
+
 		it('throws when organization is read-only', async () => {
 			const ctx = buildContext({ readOnly: true });
 			const { create } = createCrudUseCases(crudConfig);
@@ -88,6 +102,79 @@ describe('createCrudUseCases', () => {
 			});
 			const stored = await ctx.store.findMany('test_records', 'test-org');
 			expect(stored).toHaveLength(0);
+		});
+
+		it('allows policy-authorized writes without the legacy edit flag', async () => {
+			const ctx = buildContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] },
+					scopedGroupId: 'group-1',
+					requireEdit() {
+						throw new Error('legacy edit flag should not decide this workflow');
+					}
+				}
+			});
+			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-2', last_name: 'Able' }]);
+			const { create } = createCrudUseCases({
+				...crudConfig,
+				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
+			});
+
+			await expect(create(ctx, { personnelId: 'p-1', notes: 'done' })).resolves.toMatchObject({
+				personnelId: 'p-1'
+			});
+		});
+
+		it('denies policy writes outside a multi-group scope set and captures an audit event', async () => {
+			const ctx = buildContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] },
+					scopedGroupId: 'group-1'
+				}
+			});
+			ctx.store.seed('personnel', [
+				{ id: 'p-outside', organization_id: 'test-org', group_id: 'group-3', last_name: 'Baker' }
+			]);
+			const { create } = createCrudUseCases({
+				...crudConfig,
+				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion
+			});
+
+			await expect(create(ctx, { personnelId: 'p-outside', notes: 'nope' })).rejects.toMatchObject({
+				status: 403
+			});
+			expect(ctx.audit.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					details: expect.objectContaining({
+						reasonCode: 'denied:out-of-scope',
+						resource: { kind: 'group', groupId: 'group-3' }
+					})
+				})
+			]);
 		});
 
 		it('enforces group scope via personnelIdField', async () => {
@@ -143,6 +230,19 @@ describe('createCrudUseCases', () => {
 			const { update } = createCrudUseCases(crudConfig);
 
 			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toThrow('No edit permission');
+		});
+
+		it('checks legacy edit permission before validating update input', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireEdit() {
+						throw new Error('No edit permission');
+					}
+				}
+			});
+			const { update } = createCrudUseCases(crudConfig);
+
+			await expect(update(ctx, { notes: 'missing id' })).rejects.toThrow('No edit permission');
 		});
 
 		it('throws when organization is read-only', async () => {

@@ -198,15 +198,15 @@
 
 		if (canInputTask) {
 			items.push({
-				id: 'record-training',
-				label: 'Record Training',
+				id: 'record-completion',
+				label: 'Record Completion',
 				onclick: handleToolbarTaskInput,
 				icon: 'clipboard-check',
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary',
 				disabled: !canOpenTaskInput,
-				disabledReason: !canOpenTaskInput ? 'Add personnel and active tasks before recording training.' : undefined
+				disabledReason: !canOpenTaskInput ? 'Add personnel and active tasks before recording a completion.' : undefined
 			});
 		}
 

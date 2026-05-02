@@ -8,6 +8,8 @@ import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { stripOrganizationId } from './stripOrganizationId';
+import { requirePolicyDecision } from './policyAuthorization';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -44,11 +46,7 @@ export async function importIctTasksBatch(
 	ctx: WritePorts,
 	input: IctTaskBatchImportInput
 ): Promise<IctTaskBatchImportResult> {
-	ctx.auth.requireEdit('critical-tasks');
-	ctx.auth.requirePrivileged();
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+	await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.configureLibrary, { kind: 'organization' });
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
 		fail(400, 'records array is required');

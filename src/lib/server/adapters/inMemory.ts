@@ -324,12 +324,14 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		async requireGroupAccessByRecord() {}
 	};
 
-	const auth = { ...defaults, ...overrides };
+	const next = { ...defaults, ...overrides };
 	if (overrides?.scopedGroupId && !overrides.scopeSet) {
-		auth.scopeSet = { kind: 'groups', groupIds: [overrides.scopedGroupId] };
+		next.scopeSet = { kind: 'groups', groupIds: [overrides.scopedGroupId] };
 	}
-
-	return auth;
+	if (overrides?.scopeSet?.kind === 'groups' && !overrides.scopedGroupId) {
+		next.scopedGroupId = overrides.scopeSet.groupIds[0] ?? null;
+	}
+	return next;
 }
 
 interface AuditEvent {
@@ -381,14 +383,11 @@ export function createTestNotificationPort(): NotificationPort & { notifications
 
 function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
 	const rawStore = createInMemoryDataStore();
-	const scopeGroupIds =
-		auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId ? [auth.scopedGroupId] : [];
-
-	if (scopeGroupIds.length === 0) {
+	if (auth.scopeSet.kind === 'organization') {
 		return { store: rawStore, rawStore };
 	}
 
-	const scopedStore = Object.assign(createScopedDataStore(rawStore, scopeGroupIds, defaultScopeRules), {
+	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopeSet, defaultScopeRules), {
 		seed: rawStore.seed
 	}) as InMemoryDataStore;
 
@@ -550,6 +549,7 @@ export function createWritePortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -571,6 +571,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
@@ -596,6 +597,7 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
+		rawStore,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),

@@ -9,6 +9,7 @@
  *
  * Writes are not intercepted. Enforce write authorization at the use-case level.
  */
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/server/core/ports';
 
 /**
@@ -17,11 +18,11 @@ import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/se
  */
 export function createScopedDataStore(
 	inner: DataStore,
-	scopedGroupIds: string[] | string | null,
+	scope: ScopeSet | string[] | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	const groupIds = normalizeScopedGroupIds(scopedGroupIds);
-	if (groupIds.length === 0) return inner;
+	const groupIds = normalizeScopedGroupIds(scope);
+	if (!groupIds) return inner;
 
 	let cachedPersonnelIds: string[] | null = null;
 
@@ -34,19 +35,13 @@ export function createScopedDataStore(
 			return cachedPersonnelIds;
 		}
 
-		const personnel = await inner.findMany<{ id: string }>('personnel', orgId, {
-			[personnelRule.groupColumn]: groupIds[0]
-		});
-		const remainingGroupIds = groupIds.slice(1);
-		if (remainingGroupIds.length === 0) {
-			cachedPersonnelIds = personnel.map((p) => p.id);
-			return cachedPersonnelIds;
-		}
-
-		const additionalPersonnel = await inner.findMany<{ id: string }>('personnel', orgId, undefined, {
-			inFilters: { [personnelRule.groupColumn]: remainingGroupIds }
-		});
-		cachedPersonnelIds = [...personnel, ...additionalPersonnel].map((p) => p.id);
+		const personnel = await inner.findMany<{ id: string }>(
+			'personnel',
+			orgId,
+			groupIds.length === 1 ? { [personnelRule.groupColumn]: groupIds[0] } : undefined,
+			groupIds.length > 1 ? { inFilters: { [personnelRule.groupColumn]: groupIds } } : undefined
+		);
+		cachedPersonnelIds = personnel.map((p) => p.id);
 		return cachedPersonnelIds;
 	}
 
@@ -63,13 +58,7 @@ export function createScopedDataStore(
 			if (groupIds.length > 1) {
 				return {
 					filters,
-					options: {
-						...options,
-						inFilters: {
-							...options?.inFilters,
-							[rule.groupColumn]: groupIds
-						}
-					}
+					options: mergeInFilter(options, rule.groupColumn, groupIds)
 				};
 			}
 
@@ -189,10 +178,25 @@ export function createScopedDataStore(
 	};
 }
 
-function normalizeScopedGroupIds(scopedGroupIds: string[] | string | null): string[] {
-	if (Array.isArray(scopedGroupIds)) {
-		return scopedGroupIds.filter(Boolean);
+function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): string[] | null {
+	if (!scope) return null;
+	if (Array.isArray(scope)) {
+		const groupIds = Array.from(new Set(scope.filter(Boolean)));
+		return groupIds.length > 0 ? groupIds : null;
 	}
+	if (typeof scope === 'string') return scope ? [scope] : null;
+	if (scope.kind !== 'groups') return null;
 
-	return scopedGroupIds ? [scopedGroupIds] : [];
+	const groupIds = Array.from(new Set(scope.groupIds.filter(Boolean)));
+	return groupIds.length > 0 ? groupIds : null;
+}
+
+function mergeInFilter(options: FindOptions | undefined, column: string, values: string[]): FindOptions {
+	return {
+		...(options ?? {}),
+		inFilters: {
+			...(options?.inFilters ?? {}),
+			[column]: values
+		}
+	};
 }

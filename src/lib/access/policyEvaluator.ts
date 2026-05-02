@@ -155,6 +155,29 @@ export const POLICY_ACTION_CATALOG = {
 			requiredCapability: 'view'
 		})
 	},
+	criticalTasks: {
+		viewReadiness: featureAction({
+			id: 'criticalTasks.viewReadiness',
+			label: 'View Critical Tasks readiness',
+			lane: 'criticalTasks',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		recordCompletion: featureAction({
+			id: 'criticalTasks.recordCompletion',
+			label: 'Record Critical Tasks completion',
+			lane: 'criticalTasks',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		configureLibrary: featureAction({
+			id: 'criticalTasks.configureLibrary',
+			label: 'Configure Critical Tasks library',
+			lane: 'criticalTasks',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		})
+	},
 	ratingScheme: {
 		readRosterReferences: featureAction({
 			id: 'ratingScheme.readRosterReferences',

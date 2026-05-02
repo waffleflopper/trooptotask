@@ -552,19 +552,35 @@ describe('Port bundle context builders', () => {
 	it('createWritePortsContext returns the write bundle plus the critical tasks read model', () => {
 		const ctx = createWritePortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'readOnlyGuard', 'store']);
+		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'rawStore', 'readOnlyGuard', 'store']);
 	});
 
 	it('createWriteWithNotificationsPortsContext returns WritePorts + notifications', () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'notifications', 'readOnlyGuard', 'store']);
+		expect(keys).toEqual([
+			'audit',
+			'auth',
+			'criticalTasksReadModel',
+			'notifications',
+			'rawStore',
+			'readOnlyGuard',
+			'store'
+		]);
 	});
 
 	it('createWriteWithSubscriptionPortsContext returns WritePorts + subscription', () => {
 		const ctx = createWriteWithSubscriptionPortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'readOnlyGuard', 'store', 'subscription']);
+		expect(keys).toEqual([
+			'audit',
+			'auth',
+			'criticalTasksReadModel',
+			'rawStore',
+			'readOnlyGuard',
+			'store',
+			'subscription'
+		]);
 	});
 
 	it('createUserWritePortsContext returns exactly store, auth, audit', () => {

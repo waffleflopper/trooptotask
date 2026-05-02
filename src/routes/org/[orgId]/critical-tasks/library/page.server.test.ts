@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { _createCriticalTasksLibraryPageLoad } from './+page.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('critical tasks library page server load', () => {
-	it('guards task-library management behind the privileged owner/admin boundary', async () => {
+	it('guards task-library management behind the Critical Tasks configure policy boundary', async () => {
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn({} as never));
 		const load = _createCriticalTasksLibraryPageLoad({ loadWithContext });
 		const depends = vi.fn();
@@ -19,7 +20,10 @@ describe('critical tasks library page server load', () => {
 			expect.anything(),
 			expect.anything(),
 			'org-1',
-			expect.objectContaining({ permission: 'privileged' })
+			expect.objectContaining({
+				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary
+			})
 		);
 	});
 });

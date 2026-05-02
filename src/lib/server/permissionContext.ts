@@ -87,11 +87,11 @@ export function createSandboxContext(): PermissionContext {
 		isPrivileged: true,
 		isFullEditor: false,
 		scopedGroupId: null,
-		capabilityMap: PRIVILEGED_CAPABILITY_MAP,
-		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },
 		canManageMembers: true,
+		scopeSet: { kind: 'organization' },
+		capabilityMap: buildPrivilegedCapabilityMap(),
 
 		requireEdit(): void {},
 		requireView(): void {},
@@ -188,22 +188,13 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 	};
 
 	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
-	const memberAccessShape = membership.member_preset
-		? resolveStoredMemberAccessShape({
-				membershipRole: role,
-				memberPreset: membership.member_preset,
-				capabilityOverrides: membership.capability_overrides,
-				scopeSet:
-					membership.access_scope_kind === 'groups'
-						? { kind: 'groups', groupIds: membership.access_scope_group_ids ?? [] }
-						: { kind: 'organization' },
-				canManageMembers: membership.can_manage_members
-			})
-		: toMemberAccessShape({
-				membershipRole: role,
-				permissions: memberPermissions,
-				scopedGroupId
-			});
+	const accessShape = isPrivileged
+		? {
+				capabilityMap: buildPrivilegedCapabilityMap(),
+				scopeSet: { kind: 'organization' } as ScopeSet
+			}
+		: resolveMembershipAccessShape(membership, memberPermissions, scopedGroupId);
+	const scopedGroupAccess = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : null;
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
@@ -225,11 +216,11 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isPrivileged,
 		isFullEditor,
 		scopedGroupId,
-		capabilityMap: isPrivileged ? PRIVILEGED_CAPABILITY_MAP : memberAccessShape.capabilityMap,
-		scopeSet: isPrivileged ? { kind: 'organization' } : memberAccessShape.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
+		capabilityMap: accessShape.capabilityMap,
+		scopeSet: accessShape.scopeSet,
 
 		requireEdit(area: FeatureArea): void {
 			if (!canEdit[area]) {
@@ -269,12 +260,12 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
+			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
 		},
 
 		async requireGroupAccessBatch(supabaseClient: SupabaseClient, personnelIds: string[]): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccessBatch(resolver, scopedGroupId, personnelIds);
+			await enforceGroupAccessBatch(resolver, scopedGroupAccess, personnelIds);
 		},
 
 		async requireGroupAccessByRecord(
@@ -284,7 +275,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			orgId: string,
 			personnelIdColumn: string
 		): Promise<void> {
-			if (!scopedGroupId) return;
+			if (!scopedGroupAccess) return;
 
 			const { data: record } = await supabaseClient
 				.from(table)
@@ -299,7 +290,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			if (!personnelId) return;
 
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
+			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
 		}
 	};
 
@@ -334,4 +325,52 @@ export async function getMembershipRow(
 	}
 
 	return membership as MembershipRow;
+}
+
+function buildPrivilegedCapabilityMap(): CapabilityMap {
+	return { ...PRIVILEGED_CAPABILITY_MAP };
+}
+
+function resolveMembershipAccessShape(
+	membership: MembershipRow,
+	permissions: OrganizationMemberPermissions,
+	scopedGroupId: string | null
+): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
+	if (isStoredMemberPreset(membership.member_preset)) {
+		const shape = resolveStoredMemberAccessShape({
+			membershipRole: membership.role,
+			memberPreset: membership.member_preset,
+			capabilityOverrides: membership.capability_overrides,
+			scopeSet: toScopeSet(membership),
+			canManageMembers: membership.can_manage_members
+		});
+		return {
+			capabilityMap: shape.capabilityMap,
+			scopeSet: shape.scopeSet
+		};
+	}
+
+	const shape = toMemberAccessShape({
+		membershipRole: membership.role,
+		permissions,
+		scopedGroupId
+	});
+	return {
+		capabilityMap: shape.capabilityMap,
+		scopeSet: shape.scopeSet
+	};
+}
+
+function isStoredMemberPreset(value: unknown): value is StoredMemberPreset {
+	return value === 'viewer' || value === 'operator' || value === 'editor';
+}
+
+function toScopeSet(membership: MembershipRow): ScopeSet {
+	if (membership.access_scope_kind === 'groups' && Array.isArray(membership.access_scope_group_ids)) {
+		return { kind: 'groups', groupIds: membership.access_scope_group_ids };
+	}
+
+	return membership.scoped_group_id
+		? { kind: 'groups', groupIds: [membership.scoped_group_id] }
+		: { kind: 'organization' };
 }

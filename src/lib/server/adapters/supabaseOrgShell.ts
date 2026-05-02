@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { MembershipRow } from '$lib/server/permissionContext';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	DeferredData,
@@ -693,6 +694,8 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'critical-tasks',
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -700,6 +703,8 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'critical-tasks',
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}

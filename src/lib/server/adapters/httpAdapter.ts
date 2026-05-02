@@ -38,8 +38,10 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
-import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
+import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
+import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 
@@ -47,10 +49,6 @@ interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
 	isSandbox: boolean;
-}
-
-function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
-	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : auth.scopedGroupId;
 }
 
 async function createRequestAuthContext(config: {
@@ -100,7 +98,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
 	return {
 		ctx: {
 			store: scopedStore,
@@ -167,7 +165,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,
@@ -220,7 +218,7 @@ export async function buildLayoutContextFromMembership(
 	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
+	const scopedStore = createScopedDataStore(store, auth.scopeSet, defaultScopeRules);
 	return {
 		store: scopedStore,
 		advancedDutyPersistence,
@@ -301,6 +299,9 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
 	mutation?: boolean;
 	allowReadOnlyMutation?: boolean;
+	policyAction?: FeatureLanePolicyAction;
+	policyResource?: PolicyResource;
+	deferPolicyToUseCase?: boolean;
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
@@ -312,7 +313,16 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	};
 }
 
-function enforcePermission(ctx: UseCaseContext, config: RouteConfig<unknown, unknown>): void {
+async function enforcePermission(ctx: UseCaseContext, config: RouteConfig<unknown, unknown>): Promise<void> {
+	if (config.deferPolicyToUseCase) {
+		return;
+	}
+
+	if (config.policyAction) {
+		await requirePolicyDecision(ctx, config.policyAction, config.policyResource ?? { kind: 'organization' });
+		return;
+	}
+
 	const { permission, mutation } = config;
 
 	switch (permission) {
@@ -346,10 +356,10 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	rawInput: unknown
 ): Promise<TOutput> {
 	// 1. Permission check
-	enforcePermission(ctx, config as RouteConfig<unknown, unknown>);
+	await enforcePermission(ctx, config as RouteConfig<unknown, unknown>);
 
 	// 2. Read-only guard for mutations
-	if (config.mutation && !config.allowReadOnlyMutation) {
+	if (shouldRunLegacyReadOnlyGuard(config)) {
 		const isReadOnly = await ctx.readOnlyGuard.check();
 		if (isReadOnly) {
 			fail(403, 'Organization is in read-only mode');
@@ -383,18 +393,36 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	return output;
 }
 
+function shouldRunLegacyReadOnlyGuard<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): boolean {
+	return Boolean(
+		config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase && !config.policyAction
+	);
+}
+
 // ---------------------------------------------------------------------------
 // loadWithContext() — page loader wrapper
 // ---------------------------------------------------------------------------
 
 interface LoadConfig<T> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
+	policyAction?: FeatureLanePolicyAction;
+	policyResource?: PolicyResource;
 	fn: (ctx: UseCaseContext) => Promise<T>;
 	defer?: boolean;
 }
 
-function enforceLoadPermission(ctx: UseCaseContext, permission: LoadConfig<unknown>['permission']): void {
-	if (permission === 'none') return;
+function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>): void | Promise<void> {
+	if (config.policyAction) {
+		return requirePolicyDecision(ctx, config.policyAction, config.policyResource ?? { kind: 'organization' });
+	}
+
+	enforceLegacyLoadPermission(ctx, config.permission);
+}
+
+function enforceLegacyLoadPermission(ctx: UseCaseContext, permission: LoadConfig<unknown>['permission']): void {
+	if (permission === 'none') {
+		return;
+	}
 	switch (permission) {
 		case 'privileged':
 			ctx.auth.requirePrivileged();
@@ -424,13 +452,14 @@ export function loadWithContextCore<T>(
 ): { data: Promise<T> };
 export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T>;
 export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T> | { data: Promise<T> } {
-	enforceLoadPermission(ctx, config.permission);
-
 	if (config.defer) {
-		return { data: config.fn(ctx) };
+		const permissionResult = enforceLoadPermission(ctx, config as LoadConfig<unknown>);
+		return {
+			data: Promise.resolve(permissionResult).then(() => config.fn(ctx))
+		};
 	}
 
-	return config.fn(ctx);
+	return Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx));
 }
 
 /**
@@ -527,6 +556,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		entity,
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
+		policyAction: entity.policyAction,
 		requireFullEditor: entity.requireFullEditor,
 		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
@@ -541,6 +571,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
+			deferPolicyToUseCase: !!entity.policyAction,
 			fn: (ctx, input) => useCases.create(ctx, input)
 		};
 		result.POST = handle(postConfig);
@@ -551,6 +582,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
+			deferPolicyToUseCase: !!entity.policyAction,
 			fn: (ctx, input) => useCases.update(ctx, input)
 		};
 		result.PUT = handle(putConfig);
@@ -561,6 +593,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		const deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 			permission: entity.permission,
 			mutation: true,
+			deferPolicyToUseCase: !!entity.policyAction,
 			fn: async (ctx, input) => {
 				const id = input?.id;
 				if (!id || typeof id !== 'string') {

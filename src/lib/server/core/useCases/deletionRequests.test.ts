@@ -467,6 +467,17 @@ describe('listDeletionRequests', () => {
 		expect(result).toHaveLength(2);
 	});
 
+	it('allows governance users to list requests while the organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		ctx.store.seed('deletion_requests', [
+			{ id: 'dr-1', organization_id: 'test-org', requested_by: 'user-a', status: 'pending' },
+			{ id: 'dr-2', organization_id: 'test-org', requested_by: 'user-b', status: 'approved' }
+		]);
+
+		const result = await listDeletionRequests(ctx);
+		expect(result).toHaveLength(2);
+	});
+
 	it('returns only own requests for non-privileged users', async () => {
 		const ctx = buildContext({ auth: { userId: 'user-a', role: 'member', isPrivileged: false } });
 		ctx.store.seed('deletion_requests', [

@@ -268,7 +268,9 @@ export async function listDeletionRequests(
 	}
 
 	if (ctx.auth.role === 'owner' || ctx.auth.role === 'admin') {
-		await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
+		await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests, {
+			enforceReadOnlyOverlay: false
+		});
 	} else {
 		await requireIdentityOwnedPolicy(
 			ctx,

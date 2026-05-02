@@ -4,6 +4,7 @@ import { batchDailyAssignments } from '$lib/server/core/useCases/dailyAssignment
 export const POST = handle<Record<string, unknown>, unknown>({
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		return batchDailyAssignments(ctx, {
 			records: input.records as Array<{ date: string; assignmentTypeId: string; assigneeId: string }>

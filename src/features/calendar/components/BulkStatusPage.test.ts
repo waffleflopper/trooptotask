@@ -9,7 +9,8 @@ const { gotoMock, orgContextMock } = vi.hoisted(() => ({
 		orgId: 'org-1',
 		isPrivileged: true,
 		isFullEditor: true,
-		readOnly: false
+		readOnly: false,
+		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 	}
 }));
 
@@ -55,7 +56,7 @@ vi.mock('$features/personnel/utils/personnelGrouping', () => ({
 }));
 
 vi.mock('$lib/utils/scopePersonnel', () => ({
-	scopePersonnelByGroup: vi.fn((value) => value)
+	scopePersonnelByGroupScopeSet: vi.fn((value) => value)
 }));
 
 function renderPage() {
@@ -65,8 +66,7 @@ function renderPage() {
 				orgId: 'org-1',
 				orgName: 'Test Unit',
 				personnel: [],
-				allPersonnel: [],
-				scopedGroupId: null
+				allPersonnel: []
 			}
 		}
 	});
@@ -79,6 +79,7 @@ describe('BulkStatusPage', () => {
 		orgContextMock.isPrivileged = true;
 		orgContextMock.isFullEditor = true;
 		orgContextMock.readOnly = false;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 	});
 
 	it('uses shared toolbar controls for tab navigation and related calendar link', async () => {
@@ -100,11 +101,27 @@ describe('BulkStatusPage', () => {
 
 	it('preserves the permission gate for read-only users', () => {
 		orgContextMock.readOnly = true;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({
+			allowed: false,
+			visible: true,
+			disabled: true
+		});
 
 		renderPage();
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Bulk status sections' })).toBeNull();
 		expect(screen.getByRole('link', { name: 'Calendar' })).toBeTruthy();
+	});
+
+	it('allows Calendar operators to use bulk status without full-editor compatibility', () => {
+		orgContextMock.isPrivileged = false;
+		orgContextMock.isFullEditor = false;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+
+		renderPage();
+
+		expect(screen.getByRole('group', { name: 'Bulk status sections' })).toBeTruthy();
+		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 });

@@ -4,13 +4,10 @@ import { field, defineEntity } from '$lib/server/entitySchema';
 import { createTestContext } from './inMemory';
 import { handleUseCaseRequest } from './httpAdapter';
 import { entityHandlers } from './httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 // A simple test entity with full metadata
-function createTestEntity(overrides?: {
-	methods?: ('POST' | 'PUT' | 'DELETE')[];
-	requireFullEditor?: boolean;
-	requirePrivileged?: boolean;
-}) {
+function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] }) {
 	return defineEntity({
 		table: 'widgets',
 		groupScope: 'none',
@@ -20,8 +17,7 @@ function createTestEntity(overrides?: {
 			color: field(z.string(), { insertDefault: 'blue' })
 		},
 		permission: 'training',
-		requireFullEditor: overrides?.requireFullEditor ?? true,
-		requirePrivileged: overrides?.requirePrivileged,
+		policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 		audit: 'widget',
 		methods: overrides?.methods ?? ['POST', 'PUT', 'DELETE']
 	});
@@ -185,29 +181,20 @@ describe('entityHandlers()', () => {
 	});
 
 	describe('permission enforcement', () => {
-		it('rejects when auth lacks edit permission', async () => {
+		it('rejects when auth lacks the declared policy capability', async () => {
 			const entity = createTestEntity();
 			const handlers = entityHandlers(entity);
 			const ctx = createTestContext({
 				auth: {
-					requireEdit() {
-						throw { status: 403, body: { message: 'Forbidden' } };
-					}
-				}
-			});
-
-			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Denied' })).rejects.toMatchObject({
-				status: 403
-			});
-		});
-
-		it('passes an entity privileged requirement into generated CRUD use cases', async () => {
-			const entity = createTestEntity({ requireFullEditor: false, requirePrivileged: true });
-			const handlers = entityHandlers(entity);
-			const ctx = createTestContext({
-				auth: {
-					requirePrivileged() {
-						throw { status: 403, body: { message: 'Requires owner or admin' } };
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'view',
+						criticalTasks: 'none',
+						onboarding: 'none',
+						ratingScheme: 'none'
 					}
 				}
 			});
@@ -240,6 +227,7 @@ describe('entityHandlers()', () => {
 					name: field(z.string())
 				},
 				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 				audit: { resourceType: 'gadget', action: 'custom' }
 			});
 			const handlers = entityHandlers(entity);

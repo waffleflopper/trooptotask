@@ -53,6 +53,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
   - Critical Tasks now owns a dedicated permission lane
   - Rating Scheme now owns a dedicated permission lane across route guards, membership and invitation flags, RLS, and the first-class Evals route
   - `Leader's Book` remains a documented transitional compatibility lane outside the durable first-class lane map
+  - remaining supported `Leader's Book` compatibility workflows are policy-converted through explicit Policy Decisions without adding `Leader's Book` to the durable lane taxonomy
 
 ### Provider ownership
 

@@ -99,13 +99,24 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('fetchCalendarData', () => {
-	it('calls requireView for calendar permission', async () => {
-		const ctx = buildCtx();
-		const spy = vi.spyOn(ctx.auth, 'requireView');
+	it('requires an authoritative Calendar view policy decision', async () => {
+		const ctx = buildCtx({
+			auth: {
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			}
+		});
 
-		await fetchCalendarData(ctx, RANGE);
-
-		expect(spy).toHaveBeenCalledWith('calendar');
+		await expect(fetchCalendarData(ctx, RANGE)).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have permission to view calendar data'
+		});
 	});
 
 	it('returns all 5 data collections with entity transforms (roster history moved to page server)', async () => {
@@ -151,6 +162,96 @@ describe('fetchCalendarData', () => {
 
 		// Roster history no longer returned from calendarQuery
 		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
+	});
+
+	it('filters Calendar personnel-backed bootstrap reads to the shared multi-Group scope set', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
+			}
+		});
+		ctx.store.seed('groups', [
+			{ id: 'g1', name: 'Alpha', organization_id: ORG, sort_order: 1 },
+			{ id: 'g2', name: 'Bravo', organization_id: ORG, sort_order: 2 },
+			{ id: 'g3', name: 'Charlie', organization_id: ORG, sort_order: 3 }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p1',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Able',
+				first_name: 'Ann',
+				mos: '11B',
+				clinic_role: 'NCO',
+				group_id: 'g1',
+				groups: { name: 'Alpha' },
+				archived_at: null
+			},
+			{
+				id: 'p2',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Baker',
+				first_name: 'Bo',
+				mos: '11B',
+				clinic_role: 'Soldier',
+				group_id: 'g2',
+				groups: { name: 'Bravo' },
+				archived_at: null
+			},
+			{
+				id: 'p3',
+				organization_id: ORG,
+				rank: 'PFC',
+				last_name: 'Clark',
+				first_name: 'Cam',
+				mos: '11B',
+				clinic_role: 'Soldier',
+				group_id: 'g3',
+				groups: { name: 'Charlie' },
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('availability_entries', [
+			{
+				id: 'ae-1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				status_type_id: 'st1',
+				start_date: '2026-03-01',
+				end_date: '2026-03-01',
+				note: null
+			},
+			{
+				id: 'ae-2',
+				organization_id: ORG,
+				personnel_id: 'p3',
+				status_type_id: 'st1',
+				start_date: '2026-03-01',
+				end_date: '2026-03-01',
+				note: null
+			}
+		]);
+		ctx.store.seed('daily_assignments', [
+			{ id: 'da-1', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p2' },
+			{ id: 'da-2', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p3' },
+			{ id: 'da-3', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'g1' }
+		]);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(result.personnel.map((person) => person.id)).toEqual(['p1', 'p2']);
+		expect(result.groups.map((group) => group.id)).toEqual(['g1', 'g2']);
+		await expect(result.availabilityEntries).resolves.toEqual([
+			expect.objectContaining({ id: 'ae-1', personnelId: 'p1' })
+		]);
+		await expect(result.dailyAssignments).resolves.toEqual([
+			expect.objectContaining({ id: 'da-1', assigneeId: 'p2' }),
+			expect.objectContaining({ id: 'da-3', assigneeId: 'g1' })
+		]);
 	});
 
 	it('excludes availability entries outside the date range (overlap logic)', async () => {
@@ -316,12 +417,10 @@ describe('fetchCalendarData', () => {
 describe('fetchCalendarBootstrap', () => {
 	it('returns calendar reference collections for the workspace boundary', async () => {
 		const ctx = buildCtx();
-		const spy = vi.spyOn(ctx.auth, 'requireView');
 		seedCalendarData(ctx.store);
 
 		const result = await fetchCalendarBootstrap(ctx, RANGE);
 
-		expect(spy).toHaveBeenCalledWith('calendar');
 		expect(result.personnel.map((person) => person.lastName)).toEqual(['Jones', 'Smith']);
 		expect(result.personnel[0].groupName).toBe('Bravo');
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);

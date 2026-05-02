@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
@@ -7,12 +8,21 @@ import { createCrudUseCases } from './crud';
 
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
 
+const operateOnlyCapabilityMap: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'operate',
+	ratingScheme: 'none'
+};
+
 // Same config entityHandlers() derives for template — with afterDelete hook
 const templateUseCases = createCrudUseCases({
 	entity: OnboardingTemplateEntity,
 	permission: OnboardingTemplateEntity.permission!,
 	auditResource: getEntityAuditResource(OnboardingTemplateEntity),
-	requireFullEditor: OnboardingTemplateEntity.requireFullEditor,
+	policyAction: OnboardingTemplateEntity.policyAction,
 	afterDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
 
@@ -30,7 +40,7 @@ const stepUseCases = createCrudUseCases({
 	entity: OnboardingTemplateStepEntity,
 	permission: OnboardingTemplateStepEntity.permission!,
 	auditResource: getEntityAuditResource(OnboardingTemplateStepEntity),
-	requireFullEditor: OnboardingTemplateStepEntity.requireFullEditor
+	policyAction: OnboardingTemplateStepEntity.policyAction
 });
 
 describe('Onboarding Template CRUD', () => {
@@ -141,15 +151,12 @@ describe('Onboarding Template deletion hooks', () => {
 		expect(ob3!.template_id).toBe('tmpl-other');
 	});
 
-	it('rejects non-full-editor from template CRUD', async () => {
+	it('rejects template CRUD without Onboarding configure policy', async () => {
 		const ctx = createWritePortsContext({
 			auth: {
-				isFullEditor: false,
 				role: 'member',
 				isPrivileged: false,
-				requireFullEditor: () => {
-					throw { status: 403 };
-				}
+				capabilityMap: operateOnlyCapabilityMap
 			}
 		});
 

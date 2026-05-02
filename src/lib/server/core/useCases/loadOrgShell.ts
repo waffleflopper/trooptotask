@@ -1,4 +1,4 @@
-import { isFullEditor } from '$lib/types';
+import { hasOrganizationWideConfigureAccess } from '$lib/access/memberAccessShape';
 import type { OrgAccessPort, OrgChromePort, OrgShellData } from '../orgShell';
 
 export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort): Promise<OrgShellData> {
@@ -18,11 +18,13 @@ export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort)
 		userId: membership.userId,
 		userPreferences: chromeData.userPreferences,
 		userRole: membership.role,
+		capabilityMap: membership.capabilityMap,
+		scopeSet: membership.scopeSet,
 		permissions: membership.permissions,
-		scopedGroupId: membership.scopedGroupId,
+		scopedGroupId: membership.scopedGroupId ?? null,
 		isOwner,
 		isAdmin,
-		isFullEditor: !isPrivileged && !membership.scopedGroupId && isFullEditor(membership.permissions),
+		isFullEditor: !isPrivileged && hasOrganizationWideConfigureAccess(membership.capabilityMap, membership.scopeSet),
 		effectiveTier: orgState.effectiveTier,
 		unreadNotificationCount: chromeData.unreadNotificationCount,
 		activeAnnouncements: chromeData.activeAnnouncements,

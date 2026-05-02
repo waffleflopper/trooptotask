@@ -3,6 +3,7 @@ import { IctTaskEntity } from './ictTask';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('IctTaskEntity', () => {
 	it('maps database rows to Critical Tasks task records', () => {
@@ -120,11 +121,10 @@ describe('IctTaskEntity', () => {
 		});
 	});
 
-	it('uses an owner/admin-only critical tasks library boundary', () => {
+	it('uses the Critical Tasks configure policy boundary', () => {
 		expect(IctTaskEntity.table).toBe('ict_tasks');
 		expect(IctTaskEntity.permission).toBe('critical-tasks');
-		expect(IctTaskEntity.requirePrivileged).toBe(true);
-		expect(IctTaskEntity.requireFullEditor).toBeUndefined();
+		expect(IctTaskEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary);
 		expect(IctTaskEntity.methods).toEqual(['POST', 'PUT']);
 		expect(IctTaskEntity.orderBy).toEqual([
 			{ column: 'sort_order', ascending: true },

@@ -8,19 +8,14 @@
  * holiday entries for the org and re-inserts the default set from `federalHolidays.ts`.
  * This is a destructive replace — any custom edits to federal holidays are lost.
  */
-import { fail } from '$lib/server/core/errors';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import type { WritePorts } from '$lib/server/core/ports';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 
 export function createResetFederalHolidaysUseCase() {
 	return async (ctx: WritePorts): Promise<unknown[]> => {
-		ctx.auth.requireEdit('calendar');
-
-		const isReadOnly = await ctx.readOnlyGuard.check();
-		if (isReadOnly) {
-			fail(403, 'Organization is in read-only mode');
-		}
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.configureSpecialDays, { kind: 'organization' });
 
 		// Delete existing federal holidays
 		await ctx.store.deleteWhere('special_days', ctx.auth.orgId, {

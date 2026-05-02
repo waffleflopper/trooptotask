@@ -1,12 +1,19 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
+import {
+	filterRowsByCalendarAssigneeScope,
+	personnelInFilter,
+	resolveCalendarAssigneeScope
+} from '$lib/server/core/useCases/calendarScope';
 
-export const GET = handle<{ startDate: string; endDate: string }, unknown>({
-	permission: 'privileged',
+export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unknown> = {
+	permission: 'calendar',
+	deferPolicyToUseCase: true,
 	parseInput: (event: RequestEvent) => ({
 		startDate: event.url.searchParams.get('startDate') ?? '',
 		endDate: event.url.searchParams.get('endDate') ?? ''
@@ -19,9 +26,13 @@ export const GET = handle<{ startDate: string; endDate: string }, unknown>({
 			fail(400, 'Dates must be in YYYY-MM-DD format');
 		}
 		if (startDate > endDate) fail(400, 'startDate must be before or equal to endDate');
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
+
+		const scope = await resolveCalendarAssigneeScope(ctx);
 
 		const [entries, assignments, assignmentTypes] = await Promise.all([
 			ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+				...personnelInFilter(scope, 'personnel_id'),
 				rangeFilters: [
 					{ column: 'end_date', op: 'gte', value: startDate },
 					{ column: 'start_date', op: 'lte', value: endDate }
@@ -40,8 +51,10 @@ export const GET = handle<{ startDate: string; endDate: string }, unknown>({
 
 		return {
 			entries: AvailabilityEntryEntity.fromDbArray(entries),
-			assignments: DailyAssignmentEntity.fromDbArray(assignments),
+			assignments: DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(assignments, scope)),
 			assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypes)
 		};
 	}
-});
+};
+
+export const GET = handle(_getConfig);

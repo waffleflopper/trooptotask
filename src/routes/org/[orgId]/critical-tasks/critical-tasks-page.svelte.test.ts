@@ -19,7 +19,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -35,8 +34,34 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
+		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string; accessMode: string }) {
+			const levels = ['none', 'view', 'operate', 'configure'];
+			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
+			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
+			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
+			return {
+				allowed: hasCapability && !readOnlyBlocked,
+				visible: hasCapability,
+				disabled: hasCapability && readOnlyBlocked,
+				reason: readOnlyBlocked
+					? 'denied:read-only-overlay'
+					: hasCapability
+						? 'allowed:capability'
+						: 'denied:missing-capability',
+				explanation: '',
+				decision: {}
+			};
+		}
 	},
 	parseFileMock: vi.fn()
 }));
@@ -140,7 +165,11 @@ describe('critical tasks page', () => {
 		mockOrgContext.isOwner = true;
 		mockOrgContext.isAdmin = false;
 		mockOrgContext.isPrivileged = true;
-		mockOrgContext.isFullEditor = true;
+		mockOrgContext.capabilityMap.criticalTasks = 'configure';
+		mockOrgContext.scopeSet = { kind: 'organization' };
+		mockOrgContext.permissions.canViewCriticalTasks = true;
+		mockOrgContext.permissions.canEditCriticalTasks = true;
+		mockOrgContext.readOnly = false;
 		personnelStore.startLoading();
 		groupsStore.startLoading();
 		ictTasksStore.startLoading();
@@ -227,8 +256,8 @@ describe('critical tasks page', () => {
 				data: {
 					orgId: 'org-1',
 					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
+						canViewTraining: false,
+						canEditTraining: false,
 						canViewCriticalTasks: true,
 						canEditCriticalTasks: true
 					}
@@ -245,7 +274,7 @@ describe('critical tasks page', () => {
 			screen.getByRole('button', { name: 'Import Completions' }),
 			libraryLink,
 			reportsLink,
-			screen.getByRole('button', { name: 'Record Training' })
+			screen.getByRole('button', { name: 'Record Completion' })
 		];
 		for (let index = 0; index < orderedActions.length - 1; index += 1) {
 			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
@@ -253,6 +282,40 @@ describe('critical tasks page', () => {
 		for (const action of orderedActions) {
 			expect(action.classList.contains('toolbar-action--compact')).toBe(false);
 		}
+	});
+
+	it('uses Critical Tasks Policy Decisions instead of legacy view and edit flags for page affordances', () => {
+		mockOrgContext.role = 'member';
+		mockOrgContext.isOwner = false;
+		mockOrgContext.isAdmin = false;
+		mockOrgContext.isPrivileged = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'configure';
+		mockOrgContext.permissions.canViewCriticalTasks = false;
+		mockOrgContext.permissions.canEditCriticalTasks = false;
+		personnelStore.load([person()], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewCriticalTasks: false,
+						canEditCriticalTasks: false
+					}
+				}
+			}
+		});
+
+		expect(screen.queryByRole('heading', { name: 'Access Restricted' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Task Library' }).getAttribute('href')).toBe(
+			'/org/org-1/critical-tasks/library'
+		);
+		expect(screen.getByRole('button', { name: 'Import Completions' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Record Completion' })).toBeTruthy();
 	});
 
 	it('opens the completion import modal from the page toolbar', async () => {
@@ -370,7 +433,7 @@ describe('critical tasks page', () => {
 					'import-completions': 176,
 					'task-library': 136,
 					reports: 104,
-					'record-training': 168
+					'record-completion': 180
 				};
 				return rectWithWidth(widths[actionId ?? ''] ?? 96);
 			}
@@ -447,7 +510,7 @@ describe('critical tasks page', () => {
 			await fireEvent.click(overflowTrigger);
 			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
 		}
-		expect(screen.getByRole('button', { name: /Record Training/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Record Completion/ })).toBeTruthy();
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {
@@ -546,11 +609,11 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('button', { name: /Smith 181-105-1001: current/i })).toBeTruthy();
 	});
 
-	it('shows reports but omits the task library affordance for non-admin training editors', async () => {
+	it('shows reports but omits the task library affordance for non-admin Critical Tasks operators', async () => {
 		mockOrgContext.role = 'member';
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isPrivileged = false;
-		mockOrgContext.isFullEditor = true;
+		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		personnelStore.load([], 'org-1');
 		groupsStore.load([], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
@@ -735,7 +798,7 @@ describe('critical tasks page', () => {
 		});
 	});
 
-	it('links soldier names to the per-person detail page for training viewers', () => {
+	it('links soldier names to the per-person detail page for Critical Tasks viewers', () => {
 		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
 		groupsStore.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
@@ -767,7 +830,7 @@ describe('critical tasks page', () => {
 		expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
 	});
 
-	it('lets training editors log a completion from a matrix cell and updates the matrix without a reload', async () => {
+	it('lets Critical Tasks operators log a completion from a matrix cell and updates the matrix without a reload', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
 		vi.stubGlobal('fetch', fetchMock);
@@ -868,7 +931,7 @@ describe('critical tasks page', () => {
 		});
 	});
 
-	it('lets training editors input a task from the toolbar with searchable person and task selectors', async () => {
+	it('lets Critical Tasks operators input a task from the toolbar with searchable person and task selectors', async () => {
 		const airwayTask: IctTask = {
 			...ictTask,
 			id: 'task-2',
@@ -932,7 +995,7 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Record Training' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Record Completion' }));
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 

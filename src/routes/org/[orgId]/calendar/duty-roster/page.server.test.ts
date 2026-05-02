@@ -18,8 +18,6 @@ const {
 	mockCtx: {
 		auth: {
 			isPrivileged: false,
-			isFullEditor: false,
-			scopedGroupId: null,
 			requireView: vi.fn()
 		}
 	}

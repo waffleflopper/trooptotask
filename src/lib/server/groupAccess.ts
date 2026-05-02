@@ -1,10 +1,14 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export function isGroupAccessAllowed(scopedGroupId: string | null, personnelGroupId: string | null): boolean {
+export function isGroupAccessAllowed(
+	scopedGroupId: string | string[] | null,
+	personnelGroupId: string | null
+): boolean {
 	if (scopedGroupId === null) return true;
 	if (personnelGroupId === null) return true;
-	return scopedGroupId === personnelGroupId;
+	const scopedGroupIds = Array.isArray(scopedGroupId) ? scopedGroupId : [scopedGroupId];
+	return scopedGroupIds.includes(personnelGroupId);
 }
 
 export interface PersonnelGroupResolver {
@@ -33,7 +37,7 @@ export function createSupabaseGroupResolver(supabase: SupabaseClient): Personnel
 
 export async function enforceGroupAccess(
 	resolver: PersonnelGroupResolver,
-	scopedGroupId: string | null,
+	scopedGroupId: string | string[] | null,
 	personnelId: string
 ): Promise<void> {
 	if (scopedGroupId === null) return;
@@ -47,7 +51,7 @@ export async function enforceGroupAccess(
 
 export async function enforceGroupAccessBatch(
 	resolver: PersonnelGroupResolver,
-	scopedGroupId: string | null,
+	scopedGroupId: string | string[] | null,
 	personnelIds: string[]
 ): Promise<void> {
 	if (scopedGroupId === null) return;

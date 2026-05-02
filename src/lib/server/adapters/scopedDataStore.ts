@@ -4,23 +4,26 @@
  * Wraps a DataStore so that reads are filtered to rows belonging to a specific group's
  * personnel. The column mapping (table → group/personnel column) lives in `scopeRules.ts`.
  *
- * When `scopedGroupId` is null (admin/owner context), the inner store is returned as-is
+ * When no scoped Group IDs are provided (admin/owner context), the inner store is returned as-is
  * with zero overhead — route code never needs to branch on role.
  *
  * Writes are not intercepted. Enforce write authorization at the use-case level.
  */
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/server/core/ports';
 
 /**
  * Decorator that wraps any DataStore and auto-filters reads by group scope.
- * Returns the inner store unchanged when scopedGroupId is null (zero overhead for admins/owners).
+ * Returns the inner store unchanged when there are no scoped Group IDs.
  */
 export function createScopedDataStore(
 	inner: DataStore,
-	scopedGroupId: string | null,
+	scope: ScopeSet | string[] | string | null,
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
-	if (!scopedGroupId) return inner;
+	const scopedGroupIds = normalizeScopedGroupIds(scope);
+	if (!scopedGroupIds) return inner;
+	const groupIds = scopedGroupIds;
 
 	let cachedPersonnelIds: string[] | null = null;
 
@@ -33,9 +36,12 @@ export function createScopedDataStore(
 			return cachedPersonnelIds;
 		}
 
-		const personnel = await inner.findMany<{ id: string }>('personnel', orgId, {
-			[personnelRule.groupColumn]: scopedGroupId
-		});
+		const personnel = await inner.findMany<{ id: string }>(
+			'personnel',
+			orgId,
+			groupIds.length === 1 ? { [personnelRule.groupColumn]: groupIds[0] } : undefined,
+			groupIds.length > 1 ? { inFilters: { [personnelRule.groupColumn]: groupIds } } : undefined
+		);
 		cachedPersonnelIds = personnel.map((p) => p.id);
 		return cachedPersonnelIds;
 	}
@@ -50,8 +56,15 @@ export function createScopedDataStore(
 		if (!rule) return { filters, options };
 
 		if (rule.type === 'group') {
+			if (groupIds.length > 1) {
+				return {
+					filters,
+					options: mergeInFilter(options, rule.groupColumn, groupIds)
+				};
+			}
+
 			return {
-				filters: { ...filters, [rule.groupColumn]: scopedGroupId },
+				filters: { ...filters, [rule.groupColumn]: groupIds[0] },
 				options
 			};
 		}
@@ -113,6 +126,15 @@ export function createScopedDataStore(
 				return idSet.has(result[scoped.needsPersonnelFilter] as string) ? result : null;
 			}
 
+			if (scoped.options) {
+				const results = await inner.findMany<T>(table, orgId, scoped.filters ?? filters, {
+					...scoped.options,
+					...(select ? { select } : {}),
+					limit: 1
+				});
+				return results[0] ?? null;
+			}
+
 			return inner.findOne<T>(table, orgId, scoped.filters ?? filters, select);
 		},
 
@@ -163,5 +185,28 @@ export function createScopedDataStore(
 		deleteWhereAny: inner.deleteWhereAny.bind(inner),
 		deleteManyByIds: inner.deleteManyByIds.bind(inner),
 		insertMany: inner.insertMany.bind(inner)
+	};
+}
+
+function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): string[] | null {
+	if (!scope) return null;
+	if (Array.isArray(scope)) {
+		const groupIds = Array.from(new Set(scope.filter(Boolean)));
+		return groupIds.length > 0 ? groupIds : null;
+	}
+	if (typeof scope === 'string') return scope ? [scope] : null;
+	if (scope.kind !== 'groups') return null;
+
+	const groupIds = Array.from(new Set(scope.groupIds.filter(Boolean)));
+	return groupIds.length > 0 ? groupIds : null;
+}
+
+function mergeInFilter(options: FindOptions | undefined, column: string, values: string[]): FindOptions {
+	return {
+		...(options ?? {}),
+		inFilters: {
+			...(options?.inFilters ?? {}),
+			[column]: values
+		}
 	};
 }

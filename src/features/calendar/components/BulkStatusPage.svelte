@@ -8,9 +8,10 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
-	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
+	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
@@ -23,15 +24,16 @@
 			calendar?: {
 				data?: CalendarWorkspaceData;
 			};
-			scopedGroupId?: string | null;
 		};
 	}
 
 	let { data }: Props = $props();
 
 	const org = getOrgContext();
-	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
-	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const availabilityAffordance = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability)
+	);
+	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	// ---- Tab management ----
@@ -62,7 +64,7 @@
 			fallbackGroupName: data.orgName ?? ''
 		})
 	);
-	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const allPersonnelFlat = $derived(scopedPBG.flatMap((g) => g.personnel));
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }]);
 
@@ -112,7 +114,7 @@
 	{#if !canMutate}
 		<section class="restricted-hero">
 			<h1>Access restricted.</h1>
-			<p>Only organization admins and full editors can perform bulk status operations.</p>
+			<p>Calendar operation access is required to perform bulk status operations.</p>
 		</section>
 	{:else}
 		<div class="tab-panel">

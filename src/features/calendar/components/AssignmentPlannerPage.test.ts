@@ -4,17 +4,47 @@ import { fireEvent, render, screen, cleanup } from '@testing-library/svelte';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { AssignmentType, Personnel } from '$lib/types';
 
-let mockOrg: OrgContext = {
-	orgId: 'org-1',
-	orgName: 'Test Org',
-	userId: 'user-1',
-	role: 'member',
-	isOwner: false,
-	isAdmin: false,
-	isPrivileged: false,
+function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
+	const defaultCapabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	} satisfies OrgContext['capabilityMap'];
+
+	return createOrgContext({
+		orgId: 'org-1',
+		orgName: 'Test Org',
+		userId: 'user-1',
+		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
+		capabilityMap: overrides.capabilityMap ?? defaultCapabilityMap,
+		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
+		permissions: {
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewLeadersBook: true,
+			canEditLeadersBook: true,
+			canManageMembers: false
+		},
+		scopedGroupId: null,
+		isReadOnly: overrides.readOnly ?? false
+	});
+}
+
+let mockOrg: OrgContext = makeOrg({
 	isFullEditor: true,
 	permissions: {
 		canViewCalendar: true,
@@ -30,12 +60,11 @@ let mockOrg: OrgContext = {
 		canViewLeadersBook: true,
 		canEditLeadersBook: true,
 		canManageMembers: false
-	},
-	scopedGroupId: null,
-	readOnly: false
-};
+	}
+});
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
+vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/stores/orgContext.svelte')>()),
 	getOrgContext: () => mockOrg
 }));
 
@@ -168,7 +197,20 @@ describe('AssignmentPlannerPage', () => {
 	});
 
 	it('shows access restricted when the user cannot manage calendar assignments', () => {
-		mockOrg = { ...mockOrg, isFullEditor: false, isAdmin: false, isOwner: false, isPrivileged: false };
+		mockOrg = makeOrg({
+			isFullEditor: false,
+			isAdmin: false,
+			isOwner: false,
+			isPrivileged: false,
+			capabilityMap: {
+				calendar: 'view',
+				personnel: 'configure',
+				training: 'configure',
+				criticalTasks: 'configure',
+				onboarding: 'configure',
+				ratingScheme: 'configure'
+			}
+		});
 
 		renderPage({
 			orgId: 'org-1',
@@ -180,6 +222,35 @@ describe('AssignmentPlannerPage', () => {
 		});
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
-		expect(screen.getByText(/Only organization admins and full editors can manage monthly assignments\./)).toBeTruthy();
+		expect(screen.getByText(/Calendar operation access is required to manage monthly assignments\./)).toBeTruthy();
+	});
+
+	it('allows Calendar operators to manage monthly assignments without legacy edit flags', () => {
+		mockOrg = makeOrg({
+			isFullEditor: false,
+			isAdmin: false,
+			isOwner: false,
+			isPrivileged: false,
+			capabilityMap: {
+				calendar: 'operate',
+				personnel: 'view',
+				training: 'view',
+				criticalTasks: 'view',
+				onboarding: 'view',
+				ratingScheme: 'view'
+			}
+		});
+
+		renderPage({
+			orgId: 'org-1',
+			orgName: 'Test Org',
+			personnel,
+			allPersonnel: personnel,
+			scopedGroupId: null,
+			permissions: { canViewCalendar: true, canEditCalendar: false }
+		});
+
+		expect(screen.getByText('Quick Fill')).toBeTruthy();
+		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 });

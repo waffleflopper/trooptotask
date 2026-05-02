@@ -120,7 +120,8 @@ describe('org settings page server actions', () => {
 		});
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
-				auth: { orgId: 'org-1' },
+				auth: { orgId: 'org-1', role: 'owner' },
+				audit: { log: vi.fn() },
 				store: {
 					findMany: vi.fn(async (table: string) => {
 						if (table === 'organization_memberships') {
@@ -258,6 +259,87 @@ describe('org settings page server actions', () => {
 			}
 		});
 		expect(fetchAuditLogPreviewMock).toHaveBeenCalledWith(expect.anything(), { kind: 'admin-store' }, { limit: 9 });
+	});
+
+	it('denies governance workspace access through policy before loading settings data', async () => {
+		const auditLog = vi.fn();
+		const findMany = vi.fn();
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn({
+				auth: { orgId: 'org-1', role: 'member' },
+				audit: { log: auditLog },
+				store: { findMany },
+				rawStore: { findOne: vi.fn() },
+				subscription: {
+					getEffectiveTier: vi.fn(async () => ({ tier: 'free' })),
+					getMonthlyExportCount: vi.fn(async () => 0)
+				}
+			})
+		);
+
+		await expect(
+			load({
+				params: { orgId: 'org-1' },
+				locals: {},
+				cookies: {},
+				parent: async () => ({
+					orgName: 'Test Org',
+					userRole: 'member',
+					allOrgs: [],
+					isAdmin: false,
+					effectiveTier: {
+						tier: 'unit',
+						source: 'subscription',
+						personnelCount: 4,
+						personnelCap: 500,
+						isReadOnly: false,
+						giftExpiresAt: null,
+						giftTier: null
+					},
+					permissions: { canManageMembers: true }
+				})
+			} as never)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(findMany).not.toHaveBeenCalled();
+		expect(auditLog).toHaveBeenCalledWith({
+			action: 'policy.denied',
+			resourceType: 'organization',
+			details: {
+				policyAction: 'organization.accessGovernance',
+				reasonCode: 'denied:governance-role'
+			},
+			severity: 'warning'
+		});
+	});
+
+	it('keeps member-management hints tied to governance role instead of legacy access flags', async () => {
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({
+				orgName: 'Test Org',
+				userRole: 'member',
+				allOrgs: [],
+				isAdmin: false,
+				effectiveTier: {
+					tier: 'unit',
+					source: 'subscription',
+					personnelCount: 4,
+					personnelCap: 500,
+					isReadOnly: false,
+					giftExpiresAt: null,
+					giftTier: null
+				},
+				permissions: { canManageMembers: true }
+			})
+		} as never);
+
+		expect(result).toMatchObject({ canManageMembers: false });
 	});
 
 	it('returns a name-specific success flag for organization rename', async () => {
@@ -483,6 +565,7 @@ describe('org settings page server actions', () => {
 				auth: { kind: 'auth' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
 				settings: { kind: 'settings-port' }
 			},
 			{
@@ -506,6 +589,9 @@ describe('org settings page server actions', () => {
 					canEditLeadersBook: false,
 					canManageMembers: true
 				},
+				capabilityOverrides: {},
+				accessScopeKind: null,
+				accessScopeGroupIds: [],
 				actorEmail: 'user@example.com'
 			}
 		);

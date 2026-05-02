@@ -9,7 +9,7 @@ import {
 
 describe('fetchCriticalTasksReportSummary', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
-		const ctx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -337,7 +337,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 	});
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
-		const ctx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,

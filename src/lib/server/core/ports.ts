@@ -1,4 +1,5 @@
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
 
 export type FeatureArea =
 	| 'calendar'
@@ -133,14 +134,13 @@ export interface AuthContext {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isPrivileged: boolean;
-	readonly isFullEditor: boolean;
-	readonly scopedGroupId: string | null;
+	readonly capabilityMap: CapabilityMap;
+	readonly compatibilityLanes: CompatibilityLaneMap;
+	readonly scopeSet: ScopeSet;
 
-	requireEdit(area: FeatureArea): void;
 	requireView(area: FeatureArea): void;
 	requirePrivileged(): void;
 	requireOwner(): void;
-	requireFullEditor(): void;
 	requireManageMembers(): void;
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
@@ -216,6 +216,7 @@ export interface StoragePort {
 /** The 4 ports every standard write operation needs */
 export interface WritePorts {
 	store: DataStore;
+	rawStore?: DataStore;
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;

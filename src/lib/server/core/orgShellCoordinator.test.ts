@@ -32,6 +32,15 @@ const membership: MembershipInfo = {
 	orgId: 'org-1',
 	userId: 'user-1',
 	role: 'member',
+	capabilityMap: {
+		calendar: 'view',
+		personnel: 'view',
+		training: 'view',
+		criticalTasks: 'view',
+		onboarding: 'none',
+		ratingScheme: 'none'
+	},
+	scopeSet: { kind: 'organization' },
 	permissions: {
 		canViewCalendar: true,
 		canEditCalendar: false,
@@ -46,8 +55,7 @@ const membership: MembershipInfo = {
 		canViewLeadersBook: false,
 		canEditLeadersBook: false,
 		canManageMembers: false
-	},
-	scopedGroupId: null
+	}
 };
 
 const orgState: OrgState = {
@@ -183,10 +191,8 @@ describe('OrgShellCoordinator', () => {
 			userPreferences: chrome.userPreferences,
 			userRole: 'member',
 			permissions: membership.permissions,
-			scopedGroupId: null,
 			isOwner: false,
 			isAdmin: false,
-			isFullEditor: false,
 			effectiveTier: orgState.effectiveTier,
 			unreadNotificationCount: 3,
 			activeAnnouncements: chrome.activeAnnouncements,
@@ -200,10 +206,8 @@ describe('OrgShellCoordinator', () => {
 				userPreferences: chrome.userPreferences,
 				userRole: 'member',
 				permissions: membership.permissions,
-				scopedGroupId: null,
 				isOwner: false,
 				isAdmin: false,
-				isFullEditor: false,
 				effectiveTier: orgState.effectiveTier,
 				unreadNotificationCount: 3,
 				activeAnnouncements: chrome.activeAnnouncements,

@@ -17,6 +17,7 @@ interface PersonnelMergeInput {
 export const _postConfig: RouteConfig<PersonnelMergeInput, Awaited<ReturnType<typeof mergePersonnelBatch>>> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => mergePersonnelBatch(ctx, input)
 };
 

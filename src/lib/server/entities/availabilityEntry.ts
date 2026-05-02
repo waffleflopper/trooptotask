@@ -4,12 +4,14 @@
  * since entries are replaced rather than edited. For bulk operations, see `availabilityBatch.ts`.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { AvailabilityEntry } from '$lib/types';
 
 export const AvailabilityEntryEntity = defineEntity<AvailabilityEntry>({
 	table: 'availability_entries',
 	permission: 'calendar',
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
 	methods: ['POST', 'DELETE'],
 	groupScope: { personnelColumn: 'personnel_id' },
 	audit: {

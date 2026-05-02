@@ -120,7 +120,8 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
+					content:
+						'Bulk Status, Duty Roster Generator, and Export use Calendar policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -138,7 +139,7 @@
 				{
 					title: 'Adding Personnel',
 					content:
-						'Click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, role, and assign them to a group.'
+						'Editors can click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, duty role, and group.'
 				},
 				{
 					title: 'Editing Personnel',
@@ -148,12 +149,12 @@
 				{
 					title: 'Groups',
 					content:
-						'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
+						'Organize personnel into groups (sections, teams, departments). Editors use "Manage Groups" to create, rename, reorder, or delete groups. Everyone who can view the roster can pin frequently used groups to keep them at the top of lists.'
 				},
 				{
 					title: 'Bulk Import',
 					content:
-						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar or actions menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
+						'Editors can import many personnel at once using Excel or CSV. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
 				},
 				{
 					title: 'Bulk Delete',
@@ -165,11 +166,12 @@
 					content: 'Use the search box at the top to filter personnel by name. Works in both view modes.'
 				},
 				{
-					content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
+					content: 'You only see personnel in your assigned group. You can edit existing personnel within your group.',
 					role: 'team-leader'
 				},
 				{
-					content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
+					content:
+						'Manage Groups, Bulk Import, and Bulk Delete require editor-level Personnel policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -214,7 +216,8 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
+					content:
+						'Manage Types, Reports, and Bulk Import use Training policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -245,7 +248,7 @@
 						"Each onboarding shows a progress bar and step count. Expand a person's entry to see individual step status, add notes, and mark steps complete."
 				},
 				{
-					content: 'Template management requires full-editor, admin, or owner access.',
+					content: 'Template management uses Onboarding configure access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -270,7 +273,7 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Counseling type management requires full-editor, admin, or owner access.',
+					content: "Counseling type management uses Leader's Book policy access. Admins and owners retain full access.",
 					role: 'admin'
 				}
 			]
@@ -311,7 +314,7 @@
 				},
 				{
 					content:
-						'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
+						'Member management requires the "Manage Members" permission. Type management uses feature policy access, with admins and owners retaining full access.',
 					role: 'admin'
 				},
 				{
@@ -338,7 +341,7 @@
 				{
 					title: 'Group Scoping',
 					content:
-						'Members can be scoped to a specific group. When scoped, they only see and edit personnel in that group. This is the "Team Leader" model — each group leader manages their own people while the calendar stays org-wide for visibility. Owners and admins are always org-wide regardless of scope setting.'
+						'Members can be scoped to a specific group. When scoped, they only see and update personnel in that group. Owners and admins are always org-wide regardless of scope setting.'
 				},
 				{
 					title: 'What Full Editor Unlocks',
@@ -348,11 +351,11 @@
 				{
 					title: 'Deletion Approvals',
 					content:
-						'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
+						'Members without the required delete policy access must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
 				},
 				{
 					content:
-						'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
+						'As a team leader, you can update existing personnel, calendar entries, training, and counseling records for your assigned group. You cannot add personnel, manage groups, access type managers, use bulk operations, or access the admin hub.',
 					role: 'team-leader'
 				},
 				{

@@ -31,7 +31,34 @@ const orgContextMock = vi.hoisted(() => {
 		isFullEditor: true,
 		permissions: { ...permissions },
 		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
+		affordanceForFeatureAction(action: { owner: { lane: string }; requiredCapability: string; accessMode: string }) {
+			const levels = ['none', 'view', 'operate', 'configure'];
+			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
+			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
+			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
+			return {
+				allowed: hasCapability && !readOnlyBlocked,
+				visible: hasCapability,
+				disabled: hasCapability && readOnlyBlocked,
+				reason: readOnlyBlocked
+					? 'denied:read-only-overlay'
+					: hasCapability
+						? 'allowed:capability'
+						: 'denied:missing-capability',
+				explanation: '',
+				decision: {}
+			};
+		}
 	});
 
 	return {
@@ -199,8 +226,25 @@ describe('IctTaskLibraryPage', () => {
 
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
+		expect(screen.queryByRole('heading', { name: 'Access Restricted' })).toBeNull();
+		expect(screen.getByRole('list', { name: 'ICT task library' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Import CSV' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'New Task' })).toBeNull();
+	});
+
+	it('uses the Critical Tasks configure policy affordance instead of privileged role for library management', () => {
+		orgContextMock.current = {
+			...orgContextMock.ownerContext(),
+			role: 'member',
+			isOwner: false,
+			isPrivileged: false,
+			isFullEditor: false
+		};
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		expect(screen.getByRole('button', { name: 'Import CSV' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'New Task' })).toBeTruthy();
 	});
 
 	it('filters active tasks by task search text and MOS applicability', async () => {

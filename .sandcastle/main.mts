@@ -31,7 +31,18 @@ import { execFileSync } from 'node:child_process';
 
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
-const MAX_ITERATIONS = 10;
+const MAX_ITERATIONS = 18;
+
+// Maximum number of issue implementation pipelines to run at once. Each
+// pipeline creates its own Docker sandbox and may run Node/Svelte/Vitest, so
+// keep this below the number of unblocked issues to avoid exhausting Docker's
+// shared memory pool.
+const IMPLEMENTATION_CONCURRENCY = 3;
+
+// Agents can be quiet while running focused tests, Svelte checks, or merge
+// verification. Give them 15 minutes of no-output headroom before treating the
+// run as idle.
+const AGENT_IDLE_TIMEOUT_SECONDS = 15 * 60;
 
 // Hooks run inside the sandbox before the agent starts each iteration.
 // npm install ensures the sandbox always has fresh dependencies.
@@ -45,6 +56,36 @@ const hooks = {
 const copyToWorktree = ['node_modules'];
 
 const codex = (model: string, effort: 'low' | 'medium' | 'high' | 'xhigh') => sandcastle.codex(model, { effort });
+
+const runWithConcurrency = async <T, R>(
+	items: T[],
+	concurrency: number,
+	task: (item: T, index: number) => Promise<R>
+): Promise<PromiseSettledResult<R>[]> => {
+	const results: PromiseSettledResult<R>[] = new Array(items.length);
+	let nextIndex = 0;
+
+	const workerCount = Math.min(concurrency, items.length);
+	const workers = Array.from({ length: workerCount }, async () => {
+		while (nextIndex < items.length) {
+			const currentIndex = nextIndex++;
+			try {
+				results[currentIndex] = {
+					status: 'fulfilled',
+					value: await task(items[currentIndex]!, currentIndex)
+				};
+			} catch (reason) {
+				results[currentIndex] = {
+					status: 'rejected',
+					reason
+				};
+			}
+		}
+	});
+
+	await Promise.all(workers);
+	return results;
+};
 
 const getGitHubToken = () => {
 	if (process.env.GH_TOKEN) {
@@ -99,8 +140,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 		// One iteration is enough: the planner just needs to read and reason,
 		// not write code.
 		maxIterations: 1,
+		idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
 		// Opus for planning: dependency analysis benefits from deeper reasoning.
-		agent: codex('gpt-5.5', 'high'),
+		agent: codex('gpt-5.4', 'high'),
 		promptFile: './.sandcastle/plan-prompt.md'
 	});
 
@@ -121,7 +163,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 		break;
 	}
 
-	console.log(`Planning complete. ${issues.length} issue(s) to work in parallel:`);
+	console.log(
+		`Planning complete. ${issues.length} issue(s) to work with implementation concurrency ${IMPLEMENTATION_CONCURRENCY}:`
+	);
 	for (const issue of issues) {
 		console.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
 	}
@@ -133,11 +177,15 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 	// and reviewer share the same sandbox instance per branch. The implementer
 	// runs first; if it produces commits, the reviewer runs in the same sandbox.
 	//
-	// Promise.allSettled means one failing pipeline doesn't cancel the others.
+	// runWithConcurrency means one failing pipeline doesn't cancel the others,
+	// but we still cap concurrent Docker sandboxes so verification doesn't
+	// starve the shared Docker memory pool.
 	// -------------------------------------------------------------------------
 
-	const settled = await Promise.allSettled(
-		issues.map(async (issue) => {
+	const settled = await runWithConcurrency(
+		issues,
+		IMPLEMENTATION_CONCURRENCY,
+		async (issue) => {
 			const sandbox = await sandcastle.createSandbox({
 				branch: issue.branch,
 				sandbox: docker(sandboxConfig),
@@ -150,6 +198,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 				const implement = await sandbox.run({
 					name: 'implementer',
 					maxIterations: 100,
+					idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
 					agent: codex('gpt-5.5', 'medium'),
 					promptFile: './.sandcastle/implement-prompt.md',
 					promptArgs: {
@@ -164,6 +213,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 					const review = await sandbox.run({
 						name: 'reviewer',
 						maxIterations: 1,
+						idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
 						agent: codex('gpt-5.5', 'medium'),
 						promptFile: './.sandcastle/review-prompt.md',
 						promptArgs: {
@@ -183,7 +233,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 			} finally {
 				await sandbox.close();
 			}
-		})
+		}
 	);
 
 	// Log any agents that threw (network error, sandbox crash, etc.).
@@ -227,7 +277,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 		sandbox: docker(sandboxConfig),
 		name: 'merger',
 		maxIterations: 1,
-		agent: codex('gpt-5.4', 'high'),
+		idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
+		agent: codex('gpt-5.4', 'xhigh'),
 		promptFile: './.sandcastle/merge-prompt.md',
 		promptArgs: {
 			// A markdown list of branch names, one per line.

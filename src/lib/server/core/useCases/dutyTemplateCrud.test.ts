@@ -240,10 +240,15 @@ describe('duty template CRUD use cases', () => {
 	it('denies users who are not full editors from creating templates', async () => {
 		const ctx = createTestContext({
 			auth: {
+				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
-				requireFullEditor() {
-					throw { status: 403 };
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
 				}
 			}
 		});
@@ -511,9 +516,7 @@ describe('advanced duty template access enforcement', () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'admin',
-				isPrivileged: true,
-				isFullEditor: false,
-				scopedGroupId: null
+				isPrivileged: true
 			}
 		});
 
@@ -570,8 +573,7 @@ describe('advanced duty template access enforcement', () => {
 		const scopedCtx = createTestContext({
 			auth: {
 				isPrivileged: true,
-				isFullEditor: true,
-				scopedGroupId: 'group-alpha'
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 			}
 		});
 

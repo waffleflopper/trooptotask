@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const IctTaskEntity = defineEntity<IctTask>({
 	table: 'ict_tasks',
 	permission: 'critical-tasks',
-	requirePrivileged: true,
+	policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 	groupScope: 'none',
 	methods: ['POST', 'PUT'],
 	audit: { resourceType: 'ict_task', detailFields: ['taskCode', 'title'] },

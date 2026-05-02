@@ -9,9 +9,10 @@
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 
 export async function fetchRosterHistory(ctx: QueryPorts): Promise<RosterHistoryItem[]> {
-	ctx.auth.requireView('calendar');
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 

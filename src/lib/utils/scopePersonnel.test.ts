@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { scopePersonnel, scopePersonnelByGroup } from './scopePersonnel';
+import {
+	scopePersonnel,
+	scopePersonnelByGroup,
+	scopePersonnelByGroupScopeSet,
+	scopePersonnelByScopeSet
+} from './scopePersonnel';
 import type { Personnel } from '$lib/types';
 
 function makePerson(overrides: Partial<Personnel>): Personnel {
@@ -82,5 +87,44 @@ describe('scopePersonnelByGroup', () => {
 	it('returns empty array when no group matches', () => {
 		const result = scopePersonnelByGroup(personnelByGroup, 'nonexistent');
 		expect(result).toEqual([]);
+	});
+});
+
+describe('scopePersonnelByScopeSet', () => {
+	const personnel = [
+		makePerson({ firstName: 'Alice', groupId: 'group-a' }),
+		makePerson({ firstName: 'Bob', groupId: 'group-b' }),
+		makePerson({ firstName: 'Carol', groupId: 'group-c' })
+	];
+
+	it('returns all personnel for organization scope', () => {
+		expect(scopePersonnelByScopeSet(personnel, { kind: 'organization' })).toHaveLength(3);
+	});
+
+	it('supports multi-Group Scope Sets', () => {
+		const result = scopePersonnelByScopeSet(personnel, { kind: 'groups', groupIds: ['group-a', 'group-c'] });
+		expect(result.map((person) => person.firstName)).toEqual(['Alice', 'Carol']);
+	});
+});
+
+describe('scopePersonnelByGroupScopeSet', () => {
+	const personnelByGroup = [
+		{
+			group: 'Alpha',
+			personnel: [makePerson({ firstName: 'Alice', groupId: 'group-a' })]
+		},
+		{
+			group: 'Bravo',
+			personnel: [makePerson({ firstName: 'Bob', groupId: 'group-b' })]
+		}
+	];
+
+	it('keeps all groups for organization scope', () => {
+		expect(scopePersonnelByGroupScopeSet(personnelByGroup, { kind: 'organization' })).toHaveLength(2);
+	});
+
+	it('keeps only personnel inside a multi-Group Scope Set', () => {
+		const result = scopePersonnelByGroupScopeSet(personnelByGroup, { kind: 'groups', groupIds: ['group-b'] });
+		expect(result).toEqual([{ group: 'Bravo', personnel: [expect.objectContaining({ firstName: 'Bob' })] }]);
 	});
 });

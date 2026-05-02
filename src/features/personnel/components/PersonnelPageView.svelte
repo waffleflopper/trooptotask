@@ -39,13 +39,17 @@
 	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
-	const canEditRoster = $derived(permissions?.canEditPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
-	const canManageRoster = $derived(ctx.canAddPersonnel);
+	const canAddPersonnel = $derived(ctx.canAddPersonnel);
+	const canImportPersonnel = $derived(ctx.canImportPersonnel);
+	const canManageGroups = $derived(ctx.canManageGroups);
+	const canManageAnyRosterRecord = $derived.by(() =>
+		personnelStore.items.some((person) => ctx.canManagePersonnelRecord(person))
+	);
 
 	const personnelActionItems = $derived.by<ToolbarActionConfig[]>(() => {
 		const items: ToolbarActionConfig[] = [];
-		if (canManageRoster) {
+		if (canImportPersonnel) {
 			items.push({
 				id: 'bulk-import',
 				label: 'Import',
@@ -54,6 +58,8 @@
 				disabled: readOnly,
 				priority: 'low'
 			});
+		}
+		if (canManageGroups) {
 			items.push({
 				id: 'manage-groups',
 				label: 'Manage Groups',
@@ -62,6 +68,8 @@
 				disabled: readOnly,
 				variant: 'secondary'
 			});
+		}
+		if (canAddPersonnel) {
 			items.push({
 				id: 'add-person',
 				label: 'Add Person',
@@ -91,7 +99,7 @@
 			{ key: 'group', header: 'Group', value: (p) => p.groupName }
 		];
 
-		if (permissions?.canEditPersonnel) {
+		if (canManageAnyRosterRecord) {
 			columns.push({
 				key: 'actions',
 				header: 'Actions',
@@ -139,7 +147,9 @@
 		groupedTable.setSearch(rosterSearch);
 	});
 
-	const handleRowClick = $derived(canEditRoster ? (person: Personnel) => ctx.handleEdit(person) : undefined);
+	const handleRowClick = $derived((person: Personnel) =>
+		ctx.canManagePersonnelRecord(person) ? ctx.handleEdit(person) : undefined
+	);
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
@@ -245,8 +255,8 @@
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
 					message="No personnel on the active roster. Add one person, or use the actions menu for Bulk Import when you have a roster file."
-					actionLabel={canEditRoster ? 'Add Person' : undefined}
-					onAction={canEditRoster ? () => ctx.handleAdd() : undefined}
+					actionLabel={canAddPersonnel ? 'Add Person' : undefined}
+					onAction={canAddPersonnel ? () => ctx.handleAdd() : undefined}
 				/>
 			{:else if shouldGateGroupedRoster}
 				<div class="roster-scale-guard">
@@ -276,7 +286,8 @@
 						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 						columns={personnelColumns}
 						onRowClick={handleRowClick}
-						rowActionLabel={canEditRoster ? getPersonnelRowActionLabel : undefined}
+						rowActionLabel={(person) =>
+							ctx.canManagePersonnelRecord(person) ? getPersonnelRowActionLabel(person) : ''}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
 						maxHeight="100%"
@@ -301,7 +312,7 @@
 								</span>
 							{:else if col.key === 'actions'}
 								<div class="row-actions">
-									{#if lossRecord}
+									{#if lossRecord && ctx.canManagePersonnelRecord(row)}
 										{@const awardTrackingAcknowledged = isAwardTrackingAcknowledged(row.id, lossRecord)}
 										<button
 											class="btn btn-sm btn-secondary"
@@ -319,16 +330,18 @@
 											{getAwardTrackingActionLabel(awardTrackingAcknowledged)}
 										</button>
 									{/if}
-									<button
-										class="btn btn-sm btn-secondary"
-										type="button"
-										onclick={(e) => {
-											e.stopPropagation();
-											ctx.handleEdit(row);
-										}}
-									>
-										Edit
-									</button>
+									{#if ctx.canManagePersonnelRecord(row)}
+										<button
+											class="btn btn-sm btn-secondary"
+											type="button"
+											onclick={(e) => {
+												e.stopPropagation();
+												ctx.handleEdit(row);
+											}}
+										>
+											Edit
+										</button>
+									{/if}
 								</div>
 							{:else}
 								{String(col.value(row) ?? '')}

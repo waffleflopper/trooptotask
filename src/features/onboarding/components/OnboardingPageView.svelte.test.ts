@@ -7,8 +7,9 @@ import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.sv
 function makeCtx(overrides: Partial<OnboardingPageContext> = {}): OnboardingPageContext {
 	return {
 		canViewOnboarding: true,
-		canEditOnboarding: true,
+		canManageWorkflows: true,
 		canManageConfig: true,
+		canManageOnboarding: vi.fn(() => true),
 		readOnly: false,
 		hasTemplateSteps: true,
 		historyUrl: '/org/org-1/onboarding/history',

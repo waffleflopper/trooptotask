@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletion';
 import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 describe('PersonnelIctCompletionEntity', () => {
 	it('maps database rows to personnel ICT completion records', () => {
@@ -85,20 +86,27 @@ describe('PersonnelIctCompletionEntity', () => {
 		});
 	});
 
-	it('uses the critical tasks edit permission boundary for writes', () => {
+	it('uses the Critical Tasks operate policy boundary for writes', () => {
 		expect(PersonnelIctCompletionEntity.table).toBe('personnel_ict_completions');
 		expect(PersonnelIctCompletionEntity.permission).toBe('critical-tasks');
-		expect(PersonnelIctCompletionEntity.requireFullEditor).toBeUndefined();
+		expect(PersonnelIctCompletionEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion);
 		expect(PersonnelIctCompletionEntity.groupScope).toEqual({ personnelColumn: 'personnel_id' });
 		expect(PersonnelIctCompletionEntity.personnelIdField).toBe('personnelId');
 	});
 
-	it('rejects completion writes when the user lacks critical tasks edit permission', async () => {
+	it('rejects completion writes when the user lacks Critical Tasks operate capability', async () => {
 		const handlers = entityHandlers(PersonnelIctCompletionEntity);
 		const ctx = createTestContext({
 			auth: {
-				requireEdit() {
-					throw { status: 403, body: { message: 'Forbidden' } };
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
 				}
 			}
 		});
@@ -119,23 +127,23 @@ describe('PersonnelIctCompletionEntity', () => {
 	it('enforces scoped-group access for create and update writes', async () => {
 		const handlers = entityHandlers(PersonnelIctCompletionEntity);
 		const outsideId = '22222222-2222-4222-8222-222222222222';
-		const requireGroupAccess = vi.fn(async (personnelId: string) => {
-			if (personnelId === 'person-outside') {
-				throw new Error('Access denied: personnel not in group');
-			}
-		});
-		const requireGroupAccessByRecord = vi.fn(async (table: string, recordId: string, _personnelColumn: string) => {
-			if (recordId === outsideId) {
-				throw new Error('Access denied: record not in group');
-			}
-		});
 		const ctx = createTestContext({
 			auth: {
-				scopedGroupId: 'group-1',
-				requireGroupAccess,
-				requireGroupAccessByRecord
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'operate',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
 			}
 		});
+		ctx.store.seed('personnel', [
+			{ id: 'person-inside', organization_id: 'test-org', group_id: 'group-1' },
+			{ id: 'person-outside', organization_id: 'test-org', group_id: 'group-2' }
+		]);
 
 		const created = (await handleUseCaseRequest(handlers._configs.POST!, ctx, {
 			personnelId: 'person-inside',
@@ -144,7 +152,6 @@ describe('PersonnelIctCompletionEntity', () => {
 			validationMethod: 'Practical Exercise'
 		})) as PersonnelIctCompletion;
 
-		expect(requireGroupAccess).toHaveBeenCalledWith('person-inside');
 		expect(created.personnelId).toBe('person-inside');
 
 		await expect(
@@ -154,14 +161,12 @@ describe('PersonnelIctCompletionEntity', () => {
 				completedAt: '2026-04-01',
 				validationMethod: 'Lecture'
 			})
-		).rejects.toThrow('Access denied: personnel not in group');
+		).rejects.toMatchObject({ status: 403 });
 
 		await handleUseCaseRequest(handlers._configs.PUT!, ctx, {
 			id: created.id,
 			notes: 'Corrected entry'
 		});
-
-		expect(requireGroupAccessByRecord).toHaveBeenCalledWith('personnel_ict_completions', created.id, 'personnel_id');
 
 		await ctx.rawStore.insert('personnel_ict_completions', 'test-org', {
 			id: outsideId,
@@ -180,6 +185,6 @@ describe('PersonnelIctCompletionEntity', () => {
 				id: outsideId,
 				notes: 'Unauthorized update'
 			})
-		).rejects.toThrow('Access denied: record not in group');
+		).rejects.toMatchObject({ status: 403 });
 	});
 });

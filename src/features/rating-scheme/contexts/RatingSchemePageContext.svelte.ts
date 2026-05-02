@@ -1,5 +1,6 @@
-import { resolveRatingSchemePermissions, type OrganizationMemberPermissions } from '$lib/types';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { OrganizationMemberPermissions } from '$lib/types';
+import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
@@ -59,15 +60,24 @@ export class RatingSchemePageContext {
 	}
 
 	get canManageConfig(): boolean {
-		return (this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor) ?? false;
+		return this.#org.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry).visible;
 	}
 
 	get canViewRatingScheme(): boolean {
-		return this.ratingPermissions.canViewRatingScheme;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, { kind: 'unscoped' })
+			.visible;
 	}
 
-	get canEditRatingScheme(): boolean {
-		return this.ratingPermissions.canEditRatingScheme;
+	get showRatingSchemeWriteActions(): boolean {
+		return this.ratingSchemeWriteAffordance.visible;
+	}
+
+	get canUseRatingSchemeWriteActions(): boolean {
+		return this.ratingSchemeWriteAffordance.allowed;
+	}
+
+	get ratingSchemeWriteAffordance(): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.ratingScheme.updateEntries, { kind: 'unscoped' });
 	}
 
 	get hasAnyWorkflowStatus(): boolean {
@@ -101,15 +111,5 @@ export class RatingSchemePageContext {
 
 	handleEditRatingEntry(entry: RatingSchemeEntry): void {
 		this.#modals.open('rating-modal', { entry });
-	}
-
-	private get ratingPermissions() {
-		return resolveRatingSchemePermissions({
-			canViewPersonnel: this.#data.permissions?.canViewPersonnel ?? false,
-			canEditPersonnel: this.#data.permissions?.canEditPersonnel ?? false,
-			canViewRatingScheme: this.#data.permissions?.canViewRatingScheme,
-			canEditRatingScheme: this.#data.permissions?.canEditRatingScheme,
-			canEditLeadersBook: this.#data.permissions?.canEditLeadersBook ?? false
-		});
 	}
 }

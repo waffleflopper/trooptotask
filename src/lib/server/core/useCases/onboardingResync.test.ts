@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { resyncOnboarding, switchTemplate } from './onboardingResync';
+
+const operateOnlyCapabilityMap: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'operate',
+	ratingScheme: 'none'
+};
 
 function buildContext(overrides?: { readOnly?: boolean; isFullEditor?: boolean }) {
 	return createWritePortsContext({
@@ -510,18 +520,26 @@ describe('resyncOnboarding', () => {
 		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Organization is in read-only mode');
 	});
 
-	it('requires full-editor permission', async () => {
-		const ctx = buildContext();
-		const auth = createTestAuthContext({
-			isFullEditor: false,
-			requireFullEditor() {
-				throw new Error('Full editor access required');
+	it('requires Onboarding configure policy before resyncing', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: operateOnlyCapabilityMap
 			}
 		});
-		ctx.auth = auth;
 		seedOnboarding(ctx);
 
-		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Full editor access required');
+		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({
+					policyAction: 'onboarding.configureWorkflows',
+					reasonCode: 'denied:missing-capability'
+				})
+			})
+		);
 	});
 
 	it('emits audit log on successful resync', async () => {
@@ -698,20 +716,19 @@ describe('switchTemplate', () => {
 		);
 	});
 
-	it('requires full-editor permission', async () => {
-		const ctx = buildContext();
-		const auth = createTestAuthContext({
-			isFullEditor: false,
-			requireFullEditor() {
-				throw new Error('Full editor access required');
+	it('requires Onboarding configure policy before switching templates', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: operateOnlyCapabilityMap
 			}
 		});
-		ctx.auth = auth;
 		seedOnboarding(ctx);
 
-		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
-			'Full editor access required'
-		);
+		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toMatchObject({
+			status: 403
+		});
 	});
 
 	it('emits audit log on template switch', async () => {

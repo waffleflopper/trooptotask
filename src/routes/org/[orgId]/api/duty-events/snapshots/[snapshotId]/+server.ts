@@ -22,6 +22,7 @@ export const _getConfig: RouteConfig<{ snapshotId: string }, AdvancedDutyRunSnap
 export const _deleteConfig: RouteConfig<{ snapshotId: string }, { success: true }> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: snapshotIdInputSchema,
 	parseInput: (event) => ({
 		snapshotId: event.params.snapshotId as string

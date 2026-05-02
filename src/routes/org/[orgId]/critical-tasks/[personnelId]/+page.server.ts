@@ -3,6 +3,7 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchCriticalTasksPersonnelHistory } from '$lib/server/core/useCases/criticalTasksHistoryQuery';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/criticalTasks.types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -20,6 +21,8 @@ export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasks
 		const { orgId, personnelId } = params;
 		const criticalTasksPersonnelHistory = await loadWithContextFn(locals, cookies, orgId, {
 			permission: 'critical-tasks',
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => fetchHistoryFn(ctx, personnelId)
 		});
 		const person = criticalTasksPersonnelHistory.personnel;

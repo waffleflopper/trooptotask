@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const { readBillingOrganizationMock, canManageBillingSubscriptionMock } = vi.hoisted(() => ({
 	readBillingOrganizationMock: vi.fn(),
@@ -20,7 +21,49 @@ vi.mock('$lib/server/core/useCases/billingOrganization', async () => {
 import { _loadBillingPageData } from './+page.server';
 
 describe('_loadBillingPageData', () => {
+	it('denies non-owner billing access before reading billing organization details', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin'
+			}
+		});
+
+		await expect(
+			_loadBillingPageData(ctx, {
+				tier: 'team',
+				source: 'subscription',
+				personnelCount: 20,
+				personnelCap: 75,
+				isReadOnly: false,
+				giftExpiresAt: null,
+				giftTier: null
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(readBillingOrganizationMock).not.toHaveBeenCalled();
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.accessBilling',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('derives subscription management state from the app-owned billing helper', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
 		readBillingOrganizationMock.mockResolvedValue({
 			name: 'Alpha Company',
 			stripeCustomerId: 'cus_123',
@@ -31,7 +74,8 @@ describe('_loadBillingPageData', () => {
 
 		const result = await _loadBillingPageData(
 			{
-				auth: { orgId: 'org-1' } as never,
+				auth: ctx.auth,
+				audit: ctx.audit,
 				rawStore: { kind: 'raw-store' } as never
 			},
 			{
@@ -46,7 +90,7 @@ describe('_loadBillingPageData', () => {
 		);
 
 		expect(readBillingOrganizationMock).toHaveBeenCalledWith({
-			auth: { orgId: 'org-1' },
+			auth: expect.objectContaining({ orgId: 'org-1', role: 'owner' }),
 			store: { kind: 'raw-store' }
 		});
 		expect(canManageBillingSubscriptionMock).toHaveBeenCalledWith({

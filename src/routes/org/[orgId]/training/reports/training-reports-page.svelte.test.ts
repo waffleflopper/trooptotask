@@ -19,7 +19,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -33,8 +32,15 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		affordanceForFeatureAction: () => ({
+			allowed: true,
+			visible: true,
+			disabled: false,
+			reason: 'allowed:capability',
+			explanation: '',
+			decision: {}
+		})
 	})
 }));
 

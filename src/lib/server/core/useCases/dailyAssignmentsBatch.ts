@@ -11,12 +11,15 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
 import { findDutyCoverageConflictsBatch, type DutyCoverageConflictCheck } from './dutyAvailability';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from './calendarPolicy';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
 
 type AssignmentTarget = 'personnel' | 'group';
+type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };
+type AssignmentSlotFilter = { date: string; assignment_type_id: string };
 
 async function getAssignmentTargets(
 	ctx: WritePorts,
@@ -57,12 +60,76 @@ interface BatchResult {
 	cleared: number;
 }
 
+async function requireExistingAssignmentSlotPolicy(
+	ctx: WritePorts,
+	slotFilters: AssignmentSlotFilter[]
+): Promise<void> {
+	if (slotFilters.length === 0) return;
+
+	const lookupStore = ctx.rawStore ?? ctx.store;
+	const affectedSlotKeys = new Set(slotFilters.map((filter) => toSlotKey(filter.date, filter.assignment_type_id)));
+	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
+		inFilters: {
+			date: [...new Set(slotFilters.map((filter) => filter.date))],
+			assignment_type_id: [...new Set(slotFilters.map((filter) => filter.assignment_type_id))]
+		},
+		select: 'date, assignment_type_id, assignee_id'
+	});
+	const affectedRows = existingRows.filter(
+		(row) =>
+			typeof row.date === 'string' &&
+			typeof row.assignment_type_id === 'string' &&
+			affectedSlotKeys.has(toSlotKey(row.date, row.assignment_type_id))
+	);
+	if (affectedRows.length === 0) return;
+
+	await requireCalendarAssignmentPolicy(
+		ctx,
+		affectedRows
+			.map((row) => ({
+				assignmentTypeId: row.assignment_type_id,
+				assigneeId: row.assignee_id
+			}))
+			.filter(
+				(record): record is AssignmentPolicyRecord =>
+					typeof record.assignmentTypeId === 'string' && typeof record.assigneeId === 'string'
+			)
+	);
+}
+
+async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
+	if (records.length === 0) {
+		await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, []);
+		return;
+	}
+
+	const assignmentTargets = await getAssignmentTargets(
+		ctx,
+		records.map((record) => record.assignmentTypeId)
+	);
+	const personnelAssigneeIds: string[] = [];
+	const groupAssigneeIds: string[] = [];
+
+	for (const record of records) {
+		if (assignmentTargets.get(record.assignmentTypeId) === 'group') {
+			groupAssigneeIds.push(record.assigneeId);
+		} else {
+			personnelAssigneeIds.push(record.assigneeId);
+		}
+	}
+
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, personnelAssigneeIds);
+
+	for (const groupId of new Set(groupAssigneeIds.filter(Boolean))) {
+		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, { kind: 'group', groupId });
+	}
+}
+
+function toSlotKey(date: string, assignmentTypeId: string): string {
+	return `${date}::${assignmentTypeId}`;
+}
+
 export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
-	ctx.auth.requireEdit('calendar');
-
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) fail(403, 'Organization is in read-only mode');
-
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -80,7 +147,6 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		upserts.map((record) => record.assignmentTypeId)
 	);
 
-	// Enforce group scope on all assignee personnel IDs
 	const assigneeIds = [
 		...new Set(
 			upserts
@@ -88,9 +154,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 				.map((record) => record.assigneeId)
 		)
 	];
-	if (assigneeIds.length > 0) {
-		await ctx.auth.requireGroupAccessBatch(assigneeIds);
-	}
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments, assigneeIds);
 
 	if (assigneeIds.length > 0) {
 		const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
@@ -123,11 +187,12 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 	const affectedSlotFilters = [
 		...new Map(
 			records.map((rec) => [
-				`${rec.date}::${rec.assignmentTypeId}`,
+				toSlotKey(rec.date, rec.assignmentTypeId),
 				{ date: rec.date, assignment_type_id: rec.assignmentTypeId }
 			])
 		).values()
 	];
+	await requireExistingAssignmentSlotPolicy(ctx, affectedSlotFilters);
 	await ctx.store.deleteWhereAny(entity.table, ctx.auth.orgId, affectedSlotFilters);
 
 	// Insert all upserts

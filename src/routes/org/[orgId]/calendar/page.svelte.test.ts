@@ -28,9 +28,9 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
-		scopedGroupId: null,
+		scopeSet: { kind: 'organization' },
 		readOnly: false,
+		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false })),
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,

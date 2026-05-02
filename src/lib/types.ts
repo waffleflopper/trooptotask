@@ -48,6 +48,10 @@ export interface OrganizationMember extends OrganizationMemberPermissions {
 	email?: string; // From user lookup or invitation
 	role: 'owner' | 'admin' | 'member';
 	scopedGroupId: string | null;
+	memberPreset?: 'viewer' | 'operator' | 'editor' | string | null;
+	capabilityOverrides?: Record<string, unknown> | null;
+	accessScopeKind?: 'organization' | 'groups' | string | null;
+	accessScopeGroupIds?: string[] | null;
 	createdAt: string;
 }
 

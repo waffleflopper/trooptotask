@@ -54,6 +54,40 @@ function createOrganizationSettingsAdministrationPort(
 }
 
 describe('renameOrganization', () => {
+	it('denies high-access members who are not admin or owner before renaming organizations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'member',
+				requireManageMembers: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		await expect(
+			renameOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ name: 'Alpha Company' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This action requires an organization admin or owner role'
+		});
+
+		expect(port.renameRequests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.rename',
+					reasonCode: 'denied:governance-role'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('normalizes the organization name before persisting and auditing', async () => {
 		const requireManageMembers = vi.fn();
 		const ctx = createTestContext({
@@ -70,7 +104,7 @@ describe('renameOrganization', () => {
 		);
 
 		expect(result).toEqual({ nameSuccess: true });
-		expect(requireManageMembers).toHaveBeenCalled();
+		expect(requireManageMembers).not.toHaveBeenCalled();
 		expect(port.renameRequests).toEqual([{ orgId: 'org-1', name: 'Alpha Company' }]);
 		expect(ctx.auditPort.events).toEqual([
 			{
@@ -120,6 +154,40 @@ describe('renameOrganization', () => {
 });
 
 describe('transferOrganizationOwnership', () => {
+	it('denies admins before transferring ownership', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'admin',
+				requireOwner: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		await expect(
+			transferOrganizationOwnership(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ newOwnerId: '11111111-1111-4111-8111-111111111111' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.transferRequests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.transferOwnership',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('rejects invalid target user ids before transfer provider work starts', async () => {
 		const requireOwner = vi.fn();
 		const ctx = createTestContext({
@@ -139,7 +207,7 @@ describe('transferOrganizationOwnership', () => {
 			message: 'Invalid user ID'
 		});
 
-		expect(requireOwner).toHaveBeenCalled();
+		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.transferRequests).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
@@ -245,6 +313,43 @@ describe('transferOrganizationOwnership', () => {
 });
 
 describe('deleteOrganization', () => {
+	it('denies admins before deleting organizations', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'admin',
+				requireOwner: vi.fn()
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({
+			organizationName: 'Test Org'
+		});
+
+		await expect(
+			deleteOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ confirmName: 'Test Org' }
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Only the organization owner can perform this action'
+		});
+
+		expect(port.organizationLookups).toEqual([]);
+		expect(port.deletedOrganizations).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'organization.deleteOrganization',
+					reasonCode: 'denied:owner-only'
+				},
+				severity: 'warning'
+			}
+		]);
+	});
+
 	it('normalizes the confirmation name before deleting and records the destructive audit event', async () => {
 		const requireOwner = vi.fn();
 		const ctx = createTestContext({
@@ -263,7 +368,7 @@ describe('deleteOrganization', () => {
 		);
 
 		expect(result).toEqual({ success: true });
-		expect(requireOwner).toHaveBeenCalled();
+		expect(requireOwner).not.toHaveBeenCalled();
 		expect(port.organizationLookups).toEqual(['org-1']);
 		expect(port.deletedOrganizations).toEqual(['org-1']);
 		expect(ctx.auditPort.events).toEqual([

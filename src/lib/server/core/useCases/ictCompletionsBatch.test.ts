@@ -311,13 +311,23 @@ describe('importIctCompletionsBatch', () => {
 		expect(stored).toEqual([]);
 	});
 
-	it('enforces scoped group access before writing matched completion rows', async () => {
+	it('does not run legacy scoped-group checks after policy allows matched completion rows', async () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
-			throw new Error('Access denied');
+			throw new Error('legacy scope check should not run');
 		});
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-alpha',
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'operate',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
 				requireGroupAccessBatch
 			}
 		});
@@ -349,25 +359,26 @@ describe('importIctCompletionsBatch', () => {
 			}
 		]);
 
-		await expect(
-			importIctCompletionsBatch(ctx, {
-				records: [
-					{
-						rowNumber: 2,
-						values: {
-							rank: 'SGT',
-							lastName: 'Smith',
-							firstName: 'Jane',
-							taskCode: '181-105-1001',
-							completedAt: '2026-04-15'
-						}
+		const result = await importIctCompletionsBatch(ctx, {
+			records: [
+				{
+					rowNumber: 2,
+					values: {
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'Jane',
+						taskCode: '181-105-1001',
+						completedAt: '2026-04-15'
 					}
-				]
-			})
-		).rejects.toThrow('Access denied');
-		expect(requireGroupAccessBatch).toHaveBeenCalledWith(['person-alpha']);
+				}
+			]
+		});
+
+		expect(result.errors).toEqual([]);
+		expect(result.inserted).toHaveLength(1);
+		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
 
 		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
-		expect(stored).toEqual([]);
+		expect(stored).toHaveLength(1);
 	});
 });

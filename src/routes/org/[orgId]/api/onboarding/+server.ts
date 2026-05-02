@@ -10,6 +10,7 @@ import {
 export const POST = handle<Record<string, unknown>, unknown>({
 	permission: 'onboarding',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) =>
 		startOnboarding(ctx, {
 			personnelId: input.personnelId as string,
@@ -20,6 +21,7 @@ export const POST = handle<Record<string, unknown>, unknown>({
 export const PUT = handle<Record<string, unknown>, unknown>({
 	permission: 'onboarding',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const id = input.id as string;
 		const status = input.status as string;

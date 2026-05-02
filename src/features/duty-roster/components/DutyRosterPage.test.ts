@@ -9,6 +9,7 @@ import type {
 	DutyEventSeriesApplyResult,
 	DutyTemplate
 } from '../duty-roster.types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { Personnel } from '$lib/types';
 
 const { invalidateAllMock } = vi.hoisted(() => ({
@@ -35,13 +36,25 @@ vi.mock('$lib/components/PageToolbar.svelte', async () => ({
 	default: (await import('./test-stubs/PassiveStub.svelte')).default
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+const { orgContextMock } = vi.hoisted(() => ({
+	orgContextMock: {
 		orgId: 'test-org',
 		isPrivileged: true,
 		isFullEditor: true,
-		readOnly: false
-	})
+		readOnly: false,
+		scopeSet: { kind: 'organization' } as { kind: 'organization' } | { kind: 'groups'; groupIds: string[] },
+		affordanceForFeatureAction: vi.fn((action: { id: string }) => ({ allowed: Boolean(action.id) }))
+	}
+}));
+
+function mockCalendarActionAccess(overrides: Record<string, boolean>): void {
+	orgContextMock.affordanceForFeatureAction.mockImplementation((action: { id: string }) => ({
+		allowed: overrides[action.id] ?? true
+	}));
+}
+
+vi.mock('$lib/stores/orgContext.svelte', () => ({
+	getOrgContext: () => orgContextMock
 }));
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
@@ -91,7 +104,7 @@ vi.mock('$features/personnel/utils/personnelGrouping', () => ({
 }));
 
 vi.mock('$lib/utils/scopePersonnel', () => ({
-	scopePersonnelByGroup: vi.fn((value) => value)
+	scopePersonnelByGroupScopeSet: vi.fn((value) => value)
 }));
 
 function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
@@ -196,7 +209,6 @@ function renderPage(overrides: Partial<ComponentProps<typeof DutyRosterPage>['da
 			orgName: 'Test Org',
 			personnel,
 			allPersonnel: personnel,
-			scopedGroupId: null,
 			rosterHistory: [],
 			advancedDutyTemplates: [makeTemplate()],
 			advancedDutyEvents: [],
@@ -211,6 +223,12 @@ describe('DutyRosterPage', () => {
 		cleanup();
 		invalidateAllMock.mockReset();
 		invalidateAllMock.mockResolvedValue(undefined);
+		orgContextMock.orgId = 'test-org';
+		orgContextMock.isPrivileged = true;
+		orgContextMock.isFullEditor = true;
+		orgContextMock.readOnly = false;
+		orgContextMock.scopeSet = { kind: 'organization' };
+		mockCalendarActionAccess({});
 		globalThis.fetch = vi.fn();
 	});
 
@@ -400,7 +418,9 @@ describe('DutyRosterPage', () => {
 	});
 
 	it('does not expose advanced workspace navigation for scoped users', async () => {
-		renderPage({ scopedGroupId: 'group-hq' });
+		orgContextMock.scopeSet = { kind: 'groups', groupIds: ['group-hq'] };
+
+		renderPage();
 
 		await waitFor(() => {
 			expect(screen.getByRole('button', { name: 'Assignments / Taskings' }).getAttribute('aria-pressed')).toBe('true');
@@ -409,6 +429,35 @@ describe('DutyRosterPage', () => {
 		expect(screen.queryByRole('button', { name: 'Advanced Templates (1)' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Active Run' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Applied Events' })).toBeNull();
+	});
+
+	it('uses policy affordances instead of full-editor compatibility for advanced duty access', async () => {
+		orgContextMock.isPrivileged = false;
+		orgContextMock.isFullEditor = true;
+		mockCalendarActionAccess({
+			[POLICY_ACTION_CATALOG.calendar.manageAssignments.id]: false
+		});
+
+		renderPage();
+
+		expect(screen.getByText('Calendar operation access is required to manage duty rosters.')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Advanced Workspace' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Advanced Templates (1)' })).toBeNull();
+	});
+
+	it('allows assignment operators to manage rosters without configuration access', () => {
+		orgContextMock.isPrivileged = false;
+		orgContextMock.isFullEditor = false;
+		mockCalendarActionAccess({
+			[POLICY_ACTION_CATALOG.calendar.manageAssignments.id]: true,
+			[POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes.id]: false
+		});
+
+		renderPage();
+
+		expect(screen.queryByText('Calendar operation access is required to manage duty rosters.')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Advanced Workspace' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Advanced Templates (1)' })).toBeNull();
 	});
 
 	it('uses shared toolbar primitives for duty roster sections and related calendar links', async () => {

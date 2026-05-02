@@ -91,7 +91,55 @@ describe('createPermissionContextFromMembership', () => {
 			scoped_group_id: 'group-123'
 		});
 
-		expect(ctx.scopedGroupId).toBe('group-123');
+		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+	});
+
+	it('uses stored capability and multi-Group scope when available', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			can_view_personnel: false,
+			can_edit_personnel: false,
+			member_preset: 'viewer',
+			capability_overrides: { personnel: 'operate' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-a', 'group-b']
+		});
+
+		expect(ctx.capabilityMap.personnel).toBe('operate');
+		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
+		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+	});
+
+	it("keeps Leader's Book compatibility capability separate from the durable capability map", () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			member_preset: 'viewer',
+			capability_overrides: { personnel: 'operate' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(Object.keys(ctx.capabilityMap)).not.toContain('leadersBook');
+		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
+		expect(ctx.canView['leaders-book']).toBe(false);
+	});
+
+	it('does not let legacy flags or scoped_group_id override stored member access', () => {
+		const ctx = createPermissionContextFromMembership({
+			...baseMembership,
+			scoped_group_id: 'legacy-group',
+			can_view_calendar: false,
+			can_edit_calendar: false,
+			member_preset: 'viewer',
+			capability_overrides: { calendar: 'operate' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(ctx.capabilityMap.calendar).toBe('operate');
+		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
 	});
 
 	it('ignores scoped_group_id for privileged roles', () => {
@@ -101,10 +149,10 @@ describe('createPermissionContextFromMembership', () => {
 			scoped_group_id: 'group-123'
 		});
 
-		expect(ctx.scopedGroupId).toBeNull();
+		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
 	});
 
-	it('detects full editor (member with all permissions, no scope)', () => {
+	it('maps all-permission members to organization-wide configure capabilities', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			scoped_group_id: null,
@@ -123,10 +171,16 @@ describe('createPermissionContextFromMembership', () => {
 			can_manage_members: true
 		});
 
-		expect(ctx.isFullEditor).toBe(true);
+		expect(ctx.capabilityMap).toMatchObject({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure'
+		});
 	});
 
-	it('does not detect full editor when critical tasks permissions are disabled', () => {
+	it('does not map disabled critical tasks permissions to configure capability', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			scoped_group_id: null,
@@ -145,15 +199,7 @@ describe('createPermissionContextFromMembership', () => {
 			can_manage_members: true
 		});
 
-		expect(ctx.isFullEditor).toBe(false);
-		expect(() => ctx.requireFullEditor()).toThrow();
-	});
-
-	it('requireEdit throws for areas without edit permission', () => {
-		const ctx = createPermissionContextFromMembership(baseMembership);
-
-		expect(() => ctx.requireEdit('calendar')).toThrow();
-		expect(() => ctx.requireEdit('personnel')).not.toThrow();
+		expect(ctx.capabilityMap.criticalTasks).not.toBe('configure');
 	});
 
 	it('requireView throws for areas without view permission', () => {

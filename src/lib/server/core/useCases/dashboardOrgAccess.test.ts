@@ -28,7 +28,6 @@ function buildInvitation(overrides: Partial<DashboardInvitationRecord> = {}): Da
 		canViewLeadersBook: false,
 		canEditLeadersBook: false,
 		canManageMembers: false,
-		scopedGroupId: null,
 		...overrides
 	};
 }
@@ -299,8 +298,7 @@ describe('acceptDashboardInvitation', () => {
 				canEditOnboarding: null,
 				canViewLeadersBook: null,
 				canEditLeadersBook: null,
-				canManageMembers: null,
-				scopedGroupId: null
+				canManageMembers: null
 			})
 		});
 
@@ -315,6 +313,7 @@ describe('acceptDashboardInvitation', () => {
 				userId: 'user-1',
 				email: 'user@example.com',
 				role: 'member',
+				scopedGroupId: null,
 				canViewCalendar: true,
 				canEditCalendar: true,
 				canViewPersonnel: true,
@@ -330,7 +329,10 @@ describe('acceptDashboardInvitation', () => {
 				canViewLeadersBook: true,
 				canEditLeadersBook: true,
 				canManageMembers: false,
-				scopedGroupId: null
+				memberPreset: null,
+				capabilityOverrides: {},
+				accessScopeKind: null,
+				accessScopeGroupIds: []
 			}
 		]);
 	});

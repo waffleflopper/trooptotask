@@ -15,7 +15,7 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: TrainingTypeEntity,
 	permission: TrainingTypeEntity.permission!,
 	auditResource: getEntityAuditResource(TrainingTypeEntity),
-	requireFullEditor: TrainingTypeEntity.requireFullEditor,
+	policyAction: TrainingTypeEntity.policyAction,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
 			training_type_id: id
@@ -43,6 +43,69 @@ describe('TrainingType CRUD use case', () => {
 
 		expect(result).toMatchObject({ name: 'First Aid' });
 		expect(ctx.audit.events[0].action).toBe('training_type.created');
+	});
+
+	it('denies type configuration without Training configure capability and audits the attempt', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		await expect(
+			useCases.create(ctx, {
+				name: 'First Aid',
+				description: 'Basic first aid training',
+				expirationMonths: 12,
+				sortOrder: 1
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'training_type',
+				details: expect.objectContaining({
+					policyAction: 'training.configureRequirements',
+					reasonCode: 'denied:missing-capability'
+				}),
+				severity: 'warning'
+			})
+		);
+	});
+
+	it('allows type configuration with Training configure capability', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+
+		const result = (await useCases.create(ctx, {
+			name: 'First Aid',
+			description: 'Basic first aid training',
+			expirationMonths: 12,
+			sortOrder: 1
+		})) as { name: string };
+
+		expect(result.name).toBe('First Aid');
 	});
 
 	it('cascade-deletes personnel_trainings before deleting training type', async () => {

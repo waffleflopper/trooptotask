@@ -1,4 +1,5 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
+import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccessShape';
 
 export type OrgNavIcon =
 	| 'dashboard'
@@ -66,7 +67,28 @@ const BILLING_CHILD_BREADCRUMBS: Record<string, string> = {
 	canceled: 'Canceled'
 };
 
-export function getOrgNavigation(orgId: string, permissions: OrganizationMemberPermissions): OrgNavItem[] {
+export function getOrgNavigation(orgId: string, access: OrganizationMemberPermissions | CapabilityMap): OrgNavItem[] {
+	const canView = (lane: DurableFeatureLane) => {
+		if (isCapabilityMap(access)) {
+			return access[lane] !== 'none';
+		}
+
+		switch (lane) {
+			case 'calendar':
+				return access.canViewCalendar;
+			case 'personnel':
+				return access.canViewPersonnel;
+			case 'training':
+				return access.canViewTraining;
+			case 'criticalTasks':
+				return access.canViewCriticalTasks;
+			case 'onboarding':
+				return access.canViewOnboarding;
+			case 'ratingScheme':
+				return access.canViewRatingScheme === true;
+		}
+	};
+
 	return [
 		{
 			id: 'dashboard',
@@ -82,7 +104,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			href: `/org/${orgId}/calendar`,
 			label: 'Calendar',
 			icon: 'calendar',
-			visible: permissions.canViewCalendar,
+			visible: canView('calendar'),
 			exactMatch: false
 		},
 		{
@@ -90,7 +112,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			href: `/org/${orgId}/personnel`,
 			label: 'Personnel',
 			icon: 'personnel',
-			visible: permissions.canViewPersonnel,
+			visible: canView('personnel'),
 			exactMatch: false
 		},
 		{
@@ -99,7 +121,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			label: 'Evals',
 			breadcrumbLabel: 'Evaluations',
 			icon: 'rating-scheme',
-			visible: permissions.canViewRatingScheme === true,
+			visible: canView('ratingScheme'),
 			exactMatch: false
 		},
 		{
@@ -107,7 +129,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			href: `/org/${orgId}/training`,
 			label: 'Training',
 			icon: 'training',
-			visible: permissions.canViewTraining,
+			visible: canView('training'),
 			exactMatch: false
 		},
 		{
@@ -117,7 +139,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			compactLabel: 'ICTLs',
 			badgeLabel: 'Beta',
 			icon: 'critical-tasks',
-			visible: permissions.canViewCriticalTasks,
+			visible: canView('criticalTasks'),
 			exactMatch: false
 		},
 		{
@@ -126,7 +148,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			label: 'Onboarding',
 			compactLabel: 'Onboard',
 			icon: 'onboarding',
-			visible: permissions.canViewOnboarding,
+			visible: canView('onboarding'),
 			exactMatch: false
 		},
 		// Leaders Book temporarily hidden during redesign.
@@ -140,6 +162,10 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			exactMatch: false
 		}
 	];
+}
+
+function isCapabilityMap(access: OrganizationMemberPermissions | CapabilityMap): access is CapabilityMap {
+	return 'calendar' in access;
 }
 
 export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean {

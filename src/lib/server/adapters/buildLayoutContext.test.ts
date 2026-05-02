@@ -75,9 +75,8 @@ describe('buildLayoutContext', () => {
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('owner');
 				expect(ctx.auth.isPrivileged).toBe(true);
-				expect(ctx.auth.scopedGroupId).toBeNull();
+				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
 				expect(() => ctx.auth.requireOwner()).not.toThrow();
-				expect(() => ctx.auth.requireEdit('training')).not.toThrow();
 				expect(() => ctx.auth.requireManageMembers()).not.toThrow();
 			}
 		},
@@ -101,10 +100,9 @@ describe('buildLayoutContext', () => {
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('admin');
 				expect(ctx.auth.isPrivileged).toBe(true);
-				expect(ctx.auth.scopedGroupId).toBeNull();
+				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
 				expect(() => ctx.auth.requirePrivileged()).not.toThrow();
 				expect(() => ctx.auth.requireOwner()).toThrow();
-				expect(() => ctx.auth.requireEdit('calendar')).not.toThrow();
 			}
 		},
 		{
@@ -127,11 +125,8 @@ describe('buildLayoutContext', () => {
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('member');
 				expect(ctx.auth.isPrivileged).toBe(false);
-				expect(ctx.auth.isFullEditor).toBe(false);
-				expect(ctx.auth.scopedGroupId).toBeNull();
+				expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
 				expect(() => ctx.auth.requireView('calendar')).not.toThrow();
-				expect(() => ctx.auth.requireEdit('personnel')).not.toThrow();
-				expect(() => ctx.auth.requireEdit('training')).toThrow();
 			}
 		},
 		{
@@ -154,8 +149,7 @@ describe('buildLayoutContext', () => {
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
 				expect(ctx.auth.role).toBe('member');
 				expect(ctx.auth.isPrivileged).toBe(false);
-				expect(ctx.auth.isFullEditor).toBe(false);
-				expect(ctx.auth.scopedGroupId).toBe('group-123');
+				expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 				expect(() => ctx.auth.requireView('training')).not.toThrow();
 				expect(() => ctx.auth.requirePrivileged()).toThrow();
 			}
@@ -206,9 +200,8 @@ describe('buildLayoutContext', () => {
 		const reused = await buildLayoutContext(locals, {} as never, ORG_ID);
 
 		expect(supabase.from).not.toHaveBeenCalled();
-		expect(seeded.auth.scopedGroupId).toBe('group-123');
-		expect(reused.auth.scopedGroupId).toBe('group-123');
-		expect(() => reused.auth.requireEdit('personnel')).not.toThrow();
+		expect(seeded.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+		expect(reused.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		await expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)!).resolves.toEqual(membership);
 	});
 
@@ -275,9 +268,8 @@ describe('buildLayoutContext', () => {
 
 		expect(supabase.from).toHaveBeenCalledTimes(1);
 		expect(query.single).toHaveBeenCalledTimes(1);
-		expect(first.auth.scopedGroupId).toBe('group-123');
-		expect(second.auth.scopedGroupId).toBe('group-123');
-		expect(() => second.auth.requireEdit('personnel')).not.toThrow();
+		expect(first.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+		expect(second.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 	});
 
 	it('deduplicates concurrent membership queries within the same request', async () => {
@@ -322,8 +314,8 @@ describe('buildLayoutContext', () => {
 		deferred.resolve({ data: membership });
 
 		const [firstCtx, secondCtx] = await Promise.all([first, second]);
-		expect(firstCtx.auth.scopedGroupId).toBe('group-123');
-		expect(secondCtx.auth.scopedGroupId).toBe('group-123');
+		expect(firstCtx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+		expect(secondCtx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 	});
 
 	it('clears a failed in-flight membership query so a later attempt can retry', async () => {
@@ -424,7 +416,7 @@ describe('buildLayoutContext', () => {
 
 		expect(supabase.from).toHaveBeenCalledTimes(1);
 		expect(ctx.auth.role).toBe('member');
-		expect(ctx.auth.scopedGroupId).toBe('group-live');
+		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-live'] });
 		expect(() => ctx.auth.requireOwner()).toThrow();
 		expect(() => ctx.auth.requireView('calendar')).not.toThrow();
 	});

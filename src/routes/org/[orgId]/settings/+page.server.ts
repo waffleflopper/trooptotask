@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -19,10 +20,12 @@ import {
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
+	parseCapabilityOverrides,
 	removeOrganizationMember,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
+import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
@@ -34,6 +37,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'privileged',
 		fn: async (ctx) => {
+			await requireGovernancePolicy(
+				{ auth: ctx.auth, audit: ctx.audit },
+				POLICY_ACTION_CATALOG.organization.accessGovernance
+			);
+
 			const adminStore = createSupabaseDataStore(getAdminClient());
 			const [
 				membershipRows,
@@ -75,6 +83,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				email: m.email as string,
 				role: m.role as string,
 				scopedGroupId: m.scoped_group_id as string | null,
+				memberPreset: m.member_preset as string | null,
+				capabilityOverrides: (m.capability_overrides as Record<string, unknown> | null) ?? {},
+				accessScopeKind: m.access_scope_kind as string | null,
+				accessScopeGroupIds: (m.access_scope_group_ids as string[] | null) ?? [],
 				createdAt: m.created_at as string,
 				canViewCalendar: m.can_view_calendar as boolean,
 				canEditCalendar: m.can_edit_calendar as boolean,
@@ -101,6 +113,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				status: inv.status as string,
 				createdAt: inv.created_at as string,
 				scopedGroupId: inv.scoped_group_id as string | null,
+				memberPreset: inv.member_preset as string | null,
+				capabilityOverrides: (inv.capability_overrides as Record<string, unknown> | null) ?? {},
+				accessScopeKind: inv.access_scope_kind as string | null,
+				accessScopeGroupIds: (inv.access_scope_group_ids as string[] | null) ?? [],
 				canViewCalendar: inv.can_view_calendar as boolean,
 				canEditCalendar: inv.can_edit_calendar as boolean,
 				canViewPersonnel: inv.can_view_personnel as boolean,
@@ -162,7 +178,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				invitations,
 				isOwner: userRole === 'owner',
 				isAdmin,
-				canManageMembers: userRole === 'owner' || userRole === 'admin' || permissions.canManageMembers,
+				canManageMembers: userRole === 'owner' || userRole === 'admin',
 				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
 				exportInfo,
 				policies: {
@@ -196,6 +212,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -220,12 +237,16 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
 					preset: (formData.get('preset') as string) ?? '',
 					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
+					capabilityOverrides: parseCapabilityOverrides(formData),
+					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
+					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
 					actorEmail: user.email
 				}
 			);
@@ -247,6 +268,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{ inviteId: (formData.get('inviteId') as string) ?? '' }
@@ -269,6 +291,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
@@ -294,6 +317,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
 				},
 				{
@@ -301,6 +325,9 @@ export const actions: Actions = {
 					preset: (formData.get('preset') as string) ?? '',
 					scopedGroupId: ((formData.get('scopedGroupId') as string) || null) ?? null,
 					customPermissions: parseCustomPermissions(formData),
+					capabilityOverrides: parseCapabilityOverrides(formData),
+					accessScopeKind: (formData.get('accessScopeKind') as 'organization' | 'groups' | null) ?? null,
+					accessScopeGroupIds: formData.getAll('accessScopeGroupIds').map(String),
 					actorEmail: user.email
 				}
 			);
@@ -322,6 +349,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{
@@ -346,6 +374,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
 				{

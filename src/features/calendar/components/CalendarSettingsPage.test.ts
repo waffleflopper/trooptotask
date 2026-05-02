@@ -9,7 +9,8 @@ const { orgContextMock, statusTypesStoreMock } = vi.hoisted(() => ({
 		orgId: 'org-1',
 		isPrivileged: true,
 		isFullEditor: true,
-		readOnly: false
+		readOnly: false,
+		affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
 	},
 	statusTypesStoreMock: {
 		items: [] as StatusType[],
@@ -56,6 +57,7 @@ describe('CalendarSettingsPage', () => {
 		orgContextMock.isPrivileged = true;
 		orgContextMock.isFullEditor = true;
 		orgContextMock.readOnly = false;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.update.mockReset();
@@ -80,11 +82,23 @@ describe('CalendarSettingsPage', () => {
 	it('preserves the restricted settings state for non-managers', () => {
 		orgContextMock.isPrivileged = false;
 		orgContextMock.isFullEditor = false;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: false, visible: false, disabled: false });
 
 		render(CalendarSettingsPage);
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+	});
+
+	it('allows Calendar configure capability without full-editor compatibility', () => {
+		orgContextMock.isPrivileged = false;
+		orgContextMock.isFullEditor = false;
+		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+
+		render(CalendarSettingsPage);
+
+		expect(screen.getByRole('toolbar', { name: 'Calendar settings controls' })).toBeTruthy();
+		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
 	it('surfaces DA6 duty roster treatment controls for status types', async () => {

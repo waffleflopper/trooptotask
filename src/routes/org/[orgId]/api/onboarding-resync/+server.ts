@@ -4,6 +4,7 @@ import { resyncOnboarding, switchTemplate } from '$lib/server/core/useCases/onbo
 export const POST = handle<Record<string, unknown>, unknown>({
 	permission: 'onboarding',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		if (input.newTemplateId) {
 			return switchTemplate(ctx, {

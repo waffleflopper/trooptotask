@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
@@ -52,12 +52,7 @@ const mockData: CalendarPageData = {
 	orgName: 'Test Org',
 	userId: 'user1',
 	personnel: [],
-	allPersonnel: [],
-	scopedGroupId: null,
-	permissions: {
-		canViewCalendar: true,
-		canEditCalendar: true
-	}
+	allPersonnel: []
 };
 
 const filterPersonnel: Personnel[] = [
@@ -84,20 +79,38 @@ const filterPersonnel: Personnel[] = [
 ];
 
 function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const defaultCapabilityMap = {
+		calendar: 'view',
+		personnel: 'view',
+		training: 'view',
+		criticalTasks: 'view',
+		onboarding: 'view',
+		ratingScheme: 'view'
+	} satisfies OrgContext['capabilityMap'];
+	const configureCapabilityMap = {
+		calendar: 'configure',
+		personnel: 'configure',
+		training: 'configure',
+		criticalTasks: 'configure',
+		onboarding: 'configure',
+		ratingScheme: 'configure'
+	} satisfies OrgContext['capabilityMap'];
+
+	return createOrgContext({
 		orgId: 'org1',
 		orgName: 'Test Org',
 		userId: 'user1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
+		capabilityMap:
+			overrides.capabilityMap ??
+			(overrides.isOwner || overrides.isAdmin || overrides.isFullEditor
+				? configureCapabilityMap
+				: defaultCapabilityMap),
+		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
-	};
+		isReadOnly: overrides.readOnly ?? false
+	});
 }
 
 describe('CalendarPageView', () => {
@@ -115,8 +128,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: mockData.orgId,
-					orgName: 'Test Org',
-					permissions: mockData.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -146,8 +158,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -178,8 +189,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});
@@ -213,8 +223,7 @@ describe('CalendarPageView', () => {
 				ctx,
 				data: {
 					orgId: data.orgId,
-					orgName: 'Test Org',
-					permissions: data.permissions
+					orgName: 'Test Org'
 				}
 			}
 		});

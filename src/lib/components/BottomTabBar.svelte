@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
@@ -7,10 +8,11 @@
 	interface Props {
 		orgId: string;
 		permissions: OrganizationMemberPermissions;
+		capabilityMap?: CapabilityMap;
 	}
 
-	let { orgId, permissions }: Props = $props();
-	const tabs = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
+	let { orgId, permissions, capabilityMap }: Props = $props();
+	const tabs = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions).filter((item) => item.visible));
 </script>
 
 <nav class="bottom-tab-bar" aria-label="Main navigation">

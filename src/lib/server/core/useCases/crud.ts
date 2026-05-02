@@ -47,26 +47,12 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 }
 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
-	const { entity, permission, auditResource } = config;
+	const { entity, auditResource } = config;
 	const calendarPolicyAction = getCalendarCrudPolicyAction(config as CrudConfig);
 
 	return {
 		async create(ctx, data) {
-			if (calendarPolicyAction) {
-				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
-			} else if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			if (!calendarPolicyAction) {
-				ctx.auth.requireEdit(permission);
-
-				const isReadOnly = await ctx.readOnlyGuard.check();
-				if (isReadOnly) {
-					fail(403, 'Organization is in read-only mode');
-				}
-			}
+			await requireCrudWriteAccess(ctx, config, calendarPolicyAction);
 
 			const validated = parseOrFail(entity.createSchema, data);
 
@@ -91,21 +77,7 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (calendarPolicyAction) {
-				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
-			} else if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			if (!calendarPolicyAction) {
-				ctx.auth.requireEdit(permission);
-
-				const isReadOnly = await ctx.readOnlyGuard.check();
-				if (isReadOnly) {
-					fail(403, 'Organization is in read-only mode');
-				}
-			}
+			await requireCrudWriteAccess(ctx, config, calendarPolicyAction);
 
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
@@ -135,21 +107,7 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (calendarPolicyAction) {
-				await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
-			} else if (config.requirePrivileged) {
-				ctx.auth.requirePrivileged();
-			} else if (config.requireFullEditor) {
-				ctx.auth.requireFullEditor();
-			}
-			if (!calendarPolicyAction) {
-				ctx.auth.requireEdit(permission);
-
-				const isReadOnly = await ctx.readOnlyGuard.check();
-				if (isReadOnly) {
-					fail(403, 'Organization is in read-only mode');
-				}
-			}
+			await requireCrudWriteAccess(ctx, config, calendarPolicyAction);
 
 			// Group scope: enforce by record lookup
 			if (entity.groupScope !== 'none' && entity.personnelIdField) {
@@ -174,6 +132,30 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			}
 		}
 	};
+}
+
+async function requireCrudWriteAccess<C extends WritePorts>(
+	ctx: C,
+	config: CrudConfig<C>,
+	calendarPolicyAction: FeatureLanePolicyAction | null
+): Promise<void> {
+	if (calendarPolicyAction) {
+		await requireCalendarPolicy(ctx, calendarPolicyAction, { kind: 'organization' });
+		return;
+	}
+
+	if (config.requirePrivileged) {
+		ctx.auth.requirePrivileged();
+	} else if (config.requireFullEditor) {
+		ctx.auth.requireFullEditor();
+	}
+
+	ctx.auth.requireEdit(config.permission);
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
 }
 
 function getCalendarCrudPolicyAction(config: CrudConfig): FeatureLanePolicyAction | null {

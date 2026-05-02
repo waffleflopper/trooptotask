@@ -401,9 +401,21 @@ describe('deleteTrainingRecord', () => {
 		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
+	it('returns requiresApproval when Training configure policy denies hard delete', async () => {
 		const ctx = buildContext({
-			auth: { isPrivileged: false, isFullEditor: false, role: 'member' }
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true,
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
 		});
 		seedPersonnel(ctx);
 		seedRecord(ctx);
@@ -414,6 +426,31 @@ describe('deleteTrainingRecord', () => {
 		// Record should NOT be deleted
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
+	});
+
+	it('allows hard delete with Training configure capability even when legacy full-editor is false', async () => {
+		const ctx = buildContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: false,
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		seedRecord(ctx);
+
+		await deleteTrainingRecord(ctx, 'tr-1');
+
+		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
+		expect(stored).toHaveLength(0);
 	});
 
 	it('blocks hard delete when organization is read-only', async () => {

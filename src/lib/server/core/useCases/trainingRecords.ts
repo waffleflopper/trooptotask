@@ -8,7 +8,7 @@
  * For read-side reporting, see `trainingReportsQuery.ts` and `trainingSummaryQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { WritePorts } from '$lib/server/core/ports';
@@ -31,6 +31,18 @@ interface TrainingTypeRow {
 
 interface TrainingRecordResourceRow {
 	personnel_id: string;
+}
+
+function canHardDeleteTrainingRecord(ctx: WritePorts, resource: PolicyResource): boolean {
+	return evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: { membershipRole: ctx.auth.role },
+		action: POLICY_ACTION_CATALOG.training.configureRequirements,
+		capabilityMap: ctx.auth.capabilityMap,
+		scopeSet: ctx.auth.scopeSet,
+		resource,
+		overlays: []
+	}).allowed;
 }
 
 async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string): Promise<PolicyResource> {
@@ -172,15 +184,10 @@ export async function updateTrainingRecord(ctx: WritePorts, input: Record<string
 }
 
 export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void> {
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.training.recordCompletions,
-		await policyResourceForTrainingRecord(ctx, id),
-		AUDIT_RESOURCE,
-		id
-	);
+	const resource = await policyResourceForTrainingRecord(ctx, id);
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.recordCompletions, resource, AUDIT_RESOURCE, id);
 
-	if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
+	if (!canHardDeleteTrainingRecord(ctx, resource)) {
 		return { requiresApproval: true };
 	}
 

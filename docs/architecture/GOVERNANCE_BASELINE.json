@@ -236,38 +236,6 @@
 			"driftIds": ["D-01"]
 		},
 		{
-			"path": "src/features/training/components/TrainingModals.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#761",
-			"reason": "Training modal affordances still read legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/training/components/TrainingPageView.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["canEdit*"],
-			"ownerIssue": "#761",
-			"reason": "Training page affordances still read legacy edit compatibility data.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/training/components/TrainingTypesPage.svelte",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor"],
-			"ownerIssue": "#761",
-			"reason": "Training type management affordances still use full-editor compatibility.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/features/training/contexts/TrainingPageContext.svelte.ts",
-			"classification": "runtime-affordance",
-			"patterns": ["isFullEditor", "canEdit*"],
-			"ownerIssue": "#761",
-			"reason": "Training client context still uses full-editor and edit compatibility gates.",
-			"driftIds": ["D-01"]
-		},
-		{
 			"path": "src/lib/access/memberAccessShape.ts",
 			"classification": "compatibility-adapter",
 			"patterns": ["isFullEditor", "canEdit*", "scopedGroupId"],
@@ -441,14 +409,6 @@
 			"patterns": ["isFullEditor"],
 			"ownerIssue": "#764",
 			"reason": "Rating Scheme CRUD still uses full-editor compatibility for selected behaviors.",
-			"driftIds": ["D-01"]
-		},
-		{
-			"path": "src/lib/server/core/useCases/trainingRecords.ts",
-			"classification": "runtime-authorization",
-			"patterns": ["isFullEditor"],
-			"ownerIssue": "#761",
-			"reason": "Training records still use full-editor compatibility for selected paths.",
 			"driftIds": ["D-01"]
 		},
 		{

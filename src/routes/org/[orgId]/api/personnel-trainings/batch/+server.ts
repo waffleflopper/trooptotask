@@ -1,9 +1,13 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { importTrainingRecords } from '$lib/server/core/useCases/trainingRecordsBatch';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const POST = handle<any, unknown>({
+type ImportTrainingRecordsInput = Parameters<typeof importTrainingRecords>[1];
+
+export const _postConfig: RouteConfig<ImportTrainingRecordsInput, unknown> = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => importTrainingRecords(ctx, input)
-});
+};
+
+export const POST = handle(_postConfig);

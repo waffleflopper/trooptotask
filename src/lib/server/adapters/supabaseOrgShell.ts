@@ -639,6 +639,8 @@ export function createSupabaseTrainingWorkspacePort(
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {
 				permission: 'training',
+				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+				policyResource: { kind: 'unscoped' },
 				defer: true,
 				fn
 			});
@@ -646,6 +648,8 @@ export function createSupabaseTrainingWorkspacePort(
 
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'training',
+			policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+			policyResource: { kind: 'unscoped' },
 			fn
 		});
 	}

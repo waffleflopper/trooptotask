@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
 import {
@@ -8,21 +8,24 @@ import {
 	updateTrainingRecord
 } from '$lib/server/core/useCases/trainingRecords';
 
-export const POST = handle<Record<string, unknown>, unknown>({
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => createTrainingRecord(ctx, input)
-});
+};
 
-export const PUT = handle<Record<string, unknown>, unknown>({
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: (ctx, input) => updateTrainingRecord(ctx, input)
-});
+};
 
-export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
+export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
 	permission: 'training',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const id = input?.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
@@ -40,4 +43,8 @@ export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
 		}
 		return json(result);
 	}
-});
+};
+
+export const POST = handle(_postConfig);
+export const PUT = handle(_putConfig);
+export const DELETE = handle(_deleteConfig);

@@ -67,7 +67,6 @@ describe('replaceDailyAssignments', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -101,7 +100,6 @@ describe('replaceDailyAssignments', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -148,7 +146,6 @@ describe('replaceDailyAssignments', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -294,7 +291,6 @@ describe('createDailyAssignment', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -321,7 +317,7 @@ describe('createDailyAssignment', () => {
 		const requireGroupAccess = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccess } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccess } });
 
 		ctx.store.seed('assignment_types', [
 			{
@@ -352,7 +348,6 @@ describe('createDailyAssignment', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -558,7 +553,7 @@ describe('setDailyAssignment', () => {
 		const requireGroupAccess = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccess } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccess } });
 
 		ctx.store.seed('assignment_types', [
 			{
@@ -692,7 +687,6 @@ describe('updateDailyAssignment', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -731,7 +725,6 @@ describe('clearDailyAssignment', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',

@@ -50,7 +50,6 @@ describe('TrainingType CRUD use case', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -88,7 +87,6 @@ describe('TrainingType CRUD use case', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

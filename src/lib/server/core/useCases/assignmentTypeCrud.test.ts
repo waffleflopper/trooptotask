@@ -13,7 +13,6 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	permission: AssignmentTypeEntity.permission!,
 	auditResource: getEntityAuditResource(AssignmentTypeEntity),
 	policyAction: AssignmentTypeEntity.policyAction,
-	requireFullEditor: AssignmentTypeEntity.requireFullEditor,
 	afterDelete: async (ctx) => {
 		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',

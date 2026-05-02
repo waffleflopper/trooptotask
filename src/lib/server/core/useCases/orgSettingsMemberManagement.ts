@@ -68,7 +68,7 @@ interface OrganizationSettingsMemberManagementPorts {
 interface InviteOrganizationMemberInput {
 	email: string;
 	preset: string;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	accessScopeKind?: 'organization' | 'groups' | null;
 	accessScopeGroupIds?: string[] | null;
@@ -94,7 +94,7 @@ interface RemoveOrganizationMemberInput {
 interface UpdateOrganizationMemberPermissionsInput {
 	membershipId: string;
 	preset: string;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	customPermissions?: Partial<OrganizationMemberPermissions> | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	accessScopeKind?: 'organization' | 'groups' | null;

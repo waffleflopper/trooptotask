@@ -30,6 +30,13 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 const crudConfig = {
 	entity: TestEntity,
 	permission: 'training' as const,
+	auditResource: 'test_record',
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions
+};
+
+const noPolicyCrudConfig = {
+	entity: TestEntity,
+	permission: 'training' as const,
 	auditResource: 'test_record'
 };
 
@@ -63,33 +70,25 @@ describe('createCrudUseCases', () => {
 			await expect(create(ctx, { notes: 'no personnel' })).rejects.toThrow();
 		});
 
-		it('throws when user lacks edit permission', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireEdit() {
-						throw new Error('No edit permission');
-					}
-				}
-			});
-			const { create } = createCrudUseCases(crudConfig);
+		it('requires a policy action before standard CRUD can authorize writes', async () => {
+			const ctx = buildContext();
+			const { create } = createCrudUseCases(noPolicyCrudConfig);
 
-			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow('No edit permission');
+			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow(
+				'createCrudUseCases requires policyAction for write authorization'
+			);
 			// Should not have inserted anything
 			const stored = await ctx.store.findMany('test_records', 'test-org');
 			expect(stored).toHaveLength(0);
 		});
 
-		it('checks legacy edit permission before validating create input', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireEdit() {
-						throw new Error('No edit permission');
-					}
-				}
-			});
-			const { create } = createCrudUseCases(crudConfig);
+		it('checks policy configuration before validating create input', async () => {
+			const ctx = buildContext();
+			const { create } = createCrudUseCases(noPolicyCrudConfig);
 
-			await expect(create(ctx, { notes: 'missing personnel' })).rejects.toThrow('No edit permission');
+			await expect(create(ctx, { notes: 'missing personnel' })).rejects.toThrow(
+				'createCrudUseCases requires policyAction for write authorization'
+			);
 		});
 
 		it('throws when organization is read-only', async () => {
@@ -117,11 +116,7 @@ describe('createCrudUseCases', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] },
-					scopedGroupId: 'group-1',
-					requireEdit() {
-						throw new Error('legacy edit flag should not decide this workflow');
-					}
+					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] }
 				}
 			});
 			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-2', last_name: 'Able' }]);
@@ -149,8 +144,7 @@ describe('createCrudUseCases', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] },
-					scopedGroupId: 'group-1'
+					scopeSet: { kind: 'groups', groupIds: ['group-1', 'group-2'] }
 				}
 			});
 			ctx.store.seed('personnel', [
@@ -181,21 +175,22 @@ describe('createCrudUseCases', () => {
 		it('enforces group scope via personnelIdField', async () => {
 			const ctx = buildContext({
 				auth: {
-					scopedGroupId: 'group-1',
-					async requireGroupAccess(personnelId: string) {
-						if (personnelId === 'p-outside') {
-							throw new Error('Access denied: personnel not in group');
-						}
-					}
+					role: 'member',
+					isPrivileged: false,
+					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 				}
 			});
+			ctx.store.seed('personnel', [
+				{ id: 'p-inside', organization_id: 'test-org', group_id: 'group-1', last_name: 'Inside' },
+				{ id: 'p-outside', organization_id: 'test-org', group_id: 'group-2', last_name: 'Outside' }
+			]);
 			const { create } = createCrudUseCases(crudConfig);
 
 			// Allowed personnel
 			await expect(create(ctx, { personnelId: 'p-inside' })).resolves.toBeDefined();
 
 			// Denied personnel
-			await expect(create(ctx, { personnelId: 'p-outside' })).rejects.toThrow('Access denied');
+			await expect(create(ctx, { personnelId: 'p-outside' })).rejects.toMatchObject({ status: 403 });
 		});
 	});
 
@@ -220,30 +215,22 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
-		it('throws when user lacks edit permission', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireEdit() {
-						throw new Error('No edit permission');
-					}
-				}
-			});
-			const { update } = createCrudUseCases(crudConfig);
+		it('requires a policy action before standard CRUD can authorize updates', async () => {
+			const ctx = buildContext();
+			const { update } = createCrudUseCases(noPolicyCrudConfig);
 
-			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toThrow('No edit permission');
+			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toThrow(
+				'createCrudUseCases requires policyAction for write authorization'
+			);
 		});
 
-		it('checks legacy edit permission before validating update input', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireEdit() {
-						throw new Error('No edit permission');
-					}
-				}
-			});
-			const { update } = createCrudUseCases(crudConfig);
+		it('checks policy configuration before validating update input', async () => {
+			const ctx = buildContext();
+			const { update } = createCrudUseCases(noPolicyCrudConfig);
 
-			await expect(update(ctx, { notes: 'missing id' })).rejects.toThrow('No edit permission');
+			await expect(update(ctx, { notes: 'missing id' })).rejects.toThrow(
+				'createCrudUseCases requires policyAction for write authorization'
+			);
 		});
 
 		it('throws when organization is read-only', async () => {
@@ -258,22 +245,25 @@ describe('createCrudUseCases', () => {
 		it('enforces group scope by record lookup', async () => {
 			const ctx = buildContext({
 				auth: {
-					async requireGroupAccessByRecord(table: string, recordId: string) {
-						if (recordId === 'record-outside') {
-							throw new Error('Access denied: record not in group');
-						}
-					}
+					role: 'member',
+					isPrivileged: false,
+					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 				}
 			});
 			const { update } = createCrudUseCases(crudConfig);
 
 			// Seed a record that passes group scope
 			ctx.store.seed('test_records', [
-				{ id: 'record-inside', personnel_id: 'p-1', notes: 'old', organization_id: 'test-org' }
+				{ id: 'record-inside', personnel_id: 'p-1', notes: 'old', organization_id: 'test-org' },
+				{ id: 'record-outside', personnel_id: 'p-2', notes: 'old', organization_id: 'test-org' }
+			]);
+			ctx.store.seed('personnel', [
+				{ id: 'p-1', organization_id: 'test-org', group_id: 'group-1', last_name: 'Inside' },
+				{ id: 'p-2', organization_id: 'test-org', group_id: 'group-2', last_name: 'Outside' }
 			]);
 
 			await expect(update(ctx, { id: 'record-inside', notes: 'new' })).resolves.toBeDefined();
-			await expect(update(ctx, { id: 'record-outside', notes: 'nope' })).rejects.toThrow('Access denied');
+			await expect(update(ctx, { id: 'record-outside', notes: 'nope' })).rejects.toMatchObject({ status: 403 });
 		});
 	});
 
@@ -299,17 +289,13 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
-		it('throws when user lacks edit permission', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireEdit() {
-						throw new Error('No edit permission');
-					}
-				}
-			});
-			const { remove } = createCrudUseCases(crudConfig);
+		it('requires a policy action before standard CRUD can authorize deletes', async () => {
+			const ctx = buildContext();
+			const { remove } = createCrudUseCases(noPolicyCrudConfig);
 
-			await expect(remove(ctx, 'tr-1')).rejects.toThrow('No edit permission');
+			await expect(remove(ctx, 'tr-1')).rejects.toThrow(
+				'createCrudUseCases requires policyAction for write authorization'
+			);
 		});
 
 		it('throws when organization is read-only', async () => {
@@ -322,88 +308,30 @@ describe('createCrudUseCases', () => {
 		it('enforces group scope by record lookup', async () => {
 			const ctx = buildContext({
 				auth: {
-					async requireGroupAccessByRecord(table: string, recordId: string) {
-						if (recordId === 'record-outside') {
-							throw new Error('Access denied: record not in group');
-						}
-					}
+					role: 'member',
+					isPrivileged: false,
+					scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 				}
 			});
 			const { remove } = createCrudUseCases(crudConfig);
 
 			ctx.store.seed('test_records', [
-				{ id: 'record-inside', personnel_id: 'p-1', notes: 'ok', organization_id: 'test-org' }
+				{ id: 'record-inside', personnel_id: 'p-1', notes: 'ok', organization_id: 'test-org' },
+				{ id: 'record-outside', personnel_id: 'p-2', notes: 'no', organization_id: 'test-org' }
+			]);
+			ctx.store.seed('personnel', [
+				{ id: 'p-1', organization_id: 'test-org', group_id: 'group-1', last_name: 'Inside' },
+				{ id: 'p-2', organization_id: 'test-org', group_id: 'group-2', last_name: 'Outside' }
 			]);
 
 			await expect(remove(ctx, 'record-inside')).resolves.toBeUndefined();
-			await expect(remove(ctx, 'record-outside')).rejects.toThrow('Access denied');
-		});
-	});
-
-	describe('requireFullEditor', () => {
-		const fullEditorConfig = {
-			...crudConfig,
-			requireFullEditor: true
-		};
-
-		it('calls requireFullEditor on create when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireFullEditor() {
-						throw new Error('Requires full editor');
-					}
-				}
-			});
-			const { create } = createCrudUseCases(fullEditorConfig);
-
-			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow('Requires full editor');
-		});
-
-		it('calls requireFullEditor on update when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireFullEditor() {
-						throw new Error('Requires full editor');
-					}
-				}
-			});
-			const { update } = createCrudUseCases(fullEditorConfig);
-
-			await expect(update(ctx, { id: 'tr-1', notes: 'x' })).rejects.toThrow('Requires full editor');
-		});
-
-		it('calls requireFullEditor on remove when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requireFullEditor() {
-						throw new Error('Requires full editor');
-					}
-				}
-			});
-			const { remove } = createCrudUseCases(fullEditorConfig);
-
-			await expect(remove(ctx, 'tr-1')).rejects.toThrow('Requires full editor');
-		});
-
-		it('does not call requireFullEditor when not configured', async () => {
-			let fullEditorCalled = false;
-			const ctx = buildContext({
-				auth: {
-					requireFullEditor() {
-						fullEditorCalled = true;
-					}
-				}
-			});
-			const { create } = createCrudUseCases(crudConfig);
-
-			await create(ctx, { personnelId: 'p-1' });
-			expect(fullEditorCalled).toBe(false);
+			await expect(remove(ctx, 'record-outside')).rejects.toMatchObject({ status: 403 });
 		});
 	});
 
 	describe('requirePrivileged', () => {
 		const privilegedConfig = {
-			...crudConfig,
+			...noPolicyCrudConfig,
 			requirePrivileged: true
 		};
 

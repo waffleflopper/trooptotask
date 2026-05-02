@@ -90,7 +90,6 @@ describe('PersonnelIctCompletionEntity', () => {
 		expect(PersonnelIctCompletionEntity.table).toBe('personnel_ict_completions');
 		expect(PersonnelIctCompletionEntity.permission).toBe('critical-tasks');
 		expect(PersonnelIctCompletionEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion);
-		expect(PersonnelIctCompletionEntity.requireFullEditor).toBeUndefined();
 		expect(PersonnelIctCompletionEntity.groupScope).toEqual({ personnelColumn: 'personnel_id' });
 		expect(PersonnelIctCompletionEntity.personnelIdField).toBe('personnelId');
 	});
@@ -130,7 +129,7 @@ describe('PersonnelIctCompletionEntity', () => {
 		const outsideId = '22222222-2222-4222-8222-222222222222';
 		const ctx = createTestContext({
 			auth: {
-				scopedGroupId: 'group-1',
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

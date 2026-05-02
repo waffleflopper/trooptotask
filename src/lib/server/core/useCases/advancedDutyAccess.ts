@@ -1,10 +1,19 @@
 import type { AuthContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
+import { POLICY_ACTION_CATALOG, evaluatePolicyDecision } from '$lib/access/policyEvaluator';
 
 export function requireAdvancedDutyAccess(auth: AuthContext): void {
-	auth.requireFullEditor();
+	const decision = evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: { membershipRole: auth.role },
+		action: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+		capabilityMap: auth.capabilityMap,
+		compatibilityLanes: auth.compatibilityLanes,
+		scopeSet: auth.scopeSet,
+		resource: { kind: 'organization' }
+	});
 
-	if (auth.scopedGroupId) {
+	if (!decision.allowed) {
 		fail(403, 'Advanced duty is only available to full-organization editors.');
 	}
 }
@@ -18,7 +27,15 @@ export function requireAdvancedDutyTemplateManagement(auth: AuthContext): void {
 }
 
 export function canAccessAdvancedDuty(
-	auth: Pick<AuthContext, 'isPrivileged' | 'isFullEditor' | 'scopedGroupId'>
+	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'>
 ): boolean {
-	return !auth.scopedGroupId && (auth.isPrivileged || auth.isFullEditor);
+	return evaluatePolicyDecision({
+		decisionKind: 'client-advisory',
+		actor: { membershipRole: auth.role },
+		action: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+		capabilityMap: auth.capabilityMap,
+		compatibilityLanes: auth.compatibilityLanes,
+		scopeSet: auth.scopeSet,
+		resource: { kind: 'organization' }
+	}).allowed;
 }

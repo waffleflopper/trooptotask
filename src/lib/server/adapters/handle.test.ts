@@ -37,14 +37,10 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 			orgId: t.auth.orgId,
 			userId: t.auth.userId,
 			role: t.auth.role,
-			scopedGroupId: t.auth.scopedGroupId,
 			isPrivileged: t.auth.isPrivileged,
-			isFullEditor: t.auth.isFullEditor,
 			requireView: t.auth.requireView,
-			requireEdit: t.auth.requireEdit,
 			requirePrivileged: t.auth.requirePrivileged,
 			requireOwner: t.auth.requireOwner,
-			requireFullEditor: t.auth.requireFullEditor,
 			requireManageMembers: t.auth.requireManageMembers,
 			requireGroupAccess: t.auth.requireGroupAccess,
 			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
@@ -86,15 +82,8 @@ describe('handleUseCaseRequest', () => {
 			expect(viewCalled).toBe(true);
 		});
 
-		it('calls requireEdit for mutation routes', async () => {
-			let editCalled = false;
-			const t = buildTestCtx({
-				auth: {
-					requireEdit() {
-						editCalled = true;
-					}
-				}
-			});
+		it('rejects mutation routes without policy authorization or use-case deferral', async () => {
+			const t = buildTestCtx();
 
 			const config: RouteConfig<void, string> = {
 				permission: 'personnel',
@@ -102,8 +91,9 @@ describe('handleUseCaseRequest', () => {
 				fn: async () => 'ok'
 			};
 
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(editCalled).toBe(true);
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toThrow(
+				'Mutation route for personnel must declare policyAction or deferPolicyToUseCase'
+			);
 		});
 
 		it('calls requirePrivileged for privileged permission', async () => {
@@ -163,8 +153,7 @@ describe('handleUseCaseRequest', () => {
 			expect(called).toBe(true);
 		});
 
-		it('uses policy decisions instead of legacy edit flags when a policy action is declared', async () => {
-			let editCalled = false;
+		it('uses policy decisions when a policy action is declared', async () => {
 			const t = buildTestCtx({
 				auth: {
 					role: 'member',
@@ -177,12 +166,7 @@ describe('handleUseCaseRequest', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] },
-					scopedGroupId: 'group-alpha',
-					requireEdit() {
-						editCalled = true;
-						throw new Error('legacy edit flag should not decide this route');
-					}
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
 				}
 			});
 
@@ -196,7 +180,6 @@ describe('handleUseCaseRequest', () => {
 
 			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
 			expect(result).toBe('ok');
-			expect(editCalled).toBe(false);
 		});
 
 		it('audits denied policy writes before rejecting the request', async () => {
@@ -289,7 +272,7 @@ describe('handleUseCaseRequest', () => {
 			const t = buildTestCtx({ readOnly: true });
 
 			const config: RouteConfig<void, string> = {
-				permission: 'personnel',
+				permission: 'privileged',
 				mutation: true,
 				fn: async () => 'ok'
 			};
@@ -331,6 +314,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<{ name: string }, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -345,6 +329,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<{ name: string }, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				input: z.object({ name: z.string().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
@@ -360,6 +345,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<void, { id: string }> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				fn: async () => ({ id: 'new-1' }),
 				audit: {
 					action: 'person.created',
@@ -384,6 +370,7 @@ describe('handleUseCaseRequest', () => {
 			const config: RouteConfig<void, string> = {
 				permission: 'personnel',
 				mutation: true,
+				deferPolicyToUseCase: true,
 				fn: async () => {
 					throw new Error('boom');
 				},

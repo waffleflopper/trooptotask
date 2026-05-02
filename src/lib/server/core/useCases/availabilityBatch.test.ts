@@ -82,7 +82,6 @@ describe('createAvailabilityBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -142,7 +141,6 @@ describe('createAvailabilityBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -265,7 +263,6 @@ describe('deleteAvailabilityBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',

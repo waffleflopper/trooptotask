@@ -20,7 +20,6 @@ describe('Rating scheme entry — create', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				requireEdit() {
 					throw new Error('legacy requireEdit should not authorize Rating Scheme writes');
 				},
@@ -318,7 +317,6 @@ describe('Rating scheme entry — delete', () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,
-				isFullEditor: false,
 				role: 'member',
 				capabilityMap: {
 					calendar: 'none',
@@ -354,7 +352,6 @@ describe('Rating scheme entry — delete', () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,
-				isFullEditor: true,
 				role: 'member',
 				capabilityMap: {
 					calendar: 'configure',

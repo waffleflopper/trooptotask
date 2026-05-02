@@ -15,7 +15,6 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-	isFullEditor as hasFullEditorPermissions,
 	createCompatibilityLaneMap,
 	resolveStoredMemberAccessShape,
 	toMemberAccessShape,
@@ -46,8 +45,6 @@ export interface PermissionContext {
 	readonly isOwner: boolean;
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
-	readonly isFullEditor: boolean;
-	readonly scopedGroupId: string | null;
 	readonly capabilityMap: CapabilityMap;
 	readonly compatibilityLanes: CompatibilityLaneMap;
 	readonly scopeSet: ScopeSet;
@@ -55,11 +52,9 @@ export interface PermissionContext {
 	readonly canEdit: Record<FeatureArea, boolean>;
 	readonly canManageMembers: boolean;
 
-	requireEdit(area: FeatureArea): void;
 	requireView(area: FeatureArea): void;
 	requirePrivileged(): void;
 	requireOwner(): void;
-	requireFullEditor(): void;
 	requireManageMembers(): void;
 
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
@@ -89,8 +84,6 @@ export function createSandboxContext(): PermissionContext {
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
 		capabilityMap: buildPrivilegedCapabilityMap(),
 		compatibilityLanes: buildPrivilegedCompatibilityLanes(),
 		scopeSet: { kind: 'organization' },
@@ -98,11 +91,9 @@ export function createSandboxContext(): PermissionContext {
 		canEdit: { ...allTrue },
 		canManageMembers: true,
 
-		requireEdit(): void {},
 		requireView(): void {},
 		requirePrivileged(): void {},
 		requireOwner(): void {},
-		requireFullEditor(): void {},
 		requireManageMembers(): void {},
 
 		async requireGroupAccess(): Promise<void> {},
@@ -192,7 +183,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canManageMembers: !!membership.can_manage_members
 	};
 
-	const isFullEditor = !isPrivileged && hasFullEditorPermissions(memberPermissions, scopedGroupId);
 	const accessShape = isPrivileged
 		? {
 				capabilityMap: buildPrivilegedCapabilityMap(),
@@ -220,20 +210,12 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		isOwner,
 		isAdmin,
 		isPrivileged,
-		isFullEditor,
-		scopedGroupId,
 		capabilityMap: accessShape.capabilityMap,
 		compatibilityLanes: accessShape.compatibilityLanes,
 		scopeSet: accessShape.scopeSet,
 		canView,
 		canEdit,
 		canManageMembers,
-
-		requireEdit(area: FeatureArea): void {
-			if (!canEdit[area]) {
-				throw error(403, `You do not have permission to edit ${areaLabel(area)} data`);
-			}
-		},
 
 		requireView(area: FeatureArea): void {
 			if (!canView[area]) {
@@ -250,12 +232,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		requireOwner(): void {
 			if (!isOwner) {
 				throw error(403, 'Only the organization owner can perform this action');
-			}
-		},
-
-		requireFullEditor(): void {
-			if (!isPrivileged && !isFullEditor) {
-				throw error(403, 'This action requires full editor, admin, or owner permissions');
 			}
 		},
 

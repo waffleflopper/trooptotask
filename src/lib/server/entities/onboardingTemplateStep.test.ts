@@ -172,7 +172,6 @@ describe('OnboardingTemplateStepEntity', () => {
 	});
 
 	it('uses Onboarding configure policy', () => {
-		expect(OnboardingTemplateStepEntity.requireFullEditor).toBeUndefined();
 		expect(OnboardingTemplateStepEntity.policyAction?.id).toBe('onboarding.configureWorkflows');
 	});
 

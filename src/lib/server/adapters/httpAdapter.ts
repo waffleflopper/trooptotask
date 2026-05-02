@@ -343,7 +343,7 @@ async function enforcePermission(ctx: UseCaseContext, config: RouteConfig<unknow
 			break;
 		default:
 			if (mutation) {
-				ctx.auth.requireEdit(permission);
+				throw new Error(`Mutation route for ${permission} must declare policyAction or deferPolicyToUseCase`);
 			} else {
 				ctx.auth.requireView(permission);
 			}
@@ -563,7 +563,6 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
-		requireFullEditor: policyAction ? undefined : entity.requireFullEditor,
 		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined

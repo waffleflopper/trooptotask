@@ -17,8 +17,7 @@ describe('organizationInvitationMembership', () => {
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
-			canManageMembers: true,
-			scopedGroupId: null
+			canManageMembers: true
 		};
 
 		expect(isAdminInvitation(invitation)).toBe(true);
@@ -101,7 +100,6 @@ describe('organizationInvitationMembership', () => {
 				canViewLeadersBook: true,
 				canEditLeadersBook: false,
 				canManageMembers: false,
-				scopedGroupId: null,
 				memberPreset: 'viewer',
 				capabilityOverrides: { calendar: 'operate' },
 				accessScopeKind: 'groups',
@@ -134,8 +132,7 @@ describe('organizationInvitationMembership', () => {
 			canEditOnboarding: true,
 			canViewLeadersBook: true,
 			canEditLeadersBook: true,
-			canManageMembers: false,
-			scopedGroupId: null
+			canManageMembers: false
 		};
 
 		expect(isAdminInvitation(invitation)).toBe(false);

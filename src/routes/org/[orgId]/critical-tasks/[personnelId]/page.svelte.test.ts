@@ -15,7 +15,6 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -31,7 +30,6 @@ const { mockOrgContext } = vi.hoisted(() => ({
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		scopedGroupId: null,
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',

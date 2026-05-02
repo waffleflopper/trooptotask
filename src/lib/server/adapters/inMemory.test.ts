@@ -403,8 +403,7 @@ describe('TestAuthContext', () => {
 
 		expect(auth.role).toBe('owner');
 		expect(auth.isPrivileged).toBe(true);
-		expect(auth.isFullEditor).toBe(true);
-		expect(auth.scopedGroupId).toBeNull();
+		expect(auth.scopeSet).toEqual({ kind: 'organization' });
 		expect(auth.orgId).toBe('test-org');
 		expect(auth.userId).toBe('test-user');
 	});
@@ -412,11 +411,9 @@ describe('TestAuthContext', () => {
 	it('does not throw on any require* call by default', () => {
 		const auth = createTestAuthContext();
 
-		expect(() => auth.requireEdit('personnel')).not.toThrow();
 		expect(() => auth.requireView('training')).not.toThrow();
 		expect(() => auth.requirePrivileged()).not.toThrow();
 		expect(() => auth.requireOwner()).not.toThrow();
-		expect(() => auth.requireFullEditor()).not.toThrow();
 	});
 
 	it('does not throw on group access calls by default', async () => {
@@ -431,19 +428,17 @@ describe('TestAuthContext', () => {
 		const auth = createTestAuthContext({
 			role: 'member',
 			isPrivileged: false,
-			isFullEditor: false,
-			scopedGroupId: 'group-A'
+			scopeSet: { kind: 'groups', groupIds: ['group-A'] }
 		});
 
 		expect(auth.role).toBe('member');
 		expect(auth.isPrivileged).toBe(false);
-		expect(auth.isFullEditor).toBe(false);
-		expect(auth.scopedGroupId).toBe('group-A');
+		expect(auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-A'] });
 	});
 
 	it('allows overriding requireGroupAccess to throw', async () => {
 		const auth = createTestAuthContext({
-			scopedGroupId: 'group-A',
+			scopeSet: { kind: 'groups', groupIds: ['group-A'] },
 			async requireGroupAccess(personnelId: string) {
 				if (personnelId === 'p-outside') throw new Error('Access denied');
 			}
@@ -451,16 +446,6 @@ describe('TestAuthContext', () => {
 
 		await expect(auth.requireGroupAccess('p-inside')).resolves.toBeUndefined();
 		await expect(auth.requireGroupAccess('p-outside')).rejects.toThrow('Access denied');
-	});
-
-	it('allows overriding requireEdit to throw', () => {
-		const auth = createTestAuthContext({
-			requireEdit() {
-				throw new Error('No edit permission');
-			}
-		});
-
-		expect(() => auth.requireEdit('personnel')).toThrow('No edit permission');
 	});
 });
 
@@ -602,7 +587,7 @@ describe('Port bundle context builders', () => {
 	});
 
 	it('scopes createWritePortsContext reads when auth has a scoped group', async () => {
-		const ctx = createWritePortsContext({ auth: { scopedGroupId: 'group-A' } });
+		const ctx = createWritePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-A'] } } });
 
 		ctx.store.seed('personnel', [
 			{ id: 'p-a', organization_id: 'test-org', group_id: 'group-A' },
@@ -614,7 +599,7 @@ describe('Port bundle context builders', () => {
 	});
 
 	it('createQueryWithRawStorePortsContext keeps rawStore unscoped', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'group-A' } });
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-A'] } } });
 
 		ctx.rawStore.seed('personnel', [
 			{ id: 'p-a', organization_id: 'test-org', group_id: 'group-A' },

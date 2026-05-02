@@ -31,12 +31,6 @@ export function createSupabaseAuthContextAdapter(
 		get isPrivileged() {
 			return permCtx.isPrivileged;
 		},
-		get isFullEditor() {
-			return permCtx.isFullEditor;
-		},
-		get scopedGroupId() {
-			return permCtx.scopedGroupId;
-		},
 		get capabilityMap() {
 			return permCtx.capabilityMap;
 		},
@@ -47,9 +41,6 @@ export function createSupabaseAuthContextAdapter(
 			return permCtx.scopeSet;
 		},
 
-		requireEdit(area: FeatureArea): void {
-			permCtx.requireEdit(area);
-		},
 		requireView(area: FeatureArea): void {
 			permCtx.requireView(area);
 		},
@@ -58,9 +49,6 @@ export function createSupabaseAuthContextAdapter(
 		},
 		requireOwner(): void {
 			permCtx.requireOwner();
-		},
-		requireFullEditor(): void {
-			permCtx.requireFullEditor();
 		},
 		requireManageMembers(): void {
 			permCtx.requireManageMembers();
@@ -84,8 +72,6 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 		orgId,
 		role: 'owner',
 		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
 		capabilityMap: {
 			calendar: 'configure',
 			personnel: 'configure',
@@ -97,11 +83,9 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 		compatibilityLanes: createCompatibilityLaneMap('configure'),
 		scopeSet: { kind: 'organization' },
 
-		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},
 		requireOwner() {},
-		requireFullEditor() {},
 		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},

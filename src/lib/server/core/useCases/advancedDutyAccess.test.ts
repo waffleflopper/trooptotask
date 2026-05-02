@@ -7,9 +7,9 @@ import { canAccessAdvancedDuty, requireAdvancedDutyTemplateManagement } from './
 describe('canAccessAdvancedDuty', () => {
 	it('allows unscoped privileged users to reload advanced duty data', () => {
 		const auth = createTestAuthContext({
+			role: 'admin',
 			isPrivileged: true,
-			isFullEditor: false,
-			scopedGroupId: null
+			scopeSet: { kind: 'organization' }
 		});
 
 		expect(canAccessAdvancedDuty(auth)).toBe(true);
@@ -17,9 +17,9 @@ describe('canAccessAdvancedDuty', () => {
 
 	it('denies scoped users even when they are privileged', () => {
 		const auth = createTestAuthContext({
+			role: 'admin',
 			isPrivileged: true,
-			isFullEditor: true,
-			scopedGroupId: 'group-hq'
+			scopeSet: { kind: 'groups', groupIds: ['group-hq'] }
 		});
 
 		expect(canAccessAdvancedDuty(auth)).toBe(false);
@@ -27,11 +27,19 @@ describe('canAccessAdvancedDuty', () => {
 });
 
 describe('requireAdvancedDutyTemplateManagement', () => {
-	it('denies unscoped full editors who are not admins or owners', () => {
+	it('denies unscoped operators who are not admins or owners', () => {
 		const auth = createTestAuthContext({
+			role: 'member',
 			isPrivileged: false,
-			isFullEditor: true,
-			scopedGroupId: null
+			capabilityMap: {
+				calendar: 'operate',
+				personnel: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			scopeSet: { kind: 'organization' }
 		});
 
 		expect(() => requireAdvancedDutyTemplateManagement(auth)).toThrow(
@@ -41,9 +49,9 @@ describe('requireAdvancedDutyTemplateManagement', () => {
 
 	it('allows privileged full-organization users', () => {
 		const auth = createTestAuthContext({
+			role: 'admin',
 			isPrivileged: true,
-			isFullEditor: false,
-			scopedGroupId: null
+			scopeSet: { kind: 'organization' }
 		});
 
 		expect(() => requireAdvancedDutyTemplateManagement(auth)).not.toThrow();

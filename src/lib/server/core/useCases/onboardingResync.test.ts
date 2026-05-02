@@ -525,7 +525,6 @@ describe('resyncOnboarding', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: operateOnlyCapabilityMap
 			}
 		});
@@ -722,7 +721,6 @@ describe('switchTemplate', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: operateOnlyCapabilityMap
 			}
 		});

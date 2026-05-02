@@ -83,7 +83,7 @@ describe('importPersonnelBatch', () => {
 
 	it('enforces scoped group restriction', async () => {
 		const ctx = buildContext({
-			auth: { scopedGroupId: 'group-1' }
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }
 		});
 		ctx.store.seed('groups', [{ id: 'group-1', organization_id: 'test-org', name: 'Alpha' }]);
 

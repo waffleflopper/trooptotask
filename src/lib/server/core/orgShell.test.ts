@@ -47,8 +47,7 @@ const baseMembership: MembershipInfo = {
 		canViewLeadersBook: false,
 		canEditLeadersBook: false,
 		canManageMembers: false
-	},
-	scopedGroupId: null
+	}
 };
 
 const baseOrgState: OrgState = {

@@ -108,7 +108,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'new.user@example.com',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -149,7 +148,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'new.user@example.com',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -183,7 +181,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'not-an-email',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -205,7 +202,6 @@ describe('inviteOrganizationMember', () => {
 				{
 					email: 'USER@EXAMPLE.COM ',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					actorEmail: 'actor@example.com'
 				}
 			)
@@ -535,7 +531,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					preset: 'admin',
-					scopedGroupId: null,
 					customPermissions: buildPermissions(),
 					actorEmail: 'actor@example.com'
 				}
@@ -582,7 +577,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					preset: 'full-editor',
-					scopedGroupId: null,
 					customPermissions: buildPermissions(),
 					actorEmail: 'actor@example.com'
 				}
@@ -629,7 +623,6 @@ describe('updateOrganizationMemberPermissions', () => {
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					preset: 'admin',
-					scopedGroupId: null,
 					customPermissions: buildPermissions(),
 					actorEmail: 'actor@example.com'
 				}
@@ -669,7 +662,6 @@ describe('updateOrganizationMemberPermissions', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				preset: 'admin',
-				scopedGroupId: null,
 				customPermissions: buildPermissions(),
 				actorEmail: 'actor@example.com'
 			}
@@ -746,7 +738,6 @@ describe('updateOrganizationMemberPermissions', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				preset: 'custom',
-				scopedGroupId: null,
 				customPermissions,
 				actorEmail: 'actor@example.com'
 			}
@@ -820,7 +811,6 @@ describe('updateOrganizationMemberPermissions', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				preset: 'operator',
-				scopedGroupId: null,
 				capabilityOverrides: {
 					calendar: 'configure',
 					ratingScheme: 'none'

@@ -26,7 +26,6 @@ describe('createDeletionRequest', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'view',
@@ -83,7 +82,6 @@ describe('createDeletionRequest', () => {
 				userId: 'viewer-user',
 				role: 'member' as const,
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'view' as const,
 					personnel: 'view' as const,
@@ -97,7 +95,6 @@ describe('createDeletionRequest', () => {
 				userId: 'operator-user',
 				role: 'member' as const,
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'operate' as const,
 					personnel: 'operate' as const,
@@ -176,8 +173,7 @@ describe('createDeletionRequest', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
-				requireEdit(area) {
+				requireEdit(area: string) {
 					if (area === 'personnel') {
 						throw new Error('legacy Personnel edit should not authorize Rating Scheme deletion requests');
 					}
@@ -349,7 +345,6 @@ describe('approveDeletionRequest', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: true,
 				capabilityMap: {
 					calendar: 'configure',
 					personnel: 'configure',

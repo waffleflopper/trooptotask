@@ -21,7 +21,7 @@ export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort)
 		capabilityMap: membership.capabilityMap,
 		scopeSet: membership.scopeSet,
 		permissions: membership.permissions,
-		scopedGroupId: membership.scopedGroupId,
+		scopedGroupId: membership.scopedGroupId ?? null,
 		isOwner,
 		isAdmin,
 		isFullEditor: !isPrivileged && hasOrganizationWideConfigureAccess(membership.capabilityMap, membership.scopeSet),

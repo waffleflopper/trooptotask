@@ -11,8 +11,7 @@
  * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
  *   matching the narrower port subsets accepted by individual use cases.
  *
- * Group scoping works automatically from `auth.scopeSet`; a legacy `scopedGroupId`
- * override is translated only as test compatibility scaffolding.
+ * Group scoping works automatically from `auth.scopeSet`.
  */
 import type {
 	CriticalTasksReadModelPort,
@@ -61,6 +60,8 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	ratingScheme: 'configure'
 };
 const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
+
+type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -309,36 +310,25 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 	};
 }
 
-export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthContext {
+export function createTestAuthContext(overrides?: TestAuthContextOverrides): AuthContext {
 	const defaults: AuthContext = {
 		userId: 'test-user',
 		orgId: 'test-org',
 		role: 'owner',
 		isPrivileged: true,
-		isFullEditor: true,
-		scopedGroupId: null,
 		capabilityMap: FULL_CAPABILITY_MAP,
 		compatibilityLanes: FULL_COMPATIBILITY_LANES,
 		scopeSet: { kind: 'organization' } satisfies ScopeSet,
-		requireEdit() {},
 		requireView() {},
 		requirePrivileged() {},
 		requireOwner() {},
-		requireFullEditor() {},
 		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
 		async requireGroupAccessByRecord() {}
 	};
 
-	const next = { ...defaults, ...overrides };
-	if (overrides?.scopedGroupId && !overrides.scopeSet) {
-		next.scopeSet = { kind: 'groups', groupIds: [overrides.scopedGroupId] };
-	}
-	if (overrides?.scopeSet?.kind === 'groups' && !overrides.scopedGroupId) {
-		next.scopedGroupId = overrides.scopeSet.groupIds[0] ?? null;
-	}
-	return next;
+	return { ...defaults, ...overrides };
 }
 
 interface AuditEvent {

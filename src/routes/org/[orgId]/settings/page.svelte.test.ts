@@ -51,7 +51,6 @@ function member(id: string, email: string, role: 'owner' | 'admin' | 'member', o
 		userId: `user-${id}`,
 		email,
 		role,
-		scopedGroupId: null,
 		createdAt: '2026-04-01T00:00:00Z',
 		memberPreset: role === 'member' ? 'editor' : 'editor',
 		capabilityOverrides: {},

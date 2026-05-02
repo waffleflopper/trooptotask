@@ -65,7 +65,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('rejects create when scoped user targets wrong group', async () => {
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a' } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 		const { create } = createPersonnelUseCases();
 
 		await expect(create(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({ status: 403 });
@@ -104,7 +104,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('allows scoped user to create in their own group', async () => {
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a' } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 		const { create } = createPersonnelUseCases();
 
 		const result = (await create(ctx, { ...validInput, groupId: 'group-a' })) as Record<string, unknown>;
@@ -116,7 +116,6 @@ describe('Personnel — create', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: 'group-a',
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'operate',
@@ -202,7 +201,7 @@ describe('Personnel — update', () => {
 		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				async requireGroupAccess() {
 					throw groupAccessError;
 				}
@@ -261,7 +260,6 @@ describe('Personnel — archive', () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,
-				isFullEditor: false,
 				role: 'member',
 				capabilityMap: {
 					calendar: 'view',
@@ -292,7 +290,6 @@ describe('Personnel — archive', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'configure',
@@ -320,7 +317,7 @@ describe('Personnel — archive', () => {
 		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = buildContext({
 			auth: {
-				scopedGroupId: 'group-a',
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				async requireGroupAccess() {
 					throw groupAccessError;
 				}

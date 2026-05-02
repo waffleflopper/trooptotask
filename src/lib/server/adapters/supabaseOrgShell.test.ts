@@ -137,7 +137,6 @@ describe('createSupabaseOrgAccessPort', () => {
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			scopeSet: { kind: 'groups', groupIds: ['group-123'] },
 			permissions: {
 				canViewCalendar: true,
 				canEditCalendar: false,
@@ -155,6 +154,7 @@ describe('createSupabaseOrgAccessPort', () => {
 				canEditLeadersBook: false,
 				canManageMembers: false
 			},
+			scopeSet: { kind: 'groups', groupIds: ['group-123'] },
 			scopedGroupId: 'group-123',
 			orgSuspended: false
 		});

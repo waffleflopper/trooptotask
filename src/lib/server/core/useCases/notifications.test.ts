@@ -45,7 +45,6 @@ const memberAuth = {
 	userId: 'member-user',
 	role: 'member' as const,
 	isPrivileged: false,
-	isFullEditor: false,
 	capabilityMap: {
 		calendar: 'view' as const,
 		personnel: 'view' as const,

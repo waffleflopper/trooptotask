@@ -45,7 +45,7 @@ export interface OrgShellData {
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
 	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	isOwner: boolean;
 	isAdmin: boolean;
 	isFullEditor: boolean;
@@ -157,7 +157,7 @@ export interface MembershipInfo {
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
 	permissions: OrganizationMemberPermissions;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	orgSuspended?: boolean;
 }
 

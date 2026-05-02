@@ -6,6 +6,7 @@ import { dutyEventRunIdInputSchema } from '../../schemas';
 export const _deleteConfig: RouteConfig<{ runId: string }, DutyEventRunDeleteResult> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: dutyEventRunIdInputSchema,
 	fn: (ctx, input) => deleteDutyEventRun(ctx, input)
 };

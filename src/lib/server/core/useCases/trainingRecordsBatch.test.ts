@@ -256,7 +256,6 @@ describe('importTrainingRecords', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -299,7 +298,6 @@ describe('importTrainingRecords', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -329,7 +327,6 @@ describe('importTrainingRecords', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

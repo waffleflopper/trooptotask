@@ -13,7 +13,6 @@ const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	permission: StatusTypeEntity.permission!,
 	auditResource: getEntityAuditResource(StatusTypeEntity),
 	policyAction: StatusTypeEntity.policyAction,
-	requireFullEditor: StatusTypeEntity.requireFullEditor,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
 			status_type_id: id
@@ -79,14 +78,7 @@ describe('StatusType CRUD use case', () => {
 	});
 
 	it('allows Calendar configure capability without relying on full-editor legacy checks', async () => {
-		const ctx = createWriteWithNotificationsPortsContext({
-			auth: {
-				isFullEditor: false,
-				requireFullEditor() {
-					throw new Error('legacy full-editor check should not run');
-				}
-			}
-		});
+		const ctx = createWriteWithNotificationsPortsContext();
 
 		const result = (await useCases.create(ctx, {
 			name: 'TDY',

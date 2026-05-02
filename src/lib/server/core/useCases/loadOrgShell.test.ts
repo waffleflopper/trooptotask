@@ -33,8 +33,7 @@ const baseMembership: MembershipInfo = {
 		canViewLeadersBook: false,
 		canEditLeadersBook: false,
 		canManageMembers: false
-	},
-	scopedGroupId: null
+	}
 };
 
 const baseOrgState: OrgState = {
@@ -145,8 +144,7 @@ describe('loadOrgShell', () => {
 			role: 'member',
 			capabilityMap: editorCapabilityMap,
 			scopeSet: { kind: 'organization' },
-			permissions: fullEditorPermissions,
-			scopedGroupId: null
+			permissions: fullEditorPermissions
 		});
 
 		const result = await loadOrgShell(access, chrome);
@@ -161,9 +159,8 @@ describe('loadOrgShell', () => {
 			...baseMembership,
 			role: 'member',
 			capabilityMap: editorCapabilityMap,
-			scopeSet: { kind: 'groups', groupIds: ['group-1'] },
 			permissions: fullEditorPermissions,
-			scopedGroupId: 'group-1'
+			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 		});
 
 		const result = await loadOrgShell(access, chrome);

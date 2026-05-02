@@ -111,7 +111,7 @@ describe('fetchPersonnelBootstrap', () => {
 	});
 
 	it('scoped member receives only scoped records in the lookup projection', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'g1' } });
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		// Seed through rawStore — the scoped store filters from the same underlying data
 		ctx.rawStore.seed('personnel', [
 			{
@@ -323,7 +323,7 @@ describe('fetchRatingSchemeBootstrap', () => {
 	});
 
 	it('keeps roster reference lookup scoped to the member group', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'g1' } });
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p1',

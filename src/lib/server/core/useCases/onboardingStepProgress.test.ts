@@ -368,7 +368,6 @@ describe('refreshTrainingSteps', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: viewOnlyCapabilityMap
 			}
 		});

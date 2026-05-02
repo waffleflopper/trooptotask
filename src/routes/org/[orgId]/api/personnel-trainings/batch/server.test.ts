@@ -10,7 +10,6 @@ describe('/api/personnel-trainings/batch route config', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

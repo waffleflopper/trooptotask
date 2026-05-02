@@ -116,7 +116,6 @@ describe('startOnboarding', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: operatorCapabilityMap,
 				scopeSet: { kind: 'groups', groupIds: ['g-1'] },
 				requireEdit() {
@@ -135,7 +134,6 @@ describe('startOnboarding', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: operatorCapabilityMap,
 				scopeSet: { kind: 'groups', groupIds: ['g-1'] },
 				requireEdit() {

@@ -4,12 +4,14 @@
  * Requires `personnel` permission feature area for writes.
  */
 import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { Group } from '$lib/stores/groups.svelte';
 
 export const GroupEntity = defineEntity<Group>({
 	table: 'groups',
 	permission: 'personnel',
+	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	groupScope: 'none',
 	audit: { resourceType: 'group', detailFields: ['name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],

@@ -17,7 +17,7 @@ export interface OrganizationInvitationAccessShape {
 	canViewLeadersBook: boolean | null;
 	canEditLeadersBook: boolean | null;
 	canManageMembers: boolean | null;
-	scopedGroupId: string | null;
+	scopedGroupId?: string | null;
 	memberPreset?: StoredMemberPreset | null;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	accessScopeKind?: 'organization' | 'groups' | null;

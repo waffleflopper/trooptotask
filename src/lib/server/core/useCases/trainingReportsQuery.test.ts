@@ -181,7 +181,7 @@ describe('fetchTrainingReportsData', () => {
 	});
 
 	it('limits report rows to the caller scoped group', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
 		store.seed('personnel', [
@@ -263,7 +263,7 @@ describe('fetchTrainingReportsData', () => {
 	});
 
 	it('generates an authorized full CSV export without applying detail pagination', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
 		store.seed('personnel', [

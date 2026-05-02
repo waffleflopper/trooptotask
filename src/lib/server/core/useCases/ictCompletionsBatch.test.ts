@@ -319,7 +319,6 @@ describe('importIctCompletionsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: 'group-alpha',
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 				capabilityMap: {
 					calendar: 'view',

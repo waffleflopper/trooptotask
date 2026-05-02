@@ -19,7 +19,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 		isOwner: true,
 		isAdmin: false,
 		isPrivileged: true,
-		isFullEditor: true,
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -35,7 +34,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		scopedGroupId: null,
 		readOnly: false,
 		capabilityMap: {
 			calendar: 'configure',
@@ -167,7 +165,6 @@ describe('critical tasks page', () => {
 		mockOrgContext.isOwner = true;
 		mockOrgContext.isAdmin = false;
 		mockOrgContext.isPrivileged = true;
-		mockOrgContext.isFullEditor = true;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
 		mockOrgContext.permissions.canViewCriticalTasks = true;
@@ -292,7 +289,6 @@ describe('critical tasks page', () => {
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isAdmin = false;
 		mockOrgContext.isPrivileged = false;
-		mockOrgContext.isFullEditor = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.permissions.canViewCriticalTasks = false;
 		mockOrgContext.permissions.canEditCriticalTasks = false;
@@ -617,7 +613,6 @@ describe('critical tasks page', () => {
 		mockOrgContext.role = 'member';
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isPrivileged = false;
-		mockOrgContext.isFullEditor = true;
 		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		personnelStore.load([], 'org-1');
 		groupsStore.load([], 'org-1');

@@ -17,7 +17,6 @@ describe('POST /api/rating-scheme', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				requireEdit() {
 					throw new Error('legacy requireEdit should not authorize Rating Scheme writes');
 				},

@@ -154,7 +154,6 @@ describe('Onboarding Template deletion hooks', () => {
 	it('rejects template CRUD without Onboarding configure policy', async () => {
 		const ctx = createWritePortsContext({
 			auth: {
-				isFullEditor: false,
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: operateOnlyCapabilityMap

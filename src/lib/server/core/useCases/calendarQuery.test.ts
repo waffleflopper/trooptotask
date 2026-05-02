@@ -169,7 +169,6 @@ describe('fetchCalendarData', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
 			}
 		});

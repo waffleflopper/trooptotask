@@ -120,7 +120,8 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
+					content:
+						'Bulk Status, Duty Roster Generator, and Export use Calendar policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -169,7 +170,8 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
+					content:
+						'Manage Groups, Bulk Import, and Bulk Delete use Personnel policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -214,7 +216,8 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
+					content:
+						'Manage Types, Reports, and Bulk Import use Training policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -245,7 +248,7 @@
 						"Each onboarding shows a progress bar and step count. Expand a person's entry to see individual step status, add notes, and mark steps complete."
 				},
 				{
-					content: 'Template management requires full-editor, admin, or owner access.',
+					content: 'Template management uses Onboarding configure access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -270,7 +273,7 @@
 					role: 'team-leader'
 				},
 				{
-					content: 'Counseling type management requires full-editor, admin, or owner access.',
+					content: "Counseling type management uses Leader's Book policy access. Admins and owners retain full access.",
 					role: 'admin'
 				}
 			]
@@ -311,7 +314,7 @@
 				},
 				{
 					content:
-						'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
+						'Member management requires the "Manage Members" permission. Type management uses feature policy access, with admins and owners retaining full access.',
 					role: 'admin'
 				},
 				{
@@ -348,7 +351,7 @@
 				{
 					title: 'Deletion Approvals',
 					content:
-						'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
+						'Members without the required delete policy access must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
 				},
 				{
 					content:

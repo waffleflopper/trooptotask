@@ -27,7 +27,6 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
 	permission: FeatureArea;
 	auditResource: string;
-	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
 	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
@@ -50,43 +49,43 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
+	const policyAction = config.policyAction ?? entity.policyAction;
 
 	async function requireCrudAuthorization(ctx: C, resource: PolicyResource, resourceId?: string): Promise<void> {
-		if (config.policyAction) {
-			if (config.policyAction.owner.lane === 'calendar') {
-				await requireCalendarPolicy(ctx, config.policyAction, resource);
-				return;
+		if (config.requirePrivileged) {
+			ctx.auth.requirePrivileged();
+			const isReadOnly = await ctx.readOnlyGuard.check();
+			if (isReadOnly) {
+				fail(403, 'Organization is in read-only mode');
 			}
-			await requireFeaturePolicy(ctx, config.policyAction, resource, auditResource, resourceId);
 			return;
 		}
 
-		if (config.requirePrivileged) {
-			ctx.auth.requirePrivileged();
-		} else if (config.requireFullEditor) {
-			ctx.auth.requireFullEditor();
+		if (policyAction) {
+			if (policyAction.owner.lane === 'calendar') {
+				await requireCalendarPolicy(ctx, policyAction, resource);
+				return;
+			}
+			await requireFeaturePolicy(ctx, policyAction, resource, auditResource, resourceId);
+			return;
 		}
-		ctx.auth.requireEdit(permission);
 
-		const isReadOnly = await ctx.readOnlyGuard.check();
-		if (isReadOnly) {
-			fail(403, 'Organization is in read-only mode');
-		}
+		throw new Error(`createCrudUseCases requires policyAction for write authorization (${entity.table}:${permission})`);
 	}
 
 	return {
 		async create(ctx, data) {
-			if (!config.policyAction) {
+			if (!policyAction) {
 				await requireCrudAuthorization(ctx, { kind: 'organization' });
 			}
 
 			const validated = parseOrFail(entity.createSchema, data);
-			if (config.policyAction) {
+			if (policyAction) {
 				await requireCrudAuthorization(ctx, await resolvePolicyResourceForCreate(ctx, entity, validated));
 			}
 
 			// Group scope: if entity has a personnelIdField, enforce access
-			if (!config.policyAction && entity.personnelIdField) {
+			if (!policyAction && entity.personnelIdField) {
 				const personnelId = validated[entity.personnelIdField];
 				if (personnelId && typeof personnelId === 'string') {
 					await ctx.auth.requireGroupAccess(personnelId);
@@ -106,18 +105,18 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (!config.policyAction) {
+			if (!policyAction) {
 				await requireCrudAuthorization(ctx, { kind: 'organization' });
 			}
 
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
-			if (config.policyAction) {
+			if (policyAction) {
 				await requireCrudAuthorization(ctx, await resolvePolicyResourceForRecord(ctx, entity, id), id);
 			}
 
 			// Group scope: enforce by record lookup
-			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
+			if (!policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
 				const personnelColumn = entity.groupScope.personnelColumn;
 				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
 			}
@@ -143,12 +142,12 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		async remove(ctx, id) {
 			await requireCrudAuthorization(
 				ctx,
-				config.policyAction ? await resolvePolicyResourceForRecord(ctx, entity, id) : { kind: 'organization' },
+				policyAction ? await resolvePolicyResourceForRecord(ctx, entity, id) : { kind: 'organization' },
 				id
 			);
 
 			// Group scope: enforce by record lookup
-			if (!config.policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
+			if (!policyAction && entity.groupScope !== 'none' && entity.personnelIdField) {
 				const personnelColumn = entity.groupScope.personnelColumn;
 				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
 			}

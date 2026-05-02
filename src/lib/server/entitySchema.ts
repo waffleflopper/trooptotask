@@ -56,7 +56,6 @@ export interface EntityConfig<T = unknown> {
 	customTransform?: (row: Record<string, unknown>) => T;
 	permission?: FeatureArea;
 	policyAction?: FeatureLanePolicyAction;
-	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	select?: string;
@@ -80,7 +79,6 @@ export interface EntityDefinition<T = unknown> {
 	select: string;
 	permission?: FeatureArea;
 	policyAction?: FeatureLanePolicyAction;
-	requireFullEditor?: boolean;
 	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
@@ -218,7 +216,6 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		select,
 		permission: config.permission,
 		policyAction: config.policyAction,
-		requireFullEditor: config.requireFullEditor,
 		requirePrivileged: config.requirePrivileged,
 		audit: config.audit,
 		orderBy: config.orderBy

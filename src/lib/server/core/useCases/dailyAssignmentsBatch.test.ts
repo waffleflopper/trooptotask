@@ -42,7 +42,6 @@ describe('batchDailyAssignments', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -71,7 +70,6 @@ describe('batchDailyAssignments', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopedGroupId: null,
 				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
 				capabilityMap: {
 					calendar: 'operate',
@@ -115,7 +113,9 @@ describe('batchDailyAssignments', () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
 			throw Object.assign(new Error('should not be called'), { status: 403 });
 		});
-		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccessBatch } });
+		const ctx = buildContext({
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] }, requireGroupAccessBatch }
+		});
 
 		ctx.store.seed('assignment_types', [
 			{

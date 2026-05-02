@@ -13,6 +13,7 @@ interface PersonnelAwardTrackingInput {
 export const _postConfig: RouteConfig<PersonnelAwardTrackingInput, PersonnelAwardTrackingResult> = {
 	permission: 'personnel',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	parseInput: async (event: RequestEvent) => {
 		const body = (await event.request.json()) as { acknowledged?: boolean };
 		return {

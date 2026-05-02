@@ -469,7 +469,6 @@ describe('handle() + entity pipeline integration', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'configure',
 					personnel: 'none',

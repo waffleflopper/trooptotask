@@ -1,4 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 
 interface ExemptionInput {
@@ -13,6 +14,7 @@ interface ExemptionOutput {
 export const _putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
 	permission: 'calendar',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
 	fn: async (ctx, input) => {
 		const { assignmentTypeId, personnelIds } = input;
 

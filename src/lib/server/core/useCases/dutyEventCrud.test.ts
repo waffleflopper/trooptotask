@@ -5617,7 +5617,6 @@ describe('advanced duty event access enforcement', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				requireView() {}
 			}
 		});
@@ -5692,8 +5691,7 @@ describe('advanced duty event access enforcement', () => {
 		const scopedCtx = createTestContext({
 			auth: {
 				isPrivileged: true,
-				isFullEditor: true,
-				scopedGroupId: 'group-alpha'
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
 			}
 		});
 

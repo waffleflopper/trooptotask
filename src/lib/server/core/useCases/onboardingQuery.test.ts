@@ -102,7 +102,7 @@ describe('fetchOnboardingBootstrap', () => {
 	});
 
 	it('returns all onboardings for an unscoped member', async () => {
-		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopedGroupId: null } });
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('personnel_onboardings', [
 			{
 				id: 'ob1',
@@ -134,7 +134,7 @@ describe('fetchOnboardingBootstrap', () => {
 	});
 
 	it('filters onboardings to scoped group personnel only', async () => {
-		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopedGroupId: 'g1' } });
+		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		ctx.store.seed('personnel', [
 			{
 				id: 'p1',
@@ -263,7 +263,7 @@ describe('fetchOnboardingBootstrap', () => {
 		const ctx = createWritePortsContext({
 			auth: {
 				orgId: ORG,
-				requireEdit(area) {
+				requireEdit(area: string) {
 					if (area === 'onboarding') {
 						throw Object.assign(new Error('Forbidden'), { status: 403 });
 					}

@@ -6,6 +6,7 @@ import { legacyDutyEventDeleteInputSchema } from '../../schemas';
 export const _postConfig: RouteConfig<{ eventIds: string[] }, DutyEventRunDeleteResult> = {
 	permission: 'calendar',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	input: legacyDutyEventDeleteInputSchema,
 	fn: (ctx, input) => deleteLegacyDutyEventGroup(ctx, input)
 };

@@ -91,7 +91,6 @@ describe('createPermissionContextFromMembership', () => {
 			scoped_group_id: 'group-123'
 		});
 
-		expect(ctx.scopedGroupId).toBe('group-123');
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 	});
 
@@ -150,10 +149,10 @@ describe('createPermissionContextFromMembership', () => {
 			scoped_group_id: 'group-123'
 		});
 
-		expect(ctx.scopedGroupId).toBeNull();
+		expect(ctx.scopeSet).toEqual({ kind: 'organization' });
 	});
 
-	it('detects full editor (member with all permissions, no scope)', () => {
+	it('maps all-permission members to organization-wide configure capabilities', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			scoped_group_id: null,
@@ -172,10 +171,16 @@ describe('createPermissionContextFromMembership', () => {
 			can_manage_members: true
 		});
 
-		expect(ctx.isFullEditor).toBe(true);
+		expect(ctx.capabilityMap).toMatchObject({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure'
+		});
 	});
 
-	it('does not detect full editor when critical tasks permissions are disabled', () => {
+	it('does not map disabled critical tasks permissions to configure capability', () => {
 		const ctx = createPermissionContextFromMembership({
 			role: 'member',
 			scoped_group_id: null,
@@ -194,15 +199,7 @@ describe('createPermissionContextFromMembership', () => {
 			can_manage_members: true
 		});
 
-		expect(ctx.isFullEditor).toBe(false);
-		expect(() => ctx.requireFullEditor()).toThrow();
-	});
-
-	it('requireEdit throws for areas without edit permission', () => {
-		const ctx = createPermissionContextFromMembership(baseMembership);
-
-		expect(() => ctx.requireEdit('calendar')).toThrow();
-		expect(() => ctx.requireEdit('personnel')).not.toThrow();
+		expect(ctx.capabilityMap.criticalTasks).not.toBe('configure');
 	});
 
 	it('requireView throws for areas without view permission', () => {

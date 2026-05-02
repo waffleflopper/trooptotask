@@ -192,7 +192,6 @@ describe('createTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -228,7 +227,6 @@ describe('createTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -255,7 +253,6 @@ describe('createTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -325,7 +322,6 @@ describe('updateTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: false,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -383,7 +379,6 @@ describe('deleteTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				isFullEditor: true,
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -405,7 +400,6 @@ describe('deleteTrainingRecord', () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,
-				isFullEditor: true,
 				role: 'member',
 				capabilityMap: {
 					calendar: 'none',
@@ -432,7 +426,6 @@ describe('deleteTrainingRecord', () => {
 		const ctx = buildContext({
 			auth: {
 				isPrivileged: false,
-				isFullEditor: false,
 				role: 'member',
 				capabilityMap: {
 					calendar: 'none',

@@ -8,7 +8,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
 vi.mock('$lib/preferences/userPreferences.client', () => ({
@@ -77,20 +77,26 @@ const mutableStatusTypesStore = statusTypesStore as unknown as { loading: boolea
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
 
 function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const org = createOrgContext({
 		orgId: 'org1',
 		orgName: 'Test Org',
 		userId: 'user1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'view',
+			personnel: 'view',
+			training: 'view',
+			criticalTasks: 'view',
+			onboarding: 'view',
+			ratingScheme: 'view'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
-	};
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
 }
 
 // ---------------------------------------------------------------------------

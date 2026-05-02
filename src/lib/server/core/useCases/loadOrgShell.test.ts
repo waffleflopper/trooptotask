@@ -4,10 +4,21 @@ import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { MembershipInfo, OrgState, ChromeData } from '../orgShell';
 import { loadOrgShell } from './loadOrgShell';
 
+const viewerCapabilityMap: MembershipInfo['capabilityMap'] = {
+	calendar: 'view',
+	personnel: 'view',
+	training: 'view',
+	criticalTasks: 'view',
+	onboarding: 'none',
+	ratingScheme: 'none'
+};
+
 const baseMembership: MembershipInfo = {
 	orgId: 'org-1',
 	userId: 'user-1',
 	role: 'member',
+	capabilityMap: viewerCapabilityMap,
+	scopeSet: { kind: 'organization' },
 	permissions: {
 		canViewCalendar: true,
 		canEditCalendar: false,
@@ -64,6 +75,15 @@ const fullEditorPermissions: MembershipInfo['permissions'] = {
 	canManageMembers: true
 };
 
+const editorCapabilityMap: MembershipInfo['capabilityMap'] = {
+	calendar: 'configure',
+	personnel: 'configure',
+	training: 'configure',
+	criticalTasks: 'configure',
+	onboarding: 'configure',
+	ratingScheme: 'configure'
+};
+
 function buildPorts(
 	membership: MembershipInfo = baseMembership,
 	orgState: OrgState = baseOrgState,
@@ -86,6 +106,8 @@ describe('loadOrgShell', () => {
 		expect(result.userId).toBe('user-1');
 		expect(result.userPreferences).toEqual(baseChrome.userPreferences);
 		expect(result.userRole).toBe('member');
+		expect(result.capabilityMap).toEqual(viewerCapabilityMap);
+		expect(result.scopeSet).toEqual({ kind: 'organization' });
 		expect(result.permissions).toEqual(baseMembership.permissions);
 		expect(result.scopedGroupId).toBeNull();
 		expect(result.effectiveTier.tier).toBe('free');
@@ -121,6 +143,8 @@ describe('loadOrgShell', () => {
 		const { access, chrome } = buildPorts({
 			...baseMembership,
 			role: 'member',
+			capabilityMap: editorCapabilityMap,
+			scopeSet: { kind: 'organization' },
 			permissions: fullEditorPermissions,
 			scopedGroupId: null
 		});
@@ -136,6 +160,8 @@ describe('loadOrgShell', () => {
 		const { access, chrome } = buildPorts({
 			...baseMembership,
 			role: 'member',
+			capabilityMap: editorCapabilityMap,
+			scopeSet: { kind: 'groups', groupIds: ['group-1'] },
 			permissions: fullEditorPermissions,
 			scopedGroupId: 'group-1'
 		});

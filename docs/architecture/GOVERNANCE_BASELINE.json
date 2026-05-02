@@ -381,10 +381,10 @@
 		},
 		{
 			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": ["canEdit*", "scopedGroupId", "scoped_group_id", "can_view_*", "can_edit_*"],
 			"ownerIssue": "#757",
-			"reason": "Org shell loading still reads legacy booleans and single-Group scope as compatibility inputs.",
+			"reason": "Org shell loading still reads legacy booleans and single-Group scope only to translate membership rows into Capability Map and Scope Set data.",
 			"driftIds": ["D-01"]
 		},
 		{
@@ -445,10 +445,10 @@
 		},
 		{
 			"path": "src/lib/server/core/useCases/loadOrgShell.ts",
-			"classification": "runtime-authorization",
+			"classification": "compatibility-adapter",
 			"patterns": ["isFullEditor", "scopedGroupId"],
 			"ownerIssue": "#757",
-			"reason": "Org shell load still exposes full-editor and single-Group scope compatibility values.",
+			"reason": "Org shell load now exposes Capability Map and Scope Set while retaining full-editor and single-Group compatibility values for transitional callers.",
 			"driftIds": ["D-01"]
 		},
 		{
@@ -577,7 +577,7 @@
 			"classification": "compatibility-adapter",
 			"patterns": ["isFullEditor", "scopedGroupId"],
 			"ownerIssue": "#757",
-			"reason": "Client org context still exposes full-editor and single-Group compatibility data.",
+			"reason": "Client org context derives new advisory affordances from Capability Map and Scope Set while retaining full-editor and single-Group compatibility fields for transitional callers.",
 			"driftIds": ["D-01"]
 		},
 		{
@@ -598,10 +598,10 @@
 		},
 		{
 			"path": "src/routes/org/[orgId]/+layout.svelte",
-			"classification": "runtime-affordance",
+			"classification": "compatibility-adapter",
 			"patterns": ["canEdit*", "scopedGroupId"],
 			"ownerIssue": "#757",
-			"reason": "Org layout still passes legacy edit and single-Group compatibility data to client context.",
+			"reason": "Org layout passes Capability Map and Scope Set into client context while retaining legacy edit and single-Group compatibility data for transitional callers.",
 			"driftIds": ["D-01"]
 		},
 		{

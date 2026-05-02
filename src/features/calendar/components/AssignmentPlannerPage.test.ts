@@ -4,17 +4,47 @@ import { fireEvent, render, screen, cleanup } from '@testing-library/svelte';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { AssignmentType, Personnel } from '$lib/types';
 
-let mockOrg: OrgContext = {
-	orgId: 'org-1',
-	orgName: 'Test Org',
-	userId: 'user-1',
-	role: 'member',
-	isOwner: false,
-	isAdmin: false,
-	isPrivileged: false,
+function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
+	const org = createOrgContext({
+		orgId: 'org-1',
+		orgName: 'Test Org',
+		userId: 'user-1',
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
+		permissions: {
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewCriticalTasks: true,
+			canEditCriticalTasks: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewLeadersBook: true,
+			canEditLeadersBook: true,
+			canManageMembers: false
+		},
+		scopedGroupId: null,
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
+}
+
+let mockOrg: OrgContext = makeOrg({
 	isFullEditor: true,
 	permissions: {
 		canViewCalendar: true,
@@ -30,12 +60,11 @@ let mockOrg: OrgContext = {
 		canViewLeadersBook: true,
 		canEditLeadersBook: true,
 		canManageMembers: false
-	},
-	scopedGroupId: null,
-	readOnly: false
-};
+	}
+});
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
+vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/stores/orgContext.svelte')>()),
 	getOrgContext: () => mockOrg
 }));
 

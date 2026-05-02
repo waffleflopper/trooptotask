@@ -10,6 +10,11 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import {
+	resolveMemberAccessShapeFromStoredOrCurrent,
+	type CapabilityMap,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -76,6 +81,8 @@ function createDemoRootOrgShellRequest(config: {
 				orgId: config.orgId,
 				userId: null,
 				role: config.role,
+				capabilityMap: resolveDemoCapabilityMap(config.permissions, config.role),
+				scopeSet: { kind: 'organization' },
 				permissions: config.permissions,
 				scopedGroupId: null
 			},
@@ -95,6 +102,28 @@ function createDemoRootOrgShellRequest(config: {
 			}
 		})
 	};
+}
+
+function resolveDemoCapabilityMap(
+	permissions: OrganizationMemberPermissions,
+	role: 'owner' | 'admin' | 'member'
+): CapabilityMap {
+	if (role === 'owner' || role === 'admin') {
+		return {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		};
+	}
+
+	return resolveMemberAccessShapeFromStoredOrCurrent({
+		membershipRole: role,
+		permissions,
+		scopedGroupId: null
+	}).capabilityMap;
 }
 
 export interface SupabaseRootOrgLoadPortDeps {
@@ -275,11 +304,14 @@ export function createSupabaseOrgAccessPort(config: {
 				canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
 				canManageMembers: isPrivileged || membership.can_manage_members
 			};
+			const accessShape = resolveMembershipClientAccessShape(membership, permissions, isPrivileged);
 
 			return {
 				orgId: config.orgId,
 				userId: config.userId,
 				role: membership.role,
+				capabilityMap: accessShape.capabilityMap,
+				scopeSet: accessShape.scopeSet,
 				permissions,
 				scopedGroupId: isPrivileged ? null : (membership.scoped_group_id ?? null),
 				// orgSuspended is checked and short-circuits before this adapter is ever
@@ -323,6 +355,41 @@ async function loadMembershipRow(config: {
 	}
 
 	return data as MembershipRow;
+}
+
+function resolveMembershipClientAccessShape(
+	membership: MembershipRow,
+	permissions: OrganizationMemberPermissions,
+	isPrivileged: boolean
+): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
+	if (isPrivileged) {
+		return {
+			capabilityMap: {
+				calendar: 'configure',
+				personnel: 'configure',
+				training: 'configure',
+				criticalTasks: 'configure',
+				onboarding: 'configure',
+				ratingScheme: 'configure'
+			},
+			scopeSet: { kind: 'organization' }
+		};
+	}
+
+	const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+		membershipRole: membership.role,
+		permissions,
+		scopedGroupId: membership.scoped_group_id,
+		memberPreset: membership.member_preset,
+		capabilityOverrides: membership.capability_overrides,
+		accessScopeKind: membership.access_scope_kind,
+		accessScopeGroupIds: membership.access_scope_group_ids
+	});
+
+	return {
+		capabilityMap: shape.capabilityMap,
+		scopeSet: shape.scopeSet
+	};
 }
 
 export function createSupabaseOrgChromePort(config: {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
@@ -20,6 +21,7 @@
 		orgName: string;
 		userRole: string;
 		permissions: OrganizationMemberPermissions;
+		capabilityMap?: CapabilityMap;
 		allOrgs: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
@@ -33,6 +35,7 @@
 		orgName,
 		userRole,
 		permissions,
+		capabilityMap,
 		allOrgs,
 		onToggleTheme,
 		isDarkTheme,
@@ -52,7 +55,7 @@
 				? $page.data.breadcrumbLabel
 				: undefined
 	);
-	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
+	const navItems = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions).filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems, routeLeafLabel));
 
 	onMount(() => {

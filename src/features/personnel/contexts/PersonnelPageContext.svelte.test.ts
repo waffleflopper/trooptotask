@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
 // ---------------------------------------------------------------------------
@@ -55,15 +55,20 @@ function makeModals(): ModalRegistry {
 }
 
 function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const org = createOrgContext({
 		orgId: 'org1',
 		orgName: 'Test Org',
 		userId: 'u1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions: {
 			canViewPersonnel: true,
 			canEditPersonnel: true,
@@ -80,9 +85,10 @@ function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 			canManageMembers: true
 		},
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
-	};
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
 }
 
 // ---------------------------------------------------------------------------

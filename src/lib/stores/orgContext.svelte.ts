@@ -10,14 +10,28 @@
  * UI permission checks (show/hide buttons, enable/disable forms). For actual data-access
  * enforcement, always rely on the server-side AuthContext.
  *
- * Key flags:
- * - `isPrivileged`: owner or admin (full data access)
- * - `isFullEditor`: non-privileged member with all edit permissions and no group scope
- * - `scopedGroupId`: non-null means this member can only see their own group's data
- * - `readOnly`: org subscription has lapsed; all write actions should be blocked
+ * Capability Map and Scope Set are advisory client data only. They can hide,
+ * disable, or explain controls, but server-side Policy Decisions remain the
+ * authoritative enforcement boundary.
  */
 import { setContext, getContext } from 'svelte';
-import { isFullEditor as checkFullEditor, type OrganizationMemberPermissions } from '$lib/types';
+import {
+	resolveMemberAccessShapeFromStoredOrCurrent,
+	type CapabilityLevel,
+	type CapabilityMap,
+	type DurableFeatureLane,
+	type ScopeSet
+} from '$lib/access/memberAccessShape';
+import {
+	policyEvaluator,
+	type FeatureLanePolicyAction,
+	type OrganizationGovernancePolicyAction,
+	type PolicyAction,
+	type PolicyDecision,
+	type PolicyResource
+} from '$lib/access/policyEvaluator';
+import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
+import type { OrganizationMemberPermissions } from '$lib/types';
 
 const ORG_CONTEXT_KEY = Symbol('org-context');
 
@@ -29,10 +43,22 @@ export interface OrgContext {
 	readonly isOwner: boolean;
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
+	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
 	readonly isFullEditor: boolean;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
+	/** Transitional compatibility field. Prefer `capabilityMap` and `affordanceFor*()` for new client logic. */
 	readonly permissions: OrganizationMemberPermissions;
+	/** Transitional compatibility field. Prefer `scopeSet` and `isResourceInScope()` for new client logic. */
 	readonly scopedGroupId: string | null;
 	readonly readOnly: boolean;
+	readonly affordanceForFeatureAction: (action: FeatureLanePolicyAction, resource?: PolicyResource) => ClientAffordance;
+	readonly affordanceForGovernanceAction: (
+		action: OrganizationGovernancePolicyAction,
+		resource?: PolicyResource
+	) => ClientAffordance;
+	readonly hasCapability: (lane: DurableFeatureLane, capability: Exclude<CapabilityLevel, 'none'>) => boolean;
+	readonly isResourceInScope: (resource?: PolicyResource) => boolean;
 }
 
 export interface CreateOrgContextInput {
@@ -40,9 +66,20 @@ export interface CreateOrgContextInput {
 	orgName: string;
 	userId: string | null;
 	userRole: 'owner' | 'admin' | 'member';
+	capabilityMap?: CapabilityMap;
+	scopeSet?: ScopeSet;
 	permissions: OrganizationMemberPermissions;
 	scopedGroupId: string | null;
 	isReadOnly: boolean;
+}
+
+export interface ClientAffordance {
+	readonly allowed: boolean;
+	readonly visible: boolean;
+	readonly disabled: boolean;
+	readonly reason: PolicyDecision['reasonCode'];
+	readonly explanation: string;
+	readonly decision: PolicyDecision;
 }
 
 type OrgContextInputAccessor = () => CreateOrgContextInput;
@@ -57,6 +94,26 @@ function toInputAccessor(input: CreateOrgContextInput | OrgContextInputAccessor)
  */
 export function createOrgContext(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContext {
 	const getInput = toInputAccessor(input);
+	const getAccessShape = () => {
+		const current = getInput();
+		if (current.capabilityMap && current.scopeSet) {
+			return {
+				capabilityMap: current.capabilityMap,
+				scopeSet: current.scopeSet
+			};
+		}
+
+		const shape = resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: current.userRole,
+			permissions: current.permissions,
+			scopedGroupId: current.scopedGroupId
+		});
+
+		return {
+			capabilityMap: shape.capabilityMap,
+			scopeSet: shape.scopeSet
+		};
+	};
 	return {
 		get orgId() {
 			return getInput().orgId;
@@ -83,7 +140,18 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		get isFullEditor() {
 			const current = getInput();
 			const isPrivileged = current.userRole === 'owner' || current.userRole === 'admin';
-			return !isPrivileged && checkFullEditor(current.permissions, current.scopedGroupId);
+			const accessShape = getAccessShape();
+			return (
+				!isPrivileged &&
+				accessShape.scopeSet.kind === 'organization' &&
+				Object.values(accessShape.capabilityMap).every((level) => level === 'configure')
+			);
+		},
+		get capabilityMap() {
+			return getAccessShape().capabilityMap;
+		},
+		get scopeSet() {
+			return getAccessShape().scopeSet;
 		},
 		get permissions() {
 			return getInput().permissions;
@@ -93,7 +161,56 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		},
 		get readOnly() {
 			return getInput().isReadOnly;
+		},
+		affordanceForFeatureAction(action, resource = { kind: 'organization' }) {
+			return evaluateClientAffordance(getInput(), getAccessShape(), action, resource);
+		},
+		affordanceForGovernanceAction(action, resource = { kind: 'organization' }) {
+			return evaluateClientAffordance(getInput(), getAccessShape(), action, resource);
+		},
+		hasCapability(lane, capability) {
+			const rank: Record<CapabilityLevel, number> = { none: 0, view: 1, operate: 2, configure: 3 };
+			return rank[getAccessShape().capabilityMap[lane] ?? 'none'] >= rank[capability];
+		},
+		isResourceInScope(resource = { kind: 'organization' }) {
+			return isResourceAllowedByScope(getAccessShape().scopeSet, resource);
 		}
+	};
+}
+
+function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource): boolean {
+	if (resource.kind === 'unscoped') return true;
+	if (scopeSet.kind === 'organization') return true;
+	if (resource.kind === 'group') return scopeSet.groupIds.includes(resource.groupId);
+	return false;
+}
+
+function evaluateClientAffordance(
+	input: CreateOrgContextInput,
+	accessShape: { capabilityMap: CapabilityMap; scopeSet: ScopeSet },
+	action: PolicyAction,
+	resource: PolicyResource
+): ClientAffordance {
+	const decision = policyEvaluator.evaluate({
+		decisionKind: 'client-advisory',
+		actor: { membershipRole: input.userRole },
+		action,
+		capabilityMap: accessShape.capabilityMap,
+		scopeSet: accessShape.scopeSet,
+		resource,
+		overlays: input.isReadOnly
+			? [{ id: 'org-read-only', kind: 'read-only-mode', label: 'Organization read-only mode' }]
+			: undefined
+	});
+	const disabled = !decision.allowed && decision.reasonCode === 'denied:read-only-overlay';
+
+	return {
+		allowed: decision.allowed,
+		visible: decision.allowed || disabled,
+		disabled,
+		reason: decision.reasonCode,
+		explanation: explainPolicyReasonCode(decision.reasonCode),
+		decision
 	};
 }
 

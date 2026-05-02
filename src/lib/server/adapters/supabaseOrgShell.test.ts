@@ -129,6 +129,15 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			role: 'member',
+			capabilityMap: {
+				calendar: 'view',
+				personnel: 'configure',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'view',
+				ratingScheme: 'view'
+			},
+			scopeSet: { kind: 'groups', groupIds: ['group-123'] },
 			permissions: {
 				canViewCalendar: true,
 				canEditCalendar: false,
@@ -149,5 +158,94 @@ describe('createSupabaseOrgAccessPort', () => {
 			scopedGroupId: 'group-123',
 			orgSuspended: false
 		});
+	});
+
+	it('prefers stored capability map and Scope Set over legacy permission and scoped group compatibility', async () => {
+		const membershipRow = {
+			role: 'member',
+			scoped_group_id: 'legacy-group',
+			can_view_calendar: false,
+			can_edit_calendar: false,
+			can_view_personnel: false,
+			can_edit_personnel: false,
+			can_view_training: false,
+			can_edit_training: false,
+			can_view_critical_tasks: false,
+			can_edit_critical_tasks: false,
+			can_view_onboarding: false,
+			can_edit_onboarding: false,
+			can_view_rating_scheme: false,
+			can_edit_rating_scheme: false,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			can_manage_members: false,
+			member_preset: 'viewer',
+			capability_overrides: { training: 'operate', criticalTasks: 'configure' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-alpha', 'group-bravo']
+		} satisfies MembershipRow;
+		const { builder } = createMembershipQueryBuilder(membershipRow);
+		const userSupabase = createMockSupabase(builder);
+		const port = createSupabaseOrgAccessPort({
+			orgId: 'org-1',
+			userId: 'user-1',
+			userSupabase,
+			orgName: 'Test Org',
+			isDemoReadOnly: false,
+			isDemoSandbox: false,
+			getEffectiveTier: async () => effectiveTier
+		});
+
+		const result = await port.getMembership();
+
+		expect(result.capabilityMap.training).toBe('operate');
+		expect(result.capabilityMap.criticalTasks).toBe('configure');
+		expect(result.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+		expect(result.scopedGroupId).toBe('legacy-group');
+	});
+
+	it('exposes organization-wide configure capability for admin governance roles', async () => {
+		const membershipRow = {
+			role: 'admin',
+			scoped_group_id: 'legacy-group',
+			can_view_calendar: false,
+			can_edit_calendar: false,
+			can_view_personnel: false,
+			can_edit_personnel: false,
+			can_view_training: false,
+			can_edit_training: false,
+			can_view_critical_tasks: false,
+			can_edit_critical_tasks: false,
+			can_view_onboarding: false,
+			can_edit_onboarding: false,
+			can_view_rating_scheme: false,
+			can_edit_rating_scheme: false,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			can_manage_members: false
+		} satisfies MembershipRow;
+		const { builder } = createMembershipQueryBuilder(membershipRow);
+		const port = createSupabaseOrgAccessPort({
+			orgId: 'org-1',
+			userId: 'user-1',
+			userSupabase: createMockSupabase(builder),
+			orgName: 'Test Org',
+			isDemoReadOnly: false,
+			isDemoSandbox: false,
+			getEffectiveTier: async () => effectiveTier
+		});
+
+		const result = await port.getMembership();
+
+		expect(result.capabilityMap).toEqual({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		});
+		expect(result.scopeSet).toEqual({ kind: 'organization' });
+		expect(result.scopedGroupId).toBeNull();
 	});
 });

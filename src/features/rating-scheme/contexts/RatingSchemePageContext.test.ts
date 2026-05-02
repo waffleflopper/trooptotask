@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
 
@@ -65,20 +65,26 @@ const entries: RatingSchemeEntry[] = [
 ];
 
 function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const org = createOrgContext({
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		userId: 'user-1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'view',
+			personnel: 'view',
+			training: 'view',
+			criticalTasks: 'view',
+			onboarding: 'view',
+			ratingScheme: 'view'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions: {} as OrgContext['permissions'],
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
-	};
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
 }
 
 function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePageData {

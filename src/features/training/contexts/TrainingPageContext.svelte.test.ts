@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -31,15 +31,20 @@ vi.mock('$lib/preferences/userPreferences.client', () => ({
 // ---------------------------------------------------------------------------
 
 function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return {
+	const org = createOrgContext({
 		orgId: 'org-1',
 		orgName: 'Test Org',
 		userId: 'user-1',
-		role: 'member',
-		isOwner: false,
-		isAdmin: false,
-		isPrivileged: false,
-		isFullEditor: false,
+		userRole: 'member',
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' },
 		permissions: {
 			canViewCalendar: true,
 			canEditCalendar: true,
@@ -56,9 +61,10 @@ function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 			canManageMembers: false
 		},
 		scopedGroupId: null,
-		readOnly: false,
-		...overrides
-	};
+		isReadOnly: false
+	});
+
+	return Object.assign({}, org, overrides);
 }
 
 function makeModals(): ModalRegistry {

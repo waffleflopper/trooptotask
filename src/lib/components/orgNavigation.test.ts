@@ -21,6 +21,24 @@ const basePermissions: OrganizationMemberPermissions = {
 };
 
 describe('getOrgNavigation', () => {
+	it('uses Capability Map view levels for shell navigation visibility', () => {
+		const nav = getOrgNavigation('org-1', {
+			calendar: 'view',
+			personnel: 'none',
+			training: 'operate',
+			criticalTasks: 'configure',
+			onboarding: 'none',
+			ratingScheme: 'view'
+		});
+
+		expect(nav.find((item) => item.id === 'calendar')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
+		expect(nav.find((item) => item.id === 'training')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'critical-tasks')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'onboarding')?.visible).toBe(false);
+		expect(nav.find((item) => item.id === 'rating-scheme')?.visible).toBe(true);
+	});
+
 	it('shows Critical Tasks for critical tasks viewers and hides it without critical tasks view access', () => {
 		const withCriticalTasks = getOrgNavigation('org-1', {
 			...basePermissions,

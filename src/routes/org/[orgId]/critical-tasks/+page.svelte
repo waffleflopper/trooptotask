@@ -20,6 +20,11 @@
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
+	import {
+		criticalTasksConfigureLibraryAffordance,
+		criticalTasksRecordCompletionAffordance,
+		criticalTasksViewReadinessAffordance
+	} from '$features/critical-tasks/utils/criticalTasksPolicy';
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
@@ -31,7 +36,6 @@
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
 	const orgName = $derived(data.orgName ?? org.orgName);
-	const permissions = $derived(data.permissions ?? org.permissions);
 	let selectedGroupId = $state('');
 	let gapsOnly = $state(false);
 	let personnelSearch = $state('');
@@ -58,8 +62,13 @@
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
-	const canEditCriticalTasks = $derived(permissions.canEditCriticalTasks && !org.readOnly);
-	const canInputTask = $derived(permissions.canViewCriticalTasks && canEditCriticalTasks);
+	const viewReadinessAffordance = $derived(criticalTasksViewReadinessAffordance(org));
+	const recordCompletionAffordance = $derived(criticalTasksRecordCompletionAffordance(org));
+	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));
+	const canViewReadiness = $derived(viewReadinessAffordance.allowed);
+	const canRecordCompletion = $derived(recordCompletionAffordance.allowed);
+	const canConfigureLibrary = $derived(configureLibraryAffordance.allowed);
+	const canInputTask = $derived(canViewReadiness && canRecordCompletion);
 	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
 	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
 	const canOpenCompletionImport = $derived(
@@ -117,7 +126,7 @@
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
 
 	function handleMatrixCellSelection(selection: ActiveCompletionCell): void {
-		if (!canEditCriticalTasks) return;
+		if (!canRecordCompletion) return;
 		activeCompletionCell = selection;
 	}
 
@@ -176,7 +185,7 @@
 			});
 		}
 
-		if (org.isPrivileged) {
+		if (canConfigureLibrary) {
 			items.push({
 				id: 'task-library',
 				label: 'Task Library',
@@ -237,7 +246,7 @@
 </svelte:head>
 
 <div class="page">
-	{#if !permissions.canViewCriticalTasks}
+	{#if !canViewReadiness}
 		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
 			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
 			<p>Contact your organization admin for critical tasks access.</p>
@@ -341,7 +350,7 @@
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
 							settings={criticalTasksSettings}
-							canEdit={canEditCriticalTasks}
+							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}
 							{selectedGroupId}
 							{gapsOnly}

@@ -18,6 +18,10 @@
 		getIctStatus,
 		normalizeCriticalTasksSettings
 	} from '$features/critical-tasks/utils/ictStatus';
+	import {
+		criticalTasksPolicyResourceForGroup,
+		criticalTasksRecordCompletionAffordance
+	} from '$features/critical-tasks/utils/criticalTasksPolicy';
 	import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type {
 		CriticalTasksPersonnelHistoryData,
@@ -65,8 +69,10 @@
 	const personnelDisplayName = $derived(`${history.personnel.lastName}, ${history.personnel.firstName}`);
 	const personnelName = $derived([history.personnel.rank, personnelDisplayName].filter(Boolean).join(' '));
 	const settings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
-	const permissions = $derived(data.permissions ?? org.permissions);
-	const canEditCriticalTasks = $derived(!!permissions.canEditCriticalTasks && !org.readOnly);
+	const recordCompletionAffordance = $derived(
+		criticalTasksRecordCompletionAffordance(org, criticalTasksPolicyResourceForGroup(history.personnel.groupId))
+	);
+	const canRecordCompletion = $derived(recordCompletionAffordance.allowed);
 	let activeEditorRow = $state<ActiveTaskRow | null>(null);
 	let showTaskInputModal = $state(false);
 	let taskSearch = $state('');
@@ -131,9 +137,7 @@
 	const archivedHistoryRows = $derived(history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null));
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
 	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
-	const canInputTask = $derived(
-		!!permissions.canViewCriticalTasks && canEditCriticalTasks && applicableTaskOptions.length > 0
-	);
+	const canInputTask = $derived(canRecordCompletion && applicableTaskOptions.length > 0);
 	const activeFilterCount = $derived(
 		(statusFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (taskSearch.trim() ? 1 : 0)
 	);
@@ -369,7 +373,7 @@
 			variant: 'default'
 		});
 
-		if (canEditCriticalTasks) {
+		if (canRecordCompletion) {
 			items.push({
 				id: 'input-task',
 				label: 'Input Task',
@@ -524,7 +528,7 @@
 						<th>Method</th>
 						<th>Validator</th>
 						<th>Notes</th>
-						{#if canEditCriticalTasks}
+						{#if canRecordCompletion}
 							<th class="action-col">Action</th>
 						{/if}
 					</tr>
@@ -532,7 +536,7 @@
 				<tbody>
 					{#if filteredActiveRows.length === 0}
 						<tr>
-							<td class="empty" colspan={canEditCriticalTasks ? 8 : 7}>No active critical tasks match this view.</td>
+							<td class="empty" colspan={canRecordCompletion ? 8 : 7}>No active critical tasks match this view.</td>
 						</tr>
 					{:else}
 						{#each filteredActiveRows as row (row.task.id)}
@@ -576,7 +580,7 @@
 										{row.completion?.notes ?? 'No notes'}
 									</div>
 								</td>
-								{#if canEditCriticalTasks}
+								{#if canRecordCompletion}
 									<td class="action-cell">
 										<button
 											type="button"

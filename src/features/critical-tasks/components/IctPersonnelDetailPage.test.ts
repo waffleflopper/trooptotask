@@ -34,7 +34,43 @@ const { mockOrgContext } = vi.hoisted(() => ({
 			canManageMembers: true
 		},
 		scopedGroupId: null,
-		readOnly: false
+		readOnly: false,
+		capabilityMap: {
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		},
+		scopeSet: { kind: 'organization' } as { kind: 'organization' } | { kind: 'groups'; groupIds: string[] },
+		affordanceForFeatureAction(
+			action: { owner: { lane: string }; requiredCapability: string; accessMode: string },
+			resource: { kind: 'organization' } | { kind: 'group'; groupId: string } | { kind: 'unscoped' } = {
+				kind: 'organization'
+			}
+		) {
+			const levels = ['none', 'view', 'operate', 'configure'];
+			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
+			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
+			const inScope =
+				this.scopeSet.kind === 'organization' ||
+				resource.kind !== 'group' ||
+				this.scopeSet.groupIds.includes(resource.groupId);
+			const readOnlyBlocked = this.readOnly && action.accessMode === 'write';
+			return {
+				allowed: hasCapability && inScope && !readOnlyBlocked,
+				visible: hasCapability && inScope,
+				disabled: hasCapability && inScope && readOnlyBlocked,
+				reason: readOnlyBlocked
+					? 'denied:read-only-overlay'
+					: hasCapability && inScope
+						? 'allowed:capability'
+						: 'denied:missing-capability',
+				explanation: '',
+				decision: {}
+			};
+		}
 	}
 }));
 
@@ -158,6 +194,8 @@ describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
 		mockOrgContext.permissions.canEditCriticalTasks = true;
 		mockOrgContext.readOnly = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'configure';
+		mockOrgContext.scopeSet = { kind: 'organization' };
 		ictTasksStore.load([], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 	});
@@ -279,6 +317,7 @@ describe('IctPersonnelDetailPage', () => {
 
 	it('keeps the page read-only for members without Critical Tasks edit access', () => {
 		mockOrgContext.permissions.canEditCriticalTasks = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'view';
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
@@ -303,6 +342,78 @@ describe('IctPersonnelDetailPage', () => {
 		});
 
 		expect(screen.getByText('Perform tactical combat casualty care')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Edit completion for 181-105-1001' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Log completion for 181-105-1003' })).toBeNull();
+	});
+
+	it('shows completion actions from Critical Tasks record-completion Policy Decisions, not legacy edit flags', () => {
+		mockOrgContext.permissions.canEditCriticalTasks = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'operate';
+		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					permissions: {
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: false
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					},
+					criticalTasksPersonnelHistory: {
+						...history,
+						personnel: {
+							...history.personnel,
+							groupId: 'group-alpha',
+							groupName: 'Alpha'
+						},
+						rows: []
+					}
+				}
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Edit completion for 181-105-1001' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Log completion for 181-105-1003' })).toBeTruthy();
+	});
+
+	it('hides completion actions when the personnel record is outside the advisory Scope Set', () => {
+		mockOrgContext.permissions.canEditCriticalTasks = true;
+		mockOrgContext.capabilityMap.criticalTasks = 'operate';
+		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					permissions: {
+						canViewCriticalTasks: true,
+						canEditCriticalTasks: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					},
+					criticalTasksPersonnelHistory: {
+						...history,
+						personnel: {
+							...history.personnel,
+							groupId: 'group-bravo',
+							groupName: 'Bravo'
+						},
+						rows: []
+					}
+				}
+			}
+		});
+
 		expect(screen.queryByRole('button', { name: 'Edit completion for 181-105-1001' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Log completion for 181-105-1003' })).toBeNull();
 	});

@@ -39,7 +39,7 @@ import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPers
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
-import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import type { FeatureLanePolicyAction, PolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -303,7 +303,7 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
 	mutation?: boolean;
 	allowReadOnlyMutation?: boolean;
-	policyAction?: FeatureLanePolicyAction;
+	policyAction?: PolicyAction;
 	policyResource?: PolicyResource;
 	deferPolicyToUseCase?: boolean;
 	input?: z.ZodType<TInput>;
@@ -409,7 +409,7 @@ function shouldRunLegacyReadOnlyGuard<TInput, TOutput>(config: RouteConfig<TInpu
 
 interface LoadConfig<T> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
-	policyAction?: FeatureLanePolicyAction;
+	policyAction?: PolicyAction;
 	policyResource?: PolicyResource;
 	fn: (ctx: UseCaseContext) => Promise<T>;
 	defer?: boolean;

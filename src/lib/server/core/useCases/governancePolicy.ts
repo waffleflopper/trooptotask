@@ -12,11 +12,17 @@ interface GovernancePolicyPorts {
 	readOnlyGuard?: ReadOnlyGuard;
 }
 
+interface GovernancePolicyOptions {
+	enforceReadOnlyOverlay?: boolean;
+}
+
 export async function requireGovernancePolicy(
 	ports: GovernancePolicyPorts,
-	action: OrganizationGovernancePolicyAction
+	action: OrganizationGovernancePolicyAction,
+	options: GovernancePolicyOptions = {}
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
+	const enforceReadOnlyOverlay = options.enforceReadOnlyOverlay ?? true;
+	const isReadOnly = enforceReadOnlyOverlay ? ((await ports.readOnlyGuard?.check()) ?? false) : false;
 	const decision = evaluatePolicyDecision({
 		decisionKind: 'server-authoritative',
 		actor: { membershipRole: ports.auth.role },

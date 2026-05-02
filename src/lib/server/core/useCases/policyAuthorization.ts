@@ -1,6 +1,6 @@
 import {
 	evaluatePolicyDecision,
-	type FeatureLanePolicyAction,
+	type PolicyAction,
 	type PolicyReasonCode,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
@@ -16,7 +16,7 @@ interface PolicyPorts {
 
 export async function requirePolicyDecision(
 	ports: PolicyPorts,
-	action: FeatureLanePolicyAction,
+	action: PolicyAction,
 	resource: PolicyResource
 ): Promise<void> {
 	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
@@ -63,6 +63,14 @@ export function policyDenialMessage(reasonCode: PolicyReasonCode, scopeSet?: Sco
 		return scopeSet?.kind === 'groups'
 			? 'This action is outside your assigned Group scope'
 			: 'This action is outside your assigned scope';
+	}
+
+	if (reasonCode === 'denied:unauthenticated') {
+		return 'Unauthorized';
+	}
+
+	if (reasonCode === 'denied:not-resource-owner') {
+		return 'You can only manage your own resources';
 	}
 
 	return 'You do not have permission to perform this action';

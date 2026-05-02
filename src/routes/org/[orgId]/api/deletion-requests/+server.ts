@@ -4,21 +4,23 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import {
 	listDeletionRequests,
 	createDeletionRequest,
-	cancelDeletionRequest
+	cancelDeletionRequest,
+	type CreateDeletionRequestInput
 } from '$lib/server/core/useCases/deletionRequests';
 
 export const GET = handle<{ status?: string }, unknown>({
 	permission: 'none',
+	deferPolicyToUseCase: true,
 	parseInput: (event: RequestEvent) => ({
 		status: event.url.searchParams.get('status') ?? undefined
 	}),
 	fn: (ctx, input) => listDeletionRequests(ctx, input.status ? { status: input.status } : undefined)
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const POST = handle<any, unknown>({
+export const POST = handle<CreateDeletionRequestInput, unknown>({
 	permission: 'none',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	allowReadOnlyMutation: true,
 	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
@@ -34,6 +36,7 @@ export const POST = handle<any, unknown>({
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'none',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		await cancelDeletionRequest(ctx, input.id as string);
 		return { success: true };

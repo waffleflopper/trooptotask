@@ -3,8 +3,9 @@ import { fail } from '$lib/server/core/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 
 export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'privileged',
+	permission: 'none',
 	mutation: true,
+	deferPolicyToUseCase: true,
 	fn: async (ctx, input) => {
 		const { id, action, denialReason } = input;
 

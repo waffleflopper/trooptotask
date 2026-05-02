@@ -14,8 +14,8 @@ import { fail } from '$lib/server/core/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { requireFeaturePolicy } from './featurePolicy';
-import { requireRatingSchemeEntryDeletionRequestPolicy } from './ratingSchemeEntryCrud';
+import { requireGovernancePolicy } from './governancePolicy';
+import { requireIdentityOwnedPolicy } from './identityPolicy';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -40,7 +40,12 @@ export async function createDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
-	await requireCreateDeletionRequestPolicy(ctx, input);
+	await requireIdentityOwnedPolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
+		ctx.auth.userId,
+		AUDIT_RESOURCE
+	);
 
 	// Check for existing pending request for the same resource
 	const existing = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
@@ -90,24 +95,6 @@ export async function createDeletionRequest(
 	return row;
 }
 
-async function requireCreateDeletionRequestPolicy(
-	ctx: WriteWithNotificationsPorts,
-	input: Pick<CreateDeletionRequestInput, 'resourceType' | 'resourceId'>
-): Promise<void> {
-	if (input.resourceType === 'rating_scheme_entry') {
-		await requireRatingSchemeEntryDeletionRequestPolicy(ctx, input.resourceId);
-		return;
-	}
-
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		{ kind: 'unscoped' },
-		AUDIT_RESOURCE,
-		input.resourceId
-	);
-}
-
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
 	counseling_record: 'counseling_records',
@@ -145,7 +132,7 @@ function notifyRequester(
 }
 
 export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
-	ctx.auth.requirePrivileged();
+	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
 
@@ -205,7 +192,7 @@ export async function denyDeletionRequest(
 	requestId: string,
 	reason?: string
 ): Promise<void> {
-	ctx.auth.requirePrivileged();
+	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
 
@@ -247,9 +234,13 @@ export async function denyDeletionRequest(
 export async function cancelDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
 	const request = await fetchPendingRequest(ctx, requestId);
 
-	if (request.requested_by !== ctx.auth.userId) {
-		fail(403, 'You can only cancel your own deletion requests');
-	}
+	await requireIdentityOwnedPolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
+		typeof request.requested_by === 'string' ? request.requested_by : null,
+		AUDIT_RESOURCE,
+		requestId
+	);
 
 	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
 		status: 'cancelled'
@@ -276,8 +267,17 @@ export async function listDeletionRequests(
 		filters.status = options.status;
 	}
 
-	// Non-privileged users only see their own requests
-	if (!ctx.auth.isPrivileged && ctx.auth.userId) {
+	if (ctx.auth.role === 'owner' || ctx.auth.role === 'admin') {
+		await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests, {
+			enforceReadOnlyOverlay: false
+		});
+	} else {
+		await requireIdentityOwnedPolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.identity.listOwnDeletionRequests,
+			ctx.auth.userId,
+			AUDIT_RESOURCE
+		);
 		filters.requested_by = ctx.auth.userId;
 	}
 

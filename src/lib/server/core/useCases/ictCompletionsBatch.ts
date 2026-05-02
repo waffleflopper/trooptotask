@@ -57,6 +57,10 @@ function toBatchErrors(
 	);
 }
 
+function toPersonnelPolicyResource(person?: { groupId?: string | null }) {
+	return person?.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const };
+}
+
 export async function importIctCompletionsBatch(
 	ctx: WritePorts,
 	input: IctCompletionBatchImportInput
@@ -93,13 +97,10 @@ export async function importIctCompletionsBatch(
 
 	const matchedPersonnelIds = [...new Set(preliminaryReview.validRows.map((row) => row.personnelId))];
 	if (matchedPersonnelIds.length > 0) {
+		const personnelById = new Map(personnel.map((person) => [person.id, person]));
 		for (const personnelId of matchedPersonnelIds) {
-			const person = personnel.find((entry) => entry.id === personnelId);
-			await requirePolicyDecision(
-				ctx,
-				POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
-				person?.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
-			);
+			const resource = toPersonnelPolicyResource(personnelById.get(personnelId));
+			await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, resource);
 		}
 		await ctx.auth.requireGroupAccessBatch(matchedPersonnelIds);
 	}

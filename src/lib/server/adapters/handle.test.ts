@@ -238,6 +238,49 @@ describe('handleUseCaseRequest', () => {
 				})
 			]);
 		});
+
+		it('uses policy read-only overlays for policy-backed mutations', async () => {
+			const t = buildTestCtx({
+				readOnly: true,
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'operate',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+
+			const config: RouteConfig<void, string> = {
+				permission: 'critical-tasks',
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+				policyResource: { kind: 'organization' },
+				fn: async () => 'unreachable'
+			};
+
+			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+				status: 403,
+				message: 'Organization is in read-only mode'
+			});
+			expect(t.auditPort.events).toEqual([
+				expect.objectContaining({
+					action: 'policy.denied',
+					resourceType: 'criticalTasks.recordCompletion',
+					details: expect.objectContaining({
+						policyAction: 'criticalTasks.recordCompletion',
+						reasonCode: 'denied:read-only-overlay',
+						blockingOverlay: 'read-only-mode'
+					})
+				})
+			]);
+		});
 	});
 
 	describe('read-only guard', () => {

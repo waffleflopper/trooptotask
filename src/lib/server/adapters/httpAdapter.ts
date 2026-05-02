@@ -359,7 +359,7 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	await enforcePermission(ctx, config as RouteConfig<unknown, unknown>);
 
 	// 2. Read-only guard for mutations
-	if (config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase) {
+	if (shouldRunLegacyReadOnlyGuard(config)) {
 		const isReadOnly = await ctx.readOnlyGuard.check();
 		if (isReadOnly) {
 			fail(403, 'Organization is in read-only mode');
@@ -391,6 +391,12 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 	}
 
 	return output;
+}
+
+function shouldRunLegacyReadOnlyGuard<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): boolean {
+	return Boolean(
+		config.mutation && !config.allowReadOnlyMutation && !config.deferPolicyToUseCase && !config.policyAction
+	);
 }
 
 // ---------------------------------------------------------------------------

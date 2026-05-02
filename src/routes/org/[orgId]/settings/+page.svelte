@@ -375,6 +375,10 @@
 		}
 	}
 
+	function getAccessOptionHelper(preset: EditablePreset): string {
+		return accessOptions.find((option) => option.value === preset)?.helper ?? '';
+	}
+
 	function editablePresetForMemberPreset(memberPreset: MemberPreset): StoredMemberPreset {
 		return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
 			? memberPreset
@@ -471,6 +475,22 @@
 		return accessLanes
 			.filter((lane) => shape.capabilityMap[lane.id] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane.id])
 			.map((lane) => `${lane.label}: ${formatCapability(shape.capabilityMap[lane.id])}`);
+	}
+
+	function getEditorCapabilityValue(
+		member: OrganizationMember,
+		lane: DurableFeatureLane,
+		selectedPreset: EditablePreset
+	): CapabilityLevel {
+		const accessShape = getMemberAccessShape(member);
+		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
+
+		const currentPreset = editablePresetForMemberPreset(accessShape.memberPreset);
+		if (selectedPreset !== currentPreset) {
+			return TARGET_MEMBER_PRESET_CAPABILITIES[selectedPreset][lane];
+		}
+
+		return accessShape.capabilityMap[lane];
 	}
 
 	function getSelectedScopeKind(member: OrganizationMember): ScopeKind {
@@ -795,6 +815,7 @@
 														<option value={option.value}>{option.label}</option>
 													{/each}
 												</select>
+												<p class="member-editor__preset-hint">{getAccessOptionHelper(selectedPreset)}</p>
 											</label>
 											<div class="member-editor__actions">
 												<button type="submit" class="btn btn-primary btn-sm" disabled={loading}>
@@ -835,7 +856,8 @@
 																<select
 																	name="capability:{lane.id}"
 																	class="input"
-																	value={accessShape.capabilityMap[lane.id]}
+																	value={getEditorCapabilityValue(member, lane.id, selectedPreset)}
+																	aria-label="{lane.label} capability for {member.email ?? 'member'}"
 																>
 																	{#each capabilityOptions as option (option.value)}
 																		<option value={option.value}>{option.label}</option>

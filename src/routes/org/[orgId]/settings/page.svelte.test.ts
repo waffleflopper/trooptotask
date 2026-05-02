@@ -249,6 +249,45 @@ describe('org settings page', () => {
 		expect(screen.queryByText('Invite New Member')).toBeNull();
 	});
 
+	it('updates capability defaults when a member preset changes in the access editor', async () => {
+		render(Page, {
+			props: {
+				data: {
+					...baseData,
+					members: [
+						member('member-1', 'owner@example.com', 'owner'),
+						member('member-2', 'admin@example.com', 'admin'),
+						member('member-3', 'member-a@example.com', 'member', {
+							memberPreset: 'viewer',
+							capabilityOverrides: { calendar: 'operate', ratingScheme: 'none' }
+						})
+					]
+				} as never,
+				form: null as never
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Members/ }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Manage Access' }).at(-1)!);
+
+		const accessPreset = screen.getByRole('combobox', { name: /Access assignment/ }) as HTMLSelectElement;
+		const calendarCapability = screen.getByLabelText(
+			'Calendar capability for member-a@example.com'
+		) as HTMLSelectElement;
+		const ratingSchemeCapability = screen.getByLabelText(
+			'Rating Scheme capability for member-a@example.com'
+		) as HTMLSelectElement;
+
+		expect(accessPreset.value).toBe('viewer');
+		expect(calendarCapability.value).toBe('operate');
+		expect(ratingSchemeCapability.value).toBe('none');
+
+		await fireEvent.change(accessPreset, { target: { value: 'editor' } });
+
+		expect(calendarCapability.value).toBe('configure');
+		expect(ratingSchemeCapability.value).toBe('configure');
+	});
+
 	it('renders the policies tab as operational defaults instead of the old policy card', async () => {
 		render(Page, {
 			props: {

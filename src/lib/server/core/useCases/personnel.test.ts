@@ -95,7 +95,7 @@ describe('Personnel — create', () => {
 				action: 'policy.denied',
 				resourceType: 'personnel',
 				details: expect.objectContaining({
-					policyAction: 'personnel.manageRecords',
+					policyAction: 'personnel.createRecords',
 					reasonCode: 'denied:missing-capability'
 				}),
 				severity: 'warning'
@@ -103,7 +103,7 @@ describe('Personnel — create', () => {
 		);
 	});
 
-	it('allows scoped user to create in their own group', async () => {
+	it('allows configure-capable scoped user to create in their own group', async () => {
 		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
 		const { create } = createPersonnelUseCases();
 
@@ -111,7 +111,7 @@ describe('Personnel — create', () => {
 		expect(result).toMatchObject({ firstName: 'John' });
 	});
 
-	it('allows multi-Group scoped users to create in any assigned group', async () => {
+	it('denies operators from creating personnel records', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -119,6 +119,27 @@ describe('Personnel — create', () => {
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+			}
+		});
+		const { create } = createPersonnelUseCases();
+
+		await expect(create(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('allows configure-capable multi-Group scoped users to create in any assigned group', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
 					training: 'none',
 					criticalTasks: 'none',
 					onboarding: 'none',

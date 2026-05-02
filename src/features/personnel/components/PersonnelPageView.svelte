@@ -40,14 +40,16 @@
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
-	const canManageRoster = $derived(ctx.canAddPersonnel);
+	const canAddPersonnel = $derived(ctx.canAddPersonnel);
+	const canImportPersonnel = $derived(ctx.canImportPersonnel);
+	const canManageGroups = $derived(ctx.canManageGroups);
 	const canManageAnyRosterRecord = $derived.by(() =>
 		personnelStore.items.some((person) => ctx.canManagePersonnelRecord(person))
 	);
 
 	const personnelActionItems = $derived.by<ToolbarActionConfig[]>(() => {
 		const items: ToolbarActionConfig[] = [];
-		if (canManageRoster) {
+		if (canImportPersonnel) {
 			items.push({
 				id: 'bulk-import',
 				label: 'Import',
@@ -56,6 +58,8 @@
 				disabled: readOnly,
 				priority: 'low'
 			});
+		}
+		if (canManageGroups) {
 			items.push({
 				id: 'manage-groups',
 				label: 'Manage Groups',
@@ -64,6 +68,8 @@
 				disabled: readOnly,
 				variant: 'secondary'
 			});
+		}
+		if (canAddPersonnel) {
 			items.push({
 				id: 'add-person',
 				label: 'Add Person',
@@ -249,8 +255,8 @@
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState
 					message="No personnel on the active roster. Add one person, or use the actions menu for Bulk Import when you have a roster file."
-					actionLabel={canManageRoster ? 'Add Person' : undefined}
-					onAction={canManageRoster ? () => ctx.handleAdd() : undefined}
+					actionLabel={canAddPersonnel ? 'Add Person' : undefined}
+					onAction={canAddPersonnel ? () => ctx.handleAdd() : undefined}
 				/>
 			{:else if shouldGateGroupedRoster}
 				<div class="roster-scale-guard">

@@ -15,7 +15,7 @@ function legacyAuthShouldNotAuthorize() {
 }
 
 describe('/api/personnel route authorization', () => {
-	it('creates personnel through use-case Policy Decisions without route-level legacy edit gates', async () => {
+	it('creates personnel through configure-level use-case Policy Decisions without route-level legacy edit gates', async () => {
 		const legacyAuth = legacyAuthShouldNotAuthorize();
 		const ctx = createTestContext({
 			auth: {
@@ -24,7 +24,7 @@ describe('/api/personnel route authorization', () => {
 				isPrivileged: false,
 				capabilityMap: {
 					calendar: 'view',
-					personnel: 'operate',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',

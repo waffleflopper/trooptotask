@@ -96,7 +96,15 @@ export class PersonnelPageContext {
 	// ---- Permission flags ----
 
 	get canAddPersonnel(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords).allowed;
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;
+	}
+
+	get canImportPersonnel(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.importRecords).allowed;
+	}
+
+	get canManageGroups(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageGroups).allowed;
 	}
 
 	get canManageConfig(): boolean {

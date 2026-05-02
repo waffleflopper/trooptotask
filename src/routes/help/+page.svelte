@@ -139,7 +139,7 @@
 				{
 					title: 'Adding Personnel',
 					content:
-						'Click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, role, and assign them to a group.'
+						'Editors can click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, duty role, and group.'
 				},
 				{
 					title: 'Editing Personnel',
@@ -149,12 +149,12 @@
 				{
 					title: 'Groups',
 					content:
-						'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
+						'Organize personnel into groups (sections, teams, departments). Editors use "Manage Groups" to create, rename, reorder, or delete groups. Everyone who can view the roster can pin frequently used groups to keep them at the top of lists.'
 				},
 				{
 					title: 'Bulk Import',
 					content:
-						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar or actions menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
+						'Editors can import many personnel at once using Excel or CSV. Required columns: FirstName, LastName, Rank. Optional: MOS, Duty Role, Group.'
 				},
 				{
 					title: 'Bulk Delete',
@@ -166,12 +166,12 @@
 					content: 'Use the search box at the top to filter personnel by name. Works in both view modes.'
 				},
 				{
-					content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
+					content: 'You only see personnel in your assigned group. You can edit existing personnel within your group.',
 					role: 'team-leader'
 				},
 				{
 					content:
-						'Manage Groups, Bulk Import, and Bulk Delete use Personnel policy access. Admins and owners retain full access.',
+						'Manage Groups, Bulk Import, and Bulk Delete require editor-level Personnel policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]
@@ -341,7 +341,7 @@
 				{
 					title: 'Group Scoping',
 					content:
-						'Members can be scoped to a specific group. When scoped, they only see and edit personnel in that group. This is the "Team Leader" model — each group leader manages their own people while the calendar stays org-wide for visibility. Owners and admins are always org-wide regardless of scope setting.'
+						'Members can be scoped to a specific group. When scoped, they only see and update personnel in that group. Owners and admins are always org-wide regardless of scope setting.'
 				},
 				{
 					title: 'What Full Editor Unlocks',
@@ -355,7 +355,7 @@
 				},
 				{
 					content:
-						'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
+						'As a team leader, you can update existing personnel, calendar entries, training, and counseling records for your assigned group. You cannot add personnel, manage groups, access type managers, use bulk operations, or access the admin hub.',
 					role: 'team-leader'
 				},
 				{

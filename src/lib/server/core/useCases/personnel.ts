@@ -28,7 +28,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		async create(ctx, data) {
 			await requireFeaturePolicy(
 				ctx,
-				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				POLICY_ACTION_CATALOG.personnel.createRecords,
 				policyResourceForGroup(data.groupId),
 				AUDIT_RESOURCE
 			);

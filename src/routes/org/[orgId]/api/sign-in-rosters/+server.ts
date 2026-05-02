@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
+import type { RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { FindOptions } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function toClient(r: Record<string, unknown>) {
 	return {
@@ -20,7 +22,7 @@ function toClient(r: Record<string, unknown>) {
 	};
 }
 
-export const GET = handle<Record<string, unknown>, unknown>({
+export const _getConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	permission: 'personnel',
 	parseInput: (event: RequestEvent) => {
 		return {
@@ -59,11 +61,15 @@ export const GET = handle<Record<string, unknown>, unknown>({
 
 		return { rosters: data.map(toClient), total: count ?? 0 };
 	}
-});
+};
 
-export const POST = handle<Record<string, unknown>, unknown>({
-	permission: 'personnel',
+export const GET = handle(_getConfig);
+
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+	permission: 'training',
 	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
 		if (!(input.personnelSnapshot as unknown[])?.length) fail(400, 'Personnel snapshot is required');
@@ -90,4 +96,6 @@ export const POST = handle<Record<string, unknown>, unknown>({
 		return toClient(row);
 	},
 	formatOutput: (result) => json(result)
-});
+};
+
+export const POST = handle(_postConfig);

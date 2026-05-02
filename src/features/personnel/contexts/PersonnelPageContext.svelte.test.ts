@@ -114,9 +114,27 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('permission flags', () => {
-		it('canAddPersonnel is true when the Personnel manage-records affordance is allowed', () => {
+		it('canAddPersonnel is true when the Personnel create-records affordance is allowed', () => {
 			const ctx = new PersonnelPageContext(
 				makeData({ permissions: { canEditPersonnel: false }, scopedGroupId: 'legacy-group' }),
+				makeModals(),
+				makeOrg({
+					affordanceForFeatureAction: (action) => ({
+						allowed: action.id === POLICY_ACTION_CATALOG.personnel.createRecords.id,
+						visible: true,
+						disabled: false,
+						reason: 'allowed:capability',
+						explanation: '',
+						decision: {} as never
+					})
+				})
+			);
+			expect(ctx.canAddPersonnel).toBe(true);
+		});
+
+		it('keeps add/import/group affordances separate from existing-record edits', () => {
+			const ctx = new PersonnelPageContext(
+				makeData(),
 				makeModals(),
 				makeOrg({
 					affordanceForFeatureAction: (action) => ({
@@ -129,7 +147,10 @@ describe('PersonnelPageContext', () => {
 					})
 				})
 			);
-			expect(ctx.canAddPersonnel).toBe(true);
+
+			expect(ctx.canAddPersonnel).toBe(false);
+			expect(ctx.canImportPersonnel).toBe(false);
+			expect(ctx.canManageGroups).toBe(false);
 		});
 
 		it('canAddPersonnel is false when the Personnel manage-records affordance is denied', () => {

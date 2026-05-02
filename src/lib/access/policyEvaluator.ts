@@ -217,6 +217,20 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'write',
 			requiredCapability: 'operate'
 		}),
+		createRecords: featureAction({
+			id: 'personnel.createRecords',
+			label: 'Create personnel records',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
+		manageGroups: featureAction({
+			id: 'personnel.manageGroups',
+			label: 'Manage personnel groups',
+			lane: 'personnel',
+			accessMode: 'write',
+			requiredCapability: 'configure'
+		}),
 		archiveRecords: featureAction({
 			id: 'personnel.archiveRecords',
 			label: 'Archive personnel records',
@@ -236,7 +250,7 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Import personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
-			requiredCapability: 'operate'
+			requiredCapability: 'configure'
 		}),
 		mergeRecords: featureAction({
 			id: 'personnel.mergeRecords',

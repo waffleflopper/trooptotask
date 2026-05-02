@@ -332,7 +332,8 @@
 								<div class="permission-section">
 									<h4>Personnel</h4>
 									<p class="permission-description">
-										View the personnel roster and details. Edit allows adding, updating, and removing personnel records.
+										View the personnel roster and details. Operators can update existing records; editors manage new
+										personnel, imports, groups, and archive actions.
 									</p>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canViewPersonnel" checked={member.canViewPersonnel} />

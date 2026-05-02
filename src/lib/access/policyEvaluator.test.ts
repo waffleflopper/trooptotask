@@ -167,6 +167,24 @@ describe('policy evaluator', () => {
 			owner: { kind: 'feature-lane', lane: 'personnel' },
 			requiredCapability: 'operate'
 		});
+		expect(POLICY_ACTION_CATALOG.personnel.createRecords).toMatchObject({
+			id: 'personnel.createRecords',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'configure'
+		});
+		expect(POLICY_ACTION_CATALOG.personnel.manageGroups).toMatchObject({
+			id: 'personnel.manageGroups',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'configure'
+		});
+		expect(POLICY_ACTION_CATALOG.personnel.importRecords).toMatchObject({
+			id: 'personnel.importRecords',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'configure'
+		});
 	});
 
 	it('defines Rating Scheme workflow actions with Rating Scheme lane ownership', () => {

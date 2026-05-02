@@ -74,6 +74,8 @@ function makeCtx(
 		data: { orgId: 'org-1', scopedGroupId: null },
 		orgId: 'org-1',
 		canAddPersonnel: false,
+		canImportPersonnel: false,
+		canManageGroups: false,
 		canManagePersonnelRecord: () => false,
 		personnelRecordAffordance: () => deniedAffordance(),
 		viewMode: 'alphabetical',
@@ -156,6 +158,8 @@ describe('PersonnelPageView', () => {
 		const ctx = {
 			...makeCtx(),
 			canAddPersonnel: true,
+			canImportPersonnel: true,
+			canManageGroups: true,
 			canManagePersonnelRecord: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;
@@ -169,6 +173,27 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).getByRole('button', { name: 'Add Person' })).toBeTruthy();
 		expect(within(toolbar).getByRole('button', { name: 'Import' })).toBeTruthy();
 		expect(within(toolbar).queryByRole('button', { name: 'Bulk Import' })).toBeNull();
+	});
+
+	it('keeps creation and group controls hidden for operators who can edit existing personnel', () => {
+		const ctx = {
+			...makeCtx(),
+			canAddPersonnel: false,
+			canImportPersonnel: false,
+			canManageGroups: false,
+			canManagePersonnelRecord: () => true,
+			personnelRecordAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
+		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
+		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
+		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 	});
 
 	it('filters the roster from the toolbar search item', async () => {

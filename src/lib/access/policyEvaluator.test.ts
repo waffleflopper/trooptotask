@@ -185,6 +185,12 @@ describe('policy evaluator', () => {
 			owner: { kind: 'feature-lane', lane: 'personnel' },
 			requiredCapability: 'configure'
 		});
+		expect(POLICY_ACTION_CATALOG.personnel.mergeRecords).toMatchObject({
+			id: 'personnel.mergeRecords',
+			accessMode: 'write',
+			owner: { kind: 'feature-lane', lane: 'personnel' },
+			requiredCapability: 'configure'
+		});
 	});
 
 	it('defines Rating Scheme workflow actions with Rating Scheme lane ownership', () => {

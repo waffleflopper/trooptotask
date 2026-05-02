@@ -27,7 +27,6 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
 	permission: FeatureArea;
 	auditResource: string;
-	requirePrivileged?: boolean;
 	policyAction?: FeatureLanePolicyAction;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
@@ -39,11 +38,6 @@ export interface CrudUseCases<C extends WritePorts = WritePorts> {
 	remove(ctx: C, id: string): Promise<void>;
 }
 
-type CrudAuthorization =
-	| { kind: 'policy-decision'; action: FeatureLanePolicyAction }
-	| { kind: 'legacy-privileged-fallback' }
-	| { kind: 'missing-policy-action' };
-
 function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
 	const result = schema.safeParse(data);
 	if (!result.success) {
@@ -54,32 +48,17 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 
 export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
-	const policyAction = config.policyAction ?? entity.policyAction;
-	const authorization = resolveCrudAuthorization(config, policyAction);
+	const policyAction = resolveCrudPolicyAction(config, entity, permission);
 
 	return {
 		async create(ctx, data) {
-			if (authorization.kind !== 'policy-decision') {
-				await requireNonPolicyCrudAuthorization(ctx, authorization, entity, permission);
-			}
-
 			const validated = parseOrFail(entity.createSchema, data);
-			if (authorization.kind === 'policy-decision') {
-				await requirePolicyDecisionForCrud(
-					ctx,
-					authorization.action,
-					await resolvePolicyResourceForCreate(ctx, entity, validated),
-					auditResource
-				);
-			}
-
-			// Group scope: if entity has a personnelIdField, enforce access
-			if (authorization.kind === 'legacy-privileged-fallback' && entity.personnelIdField) {
-				const personnelId = validated[entity.personnelIdField];
-				if (personnelId && typeof personnelId === 'string') {
-					await ctx.auth.requireGroupAccess(personnelId);
-				}
-			}
+			await requirePolicyDecisionForCrud(
+				ctx,
+				policyAction,
+				await resolvePolicyResourceForCreate(ctx, entity, validated),
+				auditResource
+			);
 
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
@@ -94,31 +73,15 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (authorization.kind !== 'policy-decision') {
-				await requireNonPolicyCrudAuthorization(ctx, authorization, entity, permission);
-			}
-
 			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
-			if (authorization.kind === 'policy-decision') {
-				await requirePolicyDecisionForCrud(
-					ctx,
-					authorization.action,
-					await resolvePolicyResourceForRecord(ctx, entity, id),
-					auditResource,
-					id
-				);
-			}
-
-			// Group scope: enforce by record lookup
-			if (
-				authorization.kind === 'legacy-privileged-fallback' &&
-				entity.groupScope !== 'none' &&
-				entity.personnelIdField
-			) {
-				const personnelColumn = entity.groupScope.personnelColumn;
-				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
-			}
+			await requirePolicyDecisionForCrud(
+				ctx,
+				policyAction,
+				await resolvePolicyResourceForRecord(ctx, entity, id),
+				auditResource,
+				id
+			);
 
 			const dbData = entity.toDbUpdate(validated);
 			const row = await ctx.store.update<Record<string, unknown>>(
@@ -139,27 +102,13 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (authorization.kind === 'policy-decision') {
-				await requirePolicyDecisionForCrud(
-					ctx,
-					authorization.action,
-					await resolvePolicyResourceForRecord(ctx, entity, id),
-					auditResource,
-					id
-				);
-			} else {
-				await requireNonPolicyCrudAuthorization(ctx, authorization, entity, permission);
-			}
-
-			// Group scope: enforce by record lookup
-			if (
-				authorization.kind === 'legacy-privileged-fallback' &&
-				entity.groupScope !== 'none' &&
-				entity.personnelIdField
-			) {
-				const personnelColumn = entity.groupScope.personnelColumn;
-				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
-			}
+			await requirePolicyDecisionForCrud(
+				ctx,
+				policyAction,
+				await resolvePolicyResourceForRecord(ctx, entity, id),
+				auditResource,
+				id
+			);
 
 			if (config.beforeDelete) {
 				await config.beforeDelete(ctx, id);
@@ -180,41 +129,17 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 	};
 }
 
-function resolveCrudAuthorization<C extends WritePorts>(
+function resolveCrudPolicyAction<C extends WritePorts>(
 	config: CrudConfig<C>,
-	policyAction: FeatureLanePolicyAction | undefined
-): CrudAuthorization {
-	if (config.requirePrivileged) {
-		return { kind: 'legacy-privileged-fallback' };
-	}
-
-	if (policyAction) {
-		return { kind: 'policy-decision', action: policyAction };
-	}
-
-	return { kind: 'missing-policy-action' };
-}
-
-async function requireNonPolicyCrudAuthorization<C extends WritePorts>(
-	ctx: C,
-	authorization: Exclude<CrudAuthorization, { kind: 'policy-decision' }>,
 	entity: EntityDefinition,
 	permission: FeatureArea
-): Promise<void> {
-	if (authorization.kind === 'legacy-privileged-fallback') {
-		await requireLegacyPrivilegedCrudAuthorization(ctx);
-		return;
+): FeatureLanePolicyAction {
+	const policyAction = config.policyAction ?? entity.policyAction;
+	if (policyAction) {
+		return policyAction;
 	}
 
 	throw new Error(`createCrudUseCases requires policyAction for write authorization (${entity.table}:${permission})`);
-}
-
-async function requireLegacyPrivilegedCrudAuthorization<C extends WritePorts>(ctx: C): Promise<void> {
-	ctx.auth.requirePrivileged();
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
 }
 
 async function requirePolicyDecisionForCrud<C extends WritePorts>(

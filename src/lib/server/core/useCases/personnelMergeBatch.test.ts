@@ -342,7 +342,7 @@ describe('mergePersonnelBatch', () => {
 		});
 	});
 
-	it('denies a merge update when the matched personnel row is outside the actor Scope Set', async () => {
+	it('denies operator-level direct merge calls before personnel lookup', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -350,6 +350,41 @@ describe('mergePersonnelBatch', () => {
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			}
+		});
+
+		await expect(
+			mergePersonnelBatch(ctx, {
+				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				details: expect.objectContaining({
+					policyAction: 'personnel.mergeRecords',
+					reasonCode: 'denied:missing-capability'
+				})
+			})
+		);
+	});
+
+	it('does not reveal out-of-scope personnel through direct merge matching', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
 					training: 'view',
 					criticalTasks: 'view',
 					onboarding: 'view',
@@ -374,18 +409,16 @@ describe('mergePersonnelBatch', () => {
 			}
 		]);
 
-		await expect(
-			mergePersonnelBatch(ctx, {
-				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
-			})
-		).rejects.toMatchObject({ status: 403 });
+		const result = await mergePersonnelBatch(ctx, {
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }]
+		});
 
-		expect(ctx.auditPort.events).toContainEqual(
+		expect(result.updated).toHaveLength(0);
+		expect(result.errors).toEqual([{ index: 0, message: 'No active personnel row matched this record' }]);
+		expect(ctx.auditPort.events).not.toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
-				resourceType: 'personnel',
 				details: expect.objectContaining({
-					policyAction: 'personnel.mergeRecords',
 					reasonCode: 'denied:out-of-scope'
 				})
 			})

@@ -7,7 +7,7 @@ import { entityHandlers } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 // A simple test entity with full metadata
-function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[]; requirePrivileged?: boolean }) {
+function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] }) {
 	return defineEntity({
 		table: 'widgets',
 		groupScope: 'none',
@@ -18,7 +18,6 @@ function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[];
 		},
 		permission: 'training',
 		policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
-		requirePrivileged: overrides?.requirePrivileged,
 		audit: 'widget',
 		methods: overrides?.methods ?? ['POST', 'PUT', 'DELETE']
 	});
@@ -196,22 +195,6 @@ describe('entityHandlers()', () => {
 						criticalTasks: 'none',
 						onboarding: 'none',
 						ratingScheme: 'none'
-					}
-				}
-			});
-
-			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Denied' })).rejects.toMatchObject({
-				status: 403
-			});
-		});
-
-		it('passes an entity privileged requirement into generated CRUD use cases', async () => {
-			const entity = createTestEntity({ requirePrivileged: true });
-			const handlers = entityHandlers(entity);
-			const ctx = createTestContext({
-				auth: {
-					requirePrivileged() {
-						throw { status: 403, body: { message: 'Requires owner or admin' } };
 					}
 				}
 			});

@@ -71,22 +71,7 @@ describe('createCrudUseCases', () => {
 		});
 
 		it('requires a policy action before standard CRUD can authorize writes', async () => {
-			const ctx = buildContext();
-			const { create } = createCrudUseCases(noPolicyCrudConfig);
-
-			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow(
-				'createCrudUseCases requires policyAction for write authorization'
-			);
-			// Should not have inserted anything
-			const stored = await ctx.store.findMany('test_records', 'test-org');
-			expect(stored).toHaveLength(0);
-		});
-
-		it('checks policy configuration before validating create input', async () => {
-			const ctx = buildContext();
-			const { create } = createCrudUseCases(noPolicyCrudConfig);
-
-			await expect(create(ctx, { notes: 'missing personnel' })).rejects.toThrow(
+			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
 				'createCrudUseCases requires policyAction for write authorization'
 			);
 		});
@@ -131,9 +116,9 @@ describe('createCrudUseCases', () => {
 			});
 		});
 
-		it('uses create-resource policy resolution for policyAction creates without consulting legacy privileged auth', async () => {
+		it('uses create-resource policy resolution for policyAction creates without consulting privileged auth', async () => {
 			const requirePrivileged = vi.fn(() => {
-				throw new Error('legacy privileged fallback should not authorize policy CRUD create');
+				throw new Error('privileged auth should not authorize policy CRUD create');
 			});
 			const ctx = buildContext({
 				auth: {
@@ -205,51 +190,6 @@ describe('createCrudUseCases', () => {
 			]);
 		});
 
-		it('retains the legacy privileged fallback for create configs without policyAction', async () => {
-			const requirePrivileged = vi.fn();
-			const requireGroupAccess = vi.fn(async () => {
-				throw new Error('group access denied');
-			});
-			const ctx = buildContext({
-				auth: {
-					requirePrivileged,
-					requireGroupAccess
-				}
-			});
-			const { create } = createCrudUseCases({
-				...noPolicyCrudConfig,
-				requirePrivileged: true
-			});
-
-			await expect(create(ctx, { personnelId: 'p-legacy', notes: 'legacy' })).rejects.toThrow('group access denied');
-			expect(requirePrivileged).toHaveBeenCalledOnce();
-			expect(requireGroupAccess).toHaveBeenCalledWith('p-legacy');
-			const stored = await ctx.store.findMany('test_records', 'test-org');
-			expect(stored).toHaveLength(0);
-		});
-
-		it('retains the legacy privileged fallback when requirePrivileged is explicitly configured with policyAction', async () => {
-			const requirePrivileged = vi.fn(() => {
-				throw new Error('Requires owner or admin');
-			});
-			const ctx = buildContext({
-				auth: {
-					requirePrivileged
-				}
-			});
-			const { create } = createCrudUseCases({
-				...crudConfig,
-				requirePrivileged: true
-			});
-
-			await expect(create(ctx, { personnelId: 'p-legacy', notes: 'legacy' })).rejects.toThrow(
-				'Requires owner or admin'
-			);
-			expect(requirePrivileged).toHaveBeenCalledOnce();
-			const stored = await ctx.store.findMany('test_records', 'test-org');
-			expect(stored).toHaveLength(0);
-		});
-
 		it('enforces group scope via personnelIdField', async () => {
 			const ctx = buildContext({
 				auth: {
@@ -294,19 +234,7 @@ describe('createCrudUseCases', () => {
 		});
 
 		it('requires a policy action before standard CRUD can authorize updates', async () => {
-			const ctx = buildContext();
-			const { update } = createCrudUseCases(noPolicyCrudConfig);
-
-			await expect(update(ctx, { id: 'some-id', notes: 'nope' })).rejects.toThrow(
-				'createCrudUseCases requires policyAction for write authorization'
-			);
-		});
-
-		it('checks policy configuration before validating update input', async () => {
-			const ctx = buildContext();
-			const { update } = createCrudUseCases(noPolicyCrudConfig);
-
-			await expect(update(ctx, { notes: 'missing id' })).rejects.toThrow(
+			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
 				'createCrudUseCases requires policyAction for write authorization'
 			);
 		});
@@ -368,10 +296,7 @@ describe('createCrudUseCases', () => {
 		});
 
 		it('requires a policy action before standard CRUD can authorize deletes', async () => {
-			const ctx = buildContext();
-			const { remove } = createCrudUseCases(noPolicyCrudConfig);
-
-			await expect(remove(ctx, 'tr-1')).rejects.toThrow(
+			expect(() => createCrudUseCases(noPolicyCrudConfig)).toThrow(
 				'createCrudUseCases requires policyAction for write authorization'
 			);
 		});
@@ -404,52 +329,6 @@ describe('createCrudUseCases', () => {
 
 			await expect(remove(ctx, 'record-inside')).resolves.toBeUndefined();
 			await expect(remove(ctx, 'record-outside')).rejects.toMatchObject({ status: 403 });
-		});
-	});
-
-	describe('requirePrivileged', () => {
-		const privilegedConfig = {
-			...noPolicyCrudConfig,
-			requirePrivileged: true
-		};
-
-		it('calls requirePrivileged on create when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requirePrivileged() {
-						throw new Error('Requires owner or admin');
-					}
-				}
-			});
-			const { create } = createCrudUseCases(privilegedConfig);
-
-			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow('Requires owner or admin');
-		});
-
-		it('calls requirePrivileged on update when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requirePrivileged() {
-						throw new Error('Requires owner or admin');
-					}
-				}
-			});
-			const { update } = createCrudUseCases(privilegedConfig);
-
-			await expect(update(ctx, { id: 'tr-1', notes: 'x' })).rejects.toThrow('Requires owner or admin');
-		});
-
-		it('calls requirePrivileged on remove when configured', async () => {
-			const ctx = buildContext({
-				auth: {
-					requirePrivileged() {
-						throw new Error('Requires owner or admin');
-					}
-				}
-			});
-			const { remove } = createCrudUseCases(privilegedConfig);
-
-			await expect(remove(ctx, 'tr-1')).rejects.toThrow('Requires owner or admin');
 		});
 	});
 

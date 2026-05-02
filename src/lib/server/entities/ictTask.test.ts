@@ -125,7 +125,6 @@ describe('IctTaskEntity', () => {
 		expect(IctTaskEntity.table).toBe('ict_tasks');
 		expect(IctTaskEntity.permission).toBe('critical-tasks');
 		expect(IctTaskEntity.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary);
-		expect(IctTaskEntity.requirePrivileged).toBeUndefined();
 		expect(IctTaskEntity.methods).toEqual(['POST', 'PUT']);
 		expect(IctTaskEntity.orderBy).toEqual([
 			{ column: 'sort_order', ascending: true },

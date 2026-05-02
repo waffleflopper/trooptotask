@@ -81,9 +81,8 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	const personnelLookupStore = ctx.rawStore ?? ctx.store;
 	const [people, groups] = await Promise.all([
-		personnelLookupStore.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
 			isNull: { archived_at: true }
 		}),
 		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId)

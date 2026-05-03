@@ -13,9 +13,11 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
 import {
+	appendAdvancedDutyRevisionChangeSet,
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
 	getActiveAdvancedDutyRevisionDraft,
+	markAdvancedDutyRevisionDraftAppliedById,
 	updateAdvancedDutyRevisionDraftChange
 } from './advancedDutyRevisionDrafts';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
@@ -49,11 +51,21 @@ import type {
 	DutyTemplate,
 	DutyEventFairnessConfidence,
 	AdvancedDutyRevisionDraftRecord,
-	AdvancedDutyRevisionDraftSession
+	AdvancedDutyRevisionDraftSession,
+	AdvancedDutyRevisionReapplyResult,
+	DutyEventAssignmentSource,
+	DutyEventWarningState
 } from '$features/duty-roster/duty-roster.types';
 import type {
+	AdvancedDutyRevisionAppliedSlot,
 	AdvancedDutyRevisionAppliedRun,
-	AdvancedDutyRevisionDraftSlotChange
+	AdvancedDutyRevisionDraftSlotChange,
+	AdvancedDutyRevisionPersonnelFact,
+	AdvancedDutyRevisionPersonnelSnapshot
+} from '$features/duty-roster/advanced-run/advancedDutyRevision';
+import {
+	deriveAdvancedDutyRevisionChangeSet,
+	validateAdvancedDutyRevisionReapply
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
 	cloneDefaultSoftPreferences,
@@ -1515,6 +1527,170 @@ async function buildRevisionDraftSessionPreview(
 	return previewExistingDutyEventWithOverrides(ctx, event, revisionDraftSlotChangesToOverrides(draft));
 }
 
+function revisionSlotIdentity(input: Pick<AdvancedDutyRevisionDraftSlotChange, 'eventDate' | 'slotKey'>): string {
+	return `${input.eventDate}::${input.slotKey}`;
+}
+
+function personnelSnapshotFromRow(row: Record<string, unknown>): AdvancedDutyRevisionPersonnelSnapshot {
+	return {
+		rank: String(row.rank ?? ''),
+		firstName: String(row.first_name ?? ''),
+		lastName: String(row.last_name ?? ''),
+		groupLabel: String(row.group_name ?? '')
+	};
+}
+
+async function loadRevisionPersonnelFacts(
+	ctx: QueryPorts,
+	personnelIds: string[]
+): Promise<{
+	facts: Record<string, AdvancedDutyRevisionPersonnelFact>;
+	snapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot>;
+}> {
+	const uniqueIds = [...new Set(personnelIds.filter(Boolean))];
+	if (uniqueIds.length === 0) {
+		return { facts: {}, snapshots: {} };
+	}
+	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueIds }
+	});
+	const facts: Record<string, AdvancedDutyRevisionPersonnelFact> = {};
+	const snapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot> = {};
+	for (const row of rows) {
+		const id = String(row.id);
+		facts[id] = { archived: Boolean(row.archived_at) };
+		snapshots[id] = personnelSnapshotFromRow(row);
+	}
+	return { facts, snapshots };
+}
+
+async function loadAppliedSlotsForRevision(
+	ctx: QueryPorts,
+	appliedRunId: string,
+	draft: AdvancedDutyRevisionDraftRecord
+): Promise<{
+	appliedSlots: AdvancedDutyRevisionAppliedSlot[];
+	slotRowsByIdentity: Map<string, Record<string, unknown>>;
+	eventRowsById: Map<string, Record<string, unknown>>;
+	personnelFacts: Record<string, AdvancedDutyRevisionPersonnelFact>;
+	personnelSnapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot>;
+}> {
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_events',
+		ctx.auth.orgId,
+		{ run_id: appliedRunId },
+		{ orderBy: [{ column: 'event_date', ascending: true }] }
+	);
+	const eventRowsById = new Map(eventRows.map((row) => [String(row.id), row]));
+	const eventIds = eventRows.map((row) => String(row.id));
+	const slotRows =
+		eventIds.length === 0
+			? []
+			: await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+					inFilters: { duty_event_id: eventIds },
+					orderBy: [
+						{ column: 'duty_event_id', ascending: true },
+						{ column: 'sort_order', ascending: true }
+					]
+				});
+	const draftSlotChanges = draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[];
+	const personnelIds = [
+		...slotRows.map((row) => row.assignee_id).filter((value): value is string => typeof value === 'string'),
+		...draftSlotChanges
+			.map((change) => change.newPersonnelId)
+			.filter((value): value is string => typeof value === 'string')
+	];
+	const { facts, snapshots } = await loadRevisionPersonnelFacts(ctx, personnelIds);
+	const slotRowsByIdentity = new Map<string, Record<string, unknown>>();
+	const appliedSlots = slotRows.flatMap((row) => {
+		const eventRow = eventRowsById.get(String(row.duty_event_id));
+		if (!eventRow) return [];
+		const slot = DutyEventSlotEntity.fromDb(row);
+		const eventDate = String(eventRow.event_date);
+		const slotKey = buildRevisionSlotKey(slot);
+		const identity = revisionSlotIdentity({ eventDate, slotKey });
+		slotRowsByIdentity.set(identity, row);
+		return [
+			{
+				eventDate,
+				slotKey,
+				dutyEventId: slot.dutyEventId,
+				templateSlotId: slot.templateSlotId,
+				roleLabel: slot.roleLabel,
+				slotIndex: slot.slotIndex,
+				personnelId: slot.assigneeId,
+				personnelSnapshot: slot.assigneeId ? (snapshots[slot.assigneeId] ?? null) : null,
+				assignmentSource: slot.assignmentSource,
+				warningState: slot.warningState
+			} satisfies AdvancedDutyRevisionAppliedSlot
+		];
+	});
+	return {
+		appliedSlots,
+		slotRowsByIdentity,
+		eventRowsById,
+		personnelFacts: facts,
+		personnelSnapshots: snapshots
+	};
+}
+
+function buildRevisionConflictMaps(draft: AdvancedDutyRevisionDraftRecord): {
+	hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
+	reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
+} {
+	const hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
+	const reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
+	for (const change of draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[]) {
+		const identity = revisionSlotIdentity(change);
+		if (change.warningState === 'conflict') {
+			hardConflictsBySlotKey[identity] = [{ code: 'draft-hard-conflict', message: 'Draft slot has a hard conflict.' }];
+		} else if (change.warningState === 'warning') {
+			reviewableConflictsBySlotKey[identity] = [
+				{ code: 'draft-reviewable-warning', message: 'Reviewable conflicts are present for this draft slot.' }
+			];
+		}
+	}
+	return { hardConflictsBySlotKey, reviewableConflictsBySlotKey };
+}
+
+function revisionReapplyConflictMessage(validation: ReturnType<typeof validateAdvancedDutyRevisionReapply>): string {
+	if (validation.reasonRequired) {
+		return 'Advanced Duty revision reapply requires a reason.';
+	}
+	if (validation.hardConflicts.length > 0) {
+		return validation.hardConflicts.map((conflict) => conflict.message).join(' ');
+	}
+	if (validation.requiresReviewableConflictConfirmation) {
+		return 'Reviewable conflicts require explicit confirmation before reapply.';
+	}
+	return 'Advanced Duty revision draft cannot be reapplied.';
+}
+
+async function hydrateRevisionUpdatedEvents(ctx: QueryPorts, eventIds: string[], runId: string): Promise<DutyEvent[]> {
+	if (eventIds.length === 0) {
+		return [];
+	}
+	const uniqueEventIds = [...new Set(eventIds)];
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueEventIds },
+		orderBy: [{ column: 'event_date', ascending: true }]
+	});
+	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+		inFilters: { duty_event_id: uniqueEventIds },
+		orderBy: [
+			{ column: 'duty_event_id', ascending: true },
+			{ column: 'sort_order', ascending: true }
+		]
+	});
+	const slotsByEvent = new Map<string, Record<string, unknown>[]>();
+	for (const row of slotRows) {
+		const eventId = String(row.duty_event_id);
+		slotsByEvent.set(eventId, [...(slotsByEvent.get(eventId) ?? []), row]);
+	}
+	const runById = await loadDutyEventRunsByIds(ctx, [runId]);
+	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(String(row.id)) ?? [], runById));
+}
+
 export async function previewExistingDutyEvent(
 	ctx: QueryPorts,
 	input: ExistingDutyEventInput
@@ -1580,6 +1756,129 @@ export async function discardAdvancedDutyRevisionDraftForEvent(
 		fail(404, 'Advanced Duty revision draft not found.');
 	}
 	return discardAdvancedDutyRevisionDraftById(ctx, { draftId: activeDraft.id });
+}
+
+export async function reapplyAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string; reason: string; reviewableConflictsConfirmed?: boolean }
+): Promise<AdvancedDutyRevisionReapplyResult> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+	if (!ctx.auth.userId) {
+		fail(401, 'Sign in before reapplying Advanced Duty revision drafts.');
+	}
+
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const draft = await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id });
+	if (!draft) {
+		fail(404, 'Advanced Duty revision draft not found.');
+	}
+	if (draft.status !== 'draft') {
+		fail(409, 'Only active Advanced Duty revision drafts can be reapplied.');
+	}
+
+	const now = new Date().toISOString();
+	const { appliedSlots, slotRowsByIdentity, eventRowsById, personnelFacts, personnelSnapshots } =
+		await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
+	const { hardConflictsBySlotKey, reviewableConflictsBySlotKey } = buildRevisionConflictMaps(draft);
+	const validation = validateAdvancedDutyRevisionReapply({
+		draft,
+		canReapply: true,
+		readOnly: false,
+		reason: input.reason,
+		reviewableConflictsConfirmed: input.reviewableConflictsConfirmed ?? false,
+		appliedSlots,
+		personnel: personnelFacts,
+		hardConflictsBySlotKey,
+		reviewableConflictsBySlotKey
+	});
+
+	if (!validation.canReapply) {
+		fail(validation.reasonRequired ? 400 : 409, revisionReapplyConflictMessage(validation));
+	}
+
+	const derived = deriveAdvancedDutyRevisionChangeSet({
+		draft,
+		appliedSlots,
+		personnelSnapshots,
+		reason: input.reason,
+		actorUserId: ctx.auth.userId,
+		now,
+		makeChangeSetId: () => crypto.randomUUID(),
+		makeSlotChangeId: () => crypto.randomUUID()
+	});
+	if (derived.slotChanges.length === 0) {
+		fail(400, 'Advanced Duty revision draft has no operational changes to reapply.');
+	}
+
+	const touchedEventIds = new Set<string>();
+	for (const slotChange of derived.slotChanges) {
+		const slotRow = slotRowsByIdentity.get(revisionSlotIdentity(slotChange));
+		if (!slotRow) {
+			fail(409, 'The applied duty slot no longer exists.');
+		}
+		const eventId = String(slotRow.duty_event_id);
+		const assignmentSource: DutyEventAssignmentSource =
+			slotChange.newAssignmentSource ??
+			(slotChange.changeIntent === 'lock-assigned' || slotChange.changeIntent === 'lock-open' ? 'locked' : 'manual');
+		const warningState: DutyEventWarningState = slotChange.newWarningState ?? 'none';
+		await ctx.store.update<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, String(slotRow.id), {
+			assignee_id: slotChange.newPersonnelId,
+			assignment_source: assignmentSource,
+			warning_state: warningState,
+			selection_reason: slotChange.newPersonnelId ? 'Reapplied from Advanced Duty revision draft.' : null,
+			unfilled_reason: slotChange.newPersonnelId ? null : 'Cleared by Advanced Duty revision draft.'
+		});
+		touchedEventIds.add(eventId);
+	}
+
+	for (const eventId of touchedEventIds) {
+		const currentSlotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+			duty_event_id: eventId
+		});
+		const totalSlots = currentSlotRows.length;
+		const filledSlots = currentSlotRows.filter((row) => row.assignee_id).length;
+		await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, eventId, {
+			fill_summary: {
+				totalSlots,
+				filledSlots,
+				unfilledSlots: totalSlots - filledSlots
+			},
+			updated_at: now
+		});
+	}
+
+	const persistedChangeSet = await appendAdvancedDutyRevisionChangeSet(ctx, {
+		changeSet: {
+			...derived.changeSet,
+			reviewableConflictsConfirmed: input.reviewableConflictsConfirmed ?? false,
+			conflictSummary:
+				validation.hardConflicts.length > 0 ? { hardConflictCount: validation.hardConflicts.length } : null,
+			warningSummary:
+				validation.reviewableConflicts.length > 0
+					? { reviewableConflictCount: validation.reviewableConflicts.length }
+					: null
+		},
+		slotChanges: derived.slotChanges
+	});
+	const appliedDraft = await markAdvancedDutyRevisionDraftAppliedById(ctx, { draftId: draft.id, now });
+	const updatedEvents = await hydrateRevisionUpdatedEvents(ctx, [...touchedEventIds], appliedRun.id);
+	for (const eventId of touchedEventIds) {
+		if (!eventRowsById.has(eventId)) {
+			fail(409, 'The applied duty event no longer exists.');
+		}
+	}
+
+	return {
+		draft: appliedDraft,
+		changeSet: persistedChangeSet.changeSet,
+		slotChanges: persistedChangeSet.slotChanges,
+		updatedEvents
+	};
 }
 
 export async function updateExistingDutyEvent(

@@ -491,6 +491,13 @@ export interface AdvancedDutyRevisionDraftSession {
 	preview: DutyEventPreview;
 }
 
+export interface AdvancedDutyRevisionReapplyResult {
+	draft: AdvancedDutyRevisionDraftRecord;
+	changeSet: AdvancedDutyRevisionChangeSetRecord;
+	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
+	updatedEvents: DutyEvent[];
+}
+
 export interface DutyEventSeriesEventOverrideInput {
 	eventDate: string;
 	slotOverrides: DutyEventSlotOverrideInput[];

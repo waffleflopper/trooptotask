@@ -18,6 +18,7 @@ import {
 	previewDutyEventSeriesFromTemplate,
 	startAdvancedDutyRevisionDraftForEvent,
 	discardAdvancedDutyRevisionDraftForEvent,
+	reapplyAdvancedDutyRevisionDraftForEvent,
 	updateAdvancedDutyRevisionDraftForEvent,
 	updateExistingDutyEvent
 } from './dutyEventCrud';
@@ -5193,6 +5194,283 @@ describe('existing duty event editing', () => {
 
 		expect(discarded.status).toBe('discarded');
 		expect(storedEventRow).toEqual(originalEventRow);
+	});
+
+	it('reapplies a revision draft without regenerating assignments from changed template or status facts', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-charlie',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Charlie',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+		await updateAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [
+				{
+					templateSlotId: template.slots[0].id,
+					slotIndex: 0,
+					assigneeId: 'person-bravo',
+					assignmentSource: 'manual'
+				}
+			]
+		});
+
+		await ctx.store.update('duty_template_slots', ctx.auth.orgId, template.slots[0].id, {
+			allowed_role_values: ['Commander']
+		});
+		ctx.store.seed('availability_entries', [
+			{
+				id: 'availability-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-bravo',
+				start_date: '2026-04-10',
+				end_date: '2026-04-10',
+				status_type_id: 'status-leave',
+				notes: 'Changed after draft creation'
+			}
+		]);
+
+		const result = await reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			reason: 'Move coverage to Bravo after leader review.',
+			reviewableConflictsConfirmed: true
+		});
+		const storedSlots = await ctx.rawStore.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+			duty_event_id: applied.id
+		});
+		const changeSets = await ctx.rawStore.findMany<Record<string, unknown>>(
+			'advanced_duty_revision_change_sets',
+			ctx.auth.orgId
+		);
+		const slotChanges = await ctx.rawStore.findMany<Record<string, unknown>>(
+			'advanced_duty_revision_slot_changes',
+			ctx.auth.orgId
+		);
+
+		expect(storedSlots).toHaveLength(1);
+		expect(storedSlots[0]).toMatchObject({
+			assignee_id: 'person-bravo',
+			assignment_source: 'manual'
+		});
+		expect(result.updatedEvents[0].slotInstances[0]).toMatchObject({
+			assigneeId: 'person-bravo',
+			assignmentSource: 'manual'
+		});
+		expect(result.draft.status).toBe('applied');
+		expect(changeSets).toHaveLength(1);
+		expect(changeSets[0]).toMatchObject({
+			applied_run_id: applied.runId,
+			reason: 'Move coverage to Bravo after leader review.',
+			reviewable_conflicts_confirmed: true
+		});
+		expect(slotChanges).toHaveLength(1);
+		expect(slotChanges[0]).toMatchObject({
+			previous_personnel_id: 'person-alpha',
+			new_personnel_id: 'person-bravo',
+			change_intent: 'assign'
+		});
+	});
+
+	it('blocks revision reapply when the selected Soldier was archived after draft creation', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters',
+				archived_at: null
+			}
+		]);
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }]
+		});
+		const applied = await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-10' });
+		await updateAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [
+				{ templateSlotId: template.slots[0].id, slotIndex: 0, assigneeId: 'person-bravo', assignmentSource: 'manual' }
+			]
+		});
+		await ctx.store.update('personnel', ctx.auth.orgId, 'person-bravo', {
+			archived_at: '2026-04-11T00:00:00.000Z'
+		});
+
+		await expect(
+			reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+				dutyEventId: applied.id,
+				reason: 'Move coverage to Bravo.',
+				reviewableConflictsConfirmed: true
+			})
+		).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Selected Soldier is archived') });
+	});
+
+	it('requires a reason and explicit confirmation for reviewable revision conflicts', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }]
+		});
+		const applied = await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-10' });
+		const { draft } = await updateAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [
+				{ templateSlotId: template.slots[0].id, slotIndex: 0, assigneeId: 'person-bravo', assignmentSource: 'manual' }
+			]
+		});
+		const draftSlotChange = draft.slotChanges[0] as Record<string, unknown>;
+		await ctx.advancedDutyPersistence.updateAdvancedDutyRevisionDraft({
+			orgId: ctx.auth.orgId,
+			draftId: draft.id,
+			draftData: {
+				slot_changes: [{ ...draftSlotChange, warningState: 'warning' }]
+			}
+		});
+
+		await expect(
+			reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+				dutyEventId: applied.id,
+				reason: '',
+				reviewableConflictsConfirmed: false
+			})
+		).rejects.toMatchObject({ status: 400, message: expect.stringContaining('reason') });
+
+		await expect(
+			reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+				dutyEventId: applied.id,
+				reason: 'Reviewed the warning.',
+				reviewableConflictsConfirmed: false
+			})
+		).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Reviewable conflicts') });
+	});
+
+	it('blocks revision reapply while the organization is read-only', async () => {
+		const ctx = createTestContext({ readOnly: true });
+
+		await expect(
+			reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+				dutyEventId: 'event-1',
+				reason: 'Reviewed.',
+				reviewableConflictsConfirmed: true
+			})
+		).rejects.toMatchObject({ status: 403, message: 'Organization is in read-only mode' });
 	});
 
 	it('reopens an applied duty event from its frozen rules without colliding with itself', async () => {

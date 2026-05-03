@@ -46,6 +46,11 @@ export interface DiscardAdvancedDutyRevisionDraftByIdInput {
 	now?: string;
 }
 
+export interface MarkAdvancedDutyRevisionDraftAppliedByIdInput {
+	draftId: string;
+	now?: string;
+}
+
 export interface AdvancedDutyRevisionDraftLookupInput {
 	appliedRunId: string;
 }
@@ -286,6 +291,38 @@ export async function discardAdvancedDutyRevisionDraftById(
 		resourceType: 'advanced_duty_revision_draft',
 		resourceId: input.draftId,
 		details: { appliedRunId: discardedDraft.appliedRunId }
+	});
+	return AdvancedDutyRevisionDraftEntity.fromDb(row);
+}
+
+export async function markAdvancedDutyRevisionDraftAppliedById(
+	ctx: AdvancedDutyRevisionWriteContext,
+	input: MarkAdvancedDutyRevisionDraftAppliedByIdInput
+): Promise<AdvancedDutyRevisionDraftRecord> {
+	const actorUserId = await requireWritableAdvancedDuty(ctx);
+	const draft = await loadRevisionDraftOrFail(ctx, input.draftId);
+	if (draft.status !== 'draft') {
+		return draft;
+	}
+	const now = input.now ?? new Date().toISOString();
+	const appliedDraft: AdvancedDutyRevisionDraftRecord = {
+		...draft,
+		status: 'applied',
+		updatedByUserId: actorUserId,
+		appliedByUserId: actorUserId,
+		appliedAt: now,
+		updatedAt: now
+	};
+	const row = await ctx.advancedDutyPersistence.updateAdvancedDutyRevisionDraft({
+		orgId: ctx.auth.orgId,
+		draftId: input.draftId,
+		draftData: draftToDbRow(appliedDraft)
+	});
+	ctx.audit.log({
+		action: 'advanced-duty-revision-draft.applied',
+		resourceType: 'advanced_duty_revision_draft',
+		resourceId: input.draftId,
+		details: { appliedRunId: appliedDraft.appliedRunId }
 	});
 	return AdvancedDutyRevisionDraftEntity.fromDb(row);
 }

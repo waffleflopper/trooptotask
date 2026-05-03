@@ -37,6 +37,7 @@ export const AdvancedDutyRunSnapshotEntity = defineEntity<AdvancedDutyRunSnapsho
 			insertDefault: [],
 			nullDefault: []
 		}),
+		draftLineageKey: field(z.string().min(1), { column: 'draft_lineage_key' }),
 		snapshotFingerprint: field(z.string().min(1), { column: 'snapshot_fingerprint' }),
 		snapshotVersion: field(z.number().int().min(1), { column: 'snapshot_version', insertDefault: 1 }),
 		status: field(snapshotStatusSchema, { insertDefault: 'draft' }),

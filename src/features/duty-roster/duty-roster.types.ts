@@ -372,6 +372,7 @@ export interface AdvancedDutyRunSnapshotRecord {
 	eventCount: number;
 	eventDates: string[];
 	candidatePersonnelIds: string[];
+	draftLineageKey: string;
 	snapshotFingerprint: string;
 	snapshotVersion: number;
 	status: AdvancedDutyRunSnapshotStatus;

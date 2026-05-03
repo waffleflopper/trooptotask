@@ -14,6 +14,7 @@ describe('AdvancedDutyRunSnapshotEntity', () => {
 			event_count: 5,
 			event_dates: ['2026-05-01'],
 			candidate_personnel_ids: ['person-1'],
+			draft_lineage_key: 'lineage-1',
 			snapshot_fingerprint: 'fingerprint-1',
 			snapshot_version: 1,
 			status: 'draft',
@@ -41,6 +42,7 @@ describe('AdvancedDutyRunSnapshotEntity', () => {
 			eventCount: 5,
 			eventDates: ['2026-05-01'],
 			candidatePersonnelIds: ['person-1'],
+			draftLineageKey: 'lineage-1',
 			snapshotFingerprint: 'fingerprint-1',
 			snapshotVersion: 1,
 			status: 'draft',
@@ -65,6 +67,7 @@ describe('AdvancedDutyRunSnapshotEntity', () => {
 				templateName: 'Staff Duty',
 				startDate: '2026-05-01',
 				endDate: '2026-05-01',
+				draftLineageKey: 'lineage-1',
 				snapshotFingerprint: 'fingerprint-1'
 			},
 			'org-1'
@@ -80,6 +83,7 @@ describe('AdvancedDutyRunSnapshotEntity', () => {
 			event_count: 0,
 			event_dates: [],
 			candidate_personnel_ids: [],
+			draft_lineage_key: 'lineage-1',
 			snapshot_fingerprint: 'fingerprint-1',
 			snapshot_version: 1,
 			status: 'draft',

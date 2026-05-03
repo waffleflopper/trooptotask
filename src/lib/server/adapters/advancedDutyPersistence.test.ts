@@ -1,6 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
+import { createInMemoryDataStore } from './inMemory';
+import {
+	createInMemoryAdvancedDutyPersistenceAdapter,
+	createSupabaseAdvancedDutyPersistenceAdapter
+} from './advancedDutyPersistence';
+
+function queryBuilder(result: unknown) {
+	return {
+		select: vi.fn().mockReturnThis(),
+		eq: vi.fn().mockReturnThis(),
+		order: vi.fn().mockReturnThis(),
+		maybeSingle: vi.fn().mockResolvedValue(result),
+		single: vi.fn().mockResolvedValue(result),
+		insert: vi.fn().mockReturnThis(),
+		update: vi.fn().mockReturnThis(),
+		then: vi.fn((resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+			Promise.resolve(result).then(resolve, reject)
+		)
+	};
+}
 
 describe('AdvancedDutyPersistenceAdapter', () => {
 	it('calls the template aggregate RPC with the expected payload', async () => {
@@ -135,5 +154,119 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 				snapshotData: {}
 			})
 		).rejects.toThrow('replace_advanced_duty_run_snapshot: duplicate key value violates unique constraint');
+	});
+
+	it('reads the active revision draft from the approved draft table', async () => {
+		const draftRow = { id: 'draft-1', applied_run_id: 'run-1', status: 'draft' };
+		const builder = queryBuilder({ data: draftRow, error: null });
+		const from = vi.fn().mockReturnValue(builder);
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
+
+		const result = await adapter.findActiveAdvancedDutyRevisionDraft({
+			orgId: 'org-1',
+			appliedRunId: 'run-1'
+		});
+
+		expect(result).toEqual(draftRow);
+		expect(from).toHaveBeenCalledWith('advanced_duty_revision_drafts');
+		expect(builder.select).toHaveBeenCalledWith('*');
+		expect(builder.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+		expect(builder.eq).toHaveBeenCalledWith('applied_run_id', 'run-1');
+		expect(builder.eq).toHaveBeenCalledWith('status', 'draft');
+	});
+
+	it('writes revision change sets and slot changes to the approved history tables', async () => {
+		const changeSetBuilder = queryBuilder({ data: { id: 'change-set-1' }, error: null });
+		const slotBuilder = queryBuilder({ data: [{ id: 'slot-change-1' }], error: null });
+		const from = vi.fn().mockReturnValueOnce(changeSetBuilder).mockReturnValueOnce(slotBuilder);
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
+
+		const result = await adapter.appendAdvancedDutyRevisionChangeSet({
+			orgId: 'org-1',
+			changeSetData: {
+				id: 'change-set-1',
+				organization_id: 'org-1',
+				applied_run_id: 'run-1',
+				reason: 'Coverage changed'
+			},
+			slotChangeRows: [
+				{
+					id: 'slot-change-1',
+					organization_id: 'org-1',
+					change_set_id: 'change-set-1',
+					event_date: '2026-05-02',
+					slot_key: 'slot-nco:0'
+				}
+			]
+		});
+
+		expect(result).toEqual({
+			changeSetRow: { id: 'change-set-1' },
+			slotChangeRows: [{ id: 'slot-change-1' }]
+		});
+		expect(from).toHaveBeenNthCalledWith(1, 'advanced_duty_revision_change_sets');
+		expect(from).toHaveBeenNthCalledWith(2, 'advanced_duty_revision_slot_changes');
+		expect(changeSetBuilder.insert).toHaveBeenCalledWith({
+			id: 'change-set-1',
+			organization_id: 'org-1',
+			applied_run_id: 'run-1',
+			reason: 'Coverage changed'
+		});
+		expect(slotBuilder.insert).toHaveBeenCalledWith([
+			{
+				id: 'slot-change-1',
+				organization_id: 'org-1',
+				change_set_id: 'change-set-1',
+				event_date: '2026-05-02',
+				slot_key: 'slot-nco:0'
+			}
+		]);
+	});
+
+	it('keeps only one active in-memory revision draft per applied run', async () => {
+		const store = createInMemoryDataStore();
+		const adapter = createInMemoryAdvancedDutyPersistenceAdapter(store);
+
+		const first = await adapter.createAdvancedDutyRevisionDraft({
+			orgId: 'org-1',
+			draftData: {
+				id: 'draft-1',
+				applied_run_id: 'run-1',
+				status: 'draft',
+				slot_changes: [],
+				draft_version: 1
+			}
+		});
+
+		await expect(
+			adapter.createAdvancedDutyRevisionDraft({
+				orgId: 'org-1',
+				draftData: {
+					id: 'draft-2',
+					applied_run_id: 'run-1',
+					status: 'draft',
+					slot_changes: [],
+					draft_version: 1
+				}
+			})
+		).rejects.toThrow('Active Advanced Duty revision draft already exists for applied run run-1');
+
+		await adapter.updateAdvancedDutyRevisionDraft({
+			orgId: 'org-1',
+			draftId: String(first.id),
+			draftData: { status: 'discarded' }
+		});
+		await expect(
+			adapter.createAdvancedDutyRevisionDraft({
+				orgId: 'org-1',
+				draftData: {
+					id: 'draft-2',
+					applied_run_id: 'run-1',
+					status: 'draft',
+					slot_changes: [],
+					draft_version: 1
+				}
+			})
+		).resolves.toMatchObject({ id: 'draft-2' });
 	});
 });

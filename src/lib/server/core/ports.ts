@@ -82,6 +82,11 @@ export interface DraftAdvancedRunSnapshotReplacement {
 	snapshotData: Record<string, unknown>;
 }
 
+export interface AdvancedDutyRevisionChangeSetPersistenceResult {
+	changeSetRow: Record<string, unknown>;
+	slotChangeRows: Record<string, unknown>[];
+}
+
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
@@ -134,6 +139,32 @@ export interface AdvancedDutyPersistencePort {
 	}): Promise<PersistedDutyEventAggregate>;
 
 	replaceDraftAdvancedRunSnapshot(input: DraftAdvancedRunSnapshotReplacement): Promise<Record<string, unknown>>;
+
+	findActiveAdvancedDutyRevisionDraft(input: {
+		orgId: string;
+		appliedRunId: string;
+	}): Promise<Record<string, unknown> | null>;
+
+	findAdvancedDutyRevisionDraft(input: { orgId: string; draftId: string }): Promise<Record<string, unknown> | null>;
+
+	listAdvancedDutyRevisionDrafts(input: { orgId: string; appliedRunId?: string }): Promise<Record<string, unknown>[]>;
+
+	createAdvancedDutyRevisionDraft(input: {
+		orgId: string;
+		draftData: Record<string, unknown>;
+	}): Promise<Record<string, unknown>>;
+
+	updateAdvancedDutyRevisionDraft(input: {
+		orgId: string;
+		draftId: string;
+		draftData: Record<string, unknown>;
+	}): Promise<Record<string, unknown>>;
+
+	appendAdvancedDutyRevisionChangeSet(input: {
+		orgId: string;
+		changeSetData: Record<string, unknown>;
+		slotChangeRows: Record<string, unknown>[];
+	}): Promise<AdvancedDutyRevisionChangeSetPersistenceResult>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */

@@ -1,10 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+	AdvancedDutyRevisionChangeSetPersistenceResult,
 	AdvancedDutyPersistencePort,
 	DataStore,
 	PersistedDutyEventAggregate,
 	PersistedDutyTemplateAggregate
 } from '$lib/server/core/ports';
+
+const REVISION_DRAFTS_TABLE = 'advanced_duty_revision_drafts';
+const REVISION_CHANGE_SETS_TABLE = 'advanced_duty_revision_change_sets';
+const REVISION_SLOT_CHANGES_TABLE = 'advanced_duty_revision_slot_changes';
 
 function cloneRow<T>(value: T): T {
 	return JSON.parse(JSON.stringify(value)) as T;
@@ -12,6 +17,10 @@ function cloneRow<T>(value: T): T {
 
 function buildRpcError(rpcName: string, message: string): Error {
 	return new Error(`${rpcName}: ${message}`);
+}
+
+function buildTableError(operation: string, message: string): Error {
+	return new Error(`${operation}: ${message}`);
 }
 
 function asTemplateAggregate(value: unknown): PersistedDutyTemplateAggregate {
@@ -86,6 +95,114 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			}
 
 			return asRow(data, rpcName);
+		},
+
+		async findActiveAdvancedDutyRevisionDraft(input) {
+			const operation = `${REVISION_DRAFTS_TABLE}.findActive`;
+			const { data, error } = await supabase
+				.from(REVISION_DRAFTS_TABLE)
+				.select('*')
+				.eq('organization_id', input.orgId)
+				.eq('applied_run_id', input.appliedRunId)
+				.eq('status', 'draft')
+				.maybeSingle();
+
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return (data as Record<string, unknown> | null) ?? null;
+		},
+
+		async findAdvancedDutyRevisionDraft(input) {
+			const operation = `${REVISION_DRAFTS_TABLE}.find`;
+			const { data, error } = await supabase
+				.from(REVISION_DRAFTS_TABLE)
+				.select('*')
+				.eq('organization_id', input.orgId)
+				.eq('id', input.draftId)
+				.maybeSingle();
+
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return (data as Record<string, unknown> | null) ?? null;
+		},
+
+		async listAdvancedDutyRevisionDrafts(input) {
+			const operation = `${REVISION_DRAFTS_TABLE}.list`;
+			let query = supabase.from(REVISION_DRAFTS_TABLE).select('*').eq('organization_id', input.orgId);
+			if (input.appliedRunId) {
+				query = query.eq('applied_run_id', input.appliedRunId);
+			}
+
+			const { data, error } = await query.order('updated_at', { ascending: false });
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return (data as Record<string, unknown>[] | null) ?? [];
+		},
+
+		async createAdvancedDutyRevisionDraft(input) {
+			const operation = `${REVISION_DRAFTS_TABLE}.insert`;
+			const { data, error } = await supabase.from(REVISION_DRAFTS_TABLE).insert(input.draftData).select('*').single();
+
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return asRow(data, operation);
+		},
+
+		async updateAdvancedDutyRevisionDraft(input) {
+			const operation = `${REVISION_DRAFTS_TABLE}.update`;
+			const { data, error } = await supabase
+				.from(REVISION_DRAFTS_TABLE)
+				.update(input.draftData)
+				.eq('organization_id', input.orgId)
+				.eq('id', input.draftId)
+				.select('*')
+				.single();
+
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return asRow(data, operation);
+		},
+
+		async appendAdvancedDutyRevisionChangeSet(input) {
+			const changeSetOperation = `${REVISION_CHANGE_SETS_TABLE}.insert`;
+			const { data: changeSetData, error: changeSetError } = await supabase
+				.from(REVISION_CHANGE_SETS_TABLE)
+				.insert(input.changeSetData)
+				.select('*')
+				.single();
+
+			if (changeSetError) {
+				throw buildTableError(changeSetOperation, changeSetError.message);
+			}
+
+			let slotChangeRows: Record<string, unknown>[] = [];
+			if (input.slotChangeRows.length > 0) {
+				const slotChangeOperation = `${REVISION_SLOT_CHANGES_TABLE}.insert`;
+				const { data, error } = await supabase
+					.from(REVISION_SLOT_CHANGES_TABLE)
+					.insert(input.slotChangeRows)
+					.select('*');
+
+				if (error) {
+					throw buildTableError(slotChangeOperation, error.message);
+				}
+				slotChangeRows = (data as Record<string, unknown>[] | null) ?? [];
+			}
+
+			return {
+				changeSetRow: asRow(changeSetData, changeSetOperation),
+				slotChangeRows
+			};
 		}
 	};
 }
@@ -211,6 +328,70 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 				draft_lineage_key: input.draftLineageKey
 			});
 			return store.insert<Record<string, unknown>>('advanced_duty_run_snapshots', input.orgId, input.snapshotData);
+		},
+
+		async findActiveAdvancedDutyRevisionDraft(input) {
+			return store.findOne<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, {
+				applied_run_id: input.appliedRunId,
+				status: 'draft'
+			});
+		},
+
+		async findAdvancedDutyRevisionDraft(input) {
+			return store.findOne<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, {
+				id: input.draftId
+			});
+		},
+
+		async listAdvancedDutyRevisionDrafts(input) {
+			return store.findMany<Record<string, unknown>>(
+				REVISION_DRAFTS_TABLE,
+				input.orgId,
+				input.appliedRunId ? { applied_run_id: input.appliedRunId } : undefined,
+				{
+					orderBy: [{ column: 'updated_at', ascending: false }]
+				}
+			);
+		},
+
+		async createAdvancedDutyRevisionDraft(input) {
+			if (input.draftData.status === 'draft') {
+				const active = await store.findOne<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, {
+					applied_run_id: input.draftData.applied_run_id,
+					status: 'draft'
+				});
+				if (active) {
+					throw new Error(
+						`Active Advanced Duty revision draft already exists for applied run ${String(input.draftData.applied_run_id)}`
+					);
+				}
+			}
+			return store.insert<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, input.draftData);
+		},
+
+		async updateAdvancedDutyRevisionDraft(input) {
+			return store.update<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, input.draftId, input.draftData);
+		},
+
+		async appendAdvancedDutyRevisionChangeSet(input): Promise<AdvancedDutyRevisionChangeSetPersistenceResult> {
+			const changeSetRow = await store.insert<Record<string, unknown>>(
+				REVISION_CHANGE_SETS_TABLE,
+				input.orgId,
+				input.changeSetData
+			);
+			const slotChangeRows =
+				input.slotChangeRows.length > 0
+					? await store.insertMany<Record<string, unknown>>(
+							REVISION_SLOT_CHANGES_TABLE,
+							input.orgId,
+							input.slotChangeRows
+						)
+					: [];
+
+			return {
+				changeSetRow,
+				slotChangeRows
+			};
 		}
 	};
 }

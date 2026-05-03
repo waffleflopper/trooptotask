@@ -1598,6 +1598,19 @@ function revisionReapplyConflictMessage(validation: ReturnType<typeof validateAd
 	return 'Advanced Duty revision draft cannot be reapplied.';
 }
 
+function assertRevisionDraftSourceRunFresh(
+	draft: AdvancedDutyRevisionDraftRecord,
+	appliedRun: AdvancedDutyRevisionAppliedRun
+): void {
+	if (!draft.sourceRunUpdatedAt || draft.sourceRunUpdatedAt === appliedRun.updatedAt) {
+		return;
+	}
+	fail(
+		409,
+		'The source applied run changed after this Advanced Duty revision draft was opened. Discard this draft and open a new revision draft before reapplying.'
+	);
+}
+
 async function hydrateRevisionUpdatedEvents(ctx: QueryPorts, eventIds: string[], runId: string): Promise<DutyEvent[]> {
 	if (eventIds.length === 0) {
 		return [];
@@ -1712,6 +1725,7 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 	if (draft.status !== 'draft') {
 		fail(409, 'Only active Advanced Duty revision drafts can be reapplied.');
 	}
+	assertRevisionDraftSourceRunFresh(draft, appliedRun);
 
 	const now = new Date().toISOString();
 	const { appliedSlots, slotRowsByIdentity, eventRowsById, personnelFacts, personnelSnapshots } =

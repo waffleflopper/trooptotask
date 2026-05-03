@@ -5389,6 +5389,85 @@ describe('existing duty event editing', () => {
 		).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Selected Soldier is archived') });
 	});
 
+	it('blocks revision reapply when the source applied run changed after the draft opened', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }]
+		});
+		const applied = await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-10' });
+		const { draft } = await updateAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [
+				{ templateSlotId: template.slots[0].id, slotIndex: 0, assigneeId: 'person-bravo', assignmentSource: 'manual' }
+			]
+		});
+		const originalSlots = await ctx.rawStore.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+			duty_event_id: applied.id
+		});
+		await ctx.store.update('duty_event_runs', ctx.auth.orgId, applied.runId!, {
+			updated_at: '2026-04-11T00:00:00.000Z'
+		});
+
+		await expect(
+			reapplyAdvancedDutyRevisionDraftForEvent(ctx, {
+				dutyEventId: applied.id,
+				reason: 'Move coverage to Bravo.',
+				reviewableConflictsConfirmed: true
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: expect.stringContaining('source applied run changed')
+		});
+
+		expect(
+			await ctx.rawStore.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+				duty_event_id: applied.id
+			})
+		).toEqual(originalSlots);
+		expect(
+			await ctx.rawStore.findMany<Record<string, unknown>>('advanced_duty_revision_change_sets', ctx.auth.orgId)
+		).toHaveLength(0);
+		expect(
+			await ctx.rawStore.findOne<Record<string, unknown>>('advanced_duty_revision_drafts', ctx.auth.orgId, {
+				id: draft.id
+			})
+		).toMatchObject({ status: 'draft' });
+	});
+
 	it('requires a reason and explicit confirmation for reviewable revision conflicts', async () => {
 		const ctx = createTestContext();
 

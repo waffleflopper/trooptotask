@@ -358,6 +358,50 @@ describe('DutyRosterPage', () => {
 		expect(globalThis.fetch).toHaveBeenCalledWith('/org/test-org/api/duty-events/snapshots/snapshot-1');
 	});
 
+	it('replaces the in-memory draft snapshot when manual override previews create a new snapshot id', async () => {
+		vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+			new Response(
+				JSON.stringify({
+					snapshotId: 'snapshot-override',
+					snapshotFingerprint: 'fingerprint-override',
+					snapshotVersion: 1,
+					templateId: 'tmpl-staff-duty',
+					templateName: 'Battalion Staff Duty',
+					pattern: 'daily',
+					eventDates: ['2026-04-10', '2026-04-11', '2026-04-12'],
+					events: []
+				}),
+				{ status: 200 }
+			)
+		);
+		renderPage({
+			advancedDutySnapshots: [
+				makeSnapshot({
+					id: 'snapshot-loaded',
+					inputPayload: {
+						templateId: 'tmpl-staff-duty',
+						startDate: '2026-04-10',
+						endDate: '2026-04-12',
+						pattern: 'daily'
+					}
+				})
+			]
+		});
+
+		expect(screen.getByRole('button', { name: 'Draft Snapshots (1)' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Advanced Series Override' }));
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Draft Snapshots (1)' })).toBeTruthy();
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Draft Snapshots (1)' }));
+
+		expect(screen.getByText('1 draft snapshot')).toBeTruthy();
+		expect(screen.queryByText('2 draft snapshots')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Resume Snapshot' })).toBeTruthy();
+	});
+
 	it('keeps resumable advanced snapshots in the draft snapshot workspace after reload-style data loads', async () => {
 		renderPage({
 			advancedDutySnapshots: [

@@ -838,6 +838,101 @@ describe('duty event apply use case', () => {
 		expect(draftSnapshots[0].id).toBe(second.snapshotId);
 	});
 
+	it('replaces the current draft snapshot when advanced series manual overrides change', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-manual',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Manual',
+				first_name: 'Morgan',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const baseInput: DutyEventSeriesInput = {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'weekday-only'
+		};
+
+		const first = await previewDutyEventSeriesFromTemplate(ctx, baseInput);
+		const second = await previewDutyEventSeriesFromTemplate(ctx, {
+			...baseInput,
+			eventOverrides: [
+				{
+					eventDate: '2026-04-06',
+					slotOverrides: [
+						{
+							templateSlotId: template.slots[0]?.id ?? null,
+							slotIndex: 0,
+							assigneeId: 'person-manual'
+						}
+					]
+				}
+			]
+		});
+		const draftSnapshots = await ctx.store.findMany<Record<string, unknown>>(
+			'advanced_duty_run_snapshots',
+			ctx.auth.orgId
+		);
+
+		expect(second.snapshotId).not.toBe(first.snapshotId);
+		expect(draftSnapshots).toHaveLength(1);
+		expect(draftSnapshots[0].id).toBe(second.snapshotId);
+		expect(draftSnapshots[0].input_payload).toMatchObject({
+			eventOverrides: [
+				{
+					eventDate: '2026-04-06',
+					slotOverrides: [
+						expect.objectContaining({
+							assigneeId: 'person-manual'
+						})
+					]
+				}
+			]
+		});
+	});
+
 	it('deletes a draft advanced run snapshot without touching applied duty history', async () => {
 		const ctx = createTestContext();
 

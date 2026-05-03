@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { DutyEvent, DutyEventPreview, DutyEventPreviewSlotInstance } from '../duty-roster.types';
+	import type {
+		AdvancedDutyRevisionDraftRecord,
+		DutyEvent,
+		DutyEventPreview,
+		DutyEventPreviewSlotInstance
+	} from '../duty-roster.types';
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import SlotPreviewItem from './SlotPreviewItem.svelte';
@@ -11,6 +16,8 @@
 		isLoadingPreview: boolean;
 		isRefreshing: boolean;
 		isSaving: boolean;
+		isDiscardingDraft: boolean;
+		revisionDraft: AdvancedDutyRevisionDraftRecord | null;
 		collisionReviewConfirmed: boolean;
 		collisionMessages: string[];
 		personnelOptions: Personnel[];
@@ -18,14 +25,12 @@
 		formatDisplayDate: (date: string) => string;
 		formatCoverageLabel: (event: DutyEvent) => string;
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
-		onSave: () => void;
-		onRegenerate: () => void;
+		onDiscardDraft: () => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (confirmed: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
 		onToggleSlotLock: (slot: DutyEventPreviewSlotInstance) => void;
 		onClearSlot: (slot: DutyEventPreviewSlotInstance) => void;
-		onRegenerateSlot: (slot: DutyEventPreviewSlotInstance) => void;
 	}
 
 	let {
@@ -34,6 +39,8 @@
 		isLoadingPreview,
 		isRefreshing,
 		isSaving,
+		isDiscardingDraft,
+		revisionDraft,
 		collisionReviewConfirmed,
 		collisionMessages,
 		personnelOptions,
@@ -41,44 +48,52 @@
 		formatDisplayDate,
 		formatCoverageLabel,
 		getExplanationSections,
-		onSave,
-		onRegenerate,
+		onDiscardDraft,
 		onExportPacket,
 		onCollisionConfirmedChange,
 		onUpdateSlotAssignee,
 		onToggleSlotLock,
-		onClearSlot,
-		onRegenerateSlot
+		onClearSlot
 	}: Props = $props();
 
 	const requiresCollisionReview = $derived(collisionMessages.length > 0);
 	const canSave = $derived(
 		!isLoadingPreview && !isRefreshing && !isSaving && !(requiresCollisionReview && !collisionReviewConfirmed)
 	);
-	const isLocked = $derived(isLoadingPreview || isRefreshing || isSaving);
+	const isLocked = $derived(isLoadingPreview || isRefreshing || isSaving || isDiscardingDraft);
 </script>
 
 <section class="applied-event-editor" aria-label="Applied duty event editor">
 	<div class="editor-header">
 		<div>
-			<p class="eyebrow">Applied event editor</p>
-			<h4>Edit applied duty event</h4>
+			<p class="eyebrow">Revision draft</p>
+			<h4>Review applied duty revision</h4>
 			<p class="editor-meta">
 				{event.templateName} · {formatDisplayDate(event.eventDate)} · {formatCoverageLabel(event)}
 			</p>
+			{#if revisionDraft}
+				<p class="draft-state">
+					Draft v{revisionDraft.draftVersion} pending. Changes are staged for review and have not updated the applied event.
+				</p>
+			{/if}
 			{#if isLoadingPreview || isRefreshing}
-				<p class="editor-meta">Refreshing this event around your edits...</p>
+				<p class="editor-meta">Updating the revision draft around your edits...</p>
 			{/if}
 		</div>
 		<div class="editor-actions">
 			<button class="btn btn-secondary btn-sm" type="button" disabled={isLocked} onclick={onExportPacket}>
 				Export Duty Packet
 			</button>
-			<button class="btn btn-secondary btn-sm" type="button" disabled={isRefreshing || isSaving} onclick={onRegenerate}>
-				Regenerate Event
+			<button
+				class="btn btn-danger btn-sm"
+				type="button"
+				disabled={isLocked || !revisionDraft}
+				onclick={onDiscardDraft}
+			>
+				{isDiscardingDraft ? 'Discarding...' : 'Discard Draft'}
 			</button>
-			<button class="btn btn-primary" type="button" disabled={!canSave} onclick={onSave}>
-				{isSaving ? 'Saving Event...' : 'Save Event'}
+			<button class="btn btn-secondary btn-sm" type="button" disabled>
+				{canSave ? 'Draft Autosaved' : 'Review Required'}
 			</button>
 		</div>
 	</div>
@@ -114,7 +129,6 @@
 						onUpdateAssignee={(id) => onUpdateSlotAssignee(slot, id)}
 						onToggleLock={() => onToggleSlotLock(slot)}
 						onClear={() => onClearSlot(slot)}
-						onRegenerateSlot={() => onRegenerateSlot(slot)}
 					/>
 				{/each}
 			</div>
@@ -155,6 +169,19 @@
 	.editor-meta {
 		margin: var(--sp-2) 0 0;
 		color: var(--text-secondary);
+	}
+
+	.draft-state {
+		margin: var(--sp-3) 0 0;
+		padding: 8px 10px;
+		border: 1px solid color-mix(in srgb, var(--amber) 34%, var(--border-default) 66%);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--amber-light) 58%, var(--surface-panel) 42%);
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 
 	.editor-actions {

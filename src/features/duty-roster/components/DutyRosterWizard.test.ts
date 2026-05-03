@@ -8,6 +8,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, Spe
 import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 import {
 	cloneDefaultSoftPreferences,
+	type AdvancedDutyRevisionDraftSession,
 	type AdvancedDutyRunSnapshotRecord,
 	type DutyEvent,
 	type DutyEventPreview,
@@ -15,8 +16,7 @@ import {
 	type DutyEventSeriesInput,
 	type DutyEventSeriesPreview,
 	type DutyTemplate,
-	type ExistingDutyEventInput,
-	type ExistingDutyEventUpdateInput
+	type ExistingDutyEventInput
 } from '../duty-roster.types';
 
 function makePersonnel(overrides: Partial<Personnel> = {}): Personnel {
@@ -151,6 +151,42 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 				sortOrder: 0
 			}
 		],
+		...overrides
+	};
+}
+
+function makeRevisionDraftSession(
+	overrides: Partial<AdvancedDutyRevisionDraftSession> = {}
+): AdvancedDutyRevisionDraftSession {
+	return {
+		action: 'created',
+		draft: {
+			id: 'revision-draft-1',
+			orgId: 'test-org',
+			appliedRunId: 'run-1',
+			sourceSnapshotId: 'snapshot-single-1',
+			sourceSnapshotFingerprint: 'fingerprint-single-1',
+			sourceRunCreatedAt: '2026-04-10T00:00:00.000Z',
+			sourceRunUpdatedAt: '2026-04-10T00:00:00.000Z',
+			status: 'draft',
+			slotChanges: [],
+			reason: null,
+			latestValidation: null,
+			latestError: null,
+			conflictSummary: null,
+			draftVersion: 1,
+			createdByUserId: 'user-1',
+			updatedByUserId: 'user-1',
+			appliedByUserId: null,
+			discardedByUserId: null,
+			expiresAt: '2026-04-17T00:00:00.000Z',
+			discardCleanupAfter: null,
+			appliedAt: null,
+			discardedAt: null,
+			createdAt: '2026-04-10T00:00:00.000Z',
+			updatedAt: '2026-04-10T00:00:00.000Z'
+		},
+		preview: makePreview(),
 		...overrides
 	};
 }
@@ -401,8 +437,9 @@ function renderAppliedEventManager(overrides: Partial<ComponentProps<typeof Appl
 			advancedDutyEvents: [makeAppliedEvent()],
 			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
 			previewPersonnelOptions: personnel,
-			onPreviewExistingAdvancedEvent: vi.fn(async () => makePreview()),
-			onUpdateExistingAdvancedEvent: vi.fn(async () => makeAppliedEvent()),
+			onStartAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession()),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession().draft),
 			onDeleteAdvancedEvent: vi.fn(async () => true),
 			onDeleteAdvancedRun: vi.fn(async () => ({ deletedEvents: 1 })),
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => ({ deletedEvents: 1 })),
@@ -1908,77 +1945,81 @@ describe('DutyRosterWizard', () => {
 		expect(viewDa6.getAttribute('title')).toBe('DA6 audit data is not available for this applied run.');
 	});
 
-	it('reopens an applied duty event and lets the user regenerate and save that one event', async () => {
-		const previewExistingHandler = vi.fn(async (input: ExistingDutyEventInput) => {
-			if (input.slotOverrides?.length === 0) {
-				return makePreview({
-					slotInstances: [
-						{
-							...makePreview().slotInstances[0],
-							assigneeId: 'person-alt',
-							assignmentSource: 'generated',
-							warningState: 'none',
-							fairnessConfidence: 'high',
-							selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary".',
-							overrideMessages: []
-						}
-					]
+	it('opens an applied duty event revision draft and saves dropdown changes to the draft only', async () => {
+		const startDraftHandler = vi.fn(async () => makeRevisionDraftSession());
+		const updateDraftHandler = vi.fn(async (input: ExistingDutyEventInput) => {
+			if (input.slotOverrides?.[0]?.assigneeId === 'person-alt') {
+				return makeRevisionDraftSession({
+					action: 'updated',
+					draft: {
+						...makeRevisionDraftSession().draft,
+						draftVersion: 2,
+						slotChanges: [
+							{
+								eventDate: '2026-04-10',
+								slotKey: 'slot-1:0',
+								newPersonnelId: 'person-alt'
+							}
+						]
+					},
+					preview: makePreview({
+						slotInstances: [
+							{
+								...makePreview().slotInstances[0],
+								assigneeId: 'person-alt',
+								assignmentSource: 'generated',
+								warningState: 'none',
+								fairnessConfidence: 'high',
+								selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary".',
+								overrideMessages: []
+							}
+						]
+					})
 				});
 			}
 
-			return makePreview();
+			return makeRevisionDraftSession({ action: 'updated' });
 		});
-		const updateExistingHandler = vi.fn(async (input: ExistingDutyEventUpdateInput) =>
-			makeAppliedEvent({
-				id: input.dutyEventId,
-				slotInstances: [
-					{
-						...makeAppliedEvent().slotInstances[0],
-						assigneeId: input.slotOverrides?.length === 0 ? 'person-alt' : 'person-nco',
-						assignmentSource: 'generated'
-					}
-				]
-			})
-		);
 
 		renderAppliedEventManager({
 			advancedDutyEvents: [makeAppliedEvent()],
-			onPreviewExistingAdvancedEvent: previewExistingHandler,
-			onUpdateExistingAdvancedEvent: updateExistingHandler
+			onStartAdvancedRevisionDraft: startDraftHandler,
+			onUpdateAdvancedRevisionDraft: updateDraftHandler
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
 
 		await waitFor(() => {
-			expect(previewExistingHandler).toHaveBeenCalledWith({
+			expect(startDraftHandler).toHaveBeenCalledWith({
 				dutyEventId: 'event-1'
 			});
 		});
 
-		expect(screen.getByText('Edit applied duty event')).toBeTruthy();
+		expect(screen.getByText('Review applied duty revision')).toBeTruthy();
+		expect(screen.getByText(/Draft v1 pending/)).toBeTruthy();
 		expect(screen.getAllByText('SGT Nolan').length).toBeGreaterThan(0);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Regenerate Event' }));
+		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-10 NCO #1'), {
+			target: { value: 'person-alt' }
+		});
 
 		await waitFor(() => {
-			expect(previewExistingHandler).toHaveBeenLastCalledWith({
+			expect(updateDraftHandler).toHaveBeenLastCalledWith({
 				dutyEventId: 'event-1',
-				slotOverrides: []
+				slotOverrides: [
+					{
+						templateSlotId: 'slot-1',
+						slotIndex: 0,
+						assigneeId: 'person-alt',
+						assignmentSource: 'manual'
+					}
+				]
 			});
 		});
 
+		expect(screen.getByText(/Draft v2 pending/)).toBeTruthy();
 		expect(screen.getAllByText('SGT Zimmer').length).toBeGreaterThan(0);
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Save Event' }));
-
-		await waitFor(() => {
-			expect(updateExistingHandler).toHaveBeenCalledWith({
-				dutyEventId: 'event-1',
-				slotOverrides: []
-			});
-		});
-
-		expect(screen.getByText('NCO #1: SGT Zimmer')).toBeTruthy();
+		expect(screen.getByText('NCO #1: SGT Nolan')).toBeTruthy();
 	});
 
 	it('exports a reopened applied duty event as a team duty packet', async () => {
@@ -2033,37 +2074,39 @@ describe('DutyRosterWizard', () => {
 						]
 					})
 				],
-				onPreviewExistingAdvancedEvent: vi.fn(async () =>
-					makePreview({
-						templateName: 'CQ',
-						coverageMode: 'all-day',
-						coverageStart: '2026-04-10T00:00:00',
-						coverageEnd: '2026-04-10T23:59:59',
-						fillSummary: {
-							totalSlots: 2,
-							filledSlots: 1,
-							unfilledSlots: 1
-						},
-						slotInstances: [
-							{
-								...makePreview().slotInstances[0],
-								roleLabel: 'Runner',
-								selectionReason: 'Selected by longest break in the CQ runner queue.',
-								overrideMessages: ['Manual override bypassed the normal fairness pick.']
+				onStartAdvancedRevisionDraft: vi.fn(async () =>
+					makeRevisionDraftSession({
+						preview: makePreview({
+							templateName: 'CQ',
+							coverageMode: 'all-day',
+							coverageStart: '2026-04-10T00:00:00',
+							coverageEnd: '2026-04-10T23:59:59',
+							fillSummary: {
+								totalSlots: 2,
+								filledSlots: 1,
+								unfilledSlots: 1
 							},
-							{
-								...makePreview().slotInstances[0],
-								templateSlotId: 'slot-2',
-								roleLabel: 'NCO',
-								slotIndex: 1,
-								assigneeId: null,
-								assignmentSource: 'manual',
-								warningState: 'conflict',
-								selectionReason: null,
-								unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.',
-								overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
-							}
-						]
+							slotInstances: [
+								{
+									...makePreview().slotInstances[0],
+									roleLabel: 'Runner',
+									selectionReason: 'Selected by longest break in the CQ runner queue.',
+									overrideMessages: ['Manual override bypassed the normal fairness pick.']
+								},
+								{
+									...makePreview().slotInstances[0],
+									templateSlotId: 'slot-2',
+									roleLabel: 'NCO',
+									slotIndex: 1,
+									assigneeId: null,
+									assignmentSource: 'manual',
+									warningState: 'conflict',
+									selectionReason: null,
+									unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.',
+									overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+								}
+							]
+						})
 					})
 				)
 			});
@@ -2071,7 +2114,7 @@ describe('DutyRosterWizard', () => {
 			await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
 
 			await waitFor(() => {
-				expect(screen.getByText('Edit applied duty event')).toBeTruthy();
+				expect(screen.getByText('Review applied duty revision')).toBeTruthy();
 			});
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Export Duty Packet' }));

@@ -3,7 +3,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import AppliedEventEditor from './AppliedEventEditor.svelte';
 	import type { Personnel } from '$lib/types';
-	import type { DutyEvent, DutyEventPreview, DutyEventPreviewSlotInstance } from '../duty-roster.types';
+	import type {
+		AdvancedDutyRevisionDraftRecord,
+		DutyEvent,
+		DutyEventPreview,
+		DutyEventPreviewSlotInstance
+	} from '../duty-roster.types';
 	import type { SlotExplanationSection } from './dutyRosterWizard.helpers';
 	interface Props {
 		event: DutyEvent | null;
@@ -11,6 +16,8 @@
 		isLoadingPreview: boolean;
 		isRefreshing: boolean;
 		isSaving: boolean;
+		isDiscardingDraft: boolean;
+		revisionDraft: AdvancedDutyRevisionDraftRecord | null;
 		collisionReviewConfirmed: boolean;
 		collisionMessages: string[];
 		personnelOptions: Personnel[];
@@ -23,14 +30,12 @@
 		}) => string;
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
 		onClose: () => void;
-		onSave: () => void;
-		onRegenerate: () => void;
+		onDiscardDraft: () => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
 		onToggleSlotLock: (slot: DutyEventPreviewSlotInstance) => void;
 		onClearSlot: (slot: DutyEventPreviewSlotInstance) => void;
-		onRegenerateSlot: (slot: DutyEventPreviewSlotInstance) => void;
 	}
 	let props: Props = $props();
 </script>
@@ -50,6 +55,8 @@
 				isLoadingPreview={props.isLoadingPreview}
 				isRefreshing={props.isRefreshing}
 				isSaving={props.isSaving}
+				isDiscardingDraft={props.isDiscardingDraft}
+				revisionDraft={props.revisionDraft}
 				collisionReviewConfirmed={props.collisionReviewConfirmed}
 				collisionMessages={props.collisionMessages}
 				personnelOptions={props.personnelOptions}
@@ -57,14 +64,12 @@
 				formatDisplayDate={props.formatDisplayDate}
 				formatCoverageLabel={props.formatCoverageLabel}
 				getExplanationSections={props.getExplanationSections}
-				onSave={props.onSave}
-				onRegenerate={props.onRegenerate}
+				onDiscardDraft={props.onDiscardDraft}
 				onExportPacket={props.onExportPacket}
 				onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 				onUpdateSlotAssignee={props.onUpdateSlotAssignee}
 				onToggleSlotLock={props.onToggleSlotLock}
 				onClearSlot={props.onClearSlot}
-				onRegenerateSlot={props.onRegenerateSlot}
 			/>
 		{:else}
 			<div class="applied-editor-loading" aria-live="polite">

@@ -4,6 +4,7 @@ import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry'
 import { DutyEventEntity } from '$lib/server/entities/dutyEvent';
 import { DutyEventRunEntity } from '$lib/server/entities/dutyEventRun';
 import { DutyEventSlotEntity } from '$lib/server/entities/dutyEventSlot';
+import { AdvancedDutyRunSnapshotEntity } from '$lib/server/entities/advancedDutyRunSnapshot';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
@@ -11,6 +12,12 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
+import {
+	createOrReopenAdvancedDutyRevisionDraft,
+	discardAdvancedDutyRevisionDraftById,
+	getActiveAdvancedDutyRevisionDraft,
+	updateAdvancedDutyRevisionDraftChange
+} from './advancedDutyRevisionDrafts';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import { findDutyCoverageConflicts } from './dutyAvailability';
 import {
@@ -40,8 +47,14 @@ import type {
 	ExistingDutyEventUpdateInput,
 	SoftPreferenceConfig,
 	DutyTemplate,
-	DutyEventFairnessConfidence
+	DutyEventFairnessConfidence,
+	AdvancedDutyRevisionDraftRecord,
+	AdvancedDutyRevisionDraftSession
 } from '$features/duty-roster/duty-roster.types';
+import type {
+	AdvancedDutyRevisionAppliedRun,
+	AdvancedDutyRevisionDraftSlotChange
+} from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder
@@ -1373,14 +1386,110 @@ export async function previewDutyEventFromTemplate(
 	};
 }
 
-export async function previewExistingDutyEvent(
-	ctx: QueryPorts,
-	input: ExistingDutyEventInput
-): Promise<DutyEventPreview> {
-	requireAdvancedDutyAccess(ctx.auth);
+function buildRevisionSlotKey(
+	slot: Pick<DutyEventPreviewSlotInstance, 'templateSlotId' | 'roleLabel' | 'slotIndex'>
+): string {
+	return `${slot.templateSlotId ?? slot.roleLabel}:${slot.slotIndex}`;
+}
 
-	const event = await getDutyEventById(ctx, input.dutyEventId);
-	if (input.slotOverrides === undefined) {
+function revisionDraftSlotChangesToOverrides(
+	draft: AdvancedDutyRevisionDraftRecord
+): DutyEventSlotOverrideInput[] | undefined {
+	const changes = draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[];
+	if (changes.length === 0) return undefined;
+	return changes.map((change) => ({
+		templateSlotId: change.templateSlotId ?? null,
+		slotIndex: change.slotIndex ?? 0,
+		assigneeId: change.newPersonnelId ?? null,
+		assignmentSource:
+			change.assignmentSource === 'locked' ||
+			change.changeIntent === 'lock-open' ||
+			change.changeIntent === 'lock-assigned'
+				? 'locked'
+				: 'manual'
+	}));
+}
+
+function findRevisionPreviewSlot(
+	preview: DutyEventPreview,
+	override: DutyEventSlotOverrideInput
+): DutyEventPreviewSlotInstance | null {
+	return (
+		preview.slotInstances.find(
+			(slot) =>
+				slot.slotIndex === override.slotIndex &&
+				(override.templateSlotId ? slot.templateSlotId === override.templateSlotId : true)
+		) ?? null
+	);
+}
+
+function revisionChangeIntentFromOverride(
+	override: DutyEventSlotOverrideInput
+): AdvancedDutyRevisionDraftSlotChange['changeIntent'] {
+	if (override.assigneeId === null) {
+		return override.assignmentSource === 'locked' ? 'lock-open' : 'clear';
+	}
+	return override.assignmentSource === 'locked' ? 'lock-assigned' : 'assign';
+}
+
+function revisionDraftChangeFromOverride(input: {
+	event: DutyEvent;
+	preview: DutyEventPreview;
+	override: DutyEventSlotOverrideInput;
+}): AdvancedDutyRevisionDraftSlotChange {
+	const slot = findRevisionPreviewSlot(input.preview, input.override);
+	return {
+		eventDate: input.event.eventDate,
+		slotKey: slot
+			? buildRevisionSlotKey(slot)
+			: `${input.override.templateSlotId ?? 'slot'}:${input.override.slotIndex}`,
+		dutyEventId: input.event.id,
+		templateSlotId: input.override.templateSlotId ?? slot?.templateSlotId ?? null,
+		roleLabel: slot?.roleLabel,
+		slotIndex: input.override.slotIndex,
+		newPersonnelId: input.override.assigneeId,
+		assignmentSource: input.override.assignmentSource ?? 'manual',
+		warningState: slot?.warningState ?? 'none',
+		changeIntent: revisionChangeIntentFromOverride(input.override)
+	};
+}
+
+async function loadAppliedAdvancedDutyRunForRevision(
+	ctx: QueryPorts,
+	event: DutyEvent
+): Promise<AdvancedDutyRevisionAppliedRun> {
+	if (!event.runId) {
+		fail(400, 'Legacy applied duty events cannot use Advanced Duty revision drafts yet.');
+	}
+	const runById = await loadDutyEventRunsByIds(ctx, [event.runId]);
+	const run = runById.get(event.runId);
+	if (!run) {
+		fail(404, 'Applied Advanced Duty run not found.');
+	}
+	const sourceSnapshot = await ctx.store.findOne<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		{
+			applied_run_id: run.id,
+			status: 'applied'
+		}
+	);
+	return {
+		id: run.id,
+		orgId: run.orgId,
+		sourceSnapshotId: sourceSnapshot ? String(sourceSnapshot.id) : null,
+		sourceSnapshotFingerprint: sourceSnapshot ? String(sourceSnapshot.snapshot_fingerprint ?? '') || null : null,
+		createdAt: run.createdAt,
+		updatedAt: run.updatedAt
+	};
+}
+
+async function previewExistingDutyEventWithOverrides(
+	ctx: QueryPorts,
+	event: DutyEvent,
+	slotOverrides: DutyEventSlotOverrideInput[] | undefined
+): Promise<DutyEventPreview> {
+	if (slotOverrides === undefined) {
 		return buildPreviewFromDutyEvent(event);
 	}
 
@@ -1391,11 +1500,86 @@ export async function previewExistingDutyEvent(
 			template,
 			event.eventDate,
 			undefined,
-			input.slotOverrides,
+			slotOverrides,
 			[],
 			[event.id]
 		)
 	);
+}
+
+async function buildRevisionDraftSessionPreview(
+	ctx: QueryPorts,
+	event: DutyEvent,
+	draft: AdvancedDutyRevisionDraftRecord
+): Promise<DutyEventPreview> {
+	return previewExistingDutyEventWithOverrides(ctx, event, revisionDraftSlotChangesToOverrides(draft));
+}
+
+export async function previewExistingDutyEvent(
+	ctx: QueryPorts,
+	input: ExistingDutyEventInput
+): Promise<DutyEventPreview> {
+	requireAdvancedDutyAccess(ctx.auth);
+
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	return previewExistingDutyEventWithOverrides(ctx, event, input.slotOverrides);
+}
+
+export async function startAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string }
+): Promise<AdvancedDutyRevisionDraftSession & { action: 'created' | 'reopened' }> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const result = await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun });
+	return {
+		action: result.action,
+		draft: result.draft,
+		preview: await buildRevisionDraftSessionPreview(ctx, event, result.draft)
+	};
+}
+
+export async function updateAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: ExistingDutyEventInput
+): Promise<AdvancedDutyRevisionDraftSession & { action: 'updated' }> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	let { draft } = await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun });
+	const preview = await previewExistingDutyEventWithOverrides(
+		ctx,
+		event,
+		input.slotOverrides ?? revisionDraftSlotChangesToOverrides(draft)
+	);
+
+	for (const override of input.slotOverrides ?? []) {
+		draft = await updateAdvancedDutyRevisionDraftChange(ctx, {
+			draftId: draft.id,
+			change: revisionDraftChangeFromOverride({ event, preview, override })
+		});
+	}
+
+	return {
+		action: 'updated',
+		draft,
+		preview
+	};
+}
+
+export async function discardAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string }
+): Promise<AdvancedDutyRevisionDraftRecord> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const activeDraft = await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id });
+	if (!activeDraft) {
+		fail(404, 'Advanced Duty revision draft not found.');
+	}
+	return discardAdvancedDutyRevisionDraftById(ctx, { draftId: activeDraft.id });
 }
 
 export async function updateExistingDutyEvent(

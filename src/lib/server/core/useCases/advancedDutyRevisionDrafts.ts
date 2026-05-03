@@ -180,7 +180,7 @@ export async function createOrReopenAdvancedDutyRevisionDraft(
 		existingDrafts: activeDraft ? [activeDraft] : [],
 		actorUserId,
 		now,
-		makeId: input.makeId ?? crypto.randomUUID
+		makeId: input.makeId ?? (() => crypto.randomUUID())
 	});
 
 	const persisted =

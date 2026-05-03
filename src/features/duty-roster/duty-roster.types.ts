@@ -485,6 +485,12 @@ export interface ExistingDutyEventUpdateInput extends ExistingDutyEventInput {
 	collisionReviewConfirmed?: boolean;
 }
 
+export interface AdvancedDutyRevisionDraftSession {
+	action?: 'created' | 'reopened' | 'updated';
+	draft: AdvancedDutyRevisionDraftRecord;
+	preview: DutyEventPreview;
+}
+
 export interface DutyEventSeriesEventOverrideInput {
 	eventDate: string;
 	slotOverrides: DutyEventSlotOverrideInput[];

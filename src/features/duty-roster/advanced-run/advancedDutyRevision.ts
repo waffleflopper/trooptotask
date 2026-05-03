@@ -4,7 +4,11 @@ import type {
 	AdvancedDutyRevisionDraftRecord,
 	AdvancedDutyRevisionHistoryEntry,
 	AdvancedDutyRevisionSlotChangeRecord,
+	DutyEvent,
 	DutyEventAssignmentSource,
+	DutyEventPreview,
+	DutyEventPreviewSlotInstance,
+	DutyEventSlotOverrideInput,
 	DutyEventWarningState
 } from '../duty-roster.types';
 
@@ -146,6 +150,86 @@ function slotIdentity(change: Pick<AdvancedDutyRevisionDraftSlotChange, 'eventDa
 
 function draftSlotChanges(draft: AdvancedDutyRevisionDraftRecord): AdvancedDutyRevisionDraftSlotChange[] {
 	return draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[];
+}
+
+export function listAdvancedDutyRevisionDraftSlotChanges(
+	draft: AdvancedDutyRevisionDraftRecord
+): AdvancedDutyRevisionDraftSlotChange[] {
+	return draftSlotChanges(draft);
+}
+
+export function buildAdvancedDutyRevisionSlotKey(
+	slot: Pick<DutyEventPreviewSlotInstance, 'templateSlotId' | 'roleLabel' | 'slotIndex'>
+): string {
+	return `${slot.templateSlotId ?? slot.roleLabel}:${slot.slotIndex}`;
+}
+
+export function advancedDutyRevisionSlotIdentity(
+	change: Pick<AdvancedDutyRevisionDraftSlotChange, 'eventDate' | 'slotKey'>
+): string {
+	return slotIdentity(change);
+}
+
+export function advancedDutyRevisionDraftSlotChangesToOverrides(
+	draft: AdvancedDutyRevisionDraftRecord
+): DutyEventSlotOverrideInput[] | undefined {
+	const changes = draftSlotChanges(draft);
+	if (changes.length === 0) return undefined;
+	return changes.map((change) => ({
+		templateSlotId: change.templateSlotId ?? null,
+		slotIndex: change.slotIndex ?? 0,
+		assigneeId: change.newPersonnelId ?? null,
+		assignmentSource:
+			change.assignmentSource === 'locked' ||
+			change.changeIntent === 'lock-open' ||
+			change.changeIntent === 'lock-assigned'
+				? 'locked'
+				: 'manual'
+	}));
+}
+
+function findRevisionPreviewSlot(
+	preview: DutyEventPreview,
+	override: DutyEventSlotOverrideInput
+): DutyEventPreviewSlotInstance | null {
+	return (
+		preview.slotInstances.find(
+			(slot) =>
+				slot.slotIndex === override.slotIndex &&
+				(override.templateSlotId ? slot.templateSlotId === override.templateSlotId : true)
+		) ?? null
+	);
+}
+
+function revisionChangeIntentFromOverride(
+	override: DutyEventSlotOverrideInput
+): AdvancedDutyRevisionDraftSlotChange['changeIntent'] {
+	if (override.assigneeId === null) {
+		return override.assignmentSource === 'locked' ? 'lock-open' : 'clear';
+	}
+	return override.assignmentSource === 'locked' ? 'lock-assigned' : 'assign';
+}
+
+export function buildAdvancedDutyRevisionDraftChangeFromOverride(input: {
+	event: DutyEvent;
+	preview: DutyEventPreview;
+	override: DutyEventSlotOverrideInput;
+}): AdvancedDutyRevisionDraftSlotChange {
+	const slot = findRevisionPreviewSlot(input.preview, input.override);
+	return {
+		eventDate: input.event.eventDate,
+		slotKey: slot
+			? buildAdvancedDutyRevisionSlotKey(slot)
+			: `${input.override.templateSlotId ?? 'slot'}:${input.override.slotIndex}`,
+		dutyEventId: input.event.id,
+		templateSlotId: input.override.templateSlotId ?? slot?.templateSlotId ?? null,
+		roleLabel: slot?.roleLabel,
+		slotIndex: input.override.slotIndex,
+		newPersonnelId: input.override.assigneeId,
+		assignmentSource: input.override.assignmentSource ?? 'manual',
+		warningState: slot?.warningState ?? 'none',
+		changeIntent: revisionChangeIntentFromOverride(input.override)
+	};
 }
 
 function findAppliedSlot(

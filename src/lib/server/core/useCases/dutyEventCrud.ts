@@ -59,12 +59,16 @@ import type {
 import type {
 	AdvancedDutyRevisionAppliedSlot,
 	AdvancedDutyRevisionAppliedRun,
-	AdvancedDutyRevisionDraftSlotChange,
 	AdvancedDutyRevisionPersonnelFact,
 	AdvancedDutyRevisionPersonnelSnapshot
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
+	advancedDutyRevisionDraftSlotChangesToOverrides,
+	advancedDutyRevisionSlotIdentity,
+	buildAdvancedDutyRevisionDraftChangeFromOverride,
+	buildAdvancedDutyRevisionSlotKey,
 	deriveAdvancedDutyRevisionChangeSet,
+	listAdvancedDutyRevisionDraftSlotChanges,
 	validateAdvancedDutyRevisionReapply
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
@@ -1398,74 +1402,6 @@ export async function previewDutyEventFromTemplate(
 	};
 }
 
-function buildRevisionSlotKey(
-	slot: Pick<DutyEventPreviewSlotInstance, 'templateSlotId' | 'roleLabel' | 'slotIndex'>
-): string {
-	return `${slot.templateSlotId ?? slot.roleLabel}:${slot.slotIndex}`;
-}
-
-function revisionDraftSlotChangesToOverrides(
-	draft: AdvancedDutyRevisionDraftRecord
-): DutyEventSlotOverrideInput[] | undefined {
-	const changes = draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[];
-	if (changes.length === 0) return undefined;
-	return changes.map((change) => ({
-		templateSlotId: change.templateSlotId ?? null,
-		slotIndex: change.slotIndex ?? 0,
-		assigneeId: change.newPersonnelId ?? null,
-		assignmentSource:
-			change.assignmentSource === 'locked' ||
-			change.changeIntent === 'lock-open' ||
-			change.changeIntent === 'lock-assigned'
-				? 'locked'
-				: 'manual'
-	}));
-}
-
-function findRevisionPreviewSlot(
-	preview: DutyEventPreview,
-	override: DutyEventSlotOverrideInput
-): DutyEventPreviewSlotInstance | null {
-	return (
-		preview.slotInstances.find(
-			(slot) =>
-				slot.slotIndex === override.slotIndex &&
-				(override.templateSlotId ? slot.templateSlotId === override.templateSlotId : true)
-		) ?? null
-	);
-}
-
-function revisionChangeIntentFromOverride(
-	override: DutyEventSlotOverrideInput
-): AdvancedDutyRevisionDraftSlotChange['changeIntent'] {
-	if (override.assigneeId === null) {
-		return override.assignmentSource === 'locked' ? 'lock-open' : 'clear';
-	}
-	return override.assignmentSource === 'locked' ? 'lock-assigned' : 'assign';
-}
-
-function revisionDraftChangeFromOverride(input: {
-	event: DutyEvent;
-	preview: DutyEventPreview;
-	override: DutyEventSlotOverrideInput;
-}): AdvancedDutyRevisionDraftSlotChange {
-	const slot = findRevisionPreviewSlot(input.preview, input.override);
-	return {
-		eventDate: input.event.eventDate,
-		slotKey: slot
-			? buildRevisionSlotKey(slot)
-			: `${input.override.templateSlotId ?? 'slot'}:${input.override.slotIndex}`,
-		dutyEventId: input.event.id,
-		templateSlotId: input.override.templateSlotId ?? slot?.templateSlotId ?? null,
-		roleLabel: slot?.roleLabel,
-		slotIndex: input.override.slotIndex,
-		newPersonnelId: input.override.assigneeId,
-		assignmentSource: input.override.assignmentSource ?? 'manual',
-		warningState: slot?.warningState ?? 'none',
-		changeIntent: revisionChangeIntentFromOverride(input.override)
-	};
-}
-
 async function loadAppliedAdvancedDutyRunForRevision(
 	ctx: QueryPorts,
 	event: DutyEvent
@@ -1524,11 +1460,7 @@ async function buildRevisionDraftSessionPreview(
 	event: DutyEvent,
 	draft: AdvancedDutyRevisionDraftRecord
 ): Promise<DutyEventPreview> {
-	return previewExistingDutyEventWithOverrides(ctx, event, revisionDraftSlotChangesToOverrides(draft));
-}
-
-function revisionSlotIdentity(input: Pick<AdvancedDutyRevisionDraftSlotChange, 'eventDate' | 'slotKey'>): string {
-	return `${input.eventDate}::${input.slotKey}`;
+	return previewExistingDutyEventWithOverrides(ctx, event, advancedDutyRevisionDraftSlotChangesToOverrides(draft));
 }
 
 function personnelSnapshotFromRow(row: Record<string, unknown>): AdvancedDutyRevisionPersonnelSnapshot {
@@ -1593,7 +1525,7 @@ async function loadAppliedSlotsForRevision(
 						{ column: 'sort_order', ascending: true }
 					]
 				});
-	const draftSlotChanges = draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[];
+	const draftSlotChanges = listAdvancedDutyRevisionDraftSlotChanges(draft);
 	const personnelIds = [
 		...slotRows.map((row) => row.assignee_id).filter((value): value is string => typeof value === 'string'),
 		...draftSlotChanges
@@ -1607,8 +1539,8 @@ async function loadAppliedSlotsForRevision(
 		if (!eventRow) return [];
 		const slot = DutyEventSlotEntity.fromDb(row);
 		const eventDate = String(eventRow.event_date);
-		const slotKey = buildRevisionSlotKey(slot);
-		const identity = revisionSlotIdentity({ eventDate, slotKey });
+		const slotKey = buildAdvancedDutyRevisionSlotKey(slot);
+		const identity = advancedDutyRevisionSlotIdentity({ eventDate, slotKey });
 		slotRowsByIdentity.set(identity, row);
 		return [
 			{
@@ -1640,8 +1572,8 @@ function buildRevisionConflictMaps(draft: AdvancedDutyRevisionDraftRecord): {
 } {
 	const hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
 	const reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
-	for (const change of draft.slotChanges as AdvancedDutyRevisionDraftSlotChange[]) {
-		const identity = revisionSlotIdentity(change);
+	for (const change of listAdvancedDutyRevisionDraftSlotChanges(draft)) {
+		const identity = advancedDutyRevisionSlotIdentity(change);
 		if (change.warningState === 'conflict') {
 			hardConflictsBySlotKey[identity] = [{ code: 'draft-hard-conflict', message: 'Draft slot has a hard conflict.' }];
 		} else if (change.warningState === 'warning') {
@@ -1727,13 +1659,13 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 	const preview = await previewExistingDutyEventWithOverrides(
 		ctx,
 		event,
-		input.slotOverrides ?? revisionDraftSlotChangesToOverrides(draft)
+		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft)
 	);
 
 	for (const override of input.slotOverrides ?? []) {
 		draft = await updateAdvancedDutyRevisionDraftChange(ctx, {
 			draftId: draft.id,
-			change: revisionDraftChangeFromOverride({ event, preview, override })
+			change: buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override })
 		});
 	}
 
@@ -1817,7 +1749,7 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 
 	const touchedEventIds = new Set<string>();
 	for (const slotChange of derived.slotChanges) {
-		const slotRow = slotRowsByIdentity.get(revisionSlotIdentity(slotChange));
+		const slotRow = slotRowsByIdentity.get(advancedDutyRevisionSlotIdentity(slotChange));
 		if (!slotRow) {
 			fail(409, 'The applied duty slot no longer exists.');
 		}

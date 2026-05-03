@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { AdvancedDutyRevisionDraftRecord } from '../duty-roster.types';
+import type { AdvancedDutyRevisionDraftRecord, DutyEvent, DutyEventPreview } from '../duty-roster.types';
 import {
+	advancedDutyRevisionDraftSlotChangesToOverrides,
+	advancedDutyRevisionSlotIdentity,
+	buildAdvancedDutyRevisionDraftChangeFromOverride,
 	buildAdvancedDutyRevisionHistoryModel,
 	deriveAdvancedDutyRevisionChangeSet,
 	discardAdvancedDutyRevisionDraft,
@@ -36,6 +39,90 @@ function createDraft(overrides: Partial<AdvancedDutyRevisionDraftRecord> = {}): 
 		createdAt: '2026-05-02T00:00:00.000Z',
 		updatedAt: '2026-05-02T00:00:00.000Z',
 		...overrides
+	};
+}
+
+function createRulesSnapshot() {
+	return {
+		templateId: 'template-1',
+		templateName: 'Staff Duty',
+		templateStatus: 'active',
+		coverageMode: 'all-day',
+		startTime: null,
+		endTime: null,
+		scopeType: 'organization',
+		scopeGroupIds: [],
+		exemptPersonnelIds: [],
+		exemptStatusTypeIds: [],
+		isBlocking: true,
+		cooldownHours: 24,
+		slots: [
+			{
+				templateSlotId: 'template-slot-1',
+				roleLabel: 'Staff Duty',
+				quantity: 1,
+				allowedRanks: [],
+				allowedGroupIds: [],
+				preferredGroupIds: [],
+				allowedMosValues: [],
+				allowedRoleValues: [],
+				rotationPoolKey: 'staff-duty',
+				sortOrder: 0
+			}
+		]
+	} satisfies DutyEventPreview['rulesSnapshot'];
+}
+
+function createDutyEvent(): DutyEvent {
+	return {
+		id: 'event-1',
+		orgId: 'org-1',
+		runId: 'run-1',
+		templateId: 'template-1',
+		templateName: 'Staff Duty',
+		eventDate: '2026-05-04',
+		coverageMode: 'all-day',
+		coverageStart: '2026-05-04T00:00:00.000Z',
+		coverageEnd: '2026-05-05T00:00:00.000Z',
+		isBlocking: true,
+		cooldownHours: 24,
+		rulesSnapshot: createRulesSnapshot(),
+		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+		collisionSummary: { hasConflicts: false, conflicts: [] },
+		originalProposal: null,
+		createdAt: '2026-05-02T00:00:00.000Z',
+		updatedAt: '2026-05-02T00:00:00.000Z',
+		slotInstances: []
+	};
+}
+
+function createPreview(): DutyEventPreview {
+	return {
+		templateId: 'template-1',
+		templateName: 'Staff Duty',
+		eventDate: '2026-05-04',
+		coverageMode: 'all-day',
+		coverageStart: '2026-05-04T00:00:00.000Z',
+		coverageEnd: '2026-05-05T00:00:00.000Z',
+		isBlocking: true,
+		cooldownHours: 24,
+		rulesSnapshot: createRulesSnapshot(),
+		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+		collisionSummary: { hasConflicts: false, conflicts: [] },
+		slotInstances: [
+			{
+				templateSlotId: 'template-slot-1',
+				roleLabel: 'Staff Duty',
+				slotIndex: 0,
+				assigneeId: 'person-2',
+				assignmentSource: 'manual',
+				warningState: 'warning',
+				fairnessConfidence: 'medium',
+				selectionReason: 'Manual override',
+				unfilledReason: null,
+				sortOrder: 0
+			}
+		]
 	};
 }
 
@@ -150,6 +237,75 @@ describe('advanced duty revision drafts', () => {
 		]);
 		expect(replacedFirstDate.draftVersion).toBe(4);
 		expect(replacedFirstDate.updatedByUserId).toBe('user-3');
+	});
+
+	it('converts revision draft slot changes into editor overrides inside the revision module', () => {
+		const draft = createDraft({
+			slotChanges: [
+				{
+					eventDate: '2026-05-04',
+					slotKey: 'staff-duty:0',
+					templateSlotId: 'template-slot-1',
+					slotIndex: 0,
+					newPersonnelId: 'person-2',
+					assignmentSource: 'manual',
+					warningState: 'none',
+					changeIntent: 'assign'
+				},
+				{
+					eventDate: '2026-05-04',
+					slotKey: 'staff-duty:1',
+					templateSlotId: 'template-slot-2',
+					slotIndex: 1,
+					newPersonnelId: null,
+					assignmentSource: 'locked',
+					warningState: 'none',
+					changeIntent: 'lock-open'
+				}
+			]
+		});
+
+		expect(advancedDutyRevisionDraftSlotChangesToOverrides(draft)).toEqual([
+			{
+				templateSlotId: 'template-slot-1',
+				slotIndex: 0,
+				assigneeId: 'person-2',
+				assignmentSource: 'manual'
+			},
+			{
+				templateSlotId: 'template-slot-2',
+				slotIndex: 1,
+				assigneeId: null,
+				assignmentSource: 'locked'
+			}
+		]);
+	});
+
+	it('derives a revision draft slot change from the previewed override result', () => {
+		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({
+			event: createDutyEvent(),
+			preview: createPreview(),
+			override: {
+				templateSlotId: 'template-slot-1',
+				slotIndex: 0,
+				assigneeId: 'person-2',
+				assignmentSource: 'manual'
+			}
+		});
+
+		expect(change).toEqual({
+			eventDate: '2026-05-04',
+			slotKey: 'template-slot-1:0',
+			dutyEventId: 'event-1',
+			templateSlotId: 'template-slot-1',
+			roleLabel: 'Staff Duty',
+			slotIndex: 0,
+			newPersonnelId: 'person-2',
+			assignmentSource: 'manual',
+			warningState: 'warning',
+			changeIntent: 'assign'
+		});
+		expect(advancedDutyRevisionSlotIdentity(change)).toBe('2026-05-04::template-slot-1:0');
 	});
 
 	it('derives compact change sets without copying full run snapshots', () => {

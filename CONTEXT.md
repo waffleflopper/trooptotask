@@ -192,6 +192,14 @@ _Avoid_: Current template state, recomputed preview
 The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.
 _Avoid_: Signed client payload, browser-owned run state
 
+**Advanced Duty Revision Draft**:
+The single active unapplied proposal for changing an already-applied **Advanced Duty Run** or event.
+_Avoid_: Parallel draft, hidden edit state, full snapshot copy per dropdown change
+
+**Advanced Duty Revision Change Set**:
+The compact append-only record of meaningful slot-level differences applied from an **Advanced Duty Revision Draft**, such as previous Soldier, new Soldier, cleared or locked state, reason, actor, and timestamp.
+_Avoid_: Full roster snapshot copy, generic audit log only
+
 **Advanced Duty Workspace**:
 The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.
 _Avoid_: Wizard redesign, stacked preview cards
@@ -302,6 +310,14 @@ _Avoid_: Training type
 - An unapplied **Advanced Run Snapshot** may produce a preview-only team duty packet export, but it is not a final applied record.
 - A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
 - Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
+- Editing an applied advanced duty event should produce one active **Advanced Duty Revision Draft** at a time instead of immediately mutating the operational record.
+- Applying an **Advanced Duty Revision Draft** should persist an **Advanced Duty Revision Change Set**, not a full copy of the entire **Advanced Run Snapshot** for every dropdown change.
+- An **Advanced Duty Revision Draft** belongs to one applied **Advanced Duty Run** and may include changes across multiple event dates in that run.
+- Starting edits on a run that already has an active **Advanced Duty Revision Draft** should reopen that draft instead of creating a parallel draft.
+- Reapplying an **Advanced Duty Revision Draft** should validate current safety, permissions, read-only state, and conflicts without re-running the assignment algorithm or silently choosing different Soldiers.
+- Reapplying an **Advanced Duty Revision Draft** should block hard conflicts such as missing or archived Soldiers, deleted or superseded operational records, read-only mode, missing permission, and non-waivable slot-rule violations.
+- Reapplying an **Advanced Duty Revision Draft** may allow reviewable conflicts such as overlapping duty, cooldown, unavailable status, replacement of an existing slot assignment, or soft-preference warnings only with explicit confirmation and a required reason.
+- **Advanced Duty Revision Change Sets** should be visible in the **Advanced Duty Workspace** as a simple revision history with date, actor, reason, and changed slots.
 - The **Advanced Duty Workspace** should keep the active run review primary while moving applied-event inspection to a reachable but separate view.
 
 ## Example Dialogue

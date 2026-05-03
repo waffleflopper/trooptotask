@@ -87,6 +87,8 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Advanced Duty Run**             | One generated team-duty run for a selected advanced duty template and event date pattern.                                                              | DA6 run, regenerated apply payload                  |
 | **Advanced Run Snapshot**         | The immutable inputs and outputs produced by an **Advanced Duty Run** preview.                                                                         | Current template state, recomputed preview          |
 | **Snapshot Custody**              | The product decision that a previewed **Advanced Run Snapshot** is persisted server-side as a 24-hour draft and later applied by snapshot identity.    | Signed client payload, browser-owned run state      |
+| **Advanced Duty Revision Draft**  | The single active unapplied proposal for changing an already-applied **Advanced Duty Run** or event.                                                   | Parallel draft, hidden edit state                   |
+| **Advanced Duty Revision Change Set** | The compact append-only record of meaningful slot-level differences applied from an **Advanced Duty Revision Draft**.                                | Full roster snapshot copy, generic audit log only   |
 | **Advanced Duty Workspace**       | The operator workspace for configuring, reviewing, applying, exporting, and inspecting **Advanced Duty Runs**.                                         | Wizard redesign, stacked preview cards              |
 | **Team Duty Packet Export Model** | The formatting-neutral snapshot data used by a future export module to produce staff duty, CQ, or team-duty packet output.                             | Browser markup, DA6 matrix                          |
 
@@ -206,6 +208,14 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - An unapplied **Advanced Run Snapshot** may produce a preview-only **Team Duty Packet Export Model**, but it is not a final applied record.
 - A successfully applied **Advanced Run Snapshot** is finalized and cannot be normally re-applied.
 - Applying an **Advanced Run Snapshot** requires snapshot identity plus a fingerprint of the reviewed preview.
+- Editing an applied advanced duty event should produce one active **Advanced Duty Revision Draft** at a time instead of immediately mutating the operational record.
+- Applying an **Advanced Duty Revision Draft** should persist an **Advanced Duty Revision Change Set**, not a full copy of the entire **Advanced Run Snapshot** for every dropdown change.
+- An **Advanced Duty Revision Draft** belongs to one applied **Advanced Duty Run** and may include changes across multiple event dates in that run.
+- Starting edits on a run that already has an active **Advanced Duty Revision Draft** should reopen that draft instead of creating a parallel draft.
+- Reapplying an **Advanced Duty Revision Draft** should validate current safety, permissions, read-only state, and conflicts without re-running the assignment algorithm or silently choosing different Soldiers.
+- Reapplying an **Advanced Duty Revision Draft** should block hard conflicts such as missing or archived Soldiers, deleted or superseded operational records, read-only mode, missing permission, and non-waivable slot-rule violations.
+- Reapplying an **Advanced Duty Revision Draft** may allow reviewable conflicts such as overlapping duty, cooldown, unavailable status, replacement of an existing slot assignment, or soft-preference warnings only with explicit confirmation and a required reason.
+- **Advanced Duty Revision Change Sets** should be visible in the **Advanced Duty Workspace** as a simple revision history with date, actor, reason, and changed slots.
 - The **Advanced Duty Workspace** keeps active run review primary and moves applied-event inspection to a reachable but separate view.
 - A **Team Duty Packet Export Model** belongs to the advanced team-duty lane and must not force advanced duties into **DA Form 6** output.
 - **Planning Controls** belong in the **Page Toolbar** or **Command Strip** when they change the working scope of a feature surface.

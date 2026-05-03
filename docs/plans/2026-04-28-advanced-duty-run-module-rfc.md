@@ -4,6 +4,8 @@
 
 Carry the Duty Roster Run Module work into the advanced duty workflow.
 
+Follow-on revision/deepening work is tracked in `docs/plans/2026-05-02-advanced-duty-run-revision-deepening-rfc.md`.
+
 The simple duty lane now has a clearer run boundary: generation creates an immutable snapshot, preview/apply/history/export use that snapshot, and the Svelte page stays closer to UI orchestration. The advanced lane still runs through the older template/event flow. That is a bigger problem than it is in the simple generator because advanced duties are the staff duty/CQ-style workflow: templates, teams, slots, coverage windows, per-run candidates, manual overrides, collision review, and series apply all need to stay tied to the exact generation result the operator reviewed.
 
 This RFC defines a follow-up plan for an **Advanced Duty Run Module** that preserves the current advanced duty product model while giving it the same kind of snapshot, apply, and export discipline as the simple run module.

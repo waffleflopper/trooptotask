@@ -136,7 +136,7 @@ function makeDraft(overrides: Partial<AdvancedDutyRevisionDraftRecord> = {}): Ad
 		updatedByUserId: 'user-1',
 		appliedByUserId: null,
 		discardedByUserId: null,
-		expiresAt: '2026-04-17T00:00:00.000Z',
+		expiresAt: '2026-05-17T00:00:00.000Z',
 		discardCleanupAfter: null,
 		appliedAt: null,
 		discardedAt: null,
@@ -487,6 +487,41 @@ describe('AppliedEventManager revision draft workflow', () => {
 		expect(screen.getByRole('alert').textContent).toContain('Enter a reason');
 	});
 
+	it('shows expired draft recovery without implying operational records changed', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						expiresAt: '2026-04-01T00:00:00.000Z',
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+
+		expect(await screen.findByText('Draft expired')).not.toBeNull();
+		expect(screen.getByText(/7-day window/i)).not.toBeNull();
+		expect(screen.getByText(/Operational duty records were not changed/i)).not.toBeNull();
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Reapply Revision/i }).disabled).toBe(true);
+		expect(onReapplyAdvancedRevisionDraft).not.toHaveBeenCalled();
+	});
+
 	it('requires reviewable-conflict confirmation before reapplying', async () => {
 		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
 		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
@@ -532,6 +567,85 @@ describe('AppliedEventManager revision draft workflow', () => {
 				reviewableConflictsConfirmed: true
 			})
 		);
+	});
+
+	it('shows source-run changed recovery when backend rejects stale reapply', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => {
+			throw new Error(
+				'The source applied run changed after this Advanced Duty revision draft was opened. Discard this draft and open a new revision draft before reapplying.'
+			);
+		});
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Move coverage to Bravo after leader review.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		expect(await screen.findByText('Applied run changed')).not.toBeNull();
+		expect(screen.getByText(/Discard this draft and open the event again/i)).not.toBeNull();
+		expect(screen.getByText(/Operational duty records were not changed/i)).not.toBeNull();
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Reapply Revision/i }).disabled).toBe(true);
+	});
+
+	it('shows another-tab recovery when the active draft is gone', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => {
+			throw new Error('Advanced Duty revision draft not found.');
+		});
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Move coverage to Bravo after leader review.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		expect(await screen.findByText('Draft changed in another tab')).not.toBeNull();
+		expect(screen.getByText(/applied or discarded in another tab or session/i)).not.toBeNull();
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Reapply Revision/i }).disabled).toBe(true);
 	});
 
 	it('reapplies a staged draft and closes the editor on success', async () => {

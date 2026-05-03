@@ -69,13 +69,72 @@
 		onClearSlot
 	}: Props = $props();
 
+	interface RevisionDraftRecoveryState {
+		title: string;
+		message: string;
+		blocksEdits: boolean;
+		blocksReapply: boolean;
+	}
+
+	function isExpired(timestamp: string): boolean {
+		const value = new Date(timestamp).getTime();
+		return Number.isFinite(value) && value <= Date.now();
+	}
+
+	function recoveryFromReapplyError(error: string | null): RevisionDraftRecoveryState | null {
+		if (!error) return null;
+		if (/source applied run changed/i.test(error)) {
+			return {
+				title: 'Applied run changed',
+				message:
+					'This draft was opened before the applied run changed. Discard this draft and open the event again. Operational duty records were not changed.',
+				blocksEdits: true,
+				blocksReapply: true
+			};
+		}
+		if (/not found|only active advanced duty revision drafts/i.test(error)) {
+			return {
+				title: 'Draft changed in another tab',
+				message:
+					'This draft is no longer the active draft. It may have been applied or discarded in another tab or session. Close this editor and reopen the event to load the current state.',
+				blocksEdits: true,
+				blocksReapply: true
+			};
+		}
+		if (/expired/i.test(error)) {
+			return {
+				title: 'Draft expired',
+				message:
+					'This draft passed its 7-day window. Discard it and open the event again to start a fresh draft. Operational duty records were not changed.',
+				blocksEdits: true,
+				blocksReapply: true
+			};
+		}
+		return null;
+	}
+
 	const requiresCollisionReview = $derived(collisionMessages.length > 0);
 	const draftSlotChanges = $derived(revisionDraft ? listAdvancedDutyRevisionDraftSlotChanges(revisionDraft) : []);
 	const hasStagedChanges = $derived((revisionDraft?.slotChanges.length ?? 0) > 0);
+	const expiredRecoveryState = $derived(
+		revisionDraft && isExpired(revisionDraft.expiresAt)
+			? {
+					title: 'Draft expired',
+					message:
+						'This draft passed its 7-day window. Discard it and open the event again to start a fresh draft. Operational duty records were not changed.',
+					blocksEdits: true,
+					blocksReapply: true
+				}
+			: null
+	);
+	const recoveryState = $derived(expiredRecoveryState ?? recoveryFromReapplyError(reapplyError));
 	const canSave = $derived(
 		!isLoadingPreview && !isRefreshing && !isSaving && !(requiresCollisionReview && !collisionReviewConfirmed)
 	);
 	const isLocked = $derived(isLoadingPreview || isRefreshing || isSaving || isDiscardingDraft || isReapplyingDraft);
+	const isDraftRecoveryLocked = $derived(Boolean(recoveryState?.blocksEdits));
+	const isEditorInputLocked = $derived(isLocked || isDraftRecoveryLocked);
+	const canReapplyDraft = $derived(!isEditorInputLocked && hasStagedChanges && !recoveryState?.blocksReapply);
 </script>
 
 <section class="applied-event-editor" aria-label="Applied duty event editor">
@@ -146,7 +205,7 @@
 						<button
 							class="draft-change"
 							type="button"
-							disabled={isLocked}
+							disabled={isEditorInputLocked}
 							onclick={() => onOpenDraftChangeDate(change.eventDate)}
 						>
 							<span>{formatDisplayDate(change.eventDate)}</span>
@@ -156,17 +215,23 @@
 					{/each}
 				</div>
 			{/if}
+			{#if recoveryState}
+				<div class="draft-recovery" role="alert">
+					<strong>{recoveryState.title}</strong>
+					<p>{recoveryState.message}</p>
+				</div>
+			{/if}
 			<label class="reason-field">
 				<span>Reason</span>
 				<textarea
 					value={reapplyReason}
 					rows="3"
-					disabled={isLocked}
+					disabled={isEditorInputLocked}
 					aria-describedby={reapplyError ? 'revision-reapply-error' : undefined}
 					oninput={(event) => onReapplyReasonChange(event.currentTarget.value)}
 				></textarea>
 			</label>
-			{#if reapplyError}
+			{#if reapplyError && !recoveryState}
 				<p id="revision-reapply-error" class="reapply-error" role="alert">{reapplyError}</p>
 			{/if}
 			<div class="reapply-actions">
@@ -175,7 +240,7 @@
 						? `${revisionDraft.slotChanges.length} staged change${revisionDraft.slotChanges.length === 1 ? '' : 's'} ready for review.`
 						: 'Stage at least one slot change before reapplying.'}
 				</p>
-				<button class="btn btn-primary btn-sm" type="submit" disabled={isLocked || !hasStagedChanges}>
+				<button class="btn btn-primary btn-sm" type="submit" disabled={!canReapplyDraft}>
 					{isReapplyingDraft ? 'Reapplying...' : 'Reapply Revision'}
 				</button>
 			</div>
@@ -198,7 +263,7 @@
 						{personnelOptions}
 						{formatAssignee}
 						{getExplanationSections}
-						isLoading={isLocked}
+						isLoading={isEditorInputLocked}
 						onUpdateAssignee={(id) => onUpdateSlotAssignee(slot, id)}
 						onToggleLock={() => onToggleSlotLock(slot)}
 						onClear={() => onClearSlot(slot)}
@@ -282,6 +347,27 @@
 	.reapply-copy p:last-child {
 		margin: 0;
 		color: var(--text-secondary);
+	}
+
+	.draft-recovery {
+		display: grid;
+		gap: var(--sp-1);
+		padding: 10px 12px;
+		border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border-default) 70%);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--danger-light) 54%, var(--surface-panel) 46%);
+		color: var(--danger-dark);
+	}
+
+	.draft-recovery strong {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.draft-recovery p {
+		margin: 0;
 	}
 
 	.draft-change-list {

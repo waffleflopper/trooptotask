@@ -13,6 +13,7 @@
 		AdvancedDutyRevisionDraftRecord,
 		AdvancedDutyRevisionDraftSession,
 		AdvancedDutyRevisionHistoryEntry,
+		AdvancedDutyRevisionReapplyResult,
 		DutyEvent,
 		DutyEventPreview,
 		DutyEventPreviewSlotInstance,
@@ -44,6 +45,11 @@
 		onStartAdvancedRevisionDraft: (input: { dutyEventId: string }) => Promise<AdvancedDutyRevisionDraftSession | null>;
 		onUpdateAdvancedRevisionDraft: (input: ExistingDutyEventInput) => Promise<AdvancedDutyRevisionDraftSession | null>;
 		onDiscardAdvancedRevisionDraft: (input: { dutyEventId: string }) => Promise<AdvancedDutyRevisionDraftRecord | null>;
+		onReapplyAdvancedRevisionDraft: (input: {
+			dutyEventId: string;
+			reason: string;
+			reviewableConflictsConfirmed: boolean;
+		}) => Promise<AdvancedDutyRevisionReapplyResult>;
 		onDeleteAdvancedEvent: (dutyEventId: string) => Promise<boolean>;
 		onDeleteAdvancedRun: (runId: string) => Promise<DutyEventRunDeleteResult | null>;
 		onDeleteLegacyAdvancedGroup: (eventIds: string[]) => Promise<DutyEventRunDeleteResult | null>;
@@ -58,6 +64,7 @@
 		onStartAdvancedRevisionDraft,
 		onUpdateAdvancedRevisionDraft,
 		onDiscardAdvancedRevisionDraft,
+		onReapplyAdvancedRevisionDraft,
 		onDeleteAdvancedEvent,
 		onDeleteAdvancedRun,
 		onDeleteLegacyAdvancedGroup
@@ -75,6 +82,9 @@
 	let isRefreshingAppliedEventPreview = $state(false);
 	let isSavingAppliedEvent = $state(false);
 	let isDiscardingRevisionDraft = $state(false);
+	let isReapplyingRevisionDraft = $state(false);
+	let revisionReapplyReason = $state('');
+	let revisionReapplyError = $state<string | null>(null);
 	let pendingEventDelete = $state<DutyEvent | null>(null);
 	let pendingRunDelete = $state<AppliedEventRunGroup | null>(null);
 	let selectedDa6Snapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
@@ -165,6 +175,8 @@
 		appliedEventPreview = null;
 		appliedEventOverrides = [];
 		appliedEventCollisionReviewConfirmed = false;
+		revisionReapplyReason = '';
+		revisionReapplyError = null;
 		isLoadingAppliedEventPreview = true;
 		try {
 			const session = await onStartAdvancedRevisionDraft({ dutyEventId: event.id });
@@ -185,6 +197,7 @@
 		const eventId = selectedAppliedEventId;
 		isRefreshingAppliedEventPreview = true;
 		appliedEventOverrides = nextOverrides;
+		revisionReapplyError = null;
 		try {
 			const session = await onUpdateAdvancedRevisionDraft({ dutyEventId: eventId, slotOverrides: nextOverrides });
 			if (session && selectedAppliedEventId === eventId) {
@@ -251,6 +264,38 @@
 		}
 	}
 
+	async function reapplyRevisionDraft() {
+		if (!selectedAppliedEventId || !appliedEventRevisionDraft) return;
+		const reason = revisionReapplyReason.trim();
+		if (!reason) {
+			revisionReapplyError = 'Enter a reason before reapplying this Advanced Duty revision.';
+			return;
+		}
+		if (appliedEventCollisionMessages.length > 0 && !appliedEventCollisionReviewConfirmed) {
+			revisionReapplyError = 'Confirm reviewable conflicts before reapplying this Advanced Duty revision.';
+			return;
+		}
+
+		isReapplyingRevisionDraft = true;
+		revisionReapplyError = null;
+		try {
+			const result = await onReapplyAdvancedRevisionDraft({
+				dutyEventId: selectedAppliedEventId,
+				reason,
+				reviewableConflictsConfirmed: appliedEventCollisionReviewConfirmed
+			});
+			if (result.updatedEvents.length > 0) {
+				const updatedById = new Map(result.updatedEvents.map((event) => [event.id, event] as const));
+				appliedAdvancedEvents = appliedAdvancedEvents.map((event) => updatedById.get(event.id) ?? event);
+			}
+			closeAppliedEventEditor();
+		} catch (error) {
+			revisionReapplyError = error instanceof Error ? error.message : 'Advanced Duty revision could not be reapplied.';
+		} finally {
+			isReapplyingRevisionDraft = false;
+		}
+	}
+
 	function closeAppliedEventEditor() {
 		selectedAppliedEventId = null;
 		appliedEventPreview = null;
@@ -260,6 +305,9 @@
 		isLoadingAppliedEventPreview = false;
 		isRefreshingAppliedEventPreview = false;
 		isDiscardingRevisionDraft = false;
+		isReapplyingRevisionDraft = false;
+		revisionReapplyReason = '';
+		revisionReapplyError = null;
 	}
 
 	async function confirmDeleteAppliedEvent() {
@@ -335,7 +383,10 @@
 	isRefreshing={isRefreshingAppliedEventPreview}
 	isSaving={isSavingAppliedEvent}
 	isDiscardingDraft={isDiscardingRevisionDraft}
+	isReapplyingDraft={isReapplyingRevisionDraft}
 	revisionDraft={appliedEventRevisionDraft}
+	reapplyReason={revisionReapplyReason}
+	reapplyError={revisionReapplyError}
 	collisionReviewConfirmed={appliedEventCollisionReviewConfirmed}
 	collisionMessages={appliedEventCollisionMessages}
 	personnelOptions={previewPersonnelOptions}
@@ -345,6 +396,11 @@
 	getExplanationSections={getSlotExplanationSections}
 	onClose={closeAppliedEventEditor}
 	onDiscardDraft={discardRevisionDraft}
+	onReapplyDraft={reapplyRevisionDraft}
+	onReapplyReasonChange={(reason) => {
+		revisionReapplyReason = reason;
+		revisionReapplyError = null;
+	}}
 	onExportPacket={exportAppliedDutyPacket}
 	onCollisionConfirmedChange={(value) => (appliedEventCollisionReviewConfirmed = value)}
 	onUpdateSlotAssignee={updateAppliedEventSlotAssignee}

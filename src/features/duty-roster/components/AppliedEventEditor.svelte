@@ -17,7 +17,10 @@
 		isRefreshing: boolean;
 		isSaving: boolean;
 		isDiscardingDraft: boolean;
+		isReapplyingDraft: boolean;
 		revisionDraft: AdvancedDutyRevisionDraftRecord | null;
+		reapplyReason: string;
+		reapplyError: string | null;
 		collisionReviewConfirmed: boolean;
 		collisionMessages: string[];
 		personnelOptions: Personnel[];
@@ -26,6 +29,8 @@
 		formatCoverageLabel: (event: DutyEvent) => string;
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
 		onDiscardDraft: () => void;
+		onReapplyDraft: () => void;
+		onReapplyReasonChange: (reason: string) => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (confirmed: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -40,7 +45,10 @@
 		isRefreshing,
 		isSaving,
 		isDiscardingDraft,
+		isReapplyingDraft,
 		revisionDraft,
+		reapplyReason,
+		reapplyError,
 		collisionReviewConfirmed,
 		collisionMessages,
 		personnelOptions,
@@ -49,6 +57,8 @@
 		formatCoverageLabel,
 		getExplanationSections,
 		onDiscardDraft,
+		onReapplyDraft,
+		onReapplyReasonChange,
 		onExportPacket,
 		onCollisionConfirmedChange,
 		onUpdateSlotAssignee,
@@ -57,10 +67,11 @@
 	}: Props = $props();
 
 	const requiresCollisionReview = $derived(collisionMessages.length > 0);
+	const hasStagedChanges = $derived((revisionDraft?.slotChanges.length ?? 0) > 0);
 	const canSave = $derived(
 		!isLoadingPreview && !isRefreshing && !isSaving && !(requiresCollisionReview && !collisionReviewConfirmed)
 	);
-	const isLocked = $derived(isLoadingPreview || isRefreshing || isSaving || isDiscardingDraft);
+	const isLocked = $derived(isLoadingPreview || isRefreshing || isSaving || isDiscardingDraft || isReapplyingDraft);
 </script>
 
 <section class="applied-event-editor" aria-label="Applied duty event editor">
@@ -107,6 +118,48 @@
 				applyLabel="saving this event"
 			/>
 		</div>
+	{/if}
+
+	{#if revisionDraft}
+		<form
+			class="reapply-panel"
+			aria-label="Reapply revision draft"
+			onsubmit={(event) => {
+				event.preventDefault();
+				onReapplyDraft();
+			}}
+		>
+			<div class="reapply-copy">
+				<p class="eyebrow">Reapply revision</p>
+				<p>
+					Enter the leader-approved reason, confirm any reviewable conflicts, then reapply this draft into the
+					operational duty record.
+				</p>
+			</div>
+			<label class="reason-field">
+				<span>Reason</span>
+				<textarea
+					value={reapplyReason}
+					rows="3"
+					disabled={isLocked}
+					aria-describedby={reapplyError ? 'revision-reapply-error' : undefined}
+					oninput={(event) => onReapplyReasonChange(event.currentTarget.value)}
+				></textarea>
+			</label>
+			{#if reapplyError}
+				<p id="revision-reapply-error" class="reapply-error" role="alert">{reapplyError}</p>
+			{/if}
+			<div class="reapply-actions">
+				<p class="editor-meta">
+					{hasStagedChanges
+						? `${revisionDraft.slotChanges.length} staged change${revisionDraft.slotChanges.length === 1 ? '' : 's'} ready for review.`
+						: 'Stage at least one slot change before reapplying.'}
+				</p>
+				<button class="btn btn-primary btn-sm" type="submit" disabled={isLocked || !hasStagedChanges}>
+					{isReapplyingDraft ? 'Reapplying...' : 'Reapply Revision'}
+				</button>
+			</div>
+		</form>
 	{/if}
 
 	<div class="slot-list">
@@ -194,6 +247,70 @@
 
 	.collision-wrapper {
 		margin-top: var(--sp-4);
+	}
+
+	.reapply-panel {
+		display: grid;
+		gap: var(--sp-3);
+		margin-top: var(--sp-4);
+		padding: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-base);
+	}
+
+	.reapply-copy p:last-child {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.reason-field {
+		display: grid;
+		gap: var(--sp-2);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+	}
+
+	.reason-field span {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.reason-field textarea {
+		width: 100%;
+		min-height: 86px;
+		resize: vertical;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		padding: 10px 12px;
+		font: inherit;
+	}
+
+	.reason-field textarea:focus {
+		outline: 2px solid color-mix(in srgb, var(--amber) 40%, transparent);
+		border-color: var(--amber);
+	}
+
+	.reapply-error {
+		margin: 0;
+		padding: 8px 10px;
+		border: 1px solid color-mix(in srgb, var(--danger) 34%, var(--border-default) 66%);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--danger-light) 60%, var(--surface-panel) 40%);
+		color: var(--danger-dark);
+	}
+
+	.reapply-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		flex-wrap: wrap;
 	}
 
 	.slot-list {

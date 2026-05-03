@@ -6,6 +6,7 @@ import type {
 	AdvancedDutyRevisionHistoryEntry,
 	AdvancedDutyRevisionDraftRecord,
 	AdvancedDutyRevisionDraftSession,
+	AdvancedDutyRevisionReapplyResult,
 	DutyEvent,
 	DutyEventPreview
 } from '../duty-roster.types';
@@ -82,7 +83,7 @@ function makePersonnel(id: string, lastName: string): Personnel {
 	};
 }
 
-function makePreview(assigneeId: string): DutyEventPreview {
+function makePreview(assigneeId: string, conflicts: string[] = []): DutyEventPreview {
 	return {
 		templateId: 'template-1',
 		templateName: 'Battalion Staff Duty',
@@ -94,7 +95,7 @@ function makePreview(assigneeId: string): DutyEventPreview {
 		cooldownHours: 24,
 		rulesSnapshot: makeEvent().rulesSnapshot,
 		fillSummary: { totalSlots: 1, filledSlots: assigneeId ? 1 : 0, unfilledSlots: assigneeId ? 0 : 1 },
-		collisionSummary: { hasConflicts: false, conflicts: [] },
+		collisionSummary: { hasConflicts: conflicts.length > 0, conflicts },
 		slotInstances: [
 			{
 				templateSlotId: 'slot-nco',
@@ -146,11 +147,38 @@ function makeSession(overrides: {
 	action?: AdvancedDutyRevisionDraftSession['action'];
 	assigneeId?: string;
 	draft?: Partial<AdvancedDutyRevisionDraftRecord>;
+	conflicts?: string[];
 }): AdvancedDutyRevisionDraftSession {
 	return {
 		action: overrides.action,
 		draft: makeDraft(overrides.draft),
-		preview: makePreview(overrides.assigneeId ?? 'person-alpha')
+		preview: makePreview(overrides.assigneeId ?? 'person-alpha', overrides.conflicts)
+	};
+}
+
+function makeReapplyResult(
+	overrides: Partial<AdvancedDutyRevisionReapplyResult> = {}
+): AdvancedDutyRevisionReapplyResult {
+	return {
+		draft: makeDraft({ status: 'applied', appliedAt: '2026-04-11T18:30:00.000Z' }),
+		changeSet: {
+			id: 'change-set-1',
+			orgId: 'test-org',
+			appliedRunId: 'run-1',
+			sourceDraftId: 'draft-1',
+			sourceSnapshotId: 'snapshot-1',
+			sourceSnapshotFingerprint: 'fingerprint-1',
+			actorUserId: 'user-1',
+			reason: 'Leader reviewed the change.',
+			reviewableConflictsConfirmed: false,
+			conflictSummary: null,
+			warningSummary: null,
+			appliedAt: '2026-04-11T18:30:00.000Z',
+			createdAt: '2026-04-11T18:30:00.000Z'
+		},
+		slotChanges: [],
+		updatedEvents: [makeEvent()],
+		...overrides
 	};
 }
 
@@ -205,6 +233,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 			onStartAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'created' })),
 			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
 			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
 			onDeleteAdvancedEvent: vi.fn(async () => true),
 			onDeleteAdvancedRun: vi.fn(async () => null),
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
@@ -240,6 +269,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 			onStartAdvancedRevisionDraft,
 			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
 			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
 			onDeleteAdvancedEvent: vi.fn(async () => true),
 			onDeleteAdvancedRun: vi.fn(async () => null),
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
@@ -278,6 +308,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 			onStartAdvancedRevisionDraft,
 			onUpdateAdvancedRevisionDraft,
 			onDiscardAdvancedRevisionDraft,
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
 			onDeleteAdvancedEvent: vi.fn(async () => true),
 			onDeleteAdvancedRun: vi.fn(async () => null),
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
@@ -310,5 +341,156 @@ describe('AppliedEventManager revision draft workflow', () => {
 
 		await waitFor(() => expect(onDiscardAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
 		expect(screen.queryByText(/Draft v2 pending/i)).toBeNull();
+	});
+
+	it('requires a reason before reapplying a staged revision draft', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						draftVersion: 2,
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.click(await screen.findByRole('button', { name: /Reapply Revision/i }));
+
+		expect(onReapplyAdvancedRevisionDraft).not.toHaveBeenCalled();
+		expect(screen.getByRole('alert').textContent).toContain('Enter a reason');
+	});
+
+	it('requires reviewable-conflict confirmation before reapplying', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					conflicts: ['SPC Bravo has an overlapping advanced duty.'],
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Leader reviewed the conflict.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		expect(onReapplyAdvancedRevisionDraft).not.toHaveBeenCalled();
+		expect(screen.getByRole('alert').textContent).toContain('Confirm reviewable conflicts');
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: /I reviewed the conflicts/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		await waitFor(() =>
+			expect(onReapplyAdvancedRevisionDraft).toHaveBeenCalledWith({
+				dutyEventId: 'event-1',
+				reason: 'Leader reviewed the conflict.',
+				reviewableConflictsConfirmed: true
+			})
+		);
+	});
+
+	it('reapplies a staged draft and closes the editor on success', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Leader reviewed the change.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		await waitFor(() => expect(onReapplyAdvancedRevisionDraft).toHaveBeenCalled());
+		await waitFor(() => expect(screen.queryByText(/Draft v/i)).toBeNull());
+	});
+
+	it('shows backend hard-conflict errors inside the editor', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => {
+			throw new Error('Draft slot has a hard conflict.');
+		});
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Leader reviewed the change.' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Draft slot has a hard conflict.'));
 	});
 });

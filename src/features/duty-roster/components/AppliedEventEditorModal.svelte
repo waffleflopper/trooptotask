@@ -17,7 +17,10 @@
 		isRefreshing: boolean;
 		isSaving: boolean;
 		isDiscardingDraft: boolean;
+		isReapplyingDraft: boolean;
 		revisionDraft: AdvancedDutyRevisionDraftRecord | null;
+		reapplyReason: string;
+		reapplyError: string | null;
 		collisionReviewConfirmed: boolean;
 		collisionMessages: string[];
 		personnelOptions: Personnel[];
@@ -31,6 +34,8 @@
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
 		onClose: () => void;
 		onDiscardDraft: () => void;
+		onReapplyDraft: () => void;
+		onReapplyReasonChange: (reason: string) => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -46,7 +51,7 @@
 		onClose={props.onClose}
 		width="1100px"
 		titleId="applied-event-editor-title"
-		canClose={!props.isRefreshing && !props.isSaving}
+		canClose={!props.isRefreshing && !props.isSaving && !props.isReapplyingDraft}
 	>
 		{#if props.preview}
 			<AppliedEventEditor
@@ -56,7 +61,10 @@
 				isRefreshing={props.isRefreshing}
 				isSaving={props.isSaving}
 				isDiscardingDraft={props.isDiscardingDraft}
+				isReapplyingDraft={props.isReapplyingDraft}
 				revisionDraft={props.revisionDraft}
+				reapplyReason={props.reapplyReason}
+				reapplyError={props.reapplyError}
 				collisionReviewConfirmed={props.collisionReviewConfirmed}
 				collisionMessages={props.collisionMessages}
 				personnelOptions={props.personnelOptions}
@@ -65,6 +73,8 @@
 				formatCoverageLabel={props.formatCoverageLabel}
 				getExplanationSections={props.getExplanationSections}
 				onDiscardDraft={props.onDiscardDraft}
+				onReapplyDraft={props.onReapplyDraft}
+				onReapplyReasonChange={props.onReapplyReasonChange}
 				onExportPacket={props.onExportPacket}
 				onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 				onUpdateSlotAssignee={props.onUpdateSlotAssignee}

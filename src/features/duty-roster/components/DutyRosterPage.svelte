@@ -37,6 +37,7 @@
 		AdvancedDutyRevisionDraftRecord,
 		AdvancedDutyRevisionDraftSession,
 		AdvancedDutyRevisionHistoryEntry,
+		AdvancedDutyRevisionReapplyResult,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -657,6 +658,40 @@
 		}
 	}
 
+	async function handleReapplyAdvancedRevisionDraft(input: {
+		dutyEventId: string;
+		reason: string;
+		reviewableConflictsConfirmed: boolean;
+	}): Promise<AdvancedDutyRevisionReapplyResult> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${input.dutyEventId}/revision-draft/reapply`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					reason: input.reason,
+					reviewableConflictsConfirmed: input.reviewableConflictsConfirmed
+				})
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to reapply revision draft'));
+			}
+
+			const result = (await res.json()) as AdvancedDutyRevisionReapplyResult;
+			const updatedById = new Map(result.updatedEvents.map((event) => [event.id, event] as const));
+			advancedDutyEvents = sortDutyEventsByCoverageStart(
+				advancedDutyEvents.map((event) => updatedById.get(event.id) ?? event)
+			);
+			await refreshAdvancedDutyData();
+			toastStore.success('Revision draft reapplied');
+			return result;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to reapply revision draft';
+			toastStore.error(message);
+			throw new Error(message);
+		}
+	}
+
 	async function handleDeleteAdvancedEvent(dutyEventId: string): Promise<boolean> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-events/${dutyEventId}`, { method: 'DELETE' });
@@ -847,6 +882,7 @@
 					onStartAdvancedRevisionDraft={handleStartAdvancedRevisionDraft}
 					onUpdateAdvancedRevisionDraft={handleUpdateAdvancedRevisionDraft}
 					onDiscardAdvancedRevisionDraft={handleDiscardAdvancedRevisionDraft}
+					onReapplyAdvancedRevisionDraft={handleReapplyAdvancedRevisionDraft}
 					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
 					onDeleteAdvancedRun={handleDeleteAdvancedRun}
 					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}

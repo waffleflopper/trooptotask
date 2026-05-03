@@ -9,6 +9,7 @@ import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
 import {
 	cloneDefaultSoftPreferences,
 	type AdvancedDutyRevisionDraftSession,
+	type AdvancedDutyRevisionReapplyResult,
 	type AdvancedDutyRunSnapshotRecord,
 	type DutyEvent,
 	type DutyEventPreview,
@@ -188,6 +189,33 @@ function makeRevisionDraftSession(
 		},
 		preview: makePreview(),
 		...overrides
+	};
+}
+
+function makeRevisionReapplyResult(): AdvancedDutyRevisionReapplyResult {
+	return {
+		draft: {
+			...makeRevisionDraftSession().draft,
+			status: 'applied',
+			appliedAt: '2026-04-11T18:30:00.000Z'
+		},
+		changeSet: {
+			id: 'change-set-1',
+			orgId: 'test-org',
+			appliedRunId: 'run-1',
+			sourceDraftId: 'revision-draft-1',
+			sourceSnapshotId: 'snapshot-single-1',
+			sourceSnapshotFingerprint: 'fingerprint-single-1',
+			reason: 'Leader reviewed the change.',
+			actorUserId: 'user-1',
+			reviewableConflictsConfirmed: false,
+			conflictSummary: null,
+			warningSummary: null,
+			appliedAt: '2026-04-11T18:30:00.000Z',
+			createdAt: '2026-04-11T18:30:00.000Z'
+		},
+		slotChanges: [],
+		updatedEvents: [makeAppliedEvent()]
 	};
 }
 
@@ -440,6 +468,7 @@ function renderAppliedEventManager(overrides: Partial<ComponentProps<typeof Appl
 			onStartAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession()),
 			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession({ action: 'updated' })),
 			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeRevisionDraftSession().draft),
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeRevisionReapplyResult()),
 			onDeleteAdvancedEvent: vi.fn(async () => true),
 			onDeleteAdvancedRun: vi.fn(async () => ({ deletedEvents: 1 })),
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => ({ deletedEvents: 1 })),

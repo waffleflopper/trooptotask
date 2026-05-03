@@ -688,6 +688,28 @@ export function buildTeamDutyPacketExportModel(input: {
 	};
 }
 
+function buildReplacementCollisionMessage(templateName: string, eventDate: string): string {
+	return `An applied advanced duty event already exists for ${templateName} on ${eventDate}. Applying again will replace its current team assignments. Review this replacement before apply.`;
+}
+
+export function withAdvancedDutyReplacementCollision<TPreview extends DutyEventPreview>(
+	preview: TPreview,
+	input: { templateName: string; eventDate: string }
+): TPreview {
+	const message = buildReplacementCollisionMessage(input.templateName, input.eventDate);
+	if (preview.collisionSummary.conflicts.includes(message)) {
+		return preview;
+	}
+
+	return {
+		...preview,
+		collisionSummary: {
+			hasConflicts: true,
+			conflicts: [message, ...preview.collisionSummary.conflicts]
+		}
+	};
+}
+
 function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 	return {
 		templateId: template.id,

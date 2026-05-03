@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildAdvancedRunSnapshot } from './advancedDutyRun';
-import { cloneDefaultSoftPreferences, type DutyTemplate } from '../duty-roster.types';
+import { buildAdvancedRunSnapshot, withAdvancedDutyReplacementCollision } from './advancedDutyRun';
+import { cloneDefaultSoftPreferences, type DutyEventPreview, type DutyTemplate } from '../duty-roster.types';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 
 const template: DutyTemplate = {
@@ -86,6 +86,71 @@ const personnel: Personnel[] = [
 		groupName: 'Headquarters'
 	}
 ];
+
+function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPreview {
+	return {
+		templateId: template.id,
+		templateName: template.name,
+		eventDate: '2026-04-10',
+		coverageMode: 'timed',
+		coverageStart: '2026-04-10T08:00:00',
+		coverageEnd: '2026-04-10T20:00:00',
+		isBlocking: true,
+		cooldownHours: 0,
+		rulesSnapshot: {
+			templateId: template.id,
+			templateName: template.name,
+			templateStatus: template.status,
+			coverageMode: template.coverageMode,
+			startTime: template.startTime,
+			endTime: template.endTime,
+			scopeType: template.scopeType,
+			scopeGroupIds: template.scopeGroupIds,
+			isBlocking: template.isBlocking,
+			cooldownHours: template.cooldownHours,
+			slots: []
+		},
+		fillSummary: { totalSlots: 0, filledSlots: 0, unfilledSlots: 0 },
+		collisionSummary: { hasConflicts: false, conflicts: [] },
+		slotInstances: [],
+		...overrides
+	};
+}
+
+describe('advanced duty replacement collision previews', () => {
+	it('adds a replacement review collision without dropping existing conflicts', () => {
+		const preview = withAdvancedDutyReplacementCollision(
+			makePreview({
+				collisionSummary: {
+					hasConflicts: true,
+					conflicts: ['Existing warning.']
+				}
+			}),
+			{ templateName: 'Staff Duty', eventDate: '2026-04-10' }
+		);
+
+		expect(preview.collisionSummary).toEqual({
+			hasConflicts: true,
+			conflicts: [
+				'An applied advanced duty event already exists for Staff Duty on 2026-04-10. Applying again will replace its current team assignments. Review this replacement before apply.',
+				'Existing warning.'
+			]
+		});
+	});
+
+	it('does not duplicate the replacement collision message', () => {
+		const once = withAdvancedDutyReplacementCollision(makePreview(), {
+			templateName: 'Staff Duty',
+			eventDate: '2026-04-10'
+		});
+		const twice = withAdvancedDutyReplacementCollision(once, {
+			templateName: 'Staff Duty',
+			eventDate: '2026-04-10'
+		});
+
+		expect(twice.collisionSummary.conflicts).toHaveLength(1);
+	});
+});
 
 describe('advanced duty run snapshots', () => {
 	it('builds a snapshot from resolved inputs while preserving hardest-slot-first proposals', async () => {

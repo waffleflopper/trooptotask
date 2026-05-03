@@ -26,7 +26,8 @@ import {
 	buildAdvancedDutyCoverage,
 	buildAdvancedRunSnapshot,
 	type AdvancedRunSnapshot,
-	type AdvancedRunHistoryEvent
+	type AdvancedRunHistoryEvent,
+	withAdvancedDutyReplacementCollision
 } from '$features/duty-roster/advanced-run/advancedDutyRun';
 import type {
 	DutyEvent,
@@ -1043,10 +1044,6 @@ function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
 	};
 }
 
-function buildReplacementCollisionMessage(templateName: string, eventDate: string): string {
-	return `An applied advanced duty event already exists for ${templateName} on ${eventDate}. Applying again will replace its current team assignments. Review this replacement before apply.`;
-}
-
 function buildDutyEventRestorePayload(eventRow: Record<string, unknown>): Record<string, unknown> {
 	return {
 		run_id: eventRow.run_id ?? null,
@@ -1063,20 +1060,6 @@ function buildDutyEventRestorePayload(eventRow: Record<string, unknown>): Record
 		collision_summary: eventRow.collision_summary,
 		original_proposal: eventRow.original_proposal ?? null,
 		updated_at: eventRow.updated_at
-	};
-}
-
-function withCollisionMessage(preview: AdvancedDutyRunEventPreview, message: string): AdvancedDutyRunEventPreview {
-	if (preview.collisionSummary.conflicts.includes(message)) {
-		return preview;
-	}
-
-	return {
-		...preview,
-		collisionSummary: {
-			hasConflicts: true,
-			conflicts: [message, ...preview.collisionSummary.conflicts]
-		}
 	};
 }
 
@@ -1196,17 +1179,14 @@ export async function applyDutyEventFromTemplate(
 	// exclude it from the collision check — otherwise its own stored assignments would show as
 	// blocking conflicts against themselves.
 	const existingEventRow = await findExistingTemplateDutyEvent(ctx, input.templateId, input.eventDate);
-	const replacementCollisionMessage = existingEventRow
-		? buildReplacementCollisionMessage(template.name, input.eventDate)
-		: null;
 
 	const generatedPreview = buildApprovedAdvancedRunEventPreview(approvedSnapshot, input.eventDate);
 	const originalProposal =
 		getOriginalProposalFromAdvancedRunSnapshot(approvedSnapshot, input.eventDate) ??
 		buildAdvancedRunOriginalProposal(generatedPreview);
 	const preview = generatedPreview;
-	const collisionReviewPreview = replacementCollisionMessage
-		? withCollisionMessage(preview, replacementCollisionMessage)
+	const collisionReviewPreview = existingEventRow
+		? withAdvancedDutyReplacementCollision(preview, { templateName: template.name, eventDate: input.eventDate })
 		: preview;
 	failForHardRuleConflicts('Resolve hard-rule assignment conflicts before applying this duty event.', preview);
 	if (collisionReviewPreview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
@@ -1385,7 +1365,10 @@ export async function previewDutyEventFromTemplate(
 	const preview = toAdvancedDutyRunEventPreview(snapshot.events[0]);
 	const publicPreview = toPublicAdvancedDutyPreview(
 		existingEventRow
-			? withCollisionMessage(preview, buildReplacementCollisionMessage(preview.templateName, input.eventDate))
+			? withAdvancedDutyReplacementCollision(preview, {
+					templateName: preview.templateName,
+					eventDate: input.eventDate
+				})
 			: preview
 	);
 	const snapshotMetadata = await createDraftAdvancedRunSnapshot(ctx, {
@@ -2032,7 +2015,10 @@ export async function previewDutyEventSeriesFromTemplate(
 		const existingId = existingIdByDate.get(event.eventDate);
 		return toPublicAdvancedDutyPreview(
 			existingId
-				? withCollisionMessage(internalPreview, buildReplacementCollisionMessage(template.name, event.eventDate))
+				? withAdvancedDutyReplacementCollision(internalPreview, {
+						templateName: template.name,
+						eventDate: event.eventDate
+					})
 				: internalPreview
 		);
 	});

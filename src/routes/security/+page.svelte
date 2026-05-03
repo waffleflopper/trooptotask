@@ -162,7 +162,7 @@
 				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 				<polyline points="22,6 12,13 2,6" />
 			</svg>
-			<a href="mailto:security@trooptotask.app">security@trooptotask.app</a>
+			<a href="mailto:security@trooptotask.org">security@trooptotask.org</a>
 		</div>
 		<p>
 			We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AppliedEventLedger from './AppliedEventLedger.svelte';
-	import type { DutyEvent } from '../duty-roster.types';
+	import type { AdvancedDutyRevisionHistoryEntry, DutyEvent } from '../duty-roster.types';
 	import type { AppliedEventRunGroup } from './dutyRosterWizard.helpers';
 	interface Props {
 		groups: AppliedEventRunGroup[];
@@ -19,6 +19,7 @@
 		canViewRunDa6: (group: AppliedEventRunGroup) => boolean;
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventRunGroup) => void;
+		getRevisionHistory: (runId: string | null) => AdvancedDutyRevisionHistoryEntry[];
 	}
 	let props: Props = $props();
 </script>
@@ -43,6 +44,7 @@
 		onRequestDeleteEvent={props.onRequestDeleteEvent}
 		onRequestDeleteRun={props.onRequestDeleteRun}
 		selectedEventId={props.selectedEventId}
+		getRevisionHistory={props.getRevisionHistory}
 	/>
 </section>
 

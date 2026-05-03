@@ -459,6 +459,16 @@ export interface AdvancedDutyRevisionSlotChangeRecord {
 	createdAt: string;
 }
 
+export interface AdvancedDutyRevisionHistoryEntry {
+	id: string;
+	appliedRunId: string;
+	appliedAt: string;
+	actorUserId: string | null;
+	reason: string;
+	changeCount: number;
+	changes: AdvancedDutyRevisionSlotChangeRecord[];
+}
+
 export interface DutyEventSlotOverrideInput {
 	templateSlotId: string | null;
 	slotIndex: number;

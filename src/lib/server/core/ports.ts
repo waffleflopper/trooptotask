@@ -165,6 +165,16 @@ export interface AdvancedDutyPersistencePort {
 		changeSetData: Record<string, unknown>;
 		slotChangeRows: Record<string, unknown>[];
 	}): Promise<AdvancedDutyRevisionChangeSetPersistenceResult>;
+
+	listAdvancedDutyRevisionChangeSets(input: {
+		orgId: string;
+		appliedRunIds?: string[];
+	}): Promise<Record<string, unknown>[]>;
+
+	listAdvancedDutyRevisionSlotChanges(input: {
+		orgId: string;
+		changeSetIds?: string[];
+	}): Promise<Record<string, unknown>[]>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */

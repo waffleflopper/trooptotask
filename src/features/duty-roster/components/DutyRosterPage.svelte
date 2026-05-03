@@ -36,6 +36,7 @@
 		AdvancedDutyRunSnapshotRecord,
 		AdvancedDutyRevisionDraftRecord,
 		AdvancedDutyRevisionDraftSession,
+		AdvancedDutyRevisionHistoryEntry,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -65,6 +66,7 @@
 			advancedDutyTemplates: DutyTemplate[];
 			advancedDutyEvents: DutyEvent[];
 			advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
+			advancedDutyRevisionHistory?: AdvancedDutyRevisionHistoryEntry[];
 		};
 	}
 
@@ -839,6 +841,7 @@
 				<AppliedEventManager
 					{advancedDutyEvents}
 					{advancedDutySnapshots}
+					advancedDutyRevisionHistory={data.advancedDutyRevisionHistory ?? []}
 					{personnelById}
 					{previewPersonnelOptions}
 					onStartAdvancedRevisionDraft={handleStartAdvancedRevisionDraft}

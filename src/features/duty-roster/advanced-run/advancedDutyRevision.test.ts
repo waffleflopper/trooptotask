@@ -423,6 +423,7 @@ describe('advanced duty revision drafts', () => {
 		expect(history).toEqual([
 			{
 				id: 'change-set-1',
+				appliedRunId: 'run-1',
 				appliedAt: '2026-05-04T12:00:00.000Z',
 				actorUserId: 'user-1',
 				reason: 'Appointment conflict',

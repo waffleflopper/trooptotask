@@ -10,6 +10,7 @@ import {
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
 	getActiveAdvancedDutyRevisionDraft,
+	listAdvancedDutyRevisionHistory,
 	listAdvancedDutyRevisionDrafts,
 	updateAdvancedDutyRevisionDraftChange
 } from './advancedDutyRevisionDrafts';
@@ -159,5 +160,73 @@ describe('advanced duty revision draft use cases', () => {
 		expect(
 			await ctx.rawStore.findMany<Record<string, unknown>>('advanced_duty_revision_slot_changes', 'test-org')
 		).toHaveLength(1);
+	});
+
+	it('lists compact applied revision history without exposing draft payloads or snapshots', async () => {
+		const ctx = createTestContext();
+		await appendAdvancedDutyRevisionChangeSet(ctx, {
+			changeSet: {
+				id: 'change-set-1',
+				orgId: 'test-org',
+				appliedRunId: 'run-1',
+				sourceDraftId: 'draft-1',
+				sourceSnapshotId: 'snapshot-1',
+				sourceSnapshotFingerprint: 'fingerprint-1',
+				reason: 'Leader reviewed coverage conflict.',
+				actorUserId: 'user-1',
+				reviewableConflictsConfirmed: true,
+				conflictSummary: null,
+				warningSummary: { reviewable: 1 },
+				appliedAt: '2026-05-03T02:00:00.000Z',
+				createdAt: '2026-05-03T02:00:00.000Z'
+			},
+			slotChanges: [
+				{
+					id: 'slot-change-1',
+					orgId: 'test-org',
+					changeSetId: 'change-set-1',
+					dutyEventId: 'event-1',
+					eventDate: '2026-05-04',
+					slotKey: 'slot-nco:0',
+					templateSlotId: 'slot-nco',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					previousPersonnelId: 'person-alpha',
+					newPersonnelId: 'person-bravo',
+					previousPersonnelSnapshot: { rank: 'SGT', firstName: 'Alex', lastName: 'Alpha' },
+					newPersonnelSnapshot: { rank: 'SSG', firstName: 'Blake', lastName: 'Bravo' },
+					previousAssignmentSource: 'generated',
+					newAssignmentSource: 'manual',
+					previousWarningState: 'none',
+					newWarningState: 'warning',
+					changeIntent: 'assign',
+					warningMetadata: { note: 'reviewed' },
+					conflictMetadata: null,
+					createdAt: '2026-05-03T02:00:00.000Z'
+				}
+			]
+		});
+
+		const result = await listAdvancedDutyRevisionHistory(ctx, { appliedRunIds: ['run-1'] });
+
+		expect(result).toEqual([
+			expect.objectContaining({
+				id: 'change-set-1',
+				appliedRunId: 'run-1',
+				reason: 'Leader reviewed coverage conflict.',
+				actorUserId: 'user-1',
+				changeCount: 1,
+				changes: [
+					expect.objectContaining({
+						roleLabel: 'NCO',
+						previousPersonnelSnapshot: { rank: 'SGT', firstName: 'Alex', lastName: 'Alpha' },
+						newPersonnelSnapshot: { rank: 'SSG', firstName: 'Blake', lastName: 'Bravo' },
+						warningMetadata: { note: 'reviewed' }
+					})
+				]
+			})
+		]);
+		expect(JSON.stringify(result)).not.toContain('snapshotPayload');
+		expect(JSON.stringify(result)).not.toContain('slot_changes');
 	});
 });

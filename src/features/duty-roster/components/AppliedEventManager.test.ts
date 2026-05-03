@@ -1,14 +1,19 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import AppliedEventManager from './AppliedEventManager.svelte';
 import type {
+	AdvancedDutyRevisionHistoryEntry,
 	AdvancedDutyRevisionDraftRecord,
 	AdvancedDutyRevisionDraftSession,
 	DutyEvent,
 	DutyEventPreview
 } from '../duty-roster.types';
 import type { Personnel } from '$lib/types';
+
+afterEach(() => {
+	cleanup();
+});
 
 function makeEvent(): DutyEvent {
 	return {
@@ -149,7 +154,105 @@ function makeSession(overrides: {
 	};
 }
 
+function makeRevisionHistory(): AdvancedDutyRevisionHistoryEntry[] {
+	return [
+		{
+			id: 'change-set-1',
+			appliedRunId: 'run-1',
+			appliedAt: '2026-04-11T18:30:00.000Z',
+			actorUserId: 'user-1',
+			reason: 'Leader reviewed staff duty conflict.',
+			changeCount: 1,
+			changes: [
+				{
+					id: 'slot-change-1',
+					orgId: 'test-org',
+					changeSetId: 'change-set-1',
+					dutyEventId: 'event-1',
+					eventDate: '2026-04-10',
+					slotKey: 'slot-nco:0',
+					templateSlotId: 'slot-nco',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					previousPersonnelId: 'person-alpha',
+					newPersonnelId: 'person-bravo',
+					previousPersonnelSnapshot: { rank: 'SGT', firstName: 'Alex', lastName: 'Alpha' },
+					newPersonnelSnapshot: { rank: 'SSG', firstName: 'Blake', lastName: 'Bravo' },
+					previousAssignmentSource: 'generated',
+					newAssignmentSource: 'manual',
+					previousWarningState: 'none',
+					newWarningState: 'warning',
+					changeIntent: 'assign',
+					warningMetadata: null,
+					conflictMetadata: null,
+					createdAt: '2026-04-11T18:30:00.000Z'
+				}
+			]
+		}
+	];
+}
+
 describe('AppliedEventManager revision draft workflow', () => {
+	it('renders compact revision history for applied runs without raw snapshot payloads', () => {
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		const { container } = render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			advancedDutyRevisionHistory: makeRevisionHistory(),
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'created' })),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		expect(screen.getByText('Generated original')).not.toBeNull();
+		expect(screen.getByText('Current applied state')).not.toBeNull();
+		expect(screen.getByText('Leader reviewed staff duty conflict.')).not.toBeNull();
+		expect(screen.getByText(/SGT Alex Alpha/i)).not.toBeNull();
+		expect(screen.getByText(/SSG Blake Bravo/i)).not.toBeNull();
+		expect(container.textContent).not.toContain('snapshotPayload');
+		expect(container.textContent).not.toContain('fingerprint');
+	});
+
+	it('renders a clear empty revision history state while keeping pending drafts visible', async () => {
+		const onStartAdvancedRevisionDraft = vi.fn(async () =>
+			makeSession({
+				action: 'reopened',
+				draft: {
+					draftVersion: 3,
+					slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+				}
+			})
+		);
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			advancedDutyRevisionHistory: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft,
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		expect(screen.getByText('No manual revisions recorded')).not.toBeNull();
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+
+		await waitFor(() => expect(onStartAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
+		expect(screen.getByText(/Draft v3 pending/i)).not.toBeNull();
+	});
+
 	it('opens, updates, and discards a revision draft without calling direct event update handlers', async () => {
 		const onStartAdvancedRevisionDraft = vi.fn(async () => makeSession({ action: 'created' }));
 		const onUpdateAdvancedRevisionDraft = vi.fn(async () =>
@@ -180,7 +283,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /open event/i }));
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
 
 		await waitFor(() => expect(onStartAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
 		expect(screen.getByText(/Draft v1 pending/i)).not.toBeNull();

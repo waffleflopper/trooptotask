@@ -2,6 +2,7 @@ import type {
 	AdvancedDutyRevisionChangeIntent,
 	AdvancedDutyRevisionChangeSetRecord,
 	AdvancedDutyRevisionDraftRecord,
+	AdvancedDutyRevisionHistoryEntry,
 	AdvancedDutyRevisionSlotChangeRecord,
 	DutyEventAssignmentSource,
 	DutyEventWarningState
@@ -137,15 +138,6 @@ export interface AdvancedDutyRevisionReapplyValidation {
 export interface BuildAdvancedDutyRevisionHistoryModelInput {
 	changeSets: AdvancedDutyRevisionChangeSetRecord[];
 	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
-}
-
-export interface AdvancedDutyRevisionHistoryEntry {
-	id: string;
-	appliedAt: string;
-	actorUserId: string | null;
-	reason: string;
-	changeCount: number;
-	changes: AdvancedDutyRevisionSlotChangeRecord[];
 }
 
 function slotIdentity(change: Pick<AdvancedDutyRevisionDraftSlotChange, 'eventDate' | 'slotKey'>): string {
@@ -398,6 +390,7 @@ export function buildAdvancedDutyRevisionHistoryModel(
 		const changes = input.slotChanges.filter((slotChange) => slotChange.changeSetId === changeSet.id);
 		return {
 			id: changeSet.id,
+			appliedRunId: changeSet.appliedRunId,
 			appliedAt: changeSet.appliedAt,
 			actorUserId: changeSet.actorUserId,
 			reason: changeSet.reason,

@@ -8,9 +8,11 @@ import {
 import type {
 	AdvancedDutyRevisionChangeSetRecord,
 	AdvancedDutyRevisionDraftRecord,
+	AdvancedDutyRevisionHistoryEntry,
 	AdvancedDutyRevisionSlotChangeRecord
 } from '$features/duty-roster/duty-roster.types';
 import {
+	buildAdvancedDutyRevisionHistoryModel,
 	discardAdvancedDutyRevisionDraft,
 	startAdvancedDutyRevisionDraft,
 	updateAdvancedDutyRevisionDraftSlotChange,
@@ -20,6 +22,7 @@ import {
 	type StartAdvancedDutyRevisionDraftResult
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 
 type AdvancedDutyRevisionQueryContext = QueryPorts & {
 	advancedDutyPersistence: AdvancedDutyPersistencePort;
@@ -53,6 +56,10 @@ export interface MarkAdvancedDutyRevisionDraftAppliedByIdInput {
 
 export interface AdvancedDutyRevisionDraftLookupInput {
 	appliedRunId: string;
+}
+
+export interface AdvancedDutyRevisionHistoryLookupInput {
+	appliedRunIds?: string[];
 }
 
 export interface AdvancedDutyRevisionChangeSetPersistenceResult {
@@ -236,6 +243,32 @@ export async function listAdvancedDutyRevisionDrafts(
 		appliedRunId: input.appliedRunId
 	});
 	return AdvancedDutyRevisionDraftEntity.fromDbArray(rows);
+}
+
+export async function listAdvancedDutyRevisionHistory(
+	ctx: AdvancedDutyRevisionQueryContext,
+	input: AdvancedDutyRevisionHistoryLookupInput = {}
+): Promise<AdvancedDutyRevisionHistoryEntry[]> {
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
+	if (input.appliedRunIds && input.appliedRunIds.length === 0) {
+		return [];
+	}
+	const changeSetRows = await ctx.advancedDutyPersistence.listAdvancedDutyRevisionChangeSets({
+		orgId: ctx.auth.orgId,
+		appliedRunIds: input.appliedRunIds
+	});
+	const changeSets = AdvancedDutyRevisionChangeSetEntity.fromDbArray(changeSetRows);
+	if (changeSets.length === 0) {
+		return [];
+	}
+	const slotChangeRows = await ctx.advancedDutyPersistence.listAdvancedDutyRevisionSlotChanges({
+		orgId: ctx.auth.orgId,
+		changeSetIds: changeSets.map((changeSet) => changeSet.id)
+	});
+	return buildAdvancedDutyRevisionHistoryModel({
+		changeSets,
+		slotChanges: AdvancedDutyRevisionSlotChangeEntity.fromDbArray(slotChangeRows)
+	});
 }
 
 export async function updateAdvancedDutyRevisionDraftChange(

@@ -203,6 +203,34 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 				changeSetRow: asRow(changeSetData, changeSetOperation),
 				slotChangeRows
 			};
+		},
+
+		async listAdvancedDutyRevisionChangeSets(input) {
+			const operation = `${REVISION_CHANGE_SETS_TABLE}.list`;
+			let query = supabase.from(REVISION_CHANGE_SETS_TABLE).select('*').eq('organization_id', input.orgId);
+			if (input.appliedRunIds && input.appliedRunIds.length > 0) {
+				query = query.in('applied_run_id', input.appliedRunIds);
+			}
+			const { data, error } = await query.order('applied_at', { ascending: false });
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+			return (data as Record<string, unknown>[] | null) ?? [];
+		},
+
+		async listAdvancedDutyRevisionSlotChanges(input) {
+			const operation = `${REVISION_SLOT_CHANGES_TABLE}.list`;
+			let query = supabase.from(REVISION_SLOT_CHANGES_TABLE).select('*').eq('organization_id', input.orgId);
+			if (input.changeSetIds && input.changeSetIds.length > 0) {
+				query = query.in('change_set_id', input.changeSetIds);
+			}
+			const { data, error } = await query.order('event_date', { ascending: true }).order('slot_index', {
+				ascending: true
+			});
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+			return (data as Record<string, unknown>[] | null) ?? [];
 		}
 	};
 }
@@ -392,6 +420,25 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 				changeSetRow,
 				slotChangeRows
 			};
+		},
+
+		async listAdvancedDutyRevisionChangeSets(input) {
+			return store.findMany<Record<string, unknown>>(REVISION_CHANGE_SETS_TABLE, input.orgId, undefined, {
+				inFilters:
+					input.appliedRunIds && input.appliedRunIds.length > 0 ? { applied_run_id: input.appliedRunIds } : undefined,
+				orderBy: [{ column: 'applied_at', ascending: false }]
+			});
+		},
+
+		async listAdvancedDutyRevisionSlotChanges(input) {
+			return store.findMany<Record<string, unknown>>(REVISION_SLOT_CHANGES_TABLE, input.orgId, undefined, {
+				inFilters:
+					input.changeSetIds && input.changeSetIds.length > 0 ? { change_set_id: input.changeSetIds } : undefined,
+				orderBy: [
+					{ column: 'event_date', ascending: true },
+					{ column: 'slot_index', ascending: true }
+				]
+			});
 		}
 	};
 }

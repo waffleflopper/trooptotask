@@ -1,6 +1,10 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import type { DutyEvent } from '../duty-roster.types';
+	import type {
+		AdvancedDutyRevisionHistoryEntry,
+		AdvancedDutyRevisionSlotChangeRecord,
+		DutyEvent
+	} from '../duty-roster.types';
 
 	interface AppliedEventGroup {
 		key: string;
@@ -25,6 +29,7 @@
 		canViewRunDa6: (group: AppliedEventGroup) => boolean;
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventGroup) => void;
+		getRevisionHistory: (runId: string | null) => AdvancedDutyRevisionHistoryEntry[];
 		selectedEventId: string | null;
 	}
 
@@ -40,8 +45,37 @@
 		canViewRunDa6,
 		onRequestDeleteEvent,
 		onRequestDeleteRun,
+		getRevisionHistory,
 		selectedEventId
 	}: Props = $props();
+
+	function formatActor(actorUserId: string | null): string {
+		return actorUserId ? `Actor ${actorUserId}` : 'Actor unavailable';
+	}
+
+	function formatRevisionDate(timestamp: string): string {
+		return new Intl.DateTimeFormat('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		}).format(new Date(timestamp));
+	}
+
+	function snapshotName(snapshot: Record<string, unknown> | null, fallbackId: string | null): string {
+		if (!snapshot) return fallbackId ?? 'Open slot';
+		const parts = [snapshot.rank, snapshot.firstName, snapshot.lastName]
+			.map((value) => (typeof value === 'string' ? value.trim() : ''))
+			.filter(Boolean);
+		return parts.length > 0 ? parts.join(' ') : (fallbackId ?? 'Open slot');
+	}
+
+	function formatSlotChange(change: AdvancedDutyRevisionSlotChangeRecord): string {
+		const previous = snapshotName(change.previousPersonnelSnapshot, change.previousPersonnelId);
+		const next = snapshotName(change.newPersonnelSnapshot, change.newPersonnelId);
+		return `${change.roleLabel} #${change.slotIndex + 1}: ${previous} to ${next}`;
+	}
 </script>
 
 <div class="applied-group-list">
@@ -131,6 +165,70 @@
 						</article>
 					{/each}
 				</div>
+				{#each [getRevisionHistory(group.runId)] as revisions (revisions)}
+					<section class="revision-history" aria-label={`${group.templateName} revision history`}>
+						<div class="revision-history__header">
+							<div>
+								<p class="revision-kicker">Revision history</p>
+								<h5>Run change record</h5>
+							</div>
+							<span>{revisions.length} manual revision{revisions.length === 1 ? '' : 's'}</span>
+						</div>
+						<ol class="revision-timeline">
+							<li>
+								<div class="revision-marker" aria-hidden="true"></div>
+								<div>
+									<p class="revision-label">Generated original</p>
+									<p class="revision-copy">Initial assignments came from the approved Advanced Duty run proposal.</p>
+								</div>
+							</li>
+							<li>
+								<div class="revision-marker revision-marker--current" aria-hidden="true"></div>
+								<div>
+									<p class="revision-label">Current applied state</p>
+									<p class="revision-copy">
+										Operational records now show {group.eventCount} event{group.eventCount === 1 ? '' : 's'} from {formatGroupRange(
+											group
+										)}.
+									</p>
+								</div>
+							</li>
+							{#if revisions.length === 0}
+								<li>
+									<div class="revision-marker revision-marker--quiet" aria-hidden="true"></div>
+									<div>
+										<p class="revision-label">No manual revisions recorded</p>
+										<p class="revision-copy">This applied run has not been changed through a revision draft.</p>
+									</div>
+								</li>
+							{:else}
+								{#each revisions as revision (revision.id)}
+									<li class="revision-entry">
+										<div class="revision-marker revision-marker--manual" aria-hidden="true"></div>
+										<div>
+											<div class="revision-entry__topline">
+												<p class="revision-label">Manual revision</p>
+												<span>{formatRevisionDate(revision.appliedAt)} · {formatActor(revision.actorUserId)}</span>
+											</div>
+											<p class="revision-reason">{revision.reason}</p>
+											<ul
+												class="revision-slot-list"
+												aria-label={`Changed slots for revision ${formatRevisionDate(revision.appliedAt)}`}
+											>
+												{#each revision.changes as change (change.id)}
+													<li>
+														<span>{formatDisplayDate(change.eventDate)}</span>
+														<strong>{formatSlotChange(change)}</strong>
+													</li>
+												{/each}
+											</ul>
+										</div>
+									</li>
+								{/each}
+							{/if}
+						</ol>
+					</section>
+				{/each}
 			</details>
 		{/each}
 	{/if}
@@ -251,6 +349,128 @@
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		color: var(--amber-dark);
+	}
+
+	.revision-history {
+		border-top: 1px solid var(--border-subtle);
+		background: color-mix(in srgb, var(--surface-subtle) 45%, var(--surface-panel) 55%);
+		padding: var(--sp-4);
+	}
+
+	.revision-history__header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-3);
+	}
+
+	.revision-history__header h5,
+	.revision-label,
+	.revision-reason,
+	.revision-copy {
+		margin: 0;
+	}
+
+	.revision-history__header h5 {
+		font-size: var(--text-base);
+	}
+
+	.revision-history__header span,
+	.revision-kicker,
+	.revision-entry__topline span,
+	.revision-slot-list span {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.revision-kicker {
+		margin: 0 0 2px;
+	}
+
+	.revision-timeline {
+		display: grid;
+		gap: var(--sp-3);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.revision-timeline > li {
+		display: grid;
+		grid-template-columns: 12px minmax(0, 1fr);
+		gap: var(--sp-3);
+	}
+
+	.revision-marker {
+		width: 10px;
+		height: 10px;
+		margin-top: 5px;
+		border: 1px solid var(--border-default);
+		border-radius: 999px;
+		background: var(--surface-panel);
+	}
+
+	.revision-marker--current {
+		background: var(--success-bg);
+		border-color: var(--success);
+	}
+
+	.revision-marker--manual {
+		background: var(--amber-light);
+		border-color: var(--amber-dark);
+	}
+
+	.revision-marker--quiet {
+		background: var(--surface-subtle);
+	}
+
+	.revision-label {
+		font-weight: var(--font-weight-bold);
+		color: var(--text-primary);
+	}
+
+	.revision-copy {
+		margin-top: 2px;
+		color: var(--text-secondary);
+	}
+
+	.revision-entry__topline {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--sp-2);
+	}
+
+	.revision-reason {
+		margin-top: 2px;
+		color: var(--text-primary);
+	}
+
+	.revision-slot-list {
+		display: grid;
+		gap: var(--sp-2);
+		margin: var(--sp-2) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.revision-slot-list li {
+		display: grid;
+		gap: 2px;
+		padding: var(--sp-2);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+	}
+
+	.revision-slot-list strong {
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 	}
 
 	@media (max-width: 640px) {

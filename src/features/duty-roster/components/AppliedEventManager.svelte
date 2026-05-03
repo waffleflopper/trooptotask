@@ -12,6 +12,7 @@
 		AdvancedDutyRunSnapshotRecord,
 		AdvancedDutyRevisionDraftRecord,
 		AdvancedDutyRevisionDraftSession,
+		AdvancedDutyRevisionHistoryEntry,
 		DutyEvent,
 		DutyEventPreview,
 		DutyEventPreviewSlotInstance,
@@ -37,6 +38,7 @@
 	interface Props {
 		advancedDutyEvents: DutyEvent[];
 		advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
+		advancedDutyRevisionHistory?: AdvancedDutyRevisionHistoryEntry[];
 		personnelById: Map<string, Personnel>;
 		previewPersonnelOptions: Personnel[];
 		onStartAdvancedRevisionDraft: (input: { dutyEventId: string }) => Promise<AdvancedDutyRevisionDraftSession | null>;
@@ -50,6 +52,7 @@
 	let {
 		advancedDutyEvents,
 		advancedDutySnapshots = [],
+		advancedDutyRevisionHistory = [],
 		personnelById,
 		previewPersonnelOptions,
 		onStartAdvancedRevisionDraft,
@@ -77,6 +80,16 @@
 	let selectedDa6Snapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
 
 	const appliedEventGroups = $derived.by(() => buildAppliedEventGroups(appliedAdvancedEvents));
+	const revisionHistoryByRunId = $derived.by(() => {
+		const historyByRun: Record<string, AdvancedDutyRevisionHistoryEntry[]> = {};
+		for (const entry of advancedDutyRevisionHistory) {
+			historyByRun[entry.appliedRunId] = [...(historyByRun[entry.appliedRunId] ?? []), entry];
+		}
+		for (const [runId, entries] of Object.entries(historyByRun)) {
+			historyByRun[runId] = [...entries].sort((left, right) => right.appliedAt.localeCompare(left.appliedAt));
+		}
+		return historyByRun;
+	});
 	const selectedAppliedEvent = $derived(
 		selectedAppliedEventId ? (appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null) : null
 	);
@@ -299,6 +312,7 @@
 	canViewRunDa6={canViewAppliedRunDa6}
 	onRequestDeleteEvent={(event) => (pendingEventDelete = event)}
 	onRequestDeleteRun={(group) => (pendingRunDelete = group)}
+	getRevisionHistory={(runId) => (runId ? (revisionHistoryByRunId[runId] ?? []) : [])}
 />
 
 {#if selectedDa6Snapshot && selectedDa6Matrices.length > 0}

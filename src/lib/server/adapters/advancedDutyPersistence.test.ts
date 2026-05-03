@@ -10,6 +10,7 @@ function queryBuilder(result: unknown) {
 	return {
 		select: vi.fn().mockReturnThis(),
 		eq: vi.fn().mockReturnThis(),
+		in: vi.fn().mockReturnThis(),
 		order: vi.fn().mockReturnThis(),
 		maybeSingle: vi.fn().mockResolvedValue(result),
 		single: vi.fn().mockResolvedValue(result),
@@ -221,6 +222,25 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 				slot_key: 'slot-nco:0'
 			}
 		]);
+	});
+
+	it('reads compact revision history rows from the approved history tables', async () => {
+		const changeSetBuilder = queryBuilder({ data: [{ id: 'change-set-1' }], error: null });
+		const slotBuilder = queryBuilder({ data: [{ id: 'slot-change-1' }], error: null });
+		const from = vi.fn().mockReturnValueOnce(changeSetBuilder).mockReturnValueOnce(slotBuilder);
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
+
+		await expect(
+			adapter.listAdvancedDutyRevisionChangeSets({ orgId: 'org-1', appliedRunIds: ['run-1'] })
+		).resolves.toEqual([{ id: 'change-set-1' }]);
+		await expect(
+			adapter.listAdvancedDutyRevisionSlotChanges({ orgId: 'org-1', changeSetIds: ['change-set-1'] })
+		).resolves.toEqual([{ id: 'slot-change-1' }]);
+
+		expect(from).toHaveBeenNthCalledWith(1, 'advanced_duty_revision_change_sets');
+		expect(from).toHaveBeenNthCalledWith(2, 'advanced_duty_revision_slot_changes');
+		expect(changeSetBuilder.in).toHaveBeenCalledWith('applied_run_id', ['run-1']);
+		expect(slotBuilder.in).toHaveBeenCalledWith('change_set_id', ['change-set-1']);
 	});
 
 	it('keeps only one active in-memory revision draft per applied run', async () => {

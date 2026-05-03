@@ -55,4 +55,11 @@ describe('Advanced Duty Run snapshot migration', () => {
 			'create index "advanced_duty_run_snapshots_applying_recovery_idx" on "public"."advanced_duty_run_snapshots" using "btree" ("organization_id", "updated_at") where ("status" = \'applying\'::"text")'
 		);
 	});
+
+	it('leaves lineage replacement to the later forward migration', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).not.toContain('"draft_lineage_key"');
+		expect(normalized).not.toContain('replace_advanced_duty_run_snapshot');
+	});
 });

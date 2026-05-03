@@ -65,6 +65,27 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 		});
 	});
 
+	it('calls the draft snapshot replacement RPC with the expected payload', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: { id: 'snapshot-1', draft_lineage_key: 'lineage-1' },
+			error: null
+		});
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ rpc } as unknown as SupabaseClient);
+
+		const result = await adapter.replaceDraftAdvancedRunSnapshot({
+			orgId: 'org-1',
+			draftLineageKey: 'lineage-1',
+			snapshotData: { template_id: 'template-1', draft_lineage_key: 'lineage-1' }
+		});
+
+		expect(result).toEqual({ id: 'snapshot-1', draft_lineage_key: 'lineage-1' });
+		expect(rpc).toHaveBeenCalledWith('replace_advanced_duty_run_snapshot', {
+			p_org_id: 'org-1',
+			p_draft_lineage_key: 'lineage-1',
+			p_snapshot_data: { template_id: 'template-1', draft_lineage_key: 'lineage-1' }
+		});
+	});
+
 	it('prefixes template RPC errors with the function name', async () => {
 		const rpc = vi.fn().mockResolvedValue({
 			data: null,
@@ -98,5 +119,21 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 				slotRows: []
 			})
 		).rejects.toThrow('update_advanced_duty_event_aggregate: function does not exist');
+	});
+
+	it('prefixes draft snapshot replacement RPC errors with the function name', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: null,
+			error: { message: 'duplicate key value violates unique constraint' }
+		});
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ rpc } as unknown as SupabaseClient);
+
+		await expect(
+			adapter.replaceDraftAdvancedRunSnapshot({
+				orgId: 'org-1',
+				draftLineageKey: 'lineage-1',
+				snapshotData: {}
+			})
+		).rejects.toThrow('replace_advanced_duty_run_snapshot: duplicate key value violates unique constraint');
 	});
 });

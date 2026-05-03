@@ -47,7 +47,6 @@
 		removeLegacyDutyEvents,
 		sortDutyTemplates,
 		sortDutyEventsByCoverageStart,
-		stableSnapshotInput,
 		upsertDutyEventIntoTimeline
 	} from '../advancedDutyCollections';
 
@@ -292,7 +291,7 @@
 		activeAdvancedWorkspaceView = 'applied-events';
 	}
 
-	function isSameDraftSnapshotInput(
+	function isSameDraftSnapshotLineage(
 		left: AdvancedDutyRunSnapshotRecord,
 		right: AdvancedDutyRunSnapshotRecord
 	): boolean {
@@ -300,7 +299,8 @@
 			left.status === 'draft' &&
 			right.status === 'draft' &&
 			left.templateId === right.templateId &&
-			stableSnapshotInput(left.inputPayload) === stableSnapshotInput(right.inputPayload)
+			left.pattern === right.pattern &&
+			left.eventDates.join('|') === right.eventDates.join('|')
 		);
 	}
 
@@ -308,7 +308,7 @@
 		if (!snapshot) return;
 		advancedDutySnapshots = [
 			snapshot,
-			...advancedDutySnapshots.filter((item) => item.id !== snapshot.id && !isSameDraftSnapshotInput(item, snapshot))
+			...advancedDutySnapshots.filter((item) => item.id !== snapshot.id && !isSameDraftSnapshotLineage(item, snapshot))
 		];
 	}
 
@@ -364,6 +364,7 @@
 			eventCount: eventDates.length,
 			eventDates,
 			candidatePersonnelIds: input.candidatePersonnelIds ?? [],
+			draftLineageKey: `${preview.templateId}:${isSeriesPreview ? preview.pattern : 'single'}:${eventDates.join('|')}`,
 			snapshotFingerprint: preview.snapshotFingerprint,
 			snapshotVersion: preview.snapshotVersion ?? 1,
 			status: 'draft',

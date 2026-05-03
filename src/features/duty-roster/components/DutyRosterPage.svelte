@@ -364,6 +364,7 @@
 			eventCount: eventDates.length,
 			eventDates,
 			candidatePersonnelIds: input.candidatePersonnelIds ?? [],
+			draftLineageKey: `${preview.templateId}:${isSeriesPreview ? preview.pattern : 'single'}:${eventDates.join('|')}`,
 			snapshotFingerprint: preview.snapshotFingerprint,
 			snapshotVersion: preview.snapshotVersion ?? 1,
 			status: 'draft',

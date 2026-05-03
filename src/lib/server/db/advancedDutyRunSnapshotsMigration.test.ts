@@ -21,6 +21,7 @@ describe('Advanced Duty Run snapshot migration', () => {
 		expect(normalized).toContain('create table if not exists "public"."advanced_duty_run_snapshots"');
 		expect(normalized).toContain('"snapshot_fingerprint" "text" not null');
 		expect(normalized).toContain('"snapshot_version" integer default 1 not null');
+		expect(normalized).toContain('"draft_lineage_key" "text" not null');
 		expect(normalized).toContain('"status" "text" default \'draft\'::"text" not null');
 		expect(normalized).toContain(
 			'"expires_at" timestamp with time zone default ("now"() + \'24:00:00\'::interval) not null'
@@ -54,5 +55,17 @@ describe('Advanced Duty Run snapshot migration', () => {
 		expect(normalized).toContain(
 			'create index "advanced_duty_run_snapshots_applying_recovery_idx" on "public"."advanced_duty_run_snapshots" using "btree" ("organization_id", "updated_at") where ("status" = \'applying\'::"text")'
 		);
+	});
+
+	it('enforces one current draft per lineage through the replacement RPC', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain(
+			'create unique index "advanced_duty_run_snapshots_current_draft_lineage_key" on "public"."advanced_duty_run_snapshots" using "btree" ("organization_id", "draft_lineage_key") where ("status" = \'draft\'::"text")'
+		);
+		expect(normalized).toContain('create or replace function "public"."replace_advanced_duty_run_snapshot"');
+		expect(normalized).toContain('pg_advisory_xact_lock');
+		expect(normalized).toContain('"draft_lineage_key" = "p_draft_lineage_key"');
+		expect(normalized).not.toContain('limit 100');
 	});
 });

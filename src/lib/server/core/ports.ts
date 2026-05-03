@@ -76,6 +76,12 @@ export interface PersistedDutyEventAggregate {
 	slotRows: Record<string, unknown>[];
 }
 
+export interface DraftAdvancedRunSnapshotReplacement {
+	orgId: string;
+	draftLineageKey: string;
+	snapshotData: Record<string, unknown>;
+}
+
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
@@ -126,6 +132,8 @@ export interface AdvancedDutyPersistencePort {
 		eventData: Record<string, unknown>;
 		slotRows: Record<string, unknown>[];
 	}): Promise<PersistedDutyEventAggregate>;
+
+	replaceDraftAdvancedRunSnapshot(input: DraftAdvancedRunSnapshotReplacement): Promise<Record<string, unknown>>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */

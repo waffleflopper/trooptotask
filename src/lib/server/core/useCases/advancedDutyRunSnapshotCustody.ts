@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { fail } from '$lib/server/core/errors';
-import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
+import type { AdvancedDutyPersistencePort, QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { AdvancedDutyRunSnapshotEntity } from '$lib/server/entities/advancedDutyRunSnapshot';
 import type { AdvancedRunSnapshot } from '$features/duty-roster/advanced-run/advancedDutyRun';
 import type {
@@ -46,6 +46,7 @@ const ADVANCED_DUTY_RUN_SNAPSHOT_SUMMARY_SELECT = [
 	'event_count',
 	'event_dates',
 	'candidate_personnel_ids',
+	'draft_lineage_key',
 	'snapshot_fingerprint',
 	'snapshot_version',
 	'status',
@@ -75,6 +76,22 @@ function stableStringify(value: unknown): string {
 
 function buildSnapshotFingerprint(payload: Record<string, unknown>): string {
 	return createHash('sha256').update(stableStringify(payload)).digest('hex');
+}
+
+function buildDraftLineageKey(input: {
+	templateId: string;
+	pattern: AdvancedRunSnapshotPattern;
+	eventDates: string[];
+}): string {
+	return createHash('sha256')
+		.update(
+			stableStringify({
+				templateId: input.templateId,
+				pattern: input.pattern,
+				eventDates: input.eventDates
+			})
+		)
+		.digest('hex');
 }
 
 export function omitPreviewOnlyDa6Matrices<T extends Record<string, unknown>>(previewPayload: T): T {
@@ -327,7 +344,7 @@ export function getOriginalProposalFromAdvancedRunSnapshot(
 }
 
 export async function createDraftAdvancedRunSnapshot(
-	ctx: QueryPorts,
+	ctx: QueryPorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
 	input: {
 		templateId: string;
 		templateName: string;
@@ -346,51 +363,32 @@ export async function createDraftAdvancedRunSnapshot(
 		snapshot: input.snapshotPayload,
 		snapshotVersion
 	});
-	const existingDraftRows = await ctx.store.findMany<Record<string, unknown>>(
-		AdvancedDutyRunSnapshotEntity.table,
-		ctx.auth.orgId,
+	const draftLineageKey = buildDraftLineageKey(input);
+	const snapshotData = AdvancedDutyRunSnapshotEntity.toDbInsert(
 		{
-			template_id: input.templateId,
-			status: 'draft'
+			templateId: input.templateId,
+			templateName: input.templateName,
+			pattern: input.pattern,
+			startDate: input.eventDates[0],
+			endDate: input.eventDates[input.eventDates.length - 1],
+			eventCount: input.eventDates.length,
+			eventDates: input.eventDates,
+			candidatePersonnelIds: input.candidatePersonnelIds ?? [],
+			draftLineageKey,
+			snapshotFingerprint,
+			snapshotVersion,
+			inputPayload: input.inputPayload,
+			snapshotPayload: input.snapshotPayload as unknown as Record<string, unknown>,
+			previewPayload: input.previewPayload,
+			createdByUserId: ctx.auth.userId
 		},
-		{
-			orderBy: [{ column: 'created_at', ascending: false }],
-			limit: 100,
-			select: 'id, expires_at, pattern, event_dates'
-		}
+		ctx.auth.orgId
 	);
-	const now = new Date().toISOString();
-	const replaceableDraftIds = existingDraftRows
-		.filter((row) => typeof row.expires_at !== 'string' || row.expires_at > now)
-		.filter((row) => row.pattern === input.pattern)
-		.filter((row) => stableStringify(row.event_dates ?? []) === stableStringify(input.eventDates))
-		.map((row) => String(row.id));
-	if (replaceableDraftIds.length > 0) {
-		await ctx.store.deleteManyByIds(AdvancedDutyRunSnapshotEntity.table, ctx.auth.orgId, replaceableDraftIds);
-	}
-	const inserted = await ctx.store.insert<Record<string, unknown>>(
-		AdvancedDutyRunSnapshotEntity.table,
-		ctx.auth.orgId,
-		AdvancedDutyRunSnapshotEntity.toDbInsert(
-			{
-				templateId: input.templateId,
-				templateName: input.templateName,
-				pattern: input.pattern,
-				startDate: input.eventDates[0],
-				endDate: input.eventDates[input.eventDates.length - 1],
-				eventCount: input.eventDates.length,
-				eventDates: input.eventDates,
-				candidatePersonnelIds: input.candidatePersonnelIds ?? [],
-				snapshotFingerprint,
-				snapshotVersion,
-				inputPayload: input.inputPayload,
-				snapshotPayload: input.snapshotPayload as unknown as Record<string, unknown>,
-				previewPayload: input.previewPayload,
-				createdByUserId: ctx.auth.userId
-			},
-			ctx.auth.orgId
-		)
-	);
+	const inserted = await ctx.advancedDutyPersistence.replaceDraftAdvancedRunSnapshot({
+		orgId: ctx.auth.orgId,
+		draftLineageKey,
+		snapshotData
+	});
 
 	return {
 		snapshotId: String(inserted.id),

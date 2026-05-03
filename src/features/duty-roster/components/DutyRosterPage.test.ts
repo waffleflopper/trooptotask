@@ -183,6 +183,7 @@ function makeSnapshot(overrides: Partial<AdvancedDutyRunSnapshotRecord> = {}): A
 		eventCount: 3,
 		eventDates: ['2026-04-10', '2026-04-11', '2026-04-12'],
 		candidatePersonnelIds: ['person-1', 'person-2'],
+		draftLineageKey: 'lineage-1',
 		snapshotFingerprint: 'fingerprint-1',
 		snapshotVersion: 1,
 		status: 'draft',

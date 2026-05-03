@@ -1312,7 +1312,7 @@ export async function applyDutyEventFromTemplate(
 }
 
 export async function previewDutyEventFromTemplate(
-	ctx: QueryPorts,
+	ctx: QueryPorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
 	input: DutyEventApplyInput
 ): Promise<DutyEventPreview> {
 	requireAdvancedDutyAccess(ctx.auth);
@@ -1469,7 +1469,7 @@ export async function updateExistingDutyEvent(
 }
 
 export async function previewDutyEventSeriesFromTemplate(
-	ctx: QueryPorts,
+	ctx: QueryPorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
 	input: DutyEventSeriesInput
 ): Promise<DutyEventSeriesPreview> {
 	requireAdvancedDutyAccess(ctx.auth);

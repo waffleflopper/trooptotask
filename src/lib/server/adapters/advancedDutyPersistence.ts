@@ -30,6 +30,14 @@ function asEventAggregate(value: unknown): PersistedDutyEventAggregate {
 	return aggregate;
 }
 
+function asRow(value: unknown, rpcName: string): Record<string, unknown> {
+	const row = value as Record<string, unknown> | null;
+	if (!row || typeof row !== 'object' || Array.isArray(row)) {
+		throw new Error(`${rpcName} returned an invalid row`);
+	}
+	return row;
+}
+
 export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseClient): AdvancedDutyPersistencePort {
 	return {
 		async updateDutyTemplateAggregate(input) {
@@ -63,6 +71,21 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			}
 
 			return asEventAggregate(data);
+		},
+
+		async replaceDraftAdvancedRunSnapshot(input) {
+			const rpcName = 'replace_advanced_duty_run_snapshot';
+			const { data, error } = await supabase.rpc('replace_advanced_duty_run_snapshot', {
+				p_org_id: input.orgId,
+				p_draft_lineage_key: input.draftLineageKey,
+				p_snapshot_data: input.snapshotData
+			});
+
+			if (error) {
+				throw buildRpcError(rpcName, error.message);
+			}
+
+			return asRow(data, rpcName);
 		}
 	};
 }
@@ -180,6 +203,14 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 
 				throw error;
 			}
+		},
+
+		async replaceDraftAdvancedRunSnapshot(input) {
+			await store.deleteWhere('advanced_duty_run_snapshots', input.orgId, {
+				status: 'draft',
+				draft_lineage_key: input.draftLineageKey
+			});
+			return store.insert<Record<string, unknown>>('advanced_duty_run_snapshots', input.orgId, input.snapshotData);
 		}
 	};
 }

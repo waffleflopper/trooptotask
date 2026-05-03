@@ -44,6 +44,7 @@ function makeSnapshot(): AdvancedDutyRunSnapshotRecord {
 		eventCount: 1,
 		eventDates: ['2026-05-02'],
 		candidatePersonnelIds: [],
+		draftLineageKey: 'lineage-1',
 		snapshotFingerprint: 'fingerprint-1',
 		snapshotVersion: 1,
 		status: 'draft',

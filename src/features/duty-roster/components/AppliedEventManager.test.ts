@@ -192,6 +192,7 @@ function makeRevisionHistory(): AdvancedDutyRevisionHistoryEntry[] {
 			appliedRunId: 'run-1',
 			appliedAt: '2026-04-11T18:30:00.000Z',
 			actorUserId: 'user-1',
+			actorLabel: 'approver@example.mil',
 			reason: 'Leader reviewed staff duty conflict.',
 			changeCount: 1,
 			changes: [
@@ -244,11 +245,13 @@ describe('AppliedEventManager revision draft workflow', () => {
 
 		expect(screen.getByText('Generated original')).not.toBeNull();
 		expect(screen.getByText('Current applied state')).not.toBeNull();
+		expect(screen.getByText(/approver@example.mil/i)).not.toBeNull();
 		expect(screen.getByText('Leader reviewed staff duty conflict.')).not.toBeNull();
 		expect(screen.getByText(/SGT Alex Alpha/i)).not.toBeNull();
 		expect(screen.getByText(/SSG Blake Bravo/i)).not.toBeNull();
 		expect(container.textContent).not.toContain('snapshotPayload');
 		expect(container.textContent).not.toContain('fingerprint');
+		expect(container.textContent).not.toContain('Actor user-1');
 	});
 
 	it('renders a clear empty revision history state while keeping pending drafts visible', async () => {

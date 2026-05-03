@@ -164,6 +164,9 @@ describe('advanced duty revision draft use cases', () => {
 
 	it('lists compact applied revision history without exposing draft payloads or snapshots', async () => {
 		const ctx = createTestContext();
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-1', organization_id: 'test-org', user_id: 'user-1', email: 'approver@example.mil' }
+		]);
 		await appendAdvancedDutyRevisionChangeSet(ctx, {
 			changeSet: {
 				id: 'change-set-1',
@@ -215,6 +218,7 @@ describe('advanced duty revision draft use cases', () => {
 				appliedRunId: 'run-1',
 				reason: 'Leader reviewed coverage conflict.',
 				actorUserId: 'user-1',
+				actorLabel: 'approver@example.mil',
 				changeCount: 1,
 				changes: [
 					expect.objectContaining({
@@ -228,5 +232,34 @@ describe('advanced duty revision draft use cases', () => {
 		]);
 		expect(JSON.stringify(result)).not.toContain('snapshotPayload');
 		expect(JSON.stringify(result)).not.toContain('slot_changes');
+	});
+
+	it('uses an unavailable actor label when the change-set actor membership is missing', async () => {
+		const ctx = createTestContext();
+		await appendAdvancedDutyRevisionChangeSet(ctx, {
+			changeSet: {
+				id: 'change-set-1',
+				orgId: 'test-org',
+				appliedRunId: 'run-1',
+				sourceDraftId: 'draft-1',
+				sourceSnapshotId: 'snapshot-1',
+				sourceSnapshotFingerprint: 'fingerprint-1',
+				reason: 'Leader reviewed coverage conflict.',
+				actorUserId: 'deleted-user',
+				reviewableConflictsConfirmed: true,
+				conflictSummary: null,
+				warningSummary: null,
+				appliedAt: '2026-05-03T02:00:00.000Z',
+				createdAt: '2026-05-03T02:00:00.000Z'
+			},
+			slotChanges: []
+		});
+
+		const result = await listAdvancedDutyRevisionHistory(ctx, { appliedRunIds: ['run-1'] });
+
+		expect(result[0]).toMatchObject({
+			actorUserId: 'deleted-user',
+			actorLabel: 'Actor unavailable'
+		});
 	});
 });

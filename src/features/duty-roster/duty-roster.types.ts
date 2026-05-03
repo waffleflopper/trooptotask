@@ -464,6 +464,7 @@ export interface AdvancedDutyRevisionHistoryEntry {
 	appliedRunId: string;
 	appliedAt: string;
 	actorUserId: string | null;
+	actorLabel: string;
 	reason: string;
 	changeCount: number;
 	changes: AdvancedDutyRevisionSlotChangeRecord[];

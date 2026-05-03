@@ -582,6 +582,7 @@ describe('advanced duty revision drafts', () => {
 				appliedRunId: 'run-1',
 				appliedAt: '2026-05-04T12:00:00.000Z',
 				actorUserId: 'user-1',
+				actorLabel: 'Actor unavailable',
 				reason: 'Appointment conflict',
 				changeCount: 1,
 				changes: [

@@ -52,10 +52,6 @@
 		selectedEventId
 	}: Props = $props();
 
-	function formatActor(actorUserId: string | null): string {
-		return actorUserId ? `Actor ${actorUserId}` : 'Actor unavailable';
-	}
-
 	function formatRevisionDate(timestamp: string): string {
 		return new Intl.DateTimeFormat('en-US', {
 			month: 'short',
@@ -223,7 +219,7 @@
 										<div>
 											<div class="revision-entry__topline">
 												<p class="revision-label">Manual revision</p>
-												<span>{formatRevisionDate(revision.appliedAt)} · {formatActor(revision.actorUserId)}</span>
+												<span>{formatRevisionDate(revision.appliedAt)} · {revision.actorLabel}</span>
 											</div>
 											<p class="revision-reason">{revision.reason}</p>
 											<ul

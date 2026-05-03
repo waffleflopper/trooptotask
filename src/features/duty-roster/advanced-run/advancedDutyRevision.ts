@@ -477,6 +477,7 @@ export function buildAdvancedDutyRevisionHistoryModel(
 			appliedRunId: changeSet.appliedRunId,
 			appliedAt: changeSet.appliedAt,
 			actorUserId: changeSet.actorUserId,
+			actorLabel: 'Actor unavailable',
 			reason: changeSet.reason,
 			changeCount: changes.length,
 			changes

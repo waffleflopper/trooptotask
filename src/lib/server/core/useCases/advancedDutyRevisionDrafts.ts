@@ -67,11 +67,44 @@ export interface AdvancedDutyRevisionChangeSetPersistenceResult {
 	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
 }
 
+interface RevisionActorMembershipRow {
+	user_id: string | null;
+	email: string | null;
+}
+
 function requireActorUserId(ctx: Pick<AdvancedDutyRevisionWriteContext, 'auth'>): string {
 	if (!ctx.auth.userId) {
 		fail(401, 'Sign in before editing Advanced Duty revision drafts.');
 	}
 	return ctx.auth.userId;
+}
+
+async function resolveRevisionActorLabels(
+	ctx: AdvancedDutyRevisionQueryContext,
+	actorUserIds: string[]
+): Promise<Map<string, string>> {
+	const labels = new Map<string, string>();
+	if (actorUserIds.length === 0) return labels;
+
+	const rows = await ctx.store.findMany<RevisionActorMembershipRow>(
+		'organization_memberships',
+		ctx.auth.orgId,
+		undefined,
+		{
+			inFilters: { user_id: actorUserIds },
+			select: 'user_id, email'
+		}
+	);
+
+	for (const row of rows) {
+		if (!row.user_id) continue;
+		const email = row.email?.trim();
+		if (email) {
+			labels.set(row.user_id, email);
+		}
+	}
+
+	return labels;
 }
 
 async function requireWritableAdvancedDuty(ctx: AdvancedDutyRevisionWriteContext): Promise<string> {
@@ -265,10 +298,16 @@ export async function listAdvancedDutyRevisionHistory(
 		orgId: ctx.auth.orgId,
 		changeSetIds: changeSets.map((changeSet) => changeSet.id)
 	});
+	const actorLabels = await resolveRevisionActorLabels(ctx, [
+		...new Set(changeSets.map((changeSet) => changeSet.actorUserId).filter((id): id is string => Boolean(id)))
+	]);
 	return buildAdvancedDutyRevisionHistoryModel({
 		changeSets,
 		slotChanges: AdvancedDutyRevisionSlotChangeEntity.fromDbArray(slotChangeRows)
-	});
+	}).map((entry) => ({
+		...entry,
+		actorLabel: entry.actorUserId ? (actorLabels.get(entry.actorUserId) ?? 'Actor unavailable') : 'Actor unavailable'
+	}));
 }
 
 export async function updateAdvancedDutyRevisionDraftChange(

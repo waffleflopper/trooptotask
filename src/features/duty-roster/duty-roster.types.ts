@@ -389,6 +389,76 @@ export interface AdvancedDutyRunSnapshotRecord {
 	updatedAt: string;
 }
 
+export type AdvancedDutyRevisionDraftStatus = 'draft' | 'applied' | 'discarded';
+export type AdvancedDutyRevisionChangeIntent = 'assign' | 'clear' | 'lock-assigned' | 'lock-open';
+
+export interface AdvancedDutyRevisionDraftRecord {
+	id: string;
+	orgId: string;
+	appliedRunId: string;
+	sourceSnapshotId: string | null;
+	sourceSnapshotFingerprint: string | null;
+	sourceRunCreatedAt: string | null;
+	sourceRunUpdatedAt: string | null;
+	status: AdvancedDutyRevisionDraftStatus;
+	slotChanges: unknown[];
+	reason: string | null;
+	latestValidation: Record<string, unknown> | null;
+	latestError: string | null;
+	conflictSummary: Record<string, unknown> | null;
+	draftVersion: number;
+	createdByUserId: string | null;
+	updatedByUserId: string | null;
+	appliedByUserId: string | null;
+	discardedByUserId: string | null;
+	expiresAt: string;
+	discardCleanupAfter: string | null;
+	appliedAt: string | null;
+	discardedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface AdvancedDutyRevisionChangeSetRecord {
+	id: string;
+	orgId: string;
+	appliedRunId: string;
+	sourceDraftId: string | null;
+	sourceSnapshotId: string | null;
+	sourceSnapshotFingerprint: string | null;
+	reason: string;
+	actorUserId: string | null;
+	reviewableConflictsConfirmed: boolean;
+	conflictSummary: Record<string, unknown> | null;
+	warningSummary: Record<string, unknown> | null;
+	appliedAt: string;
+	createdAt: string;
+}
+
+export interface AdvancedDutyRevisionSlotChangeRecord {
+	id: string;
+	orgId: string;
+	changeSetId: string;
+	dutyEventId: string | null;
+	eventDate: string;
+	slotKey: string;
+	templateSlotId: string | null;
+	roleLabel: string;
+	slotIndex: number;
+	previousPersonnelId: string | null;
+	newPersonnelId: string | null;
+	previousPersonnelSnapshot: Record<string, unknown> | null;
+	newPersonnelSnapshot: Record<string, unknown> | null;
+	previousAssignmentSource: DutyEventAssignmentSource | null;
+	newAssignmentSource: DutyEventAssignmentSource | null;
+	previousWarningState: DutyEventWarningState | null;
+	newWarningState: DutyEventWarningState | null;
+	changeIntent: AdvancedDutyRevisionChangeIntent;
+	warningMetadata: Record<string, unknown> | null;
+	conflictMetadata: Record<string, unknown> | null;
+	createdAt: string;
+}
+
 export interface DutyEventSlotOverrideInput {
 	templateSlotId: string | null;
 	slotIndex: number;

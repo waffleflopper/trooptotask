@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationFilename = '20260423000200_rating_scheme_helper_search_path.sql';
-const migrationPath = join(process.cwd(), 'supabase/migrations', migrationFilename);
+const migrationPath = join(process.cwd(), 'supabase/migrations/20260423000200_rating_scheme_helper_search_path.sql');
 const sql = readFileSync(migrationPath, 'utf8');
 
 function normalizedSql() {
@@ -11,10 +10,6 @@ function normalizedSql() {
 }
 
 describe('Rating Scheme helper search path migration', () => {
-	it('runs after the initial rating-scheme permission lane migration', () => {
-		expect(migrationFilename).toMatch(/^20260423000200_/);
-	});
-
 	it('pins search_path on the existing security definer rating-scheme helpers', () => {
 		const normalized = normalizedSql();
 

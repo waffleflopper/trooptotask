@@ -193,11 +193,11 @@ The product decision that a previewed **Advanced Run Snapshot** is persisted ser
 _Avoid_: Signed client payload, browser-owned run state
 
 **Advanced Duty Revision Draft**:
-The single active unapplied proposal for changing an already-applied **Advanced Duty Run** or event.
+The single active unapplied proposal for changing an already-applied **Advanced Duty Run**. It belongs to the applied run, may span multiple event dates, and stores only the current desired slot changes instead of copying the full **Advanced Run Snapshot**.
 _Avoid_: Parallel draft, hidden edit state, full snapshot copy per dropdown change
 
 **Advanced Duty Revision Change Set**:
-The compact append-only record of meaningful slot-level differences applied from an **Advanced Duty Revision Draft**, such as previous Soldier, new Soldier, cleared or locked state, reason, actor, and timestamp.
+The compact append-only record created when an **Advanced Duty Revision Draft** is reapplied, with meaningful slot-level differences such as previous Soldier, new Soldier, cleared or locked state, reason, actor, and timestamp.
 _Avoid_: Full roster snapshot copy, generic audit log only
 
 **Advanced Duty Workspace**:

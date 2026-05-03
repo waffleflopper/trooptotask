@@ -36,6 +36,7 @@
 		onDiscardDraft: () => void;
 		onReapplyDraft: () => void;
 		onReapplyReasonChange: (reason: string) => void;
+		onOpenDraftChangeDate: (eventDate: string) => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -75,6 +76,7 @@
 				onDiscardDraft={props.onDiscardDraft}
 				onReapplyDraft={props.onReapplyDraft}
 				onReapplyReasonChange={props.onReapplyReasonChange}
+				onOpenDraftChangeDate={props.onOpenDraftChangeDate}
 				onExportPacket={props.onExportPacket}
 				onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 				onUpdateSlotAssignee={props.onUpdateSlotAssignee}

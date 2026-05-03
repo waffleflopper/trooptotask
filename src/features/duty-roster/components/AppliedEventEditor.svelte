@@ -5,6 +5,7 @@
 		DutyEventPreview,
 		DutyEventPreviewSlotInstance
 	} from '../duty-roster.types';
+	import { listAdvancedDutyRevisionDraftSlotChanges } from '../advanced-run/advancedDutyRevision';
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import SlotPreviewItem from './SlotPreviewItem.svelte';
@@ -31,6 +32,7 @@
 		onDiscardDraft: () => void;
 		onReapplyDraft: () => void;
 		onReapplyReasonChange: (reason: string) => void;
+		onOpenDraftChangeDate: (eventDate: string) => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (confirmed: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
@@ -59,6 +61,7 @@
 		onDiscardDraft,
 		onReapplyDraft,
 		onReapplyReasonChange,
+		onOpenDraftChangeDate,
 		onExportPacket,
 		onCollisionConfirmedChange,
 		onUpdateSlotAssignee,
@@ -67,6 +70,7 @@
 	}: Props = $props();
 
 	const requiresCollisionReview = $derived(collisionMessages.length > 0);
+	const draftSlotChanges = $derived(revisionDraft ? listAdvancedDutyRevisionDraftSlotChanges(revisionDraft) : []);
 	const hasStagedChanges = $derived((revisionDraft?.slotChanges.length ?? 0) > 0);
 	const canSave = $derived(
 		!isLoadingPreview && !isRefreshing && !isSaving && !(requiresCollisionReview && !collisionReviewConfirmed)
@@ -136,6 +140,22 @@
 					operational duty record.
 				</p>
 			</div>
+			{#if draftSlotChanges.length > 0}
+				<div class="draft-change-list" aria-label="Staged revision changes">
+					{#each draftSlotChanges as change (`${change.eventDate}-${change.slotKey}`)}
+						<button
+							class="draft-change"
+							type="button"
+							disabled={isLocked}
+							onclick={() => onOpenDraftChangeDate(change.eventDate)}
+						>
+							<span>{formatDisplayDate(change.eventDate)}</span>
+							<strong>{change.roleLabel ?? change.slotKey} #{(change.slotIndex ?? 0) + 1}</strong>
+							<em>{formatAssignee(change.newPersonnelId ?? null)}</em>
+						</button>
+					{/each}
+				</div>
+			{/if}
 			<label class="reason-field">
 				<span>Reason</span>
 				<textarea
@@ -262,6 +282,45 @@
 	.reapply-copy p:last-child {
 		margin: 0;
 		color: var(--text-secondary);
+	}
+
+	.draft-change-list {
+		display: grid;
+		gap: var(--sp-2);
+	}
+
+	.draft-change {
+		display: grid;
+		grid-template-columns: minmax(110px, 0.7fr) minmax(120px, 1fr) minmax(120px, 1fr);
+		gap: var(--sp-2);
+		width: 100%;
+		padding: var(--sp-2);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		text-align: left;
+		color: var(--text-primary);
+		cursor: pointer;
+	}
+
+	.draft-change:hover:not(:disabled),
+	.draft-change:focus-visible {
+		border-color: var(--amber);
+		background: color-mix(in srgb, var(--amber-light) 34%, var(--surface-panel) 66%);
+	}
+
+	.draft-change span,
+	.draft-change em {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		font-style: normal;
+	}
+
+	.draft-change strong {
+		color: var(--text-primary);
 	}
 
 	.reason-field {

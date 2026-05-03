@@ -1,6 +1,7 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type {
+		AdvancedDutyRevisionDraftRecord,
 		AdvancedDutyRevisionHistoryEntry,
 		AdvancedDutyRevisionSlotChangeRecord,
 		DutyEvent
@@ -30,6 +31,7 @@
 		onRequestDeleteEvent: (event: DutyEvent) => void;
 		onRequestDeleteRun: (group: AppliedEventGroup) => void;
 		getRevisionHistory: (runId: string | null) => AdvancedDutyRevisionHistoryEntry[];
+		getRevisionDraft: (runId: string | null) => AdvancedDutyRevisionDraftRecord | null;
 		selectedEventId: string | null;
 	}
 
@@ -46,6 +48,7 @@
 		onRequestDeleteEvent,
 		onRequestDeleteRun,
 		getRevisionHistory,
+		getRevisionDraft,
 		selectedEventId
 	}: Props = $props();
 
@@ -86,6 +89,7 @@
 		/>
 	{:else}
 		{#each groups as group (group.key)}
+			{@const revisionDraft = getRevisionDraft(group.runId)}
 			<details class="applied-group">
 				<summary class="applied-group-summary">
 					<div>
@@ -93,8 +97,19 @@
 						<p class="template-meta">
 							{group.eventCount} applied event{group.eventCount === 1 ? '' : 's'} · {formatGroupRange(group)}
 						</p>
+						{#if revisionDraft}
+							<p class="draft-meta">
+								Revision draft v{revisionDraft.draftVersion} pending · {revisionDraft.slotChanges.length} staged change{revisionDraft
+									.slotChanges.length === 1
+									? ''
+									: 's'}
+							</p>
+						{/if}
 					</div>
 					<div class="summary-actions">
+						{#if revisionDraft}
+							<span class="draft-pill">Draft pending</span>
+						{/if}
 						{#if group.isLegacy}
 							<span class="legacy-pill">Legacy</span>
 						{/if}
@@ -270,6 +285,15 @@
 		color: var(--text-secondary);
 	}
 
+	.draft-meta {
+		margin: var(--sp-2) 0 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+	}
+
 	.applied-group-hint {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
@@ -285,7 +309,8 @@
 		gap: var(--sp-2);
 	}
 
-	.legacy-pill {
+	.legacy-pill,
+	.draft-pill {
 		display: inline-flex;
 		align-items: center;
 		padding: 2px 8px;
@@ -296,6 +321,11 @@
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
+	}
+
+	.draft-pill {
+		border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--border-default) 68%);
+		background: color-mix(in srgb, var(--amber-light) 52%, var(--surface-panel) 48%);
 	}
 
 	.applied-ledger {

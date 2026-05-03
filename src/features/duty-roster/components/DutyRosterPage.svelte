@@ -68,6 +68,7 @@
 			advancedDutyEvents: DutyEvent[];
 			advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
 			advancedDutyRevisionHistory?: AdvancedDutyRevisionHistoryEntry[];
+			advancedDutyRevisionDrafts?: AdvancedDutyRevisionDraftRecord[];
 		};
 	}
 
@@ -877,6 +878,7 @@
 					{advancedDutyEvents}
 					{advancedDutySnapshots}
 					advancedDutyRevisionHistory={data.advancedDutyRevisionHistory ?? []}
+					advancedDutyRevisionDrafts={data.advancedDutyRevisionDrafts ?? []}
 					{personnelById}
 					{previewPersonnelOptions}
 					onStartAdvancedRevisionDraft={handleStartAdvancedRevisionDraft}

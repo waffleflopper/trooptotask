@@ -78,7 +78,8 @@ describe('duty roster page', () => {
 					advancedDutyTemplates: [],
 					advancedDutyEvents: [],
 					advancedDutySnapshots: [makeSnapshot()],
-					advancedDutyRevisionHistory: []
+					advancedDutyRevisionHistory: [],
+					advancedDutyRevisionDrafts: []
 				}
 			}
 		});

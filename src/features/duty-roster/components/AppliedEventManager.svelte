@@ -40,6 +40,7 @@
 		advancedDutyEvents: DutyEvent[];
 		advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
 		advancedDutyRevisionHistory?: AdvancedDutyRevisionHistoryEntry[];
+		advancedDutyRevisionDrafts?: AdvancedDutyRevisionDraftRecord[];
 		personnelById: Map<string, Personnel>;
 		previewPersonnelOptions: Personnel[];
 		onStartAdvancedRevisionDraft: (input: { dutyEventId: string }) => Promise<AdvancedDutyRevisionDraftSession | null>;
@@ -59,6 +60,7 @@
 		advancedDutyEvents,
 		advancedDutySnapshots = [],
 		advancedDutyRevisionHistory = [],
+		advancedDutyRevisionDrafts = [],
 		personnelById,
 		previewPersonnelOptions,
 		onStartAdvancedRevisionDraft,
@@ -85,6 +87,8 @@
 	let isReapplyingRevisionDraft = $state(false);
 	let revisionReapplyReason = $state('');
 	let revisionReapplyError = $state<string | null>(null);
+	let activeRevisionDrafts = $state<AdvancedDutyRevisionDraftRecord[]>([]);
+	let loadedRevisionDraftKey = $state('');
 	let pendingEventDelete = $state<DutyEvent | null>(null);
 	let pendingRunDelete = $state<AppliedEventRunGroup | null>(null);
 	let selectedDa6Snapshot = $state<AdvancedDutyRunSnapshotRecord | null>(null);
@@ -99,6 +103,13 @@
 			historyByRun[runId] = [...entries].sort((left, right) => right.appliedAt.localeCompare(left.appliedAt));
 		}
 		return historyByRun;
+	});
+	const activeRevisionDraftByRunId = $derived.by(() => {
+		return new Map(
+			activeRevisionDrafts
+				.filter((draft) => draft.status === 'draft')
+				.map((draft) => [draft.appliedRunId, draft] as const)
+		);
 	});
 	const selectedAppliedEvent = $derived(
 		selectedAppliedEventId ? (appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null) : null
@@ -122,6 +133,15 @@
 					.filter(([, matrices]) => matrices.length > 0)
 			)
 	);
+
+	$effect(() => {
+		const nextKey = advancedDutyRevisionDrafts
+			.map((draft) => `${draft.id}:${draft.status}:${draft.updatedAt}`)
+			.join('|');
+		if (nextKey === loadedRevisionDraftKey) return;
+		loadedRevisionDraftKey = nextKey;
+		activeRevisionDrafts = advancedDutyRevisionDrafts.filter((draft) => draft.status === 'draft');
+	});
 
 	function getSnapshotDa6Matrices(snapshot: AdvancedDutyRunSnapshotRecord | null): AdvancedDutyDa6Matrix[] {
 		const payload = snapshot?.snapshotPayload as { da6Matrices?: AdvancedDutyDa6Matrix[] } | undefined;
@@ -169,6 +189,16 @@
 		return Boolean(group.runId && da6SnapshotByRunId.has(group.runId));
 	}
 
+	function upsertActiveRevisionDraft(draft: AdvancedDutyRevisionDraftRecord) {
+		activeRevisionDrafts =
+			draft.status === 'draft'
+				? [
+						draft,
+						...activeRevisionDrafts.filter((item) => item.id !== draft.id && item.appliedRunId !== draft.appliedRunId)
+					]
+				: activeRevisionDrafts.filter((item) => item.id !== draft.id && item.appliedRunId !== draft.appliedRunId);
+	}
+
 	async function openAppliedEventEditor(event: DutyEvent) {
 		const eventId = event.id;
 		selectedAppliedEventId = eventId;
@@ -182,6 +212,7 @@
 			const session = await onStartAdvancedRevisionDraft({ dutyEventId: event.id });
 			if (session && selectedAppliedEventId === eventId) {
 				appliedEventRevisionDraft = session.draft;
+				upsertActiveRevisionDraft(session.draft);
 				appliedEventPreview = session.preview;
 				appliedEventOverrides = buildSlotOverridesFromPreview(session.preview.slotInstances);
 			}
@@ -202,6 +233,7 @@
 			const session = await onUpdateAdvancedRevisionDraft({ dutyEventId: eventId, slotOverrides: nextOverrides });
 			if (session && selectedAppliedEventId === eventId) {
 				appliedEventRevisionDraft = session.draft;
+				upsertActiveRevisionDraft(session.draft);
 				appliedEventPreview = session.preview;
 				appliedEventCollisionReviewConfirmed = false;
 			}
@@ -257,6 +289,7 @@
 		try {
 			const discarded = await onDiscardAdvancedRevisionDraft({ dutyEventId: selectedAppliedEventId });
 			if (discarded) {
+				upsertActiveRevisionDraft(discarded);
 				closeAppliedEventEditor();
 			}
 		} finally {
@@ -288,11 +321,21 @@
 				const updatedById = new Map(result.updatedEvents.map((event) => [event.id, event] as const));
 				appliedAdvancedEvents = appliedAdvancedEvents.map((event) => updatedById.get(event.id) ?? event);
 			}
+			upsertActiveRevisionDraft(result.draft);
 			closeAppliedEventEditor();
 		} catch (error) {
 			revisionReapplyError = error instanceof Error ? error.message : 'Advanced Duty revision could not be reapplied.';
 		} finally {
 			isReapplyingRevisionDraft = false;
+		}
+	}
+
+	function openRevisionDraftChangeDate(eventDate: string) {
+		const runId = selectedAppliedEvent?.runId;
+		if (!runId || selectedAppliedEvent?.eventDate === eventDate) return;
+		const event = appliedAdvancedEvents.find((item) => item.runId === runId && item.eventDate === eventDate);
+		if (event) {
+			void openAppliedEventEditor(event);
 		}
 	}
 
@@ -361,6 +404,7 @@
 	onRequestDeleteEvent={(event) => (pendingEventDelete = event)}
 	onRequestDeleteRun={(group) => (pendingRunDelete = group)}
 	getRevisionHistory={(runId) => (runId ? (revisionHistoryByRunId[runId] ?? []) : [])}
+	getRevisionDraft={(runId) => (runId ? (activeRevisionDraftByRunId.get(runId) ?? null) : null)}
 />
 
 {#if selectedDa6Snapshot && selectedDa6Matrices.length > 0}
@@ -401,6 +445,7 @@
 		revisionReapplyReason = reason;
 		revisionReapplyError = null;
 	}}
+	onOpenDraftChangeDate={openRevisionDraftChangeDate}
 	onExportPacket={exportAppliedDutyPacket}
 	onCollisionConfirmedChange={(value) => (appliedEventCollisionReviewConfirmed = value)}
 	onUpdateSlotAssignee={updateAppliedEventSlotAssignee}

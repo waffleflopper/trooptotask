@@ -16,17 +16,19 @@ afterEach(() => {
 	cleanup();
 });
 
-function makeEvent(): DutyEvent {
+function makeEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
+	const id = overrides.id ?? 'event-1';
+	const eventDate = overrides.eventDate ?? '2026-04-10';
 	return {
-		id: 'event-1',
+		id,
 		orgId: 'test-org',
 		runId: 'run-1',
 		templateId: 'template-1',
 		templateName: 'Battalion Staff Duty',
-		eventDate: '2026-04-10',
+		eventDate,
 		coverageMode: 'timed',
-		coverageStart: '2026-04-10T08:00:00.000Z',
-		coverageEnd: '2026-04-11T08:00:00.000Z',
+		coverageStart: overrides.coverageStart ?? `${eventDate}T08:00:00.000Z`,
+		coverageEnd: overrides.coverageEnd ?? `${eventDate}T20:00:00.000Z`,
 		isBlocking: true,
 		cooldownHours: 24,
 		rulesSnapshot: {
@@ -53,7 +55,7 @@ function makeEvent(): DutyEvent {
 		slotInstances: [
 			{
 				id: 'event-slot-1',
-				dutyEventId: 'event-1',
+				dutyEventId: id,
 				templateSlotId: 'slot-nco',
 				roleLabel: 'NCO',
 				slotIndex: 0,
@@ -66,7 +68,8 @@ function makeEvent(): DutyEvent {
 				sortOrder: 0
 			}
 		],
-		run: null
+		run: null,
+		...overrides
 	};
 }
 
@@ -280,7 +283,71 @@ describe('AppliedEventManager revision draft workflow', () => {
 		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
 
 		await waitFor(() => expect(onStartAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
-		expect(screen.getByText(/Draft v3 pending/i)).not.toBeNull();
+		expect(screen.getAllByText(/Draft v3 pending/i).length).toBeGreaterThan(0);
+	});
+
+	it('shows pending draft state across an applied run and can open a changed date', async () => {
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+		const runDraft = makeDraft({
+			draftVersion: 4,
+			slotChanges: [
+				{
+					eventDate: '2026-04-10',
+					slotKey: 'slot-nco:0',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					newPersonnelId: 'person-bravo'
+				},
+				{
+					eventDate: '2026-04-11',
+					slotKey: 'slot-nco:0',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					newPersonnelId: null
+				}
+			]
+		});
+		const onStartAdvancedRevisionDraft = vi.fn(async () =>
+			makeSession({
+				action: 'reopened',
+				draft: runDraft
+			})
+		);
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [
+				makeEvent(),
+				makeEvent({
+					id: 'event-2',
+					eventDate: '2026-04-11',
+					coverageStart: '2026-04-11T08:00:00.000Z',
+					coverageEnd: '2026-04-11T20:00:00.000Z'
+				})
+			],
+			advancedDutySnapshots: [],
+			advancedDutyRevisionDrafts: [runDraft],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft,
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		expect(screen.getByText('Draft pending')).not.toBeNull();
+		expect(screen.getByText(/Revision draft v4 pending/i)).not.toBeNull();
+		expect(screen.getByText(/2 staged changes/i)).not.toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Open Event Apr 10, 2026/i }));
+
+		await waitFor(() => expect(screen.getAllByText(/Draft v4 pending/i).length).toBeGreaterThan(0));
+		expect(screen.getByRole('button', { name: /Apr 10, 2026 NCO #1 SGT Bravo/i })).not.toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: /Apr 11, 2026 NCO #1 Unfilled/i }));
+
+		await waitFor(() => expect(onStartAdvancedRevisionDraft).toHaveBeenLastCalledWith({ dutyEventId: 'event-2' }));
 	});
 
 	it('opens, updates, and discards a revision draft without calling direct event update handlers', async () => {
@@ -317,7 +384,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
 
 		await waitFor(() => expect(onStartAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
-		expect(screen.getByText(/Draft v1 pending/i)).not.toBeNull();
+		expect(screen.getAllByText(/Draft v1 pending/i).length).toBeGreaterThan(0);
 		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Draft Autosaved/i }).disabled).toBe(true);
 
 		await fireEvent.change(screen.getByLabelText(/Assignee for/i), { target: { value: 'person-bravo' } });
@@ -335,12 +402,53 @@ describe('AppliedEventManager revision draft workflow', () => {
 				]
 			})
 		);
-		expect(screen.getByText(/Draft v2 pending/i)).not.toBeNull();
+		expect(screen.getAllByText(/Draft v2 pending/i).length).toBeGreaterThan(0);
 
 		await fireEvent.click(screen.getByRole('button', { name: /Discard Draft/i }));
 
 		await waitFor(() => expect(onDiscardAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
 		expect(screen.queryByText(/Draft v2 pending/i)).toBeNull();
+	});
+
+	it('clears the run-level draft indicator when discarding a pending draft', async () => {
+		const onDiscardAdvancedRevisionDraft = vi.fn(async () =>
+			makeDraft({ status: 'discarded', discardedAt: '2026-04-10T02:00:00.000Z' })
+		);
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			advancedDutyRevisionDrafts: [
+				makeDraft({
+					slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+				})
+			],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [{ eventDate: '2026-04-10', slotKey: 'slot-nco:0', newPersonnelId: 'person-bravo' }]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft,
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		expect(screen.getByText('Draft pending')).not.toBeNull();
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.click(await screen.findByRole('button', { name: /Discard Draft/i }));
+
+		await waitFor(() => expect(onDiscardAdvancedRevisionDraft).toHaveBeenCalledWith({ dutyEventId: 'event-1' }));
+		expect(screen.queryByText('Draft pending')).toBeNull();
 	});
 
 	it('requires a reason before reapplying a staged revision draft', async () => {

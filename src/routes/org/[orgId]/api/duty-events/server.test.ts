@@ -347,7 +347,7 @@ describe('PUT /api/duty-events/[eventId]', () => {
 		expect(updateExistingConfig.mutation).toBe(true);
 	});
 
-	it('updates an applied advanced duty event in place', async () => {
+	it('blocks direct updates to applied Advanced Duty Run events', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
 		const applied = await handleUseCaseRequest(
@@ -373,23 +373,18 @@ describe('PUT /api/duty-events/[eventId]', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(updateExistingConfig, ctx, {
-			dutyEventId: applied.id,
-			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
-		});
-
-		expect(result).toMatchObject({
-			id: applied.id,
-			eventDate: '2026-04-10'
-		});
-		expect(result.slotInstances[0]).toMatchObject({
-			templateSlotId: template.slots[0]?.id,
-			assigneeId: PERSON_ALT_NCO_ID,
-			assignmentSource: 'manual'
+		await expect(
+			handleUseCaseRequest(updateExistingConfig, ctx, {
+				dutyEventId: applied.id,
+				slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: expect.stringContaining('revision draft workflow')
 		});
 	});
 
-	it('blocks update at the route layer until collision review is confirmed', async () => {
+	it('returns the revision workflow block before collision review for applied Advanced Duty Run events', async () => {
 		const ctx = createTestContext();
 		const template = await seedTemplate(ctx);
 		const applied = await handleUseCaseRequest(
@@ -416,8 +411,8 @@ describe('PUT /api/duty-events/[eventId]', () => {
 				dutyEventId: applied.id
 			})
 		).rejects.toMatchObject({
-			status: 400,
-			message: 'Collision review is required before saving this duty event.'
+			status: 409,
+			message: expect.stringContaining('revision draft workflow')
 		});
 	});
 });

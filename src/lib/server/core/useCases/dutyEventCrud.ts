@@ -1089,6 +1089,16 @@ function buildSlotOverridesFromDutyEvent(event: DutyEvent): DutyEventSlotOverrid
 	}));
 }
 
+function assertLegacyDirectUpdateAllowed(event: DutyEvent): void {
+	// Deprecated compatibility path: legacy/non-run events may still use direct updates.
+	if (event.run && !event.run.isLegacy) {
+		fail(
+			409,
+			'Applied Advanced Duty events must be changed through the revision draft workflow. Open a revision draft, review the changes, and reapply it.'
+		);
+	}
+}
+
 async function getDutyEventById(ctx: QueryPorts, dutyEventId: string): Promise<DutyEvent> {
 	const eventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
 		id: dutyEventId
@@ -1839,6 +1849,7 @@ export async function updateExistingDutyEvent(
 	}
 
 	const existingEvent = await getDutyEventById(ctx, input.dutyEventId);
+	assertLegacyDirectUpdateAllowed(existingEvent);
 	const template = buildTemplateFromRulesSnapshot(existingEvent.rulesSnapshot);
 	const preview = await buildDutyEventPreviewFromResolvedTemplate(
 		ctx,

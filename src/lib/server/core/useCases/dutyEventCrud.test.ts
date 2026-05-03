@@ -64,6 +64,13 @@ function seedAuthorizedAbsenceStatus(ctx: ReturnType<typeof createTestContext>) 
 	]);
 }
 
+async function markDutyEventRunLegacy(ctx: ReturnType<typeof createTestContext>, runId: string | null) {
+	if (!runId) return;
+	await ctx.store.update('duty_event_runs', ctx.auth.orgId, runId, {
+		is_legacy: true
+	});
+}
+
 describe('duty event apply use case', () => {
 	it('rejects single-event apply without approved snapshot metadata', async () => {
 		const ctx = createTestContext();
@@ -5714,7 +5721,7 @@ describe('existing duty event editing', () => {
 		});
 	});
 
-	it('updates an existing duty event in place after regenerating its team preview', async () => {
+	it('blocks direct updates to applied Advanced Duty Run events', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -5776,24 +5783,14 @@ describe('existing duty event editing', () => {
 			selection_reason: 'Manually edited after apply.'
 		});
 
-		const updated = await updateExistingDutyEvent(ctx, {
-			dutyEventId: applied.id,
-			slotOverrides: []
-		});
-
-		expect(updated).toMatchObject({
-			id: applied.id,
-			eventDate: '2026-04-10',
-			fillSummary: {
-				totalSlots: 1,
-				filledSlots: 1,
-				unfilledSlots: 0
-			}
-		});
-		expect(updated.slotInstances[0]).toMatchObject({
-			templateSlotId: template.slots[0].id,
-			assigneeId: 'person-earlier',
-			assignmentSource: 'generated'
+		await expect(
+			updateExistingDutyEvent(ctx, {
+				dutyEventId: applied.id,
+				slotOverrides: []
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: expect.stringContaining('revision draft workflow')
 		});
 
 		const storedSlots = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
@@ -5801,8 +5798,8 @@ describe('existing duty event editing', () => {
 		});
 		expect(storedSlots).toHaveLength(1);
 		expect(storedSlots[0]).toMatchObject({
-			assignee_id: 'person-earlier',
-			assignment_source: 'generated'
+			assignee_id: 'person-later',
+			assignment_source: 'manual'
 		});
 	});
 
@@ -5861,6 +5858,7 @@ describe('existing duty event editing', () => {
 			templateId: template.id,
 			eventDate: '2026-04-10'
 		});
+		await markDutyEventRunLegacy(ctx, applied.runId);
 
 		const originalProposal = applied.originalProposal;
 		expect(originalProposal).not.toBeNull();
@@ -5968,6 +5966,7 @@ describe('existing duty event editing', () => {
 			templateId: template.id,
 			eventDate: '2026-04-10'
 		});
+		await markDutyEventRunLegacy(ctx, applied.runId);
 
 		expect(applied.slotInstances[0].fairnessConfidence).toBe('medium');
 
@@ -6039,6 +6038,7 @@ describe('existing duty event editing', () => {
 			templateId: template.id,
 			eventDate: '2026-04-10'
 		});
+		await markDutyEventRunLegacy(ctx, applied.runId);
 
 		const previousEventRow = JSON.parse(
 			JSON.stringify(

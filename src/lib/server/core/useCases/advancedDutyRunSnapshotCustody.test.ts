@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { AdvancedRunSnapshotPayload } from './advancedDutyRunSnapshotCustody';
 import {
+	assertAdvancedRunSnapshotIncludesEvent,
 	assertApprovedSingleAdvancedRunSnapshot,
 	buildAdvancedRunOriginalProposal,
 	buildApprovedAdvancedRunEventPreview,
@@ -225,5 +226,29 @@ describe('advanced duty run snapshot custody', () => {
 			applied_run_id: 'run-1',
 			applied_at: '2026-04-10T01:02:00.000Z'
 		});
+	});
+
+	it('rejects single-event apply when an approved series snapshot does not include the requested event', async () => {
+		const ctx = createTestContext();
+		const metadata = await createDraftAdvancedRunSnapshot(ctx, {
+			templateId: 'template-1',
+			templateName: 'Battalion Staff Duty',
+			pattern: 'weekday-only',
+			eventDates: ['2026-04-10'],
+			inputPayload: { templateId: 'template-1', startDate: '2026-04-10', endDate: '2026-04-10' },
+			snapshotPayload: snapshotPayload(),
+			previewPayload: snapshotPayload().events[0].preview as unknown as Record<string, unknown>
+		});
+		const approved = await loadApprovedAdvancedRunSnapshot(ctx, metadata);
+
+		expect(() =>
+			assertAdvancedRunSnapshotIncludesEvent(approved, { templateId: 'template-1', eventDate: '2026-04-10' })
+		).not.toThrow();
+		expect(() =>
+			assertAdvancedRunSnapshotIncludesEvent(approved, { templateId: 'template-1', eventDate: '2026-04-11' })
+		).toThrow('Regenerate the advanced duty preview before applying.');
+		expect(() =>
+			assertAdvancedRunSnapshotIncludesEvent(approved, { templateId: 'template-other', eventDate: '2026-04-10' })
+		).toThrow('Regenerate the advanced duty preview before applying.');
 	});
 });

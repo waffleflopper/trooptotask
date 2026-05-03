@@ -135,11 +135,7 @@ function normalizeDates(values: string[]): string[] {
 	return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
-function assertSnapshotInputMatches(
-	snapshot: AdvancedDutyRunSnapshotRecord,
-	currentInput: Record<string, unknown>,
-	storedInput: Record<string, unknown>
-): void {
+function assertSnapshotInputMatches(currentInput: Record<string, unknown>, storedInput: Record<string, unknown>): void {
 	if (stableStringify(currentInput) !== stableStringify(storedInput)) {
 		fail(400, getRegenerateAdvancedRunSnapshotMessage());
 	}
@@ -197,7 +193,6 @@ export function assertApprovedSingleAdvancedRunSnapshot(
 		fail(400, getRegenerateAdvancedRunSnapshotMessage());
 	}
 	assertSnapshotInputMatches(
-		snapshot,
 		normalizeSingleApplyInputForSnapshotCompare(input),
 		normalizeSingleApplyInputForSnapshotCompare(snapshot.inputPayload as unknown as DutyEventApplyInput)
 	);
@@ -225,7 +220,6 @@ export function assertApprovedSeriesAdvancedRunSnapshot(
 		fail(400, getRegenerateAdvancedRunSnapshotMessage());
 	}
 	assertSnapshotInputMatches(
-		snapshot,
 		normalizeSeriesApplyInputForSnapshotCompare(input),
 		normalizeSeriesApplyInputForSnapshotCompare(snapshot.inputPayload as unknown as DutyEventSeriesInput)
 	);

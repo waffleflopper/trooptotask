@@ -25,7 +25,6 @@
 			<a href="/features" class="nav-link" class:active={active === 'features'}>Features</a>
 			<a href="/pricing" class="nav-link" class:active={active === 'pricing'}>Pricing</a>
 			<a href="/security" class="nav-link" class:active={active === 'security'}>Security</a>
-			<a href={roadmapHref} class="nav-link">Roadmap</a>
 			{#if showFaqLink}
 				<a href={faqHref} class="nav-link">FAQ</a>
 			{/if}

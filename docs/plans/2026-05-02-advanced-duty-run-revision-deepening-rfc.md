@@ -8,7 +8,7 @@ Published parent issue: [#776](https://github.com/waffleflopper/trooptotask/issu
 
 The first Advanced Duty Run RFC established **Snapshot Custody** and the first apply path. This follow-on RFC covers the remaining architecture gap: after an **Advanced Run Snapshot** is applied, edits still risk becoming direct event mutations instead of reviewed, explainable run revisions.
 
-The goal is not a helper-function shuffle. The goal is a deeper module with a smaller Interface:
+The goal is not a helper-function shuffle. The goal is a deeper module with a smaller interface:
 
 - first preview and first apply go through the **Advanced Run Snapshot**
 - post-apply edits go through one active **Advanced Duty Revision Draft**
@@ -74,7 +74,7 @@ Reviewable conflicts:
 
 `updateExistingDutyEvent` continues to rebuild a preview from current data and immediately mutate `duty_events` / `duty_event_slots`.
 
-Rejected. This is the shallow Interface that caused the current concern. It lets post-apply edits drift away from **Snapshot Custody**, makes revisions hard to explain, and keeps product rules spread through `dutyEventCrud.ts`.
+Rejected. This is the shallow interface that caused the current concern. It lets post-apply edits drift away from **Snapshot Custody**, makes revisions hard to explain, and keeps product rules spread through `dutyEventCrud.ts`.
 
 ### Option B: Store Full Revision Snapshots
 
@@ -93,7 +93,7 @@ Create a deeper revision path behind the Advanced Duty Run module:
 - apply the reviewed change set to operational `duty_events` / `duty_event_slots`
 - expose revision history for the **Advanced Duty Workspace**
 
-Recommended. This keeps the Interface product-shaped and small: draft, review, reapply, discard, history. The implementation can still use internal seams for persistence, safety validation, and event updates.
+Recommended. This keeps the interface product-shaped and small: draft, review, reapply, discard, history. The implementation can still use internal seams for persistence, safety validation, and event updates.
 
 ### Option D: Generic Audit Log Only
 
@@ -225,7 +225,7 @@ Add a feature-owned module that can build/reopen a draft from an applied **Advan
 
 Acceptance criteria:
 
-- Module Interface covers draft creation/reopen, draft update, discard, reapply validation, change-set derivation, and revision-history display model.
+- Module interface covers draft creation/reopen, draft update, discard, reapply validation, change-set derivation, and revision-history display model.
 - The module does not query Supabase or mutate operational records directly.
 - Tests cover one active draft, multi-date run changes, compact change-set output, no full-snapshot duplication, hard conflicts, reviewable conflicts, and required reason handling.
 - Existing first-preview / first-apply snapshot tests remain unchanged.
@@ -329,7 +329,7 @@ Acceptance criteria:
 5. [#781](https://github.com/waffleflopper/trooptotask/issues/781) AFK: Replace direct post-apply event edits with draft review.
 6. [#782](https://github.com/waffleflopper/trooptotask/issues/782) AFK: Implement reapply with live safety validation.
 7. [#783](https://github.com/waffleflopper/trooptotask/issues/783) AFK: Add revision history to the Advanced Duty Workspace.
-8. [#784](https://github.com/waffleflopper/trooptotask/issues/784) AFK: Thin `dutyEventCrud.ts` around the new module Interface.
+8. [#784](https://github.com/waffleflopper/trooptotask/issues/784) AFK: Thin `dutyEventCrud.ts` around the new module interface.
 
 ## Verification Expectations
 

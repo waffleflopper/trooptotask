@@ -83,15 +83,7 @@ function buildDraftLineageKey(input: {
 	pattern: AdvancedRunSnapshotPattern;
 	eventDates: string[];
 }): string {
-	return createHash('sha256')
-		.update(
-			stableStringify({
-				templateId: input.templateId,
-				pattern: input.pattern,
-				eventDates: input.eventDates
-			})
-		)
-		.digest('hex');
+	return `${input.templateId}:${input.pattern}:${input.eventDates.join('|')}`;
 }
 
 export function omitPreviewOnlyDa6Matrices<T extends Record<string, unknown>>(previewPayload: T): T {

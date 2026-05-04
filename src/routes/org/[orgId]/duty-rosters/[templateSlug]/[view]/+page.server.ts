@@ -264,11 +264,15 @@ export const actions: Actions = {
 	},
 	updateSettings: async (event) => {
 		const formData = await event.request.formData();
+		let slug = event.params.templateSlug;
 
 		try {
 			const ctx = await buildRouteContext(event);
-			await updateDutyRosterTemplateSettings(ctx, {
+			const updated = await updateDutyRosterTemplateSettings(ctx, {
 				templateId: String(formData.get('templateId') ?? ''),
+				name: String(formData.get('name') ?? ''),
+				slug: String(formData.get('slug') ?? ''),
+				shortCode: String(formData.get('shortCode') ?? ''),
 				poolCriteria: {
 					rankValues: formValues(formData, 'rankValues'),
 					groupIds: formValues(formData, 'groupIds'),
@@ -278,6 +282,7 @@ export const actions: Actions = {
 				exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds'),
 				manualBaselineCounts: parseBaselineCounts(formData)
 			});
+			slug = updated.slug;
 		} catch (errorValue) {
 			return actionError(errorValue, {
 				key: 'settingsError',
@@ -285,6 +290,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/settings`);
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${slug}/settings`);
 	}
 };

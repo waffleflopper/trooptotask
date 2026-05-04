@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	applyDutyRosterTemplateManualSelection,
+	buildDutyRosterTemplateAcceptedSnapshot,
 	buildDutyRosterTemplatePreview,
 	manualSelectionForDate,
 	previewFinalAssigneeId
@@ -184,6 +185,41 @@ describe('buildDutyRosterTemplatePreview', () => {
 			warnings: []
 		});
 		expect(Object.isFrozen(updated)).toBe(true);
+	});
+
+	it('builds accepted DA6 and export output from final manual selections', () => {
+		const preview = buildDutyRosterTemplatePreview({
+			template,
+			personnel: [
+				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' })
+			],
+			availabilityEntries: [],
+			statusTypes,
+			specialDays: [],
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const updated = applyDutyRosterTemplateManualSelection(preview, {
+			date: '2026-06-01',
+			assigneeId: 'bravo'
+		});
+
+		const snapshot = buildDutyRosterTemplateAcceptedSnapshot({
+			preview: updated,
+			acceptedAt: '2026-06-01T12:00:00.000Z',
+			acceptedByUserId: 'user-1'
+		});
+
+		expect(snapshot.finalRows[0]).toMatchObject({
+			generatedAssigneeId: 'alpha',
+			finalAssigneeId: 'bravo',
+			assignmentSource: 'manual'
+		});
+		expect(snapshot.da6.rows.map((row) => row.cells[0].assigned)).toEqual([false, true]);
+		expect(snapshot.da6.rows.map((row) => row.cells[0].code)).toEqual(['available-not-selected', 'assigned']);
+		expect(snapshot.exportModel.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'bravo' }]);
+		expect(snapshot.exportModel.da6.rows.map((row) => row.cells[0].assigned)).toEqual([false, true]);
 	});
 
 	it('hard-blocks missing or archived Personnel Records from manual selections', () => {

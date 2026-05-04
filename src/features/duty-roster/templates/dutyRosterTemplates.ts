@@ -74,6 +74,9 @@ export interface DutyRosterTemplateCountReadModel {
 
 export interface DutyRosterTemplateSettingsInput {
 	templateId: string;
+	name?: string | null;
+	slug?: string | null;
+	shortCode?: string | null;
 	poolCriteria: DutyRosterPoolCriteria;
 	exemptPersonnelIds: string[];
 	manualBaselineCounts: Record<string, number | null | undefined>;
@@ -178,6 +181,11 @@ export function slugifyDutyRosterTemplateName(value: string): string {
 		.replace(/-+$/g, '');
 
 	return slug || DEFAULT_SLUG;
+}
+
+export function normalizeDutyRosterTemplateSlug(value: string | null | undefined, fallbackName: string): string {
+	const normalized = value?.trim() ? value : fallbackName;
+	return slugifyDutyRosterTemplateName(normalized ?? fallbackName);
 }
 
 export function buildUniqueDutyRosterTemplateSlug(input: { name: string; existingSlugs: Iterable<string> }): string {

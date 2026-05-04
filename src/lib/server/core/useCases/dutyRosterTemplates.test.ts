@@ -345,6 +345,9 @@ describe('Duty Roster Template use cases', () => {
 		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
 		const updated = await updateDutyRosterTemplateSettings(ctx, {
 			templateId: template.id,
+			name: template.name,
+			slug: template.slug,
+			shortCode: template.shortCode,
 			poolCriteria: {
 				rankValues: ['SGT', 'CPL'],
 				groupIds: ['alpha'],
@@ -359,6 +362,53 @@ describe('Duty Roster Template use cases', () => {
 
 		expect(settings.resolvedPool.map((person) => person.id)).toEqual(['p1', 'p2']);
 		expect(settings.baselineRows.map((row) => [row.personnel.id, row.startingCount])).toEqual([['p2', 4]]);
+	});
+
+	it('updates template identity settings and keeps the companion Calendar assignment type aligned', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			name: 'Staff Duty NCO',
+			slug: 'staff-duty-nco',
+			shortCode: 'SD',
+			poolCriteria: template.poolCriteria,
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+
+		expect(updated).toMatchObject({
+			name: 'Staff Duty NCO',
+			slug: 'staff-duty-nco',
+			shortCode: 'SD'
+		});
+		expect(assignmentTypeRows[0]).toMatchObject({
+			id: template.assignmentTypeId,
+			name: 'Staff Duty NCO',
+			short_name: 'SD'
+		});
+	});
+
+	it('rejects template slug collisions inside the Organization during settings updates', async () => {
+		const ctx = createCtx();
+		const first = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await createDutyRosterTemplate(ctx, { name: 'Staff Duty NCO', shortCode: 'SD' });
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: first.id,
+				name: first.name,
+				slug: 'staff-duty-nco',
+				shortCode: first.shortCode,
+				poolCriteria: first.poolCriteria,
+				exemptPersonnelIds: [],
+				manualBaselineCounts: {}
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duty Roster Template slug is already in use.'
+		});
 	});
 
 	it('rejects exemptions and Manual DA6 Baseline counts outside the resolved non-exempt pool', async () => {
@@ -603,7 +653,7 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
-	it('rebuilds accepted snapshots from server state instead of trusting hidden preview rows', async () => {
+	it('rejects accepted previews whose generated rows no longer match the reviewed preview', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
@@ -620,21 +670,40 @@ describe('Duty Roster Template use cases', () => {
 			rosterRows: [{ date: '2026-06-01', assigneeId: 'bravo' }]
 		};
 
-		await acceptDutyRosterTemplatePreview(ctx, {
-			preview: JSON.stringify(tamperedPreview)
+		await expect(
+			acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(tamperedPreview)
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Duty Roster preview changed. Generate the preview again before accepting.'
 		});
+		expect(acceptedRunRows).toHaveLength(0);
+	});
 
-		expect(acceptedRunRows[0].snapshot_payload).toMatchObject({
-			generatedRows: [{ date: '2026-06-01', assigneeId: 'alpha' }],
-			finalRows: [
-				{
-					date: '2026-06-01',
-					generatedAssigneeId: 'alpha',
-					finalAssigneeId: 'alpha',
-					assignmentSource: 'generated'
-				}
-			]
+	it('rejects stale accepted previews instead of silently accepting changed current state', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
 		});
+		personnelRows[0].last_name = 'Changed';
+
+		await expect(
+			acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Duty Roster preview changed. Generate the preview again before accepting.'
+		});
+		expect(acceptedRunRows).toHaveLength(0);
 	});
 
 	it('accepts a preview before applying it to Calendar with run row lineage', async () => {

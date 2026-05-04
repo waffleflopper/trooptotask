@@ -8,6 +8,7 @@ import {
 	EMPTY_DUTY_ROSTER_POOL_CRITERIA,
 	normalizeDutyRosterShortCode,
 	normalizeDutyRosterTemplateName,
+	normalizeDutyRosterTemplateSlug,
 	type DutyRosterTemplate,
 	type DutyRosterTemplateAcceptPreviewInput,
 	type DutyRosterTemplateAcceptedRun,
@@ -55,6 +56,11 @@ const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const createTemplateSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
+	shortCode: z.string().trim().max(12, 'Short code must be 12 characters or fewer').nullable().optional()
+});
+const settingsIdentitySchema = z.object({
+	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer').optional(),
+	slug: z.string().trim().max(72, 'Slug must be 72 characters or fewer').nullable().optional(),
 	shortCode: z.string().trim().max(12, 'Short code must be 12 characters or fewer').nullable().optional()
 });
 const generatePreviewSchema = z
@@ -376,6 +382,30 @@ function parseCreateInput(input: DutyRosterTemplateCreateInput): {
 	return {
 		name: normalizeDutyRosterTemplateName(parsed.data.name),
 		shortCode: normalizeDutyRosterShortCode(parsed.data.shortCode)
+	};
+}
+
+function parseSettingsIdentityInput(
+	input: DutyRosterTemplateSettingsInput,
+	existing: DutyRosterTemplateRow
+): {
+	name: string;
+	slug: string;
+	shortCode: string | null;
+} {
+	const parsed = settingsIdentitySchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster Template identity input is invalid');
+	}
+
+	const name = normalizeDutyRosterTemplateName(parsed.data.name ?? existing.name);
+	return {
+		name,
+		slug: normalizeDutyRosterTemplateSlug(parsed.data.slug ?? existing.slug, name),
+		shortCode:
+			'shortCode' in parsed.data
+				? normalizeDutyRosterShortCode(parsed.data.shortCode)
+				: normalizeDutyRosterShortCode(existing.short_code)
 	};
 }
 
@@ -787,6 +817,32 @@ async function buildTemplatePreviewFromCurrentState(
 	});
 }
 
+function reviewedPreviewPayload(preview: DutyRosterTemplatePreview): Record<string, unknown> {
+	return {
+		generatedAt: preview.generatedAt,
+		assignmentType: preview.assignmentType,
+		config: preview.config,
+		personnel: preview.personnel,
+		selectionPersonnel: preview.selectionPersonnel,
+		rosterRows: preview.rosterRows,
+		da6: preview.da6,
+		exportModel: preview.exportModel,
+		warnings: preview.warnings
+	};
+}
+
+function assertReviewedPreviewStillCurrent(input: {
+	reviewedPreview: DutyRosterTemplatePreview;
+	currentPreview: DutyRosterTemplatePreview;
+}): void {
+	if (
+		JSON.stringify(reviewedPreviewPayload(input.reviewedPreview)) !==
+		JSON.stringify(reviewedPreviewPayload(input.currentPreview))
+	) {
+		fail(409, 'Duty Roster preview changed. Generate the preview again before accepting.');
+	}
+}
+
 async function hydrateAcceptedRunCalendarState(
 	ctx: QueryPorts,
 	runs: DutyRosterTemplateAcceptedRun[]
@@ -1065,6 +1121,14 @@ export async function updateDutyRosterTemplateSettings(
 		fail(404, 'Duty Roster Template not found');
 	}
 
+	const identity = parseSettingsIdentityInput(input, existing);
+	const slugRows = await ctx.store.findMany<{ id: string }>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		slug: identity.slug
+	});
+	if (slugRows.some((row) => row.id !== input.templateId)) {
+		fail(400, 'Duty Roster Template slug is already in use.');
+	}
+
 	const personnel = await listActiveDutyRosterPersonnel(ctx);
 	const poolCriteria = normalizeDutyRosterPoolCriteria(input.poolCriteria);
 	const resolvedPool = resolveDutyRosterPool({ criteria: poolCriteria, personnel });
@@ -1106,12 +1170,19 @@ export async function updateDutyRosterTemplateSettings(
 		ctx.auth.orgId,
 		input.templateId,
 		{
+			name: identity.name,
+			slug: identity.slug,
+			short_code: identity.shortCode,
 			pool_criteria: poolCriteria,
 			exempt_personnel_ids: exemptPersonnelIds,
 			manual_baseline_counts: hasAcceptedRun ? existingBaselineCounts : manualBaselineCounts,
 			updated_at: new Date().toISOString()
 		}
 	);
+	await ctx.store.update<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, existing.assignment_type_id, {
+		name: identity.name,
+		short_name: defaultDutyRosterAssignmentShortName(identity)
+	});
 
 	ctx.audit.log({
 		action: 'duty_roster_template.settings_updated',
@@ -1180,6 +1251,10 @@ export async function acceptDutyRosterTemplatePreview(
 		startDate: previewRange.startDate,
 		endDate: previewRange.endDate,
 		generatedAt: preview.generatedAt
+	});
+	assertReviewedPreviewStillCurrent({
+		reviewedPreview: preview,
+		currentPreview: acceptedPreview
 	});
 	try {
 		for (const selection of preview.manualSelections) {

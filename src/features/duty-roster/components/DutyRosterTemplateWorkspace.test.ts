@@ -463,6 +463,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByRole('heading', { name: 'Pool criteria' })).toBeTruthy();
+		expect(screen.getByLabelText('Template name')).toBeTruthy();
+		expect(screen.getByLabelText('Route slug')).toBeTruthy();
+		expect(screen.getAllByLabelText('Short code')).toHaveLength(2);
 		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();

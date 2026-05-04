@@ -189,6 +189,18 @@ export function buildDutyRosterTemplateAcceptedSnapshot(input: {
 	acceptedAt: string;
 	acceptedByUserId: string | null;
 }): DutyRosterTemplateAcceptedSnapshot {
+	const finalRows = input.preview.rosterRows.map((row) => acceptedSnapshotRow(input.preview, row.date));
+	const da6 = buildAcceptedDa6(input.preview, finalRows);
+	const exportModel = {
+		...input.preview.exportModel,
+		rosterRows: finalRows.map((row) => ({
+			date: row.date,
+			assigneeId: row.finalAssigneeId,
+			...(row.reason ? { reason: row.reason } : {})
+		})),
+		da6
+	};
+
 	return deepFreeze({
 		snapshotVersion: 1,
 		template: {
@@ -203,10 +215,10 @@ export function buildDutyRosterTemplateAcceptedSnapshot(input: {
 		resolvedPool: input.preview.personnel,
 		selectionPersonnel: input.preview.selectionPersonnel,
 		generatedRows: input.preview.rosterRows,
-		finalRows: input.preview.rosterRows.map((row) => acceptedSnapshotRow(input.preview, row.date)),
+		finalRows,
 		manualSelections: input.preview.manualSelections,
-		da6: input.preview.da6,
-		exportModel: input.preview.exportModel,
+		da6,
+		exportModel,
 		warnings: input.preview.warnings
 	});
 }
@@ -331,6 +343,49 @@ function acceptedSnapshotRow(preview: DutyRosterTemplatePreview, date: string): 
 		finalDisplay,
 		reason: manualSelection?.reason ?? generatedRow?.reason ?? null,
 		warnings: manualSelection?.warnings ?? []
+	};
+}
+
+function buildAcceptedDa6(
+	preview: DutyRosterTemplatePreview,
+	finalRows: DutyRosterTemplateAcceptedSnapshotRow[]
+): DutyRosterTemplatePreview['da6'] {
+	const finalAssigneeByDate = new Map(finalRows.map((row) => [row.date, row.finalAssigneeId]));
+
+	return {
+		...preview.da6,
+		columns: preview.da6.columns.map((column) => ({ ...column, specialDayIds: [...column.specialDayIds] })),
+		rows: preview.da6.rows.map((row) => ({
+			...row,
+			display: { ...row.display },
+			cells: row.cells.map((cell) => {
+				const assigned = finalAssigneeByDate.get(cell.date) === row.personnelId;
+				if (assigned) {
+					return {
+						...cell,
+						code: 'assigned' as const,
+						da6Code: null,
+						assigned: true,
+						reason: null,
+						reasonCode: null
+					};
+				}
+				if (cell.assigned) {
+					return {
+						...cell,
+						code: 'available-not-selected' as const,
+						da6Code: null,
+						assigned: false,
+						reason: null,
+						reasonCode: null
+					};
+				}
+				return {
+					...cell,
+					assigned: false
+				};
+			})
+		}))
 	};
 }
 

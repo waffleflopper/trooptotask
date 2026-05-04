@@ -836,6 +836,29 @@
 							<form class="settings-form" method="POST" action={settingsAction}>
 								<input type="hidden" name="templateId" value={selectedTemplate.id} />
 
+								<section class="settings-section" aria-labelledby="template-identity-heading">
+									<h4 id="template-identity-heading">Template identity</h4>
+									<div class="identity-grid">
+										<label>
+											<span>Template name</span>
+											<input name="name" maxlength="120" required value={selectedTemplate.name} />
+										</label>
+										<label>
+											<span>Route slug</span>
+											<input name="slug" maxlength="72" required value={selectedTemplate.slug} />
+										</label>
+										<label>
+											<span>Short code</span>
+											<input
+												name="shortCode"
+												maxlength="12"
+												value={selectedTemplate.shortCode ?? ''}
+												placeholder="CQ"
+											/>
+										</label>
+									</div>
+								</section>
+
 								<div class="settings-summary" aria-label="Resolved pool summary">
 									<div>
 										<span>Resolved pool</span>
@@ -1304,8 +1327,7 @@
 		display: grid;
 		gap: var(--sp-3);
 		margin-top: var(--sp-4);
-		border: 1px solid var(--border-default);
-		border-left: 3px solid var(--amber);
+		border: 1px solid var(--amber);
 		border-radius: 4px;
 		background: var(--surface-subtle);
 		padding: var(--sp-4);
@@ -1374,6 +1396,7 @@
 
 	.settings-summary,
 	.preview-summary,
+	.identity-grid,
 	.criteria-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1431,10 +1454,35 @@
 
 	.baseline-lock {
 		margin: 0;
-		border-left: 3px solid var(--amber);
+		border: 1px solid var(--amber);
+		border-radius: 4px;
 		background: var(--surface-subtle);
 		color: var(--text-secondary);
 		padding: var(--sp-2) var(--sp-3);
+	}
+
+	.identity-grid label {
+		display: grid;
+		gap: var(--sp-2);
+		min-width: 0;
+		color: var(--text-primary);
+	}
+
+	.identity-grid span {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.identity-grid input {
+		min-height: 2.5rem;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		padding: 0 var(--sp-3);
 	}
 
 	.criteria-grid fieldset {
@@ -1772,6 +1820,7 @@
 		.state-grid,
 		.settings-summary,
 		.preview-summary,
+		.identity-grid,
 		.criteria-grid,
 		.pool-row,
 		.preview-row {

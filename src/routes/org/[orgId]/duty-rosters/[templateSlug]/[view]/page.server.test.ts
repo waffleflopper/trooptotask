@@ -164,8 +164,14 @@ describe('Duty Roster Template view route', () => {
 	});
 
 	it('updates Settings through the service layer and redirects back to Settings', async () => {
+		updateDutyRosterTemplateSettingsMock.mockResolvedValueOnce(
+			template({ id: 'template-1', name: 'Staff Duty NCO', slug: 'staff-duty-nco', shortCode: 'SD' })
+		);
 		const form = new URLSearchParams();
 		form.set('templateId', 'template-1');
+		form.set('name', 'Staff Duty NCO');
+		form.set('slug', 'staff-duty-nco');
+		form.set('shortCode', 'SD');
 		form.append('rankValues', 'SGT');
 		form.append('rankValues', 'CPL');
 		form.append('groupIds', 'group-1');
@@ -187,11 +193,14 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/settings'
+			location: '/org/org-1/duty-rosters/staff-duty-nco/settings'
 		});
 
 		expect(updateDutyRosterTemplateSettingsMock).toHaveBeenCalledWith(mockCtx, {
 			templateId: 'template-1',
+			name: 'Staff Duty NCO',
+			slug: 'staff-duty-nco',
+			shortCode: 'SD',
 			poolCriteria: {
 				rankValues: ['SGT', 'CPL'],
 				groupIds: ['group-1'],

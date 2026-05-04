@@ -1,5 +1,7 @@
 # Advanced Duty Run Revision And Module Deepening RFC
 
+> Supersession note: the replacement target is now `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`. This revision model remains useful prior art for append-only corrections and history, but the current product target is a new DA6 Duty Roster replacement rather than further deepening the legacy advanced-duty run workflow.
+
 ## Purpose
 
 Deepen the **Advanced Duty Run** module so preview, apply, post-apply edits, reapply, export, recovery, and revision history align around stable product concepts instead of route/use-case orchestration.

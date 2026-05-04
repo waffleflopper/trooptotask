@@ -1,5 +1,7 @@
 # Duty Roster Run Module RFC
 
+> Supersession note: the replacement target is now `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`. This older RFC remains useful prior art for DA6 generation, snapshots, matrix shape, and export models, but the current product target is a new template-first Duty Roster surface that replaces both old simple and advanced duty-roster lanes.
+
 ## Purpose
 
 Deepen the simple Duty Roster Generator into a feature-owned **Duty Roster Run Module** that owns DA Form 6-style generation, immutable run snapshots, apply/save payloads, and export-ready data.

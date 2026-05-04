@@ -1558,8 +1558,9 @@
 	}
 
 	.section-proof {
-		background: var(--ink);
-		color: var(--ink-03);
+		background: var(--color-chrome);
+		color: var(--color-chrome-text);
+		border-bottom-color: var(--color-chrome-border);
 	}
 
 	.proof__inner {
@@ -1574,7 +1575,7 @@
 		font-weight: var(--font-weight-light);
 		font-style: italic;
 		line-height: 1.4;
-		color: var(--ink-03);
+		color: var(--color-chrome-text);
 		margin: 0;
 	}
 
@@ -1587,7 +1588,7 @@
 	.proof__attribution {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
-		color: color-mix(in srgb, var(--ink-03) 45%, transparent);
+		color: color-mix(in srgb, var(--color-chrome-text-muted) 88%, var(--color-chrome-text) 12%);
 		margin-top: var(--sp-6);
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
@@ -1597,11 +1598,11 @@
 		grid-template-columns: 20px 1fr;
 		gap: var(--sp-4);
 		padding: var(--sp-5) 0;
-		border-bottom: 1px solid color-mix(in srgb, var(--ink-03) 10%, transparent);
+		border-bottom: 1px solid var(--color-chrome-border);
 	}
 
 	.proof__point:first-child {
-		border-top: 1px solid color-mix(in srgb, var(--ink-03) 10%, transparent);
+		border-top: 1px solid var(--color-chrome-border);
 	}
 
 	.proof__point-icon {
@@ -1614,11 +1615,11 @@
 
 	.proof__point-text {
 		margin-top: 0;
-		color: color-mix(in srgb, var(--ink-03) 70%, transparent);
+		color: color-mix(in srgb, var(--color-chrome-text-muted) 90%, var(--color-chrome-text) 10%);
 	}
 
 	.proof__point-text strong {
-		color: var(--ink-03);
+		color: var(--color-chrome-text);
 		font-weight: var(--font-weight-semibold);
 		font-style: normal;
 	}
@@ -1813,6 +1814,11 @@
 
 		.cta__inner {
 			padding: var(--sp-10) var(--sp-8);
+		}
+
+		.solves__sidebar {
+			position: static;
+			top: auto;
 		}
 	}
 

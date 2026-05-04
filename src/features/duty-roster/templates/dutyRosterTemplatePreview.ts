@@ -4,6 +4,37 @@ import type { AssignmentType, AvailabilityEntry, Personnel, SpecialDay, StatusTy
 import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
 import { resolveDutyRosterPool } from './dutyRosterPool';
 
+export type DutyRosterTemplateManualSelectionWarningCode = 'outside-pool' | 'unavailable-or-conflicting';
+
+export interface DutyRosterTemplatePreviewPersonnel {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+	groupId: string | null;
+	groupName: string;
+	archivedAt: string | null;
+}
+
+export interface DutyRosterTemplateManualSelectionWarning {
+	code: DutyRosterTemplateManualSelectionWarningCode;
+	message: string;
+}
+
+export interface DutyRosterTemplateManualSelection {
+	date: string;
+	originalAssigneeId: string | null;
+	assigneeId: string;
+	reason: string | null;
+	warnings: DutyRosterTemplateManualSelectionWarning[];
+}
+
+export interface DutyRosterTemplateManualSelectionInput {
+	date: string;
+	assigneeId: string;
+	reason?: string | null;
+}
+
 export interface DutyRosterTemplatePreviewInput {
 	template: DutyRosterTemplate;
 	personnel: DutyRosterPoolPersonnel[];
@@ -16,7 +47,10 @@ export interface DutyRosterTemplatePreviewInput {
 	generatedAt?: string;
 }
 
-export type DutyRosterTemplatePreview = DutyRosterRunSnapshot;
+export type DutyRosterTemplatePreview = DutyRosterRunSnapshot & {
+	selectionPersonnel: DutyRosterTemplatePreviewPersonnel[];
+	manualSelections: DutyRosterTemplateManualSelection[];
+};
 
 export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewInput): DutyRosterTemplatePreview {
 	const resolvedPool = resolveDutyRosterPool({
@@ -24,7 +58,7 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		personnel: input.personnel
 	});
 
-	return buildDutyRosterRunSnapshot({
+	const generated = buildDutyRosterRunSnapshot({
 		assignmentType: templateAssignmentType(input.template),
 		personnel: resolvedPool.map(toPersonnel),
 		assignments: [],
@@ -47,6 +81,88 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		},
 		generatedAt: input.generatedAt
 	});
+
+	return deepFreeze({
+		...generated,
+		selectionPersonnel: input.personnel.map(toPreviewPersonnel),
+		manualSelections: []
+	});
+}
+
+export function applyDutyRosterTemplateManualSelection(
+	preview: DutyRosterTemplatePreview,
+	input: DutyRosterTemplateManualSelectionInput
+): DutyRosterTemplatePreview {
+	const row = preview.rosterRows.find((candidate) => candidate.date === input.date);
+	if (!row) {
+		throw new Error('Duty date is not part of this preview.');
+	}
+
+	const selected = preview.selectionPersonnel.find((person) => person.id === input.assigneeId);
+	if (!selected || selected.archivedAt) {
+		throw new Error('Selected Soldier is missing or archived.');
+	}
+
+	const reason = input.reason?.trim() || null;
+	const warnings = manualSelectionWarnings(preview, input.date, selected.id);
+	if (warnings.length > 0 && !reason) {
+		throw new Error('A reason is required for this manual selection.');
+	}
+
+	const manualSelections = preview.manualSelections.filter((selection) => selection.date !== input.date);
+	if (row.assigneeId === selected.id && warnings.length === 0 && !reason) {
+		return deepFreeze({
+			...preview,
+			manualSelections
+		});
+	}
+
+	return deepFreeze({
+		...preview,
+		manualSelections: [
+			...manualSelections,
+			{
+				date: input.date,
+				originalAssigneeId: row.assigneeId,
+				assigneeId: selected.id,
+				reason,
+				warnings
+			}
+		].sort((a, b) => a.date.localeCompare(b.date))
+	});
+}
+
+export function manualSelectionForDate(
+	preview: DutyRosterTemplatePreview,
+	date: string
+): DutyRosterTemplateManualSelection | null {
+	return preview.manualSelections.find((selection) => selection.date === date) ?? null;
+}
+
+export function previewFinalAssigneeId(preview: DutyRosterTemplatePreview, date: string): string | null {
+	const manualSelection = manualSelectionForDate(preview, date);
+	if (manualSelection) {
+		return manualSelection.assigneeId;
+	}
+	return preview.rosterRows.find((row) => row.date === date)?.assigneeId ?? null;
+}
+
+export function assertDutyRosterTemplatePreview(value: unknown): asserts value is DutyRosterTemplatePreview {
+	if (!value || typeof value !== 'object') {
+		throw new Error('Generate the preview again before changing assignments.');
+	}
+
+	const preview = value as Partial<DutyRosterTemplatePreview>;
+	if (
+		!Array.isArray(preview.rosterRows) ||
+		!Array.isArray(preview.personnel) ||
+		!Array.isArray(preview.selectionPersonnel) ||
+		!Array.isArray(preview.manualSelections) ||
+		!preview.da6 ||
+		!Array.isArray(preview.da6.rows)
+	) {
+		throw new Error('Generate the preview again before changing assignments.');
+	}
 }
 
 function templateAssignmentType(template: DutyRosterTemplate): AssignmentType {
@@ -58,6 +174,18 @@ function templateAssignmentType(template: DutyRosterTemplate): AssignmentType {
 		color: '#8a5a22',
 		exemptPersonnelIds: [],
 		showInDateHeader: true
+	};
+}
+
+function toPreviewPersonnel(person: DutyRosterPoolPersonnel): DutyRosterTemplatePreviewPersonnel {
+	return {
+		id: person.id,
+		rank: person.rank,
+		lastName: person.lastName,
+		firstName: person.firstName,
+		groupId: person.groupId,
+		groupName: person.groupName,
+		archivedAt: person.archivedAt ?? null
 	};
 }
 
@@ -73,6 +201,33 @@ function toPersonnel(person: DutyRosterPoolPersonnel): Personnel {
 		groupName: person.groupName,
 		archivedAt: person.archivedAt
 	};
+}
+
+function manualSelectionWarnings(
+	preview: DutyRosterTemplatePreview,
+	date: string,
+	assigneeId: string
+): DutyRosterTemplateManualSelectionWarning[] {
+	const warnings: DutyRosterTemplateManualSelectionWarning[] = [];
+	const inGeneratedPool = preview.personnel.some((person) => person.id === assigneeId);
+	if (!inGeneratedPool) {
+		warnings.push({
+			code: 'outside-pool',
+			message: 'Selected Soldier is outside this template pool.'
+		});
+	}
+
+	const cell = preview.da6.rows
+		.find((row) => row.personnelId === assigneeId)
+		?.cells.find((candidate) => candidate.date === date);
+	if (cell && !cell.assigned && cell.reason) {
+		warnings.push({
+			code: 'unavailable-or-conflicting',
+			message: cell.reason
+		});
+	}
+
+	return warnings;
 }
 
 function buildManualBaselineHistory(template: DutyRosterTemplate, startDate: string) {
@@ -108,4 +263,14 @@ function shiftDate(value: string, offsetDays: number): string {
 	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
 	const day = String(date.getUTCDate()).padStart(2, '0');
 	return `${year}-${month}-${day}`;
+}
+
+function deepFreeze<T>(value: T): T {
+	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+		for (const child of Object.values(value)) {
+			deepFreeze(child);
+		}
+		Object.freeze(value);
+	}
+	return value;
 }

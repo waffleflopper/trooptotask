@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
+	applyDutyRosterTemplatePreviewManualSelection,
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
@@ -412,6 +413,37 @@ describe('Duty Roster Template use cases', () => {
 			status: 400,
 			message: 'Generate preview can cover 62 days or fewer'
 		});
+	});
+
+	it('applies manual preview selections through a permission-checked use case', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		const updated = await applyDutyRosterTemplatePreviewManualSelection(ctx, {
+			preview: JSON.stringify(preview),
+			date: '2026-06-01',
+			assigneeId: 'bravo',
+			reason: null
+		});
+
+		expect(updated.manualSelections).toEqual([
+			{
+				date: '2026-06-01',
+				originalAssigneeId: 'alpha',
+				assigneeId: 'bravo',
+				reason: null,
+				warnings: []
+			}
+		]);
 	});
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
+	applyDutyRosterTemplatePreviewManualSelectionMock,
 	loadWithContextMock,
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
@@ -10,6 +11,7 @@ const {
 	isDutyRosterTemplateViewMock,
 	mockCtx
 } = vi.hoisted(() => ({
+	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
+	applyDutyRosterTemplatePreviewManualSelection: applyDutyRosterTemplatePreviewManualSelectionMock,
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
@@ -56,6 +59,7 @@ describe('Duty Roster Template view route', () => {
 		);
 		loadDutyRosterTemplateSettingsMock.mockResolvedValue({ personnel: [], resolvedPool: [], baselineRows: [] });
 		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
+		applyDutyRosterTemplatePreviewManualSelectionMock.mockResolvedValue(preview({ manual: true }));
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
 	});
 
@@ -207,6 +211,42 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('applies manual preview selections without redirecting', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview),
+				date: '2026-06-01',
+				assigneeId: 'person-2',
+				reason: '',
+				startDate: '2026-06-01',
+				endDate: '2026-06-01'
+			})
+		});
+
+		const result = await actions.manualPreviewSelection({
+			request,
+			params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+		} as never);
+
+		expect(applyDutyRosterTemplatePreviewManualSelectionMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview),
+			date: '2026-06-01',
+			assigneeId: 'person-2',
+			reason: ''
+		});
+		expect(result).toMatchObject({
+			generateValues: {
+				startDate: '2026-06-01',
+				endDate: '2026-06-01'
+			},
+			preview: {
+				manualSelections: [{ date: '2026-06-01', assigneeId: 'person-2' }]
+			}
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);
@@ -267,7 +307,19 @@ function template(overrides: Record<string, unknown> = {}) {
 	};
 }
 
-function preview() {
+function preview(options: { manual?: boolean } = {}) {
+	const manualSelections = options.manual
+		? [
+				{
+					date: '2026-06-01',
+					originalAssigneeId: 'person-1',
+					assigneeId: 'person-2',
+					reason: null,
+					warnings: []
+				}
+			]
+		: [];
+
 	return {
 		generatedAt: '2026-05-04T00:00:00.000Z',
 		assignmentType: { id: 'template-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
@@ -286,6 +338,27 @@ function preview() {
 		personnel: [
 			{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupId: 'alpha', groupName: 'Alpha' }
 		],
+		selectionPersonnel: [
+			{
+				id: 'person-1',
+				rank: 'SGT',
+				lastName: 'Able',
+				firstName: 'Ann',
+				groupId: 'alpha',
+				groupName: 'Alpha',
+				archivedAt: null
+			},
+			{
+				id: 'person-2',
+				rank: 'SGT',
+				lastName: 'Baker',
+				firstName: 'Ben',
+				groupId: 'alpha',
+				groupName: 'Alpha',
+				archivedAt: null
+			}
+		],
+		manualSelections,
 		rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
 		da6: {
 			numberingMode: 'single-sequence',

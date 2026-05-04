@@ -4,11 +4,16 @@
 		DutyRosterTemplateSettingsData,
 		DutyRosterTemplateView
 	} from '$features/duty-roster/templates/dutyRosterTemplates';
-	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+	import {
+		manualSelectionForDate,
+		previewFinalAssigneeId,
+		type DutyRosterTemplatePreview
+	} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
 	type ActionForm = {
 		error?: string;
 		generateError?: string;
+		manualError?: string;
 		settingsError?: string;
 		preview?: DutyRosterTemplatePreview;
 		generateValues?: {
@@ -40,6 +45,9 @@
 	const preview = $derived(selectedView === 'generate' ? (actionForm?.preview ?? null) : null);
 	const generateAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/generatePreview` : createAction
+	);
+	const manualPreviewAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/manualPreviewSelection` : createAction
 	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
@@ -77,7 +85,11 @@
 	}
 
 	function previewAssignee(preview: DutyRosterTemplatePreview, assigneeId: string | null) {
-		return preview.personnel.find((person) => person.id === assigneeId) ?? null;
+		return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
+	}
+
+	function previewFormValue(preview: DutyRosterTemplatePreview): string {
+		return JSON.stringify(preview);
 	}
 
 	function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
@@ -240,6 +252,10 @@
 								</div>
 							</div>
 
+							{#if actionForm?.manualError}
+								<p class="form-error settings-error" role="alert">{actionForm.manualError}</p>
+							{/if}
+
 							<section class="settings-section" aria-labelledby="preview-list-heading">
 								<h4 id="preview-list-heading">Preview list</h4>
 								<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
@@ -247,19 +263,76 @@
 										<span role="columnheader">Date</span>
 										<span role="columnheader">Selected Soldier</span>
 										<span role="columnheader">Source</span>
+										<span role="columnheader">Manual change</span>
 									</div>
 									{#each preview.rosterRows as row (row.date)}
-										{@const assignee = previewAssignee(preview, row.assigneeId)}
+										{@const manualSelection = manualSelectionForDate(preview, row.date)}
+										{@const finalAssignee = previewAssignee(preview, previewFinalAssigneeId(preview, row.date))}
+										{@const generatedAssignee = previewAssignee(preview, row.assigneeId)}
 										<div class="preview-row" role="row">
 											<span role="cell">{row.date}</span>
-											<span role="cell">
-												{#if assignee}
-													{assignee.rank} {assignee.lastName}, {assignee.firstName}
+											<div class="preview-selection" role="cell">
+												{#if finalAssignee}
+													<strong>{finalAssignee.rank} {finalAssignee.lastName}, {finalAssignee.firstName}</strong>
 												{:else}
 													{row.reason ?? 'No eligible Soldier'}
 												{/if}
+												{#if manualSelection && generatedAssignee}
+													<small>
+														Generated: {generatedAssignee.rank}
+														{generatedAssignee.lastName}, {generatedAssignee.firstName}
+													</small>
+												{/if}
+												{#if manualSelection?.warnings.length}
+													<ul class="manual-warnings" aria-label={`Manual warnings for ${row.date}`}>
+														{#each manualSelection.warnings as warning (warning.code)}
+															<li>{warning.message}</li>
+														{/each}
+													</ul>
+												{/if}
+												{#if manualSelection?.reason}
+													<small>Reason: {manualSelection.reason}</small>
+												{/if}
+											</div>
+											<span role="cell">
+												{#if manualSelection}
+													<span class="manual-badge">MANUAL</span>
+												{:else}
+													Generated
+												{/if}
 											</span>
-											<span role="cell">Generated</span>
+											<div role="cell">
+												<form class="manual-preview-form" method="POST" action={manualPreviewAction}>
+													<input type="hidden" name="preview" value={previewFormValue(preview)} />
+													<input type="hidden" name="date" value={row.date} />
+													<input type="hidden" name="startDate" value={actionForm?.generateValues?.startDate ?? ''} />
+													<input type="hidden" name="endDate" value={actionForm?.generateValues?.endDate ?? ''} />
+													<label>
+														<span>Soldier</span>
+														<select name="assigneeId" required>
+															{#each preview.selectionPersonnel as person (person.id)}
+																<option
+																	value={person.id}
+																	selected={previewFinalAssigneeId(preview, row.date) === person.id}
+																>
+																	{person.rank}
+																	{person.lastName}, {person.firstName}
+																</option>
+															{/each}
+														</select>
+													</label>
+													<label>
+														<span>Reason</span>
+														<input
+															name="reason"
+															type="text"
+															value={manualSelection?.reason ?? ''}
+															placeholder="Required for warnings"
+														/>
+													</label>
+													<button class="btn btn-secondary" type="submit">Apply manual</button>
+												</form>
+											</div>
 										</div>
 									{/each}
 								</div>
@@ -907,9 +980,9 @@
 
 	.preview-row {
 		display: grid;
-		grid-template-columns: minmax(7rem, 0.6fr) minmax(12rem, 1.3fr) minmax(7rem, 0.5fr);
+		grid-template-columns: minmax(7rem, 0.45fr) minmax(14rem, 1fr) minmax(7rem, 0.45fr) minmax(18rem, 1.3fr);
 		gap: var(--sp-3);
-		align-items: center;
+		align-items: start;
 		padding: var(--sp-2) var(--sp-3);
 		border-top: 1px solid var(--border-default);
 	}
@@ -920,6 +993,73 @@
 
 	.preview-head {
 		background: var(--surface-subtle);
+	}
+
+	.preview-selection,
+	.manual-preview-form {
+		display: grid;
+		gap: var(--sp-2);
+	}
+
+	.preview-selection strong {
+		color: var(--text-primary);
+		font-weight: 800;
+	}
+
+	.preview-selection small {
+		color: var(--text-tertiary);
+		line-height: 1.35;
+	}
+
+	.manual-badge {
+		display: inline-flex;
+		width: fit-content;
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: 4px;
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		padding: 2px var(--sp-2);
+	}
+
+	.manual-warnings {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		padding-left: var(--sp-4);
+		color: var(--color-warning-text, var(--text-primary));
+		font-size: 0.85rem;
+		line-height: 1.35;
+	}
+
+	.manual-preview-form {
+		grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+		align-items: end;
+	}
+
+	.manual-preview-form label {
+		display: grid;
+		gap: 4px;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.manual-preview-form input,
+	.manual-preview-form select {
+		min-height: 2.25rem;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		font: inherit;
+		font-family: var(--font-body);
+		padding: 0 var(--sp-2);
 	}
 
 	.matrix-scroll {
@@ -1011,6 +1151,10 @@
 		.criteria-grid,
 		.pool-row,
 		.preview-row {
+			grid-template-columns: 1fr;
+		}
+
+		.manual-preview-form {
 			grid-template-columns: 1fr;
 		}
 	}

@@ -129,10 +129,66 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Generate preview' })).toBeTruthy();
-		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
-		expect(screen.getByText('SGT Able, Ann')).toBeTruthy();
+		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
+		expect(list).toBeTruthy();
+		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Accept/ })).toBeNull();
+	});
+
+	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'generate'
+				},
+				form: {
+					preview: preview({ manual: true }),
+					generateValues: {
+						startDate: '2026-06-01',
+						endDate: '2026-06-01'
+					}
+				}
+			}
+		});
+
+		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
+		expect(within(list).getByText('MANUAL')).toBeTruthy();
+		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
+		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
+		expect(screen.getByDisplayValue('Commander approved outside-pool replacement.')).toBeTruthy();
+
+		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
+		expect(within(matrix).queryByText('MANUAL')).toBeNull();
+	});
+
+	it('renders manual preview errors without dropping the preview', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'generate'
+				},
+				form: {
+					manualError: 'A reason is required for this manual selection.',
+					preview: preview(),
+					generateValues: {
+						startDate: '2026-06-01',
+						endDate: '2026-06-01'
+					}
+				}
+			}
+		});
+
+		expect(screen.getByRole('alert').textContent).toContain('A reason is required for this manual selection.');
+		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
 	});
 
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
@@ -238,7 +294,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 	});
 });
 
-function preview(): DutyRosterTemplatePreview {
+function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview {
 	const da6 = {
 		numberingMode: 'single-sequence' as const,
 		columns: [
@@ -280,6 +336,23 @@ function preview(): DutyRosterTemplatePreview {
 		]
 	};
 
+	const manualSelections = options.manual
+		? [
+				{
+					date: '2026-06-01',
+					originalAssigneeId: 'person-1',
+					assigneeId: 'person-2',
+					reason: 'Commander approved outside-pool replacement.',
+					warnings: [
+						{
+							code: 'outside-pool' as const,
+							message: 'Selected Soldier is outside this template pool.'
+						}
+					]
+				}
+			]
+		: [];
+
 	return {
 		generatedAt: '2026-05-04T00:00:00.000Z',
 		assignmentType: { id: 'template-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
@@ -298,6 +371,27 @@ function preview(): DutyRosterTemplatePreview {
 		personnel: [
 			{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupId: 'alpha', groupName: 'Alpha' }
 		],
+		selectionPersonnel: [
+			{
+				id: 'person-1',
+				rank: 'SGT',
+				lastName: 'Able',
+				firstName: 'Ann',
+				groupId: 'alpha',
+				groupName: 'Alpha',
+				archivedAt: null
+			},
+			{
+				id: 'person-2',
+				rank: 'SGT',
+				lastName: 'Baker',
+				firstName: 'Ben',
+				groupId: 'bravo',
+				groupName: 'Bravo',
+				archivedAt: null
+			}
+		],
+		manualSelections,
 		rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
 		da6,
 		exportModel: {

@@ -63,6 +63,13 @@ export interface DutyRosterTemplateGenerateInput {
 	endDate: string;
 }
 
+export interface DutyRosterTemplateManualSelectionInput {
+	preview: string;
+	date: string;
+	assigneeId: string;
+	reason?: string | null;
+}
+
 const DEFAULT_SLUG = 'duty-roster';
 const MAX_SLUG_LENGTH = 72;
 const MAX_SHORT_CODE_LENGTH = 12;

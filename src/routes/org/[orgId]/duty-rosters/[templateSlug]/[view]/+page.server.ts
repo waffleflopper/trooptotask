@@ -2,6 +2,7 @@ import { error, fail as actionFail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
+	applyDutyRosterTemplatePreviewManualSelection,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
 	listDutyRosterTemplates,
@@ -10,7 +11,7 @@ import {
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
 
-type ActionErrorKey = 'generateError' | 'settingsError';
+type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError';
 
 function formValues(formData: FormData, name: string): string[] {
 	return formData.getAll(name).map((value) => String(value));
@@ -109,6 +110,45 @@ export const actions: Actions = {
 				fallback: 'Failed to generate Duty Roster preview.',
 				values
 			});
+		}
+	},
+	manualPreviewSelection: async (event) => {
+		const formData = await event.request.formData();
+		const preview = String(formData.get('preview') ?? '');
+		const values = {
+			startDate: String(formData.get('startDate') ?? ''),
+			endDate: String(formData.get('endDate') ?? '')
+		};
+
+		try {
+			const ctx = await buildRouteContext(event);
+			const updatedPreview = await applyDutyRosterTemplatePreviewManualSelection(ctx, {
+				preview,
+				date: String(formData.get('date') ?? ''),
+				assigneeId: String(formData.get('assigneeId') ?? ''),
+				reason: String(formData.get('reason') ?? '')
+			});
+
+			return { preview: updatedPreview, generateValues: values };
+		} catch (errorValue) {
+			const status =
+				errorValue && typeof errorValue === 'object' && 'status' in errorValue && typeof errorValue.status === 'number'
+					? errorValue.status
+					: 500;
+			const message =
+				status >= 500
+					? 'Failed to update the manual preview selection.'
+					: errorValue instanceof Error
+						? errorValue.message
+						: 'Failed to update the manual preview selection.';
+			let submittedPreview: unknown = null;
+			try {
+				submittedPreview = JSON.parse(preview);
+			} catch {
+				submittedPreview = null;
+			}
+
+			return actionFail(status, { manualError: message, preview: submittedPreview, generateValues: values });
 		}
 	},
 	updateSettings: async (event) => {

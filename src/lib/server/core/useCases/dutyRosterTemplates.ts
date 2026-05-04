@@ -11,6 +11,7 @@ import {
 	type DutyRosterTemplate,
 	type DutyRosterTemplateCreateInput,
 	type DutyRosterTemplateGenerateInput,
+	type DutyRosterTemplateManualSelectionInput,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
 	type DutyRosterPoolCriteria,
@@ -23,6 +24,8 @@ import {
 	resolveDutyRosterPool
 } from '$features/duty-roster/templates/dutyRosterPool';
 import {
+	applyDutyRosterTemplateManualSelection,
+	assertDutyRosterTemplatePreview,
 	buildDutyRosterTemplatePreview,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
@@ -53,6 +56,12 @@ const generatePreviewSchema = z
 		message: `Generate preview can cover ${MAX_PREVIEW_DAYS} days or fewer`,
 		path: ['endDate']
 	});
+const manualSelectionSchema = z.object({
+	preview: z.string().trim().min(1, 'Generate the preview again before changing assignments.'),
+	date: z.string().refine(isValidDateOnly, 'Duty date is required'),
+	assigneeId: z.string().trim().min(1, 'Selected Soldier is required'),
+	reason: z.string().trim().nullable().optional()
+});
 
 type DutyRosterTemplateRow = {
 	id: string;
@@ -189,6 +198,17 @@ function parseGenerateInput(input: DutyRosterTemplateGenerateInput): DutyRosterT
 	const parsed = generatePreviewSchema.safeParse(input);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster preview input is invalid');
+	}
+
+	return parsed.data;
+}
+
+function parseManualSelectionInput(
+	input: DutyRosterTemplateManualSelectionInput
+): DutyRosterTemplateManualSelectionInput {
+	const parsed = manualSelectionSchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Manual selection input is invalid');
 	}
 
 	return parsed.data;
@@ -409,6 +429,27 @@ export async function generateDutyRosterTemplatePreview(
 		endDate: parsed.endDate,
 		generatedAt: new Date().toISOString()
 	});
+}
+
+export async function applyDutyRosterTemplatePreviewManualSelection(
+	ctx: WritePorts,
+	input: DutyRosterTemplateManualSelectionInput
+): Promise<DutyRosterTemplatePreview> {
+	await requireTemplateManagement(ctx);
+
+	const parsed = parseManualSelectionInput(input);
+	let preview: unknown;
+	try {
+		preview = JSON.parse(parsed.preview);
+		assertDutyRosterTemplatePreview(preview);
+		return applyDutyRosterTemplateManualSelection(preview, {
+			date: parsed.date,
+			assigneeId: parsed.assigneeId,
+			reason: parsed.reason
+		});
+	} catch (errorValue) {
+		fail(400, errorValue instanceof Error ? errorValue.message : 'Manual selection input is invalid');
+	}
 }
 
 async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<DutyRosterPoolPersonnel[]> {

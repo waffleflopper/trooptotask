@@ -3,6 +3,7 @@
 	import type {
 		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
+		DutyRosterTemplateRunCorrection,
 		DutyRosterTemplateSettingsData,
 		DutyRosterTemplateView
 	} from '$features/duty-roster/templates/dutyRosterTemplates';
@@ -25,6 +26,7 @@
 		settingsError?: string;
 		applyError?: string;
 		invalidateError?: string;
+		correctionError?: string;
 		preview?: DutyRosterTemplatePreview;
 		acceptedRun?: DutyRosterTemplateAcceptedRun;
 		printAcceptedRun?: boolean;
@@ -76,6 +78,9 @@
 	);
 	const invalidateAcceptedRunAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history?/invalidateAcceptedRun` : createAction
+	);
+	const correctAcceptedRunAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history?/recordCorrection` : createAction
 	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
@@ -142,6 +147,17 @@
 		cell: DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
 	): string {
 		return previewCellDisplay(cell);
+	}
+
+	function latestCorrectionForDate(run: DutyRosterTemplateAcceptedRun, date: string) {
+		return run.corrections.filter((correction) => correction.runRowDate === date).at(-1) ?? null;
+	}
+
+	function correctionPersonName(
+		display: DutyRosterTemplateRunCorrection['replacementDisplay'],
+		fallbackId: string
+	): string {
+		return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : fallbackId;
 	}
 
 	function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
@@ -558,6 +574,9 @@
 						{#if actionForm?.invalidateError}
 							<p class="form-error settings-error" role="alert">{actionForm.invalidateError}</p>
 						{/if}
+						{#if actionForm?.correctionError}
+							<p class="form-error settings-error" role="alert">{actionForm.correctionError}</p>
+						{/if}
 						{#if acceptedRuns.length === 0}
 							<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 						{:else}
@@ -623,6 +642,7 @@
 												<span role="columnheader">Review state</span>
 											</div>
 											{#each snapshot.finalRows as row (row.date)}
+												{@const correction = latestCorrectionForDate(run, row.date)}
 												<div class="preview-row" role="row">
 													<span role="cell">{row.date}</span>
 													<div class="preview-selection" role="cell">
@@ -640,15 +660,42 @@
 																{row.generatedDisplay.lastName}, {row.generatedDisplay.firstName}
 															</small>
 														{/if}
+														{#if correction?.replacementDisplay}
+															<small>
+																Actual: {correction.replacementDisplay.rank}
+																{correction.replacementDisplay.lastName}, {correction.replacementDisplay.firstName}
+															</small>
+														{/if}
 													</div>
 													<span role="cell">
-														{#if row.assignmentSource === 'manual'}
+														{#if correction}
+															<span class="correction-badge">CORRECTED</span>
+														{:else if row.assignmentSource === 'manual'}
 															<span class="manual-badge">MANUAL</span>
 														{:else}
 															Generated
 														{/if}
 													</span>
 													<div class="preview-selection" role="cell">
+														{#if correction}
+															<div class="correction-summary">
+																<strong>Correction</strong>
+																<small>
+																	{correctionPersonName(
+																		correction.replacementDisplay,
+																		correction.replacementAssigneeId
+																	)}
+																	performed duty for
+																	{correctionPersonName(correction.originalDisplay, correction.originalAssigneeId)}.
+																</small>
+																<small>Reason: {correction.reason}</small>
+																<small
+																	>{correction.countsTowardFuture
+																		? 'Counts toward future DA6 runs.'
+																		: 'Non-counting because this run is invalidated.'}</small
+																>
+															</div>
+														{/if}
 														{#if row.warnings.length}
 															<ul class="manual-warnings" aria-label={`Accepted warnings for ${row.date}`}>
 																{#each row.warnings as warning (warning.code)}
@@ -660,6 +707,31 @@
 														{/if}
 														{#if row.reason}
 															<small>Reason: {row.reason}</small>
+														{/if}
+														{#if !isInvalidated && row.finalAssigneeId}
+															<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
+																<input type="hidden" name="runId" value={run.id} />
+																<input type="hidden" name="runRowDate" value={row.date} />
+																<label>
+																	<span>Actual Soldier</span>
+																	<select name="replacementAssigneeId" required>
+																		<option value="">Select Soldier</option>
+																		{#each snapshot.selectionPersonnel.filter((person) => person.id !== row.finalAssigneeId) as person (person.id)}
+																			<option value={person.id}>
+																				{person.rank}
+																				{person.lastName}, {person.firstName}
+																			</option>
+																		{/each}
+																	</select>
+																</label>
+																<label>
+																	<span>Reason</span>
+																	<input name="reason" placeholder="Reason for correction" required />
+																</label>
+																<button class="btn btn-secondary btn-sm" type="submit">Record correction</button>
+															</form>
+														{:else if isInvalidated && run.corrections.some((item) => item.runRowDate === row.date)}
+															<small>Correction trail is locked with this invalidated run.</small>
 														{/if}
 													</div>
 												</div>
@@ -1316,7 +1388,9 @@
 	}
 
 	.preview-selection,
-	.manual-preview-form {
+	.manual-preview-form,
+	.correction-form,
+	.correction-summary {
 		display: grid;
 		gap: var(--sp-2);
 	}
@@ -1331,7 +1405,8 @@
 		line-height: 1.35;
 	}
 
-	.manual-badge {
+	.manual-badge,
+	.correction-badge {
 		display: inline-flex;
 		width: fit-content;
 		border: 1px solid var(--color-warning-border, var(--border-default));
@@ -1345,6 +1420,12 @@
 		padding: 2px var(--sp-2);
 	}
 
+	.correction-badge {
+		border-color: var(--border-default);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+	}
+
 	.manual-warnings {
 		display: grid;
 		gap: 4px;
@@ -1355,12 +1436,14 @@
 		line-height: 1.35;
 	}
 
-	.manual-preview-form {
+	.manual-preview-form,
+	.correction-form {
 		grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
 		align-items: end;
 	}
 
-	.manual-preview-form label {
+	.manual-preview-form label,
+	.correction-form label {
 		display: grid;
 		gap: 4px;
 		color: var(--text-secondary);
@@ -1371,7 +1454,9 @@
 	}
 
 	.manual-preview-form input,
-	.manual-preview-form select {
+	.manual-preview-form select,
+	.correction-form input,
+	.correction-form select {
 		min-height: 2.25rem;
 		border: 1px solid var(--border-default);
 		border-radius: 4px;
@@ -1380,6 +1465,13 @@
 		font: inherit;
 		font-family: var(--font-body);
 		padding: 0 var(--sp-2);
+	}
+
+	.correction-summary {
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+		padding: var(--sp-2);
 	}
 
 	.accept-preview-form {
@@ -1568,7 +1660,8 @@
 			grid-template-columns: 1fr;
 		}
 
-		.manual-preview-form {
+		.manual-preview-form,
+		.correction-form {
 			grid-template-columns: 1fr;
 		}
 	}

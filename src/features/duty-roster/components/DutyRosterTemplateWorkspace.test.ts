@@ -285,6 +285,31 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
 	});
 
+	it('renders correction history and an inline correction form for accepted rows', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [acceptedRun({ corrected: true })]
+				}
+			}
+		});
+
+		expect(screen.getByText('CORRECTED')).toBeTruthy();
+		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
+		expect(screen.getByText(/performed duty for/)).toBeTruthy();
+		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Record correction' })).toBeTruthy();
+		const form = screen.getByRole('button', { name: 'Record correction' }).closest('form') as HTMLFormElement;
+		expect(form.action).toContain('/org/org-1/duty-rosters/cq-nco/history?/recordCorrection');
+		expect(within(form).getByLabelText('Actual Soldier')).toBeTruthy();
+		expect(within(form).getByLabelText('Reason')).toBeTruthy();
+	});
+
 	it('renders invalidation warnings and uses the required confirmation copy', async () => {
 		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
 		render(DutyRosterTemplateWorkspace, {
@@ -318,17 +343,19 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ invalidated: true })]
+					acceptedRuns: [acceptedRun({ invalidated: true, corrected: true })]
 				}
 			}
 		});
 
 		expect(screen.getByText('Invalidated')).toBeTruthy();
+		expect(screen.getByText('Non-counting because this run is invalidated.')).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Accepted Duty Roster list' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Print official' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Export official' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Invalidate run' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Record correction' })).toBeNull();
 	});
 
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
@@ -547,7 +574,9 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 	};
 }
 
-function acceptedRun(options: { applied?: boolean; invalidated?: boolean; calendarAssignmentsEdited?: boolean } = {}) {
+function acceptedRun(
+	options: { applied?: boolean; invalidated?: boolean; calendarAssignmentsEdited?: boolean; corrected?: boolean } = {}
+) {
 	return {
 		id: 'run-1',
 		templateId: 'template-1',
@@ -563,6 +592,35 @@ function acceptedRun(options: { applied?: boolean; invalidated?: boolean; calend
 		invalidatedByUserId: options.invalidated ? 'user-1' : null,
 		linkedCalendarAssignmentCount: options.applied ? 1 : 0,
 		calendarAssignmentsEdited: Boolean(options.calendarAssignmentsEdited),
+		corrections: options.corrected
+			? [
+					{
+						id: 'correction-1',
+						runId: 'run-1',
+						runRowDate: '2026-06-01',
+						originalAssigneeId: 'person-2',
+						originalDisplay: {
+							id: 'person-2',
+							rank: 'SGT',
+							lastName: 'Baker',
+							firstName: 'Ben',
+							groupName: 'Bravo'
+						},
+						replacementAssigneeId: 'person-1',
+						replacementDisplay: {
+							id: 'person-1',
+							rank: 'SGT',
+							lastName: 'Able',
+							firstName: 'Ann',
+							groupName: 'Alpha'
+						},
+						reason: 'Emergency leave swap.',
+						correctedByUserId: 'user-1',
+						correctedAt: '2026-06-01T12:00:00.000Z',
+						countsTowardFuture: !options.invalidated
+					}
+				]
+			: [],
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

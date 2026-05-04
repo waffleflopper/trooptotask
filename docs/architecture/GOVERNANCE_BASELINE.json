@@ -626,6 +626,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260504000600_duty_roster_run_corrections.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#809",
+			"reason": "Duty Roster Correction RLS uses the existing Calendar helper API for table-level read/write protection while the service layer enforces append-only correction, count-impact, and Calendar sync rules.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

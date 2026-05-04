@@ -12,12 +12,14 @@ import {
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
+	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
 } from './dutyRosterTemplates';
 
 const rows: Record<string, unknown>[] = [];
 const assignmentTypeRows: Record<string, unknown>[] = [];
 const acceptedRunRows: Record<string, unknown>[] = [];
+const correctionRows: Record<string, unknown>[] = [];
 const dailyAssignmentRows: Record<string, unknown>[] = [];
 const personnelRows: Record<string, unknown>[] = [];
 const availabilityRows: Record<string, unknown>[] = [];
@@ -133,6 +135,16 @@ const store: DataStore = {
 			return row;
 		}
 
+		if (table === 'duty_roster_template_run_corrections') {
+			const row = {
+				id: `correction-${correctionRows.length + 1}`,
+				organization_id: orgId,
+				...data
+			};
+			correctionRows.push(row);
+			return row;
+		}
+
 		if (table === 'assignment_types') {
 			const row = {
 				id: String(data.id ?? `assignment-type-${assignmentTypeRows.length + 1}`),
@@ -234,6 +246,7 @@ describe('Duty Roster Template use cases', () => {
 		rows.length = 0;
 		assignmentTypeRows.length = 0;
 		acceptedRunRows.length = 0;
+		correctionRows.length = 0;
 		dailyAssignmentRows.length = 0;
 		personnelRows.length = 0;
 		availabilityRows.length = 0;
@@ -718,6 +731,163 @@ describe('Duty Roster Template use cases', () => {
 		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
+	it('records append-only corrections and uses the replacement Soldier for future counts', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		const correction = await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: accepted.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Emergency leave swap.'
+		});
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+
+		expect(correction).toMatchObject({
+			runId: accepted.id,
+			runRowDate: '2026-06-01',
+			originalAssigneeId: 'alpha',
+			replacementAssigneeId: 'bravo',
+			reason: 'Emergency leave swap.',
+			countsTowardFuture: true
+		});
+		expect(correctionRows).toHaveLength(1);
+		expect(listedRuns[0].corrections).toEqual([
+			expect.objectContaining({
+				originalAssigneeId: 'alpha',
+				replacementAssigneeId: 'bravo',
+				replacementDisplay: expect.objectContaining({ lastName: 'Baker' }),
+				countsTowardFuture: true
+			})
+		]);
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.corrected',
+				resourceType: 'duty_roster_template_run',
+				resourceId: accepted.id
+			})
+		);
+	});
+
+	it('requires a correction reason', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: accepted.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: '   '
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Correction reason is required'
+		});
+	});
+
+	it('updates applied Calendar assignments when recording a correction while preserving lineage', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: applied.acceptedRun.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Soldier performed duty for original assignee.'
+		});
+
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'bravo',
+				duty_roster_template_run_id: applied.acceptedRun.id,
+				duty_roster_template_run_row_date: '2026-06-01'
+			})
+		]);
+	});
+
+	it('keeps corrections visible but non-counting when the parent run is invalidated', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: accepted.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Emergency leave swap.'
+		});
+
+		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+
+		expect(listedRuns[0]).toMatchObject({
+			id: accepted.id,
+			status: 'invalidated',
+			corrections: [expect.objectContaining({ replacementAssigneeId: 'bravo', countsTowardFuture: false })]
+		});
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
+	});
+
 	it('invalidates the latest accepted run and excludes it from future count derivation', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -942,6 +1112,8 @@ function tableRows(table: string): Record<string, unknown>[] {
 			return dailyAssignmentRows;
 		case 'duty_roster_template_runs':
 			return acceptedRunRows;
+		case 'duty_roster_template_run_corrections':
+			return correctionRows;
 		case 'personnel':
 			return personnelRows;
 		case 'special_days':

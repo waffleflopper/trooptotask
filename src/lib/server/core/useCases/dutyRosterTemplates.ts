@@ -11,9 +11,11 @@ import {
 	type DutyRosterTemplate,
 	type DutyRosterTemplateAcceptPreviewInput,
 	type DutyRosterTemplateAcceptedRun,
+	type DutyRosterTemplateCorrectionInput,
 	type DutyRosterTemplateCreateInput,
 	type DutyRosterTemplateGenerateInput,
 	type DutyRosterTemplateManualSelectionInput,
+	type DutyRosterTemplateRunCorrection,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
 	type DutyRosterPoolCriteria,
@@ -42,6 +44,7 @@ import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
+const DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE = 'duty_roster_template_run_corrections';
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
 const MAX_PREVIEW_DAYS = 62;
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,6 +76,12 @@ const manualSelectionSchema = z.object({
 const acceptPreviewSchema = z.object({
 	preview: z.string().trim().min(1, 'Generate the preview again before accepting.')
 });
+const correctionSchema = z.object({
+	runId: z.string().trim().min(1, 'Accepted Duty Roster Run is required'),
+	runRowDate: z.string().refine(isValidDateOnly, 'Duty date is required'),
+	replacementAssigneeId: z.string().trim().min(1, 'Replacement Soldier is required'),
+	reason: z.string().trim().min(1, 'Correction reason is required')
+});
 
 type DutyRosterTemplateRow = {
 	id: string;
@@ -103,6 +112,19 @@ type DutyRosterTemplateRunRow = {
 	applied_at: string | null;
 	invalidated_by_user_id: string | null;
 	invalidated_at: string | null;
+	created_at: string;
+};
+
+type DutyRosterTemplateRunCorrectionRow = {
+	id: string;
+	organization_id: string;
+	run_id: string;
+	run_row_date: string;
+	original_assignee_id: string;
+	replacement_assignee_id: string;
+	reason: string;
+	corrected_by_user_id: string | null;
+	corrected_at: string;
 	created_at: string;
 };
 
@@ -139,6 +161,7 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 		invalidatedByUserId: row.invalidated_by_user_id ?? null,
 		linkedCalendarAssignmentCount: 0,
 		calendarAssignmentsEdited: false,
+		corrections: [],
 		snapshotPayload: row.snapshot_payload,
 		createdAt: row.created_at
 	};
@@ -146,6 +169,45 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 
 function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
 	return row.snapshot_payload as unknown as DutyRosterTemplateAcceptedSnapshot;
+}
+
+function snapshotPersonDisplay(
+	snapshot: DutyRosterTemplateAcceptedSnapshot,
+	personnelId: string | null
+): DutyRosterTemplateRunCorrection['originalDisplay'] {
+	if (!personnelId) return null;
+	const person = snapshot.selectionPersonnel.find((candidate) => candidate.id === personnelId);
+	if (!person) return null;
+
+	return {
+		id: person.id,
+		rank: person.rank,
+		lastName: person.lastName,
+		firstName: person.firstName,
+		groupName: person.groupName ?? ''
+	};
+}
+
+function dbPersonnelDisplay(
+	person:
+		| {
+				id: string;
+				rank: string;
+				lastName: string;
+				firstName: string;
+				groupName?: string;
+		  }
+		| undefined
+): DutyRosterTemplateRunCorrection['replacementDisplay'] {
+	if (!person) return null;
+
+	return {
+		id: person.id,
+		rank: person.rank,
+		lastName: person.lastName,
+		firstName: person.firstName,
+		groupName: person.groupName ?? ''
+	};
 }
 
 type DutyRosterTemplateLinkedCalendarAssignmentRow = {
@@ -162,12 +224,14 @@ function expectedCalendarAssignmentsByRowDate(
 ): Map<string, { assignmentTypeId: string; assigneeId: string }> {
 	const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 	const expected = new Map<string, { assignmentTypeId: string; assigneeId: string }>();
+	const correctionByDate = new Map(run.corrections.map((correction) => [correction.runRowDate, correction]));
 
 	for (const row of snapshot.finalRows) {
-		if (!row.finalAssigneeId) continue;
+		const assigneeId = correctionByDate.get(row.date)?.replacementAssigneeId ?? row.finalAssigneeId;
+		if (!assigneeId) continue;
 		expected.set(row.date, {
 			assignmentTypeId: snapshot.template.id,
-			assigneeId: row.finalAssigneeId
+			assigneeId
 		});
 	}
 
@@ -340,6 +404,15 @@ function parseAcceptPreviewInput(input: DutyRosterTemplateAcceptPreviewInput): D
 	return parsed.data;
 }
 
+function parseCorrectionInput(input: DutyRosterTemplateCorrectionInput): DutyRosterTemplateCorrectionInput {
+	const parsed = correctionSchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster Correction input is invalid');
+	}
+
+	return parsed.data;
+}
+
 function isUniqueSlugError(error: unknown): boolean {
 	return error instanceof Error && /duplicate|unique|duty_roster_templates_org_slug_key/i.test(error.message);
 }
@@ -355,8 +428,82 @@ async function loadAcceptedContinuationHistory(ctx: QueryPorts, templateId: stri
 		{ template_id: templateId, status: 'accepted' },
 		{ orderBy: [{ column: 'accepted_at', ascending: true }] }
 	);
+	const correctionsByRunId = await loadCorrectionsByRunId(
+		ctx,
+		acceptedRunRows.map((row) => row.id)
+	);
 
-	return acceptedRunRows.map(acceptedRunSnapshot).map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
+	return acceptedRunRows
+		.map((row) => acceptedSnapshotWithLatestCorrections(acceptedRunSnapshot(row), correctionsByRunId.get(row.id) ?? []))
+		.map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
+}
+
+async function loadCorrectionsByRunId(
+	ctx: QueryPorts,
+	runIds: string[]
+): Promise<Map<string, DutyRosterTemplateRunCorrectionRow[]>> {
+	if (runIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await ctx.store.findMany<DutyRosterTemplateRunCorrectionRow>(
+		DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE,
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { run_id: runIds },
+			orderBy: [
+				{ column: 'run_row_date', ascending: true },
+				{ column: 'corrected_at', ascending: true }
+			]
+		}
+	);
+	const correctionsByRunId = new Map<string, DutyRosterTemplateRunCorrectionRow[]>();
+	for (const row of rows) {
+		const runRows = correctionsByRunId.get(row.run_id) ?? [];
+		runRows.push(row);
+		correctionsByRunId.set(row.run_id, runRows);
+	}
+
+	return correctionsByRunId;
+}
+
+function latestCorrectionsByDate(
+	corrections: DutyRosterTemplateRunCorrectionRow[]
+): Map<string, DutyRosterTemplateRunCorrectionRow> {
+	const latest = new Map<string, DutyRosterTemplateRunCorrectionRow>();
+	for (const correction of corrections) {
+		latest.set(correction.run_row_date, correction);
+	}
+	return latest;
+}
+
+function acceptedSnapshotWithLatestCorrections(
+	snapshot: DutyRosterTemplateAcceptedSnapshot,
+	corrections: DutyRosterTemplateRunCorrectionRow[]
+): DutyRosterTemplateAcceptedSnapshot {
+	const latest = latestCorrectionsByDate(corrections);
+	if (latest.size === 0) {
+		return snapshot;
+	}
+
+	return {
+		...snapshot,
+		finalRows: snapshot.finalRows.map((row) => {
+			const correction = latest.get(row.date);
+			if (!correction) return row;
+
+			const replacementDisplay =
+				snapshot.selectionPersonnel.find((person) => person.id === correction.replacement_assignee_id) ??
+				(row.finalDisplay?.id === correction.replacement_assignee_id ? row.finalDisplay : null);
+			return {
+				...row,
+				finalAssigneeId: correction.replacement_assignee_id,
+				finalDisplay: replacementDisplay,
+				reason: correction.reason
+			};
+		})
+	};
 }
 
 async function buildTemplatePreviewFromCurrentState(
@@ -437,6 +584,72 @@ async function hydrateAcceptedRunCalendarState(
 			...run,
 			linkedCalendarAssignmentCount: runRows.length,
 			calendarAssignmentsEdited: linkedCalendarAssignmentsWereEdited(run, runRows)
+		};
+	});
+}
+
+async function hydrateAcceptedRunCorrections(
+	ctx: QueryPorts,
+	runs: DutyRosterTemplateAcceptedRun[]
+): Promise<DutyRosterTemplateAcceptedRun[]> {
+	if (runs.length === 0) {
+		return runs;
+	}
+
+	const correctionsByRunId = await loadCorrectionsByRunId(
+		ctx,
+		runs.map((run) => run.id)
+	);
+	const personnelIds = [
+		...new Set(
+			[...correctionsByRunId.values()]
+				.flat()
+				.flatMap((correction) => [correction.original_assignee_id, correction.replacement_assignee_id])
+		)
+	];
+	const personnelById = new Map<string, DutyRosterPoolPersonnel>();
+	if (personnelIds.length > 0) {
+		const rows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			inFilters: { id: personnelIds },
+			select: PersonnelEntity.select
+		});
+		for (const person of PersonnelEntity.fromDbArray(rows)) {
+			personnelById.set(person.id, {
+				id: person.id,
+				rank: person.rank,
+				lastName: person.lastName,
+				firstName: person.firstName,
+				mos: person.mos ?? '',
+				dutyRole: person.clinicRole ?? '',
+				groupId: person.groupId ?? null,
+				groupName: person.groupName ?? '',
+				archivedAt: person.archivedAt ?? null
+			});
+		}
+	}
+
+	return runs.map((run) => {
+		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+		const corrections = (correctionsByRunId.get(run.id) ?? []).map((correction) => ({
+			id: correction.id,
+			runId: correction.run_id,
+			runRowDate: correction.run_row_date,
+			originalAssigneeId: correction.original_assignee_id,
+			originalDisplay:
+				snapshotPersonDisplay(snapshot, correction.original_assignee_id) ??
+				dbPersonnelDisplay(personnelById.get(correction.original_assignee_id)),
+			replacementAssigneeId: correction.replacement_assignee_id,
+			replacementDisplay:
+				snapshotPersonDisplay(snapshot, correction.replacement_assignee_id) ??
+				dbPersonnelDisplay(personnelById.get(correction.replacement_assignee_id)),
+			reason: correction.reason,
+			correctedByUserId: correction.corrected_by_user_id,
+			correctedAt: correction.corrected_at,
+			countsTowardFuture: run.status === 'accepted'
+		}));
+		return {
+			...run,
+			corrections
 		};
 	});
 }
@@ -580,7 +793,8 @@ export async function listAcceptedDutyRosterTemplateRuns(
 		}
 	);
 
-	return hydrateAcceptedRunCalendarState(ctx, rows.map(toAcceptedRun));
+	const runsWithCorrections = await hydrateAcceptedRunCorrections(ctx, rows.map(toAcceptedRun));
+	return hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
 }
 
 export async function updateDutyRosterTemplateSettings(
@@ -824,6 +1038,103 @@ export async function applyAcceptedDutyRosterTemplateRun(
 	}
 
 	return applyAcceptedDutyRosterTemplateRunRecord(ctx, toAcceptedRun(row));
+}
+
+export async function recordDutyRosterTemplateRunCorrection(
+	ctx: WritePorts,
+	input: DutyRosterTemplateCorrectionInput
+): Promise<DutyRosterTemplateRunCorrection> {
+	await requireTemplateManagement(ctx);
+
+	const parsed = parseCorrectionInput(input);
+	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
+		id: parsed.runId
+	});
+	if (!row) {
+		fail(404, 'Accepted Duty Roster Run not found');
+	}
+	if (row.status === 'invalidated') {
+		fail(400, 'Invalidated Duty Roster Runs cannot be corrected.');
+	}
+
+	const snapshot = acceptedRunSnapshot(row);
+	const acceptedRow = snapshot.finalRows.find((candidate) => candidate.date === parsed.runRowDate);
+	if (!acceptedRow) {
+		fail(400, 'Duty date is not part of this accepted run.');
+	}
+	if (!acceptedRow.finalAssigneeId) {
+		fail(400, 'Only assigned Duty Roster rows can be corrected.');
+	}
+	if (acceptedRow.finalAssigneeId === parsed.replacementAssigneeId) {
+		fail(400, 'Replacement Soldier must differ from the accepted Soldier.');
+	}
+
+	const replacement = await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, {
+		id: parsed.replacementAssigneeId,
+		archived_at: null
+	});
+	if (!replacement) {
+		fail(400, 'Replacement Soldier is missing or archived.');
+	}
+
+	const correctedAt = new Date().toISOString();
+	const inserted = await ctx.store.insert<DutyRosterTemplateRunCorrectionRow>(
+		DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE,
+		ctx.auth.orgId,
+		{
+			run_id: row.id,
+			run_row_date: parsed.runRowDate,
+			original_assignee_id: acceptedRow.finalAssigneeId,
+			replacement_assignee_id: parsed.replacementAssigneeId,
+			reason: parsed.reason,
+			corrected_by_user_id: ctx.auth.userId,
+			corrected_at: correctedAt,
+			created_at: correctedAt
+		}
+	);
+
+	if (row.applied_at) {
+		await batchDailyAssignments(ctx, {
+			records: [
+				{
+					date: parsed.runRowDate,
+					assignmentTypeId: snapshot.template.id,
+					assigneeId: parsed.replacementAssigneeId,
+					dutyRosterTemplateRunId: row.id,
+					dutyRosterTemplateRunRowDate: parsed.runRowDate
+				}
+			]
+		});
+	}
+
+	await ctx.audit.log({
+		action: 'duty_roster_template_run.corrected',
+		resourceType: 'duty_roster_template_run',
+		resourceId: row.id,
+		details: {
+			correctionId: inserted.id,
+			runRowDate: inserted.run_row_date,
+			originalAssigneeId: inserted.original_assignee_id,
+			replacementAssigneeId: inserted.replacement_assignee_id,
+			calendarSynced: Boolean(row.applied_at)
+		}
+	});
+
+	return {
+		id: inserted.id,
+		runId: inserted.run_id,
+		runRowDate: inserted.run_row_date,
+		originalAssigneeId: inserted.original_assignee_id,
+		originalDisplay: snapshotPersonDisplay(snapshot, inserted.original_assignee_id),
+		replacementAssigneeId: inserted.replacement_assignee_id,
+		replacementDisplay:
+			snapshotPersonDisplay(snapshot, inserted.replacement_assignee_id) ??
+			dbPersonnelDisplay(PersonnelEntity.fromDb(replacement)),
+		reason: inserted.reason,
+		correctedByUserId: inserted.corrected_by_user_id,
+		correctedAt: inserted.corrected_at,
+		countsTowardFuture: true
+	};
 }
 
 type DutyRosterTemplateInvalidateResult = {

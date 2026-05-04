@@ -12,11 +12,18 @@ import {
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
+	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
 
-type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError' | 'applyError' | 'invalidateError';
+type ActionErrorKey =
+	| 'generateError'
+	| 'manualError'
+	| 'settingsError'
+	| 'applyError'
+	| 'invalidateError'
+	| 'correctionError';
 
 function formValues(formData: FormData, name: string): string[] {
 	return formData.getAll(name).map((value) => String(value));
@@ -227,6 +234,26 @@ export const actions: Actions = {
 			return actionError(errorValue, {
 				key: 'invalidateError',
 				fallback: 'Failed to invalidate accepted Duty Roster Run.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+	},
+	recordCorrection: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: String(formData.get('runId') ?? ''),
+				runRowDate: String(formData.get('runRowDate') ?? ''),
+				replacementAssigneeId: String(formData.get('replacementAssigneeId') ?? ''),
+				reason: String(formData.get('reason') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'correctionError',
+				fallback: 'Failed to record Duty Roster Correction.'
 			});
 		}
 

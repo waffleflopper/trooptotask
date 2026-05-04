@@ -12,6 +12,7 @@ const {
 	generateDutyRosterTemplatePreviewMock,
 	listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplatesMock,
+	recordDutyRosterTemplateRunCorrectionMock,
 	updateDutyRosterTemplateSettingsMock,
 	isDutyRosterTemplateViewMock,
 	mockCtx
@@ -27,6 +28,7 @@ const {
 	generateDutyRosterTemplatePreviewMock: vi.fn(),
 	listAcceptedDutyRosterTemplateRunsMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
+	recordDutyRosterTemplateRunCorrectionMock: vi.fn(),
 	updateDutyRosterTemplateSettingsMock: vi.fn(),
 	isDutyRosterTemplateViewMock: vi.fn(),
 	mockCtx: {
@@ -52,6 +54,7 @@ vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	listAcceptedDutyRosterTemplateRuns: listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
+	recordDutyRosterTemplateRunCorrection: recordDutyRosterTemplateRunCorrectionMock,
 	updateDutyRosterTemplateSettings: updateDutyRosterTemplateSettingsMock
 }));
 
@@ -85,6 +88,11 @@ describe('Duty Roster Template view route', () => {
 			invalidatedRun: acceptedRun({ invalidated: true }),
 			removedCalendarAssignments: 1,
 			calendarAssignmentsEdited: false
+		});
+		recordDutyRosterTemplateRunCorrectionMock.mockResolvedValue({
+			id: 'correction-1',
+			runId: 'run-1',
+			runRowDate: '2026-06-01'
 		});
 		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([]);
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
@@ -408,6 +416,35 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('records a Duty Roster Correction from History', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1',
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Emergency leave swap.'
+			})
+		});
+
+		await expect(
+			actions.recordCorrection({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		expect(recordDutyRosterTemplateRunCorrectionMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1',
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Emergency leave swap.'
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);
@@ -583,6 +620,7 @@ function acceptedRun(options: { applied?: boolean; invalidated?: boolean } = {})
 		invalidatedByUserId: options.invalidated ? 'user-1' : null,
 		linkedCalendarAssignmentCount: options.applied ? 1 : 0,
 		calendarAssignmentsEdited: false,
+		corrections: [],
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

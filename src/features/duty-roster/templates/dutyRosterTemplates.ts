@@ -90,8 +90,38 @@ export interface DutyRosterTemplateAcceptedRun {
 	invalidatedByUserId: string | null;
 	linkedCalendarAssignmentCount: number;
 	calendarAssignmentsEdited: boolean;
+	corrections: DutyRosterTemplateRunCorrection[];
 	snapshotPayload: Record<string, unknown>;
 	createdAt: string;
+}
+
+export interface DutyRosterTemplateRunCorrection {
+	id: string;
+	runId: string;
+	runRowDate: string;
+	originalAssigneeId: string;
+	originalDisplay: DutyRosterPoolPersonnelDisplay | null;
+	replacementAssigneeId: string;
+	replacementDisplay: DutyRosterPoolPersonnelDisplay | null;
+	reason: string;
+	correctedByUserId: string | null;
+	correctedAt: string;
+	countsTowardFuture: boolean;
+}
+
+export interface DutyRosterPoolPersonnelDisplay {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+	groupName: string;
+}
+
+export interface DutyRosterTemplateCorrectionInput {
+	runId: string;
+	runRowDate: string;
+	replacementAssigneeId: string;
+	reason: string;
 }
 
 const DEFAULT_SLUG = 'duty-roster';

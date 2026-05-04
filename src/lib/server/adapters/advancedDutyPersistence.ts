@@ -188,6 +188,23 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			return asRow(data, operation);
 		},
 
+		async deleteAdvancedDutyRevisionDrafts(input) {
+			if (input.draftIds.length === 0) return 0;
+			const operation = `${REVISION_DRAFTS_TABLE}.delete`;
+			const { data, error } = await supabase
+				.from(REVISION_DRAFTS_TABLE)
+				.delete()
+				.eq('organization_id', input.orgId)
+				.in('id', input.draftIds)
+				.select('id');
+
+			if (error) {
+				throw buildTableError(operation, error.message);
+			}
+
+			return ((data as Record<string, unknown>[] | null) ?? []).length;
+		},
+
 		async appendAdvancedDutyRevisionChangeSet(input) {
 			const changeSetOperation = `${REVISION_CHANGE_SETS_TABLE}.insert`;
 			const { data: changeSetData, error: changeSetError } = await supabase
@@ -433,6 +450,10 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 
 		async updateAdvancedDutyRevisionDraft(input) {
 			return store.update<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, input.draftId, input.draftData);
+		},
+
+		async deleteAdvancedDutyRevisionDrafts(input) {
+			return store.deleteManyByIds(REVISION_DRAFTS_TABLE, input.orgId, input.draftIds);
 		},
 
 		async appendAdvancedDutyRevisionChangeSet(input): Promise<AdvancedDutyRevisionChangeSetPersistenceResult> {

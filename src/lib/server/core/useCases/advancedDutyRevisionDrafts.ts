@@ -64,6 +64,15 @@ export interface AdvancedDutyRevisionDraftLookupInput {
 	appliedRunId: string;
 }
 
+export interface CleanupAdvancedDutyRevisionDraftsInput {
+	now?: string;
+}
+
+export interface CleanupAdvancedDutyRevisionDraftsResult {
+	deletedCount: number;
+	draftIds: string[];
+}
+
 export interface AdvancedDutyRevisionHistoryLookupInput {
 	appliedRunIds?: string[];
 }
@@ -140,6 +149,23 @@ function assertAppliedRunBelongsToOrg(
 	if (appliedRun.orgId !== ctx.auth.orgId) {
 		fail(400, 'Advanced Duty revision draft does not belong to this Organization.');
 	}
+}
+
+function timestampIsOnOrBefore(value: string | null, cutoff: string): boolean {
+	if (!value) return false;
+	const timestamp = Date.parse(value);
+	const cutoffTimestamp = Date.parse(cutoff);
+	return Number.isFinite(timestamp) && Number.isFinite(cutoffTimestamp) && timestamp <= cutoffTimestamp;
+}
+
+function advancedDutyRevisionDraftIsCleanupEligible(draft: AdvancedDutyRevisionDraftRecord, now: string): boolean {
+	if (draft.status === 'draft') {
+		return timestampIsOnOrBefore(draft.expiresAt, now);
+	}
+	if (draft.status === 'discarded') {
+		return timestampIsOnOrBefore(draft.discardCleanupAfter, now);
+	}
+	return false;
 }
 
 function draftToDbRow(draft: AdvancedDutyRevisionDraftRecord): Record<string, unknown> {
@@ -293,6 +319,37 @@ export async function listAdvancedDutyRevisionDrafts(
 		appliedRunId: input.appliedRunId
 	});
 	return AdvancedDutyRevisionDraftEntity.fromDbArray(rows);
+}
+
+// Intended for scheduled org-scoped server maintenance. This deletes temporary draft rows only;
+// applied revision change sets and slot-change history stay as the official record.
+export async function cleanupAdvancedDutyRevisionDrafts(
+	ctx: AdvancedDutyRevisionWriteContext,
+	input: CleanupAdvancedDutyRevisionDraftsInput = {}
+): Promise<CleanupAdvancedDutyRevisionDraftsResult> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const now = input.now ?? new Date().toISOString();
+	const drafts = await listAdvancedDutyRevisionDrafts(ctx);
+	const draftIds = drafts
+		.filter((draft) => advancedDutyRevisionDraftIsCleanupEligible(draft, now))
+		.map((draft) => draft.id);
+
+	if (draftIds.length === 0) {
+		return { deletedCount: 0, draftIds: [] };
+	}
+
+	const deletedCount = await ctx.advancedDutyPersistence.deleteAdvancedDutyRevisionDrafts({
+		orgId: ctx.auth.orgId,
+		draftIds
+	});
+
+	ctx.audit.log({
+		action: 'advanced-duty-revision-drafts.cleaned-up',
+		resourceType: 'advanced_duty_revision_draft',
+		details: { deletedCount, draftIds, now }
+	});
+
+	return { deletedCount, draftIds };
 }
 
 export async function listAdvancedDutyRevisionHistory(

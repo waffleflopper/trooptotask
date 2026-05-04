@@ -7,11 +7,13 @@ import type {
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
 	appendAdvancedDutyRevisionChangeSet,
+	cleanupAdvancedDutyRevisionDrafts,
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
 	getActiveAdvancedDutyRevisionDraft,
 	listAdvancedDutyRevisionHistory,
 	listAdvancedDutyRevisionDrafts,
+	markAdvancedDutyRevisionDraftAppliedById,
 	updateAdvancedDutyRevisionDraftChange
 } from './advancedDutyRevisionDrafts';
 
@@ -261,5 +263,110 @@ describe('advanced duty revision draft use cases', () => {
 			actorUserId: 'deleted-user',
 			actorLabel: 'Actor unavailable'
 		});
+	});
+
+	it('cleans up expired and discarded draft working state without deleting applied revision history', async () => {
+		const ctx = createTestContext();
+		const expiredActive = await createOrReopenAdvancedDutyRevisionDraft(ctx, {
+			appliedRun: appliedRun({ id: 'run-expired' }),
+			now: '2026-05-01T00:00:00.000Z',
+			makeId: () => 'draft-expired'
+		});
+		await createOrReopenAdvancedDutyRevisionDraft(ctx, {
+			appliedRun: appliedRun({ id: 'run-active' }),
+			now: '2026-05-08T00:00:00.000Z',
+			makeId: () => 'draft-active'
+		});
+		const discardedEligible = await createOrReopenAdvancedDutyRevisionDraft(ctx, {
+			appliedRun: appliedRun({ id: 'run-discarded-eligible' }),
+			now: '2026-03-31T00:00:00.000Z',
+			makeId: () => 'draft-discarded-eligible'
+		});
+		await discardAdvancedDutyRevisionDraftById(ctx, {
+			draftId: discardedEligible.draft.id,
+			now: '2026-04-01T00:00:00.000Z'
+		});
+		const discardedRetained = await createOrReopenAdvancedDutyRevisionDraft(ctx, {
+			appliedRun: appliedRun({ id: 'run-discarded-retained' }),
+			now: '2026-04-19T00:00:00.000Z',
+			makeId: () => 'draft-discarded-retained'
+		});
+		await discardAdvancedDutyRevisionDraftById(ctx, {
+			draftId: discardedRetained.draft.id,
+			now: '2026-04-20T00:00:00.000Z'
+		});
+		const applied = await createOrReopenAdvancedDutyRevisionDraft(ctx, {
+			appliedRun: appliedRun({ id: 'run-applied' }),
+			now: '2026-05-01T00:00:00.000Z',
+			makeId: () => 'draft-applied'
+		});
+		await markAdvancedDutyRevisionDraftAppliedById(ctx, {
+			draftId: applied.draft.id,
+			now: '2026-05-02T00:00:00.000Z'
+		});
+		await appendAdvancedDutyRevisionChangeSet(ctx, {
+			changeSet: {
+				id: 'change-set-1',
+				orgId: 'test-org',
+				appliedRunId: 'run-expired',
+				sourceDraftId: expiredActive.draft.id,
+				sourceSnapshotId: 'snapshot-1',
+				sourceSnapshotFingerprint: 'fingerprint-1',
+				reason: 'Leader reviewed coverage conflict.',
+				actorUserId: 'test-user',
+				reviewableConflictsConfirmed: true,
+				conflictSummary: null,
+				warningSummary: null,
+				appliedAt: '2026-05-03T02:00:00.000Z',
+				createdAt: '2026-05-03T02:00:00.000Z'
+			},
+			slotChanges: [
+				{
+					id: 'slot-change-1',
+					orgId: 'test-org',
+					changeSetId: 'change-set-1',
+					dutyEventId: 'event-1',
+					eventDate: '2026-05-04',
+					slotKey: 'slot-nco:0',
+					templateSlotId: 'slot-nco',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					previousPersonnelId: 'person-alpha',
+					newPersonnelId: 'person-bravo',
+					previousPersonnelSnapshot: null,
+					newPersonnelSnapshot: null,
+					previousAssignmentSource: 'generated',
+					newAssignmentSource: 'manual',
+					previousWarningState: 'none',
+					newWarningState: 'none',
+					changeIntent: 'assign',
+					warningMetadata: null,
+					conflictMetadata: null,
+					createdAt: '2026-05-03T02:00:00.000Z'
+				}
+			]
+		});
+
+		const result = await cleanupAdvancedDutyRevisionDrafts(ctx, {
+			now: '2026-05-10T00:00:00.000Z'
+		});
+
+		expect(result).toEqual({
+			deletedCount: 2,
+			draftIds: ['draft-expired', 'draft-discarded-eligible']
+		});
+		await expect(ctx.rawStore.findMany('advanced_duty_revision_drafts', 'test-org')).resolves.toEqual([
+			expect.objectContaining({ id: 'draft-active', status: 'draft' }),
+			expect.objectContaining({ id: 'draft-discarded-retained', status: 'discarded' }),
+			expect.objectContaining({ id: 'draft-applied', status: 'applied' })
+		]);
+		await expect(ctx.rawStore.findMany('advanced_duty_revision_change_sets', 'test-org')).resolves.toHaveLength(1);
+		await expect(ctx.rawStore.findMany('advanced_duty_revision_slot_changes', 'test-org')).resolves.toHaveLength(1);
+		await expect(listAdvancedDutyRevisionHistory(ctx, { appliedRunIds: ['run-expired'] })).resolves.toEqual([
+			expect.objectContaining({
+				id: 'change-set-1',
+				changeCount: 1
+			})
+		]);
 	});
 });

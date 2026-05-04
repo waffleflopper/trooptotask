@@ -16,6 +16,7 @@ function queryBuilder(result: unknown) {
 		single: vi.fn().mockResolvedValue(result),
 		insert: vi.fn().mockReturnThis(),
 		update: vi.fn().mockReturnThis(),
+		delete: vi.fn().mockReturnThis(),
 		then: vi.fn((resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
 			Promise.resolve(result).then(resolve, reject)
 		)
@@ -259,6 +260,24 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 			p_applied_draft_data: { id: 'draft-1', status: 'applied' },
 			p_now: '2026-05-04T00:00:00.000Z'
 		});
+	});
+
+	it('deletes only selected temporary revision draft rows from the approved draft table', async () => {
+		const builder = queryBuilder({ data: [{ id: 'draft-expired' }, { id: 'draft-discarded' }], error: null });
+		const from = vi.fn().mockReturnValue(builder);
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
+
+		const result = await adapter.deleteAdvancedDutyRevisionDrafts({
+			orgId: 'org-1',
+			draftIds: ['draft-expired', 'draft-discarded']
+		});
+
+		expect(result).toBe(2);
+		expect(from).toHaveBeenCalledWith('advanced_duty_revision_drafts');
+		expect(builder.delete).toHaveBeenCalled();
+		expect(builder.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+		expect(builder.in).toHaveBeenCalledWith('id', ['draft-expired', 'draft-discarded']);
+		expect(builder.select).toHaveBeenCalledWith('id');
 	});
 
 	it('reads compact revision history rows from the approved history tables', async () => {

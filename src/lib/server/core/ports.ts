@@ -164,6 +164,8 @@ export interface AdvancedDutyPersistencePort {
 		draftData: Record<string, unknown>;
 	}): Promise<Record<string, unknown>>;
 
+	deleteAdvancedDutyRevisionDrafts(input: { orgId: string; draftIds: string[] }): Promise<number>;
+
 	appendAdvancedDutyRevisionChangeSet(input: {
 		orgId: string;
 		changeSetData: Record<string, unknown>;

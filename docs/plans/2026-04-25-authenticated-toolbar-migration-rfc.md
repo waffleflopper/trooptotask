@@ -42,7 +42,7 @@ The remaining authenticated app still mixes:
 | Critical Tasks detail/report/library | `IctPersonnelDetailPage.svelte`, `IctReportsView.svelte`, `IctTaskLibraryPage.svelte` | Search, select filters, dense report filters, task-library actions | Needs compactable search/select groups and likely a summary/meta primitive for report context. |
 | Personnel | `PersonnelPageView.svelte` | view segmented control, search, `ProgressiveToolbarActions`, read-only upgrade note | Straight migration to `ToolbarViewToggle`, `ToolbarSearchItem`, `ToolbarActions`, plus a reusable status/meta item for read-only messaging. |
 | Calendar main | `CalendarPageView.svelte`, `calendarToolbarItems.ts` | group filter, search, `SmartToolbar` actions, dropdowns, icon button, overflow toggles | Needs SmartToolbar-to-ToolbarActions replacement, dropdown action support or policy extension, toggle actions, and lucide icon mapping. |
-| Calendar spoke pages | `AssignmentPlannerPage.svelte`, `BulkStatusPage.svelte`, `CalendarSettingsPage.svelte`, `CalendarReports.svelte`, `DutyRosterPage.svelte` | back/related links, selects, subnav tabs, action buttons | Mostly low-risk, but duty roster and settings need a reusable nav/tab or link-group primitive rather than route-local anchors. |
+| Calendar spoke pages | `AssignmentPlannerPage.svelte`, `BulkStatusPage.svelte`, `CalendarSettingsPage.svelte`, `CalendarReports.svelte` | back/related links, selects, subnav tabs, action buttons | Mostly low-risk; settings need a reusable nav/tab or link-group primitive rather than route-local anchors. |
 | Training | `TrainingPageView.svelte`, `TrainingTypesPage.svelte`, `TrainingReportsPage.svelte` | select filters, action buttons, clear filters, export, `MultiTagSelect` in report filters | Training reports are a mismatch: add a reusable multi-select toolbar filter or compact panel policy instead of hand-packing `MultiTagSelect`. |
 | Evaluations | `RatingSchemePageView.svelte` | status ledger, select filters, view segmented control, `ProgressiveToolbarActions`, shown count | Needs status/metric cluster primitive and grouped filters before migrating actions. |
 | Onboarding | `OnboardingPageView.svelte`, `history/+page.svelte`, `templates/+page.svelte` | history/back links, manage templates link, primary start/add actions, manual overflow menu, read-only note | Needs nav/link action treatment and generated overflow; keep permission gates and disabled template-state behavior unchanged. |
@@ -211,7 +211,6 @@ Candidate routes/components:
 - `src/features/calendar/components/BulkStatusPage.svelte`
 - `src/features/calendar/components/CalendarSettingsPage.svelte`
 - `src/features/calendar/components/reports/CalendarReports.svelte`
-- `src/features/duty-roster/components/DutyRosterPage.svelte`
 
 Acceptance criteria:
 

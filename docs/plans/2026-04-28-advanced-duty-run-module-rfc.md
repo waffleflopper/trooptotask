@@ -8,19 +8,19 @@ Carry the Duty Roster Run Module work into the advanced duty workflow.
 
 Follow-on revision/deepening work is tracked in `docs/plans/2026-05-02-advanced-duty-run-revision-deepening-rfc.md`.
 
-The simple duty lane now has a clearer run boundary: generation creates an immutable snapshot, preview/apply/history/export use that snapshot, and the Svelte page stays closer to UI orchestration. The advanced lane still runs through the older template/event flow. That is a bigger problem than it is in the simple generator because advanced duties are the staff duty/CQ-style workflow: templates, teams, slots, coverage windows, per-run candidates, manual overrides, collision review, and series apply all need to stay tied to the exact generation result the operator reviewed.
+At the time of this RFC, the simple duty lane had a clearer run boundary: generation created an immutable snapshot, preview/apply/history/export used that snapshot, and the Svelte page stayed closer to UI orchestration. The advanced lane still ran through the older template/event flow. That was a bigger problem than it was in the simple generator because advanced duties were the staff duty/CQ-style workflow: templates, teams, slots, coverage windows, per-run candidates, manual overrides, collision review, and series apply all needed to stay tied to the exact generation result the operator reviewed.
 
-This RFC defines a follow-up plan for an **Advanced Duty Run Module** that preserves the current advanced duty product model while giving it the same kind of snapshot, apply, and export discipline as the simple run module.
+This historical RFC defined a follow-up plan for an **Advanced Duty Run Module** that preserved the then-current advanced duty product model while giving it the same kind of snapshot, apply, and export discipline as the simple run module.
 
-## Current State
+## Historical State At RFC Time
 
-- Simple duty generation now has `src/features/duty-roster/run/`, with `DutyRosterRun` owning run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and a formatting-neutral export model.
-- Advanced duty generation currently lives mostly in `src/lib/server/core/useCases/dutyEventCrud.ts`.
+- Simple duty generation had `src/features/duty-roster/run/`, with `DutyRosterRun` owning run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and a formatting-neutral export model.
+- Advanced duty generation lived mostly in `src/lib/server/core/useCases/dutyEventCrud.ts`.
 - `previewDutyEventFromTemplate` and `previewDutyEventSeriesFromTemplate` generate advanced event previews from the current template, personnel, status, special-day, duty-event, and override state.
 - `applyDutyEventFromTemplate` and `applyDutyEventSeriesFromTemplate` rebuild previews during apply instead of consuming an immutable preview snapshot.
 - Advanced event records preserve a `rulesSnapshot` and `originalProposal`, but there is no first-class advanced run snapshot that captures the whole previewed run, including date pattern, candidate filter, transient series history, slot overrides, warnings, collision state, final apply payloads, and export-ready team duty packet data.
-- `DutyRosterWizard.svelte` stores transient wizard state and calls preview/apply callbacks, while `dutyRosterWizard.helpers.ts` owns input shaping and browser-side duty packet markup.
-- Current advanced series preview already uses transient events so later dates in the series can consider earlier previewed dates for fairness, but apply recomputes the same logic later from fresh state.
+- The removed legacy wizard stored transient wizard state and called preview/apply callbacks, while its removed helper module owned input shaping and browser-side duty packet markup.
+- Advanced series preview already used transient events so later dates in the series could consider earlier previewed dates for fairness, but apply recomputed the same logic later from fresh state.
 
 ## Problem
 
@@ -35,7 +35,7 @@ If apply rebuilds from current data instead of the previewed run snapshot, the o
 1. Give advanced duty generation a first-class run boundary parallel to the simple Duty Roster Run Module.
 2. Preserve advanced duties as team/event workflows, not DA6 clones.
 3. Keep preview, manual overrides, collision review, apply, original proposal, and export tied to the exact generated run.
-4. Preserve current advanced duty behavior unless a slice explicitly changes it.
+4. Preserve then-current advanced duty behavior unless a slice explicitly changes it.
 5. Make the server use case thinner by moving stable generation rules behind a smaller module interface.
 6. Keep template rules snapshotted so old duty events remain auditable after template edits.
 7. Produce export-ready team duty packet data without browser markup living in wizard helpers.

@@ -73,7 +73,7 @@ Calendar and duty-roster have several current examples of this direction:
 
 - `CalendarRangeCoordinator` owns client-side calendar range expansion, request de-duping, range-store merging, retry state, and advanced duty event merging for the calendar page.
 - `advancedDutyCollections` owns duty-roster template normalization and applied-duty timeline update rules so the page component does not repeat collection ordering and replacement rules inside every handler.
-- `DutyRosterRun` owns simple-duty run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and the formatting-neutral export model. `DutyRosterGenerator.svelte` should stay mostly form state, rendering, callbacks, and feedback orchestration.
+- `DutyRosterRun` owns legacy simple-duty run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and the formatting-neutral export model. The old simple-duty generator UI has been removed; keep any retained run logic behind module boundaries until it is either consumed by the replacement Duty Roster surface or removed in a dedicated cleanup.
 - `dutyRosterBrowserExport` is a temporary browser download adapter for the current Excel-compatible HTML export. It may format and download an existing run export model or saved history record, but it must not rebuild selection, DA6 numbering, apply payloads, or history payloads.
 - The `Advanced Duty Run Module` lives in `src/features/duty-roster/advanced-run/`.
   - It owns advanced team-duty generation decisions, draft Advanced Run Snapshots, availability/blocking classifications, slot proposals, snapshot-derived apply payloads, and the Team Duty Packet Export Model.

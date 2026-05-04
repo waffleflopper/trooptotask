@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { deserialize } from '$app/forms';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type {
 		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
@@ -21,7 +22,6 @@
 		type DutyRosterTemplatePreview
 	} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
-	import { parse as parseDevalue } from 'devalue';
 
 	type ActionForm = {
 		error?: string;
@@ -64,14 +64,22 @@
 		historyDetailMode?: 'roster' | 'da6';
 	}
 
+	type AcceptedFinalRow = DutyRosterTemplateAcceptedSnapshot['finalRows'][number];
+	type AcceptedHistoryTableRow = {
+		id: string;
+		run: DutyRosterTemplateAcceptedRun;
+		snapshot: DutyRosterTemplateAcceptedSnapshot;
+		finalRow: AcceptedFinalRow;
+		correction: DutyRosterTemplateRunCorrection | null;
+		isInvalidated: boolean;
+	};
+
 	let { data, form }: { data: WorkspaceData; form?: unknown } = $props();
-	let acceptAndPrintPending = $state(false);
-	let acceptAndPrintError = $state<string | null>(null);
 	let previewMode = $state<'list' | 'matrix'>('list');
 	let generatingPreview = $state(false);
 	let editingPreviewRows = $state<Record<string, boolean>>({});
 	let editingCorrections = $state<Record<string, boolean>>({});
-	let expandedHistoryRuns = $state<Record<string, boolean>>({});
+	let confirmingInvalidationRunId = $state<string | null>(null);
 	let selectedPreviewAssignees = $state<Record<string, string>>({});
 	let selectedCorrectionAssignees = $state<Record<string, string>>({});
 	let rankFilterValues = $state<string[]>([]);
@@ -90,7 +98,6 @@
 	let settingsBaselineCounts = $state<Record<string, string>>({});
 	let wizardExemptPersonnelIds = $state<string[]>([]);
 
-	const INVALIDATE_CONFIRMATION = 'Invalidating this run will remove the assignments from the calendar. Are you sure?';
 	const basePath = $derived(`/org/${data.orgId}/duty-rosters`);
 	const createAction = $derived(`${basePath}?/createTemplate`);
 	const createWizardAction = $derived(`${basePath}/new?/createTemplate`);
@@ -164,6 +171,40 @@
 	const generateEndDate = $derived(actionForm?.generateValues?.endDate ?? defaultDateRange.endDate);
 	const canGenerate = $derived(generateStartDate >= todayDate && generateEndDate >= generateStartDate);
 	const historyMode = $derived<'list' | 'matrix'>(data.historyDetailMode === 'da6' ? 'matrix' : 'list');
+	const acceptedHistoryColumns: ColumnDef<AcceptedHistoryTableRow>[] = [
+		{
+			key: 'date',
+			header: 'Date',
+			value: (row) => row.finalRow.date
+		},
+		{
+			key: 'assigned',
+			header: 'Assigned',
+			value: (row) => row.finalRow.finalDisplay?.lastName ?? 'Unfilled',
+			searchValue: (row) =>
+				row.finalRow.finalDisplay
+					? `${row.finalRow.finalDisplay.rank} ${row.finalRow.finalDisplay.lastName}, ${row.finalRow.finalDisplay.firstName}`
+					: 'Unfilled'
+		},
+		{
+			key: 'source',
+			header: 'Source',
+			value: (row) => (row.correction ? 'Corrected' : row.finalRow.assignmentSource),
+			sortable: false
+		},
+		{
+			key: 'warnings',
+			header: 'Warnings',
+			value: (row) => row.finalRow.warnings.length,
+			sortable: false
+		},
+		{
+			key: 'review',
+			header: 'Review State',
+			value: (row) => (row.correction ? 'Corrected' : row.finalRow.reason || ''),
+			sortable: false
+		}
+	];
 
 	$effect(() => {
 		if (!data.settings) return;
@@ -306,15 +347,13 @@
 	}
 
 	function historyDetailHref(run: DutyRosterTemplateAcceptedRun, mode: 'roster' | 'da6'): string {
-		return selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history/${run.id}?mode=${mode}` : basePath;
+		if (!selectedTemplate) return basePath;
+		const detailPath = `${basePath}/${selectedTemplate.slug}/history/${run.id}`;
+		return mode === 'da6' ? `${detailPath}?mode=da6` : detailPath;
 	}
 
 	function correctionKey(runId: string, date: string): string {
 		return `${runId}:${date}`;
-	}
-
-	function toggleHistoryRun(runId: string) {
-		expandedHistoryRuns = { ...expandedHistoryRuns, [runId]: !expandedHistoryRuns[runId] };
 	}
 
 	function isCorrectionOpen(runId: string, date: string): boolean {
@@ -335,17 +374,6 @@
 
 	function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
 		return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
-	}
-
-	function isAcceptedRun(value: unknown): value is DutyRosterTemplateAcceptedRun {
-		return Boolean(
-			value &&
-			typeof value === 'object' &&
-			'id' in value &&
-			'snapshotPayload' in value &&
-			value.snapshotPayload &&
-			typeof value.snapshotPayload === 'object'
-		);
 	}
 
 	function acceptedCellDisplay(
@@ -397,74 +425,19 @@
 		printDutyRosterForBrowser({ acceptedSnapshot: acceptedSnapshot(run), statusLabel: 'Official' });
 	}
 
-	function confirmRunInvalidation(event: SubmitEvent): void {
-		if (!confirm(INVALIDATE_CONFIRMATION)) {
-			event.preventDefault();
-		}
-	}
-
-	function actionResultData(resultText: string): Record<string, unknown> | null {
-		let result: { type?: unknown; data?: unknown };
-		try {
-			result = deserialize(resultText) as { type?: unknown; data?: unknown };
-		} catch {
-			try {
-				result = JSON.parse(resultText) as { type?: unknown; data?: unknown };
-			} catch {
-				return null;
-			}
-		}
-
-		if (result.type !== 'success') {
-			return null;
-		}
-
-		if (result.data && typeof result.data === 'object') {
-			return result.data as Record<string, unknown>;
-		}
-
-		if (typeof result.data === 'string') {
-			try {
-				const parsed = parseDevalue(result.data);
-				return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
-			} catch {
-				return null;
-			}
-		}
-
-		return null;
-	}
-
-	async function acceptAndPrintPreview(preview: DutyRosterTemplatePreview): Promise<void> {
-		if (acceptAndPrintPending) {
-			return;
-		}
-
-		acceptAndPrintPending = true;
-		acceptAndPrintError = null;
-
-		const formData = new FormData();
-		formData.set('preview', previewFormValue(preview));
-		formData.set('intent', 'print');
-
-		try {
-			const response = await fetch(acceptPreviewAction, {
-				method: 'POST',
-				body: formData
-			});
-			const resultData = actionResultData(await response.text());
-
-			if (isAcceptedRun(resultData?.acceptedRun)) {
-				printAcceptedRun(resultData.acceptedRun);
-				return;
-			}
-
-			acceptAndPrintError = 'Could not accept and print this Duty Roster preview.';
-		} catch {
-			acceptAndPrintError = 'Could not accept and print this Duty Roster preview.';
-		} finally {
-			acceptAndPrintPending = false;
-		}
+	function acceptedHistoryRows(
+		run: DutyRosterTemplateAcceptedRun,
+		snapshot: DutyRosterTemplateAcceptedSnapshot,
+		isInvalidated: boolean
+	): AcceptedHistoryTableRow[] {
+		return snapshot.finalRows.map((row) => ({
+			id: `${run.id}:${row.date}`,
+			run,
+			snapshot,
+			finalRow: row,
+			correction: latestCorrectionForDate(run, row.date),
+			isInvalidated
+		}));
 	}
 </script>
 
@@ -877,29 +850,22 @@
 										</p>
 									</div>
 									<div class="preview-output-actions" aria-label="Draft and official output actions">
-										<Badge label="Draft preview" variant="outlined" />
+										<div class="run-lifecycle" aria-label="Duty Roster run lifecycle">
+											<span class="run-lifecycle__step run-lifecycle__step--active">Draft</span>
+											<span class="run-lifecycle__step">Official</span>
+											<span class="run-lifecycle__step">Applied</span>
+										</div>
+										<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
+											<input type="hidden" name="preview" value={previewFormValue(preview)} />
+											<button class="btn btn-primary btn-calendar" type="submit">Accept then Apply</button>
+										</form>
+										<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+											<input type="hidden" name="preview" value={previewFormValue(preview)} />
+											<button class="btn btn-secondary" type="submit">Accept Only</button>
+										</form>
 										<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
 											Print Draft
 										</button>
-										<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-											<input type="hidden" name="preview" value={previewFormValue(preview)} />
-											<button class="btn btn-primary" type="submit">Accept Run</button>
-										</form>
-										<button
-											class="btn btn-primary"
-											type="button"
-											disabled={acceptAndPrintPending}
-											onclick={() => acceptAndPrintPreview(preview)}
-										>
-											{acceptAndPrintPending ? 'Accepting...' : 'Accept & Print'}
-										</button>
-										<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
-											<input type="hidden" name="preview" value={previewFormValue(preview)} />
-											<button class="btn btn-primary btn-calendar" type="submit">Apply to Calendar</button>
-										</form>
-										{#if acceptAndPrintError}
-											<p class="form-error inline-output-error" role="alert">{acceptAndPrintError}</p>
-										{/if}
 									</div>
 								</div>
 
@@ -954,8 +920,6 @@
 														{#if manualSelection?.warnings.length}
 															<span
 																class="issue-badge"
-																role="button"
-																tabindex="0"
 																title={issueTitle(manualSelection.warnings)}
 																aria-label={`Issue explanation: ${issueTitle(manualSelection.warnings)}`}
 															>
@@ -1136,12 +1100,7 @@
 						</div>
 					</div>
 				{:else if selectedView === 'history'}
-					<p class="eyebrow">History View</p>
-					<h3 id="template-view-heading">Accepted runs</h3>
-					<p>
-						Accepted Duty Roster Runs are official history. List review shows generated versus manual rows; the matrix
-						renders from the saved snapshot.
-					</p>
+					<h2 id="template-view-heading" class="sr-only">Accepted runs</h2>
 					{#if actionForm?.applyError}
 						<p class="form-error settings-error" role="alert">{actionForm.applyError}</p>
 					{/if}
@@ -1155,85 +1114,134 @@
 						<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 					{:else}
 						{#if historyDetailRun}
-							<div class="history-detail-banner">
+							{@const detailRunInvalidated = historyDetailRun.status === 'invalidated'}
+							{@const detailCalendarState = calendarActionState(historyDetailRun)}
+							{@const detailCanInvalidate = !detailRunInvalidated && historyDetailRun.id === latestHistoryRunId}
+							<section class="history-detail-banner" aria-label="Official Duty Roster record">
 								<a class="btn btn-secondary btn-sm" href={`${basePath}/${selectedTemplate.slug}/history`}>
 									Back to History
 								</a>
-								<div class="view-switch" role="group" aria-label="History detail review mode">
-									<a class:active={historyMode === 'list'} href={historyDetailHref(historyDetailRun, 'roster')}>
-										Roster
-									</a>
-									<a class:active={historyMode === 'matrix'} href={historyDetailHref(historyDetailRun, 'da6')}>
-										DA6 Matrix
-									</a>
+								<div class="history-detail-banner__identity">
+									<div class="history-detail-banner__title-row">
+										<h4>Run {historyDetailRun.startDate} to {historyDetailRun.endDate}</h4>
+										{#if detailRunInvalidated}
+											<span class="invalidated-record-chip">Invalidated</span>
+										{/if}
+									</div>
 								</div>
-							</div>
+								<div class="history-detail-banner__controls">
+									<div class="view-switch" role="group" aria-label="History detail review mode">
+										<a class:active={historyMode === 'list'} href={historyDetailHref(historyDetailRun, 'roster')}>
+											Roster
+										</a>
+										<a class:active={historyMode === 'matrix'} href={historyDetailHref(historyDetailRun, 'da6')}>
+											DA6 Matrix
+										</a>
+									</div>
+									<div class="accepted-detail-actions" aria-label="Official record actions">
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											onclick={() => printAcceptedRun(historyDetailRun)}
+										>
+											Print Record
+										</button>
+										{#if !detailRunInvalidated && detailCalendarState !== 'applied'}
+											<form class="accept-preview-form" method="POST" action={applyAcceptedRunAction}>
+												<input type="hidden" name="runId" value={historyDetailRun.id} />
+												<button class="btn btn-primary btn-sm" type="submit">
+													{detailCalendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
+												</button>
+											</form>
+										{/if}
+										{#if detailCanInvalidate}
+											<button
+												class="btn btn-danger btn-sm"
+												type="button"
+												aria-expanded={confirmingInvalidationRunId === historyDetailRun.id}
+												onclick={() =>
+													(confirmingInvalidationRunId =
+														confirmingInvalidationRunId === historyDetailRun.id ? null : historyDetailRun.id)}
+											>
+												Invalidate run
+											</button>
+										{/if}
+									</div>
+								</div>
+							</section>
+							{#if detailCanInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
+								<section class="invalidation-confirm" aria-labelledby="invalidation-confirm-heading">
+									<div>
+										<p class="eyebrow">Invalidation Review</p>
+										<h4 id="invalidation-confirm-heading">Remove this official run from Calendar</h4>
+										<p>
+											Run {historyDetailRun.startDate} to {historyDetailRun.endDate} will be marked invalidated. Linked Calendar
+											assignments for this run will be removed. This action is only available for the latest accepted run.
+										</p>
+									</div>
+									<form class="invalidation-confirm__actions" method="POST" action={invalidateAcceptedRunAction}>
+										<input type="hidden" name="runId" value={historyDetailRun.id} />
+										<button class="btn btn-danger btn-sm" type="submit">Confirm invalidation</button>
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											onclick={() => (confirmingInvalidationRunId = null)}
+										>
+											Keep run
+										</button>
+									</form>
+								</section>
+							{/if}
 						{/if}
 						<div class="history-list">
 							{#each historyDetailRun ? [historyDetailRun] : acceptedRuns as run (run.id)}
 								{@const snapshot = acceptedSnapshot(run)}
 								{@const isInvalidated = run.status === 'invalidated'}
-								{@const canInvalidateRun = !isInvalidated && run.id === latestHistoryRunId}
 								{@const calendarState = calendarActionState(run)}
-								<div class="history-run" aria-label={`${run.templateName} accepted run`}>
-									<div
-										class="history-run__header"
-										onclick={() => !historyDetailRun && toggleHistoryRun(run.id)}
-										role={historyDetailRun ? undefined : 'button'}
-										tabindex={historyDetailRun ? undefined : 0}
-									>
-										<div>
-											<h4>
-												Run {run.startDate} to {run.endDate}
-												{#if !isInvalidated && calendarState === 'applied'}
-													<span class="applied-badge">Applied</span>
-												{/if}
-											</h4>
-											<p>{run.startDate} to {run.endDate}</p>
-										</div>
-										<div class="accepted-output-actions">
-											<span class:official-badge={!isInvalidated} class:invalidated-badge={isInvalidated}>
-												{isInvalidated ? 'Invalidated' : 'Official'}
-											</span>
-											{#if !isInvalidated && calendarState === 'apply'}
-												<span class="apply-later-badge">Not applied</span>
-											{:else if !isInvalidated && calendarState === 'reapply'}
-												<span class="apply-later-badge">Calendar needs sync</span>
-											{/if}
-											{#if !isInvalidated}
-												<a class="btn btn-secondary btn-sm" href={historyDetailHref(run, 'roster')}> View Roster </a>
-												<a class="btn btn-secondary btn-sm" href={historyDetailHref(run, 'da6')}> View DA6 </a>
-												<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
-													Print Roster
-												</button>
-												<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
-													Print DA6
-												</button>
-											{/if}
-											{#if !isInvalidated && calendarState !== 'applied'}
-												<form class="accept-preview-form" method="POST" action={applyAcceptedRunAction}>
-													<input type="hidden" name="runId" value={run.id} />
-													<button class="btn btn-primary btn-sm" type="submit">
-														{calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
-													</button>
-												</form>
-											{/if}
-											{#if canInvalidateRun}
-												<form
-													class="accept-preview-form"
-													method="POST"
-													action={invalidateAcceptedRunAction}
-													onsubmit={confirmRunInvalidation}
-												>
-													<input type="hidden" name="runId" value={run.id} />
-													<button class="btn btn-danger btn-sm" type="submit">Invalidate run</button>
-												</form>
-											{:else if !isInvalidated}
-												<span class="locked-history-note">Only latest run can be invalidated.</span>
-											{/if}
-										</div>
-									</div>
-									{#if historyDetailRun || expandedHistoryRuns[run.id]}
+								<div
+									class="history-run"
+									class:history-run--detail={historyDetailRun}
+									aria-label={`${run.templateName} accepted run`}
+								>
+									{#if !historyDetailRun}
+										<a class="history-run__header" href={historyDetailHref(run, 'roster')}>
+											<div>
+												<h4>
+													Run {run.startDate} to {run.endDate}
+												</h4>
+												<p>{run.startDate} to {run.endDate}</p>
+											</div>
+											<div class="accepted-record-state">
+												<div class="run-lifecycle" aria-label="Official record lifecycle">
+													<span class="run-lifecycle__step run-lifecycle__step--complete">Draft</span>
+													<span
+														class="run-lifecycle__step"
+														class:run-lifecycle__step--complete={!isInvalidated}
+														class:run-lifecycle__step--invalid={isInvalidated}
+													>
+														{isInvalidated ? 'Invalidated' : 'Official'}
+													</span>
+													<span
+														class="run-lifecycle__step"
+														class:run-lifecycle__step--complete={!isInvalidated && calendarState === 'applied'}
+														class:run-lifecycle__step--attention={!isInvalidated && calendarState === 'reapply'}
+													>
+														{#if isInvalidated}
+															Closed
+														{:else if calendarState === 'applied'}
+															Applied
+														{:else if calendarState === 'reapply'}
+															Needs sync
+														{:else}
+															Not applied
+														{/if}
+													</span>
+												</div>
+												<span class="open-record-note">Open official record</span>
+											</div>
+										</a>
+									{/if}
+									{#if historyDetailRun}
 										{#if run.calendarAssignmentsEdited && !isInvalidated}
 											<p class="history-warning">
 												Calendar assignments linked to this run changed after apply. Re-applying may overwrite linked
@@ -1241,44 +1249,50 @@
 											</p>
 										{/if}
 
-										{#if historyDetailRun || historyMode === 'list'}
-											<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
-												<div class="preview-row preview-head" role="row">
-													<span role="columnheader">Date</span>
-													<span role="columnheader">Assigned Soldier</span>
-													<span role="columnheader">Source</span>
-													<span role="columnheader">Review state</span>
-												</div>
-												{#each snapshot.finalRows as row (row.date)}
-													{@const correction = latestCorrectionForDate(run, row.date)}
-													<div class="preview-row" role="row">
-														<span role="cell">{row.date}</span>
-														<div class="preview-selection" role="cell">
-															{#if row.finalDisplay}
-																<strong
-																	>{row.finalDisplay.rank}
-																	{row.finalDisplay.lastName}, {row.finalDisplay.firstName}</strong
-																>
-															{:else}
-																Unfilled
-															{/if}
-															{#if row.assignmentSource === 'manual' && row.generatedDisplay}
-																<small>
-																	Generated: {row.generatedDisplay.rank}
-																	{row.generatedDisplay.lastName}, {row.generatedDisplay.firstName}
-																</small>
-															{/if}
-															{#if correction?.replacementDisplay}
-																<small>
-																	Actual: {correction.replacementDisplay.rank}
-																	{correction.replacementDisplay.lastName}, {correction.replacementDisplay.firstName}
-																</small>
-															{/if}
-														</div>
-														<span role="cell">
-															{#if correction}
+										{#if historyMode === 'list'}
+											<div class="accepted-history-table">
+												<DataTable
+													data={acceptedHistoryRows(run, snapshot, isInvalidated)}
+													columns={acceptedHistoryColumns}
+													ariaLabel="Accepted Duty Roster list"
+													emptyMessage="No accepted Duty Roster rows are available."
+													rowKey={(row) => row.id}
+													compact
+													stickyHeader
+												>
+													{#snippet cell(tableRow, col)}
+														{#if col.key === 'date'}
+															<span class="cell-date">{tableRow.finalRow.date}</span>
+														{:else if col.key === 'assigned'}
+															<div class="preview-selection">
+																{#if tableRow.finalRow.finalDisplay}
+																	<strong
+																		>{tableRow.finalRow.finalDisplay.rank}
+																		{tableRow.finalRow.finalDisplay.lastName}, {tableRow.finalRow.finalDisplay
+																			.firstName}</strong
+																	>
+																{:else}
+																	Unfilled
+																{/if}
+																{#if tableRow.finalRow.assignmentSource === 'manual' && tableRow.finalRow.generatedDisplay}
+																	<small>
+																		Generated: {tableRow.finalRow.generatedDisplay.rank}
+																		{tableRow.finalRow.generatedDisplay.lastName}, {tableRow.finalRow.generatedDisplay
+																			.firstName}
+																	</small>
+																{/if}
+																{#if tableRow.correction?.replacementDisplay}
+																	<small>
+																		Actual: {tableRow.correction.replacementDisplay.rank}
+																		{tableRow.correction.replacementDisplay.lastName}, {tableRow.correction
+																			.replacementDisplay.firstName}
+																	</small>
+																{/if}
+															</div>
+														{:else if col.key === 'source'}
+															{#if tableRow.correction}
 																<Badge label="CORRECTED" variant="outlined" />
-															{:else if row.assignmentSource === 'manual'}
+															{:else if tableRow.finalRow.assignmentSource === 'manual'}
 																<Badge
 																	label="MANUAL"
 																	color="var(--color-warning-bg)"
@@ -1287,111 +1301,122 @@
 															{:else}
 																<Badge label="Generated" variant="outlined" />
 															{/if}
-														</span>
-														<div class="preview-selection" role="cell">
-															{#if correction}
-																<div class="correction-summary">
-																	<strong>Correction</strong>
-																	<small>
-																		{correctionPersonName(
-																			correction.replacementDisplay,
-																			correction.replacementAssigneeId
-																		)}
-																		performed duty for
-																		{correctionPersonName(correction.originalDisplay, correction.originalAssigneeId)}.
-																	</small>
-																	<small>Reason: {correction.reason}</small>
-																	<small
-																		>{correction.countsTowardFuture
-																			? 'Counts toward future DA6 runs.'
-																			: 'Non-counting because this run is invalidated.'}</small
+														{:else if col.key === 'warnings'}
+															<div class="preview-selection">
+																{#if tableRow.finalRow.warnings.length}
+																	<span
+																		class="issue-badge"
+																		title={issueTitle(tableRow.finalRow.warnings)}
+																		aria-label={`Issue explanation: ${issueTitle(tableRow.finalRow.warnings)}`}
 																	>
-																</div>
-															{/if}
-															{#if row.warnings.length}
-																<span
-																	class="issue-badge"
-																	role="button"
-																	tabindex="0"
-																	title={issueTitle(row.warnings)}
-																	aria-label={`Issue explanation: ${issueTitle(row.warnings)}`}
-																>
-																	{issueLabel(row.warnings)}
-																</span>
-																<ul class="manual-warnings" aria-label={`Accepted warnings for ${row.date}`}>
-																	{#each row.warnings as warning (warning.code)}
-																		<li>{warning.message}</li>
-																	{/each}
-																</ul>
-															{:else}
-																<small>No warnings</small>
-															{/if}
-															{#if row.reason}
-																<small>Reason: {row.reason}</small>
-															{/if}
-															{#if !isInvalidated && row.finalAssigneeId && historyDetailRun && !isCorrectionOpen(run.id, row.date)}
-																<button
-																	class="btn btn-secondary btn-sm"
-																	type="button"
-																	onclick={() =>
-																		(editingCorrections = {
-																			...editingCorrections,
-																			[correctionKey(run.id, row.date)]: true
-																		})}
-																>
-																	Record correction
-																</button>
-															{:else if !isInvalidated && row.finalAssigneeId && historyDetailRun}
-																<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
-																	<input type="hidden" name="runId" value={run.id} />
-																	<input type="hidden" name="runRowDate" value={row.date} />
-																	<input
-																		type="hidden"
-																		name="replacementAssigneeId"
-																		value={selectedCorrectionAssigneeId(run.id, row.date)}
-																	/>
-																	<label>
-																		<span>Actual Soldier</span>
-																		<SearchSelect
-																			options={personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId)}
-																			value={selectedCorrectionAssigneeId(run.id, row.date)}
-																			ariaLabel={`Actual Soldier for ${row.date}`}
-																			placeholder="Search Soldier"
-																			clearable={false}
-																			compact
-																			onchange={(value) => {
-																				selectedCorrectionAssignees = {
-																					...selectedCorrectionAssignees,
-																					[correctionKey(run.id, row.date)]: value
-																				};
-																			}}
-																		/>
-																	</label>
-																	<label>
-																		<span>Reason</span>
-																		<input name="reason" placeholder="Reason for correction" required />
-																	</label>
-																	<div class="inline-edit-actions">
-																		<button class="btn btn-primary btn-sm" type="submit">Save</button>
-																		<button
-																			class="btn btn-secondary btn-sm"
-																			type="button"
-																			onclick={() =>
-																				(editingCorrections = {
-																					...editingCorrections,
-																					[correctionKey(run.id, row.date)]: false
-																				})}
+																		{issueLabel(tableRow.finalRow.warnings)}
+																	</span>
+																	<ul
+																		class="manual-warnings"
+																		aria-label={`Accepted warnings for ${tableRow.finalRow.date}`}
+																	>
+																		{#each tableRow.finalRow.warnings as warning (warning.code)}
+																			<li>{warning.message}</li>
+																		{/each}
+																	</ul>
+																{/if}
+															</div>
+														{:else if col.key === 'review'}
+															<div class="preview-selection review-state-cell">
+																{#if tableRow.correction}
+																	<div class="correction-summary">
+																		<strong>Correction</strong>
+																		<small>
+																			{correctionPersonName(
+																				tableRow.correction.replacementDisplay,
+																				tableRow.correction.replacementAssigneeId
+																			)}
+																			performed duty for
+																			{correctionPersonName(
+																				tableRow.correction.originalDisplay,
+																				tableRow.correction.originalAssigneeId
+																			)}.
+																		</small>
+																		<small>Reason: {tableRow.correction.reason}</small>
+																		<small
+																			>{tableRow.correction.countsTowardFuture
+																				? 'Counts toward future DA6 runs.'
+																				: 'Non-counting because this run is invalidated.'}</small
 																		>
-																			Cancel
-																		</button>
 																	</div>
-																</form>
-															{:else if isInvalidated && run.corrections.some((item) => item.runRowDate === row.date)}
-																<small>Correction trail is locked with this invalidated run.</small>
-															{/if}
-														</div>
-													</div>
-												{/each}
+																{/if}
+																{#if tableRow.finalRow.reason}
+																	<small>Reason: {tableRow.finalRow.reason}</small>
+																{/if}
+																{#if !tableRow.isInvalidated && tableRow.finalRow.finalAssigneeId && historyDetailRun && !isCorrectionOpen(tableRow.run.id, tableRow.finalRow.date)}
+																	<button
+																		class="btn btn-secondary btn-sm change-assignment-button"
+																		type="button"
+																		onclick={() =>
+																			(editingCorrections = {
+																				...editingCorrections,
+																				[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: true
+																			})}
+																	>
+																		Change Assignment
+																	</button>
+																{:else if !tableRow.isInvalidated && tableRow.finalRow.finalAssigneeId && historyDetailRun}
+																	<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
+																		<input type="hidden" name="runId" value={tableRow.run.id} />
+																		<input type="hidden" name="runRowDate" value={tableRow.finalRow.date} />
+																		<input
+																			type="hidden"
+																			name="replacementAssigneeId"
+																			value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.finalRow.date)}
+																		/>
+																		<label>
+																			<span>Actual Soldier</span>
+																			<SearchSelect
+																				options={personnelOptionItems(
+																					tableRow.snapshot.selectionPersonnel,
+																					tableRow.finalRow.finalAssigneeId
+																				)}
+																				value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.finalRow.date)}
+																				ariaLabel={`Actual Soldier for ${tableRow.finalRow.date}`}
+																				placeholder="Search Soldier"
+																				clearable={false}
+																				compact
+																				onchange={(value) => {
+																					selectedCorrectionAssignees = {
+																						...selectedCorrectionAssignees,
+																						[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: value
+																					};
+																				}}
+																			/>
+																		</label>
+																		<label>
+																			<span>Reason</span>
+																			<input name="reason" placeholder="Reason for correction" required />
+																		</label>
+																		<div class="inline-edit-actions">
+																			<button class="btn btn-primary btn-sm" type="submit">Save</button>
+																			<button
+																				class="btn btn-secondary btn-sm"
+																				type="button"
+																				onclick={() =>
+																					(editingCorrections = {
+																						...editingCorrections,
+																						[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: false
+																					})}
+																			>
+																				Cancel
+																			</button>
+																		</div>
+																	</form>
+																{:else if tableRow.isInvalidated && tableRow.run.corrections.some((item) => item.runRowDate === tableRow.finalRow.date)}
+																	<small>Correction trail is locked with this invalidated run.</small>
+																{/if}
+															</div>
+														{:else}
+															{String(col.value(tableRow) ?? '')}
+														{/if}
+													{/snippet}
+												</DataTable>
 											</div>
 										{/if}
 
@@ -1680,10 +1705,15 @@
 
 <style>
 	.duty-roster-workspace {
+		--duty-readable-muted: color-mix(in srgb, var(--text-secondary) 78%, var(--text-tertiary) 22%);
+		--text-tertiary: var(--duty-readable-muted);
+
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-5);
+		width: 100%;
 		padding: var(--sp-5);
+		box-sizing: border-box;
 		color: var(--text-primary);
 		max-width: 1400px;
 	}
@@ -1930,6 +1960,11 @@
 	.view-panel {
 		display: grid;
 		gap: var(--sp-4);
+		min-width: 0;
+	}
+
+	.template-detail-workspace {
+		min-width: 0;
 	}
 
 	.template-detail-workspace:has(.settings-form--ledger) .view-tabs {
@@ -2286,8 +2321,21 @@
 		line-height: 1.35;
 	}
 
+	.review-state-cell {
+		align-items: flex-start;
+	}
+
+	.change-assignment-button {
+		width: fit-content;
+		justify-self: start;
+		align-self: flex-start;
+		white-space: nowrap;
+	}
+
 	/* DA6 Matrix */
 	.matrix-scroll {
+		max-width: 100%;
+		min-width: 0;
 		overflow-x: auto;
 		border: 1px solid var(--ink-15);
 		border-radius: var(--radius-lg);
@@ -2295,6 +2343,7 @@
 	}
 
 	.da6-matrix {
+		width: max-content;
 		border-collapse: collapse;
 		min-width: 100%;
 	}
@@ -2374,13 +2423,27 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-3);
+		min-width: 0;
+	}
+
+	.accepted-history-table :global(.data-table) {
+		border-color: var(--ink-15);
+		border-radius: var(--radius-md);
 	}
 
 	.history-run {
+		min-width: 0;
 		background: var(--surface-panel);
 		border: 1px solid var(--ink-15);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
+	}
+
+	.history-run--detail {
+		background: transparent;
+		border: 0;
+		border-radius: 0;
+		overflow: visible;
 	}
 
 	.history-run__header {
@@ -2390,11 +2453,16 @@
 		justify-content: space-between;
 		gap: var(--sp-4);
 		flex-wrap: wrap;
-		cursor: pointer;
+		color: inherit;
+		text-decoration: none;
 		transition: background var(--transition-fast);
 	}
 
-	.history-run__header:hover {
+	a.history-run__header {
+		cursor: pointer;
+	}
+
+	a.history-run__header:hover {
 		background: color-mix(in srgb, var(--surface-subtle) 40%, var(--surface-panel) 60%);
 	}
 
@@ -3177,12 +3245,69 @@
 
 	/* History detail banner */
 	.history-detail-banner {
+		display: grid;
+		grid-template-columns: auto minmax(18rem, 1fr) auto;
+		gap: var(--sp-3);
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		border: 1px solid var(--ink-15);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+	}
+
+	.history-detail-banner__identity {
+		display: grid;
+		gap: var(--sp-1);
+		min-width: 0;
+	}
+
+	.history-detail-banner__identity h4 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+		line-height: 1.05;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.history-detail-banner__title-row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
 		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--sp-4);
+		min-width: 0;
+	}
+
+	.invalidated-record-chip {
+		display: inline-flex;
+		align-items: center;
+		min-height: 1.65rem;
+		border: 1px solid var(--danger);
+		border-radius: var(--radius-md);
+		background: var(--danger-bg);
+		color: var(--danger);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		padding: 0 var(--sp-2);
+		text-transform: uppercase;
+	}
+
+	.history-detail-banner__controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-items: flex-end;
+		justify-content: flex-end;
+	}
+
+	.history-detail-banner .view-switch {
+		margin-bottom: 0;
 	}
 
 	/* Pre-preview */
@@ -3220,7 +3345,7 @@
 
 	/* Print / output actions */
 	.preview-output-actions,
-	.accepted-output-actions {
+	.accepted-detail-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
@@ -3231,10 +3356,6 @@
 	.accept-preview-form {
 		display: flex;
 		justify-content: flex-end;
-	}
-
-	.inline-output-error {
-		flex-basis: 100%;
 	}
 
 	/* History warning */
@@ -3248,44 +3369,117 @@
 		padding: var(--sp-2) var(--sp-3);
 	}
 
-	/* Official/invalidated badges */
-	.official-badge,
-	.applied-badge,
-	.apply-later-badge,
-	.invalidated-badge,
-	.locked-history-note {
-		display: inline-flex;
-		width: fit-content;
-		border: 1px solid var(--ink-15);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0;
-		padding: 2px var(--sp-2);
-		text-transform: uppercase;
-	}
-
-	.invalidated-badge {
+	.invalidation-confirm {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-4);
+		align-items: flex-end;
+		justify-content: space-between;
+		margin: var(--sp-3) 0;
+		padding: var(--sp-4) var(--sp-5);
+		border: 1px solid var(--danger);
+		border-radius: var(--radius-lg);
 		background: var(--danger-bg);
 		color: var(--danger);
 	}
 
-	.applied-badge {
+	.invalidation-confirm h4,
+	.invalidation-confirm p {
+		margin: 0;
+	}
+
+	.invalidation-confirm h4 {
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		line-height: 1.05;
+		text-transform: uppercase;
+	}
+
+	.invalidation-confirm p:not(.eyebrow) {
+		max-width: 68ch;
+		margin-top: var(--sp-2);
+		color: var(--danger);
+		font-size: var(--text-sm);
+		line-height: 1.5;
+	}
+
+	.invalidation-confirm .eyebrow {
+		color: var(--danger);
+	}
+
+	.invalidation-confirm__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		justify-content: flex-end;
+	}
+
+	.accepted-record-state {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		align-items: flex-end;
+	}
+
+	.run-lifecycle {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 0;
+		align-items: center;
+		border: 1px solid var(--ink-15);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		background: var(--surface-subtle);
+	}
+
+	.run-lifecycle__step {
+		display: inline-flex;
+		align-items: center;
+		min-height: 1.85rem;
+		border-right: 1px solid var(--ink-15);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0;
+		padding: 0 var(--sp-2);
+		text-transform: uppercase;
+	}
+
+	.run-lifecycle__step:last-child {
+		border-right: 0;
+	}
+
+	.run-lifecycle__step--active {
+		background: var(--amber-light);
+		color: var(--amber-dark);
+	}
+
+	.run-lifecycle__step--complete {
 		background: var(--success-bg);
 		color: var(--success);
 	}
 
-	.apply-later-badge {
-		background: var(--surface-subtle);
-		color: var(--text-secondary);
+	.run-lifecycle__step--attention {
+		background: var(--amber-light);
+		color: var(--amber-dark);
 	}
 
-	.locked-history-note {
-		background: var(--surface-subtle);
-		color: var(--text-tertiary);
+	.run-lifecycle__step--invalid {
+		background: var(--danger-bg);
+		color: var(--danger);
+	}
+
+	.open-record-note {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	/* Calendar button */
@@ -3336,6 +3530,16 @@
 		.pool-row,
 		.preview-row {
 			grid-template-columns: 1fr;
+		}
+
+		.history-detail-banner {
+			grid-template-columns: 1fr;
+		}
+
+		.history-detail-banner__controls,
+		.accepted-detail-actions {
+			align-items: flex-start;
+			justify-content: flex-start;
 		}
 
 		.setup-rail {

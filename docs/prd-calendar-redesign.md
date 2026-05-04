@@ -42,10 +42,6 @@ The calendar's primary job is **visibility**: "Where is everyone and what are th
 /calendar/assignments
   +page.svelte         — manual assignment planner for complex/judgment-based scheduling
 
-/calendar/duty-roster
-  +page.server.ts      — loads roster history (only sub-route with its own server load)
-  +page.svelte         — DA6-compliant duty roster generator with audit trail
-
 /calendar/reports
   +page.server.ts      — already exists, no changes
   +page.svelte         — already exists, no changes
@@ -182,7 +178,7 @@ They read shared data from layout stores but don't push state back through the c
 
 ### Data Loading
 - Layout loads shared data (availability, assignments, special days, assignment types, pinned groups, status types, personnel, permissions)
-- Roster history moves from layout to `/calendar/duty-roster/+page.server.ts` (can grow large over time, only needed by one page)
+- Roster history belongs to the replacement `/duty-rosters` surface, not the Calendar route tree.
 - `/calendar/reports` keeps its own server load (already exists)
 
 ### Hardcoded Assumptions to Remove
@@ -203,7 +199,7 @@ Each step results in a working, deployable app. No big-bang rewrite.
 1. **Build SmartToolbar component** — new shared component in `$lib/components/ui/`, tested in isolation
 2. **Create `/calendar/settings`** — move StatusTypeManager, AssignmentTypeManager, SpecialDayManager to settings page. Remove from CalendarModals. Add gear icon to toolbar.
 3. **Create `/calendar/bulk`** — move BulkStatusModal, BulkStatusRemoveModal, BulkStatusImportModal to tabbed page. Remove from CalendarModals.
-4. **Create `/calendar/duty-roster`** — move DutyRosterGenerator to own page. Move roster history loading from layout to page server. Remove from CalendarModals.
+4. **Move duty roster work out of Calendar** — keep roster generation on the replacement `/duty-rosters` surface. Remove old Calendar modal and route ownership.
 5. **Create `/calendar/assignments`** — move MonthlyAssignmentPlanner to own page. Remove from CalendarModals.
 6. **Convert TodayBreakdown to inline panel** — redesign for dense summary format, integrate into CalendarPageView. Remove from CalendarModals.
 7. **Convert LongRangeView to view toggle** — integrate into calendar grid via month nav toggle. Remove from CalendarModals.

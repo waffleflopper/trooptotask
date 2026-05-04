@@ -312,7 +312,7 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
-	it('accepts a preview through the service layer and redirects to History', async () => {
+	it('accepts a preview through the service layer and redirects to the official record', async () => {
 		const currentPreview = preview();
 		const request = new Request('http://localhost', {
 			method: 'POST',
@@ -328,7 +328,7 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/history'
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
 		});
 
 		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
@@ -360,7 +360,7 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
-	it('accepts and applies a preview to Calendar before redirecting to History', async () => {
+	it('accepts and applies a preview to Calendar before redirecting to the official record', async () => {
 		const currentPreview = preview();
 		const request = new Request('http://localhost', {
 			method: 'POST',
@@ -376,7 +376,7 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/history'
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
 		});
 
 		expect(acceptAndApplyDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
@@ -384,7 +384,7 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
-	it('applies an accepted run to Calendar from History', async () => {
+	it('applies an accepted run to Calendar from its official record', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
 			body: new URLSearchParams({
@@ -399,7 +399,7 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/history'
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
 		});
 
 		expect(applyAcceptedDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
@@ -407,7 +407,7 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
-	it('invalidates an accepted run from History', async () => {
+	it('invalidates an accepted run from its official record', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
 			body: new URLSearchParams({
@@ -422,7 +422,7 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/history'
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
 		});
 
 		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
@@ -430,7 +430,7 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
-	it('records a Duty Roster Correction from History', async () => {
+	it('records a Duty Roster Correction from the official record', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
 			body: new URLSearchParams({
@@ -448,7 +448,7 @@ describe('Duty Roster Template view route', () => {
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1/duty-rosters/cq-nco/history'
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
 		});
 
 		expect(recordDutyRosterTemplateRunCorrectionMock).toHaveBeenCalledWith(mockCtx, {

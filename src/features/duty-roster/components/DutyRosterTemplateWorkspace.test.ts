@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { stringify } from 'devalue';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DutyRosterTemplateWorkspace from './DutyRosterTemplateWorkspace.svelte';
 import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
@@ -140,9 +139,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Export Draft' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Accept Run' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept & Print' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept then Apply' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept Only' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Accept & Print' })).toBeNull();
 	});
 
 	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', async () => {
@@ -201,67 +200,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
 	});
 
-	it('accepts then prints official output from the server-returned accepted snapshot', async () => {
-		const print = vi.fn();
-		const focus = vi.fn();
-		const documentMock = {
-			open: vi.fn(),
-			write: vi.fn(),
-			close: vi.fn()
-		};
-		vi.spyOn(window, 'open').mockReturnValue({
-			opener: null,
-			document: documentMock,
-			focus,
-			print
-		} as unknown as Window);
-		const fetchMock = vi.fn().mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					type: 'success',
-					status: 200,
-					data: stringify({ acceptedRun: acceptedRun(), printAcceptedRun: true })
-				})
-			)
-		);
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(DutyRosterTemplateWorkspace, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Able Company',
-					templates: [template],
-					selectedTemplate: template,
-					view: 'generate'
-				},
-				form: {
-					preview: preview(),
-					generateValues: {
-						startDate: '2026-06-01',
-						endDate: '2026-06-01'
-					}
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Accept & Print' }));
-
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-		expect(fetchMock).toHaveBeenCalledWith(
-			'/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview',
-			expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
-		);
-		const submitted = fetchMock.mock.calls[0][1].body as FormData;
-		expect(submitted.get('intent')).toBe('print');
-		expect(JSON.parse(String(submitted.get('preview'))).config.startDate).toBe('2026-06-01');
-		await waitFor(() =>
-			expect(documentMock.write).toHaveBeenCalledWith(expect.stringContaining('Official CQ NCO Roster'))
-		);
-		expect(print).toHaveBeenCalledOnce();
-	});
-
-	it('renders accepted History register with header actions', () => {
+	it('renders accepted History as an official record ledger', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -278,12 +217,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByText('Official')).toBeTruthy();
 		expect(screen.getByText('History')).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'View Roster' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'View DA6' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Print Roster' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Print DA6' })).toBeTruthy();
+		const recordLink = screen.getByRole('link', { name: /Run 2026-06-01 to 2026-06-01/ });
+		expect(recordLink.getAttribute('href')).toBe('/org/org-1/duty-rosters/cq-nco/history/run-1');
 		expect(screen.getByText('Not applied')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
+		expect(screen.getByText('Open official record')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		// Roster table is hidden in collapsed list view
 		expect(screen.queryByRole('table', { name: 'Accepted Duty Roster list' })).toBeNull();
 	});
@@ -308,16 +246,16 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
 		expect(screen.getByText(/performed duty for/)).toBeTruthy();
 		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Record correction' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Record correction' }));
+		expect(screen.getByRole('button', { name: 'Change Assignment' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Change Assignment' }));
 		const form = screen.getByRole('button', { name: 'Save' }).closest('form') as HTMLFormElement;
 		expect(form.action).toContain('/org/org-1/duty-rosters/cq-nco/history?/recordCorrection');
 		expect(within(form).getByRole('button', { name: 'Actual Soldier for 2026-06-01' })).toBeTruthy();
 		expect(within(form).getByLabelText('Reason')).toBeTruthy();
 	});
 
-	it('renders invalidation warnings and uses the required confirmation copy', async () => {
-		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+	it('renders an app-native invalidation confirmation before submitting', async () => {
+		const confirm = vi.spyOn(window, 'confirm');
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -335,11 +273,14 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByText(/Calendar assignments linked to this run changed after apply/)).toBeTruthy();
 		const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
-		await fireEvent.submit(invalidateButton.closest('form') as HTMLFormElement);
+		await fireEvent.click(invalidateButton);
 
-		expect(confirm).toHaveBeenCalledWith(
-			'Invalidating this run will remove the assignments from the calendar. Are you sure?'
-		);
+		expect(screen.getByRole('heading', { name: 'Remove this official run from Calendar' })).toBeTruthy();
+		expect(screen.getByText(/Run 2026-06-01 to 2026-06-01 will be marked invalidated/)).toBeTruthy();
+		expect(screen.getByText(/This action is only available for the latest accepted run/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Confirm invalidation' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Keep run' })).toBeTruthy();
+		expect(confirm).not.toHaveBeenCalled();
 	});
 
 	it('keeps invalidated History visible but locked from normal actions', () => {
@@ -365,7 +306,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('button', { name: 'Print DA6' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Invalidate run' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Record correction' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Change Assignment' })).toBeNull();
 	});
 
 	it('renders scan-friendly settings tabs for pool, exemptions, and baseline setup', async () => {

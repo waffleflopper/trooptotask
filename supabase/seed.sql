@@ -478,7 +478,7 @@ INSERT INTO "public"."availability_entries" ("id", "organization_id", "personnel
 --
 
 INSERT INTO "public"."beta_feedback" ("id", "user_id", "user_email", "organization_id", "organization_name", "category", "message", "page_url", "status", "admin_notes", "created_at", "updated_at", "github_issue_number", "github_issue_url", "page_section") VALUES
-	('0e9df453-f472-4329-a9ce-196fbcde1f2a', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'seed-owner@example.test', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'LocalDev', 'general', 'The advanced duty rosters need to have a DA6 matrix audit trail that can be viewed and downloaded. The simple generator has one that you can view and the advanced one needs one also. It would need to have one for each slot that the template has (i.e. one of the NCO and a separate one for the runner).', '/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/calendar/duty-roster', 'new', NULL, '2026-04-15 02:26:06.350928+00', '2026-04-15 02:26:06.350928+00', 591, 'https://github.com/example/trooptotask/issues/591', 'calendar/duty-roster');
+	('0e9df453-f472-4329-a9ce-196fbcde1f2a', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'seed-owner@example.test', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'LocalDev', 'general', 'The advanced duty rosters need to have a DA6 matrix audit trail that can be viewed and downloaded. The simple generator has one that you can view and the advanced one needs one also. It would need to have one for each slot that the template has (i.e. one of the NCO and a separate one for the runner).', '/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/duty-rosters', 'new', NULL, '2026-04-15 02:26:06.350928+00', '2026-04-15 02:26:06.350928+00', 591, 'https://github.com/example/trooptotask/issues/591', 'duty-rosters');
 
 
 --

@@ -173,12 +173,14 @@ export const actions: Actions = {
 	},
 	acceptPreview: async (event) => {
 		const formData = await event.request.formData();
+		let acceptedRunId = '';
 
 		try {
 			const ctx = await buildRouteContext(event);
 			const acceptedRun = await acceptDutyRosterTemplatePreview(ctx, {
 				preview: String(formData.get('preview') ?? '')
 			});
+			acceptedRunId = acceptedRun.id;
 			if (String(formData.get('intent') ?? '') === 'print') {
 				return { acceptedRun, printAcceptedRun: true };
 			}
@@ -189,32 +191,41 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+		throw redirect(
+			303,
+			`/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history/${acceptedRunId}`
+		);
 	},
 	applyPreview: async (event) => {
 		const formData = await event.request.formData();
+		let acceptedRunId = '';
 
 		try {
 			const ctx = await buildRouteContext(event);
-			await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			const result = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 				preview: String(formData.get('preview') ?? '')
 			});
+			acceptedRunId = result.acceptedRun.id;
 		} catch (errorValue) {
 			return actionError(errorValue, {
 				key: 'generateError',
-				fallback: 'Failed to apply Duty Roster preview to Calendar.'
+				fallback: 'Failed to accept and apply Duty Roster preview to Calendar.'
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+		throw redirect(
+			303,
+			`/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history/${acceptedRunId}`
+		);
 	},
 	applyAcceptedRun: async (event) => {
 		const formData = await event.request.formData();
+		const runId = String(formData.get('runId') ?? '');
 
 		try {
 			const ctx = await buildRouteContext(event);
 			await applyAcceptedDutyRosterTemplateRun(ctx, {
-				runId: String(formData.get('runId') ?? '')
+				runId
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {
@@ -223,15 +234,16 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history/${runId}`);
 	},
 	invalidateAcceptedRun: async (event) => {
 		const formData = await event.request.formData();
+		const runId = String(formData.get('runId') ?? '');
 
 		try {
 			const ctx = await buildRouteContext(event);
 			await invalidateLatestDutyRosterTemplateRun(ctx, {
-				runId: String(formData.get('runId') ?? '')
+				runId
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {
@@ -240,15 +252,16 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history/${runId}`);
 	},
 	recordCorrection: async (event) => {
 		const formData = await event.request.formData();
+		const runId = String(formData.get('runId') ?? '');
 
 		try {
 			const ctx = await buildRouteContext(event);
 			await recordDutyRosterTemplateRunCorrection(ctx, {
-				runId: String(formData.get('runId') ?? ''),
+				runId,
 				runRowDate: String(formData.get('runRowDate') ?? ''),
 				replacementAssigneeId: String(formData.get('replacementAssigneeId') ?? ''),
 				reason: String(formData.get('reason') ?? '')
@@ -260,7 +273,7 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history/${runId}`);
 	},
 	updateSettings: async (event) => {
 		const formData = await event.request.formData();

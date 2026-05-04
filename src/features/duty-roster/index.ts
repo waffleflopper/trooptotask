@@ -1,4 +1,3 @@
-export { default as DutyRosterGenerator } from './components/DutyRosterGenerator.svelte';
 export {
 	dutyRosterHistoryStore,
 	type RosterHistoryEntry,

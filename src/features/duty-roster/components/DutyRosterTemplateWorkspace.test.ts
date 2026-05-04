@@ -112,7 +112,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
 
-	it('renders generated preview list and DA6 matrix without official actions', () => {
+	it('renders generated preview list and DA6 matrix without official actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -135,11 +135,12 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('button', { name: 'Generate preview' })).toBeTruthy();
 		expect(screen.getByLabelText('Duty Roster count source')).toBeTruthy();
-		expect(screen.getByText('Manual DA6 Baseline')).toBeTruthy();
+		expect(screen.getAllByText('Manual DA6 Baseline').length).toBeGreaterThan(0);
 		expect(screen.getByText('1 Soldier with counts')).toBeTruthy();
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
 		expect(list).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
+		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
@@ -148,7 +149,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Accept and Print' })).toBeTruthy();
 	});
 
-	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', () => {
+	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -172,8 +173,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(within(list).getByText('MANUAL')).toBeTruthy();
 		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
 		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
-		expect(screen.getByDisplayValue('Commander approved outside-pool replacement.')).toBeTruthy();
+		expect(screen.getByText('Reason: Commander approved outside-pool replacement.')).toBeTruthy();
 
+		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(within(matrix).queryByText('MANUAL')).toBeNull();
 	});
@@ -286,14 +288,15 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(within(list).getByText('MANUAL')).toBeTruthy();
 		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
 		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
-		expect(screen.getByRole('table', { name: 'Accepted DA6 matrix' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Print official' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export official' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'View Roster' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'View DA6' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Print Roster' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Print DA6' })).toBeTruthy();
 		expect(screen.getByText('Apply later')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
 	});
 
-	it('renders correction history and an inline correction form for accepted rows', () => {
+	it('renders correction history and an inline correction form for accepted rows', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -302,7 +305,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ corrected: true })]
+					acceptedRuns: [acceptedRun({ applied: true, corrected: true })],
+					historyDetailRunId: 'run-1',
+					historyDetailMode: 'roster'
 				}
 			}
 		});
@@ -312,9 +317,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText(/performed duty for/)).toBeTruthy();
 		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Record correction' })).toBeTruthy();
-		const form = screen.getByRole('button', { name: 'Record correction' }).closest('form') as HTMLFormElement;
+		await fireEvent.click(screen.getByRole('button', { name: 'Record correction' }));
+		const form = screen.getByRole('button', { name: 'Save' }).closest('form') as HTMLFormElement;
 		expect(form.action).toContain('/org/org-1/duty-rosters/cq-nco/history?/recordCorrection');
-		expect(within(form).getByLabelText('Actual Soldier')).toBeTruthy();
+		expect(within(form).getByRole('button', { name: 'Actual Soldier for 2026-06-01' })).toBeTruthy();
 		expect(within(form).getByLabelText('Reason')).toBeTruthy();
 	});
 
@@ -359,8 +365,8 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText('Invalidated')).toBeTruthy();
 		expect(screen.getByText('Non-counting because this run is invalidated.')).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Accepted Duty Roster list' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Print official' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Export official' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Print Roster' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Print DA6' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Invalidate run' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Record correction' })).toBeNull();

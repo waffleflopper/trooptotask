@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { deserialize } from '$app/forms';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import type {
 		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
@@ -50,11 +55,23 @@
 		acceptedRuns?: DutyRosterTemplateAcceptedRun[];
 		countReadModel?: DutyRosterTemplateCountReadModel | null;
 		view?: DutyRosterTemplateView;
+		historyDetailRunId?: string | null;
+		historyDetailMode?: 'roster' | 'da6';
 	}
 
 	let { data, form }: { data: WorkspaceData; form?: unknown } = $props();
 	let acceptAndPrintPending = $state(false);
 	let acceptAndPrintError = $state<string | null>(null);
+	let previewMode = $state<'list' | 'matrix'>('list');
+	let generatingPreview = $state(false);
+	let editingPreviewRows = $state<Record<string, boolean>>({});
+	let editingCorrections = $state<Record<string, boolean>>({});
+	let selectedPreviewAssignees = $state<Record<string, string>>({});
+	let selectedCorrectionAssignees = $state<Record<string, string>>({});
+	let rankFilterValues = $state<string[]>([]);
+	let groupFilterValues = $state<string[]>([]);
+	let mosFilterValues = $state<string[]>([]);
+	let dutyRoleFilterValues = $state<string[]>([]);
 
 	const INVALIDATE_CONFIRMATION = 'Invalidating this run will remove the assignments from the calendar. Are you sure?';
 	const basePath = $derived(`/org/${data.orgId}/duty-rosters`);
@@ -88,6 +105,9 @@
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
 	);
 	const acceptedRuns = $derived(data.acceptedRuns ?? []);
+	const historyDetailRun = $derived(
+		data.historyDetailRunId ? (acceptedRuns.find((run) => run.id === data.historyDetailRunId) ?? null) : null
+	);
 	const countReadModel = $derived(data.countReadModel ?? null);
 	const latestHistoryRunId = $derived(acceptedRuns[0]?.id ?? null);
 	const baselineLocked = $derived(acceptedRuns.length > 0);
@@ -106,6 +126,22 @@
 		{ id: 'settings', label: 'Settings', note: 'Template identity and setup' }
 	];
 
+	const todayDate = $derived(dateOnlyLocal(new Date()));
+	const defaultDateRange = $derived(nextMonthRange(new Date()));
+	const generateStartDate = $derived(actionForm?.generateValues?.startDate ?? defaultDateRange.startDate);
+	const generateEndDate = $derived(actionForm?.generateValues?.endDate ?? defaultDateRange.endDate);
+	const canGenerate = $derived(generateStartDate >= todayDate && generateEndDate >= generateStartDate);
+	const historyMode = $derived<'list' | 'matrix'>(data.historyDetailMode === 'da6' ? 'matrix' : 'list');
+
+	$effect(() => {
+		if (!data.settings) return;
+
+		rankFilterValues = [...(selectedTemplate?.poolCriteria.rankValues ?? [])];
+		groupFilterValues = [...(selectedTemplate?.poolCriteria.groupIds ?? [])];
+		mosFilterValues = [...(selectedTemplate?.poolCriteria.mosValues ?? [])];
+		dutyRoleFilterValues = [...(selectedTemplate?.poolCriteria.dutyRoleValues ?? [])];
+	});
+
 	function uniqueOptions(values: string[]): string[] {
 		return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 	}
@@ -121,6 +157,95 @@
 		}
 
 		return groups.sort((a, b) => a.label.localeCompare(b.label));
+	}
+
+	function dateOnlyLocal(date: Date): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	function nextMonthRange(date: Date): { startDate: string; endDate: string } {
+		const start = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+		const end = new Date(date.getFullYear(), date.getMonth() + 2, 0);
+		return {
+			startDate: dateOnlyLocal(start),
+			endDate: dateOnlyLocal(end)
+		};
+	}
+
+	function optionItems(values: string[]): Array<{ value: string; label: string }> {
+		return values.map((value) => ({ value, label: value }));
+	}
+
+	function groupOptionItems(values: Array<{ id: string; label: string }>): Array<{ value: string; label: string }> {
+		return values.map((group) => ({ value: group.id, label: group.label }));
+	}
+
+	function personnelOptionItems(
+		personnel:
+			| DutyRosterTemplatePreview['selectionPersonnel']
+			| DutyRosterTemplateAcceptedSnapshot['selectionPersonnel'],
+		excludeId?: string | null
+	): Array<{ value: string; label: string; description?: string }> {
+		return personnel
+			.filter((person) => person.id !== excludeId && !person.archivedAt)
+			.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}, ${person.firstName}`,
+				description: person.groupName
+			}));
+	}
+
+	function previewEditAssigneeId(
+		preview: DutyRosterTemplatePreview,
+		date: string,
+		fallbackAssigneeId: string | null
+	): string {
+		return selectedPreviewAssignees[date] ?? previewFinalAssigneeId(preview, date) ?? fallbackAssigneeId ?? '';
+	}
+
+	function previewSelectionWarnings(preview: DutyRosterTemplatePreview, date: string, selectedId: string): string[] {
+		const warnings: string[] = [];
+		const selected = preview.selectionPersonnel.find((person) => person.id === selectedId);
+		if (!selected) return warnings;
+
+		if (!preview.personnel.some((person) => person.id === selectedId)) {
+			warnings.push('Selected Soldier is outside this template pool.');
+		}
+
+		const generatedRow = preview.rosterRows.find((row) => row.date === date);
+		if (generatedRow?.reason) {
+			warnings.push(generatedRow.reason);
+		}
+
+		return warnings;
+	}
+
+	function issueLabel(warnings: Array<{ message: string }>): string {
+		if (warnings.length === 0) return 'Clear';
+		return warnings.length === 1 ? 'Review' : `${warnings.length} issues`;
+	}
+
+	function issueTitle(warnings: Array<{ message: string }>): string {
+		return warnings.length > 0 ? warnings.map((warning) => warning.message).join(' ') : 'No issue flagged.';
+	}
+
+	function historyDetailHref(run: DutyRosterTemplateAcceptedRun, mode: 'roster' | 'da6'): string {
+		return selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history/${run.id}?mode=${mode}` : basePath;
+	}
+
+	function correctionKey(runId: string, date: string): string {
+		return `${runId}:${date}`;
+	}
+
+	function isCorrectionOpen(runId: string, date: string): boolean {
+		return Boolean(editingCorrections[correctionKey(runId, date)]);
+	}
+
+	function selectedCorrectionAssigneeId(runId: string, date: string): string {
+		return selectedCorrectionAssignees[correctionKey(runId, date)] ?? '';
 	}
 
 	function previewAssignee(preview: DutyRosterTemplatePreview, assigneeId: string | null) {
@@ -379,10 +504,7 @@
 					{#if selectedView === 'generate'}
 						<p class="eyebrow">Generate View</p>
 						<h3 id="template-view-heading">DA6 preview workspace</h3>
-						<p>
-							Generate creates a preview only. Review the proposed roster in the list and DA6 matrix before it becomes
-							official history in a later slice.
-						</p>
+						<p>Confirm the duty window, generate a draft, then review the roster list and DA6 form before accepting.</p>
 						{#if countReadModel}
 							<div class="count-source-panel" aria-label="Duty Roster count source">
 								<div>
@@ -404,190 +526,319 @@
 							<p class="form-error settings-error" role="alert">{actionForm.generateError}</p>
 						{/if}
 
-						<form class="generate-form" method="POST" action={generateAction}>
-							<input type="hidden" name="templateId" value={selectedTemplate.id} />
-							<label>
-								<span>Start date</span>
-								<input name="startDate" type="date" required value={actionForm?.generateValues?.startDate ?? ''} />
-							</label>
-							<label>
-								<span>End date</span>
-								<input name="endDate" type="date" required value={actionForm?.generateValues?.endDate ?? ''} />
-							</label>
-							<button class="btn btn-primary" type="submit">Generate preview</button>
-						</form>
-
-						{#if preview}
-							<div class="preview-summary" aria-label="Generated preview summary">
+						<div class="generate-workspace">
+							<aside class="setup-rail" aria-label="Generate setup">
 								<div>
-									<span>Duty dates</span>
-									<strong>{preview.rosterRows.length}</strong>
+									<p class="eyebrow">Setup</p>
+									<h4>{selectedTemplate.name}</h4>
+									<p>
+										Defaults to the full next calendar month. Past rosters are blocked here and again by the service.
+									</p>
 								</div>
-								<div>
-									<span>Pool rows</span>
-									<strong>{preview.da6.rows.length}</strong>
-								</div>
-								<div>
-									<span>Preview state</span>
-									<strong>Unsaved</strong>
-								</div>
-							</div>
-
-							{#if actionForm?.manualError}
-								<p class="form-error settings-error" role="alert">{actionForm.manualError}</p>
-							{/if}
-
-							<section class="settings-section" aria-labelledby="preview-list-heading">
-								<h4 id="preview-list-heading">Preview list</h4>
-								<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
-									<div class="preview-row preview-head" role="row">
-										<span role="columnheader">Date</span>
-										<span role="columnheader">Selected Soldier</span>
-										<span role="columnheader">Source</span>
-										<span role="columnheader">Manual change</span>
+								{#if countReadModel}
+									<div class="setup-stat">
+										<span>Count source</span>
+										<strong>{countReadModel.sourceLabel}</strong>
 									</div>
-									{#each preview.rosterRows as row (row.date)}
-										{@const manualSelection = manualSelectionForDate(preview, row.date)}
-										{@const finalAssignee = previewAssignee(preview, previewFinalAssigneeId(preview, row.date))}
-										{@const generatedAssignee = previewAssignee(preview, row.assigneeId)}
-										<div class="preview-row" role="row">
-											<span role="cell">{row.date}</span>
-											<div class="preview-selection" role="cell">
-												{#if finalAssignee}
-													<strong>{finalAssignee.rank} {finalAssignee.lastName}, {finalAssignee.firstName}</strong>
-												{:else}
-													{row.reason ?? 'No eligible Soldier'}
-												{/if}
-												{#if manualSelection && generatedAssignee}
-													<small>
-														Generated: {generatedAssignee.rank}
-														{generatedAssignee.lastName}, {generatedAssignee.firstName}
-													</small>
-												{/if}
-												{#if manualSelection?.warnings.length}
-													<ul class="manual-warnings" aria-label={`Manual warnings for ${row.date}`}>
-														{#each manualSelection.warnings as warning (warning.code)}
-															<li>{warning.message}</li>
-														{/each}
-													</ul>
-												{/if}
-												{#if manualSelection?.reason}
-													<small>Reason: {manualSelection.reason}</small>
-												{/if}
-											</div>
-											<span role="cell">
-												{#if manualSelection}
-													<span class="manual-badge">MANUAL</span>
-												{:else}
-													Generated
-												{/if}
-											</span>
-											<div role="cell">
-												<form class="manual-preview-form" method="POST" action={manualPreviewAction}>
-													<input type="hidden" name="preview" value={previewFormValue(preview)} />
-													<input type="hidden" name="date" value={row.date} />
-													<input type="hidden" name="startDate" value={actionForm?.generateValues?.startDate ?? ''} />
-													<input type="hidden" name="endDate" value={actionForm?.generateValues?.endDate ?? ''} />
-													<label>
-														<span>Soldier</span>
-														<select name="assigneeId" required>
-															{#each preview.selectionPersonnel as person (person.id)}
-																<option
-																	value={person.id}
-																	selected={previewFinalAssigneeId(preview, row.date) === person.id}
-																>
-																	{person.rank}
-																	{person.lastName}, {person.firstName}
-																</option>
-															{/each}
-														</select>
-													</label>
-													<label>
-														<span>Reason</span>
-														<input
-															name="reason"
-															type="text"
-															value={manualSelection?.reason ?? ''}
-															placeholder="Required for warnings"
-														/>
-													</label>
-													<button class="btn btn-secondary" type="submit">Apply manual</button>
-												</form>
-											</div>
-										</div>
-									{/each}
+								{/if}
+								<div class="setup-stat">
+									<span>Default range</span>
+									<strong>{defaultDateRange.startDate} to {defaultDateRange.endDate}</strong>
 								</div>
-							</section>
+							</aside>
 
-							<section class="settings-section" aria-labelledby="preview-matrix-heading">
-								<h4 id="preview-matrix-heading">DA6 matrix</h4>
-								<div class="matrix-scroll">
-									<table class="da6-matrix" aria-label="DA6 preview matrix">
-										<thead>
-											<tr>
-												<th scope="col">Soldier</th>
-												{#each preview.da6.columns as column (column.date)}
-													<th scope="col">{column.date}</th>
-												{/each}
-											</tr>
-										</thead>
-										<tbody>
-											{#each preview.da6.rows as row (row.personnelId)}
-												<tr>
-													<th scope="row">{row.display.rank} {row.display.lastName}</th>
-													{#each row.cells as cell (cell.date)}
-														<td class:assigned={cell.assigned}>{previewCellDisplay(cell)}</td>
-													{/each}
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-								</div>
-							</section>
-
-							<div class="preview-output-actions" aria-label="Draft and official output actions">
-								<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
-									Print Draft
-								</button>
-								<button class="btn btn-secondary" type="button" onclick={() => exportDraftPreview(preview)}>
-									Export Draft
-								</button>
-								<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-									<input type="hidden" name="preview" value={previewFormValue(preview)} />
-									<button class="btn btn-primary" type="submit">Accept run</button>
-								</form>
-								<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
-									<input type="hidden" name="preview" value={previewFormValue(preview)} />
-									<button class="btn btn-primary" type="submit">Accept and Apply to Calendar</button>
-								</form>
-								<button
-									class="btn btn-primary"
-									type="button"
-									disabled={acceptAndPrintPending}
-									onclick={() => acceptAndPrintPreview(preview)}
+							<div class="generate-main">
+								<form
+									class="generate-form"
+									method="POST"
+									action={generateAction}
+									onsubmit={() => {
+										generatingPreview = true;
+									}}
 								>
-									{acceptAndPrintPending ? 'Accepting...' : 'Accept and Print'}
-								</button>
-								{#if acceptAndPrintError}
-									<p class="form-error inline-output-error" role="alert">{acceptAndPrintError}</p>
+									<input type="hidden" name="templateId" value={selectedTemplate.id} />
+									<label>
+										<span>Start date</span>
+										<input
+											name="startDate"
+											type="date"
+											required
+											min={todayDate}
+											value={generateStartDate}
+											aria-describedby="generate-date-help"
+										/>
+									</label>
+									<label>
+										<span>End date</span>
+										<input
+											name="endDate"
+											type="date"
+											required
+											min={todayDate}
+											value={generateEndDate}
+											aria-describedby="generate-date-help"
+										/>
+									</label>
+									<button class="btn btn-primary" type="submit" disabled={!canGenerate || generatingPreview}>
+										{generatingPreview ? 'Generating...' : 'Generate preview'}
+									</button>
+								</form>
+								<p id="generate-date-help" class="field-help">
+									Start date must be today or later, and the end date must be on or after the start date.
+								</p>
+
+								{#if generatingPreview}
+									<div class="preview-loading" aria-label="Generating Duty Roster preview">
+										<SkeletonGrid rows={4} columns={3} />
+									</div>
+								{/if}
+
+								{#if preview}
+									<div class="preview-summary" aria-label="Generated preview summary">
+										<div>
+											<span>Duty dates</span>
+											<strong>{preview.rosterRows.length}</strong>
+										</div>
+										<div>
+											<span>Pool rows</span>
+											<strong>{preview.da6.rows.length}</strong>
+										</div>
+										<div>
+											<span>Preview state</span>
+											<strong>Unsaved</strong>
+										</div>
+									</div>
+
+									<div class="view-switch" role="group" aria-label="Preview review mode">
+										<button type="button" class:active={previewMode === 'list'} onclick={() => (previewMode = 'list')}>
+											List
+										</button>
+										<button
+											type="button"
+											class:active={previewMode === 'matrix'}
+											onclick={() => (previewMode = 'matrix')}
+										>
+											DA6 Matrix
+										</button>
+									</div>
+
+									{#if actionForm?.manualError}
+										<p class="form-error settings-error" role="alert">{actionForm.manualError}</p>
+									{/if}
+
+									{#if previewMode === 'list'}
+										<section class="settings-section" aria-labelledby="preview-list-heading">
+											<h4 id="preview-list-heading">Preview list</h4>
+											<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
+												<div class="preview-row preview-head" role="row">
+													<span role="columnheader">Date</span>
+													<span role="columnheader">Selected Soldier</span>
+													<span role="columnheader">Source</span>
+													<span role="columnheader">Manual change</span>
+												</div>
+												{#each preview.rosterRows as row (row.date)}
+													{@const manualSelection = manualSelectionForDate(preview, row.date)}
+													{@const finalAssignee = previewAssignee(preview, previewFinalAssigneeId(preview, row.date))}
+													{@const generatedAssignee = previewAssignee(preview, row.assigneeId)}
+													{@const editAssigneeId = previewEditAssigneeId(preview, row.date, row.assigneeId)}
+													{@const liveWarnings = previewSelectionWarnings(preview, row.date, editAssigneeId)}
+													{@const rowInEdit = Boolean(editingPreviewRows[row.date])}
+													<div class="preview-row" role="row">
+														<span role="cell">{row.date}</span>
+														<div class="preview-selection" role="cell">
+															{#if finalAssignee}
+																<strong>{finalAssignee.rank} {finalAssignee.lastName}, {finalAssignee.firstName}</strong
+																>
+															{:else}
+																{row.reason ?? 'No eligible Soldier'}
+															{/if}
+															{#if manualSelection && generatedAssignee}
+																<small>
+																	Generated: {generatedAssignee.rank}
+																	{generatedAssignee.lastName}, {generatedAssignee.firstName}
+																</small>
+															{/if}
+															{#if manualSelection?.warnings.length}
+																<span
+																	class="issue-badge"
+																	role="button"
+																	tabindex="0"
+																	title={issueTitle(manualSelection.warnings)}
+																	aria-label={`Issue explanation: ${issueTitle(manualSelection.warnings)}`}
+																>
+																	{issueLabel(manualSelection.warnings)}
+																</span>
+																<ul class="manual-warnings" aria-label={`Manual warnings for ${row.date}`}>
+																	{#each manualSelection.warnings as warning (warning.code)}
+																		<li>{warning.message}</li>
+																	{/each}
+																</ul>
+															{/if}
+															{#if manualSelection?.reason}
+																<small>Reason: {manualSelection.reason}</small>
+															{/if}
+														</div>
+														<span role="cell">
+															{#if manualSelection}
+																<Badge
+																	label="MANUAL"
+																	color="var(--color-warning-bg)"
+																	textColor="var(--color-warning-text)"
+																/>
+															{:else}
+																<Badge label="Generated" variant="outlined" />
+															{/if}
+														</span>
+														<div role="cell">
+															{#if !rowInEdit}
+																<button
+																	class="btn btn-secondary btn-sm"
+																	type="button"
+																	onclick={() => {
+																		editingPreviewRows = { ...editingPreviewRows, [row.date]: true };
+																		selectedPreviewAssignees = {
+																			...selectedPreviewAssignees,
+																			[row.date]: previewFinalAssigneeId(preview, row.date) ?? row.assigneeId ?? ''
+																		};
+																	}}
+																>
+																	Change
+																</button>
+															{:else}
+																<form class="manual-preview-form" method="POST" action={manualPreviewAction}>
+																	<input type="hidden" name="preview" value={previewFormValue(preview)} />
+																	<input type="hidden" name="date" value={row.date} />
+																	<input
+																		type="hidden"
+																		name="startDate"
+																		value={actionForm?.generateValues?.startDate ?? ''}
+																	/>
+																	<input
+																		type="hidden"
+																		name="endDate"
+																		value={actionForm?.generateValues?.endDate ?? ''}
+																	/>
+																	<input type="hidden" name="assigneeId" value={editAssigneeId} />
+																	<label>
+																		<span>Soldier</span>
+																		<SearchSelect
+																			options={personnelOptionItems(preview.selectionPersonnel)}
+																			value={editAssigneeId}
+																			ariaLabel={`Select Soldier for ${row.date}`}
+																			placeholder="Search Soldier"
+																			clearable={false}
+																			compact
+																			onchange={(value) => {
+																				selectedPreviewAssignees = { ...selectedPreviewAssignees, [row.date]: value };
+																			}}
+																		/>
+																	</label>
+																	{#if liveWarnings.length > 0}
+																		<label>
+																			<span>Reason</span>
+																			<input
+																				name="reason"
+																				type="text"
+																				value={manualSelection?.reason ?? ''}
+																				placeholder="Required for flagged changes"
+																				required
+																			/>
+																		</label>
+																	{:else}
+																		<input type="hidden" name="reason" value="" />
+																	{/if}
+																	<div class="inline-edit-actions">
+																		<button class="btn btn-primary btn-sm" type="submit">Save</button>
+																		<button
+																			class="btn btn-secondary btn-sm"
+																			type="button"
+																			onclick={() =>
+																				(editingPreviewRows = { ...editingPreviewRows, [row.date]: false })}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																	{#if liveWarnings.length > 0}
+																		<div class="issue-explain" role="status">
+																			{#each liveWarnings as warning (warning)}
+																				<span>{warning}</span>
+																			{/each}
+																		</div>
+																	{/if}
+																</form>
+															{/if}
+														</div>
+													</div>
+												{/each}
+											</div>
+										</section>
+									{/if}
+
+									{#if previewMode === 'matrix'}
+										<section class="settings-section" aria-labelledby="preview-matrix-heading">
+											<h4 id="preview-matrix-heading">DA6 matrix</h4>
+											<div class="matrix-scroll">
+												<table class="da6-matrix" aria-label="DA6 preview matrix">
+													<thead>
+														<tr>
+															<th scope="col">Soldier</th>
+															{#each preview.da6.columns as column (column.date)}
+																<th scope="col">{column.date}</th>
+															{/each}
+														</tr>
+													</thead>
+													<tbody>
+														{#each preview.da6.rows as row (row.personnelId)}
+															<tr>
+																<th scope="row">{row.display.rank} {row.display.lastName}</th>
+																{#each row.cells as cell (cell.date)}
+																	<td class:assigned={cell.assigned}>{previewCellDisplay(cell)}</td>
+																{/each}
+															</tr>
+														{/each}
+													</tbody>
+												</table>
+											</div>
+										</section>
+									{/if}
+
+									<div class="preview-output-actions" aria-label="Draft and official output actions">
+										<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
+											Print Draft
+										</button>
+										<button class="btn btn-secondary" type="button" onclick={() => exportDraftPreview(preview)}>
+											Export Draft
+										</button>
+										<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+											<input type="hidden" name="preview" value={previewFormValue(preview)} />
+											<button class="btn btn-primary" type="submit">Accept run</button>
+										</form>
+										<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
+											<input type="hidden" name="preview" value={previewFormValue(preview)} />
+											<button class="btn btn-primary" type="submit">Accept and Apply to Calendar</button>
+										</form>
+										<button
+											class="btn btn-primary"
+											type="button"
+											disabled={acceptAndPrintPending}
+											onclick={() => acceptAndPrintPreview(preview)}
+										>
+											{acceptAndPrintPending ? 'Accepting...' : 'Accept and Print'}
+										</button>
+										{#if acceptAndPrintError}
+											<p class="form-error inline-output-error" role="alert">{acceptAndPrintError}</p>
+										{/if}
+									</div>
+								{:else}
+									<div class="pre-preview-state" aria-label="Generate preview required">
+										<EmptyState
+											message="No draft exists yet. Confirm the next-month date range or adjust it, then generate a preview."
+											actionLabel="Use setup above"
+										/>
+									</div>
 								{/if}
 							</div>
-						{:else}
-							<div class="state-grid" aria-label="Generate readiness">
-								<div>
-									<span>Template ID</span>
-									<code>{selectedTemplate.id}</code>
-								</div>
-								<div>
-									<span>Route State</span>
-									<strong>Refresh-safe</strong>
-								</div>
-								<div>
-									<span>Generation</span>
-									<strong>Preview only</strong>
-								</div>
-							</div>
-						{/if}
+						</div>
 					{:else if selectedView === 'history'}
 						<p class="eyebrow">History View</p>
 						<h3 id="template-view-heading">Accepted runs</h3>
@@ -636,8 +887,23 @@
 						{#if acceptedRuns.length === 0}
 							<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 						{:else}
+							{#if historyDetailRun}
+								<div class="history-detail-banner">
+									<a class="btn btn-secondary btn-sm" href={`${basePath}/${selectedTemplate.slug}/history`}>
+										Back to History
+									</a>
+									<div class="view-switch" role="group" aria-label="History detail review mode">
+										<a class:active={historyMode === 'list'} href={historyDetailHref(historyDetailRun, 'roster')}>
+											Roster
+										</a>
+										<a class:active={historyMode === 'matrix'} href={historyDetailHref(historyDetailRun, 'da6')}>
+											DA6 Matrix
+										</a>
+									</div>
+								</div>
+							{/if}
 							<div class="accepted-run-list">
-								{#each acceptedRuns as run (run.id)}
+								{#each historyDetailRun ? [historyDetailRun] : acceptedRuns as run (run.id)}
 									{@const snapshot = acceptedSnapshot(run)}
 									{@const isInvalidated = run.status === 'invalidated'}
 									{@const canInvalidateRun = !isInvalidated && run.id === latestHistoryRunId}
@@ -655,11 +921,13 @@
 													<span class:applied-badge={Boolean(run.appliedAt)} class:apply-later-badge={!run.appliedAt}>
 														{run.appliedAt ? 'Applied' : 'Apply later'}
 													</span>
-													<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
-														Print official
-													</button>
+													<a class="btn btn-secondary btn-sm" href={historyDetailHref(run, 'roster')}> View Roster </a>
+													<a class="btn btn-secondary btn-sm" href={historyDetailHref(run, 'da6')}> View DA6 </a>
 													<button class="btn btn-secondary btn-sm" type="button" onclick={() => exportAcceptedRun(run)}>
-														Export official
+														Print Roster
+													</button>
+													<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
+														Print DA6
 													</button>
 												{/if}
 												{#if !isInvalidated && !run.appliedAt}
@@ -690,132 +958,186 @@
 											</p>
 										{/if}
 
-										<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
-											<div class="preview-row preview-head" role="row">
-												<span role="columnheader">Date</span>
-												<span role="columnheader">Assigned Soldier</span>
-												<span role="columnheader">Source</span>
-												<span role="columnheader">Review state</span>
-											</div>
-											{#each snapshot.finalRows as row (row.date)}
-												{@const correction = latestCorrectionForDate(run, row.date)}
-												<div class="preview-row" role="row">
-													<span role="cell">{row.date}</span>
-													<div class="preview-selection" role="cell">
-														{#if row.finalDisplay}
-															<strong
-																>{row.finalDisplay.rank}
-																{row.finalDisplay.lastName}, {row.finalDisplay.firstName}</strong
-															>
-														{:else}
-															Unfilled
-														{/if}
-														{#if row.assignmentSource === 'manual' && row.generatedDisplay}
-															<small>
-																Generated: {row.generatedDisplay.rank}
-																{row.generatedDisplay.lastName}, {row.generatedDisplay.firstName}
-															</small>
-														{/if}
-														{#if correction?.replacementDisplay}
-															<small>
-																Actual: {correction.replacementDisplay.rank}
-																{correction.replacementDisplay.lastName}, {correction.replacementDisplay.firstName}
-															</small>
-														{/if}
-													</div>
-													<span role="cell">
-														{#if correction}
-															<span class="correction-badge">CORRECTED</span>
-														{:else if row.assignmentSource === 'manual'}
-															<span class="manual-badge">MANUAL</span>
-														{:else}
-															Generated
-														{/if}
-													</span>
-													<div class="preview-selection" role="cell">
-														{#if correction}
-															<div class="correction-summary">
-																<strong>Correction</strong>
-																<small>
-																	{correctionPersonName(
-																		correction.replacementDisplay,
-																		correction.replacementAssigneeId
-																	)}
-																	performed duty for
-																	{correctionPersonName(correction.originalDisplay, correction.originalAssigneeId)}.
-																</small>
-																<small>Reason: {correction.reason}</small>
-																<small
-																	>{correction.countsTowardFuture
-																		? 'Counts toward future DA6 runs.'
-																		: 'Non-counting because this run is invalidated.'}</small
-																>
-															</div>
-														{/if}
-														{#if row.warnings.length}
-															<ul class="manual-warnings" aria-label={`Accepted warnings for ${row.date}`}>
-																{#each row.warnings as warning (warning.code)}
-																	<li>{warning.message}</li>
-																{/each}
-															</ul>
-														{:else}
-															<small>No warnings</small>
-														{/if}
-														{#if row.reason}
-															<small>Reason: {row.reason}</small>
-														{/if}
-														{#if !isInvalidated && row.finalAssigneeId}
-															<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
-																<input type="hidden" name="runId" value={run.id} />
-																<input type="hidden" name="runRowDate" value={row.date} />
-																<label>
-																	<span>Actual Soldier</span>
-																	<select name="replacementAssigneeId" required>
-																		<option value="">Select Soldier</option>
-																		{#each snapshot.selectionPersonnel.filter((person) => person.id !== row.finalAssigneeId) as person (person.id)}
-																			<option value={person.id}>
-																				{person.rank}
-																				{person.lastName}, {person.firstName}
-																			</option>
-																		{/each}
-																	</select>
-																</label>
-																<label>
-																	<span>Reason</span>
-																	<input name="reason" placeholder="Reason for correction" required />
-																</label>
-																<button class="btn btn-secondary btn-sm" type="submit">Record correction</button>
-															</form>
-														{:else if isInvalidated && run.corrections.some((item) => item.runRowDate === row.date)}
-															<small>Correction trail is locked with this invalidated run.</small>
-														{/if}
-													</div>
+										{#if historyDetailRun || historyMode === 'list'}
+											<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
+												<div class="preview-row preview-head" role="row">
+													<span role="columnheader">Date</span>
+													<span role="columnheader">Assigned Soldier</span>
+													<span role="columnheader">Source</span>
+													<span role="columnheader">Review state</span>
 												</div>
-											{/each}
-										</div>
+												{#each snapshot.finalRows as row (row.date)}
+													{@const correction = latestCorrectionForDate(run, row.date)}
+													<div class="preview-row" role="row">
+														<span role="cell">{row.date}</span>
+														<div class="preview-selection" role="cell">
+															{#if row.finalDisplay}
+																<strong
+																	>{row.finalDisplay.rank}
+																	{row.finalDisplay.lastName}, {row.finalDisplay.firstName}</strong
+																>
+															{:else}
+																Unfilled
+															{/if}
+															{#if row.assignmentSource === 'manual' && row.generatedDisplay}
+																<small>
+																	Generated: {row.generatedDisplay.rank}
+																	{row.generatedDisplay.lastName}, {row.generatedDisplay.firstName}
+																</small>
+															{/if}
+															{#if correction?.replacementDisplay}
+																<small>
+																	Actual: {correction.replacementDisplay.rank}
+																	{correction.replacementDisplay.lastName}, {correction.replacementDisplay.firstName}
+																</small>
+															{/if}
+														</div>
+														<span role="cell">
+															{#if correction}
+																<Badge label="CORRECTED" variant="outlined" />
+															{:else if row.assignmentSource === 'manual'}
+																<Badge
+																	label="MANUAL"
+																	color="var(--color-warning-bg)"
+																	textColor="var(--color-warning-text)"
+																/>
+															{:else}
+																<Badge label="Generated" variant="outlined" />
+															{/if}
+														</span>
+														<div class="preview-selection" role="cell">
+															{#if correction}
+																<div class="correction-summary">
+																	<strong>Correction</strong>
+																	<small>
+																		{correctionPersonName(
+																			correction.replacementDisplay,
+																			correction.replacementAssigneeId
+																		)}
+																		performed duty for
+																		{correctionPersonName(correction.originalDisplay, correction.originalAssigneeId)}.
+																	</small>
+																	<small>Reason: {correction.reason}</small>
+																	<small
+																		>{correction.countsTowardFuture
+																			? 'Counts toward future DA6 runs.'
+																			: 'Non-counting because this run is invalidated.'}</small
+																	>
+																</div>
+															{/if}
+															{#if row.warnings.length}
+																<span
+																	class="issue-badge"
+																	role="button"
+																	tabindex="0"
+																	title={issueTitle(row.warnings)}
+																	aria-label={`Issue explanation: ${issueTitle(row.warnings)}`}
+																>
+																	{issueLabel(row.warnings)}
+																</span>
+																<ul class="manual-warnings" aria-label={`Accepted warnings for ${row.date}`}>
+																	{#each row.warnings as warning (warning.code)}
+																		<li>{warning.message}</li>
+																	{/each}
+																</ul>
+															{:else}
+																<small>No warnings</small>
+															{/if}
+															{#if row.reason}
+																<small>Reason: {row.reason}</small>
+															{/if}
+															{#if !isInvalidated && run.appliedAt && row.finalAssigneeId && historyDetailRun && !isCorrectionOpen(run.id, row.date)}
+																<button
+																	class="btn btn-secondary btn-sm"
+																	type="button"
+																	onclick={() =>
+																		(editingCorrections = {
+																			...editingCorrections,
+																			[correctionKey(run.id, row.date)]: true
+																		})}
+																>
+																	Record correction
+																</button>
+															{:else if !isInvalidated && run.appliedAt && row.finalAssigneeId && historyDetailRun}
+																<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
+																	<input type="hidden" name="runId" value={run.id} />
+																	<input type="hidden" name="runRowDate" value={row.date} />
+																	<input
+																		type="hidden"
+																		name="replacementAssigneeId"
+																		value={selectedCorrectionAssigneeId(run.id, row.date)}
+																	/>
+																	<label>
+																		<span>Actual Soldier</span>
+																		<SearchSelect
+																			options={personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId)}
+																			value={selectedCorrectionAssigneeId(run.id, row.date)}
+																			ariaLabel={`Actual Soldier for ${row.date}`}
+																			placeholder="Search Soldier"
+																			clearable={false}
+																			compact
+																			onchange={(value) => {
+																				selectedCorrectionAssignees = {
+																					...selectedCorrectionAssignees,
+																					[correctionKey(run.id, row.date)]: value
+																				};
+																			}}
+																		/>
+																	</label>
+																	<label>
+																		<span>Reason</span>
+																		<input name="reason" placeholder="Reason for correction" required />
+																	</label>
+																	<div class="inline-edit-actions">
+																		<button class="btn btn-primary btn-sm" type="submit">Save</button>
+																		<button
+																			class="btn btn-secondary btn-sm"
+																			type="button"
+																			onclick={() =>
+																				(editingCorrections = {
+																					...editingCorrections,
+																					[correctionKey(run.id, row.date)]: false
+																				})}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																</form>
+															{:else if !isInvalidated && !run.appliedAt && historyDetailRun}
+																<small>Corrections unlock after the run is applied to Calendar.</small>
+															{:else if isInvalidated && run.corrections.some((item) => item.runRowDate === row.date)}
+																<small>Correction trail is locked with this invalidated run.</small>
+															{/if}
+														</div>
+													</div>
+												{/each}
+											</div>
+										{/if}
 
-										<div class="matrix-scroll">
-											<table class="da6-matrix" aria-label="Accepted DA6 matrix">
-												<thead>
-													<tr>
-														<th scope="col">Soldier</th>
-														{#each snapshot.da6.columns as column (column.date)}
-															<th scope="col">{column.date}</th>
-														{/each}
-													</tr>
-												</thead>
-												<tbody>
-													{#each snapshot.da6.rows as row (row.personnelId)}
+										{#if historyDetailRun && historyMode === 'matrix'}
+											<div class="matrix-scroll">
+												<table class="da6-matrix" aria-label="Accepted DA6 matrix">
+													<thead>
 														<tr>
-															<th scope="row">{row.display.rank} {row.display.lastName}</th>
-															{#each row.cells as cell (cell.date)}
-																<td class:assigned={cell.assigned}>{acceptedCellDisplay(cell)}</td>
+															<th scope="col">Soldier</th>
+															{#each snapshot.da6.columns as column (column.date)}
+																<th scope="col">{column.date}</th>
 															{/each}
 														</tr>
-													{/each}
-												</tbody>
-											</table>
-										</div>
+													</thead>
+													<tbody>
+														{#each snapshot.da6.rows as row (row.personnelId)}
+															<tr>
+																<th scope="row">{row.display.rank} {row.display.lastName}</th>
+																{#each row.cells as cell (cell.date)}
+																	<td class:assigned={cell.assigned}>{acceptedCellDisplay(cell)}</td>
+																{/each}
+															</tr>
+														{/each}
+													</tbody>
+												</table>
+											</div>
+										{/if}
 									</section>
 								{/each}
 							</div>
@@ -876,64 +1198,64 @@
 
 								<section class="settings-section" aria-labelledby="pool-criteria-heading">
 									<h4 id="pool-criteria-heading">Pool criteria</h4>
+									<p class="field-help">
+										Selections match any value inside a category, then combine across categories. For example, SGT or
+										CPL, and Alpha Group.
+									</p>
 									<div class="criteria-grid">
-										<fieldset>
-											<legend>Rank</legend>
-											{#each rankOptions as rank (rank)}
-												<label>
-													<input
-														type="checkbox"
-														name="rankValues"
-														value={rank}
-														checked={selectedTemplate.poolCriteria.rankValues.includes(rank)}
-													/>
-													<span>{rank}</span>
-												</label>
-											{/each}
-										</fieldset>
-										<fieldset>
-											<legend>Group</legend>
-											{#each groupOptions as group (group.id)}
-												<label>
-													<input
-														type="checkbox"
-														name="groupIds"
-														value={group.id}
-														checked={selectedTemplate.poolCriteria.groupIds.includes(group.id)}
-													/>
-													<span>{group.label}</span>
-												</label>
-											{/each}
-										</fieldset>
-										<fieldset>
-											<legend>MOS</legend>
-											{#each mosOptions as mos (mos)}
-												<label>
-													<input
-														type="checkbox"
-														name="mosValues"
-														value={mos}
-														checked={selectedTemplate.poolCriteria.mosValues.includes(mos)}
-													/>
-													<span>{mos}</span>
-												</label>
-											{/each}
-										</fieldset>
-										<fieldset>
-											<legend>Duty Role</legend>
-											{#each dutyRoleOptions as role (role)}
-												<label>
-													<input
-														type="checkbox"
-														name="dutyRoleValues"
-														value={role}
-														checked={selectedTemplate.poolCriteria.dutyRoleValues.includes(role)}
-													/>
-													<span>{role}</span>
-												</label>
-											{/each}
-										</fieldset>
+										<label class="tag-field">
+											<span>Rank</span>
+											<MultiTagSelect
+												options={optionItems(rankOptions)}
+												value={rankFilterValues}
+												ariaLabel="Rank filters"
+												placeholder="Any rank"
+												onChange={(values) => (rankFilterValues = values)}
+											/>
+										</label>
+										<label class="tag-field">
+											<span>Group</span>
+											<MultiTagSelect
+												options={groupOptionItems(groupOptions)}
+												value={groupFilterValues}
+												ariaLabel="Group filters"
+												placeholder="Any group"
+												onChange={(values) => (groupFilterValues = values)}
+											/>
+										</label>
+										<label class="tag-field">
+											<span>MOS</span>
+											<MultiTagSelect
+												options={optionItems(mosOptions)}
+												value={mosFilterValues}
+												ariaLabel="MOS filters"
+												placeholder="Any MOS"
+												onChange={(values) => (mosFilterValues = values)}
+											/>
+										</label>
+										<label class="tag-field">
+											<span>Duty Role</span>
+											<MultiTagSelect
+												options={optionItems(dutyRoleOptions)}
+												value={dutyRoleFilterValues}
+												ariaLabel="Duty role filters"
+												placeholder="Any role"
+												onChange={(values) => (dutyRoleFilterValues = values)}
+											/>
+										</label>
 									</div>
+									{#each rankFilterValues as value (value)}
+										<input type="hidden" name="rankValues" {value} />
+									{/each}
+									{#each groupFilterValues as value (value)}
+										<input type="hidden" name="groupIds" {value} />
+									{/each}
+									{#each mosFilterValues as value (value)}
+										<input type="hidden" name="mosValues" {value} />
+									{/each}
+									{#each dutyRoleFilterValues as value (value)}
+										<input type="hidden" name="dutyRoleValues" {value} />
+									{/each}
 								</section>
 
 								<section class="settings-section" aria-labelledby="pool-preview-heading">
@@ -1168,6 +1490,91 @@
 		margin-top: var(--sp-4);
 	}
 
+	.generate-workspace {
+		display: grid;
+		grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
+		gap: var(--sp-4);
+		margin-top: var(--sp-4);
+		align-items: start;
+	}
+
+	.setup-rail {
+		position: sticky;
+		top: var(--sp-4);
+		display: grid;
+		gap: var(--sp-3);
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+		padding: var(--sp-4);
+	}
+
+	.setup-rail h4,
+	.setup-rail p {
+		margin: 0;
+	}
+
+	.setup-stat {
+		display: grid;
+		gap: 3px;
+		border-top: 1px solid var(--border-default);
+		padding-top: var(--sp-3);
+	}
+
+	.setup-stat span,
+	.field-help {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.field-help {
+		margin: var(--sp-2) 0 0;
+		line-height: 1.45;
+		text-transform: none;
+	}
+
+	.preview-loading,
+	.pre-preview-state {
+		margin-top: var(--sp-4);
+	}
+
+	.view-switch,
+	.history-detail-banner {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-items: center;
+		margin-top: var(--sp-4);
+	}
+
+	.history-detail-banner {
+		justify-content: space-between;
+	}
+
+	.view-switch button,
+	.view-switch a {
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		font-weight: 800;
+		padding: 0.45rem 0.7rem;
+		text-decoration: none;
+		text-transform: uppercase;
+	}
+
+	.view-switch button.active,
+	.view-switch a.active {
+		border-color: var(--amber);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+	}
+
 	.generate-form label {
 		display: grid;
 		gap: var(--sp-1);
@@ -1263,8 +1670,7 @@
 		padding: var(--sp-4);
 	}
 
-	.template-identity code,
-	.state-grid code {
+	.template-identity code {
 		color: var(--text-primary);
 		font-family: var(--font-mono);
 	}
@@ -1292,35 +1698,6 @@
 	.view-panel,
 	.no-selection {
 		padding: var(--sp-5);
-	}
-
-	.state-grid {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--sp-3);
-		margin-top: var(--sp-4);
-	}
-
-	.state-grid div {
-		display: grid;
-		gap: 4px;
-		border: 1px solid var(--border-default);
-		border-radius: 4px;
-		background: var(--surface-subtle);
-		padding: var(--sp-3);
-	}
-
-	.state-grid span {
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		font-weight: 700;
-		text-transform: uppercase;
-	}
-
-	.state-grid strong {
-		margin: 0;
-		color: var(--text-primary);
 	}
 
 	.count-source-panel {
@@ -1407,6 +1784,12 @@
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 	}
 
+	.tag-field {
+		display: grid;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
 	.settings-summary div,
 	.preview-summary div,
 	.settings-section {
@@ -1427,7 +1810,7 @@
 	.pool-head,
 	.preview-head,
 	.settings-section h4,
-	.criteria-grid legend {
+	.tag-field > span {
 		color: var(--text-tertiary);
 		font-family: var(--font-mono);
 		font-size: 0.7rem;
@@ -1483,17 +1866,6 @@
 		background: var(--surface-panel);
 		color: var(--text-primary);
 		padding: 0 var(--sp-3);
-	}
-
-	.criteria-grid fieldset {
-		display: grid;
-		gap: var(--sp-2);
-		min-width: 0;
-		margin: 0;
-		border: 1px solid var(--border-default);
-		border-radius: 4px;
-		background: var(--surface-panel);
-		padding: var(--sp-3);
 	}
 
 	.criteria-grid label,
@@ -1571,27 +1943,6 @@
 		line-height: 1.35;
 	}
 
-	.manual-badge,
-	.correction-badge {
-		display: inline-flex;
-		width: fit-content;
-		border: 1px solid var(--color-warning-border, var(--border-default));
-		border-radius: 4px;
-		background: var(--color-warning-bg, var(--surface-subtle));
-		color: var(--color-warning-text, var(--text-primary));
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		font-weight: 800;
-		letter-spacing: 0;
-		padding: 2px var(--sp-2);
-	}
-
-	.correction-badge {
-		border-color: var(--border-default);
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
 	.manual-warnings {
 		display: grid;
 		gap: 4px;
@@ -1608,6 +1959,40 @@
 		align-items: end;
 	}
 
+	.inline-edit-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-items: center;
+	}
+
+	.issue-badge {
+		display: inline-flex;
+		width: fit-content;
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: 4px;
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		padding: 2px var(--sp-2);
+		text-transform: uppercase;
+	}
+
+	.issue-explain {
+		display: grid;
+		gap: 4px;
+		grid-column: 1 / -1;
+		border: 1px solid var(--color-warning-border, var(--border-default));
+		border-radius: 4px;
+		background: var(--color-warning-bg, var(--surface-subtle));
+		color: var(--color-warning-text, var(--text-primary));
+		padding: var(--sp-2);
+		font-size: 0.85rem;
+	}
+
 	.manual-preview-form label,
 	.correction-form label {
 		display: grid;
@@ -1620,9 +2005,7 @@
 	}
 
 	.manual-preview-form input,
-	.manual-preview-form select,
-	.correction-form input,
-	.correction-form select {
+	.correction-form input {
 		min-height: 2.25rem;
 		border: 1px solid var(--border-default);
 		border-radius: 4px;
@@ -1815,9 +2198,9 @@
 		}
 
 		.workspace-grid,
+		.generate-workspace,
 		.generate-form,
 		.view-tabs,
-		.state-grid,
 		.settings-summary,
 		.preview-summary,
 		.identity-grid,
@@ -1830,6 +2213,10 @@
 		.manual-preview-form,
 		.correction-form {
 			grid-template-columns: 1fr;
+		}
+
+		.setup-rail {
+			position: static;
 		}
 	}
 </style>

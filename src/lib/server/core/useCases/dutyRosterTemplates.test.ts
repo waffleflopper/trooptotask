@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
 	acceptDutyRosterTemplatePreview,
@@ -244,6 +244,8 @@ function createCtx(auth = createAuth()) {
 
 describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-04T12:00:00.000Z'));
 		rows.length = 0;
 		assignmentTypeRows.length = 0;
 		acceptedRunRows.length = 0;
@@ -255,6 +257,10 @@ describe('Duty Roster Template use cases', () => {
 		statusTypeRows.length = 0;
 		auditEvents.length = 0;
 		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('allows a scoped Calendar operator to create one-duty templates', async () => {

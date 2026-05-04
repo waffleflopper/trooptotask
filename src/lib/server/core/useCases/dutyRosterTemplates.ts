@@ -76,6 +76,10 @@ const generatePreviewSchema = z
 	.refine((input) => inclusiveDateSpan(input.startDate, input.endDate) <= MAX_PREVIEW_DAYS, {
 		message: `Generate preview can cover ${MAX_PREVIEW_DAYS} days or fewer`,
 		path: ['endDate']
+	})
+	.refine((input) => input.startDate >= currentDateOnly(), {
+		message: 'Duty Roster previews cannot start in the past',
+		path: ['startDate']
 	});
 const manualSelectionSchema = z.object({
 	preview: z.string().trim().min(1, 'Generate the preview again before changing assignments.'),
@@ -360,6 +364,14 @@ function inclusiveDateSpan(startDate: string, endDate: string): number {
 function dateOnlyUtc(value: string): Date {
 	const [year, month, day] = value.split('-').map(Number);
 	return new Date(Date.UTC(year, month - 1, day));
+}
+
+function currentDateOnly(): string {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
 }
 
 type DutyRosterTemplateQueryPorts = QueryPorts & Pick<UseCaseContext, 'audit'>;

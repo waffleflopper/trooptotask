@@ -28,29 +28,15 @@ function findSvelteFiles(dir: string): string[] {
 describe('font self-hosting', () => {
 	const svelteFiles = findSvelteFiles(ROUTES_DIR);
 
-	it('should have route files to check', () => {
+	it('no route file should reference external Google Fonts hosts', () => {
+		const violations: string[] = [];
+		for (const file of svelteFiles) {
+			const content = readFileSync(file, 'utf-8');
+			if (content.includes('fonts.googleapis.com') || content.includes('fonts.gstatic.com')) {
+				violations.push(file.replace(ROUTES_DIR, 'src/routes'));
+			}
+		}
 		expect(svelteFiles.length).toBeGreaterThan(0);
-	});
-
-	it('no route file should reference fonts.googleapis.com', () => {
-		const violations: string[] = [];
-		for (const file of svelteFiles) {
-			const content = readFileSync(file, 'utf-8');
-			if (content.includes('fonts.googleapis.com')) {
-				violations.push(file.replace(ROUTES_DIR, 'src/routes'));
-			}
-		}
-		expect(violations, `Google Fonts links found in:\n${violations.join('\n')}`).toEqual([]);
-	});
-
-	it('no route file should reference fonts.gstatic.com', () => {
-		const violations: string[] = [];
-		for (const file of svelteFiles) {
-			const content = readFileSync(file, 'utf-8');
-			if (content.includes('fonts.gstatic.com')) {
-				violations.push(file.replace(ROUTES_DIR, 'src/routes'));
-			}
-		}
-		expect(violations, `Google Fonts preconnect found in:\n${violations.join('\n')}`).toEqual([]);
+		expect(violations, `Google Fonts references found in:\n${violations.join('\n')}`).toEqual([]);
 	});
 });

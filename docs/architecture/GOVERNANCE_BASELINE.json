@@ -576,6 +576,18 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260503000200_advanced_duty_revision_storage.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*"
+			],
+			"ownerIssue": "#778",
+			"reason": "Advanced Duty revision history RLS uses the existing Calendar view helper only for compact applied history reads while draft workflow writes use the advanced-duty management helper.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

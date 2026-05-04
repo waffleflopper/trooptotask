@@ -34,6 +34,10 @@
 		ExistingDutyEventInput,
 		ExistingDutyEventUpdateInput,
 		AdvancedDutyRunSnapshotRecord,
+		AdvancedDutyRevisionDraftRecord,
+		AdvancedDutyRevisionDraftSession,
+		AdvancedDutyRevisionHistoryEntry,
+		AdvancedDutyRevisionReapplyResult,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -63,6 +67,8 @@
 			advancedDutyTemplates: DutyTemplate[];
 			advancedDutyEvents: DutyEvent[];
 			advancedDutySnapshots?: AdvancedDutyRunSnapshotRecord[];
+			advancedDutyRevisionHistory?: AdvancedDutyRevisionHistoryEntry[];
+			advancedDutyRevisionDrafts?: AdvancedDutyRevisionDraftRecord[];
 		};
 	}
 
@@ -587,6 +593,106 @@
 		}
 	}
 
+	async function handleStartAdvancedRevisionDraft(input: {
+		dutyEventId: string;
+	}): Promise<AdvancedDutyRevisionDraftSession | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${input.dutyEventId}/revision-draft`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to open revision draft'));
+			}
+
+			const session = (await res.json()) as AdvancedDutyRevisionDraftSession;
+			toastStore.success(session.action === 'reopened' ? 'Revision draft reopened' : 'Revision draft started');
+			return session;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to open revision draft');
+			return null;
+		}
+	}
+
+	async function handleUpdateAdvancedRevisionDraft(
+		payload: ExistingDutyEventInput
+	): Promise<AdvancedDutyRevisionDraftSession | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${payload.dutyEventId}/revision-draft`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					slotOverrides: payload.slotOverrides
+				})
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to update revision draft'));
+			}
+
+			return (await res.json()) as AdvancedDutyRevisionDraftSession;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to update revision draft');
+			return null;
+		}
+	}
+
+	async function handleDiscardAdvancedRevisionDraft(input: {
+		dutyEventId: string;
+	}): Promise<AdvancedDutyRevisionDraftRecord | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${input.dutyEventId}/revision-draft`, {
+				method: 'DELETE'
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to discard revision draft'));
+			}
+
+			const draft = (await res.json()) as AdvancedDutyRevisionDraftRecord;
+			toastStore.success('Revision draft discarded');
+			return draft;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to discard revision draft');
+			return null;
+		}
+	}
+
+	async function handleReapplyAdvancedRevisionDraft(input: {
+		dutyEventId: string;
+		reason: string;
+		reviewableConflictsConfirmed: boolean;
+	}): Promise<AdvancedDutyRevisionReapplyResult> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${input.dutyEventId}/revision-draft/reapply`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					reason: input.reason,
+					reviewableConflictsConfirmed: input.reviewableConflictsConfirmed
+				})
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to reapply revision draft'));
+			}
+
+			const result = (await res.json()) as AdvancedDutyRevisionReapplyResult;
+			const updatedById = new Map(result.updatedEvents.map((event) => [event.id, event] as const));
+			advancedDutyEvents = sortDutyEventsByCoverageStart(
+				advancedDutyEvents.map((event) => updatedById.get(event.id) ?? event)
+			);
+			await refreshAdvancedDutyData();
+			toastStore.success('Revision draft reapplied');
+			return result;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Failed to reapply revision draft';
+			toastStore.error(message);
+			throw new Error(message);
+		}
+	}
+
 	async function handleDeleteAdvancedEvent(dutyEventId: string): Promise<boolean> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-events/${dutyEventId}`, { method: 'DELETE' });
@@ -771,10 +877,14 @@
 				<AppliedEventManager
 					{advancedDutyEvents}
 					{advancedDutySnapshots}
+					advancedDutyRevisionHistory={data.advancedDutyRevisionHistory ?? []}
+					advancedDutyRevisionDrafts={data.advancedDutyRevisionDrafts ?? []}
 					{personnelById}
 					{previewPersonnelOptions}
-					onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
-					onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
+					onStartAdvancedRevisionDraft={handleStartAdvancedRevisionDraft}
+					onUpdateAdvancedRevisionDraft={handleUpdateAdvancedRevisionDraft}
+					onDiscardAdvancedRevisionDraft={handleDiscardAdvancedRevisionDraft}
+					onReapplyAdvancedRevisionDraft={handleReapplyAdvancedRevisionDraft}
 					onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
 					onDeleteAdvancedRun={handleDeleteAdvancedRun}
 					onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}

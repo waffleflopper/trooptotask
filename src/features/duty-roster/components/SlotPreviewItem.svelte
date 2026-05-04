@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DutyEventPreviewSlotInstance } from '../duty-roster.types';
 	import type { Personnel } from '$lib/types';
+	import SearchSelect, { type SearchSelectOption } from '$lib/components/ui/SearchSelect.svelte';
 
 	export type SlotExplanationSection = {
 		label: string;
@@ -42,6 +43,33 @@
 
 	const ariaBase = $derived(`${eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`);
 	const explanationSections = $derived(getExplanationSections(slot));
+
+	function assigneeOptionDescription(person: Personnel) {
+		const ranking = slot.candidateRankings?.find((candidate) => candidate.personnelId === person.id);
+		if (!ranking) return undefined;
+
+		const selectedRanking = slot.assigneeId
+			? slot.candidateRankings?.find((candidate) => candidate.personnelId === slot.assigneeId)
+			: undefined;
+		const isSelected = slot.assigneeId === person.id;
+		if (isSelected) return `Current pick, #${ranking.rank}`;
+
+		const nextRank = selectedRanking?.rank === 1 ? 2 : 1;
+		if (ranking.rank === nextRank) return `Next up, #${ranking.rank}`;
+
+		return `Rotation #${ranking.rank}`;
+	}
+
+	function assigneeOptions(): SearchSelectOption[] {
+		return [
+			{ value: '', label: 'Leave Unfilled' },
+			...personnelOptions.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}`,
+				description: assigneeOptionDescription(person)
+			}))
+		];
+	}
 </script>
 
 <div class="slot-preview-subitem">
@@ -70,18 +98,16 @@
 
 	<label class="field">
 		<span class="label sr-only">Assignee for {ariaBase}</span>
-		<select
-			class="select"
-			aria-label={`Assignee for ${ariaBase}`}
+		<SearchSelect
+			options={assigneeOptions()}
 			value={slot.assigneeId ?? ''}
 			disabled={isLoading}
-			onchange={(e) => onUpdateAssignee((e.currentTarget as HTMLSelectElement).value || null)}
-		>
-			<option value="">Leave Unfilled</option>
-			{#each personnelOptions as person (person.id)}
-				<option value={person.id}>{person.rank} {person.lastName}</option>
-			{/each}
-		</select>
+			clearable={false}
+			compact
+			placeholder="Leave Unfilled"
+			ariaLabel={`Assignee for ${ariaBase}`}
+			onchange={(value) => onUpdateAssignee(value || null)}
+		/>
 	</label>
 
 	<div class="slot-action-row">

@@ -1,15 +1,10 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
 import type {
 	DutyEvent,
 	DutyEventRunDeleteResult,
 	ExistingDutyEventUpdateInput
 } from '$features/duty-roster/duty-roster.types';
-import {
-	deleteDutyEventById,
-	previewExistingDutyEvent,
-	updateExistingDutyEvent
-} from '$lib/server/core/useCases/dutyEventCrud';
+import { deleteDutyEventById, updateExistingDutyEvent } from '$lib/server/core/useCases/dutyEventCrud';
 import { dutyEventIdInputSchema, existingDutyEventUpdateInputSchema } from '../schemas';
 
 export const _putConfig: RouteConfig<ExistingDutyEventUpdateInput, DutyEvent> = {
@@ -18,13 +13,6 @@ export const _putConfig: RouteConfig<ExistingDutyEventUpdateInput, DutyEvent> = 
 	deferPolicyToUseCase: true,
 	input: existingDutyEventUpdateInputSchema,
 	fn: async (ctx, input) => {
-		if (!input.collisionReviewConfirmed) {
-			const preview = await previewExistingDutyEvent(ctx, input);
-			if (preview.collisionSummary.hasConflicts) {
-				fail(400, 'Collision review is required before saving this duty event.');
-			}
-		}
-
 		return updateExistingDutyEvent(ctx, input);
 	}
 };

@@ -4,6 +4,8 @@ const {
 	loadWithContextMock,
 	fetchRosterHistoryMock,
 	canAccessAdvancedDutyMock,
+	listAdvancedDutyRevisionDraftsMock,
+	listAdvancedDutyRevisionHistoryMock,
 	listDutyTemplatesMock,
 	listDutyEventsForCalendarMock,
 	listVisibleAdvancedDutyRunSnapshotSummariesMock,
@@ -12,6 +14,8 @@ const {
 	loadWithContextMock: vi.fn(),
 	fetchRosterHistoryMock: vi.fn(),
 	canAccessAdvancedDutyMock: vi.fn(),
+	listAdvancedDutyRevisionDraftsMock: vi.fn(),
+	listAdvancedDutyRevisionHistoryMock: vi.fn(),
 	listDutyTemplatesMock: vi.fn(),
 	listDutyEventsForCalendarMock: vi.fn(),
 	listVisibleAdvancedDutyRunSnapshotSummariesMock: vi.fn(),
@@ -35,6 +39,11 @@ vi.mock('$lib/server/core/useCases/advancedDutyAccess', () => ({
 	canAccessAdvancedDuty: canAccessAdvancedDutyMock
 }));
 
+vi.mock('$lib/server/core/useCases/advancedDutyRevisionDrafts', () => ({
+	listAdvancedDutyRevisionDrafts: listAdvancedDutyRevisionDraftsMock,
+	listAdvancedDutyRevisionHistory: listAdvancedDutyRevisionHistoryMock
+}));
+
 vi.mock('$lib/server/core/useCases/dutyTemplateCrud', () => ({
 	listDutyTemplates: listDutyTemplatesMock
 }));
@@ -51,7 +60,11 @@ describe('duty roster page load', () => {
 		vi.clearAllMocks();
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) => config.fn(mockCtx));
 		fetchRosterHistoryMock.mockResolvedValue(['history-item']);
-		listDutyEventsForCalendarMock.mockResolvedValue(['event-item']);
+		listDutyEventsForCalendarMock.mockResolvedValue([{ id: 'event-item', runId: 'run-1' }]);
+		listAdvancedDutyRevisionDraftsMock.mockResolvedValue([
+			{ id: 'draft-item', status: 'draft', appliedRunId: 'run-1' }
+		]);
+		listAdvancedDutyRevisionHistoryMock.mockResolvedValue(['revision-item']);
 		listDutyTemplatesMock.mockResolvedValue(['template-item']);
 		listVisibleAdvancedDutyRunSnapshotSummariesMock.mockResolvedValue(['snapshot-item']);
 	});
@@ -62,13 +75,17 @@ describe('duty roster page load', () => {
 		const result = await load({ params: { orgId: 'test-org' }, locals: {}, cookies: {} } as never);
 
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
+		expect(listAdvancedDutyRevisionHistoryMock).toHaveBeenCalledWith(mockCtx, { appliedRunIds: ['run-1'] });
 		expect(listDutyTemplatesMock).not.toHaveBeenCalled();
 		expect(listVisibleAdvancedDutyRunSnapshotSummariesMock).not.toHaveBeenCalled();
+		expect(listAdvancedDutyRevisionDraftsMock).not.toHaveBeenCalled();
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
-			advancedDutyEvents: ['event-item'],
+			advancedDutyEvents: [{ id: 'event-item', runId: 'run-1' }],
 			advancedDutyTemplates: [],
-			advancedDutySnapshots: []
+			advancedDutySnapshots: [],
+			advancedDutyRevisionHistory: ['revision-item'],
+			advancedDutyRevisionDrafts: []
 		});
 	});
 
@@ -80,11 +97,15 @@ describe('duty roster page load', () => {
 		expect(listDutyEventsForCalendarMock).toHaveBeenCalledWith(mockCtx);
 		expect(listDutyTemplatesMock).toHaveBeenCalledWith(mockCtx);
 		expect(listVisibleAdvancedDutyRunSnapshotSummariesMock).toHaveBeenCalledWith(mockCtx);
+		expect(listAdvancedDutyRevisionHistoryMock).toHaveBeenCalledWith(mockCtx, { appliedRunIds: ['run-1'] });
+		expect(listAdvancedDutyRevisionDraftsMock).toHaveBeenCalledWith(mockCtx);
 		expect(result).toEqual({
 			rosterHistory: ['history-item'],
-			advancedDutyEvents: ['event-item'],
+			advancedDutyEvents: [{ id: 'event-item', runId: 'run-1' }],
 			advancedDutyTemplates: ['template-item'],
-			advancedDutySnapshots: ['snapshot-item']
+			advancedDutySnapshots: ['snapshot-item'],
+			advancedDutyRevisionHistory: ['revision-item'],
+			advancedDutyRevisionDrafts: [{ id: 'draft-item', status: 'draft', appliedRunId: 'run-1' }]
 		});
 	});
 });

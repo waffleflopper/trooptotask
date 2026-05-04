@@ -151,6 +151,9 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			if (input.appliedRunId) {
 				query = query.eq('applied_run_id', input.appliedRunId);
 			}
+			if (input.statuses?.length) {
+				query = query.in('status', input.statuses);
+			}
 
 			const { data, error } = await query.order('updated_at', { ascending: false });
 			if (error) {
@@ -423,14 +426,11 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 		},
 
 		async listAdvancedDutyRevisionDrafts(input) {
-			return store.findMany<Record<string, unknown>>(
-				REVISION_DRAFTS_TABLE,
-				input.orgId,
-				input.appliedRunId ? { applied_run_id: input.appliedRunId } : undefined,
-				{
-					orderBy: [{ column: 'updated_at', ascending: false }]
-				}
-			);
+			const filters = input.appliedRunId ? { applied_run_id: input.appliedRunId } : undefined;
+			return store.findMany<Record<string, unknown>>(REVISION_DRAFTS_TABLE, input.orgId, filters, {
+				inFilters: input.statuses?.length ? { status: input.statuses } : undefined,
+				orderBy: [{ column: 'updated_at', ascending: false }]
+			});
 		},
 
 		async createAdvancedDutyRevisionDraft(input) {

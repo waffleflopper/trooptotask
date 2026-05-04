@@ -177,6 +177,25 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 		expect(builder.eq).toHaveBeenCalledWith('status', 'draft');
 	});
 
+	it('filters listed revision drafts by status when requested', async () => {
+		const draftRows = [{ id: 'draft-1', status: 'draft' }];
+		const builder = queryBuilder({ data: draftRows, error: null });
+		const from = vi.fn().mockReturnValue(builder);
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
+
+		const result = await adapter.listAdvancedDutyRevisionDrafts({
+			orgId: 'org-1',
+			statuses: ['draft', 'discarded']
+		});
+
+		expect(result).toEqual(draftRows);
+		expect(from).toHaveBeenCalledWith('advanced_duty_revision_drafts');
+		expect(builder.select).toHaveBeenCalledWith('*');
+		expect(builder.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+		expect(builder.in).toHaveBeenCalledWith('status', ['draft', 'discarded']);
+		expect(builder.order).toHaveBeenCalledWith('updated_at', { ascending: false });
+	});
+
 	it('writes revision change sets and slot changes to the approved history tables', async () => {
 		const changeSetBuilder = queryBuilder({ data: { id: 'change-set-1' }, error: null });
 		const slotBuilder = queryBuilder({ data: [{ id: 'slot-change-1' }], error: null });

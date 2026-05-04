@@ -1,5 +1,6 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvancedDutyRevisionDraftRecord } from '$features/duty-roster/duty-roster.types';
 
 export type FeatureArea =
 	| 'calendar'
@@ -151,7 +152,11 @@ export interface AdvancedDutyPersistencePort {
 
 	findAdvancedDutyRevisionDraft(input: { orgId: string; draftId: string }): Promise<Record<string, unknown> | null>;
 
-	listAdvancedDutyRevisionDrafts(input: { orgId: string; appliedRunId?: string }): Promise<Record<string, unknown>[]>;
+	listAdvancedDutyRevisionDrafts(input: {
+		orgId: string;
+		appliedRunId?: string;
+		statuses?: AdvancedDutyRevisionDraftRecord['status'][];
+	}): Promise<Record<string, unknown>[]>;
 
 	createAdvancedDutyRevisionDraft(input: {
 		orgId: string;

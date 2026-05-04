@@ -1616,6 +1616,8 @@ function assertRevisionDraftSourceRunFresh(
 	draft: AdvancedDutyRevisionDraftRecord,
 	appliedRun: AdvancedDutyRevisionAppliedRun
 ): void {
+	// Older draft records may not have captured a source timestamp; only enforce freshness
+	// when the draft has a source value to compare against the current applied run.
 	if (!draft.sourceRunUpdatedAt || draft.sourceRunUpdatedAt === appliedRun.updatedAt) {
 		return;
 	}

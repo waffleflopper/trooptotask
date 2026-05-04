@@ -374,6 +374,7 @@ export function deriveAdvancedDutyRevisionChangeSet(
 		throw new Error('Advanced Duty revision reapply requires a reason.');
 	}
 
+	const changeSetId = input.makeChangeSetId();
 	const slotChanges = draftSlotChanges(input.draft).flatMap((change) => {
 		const applied = findAppliedSlot(input.appliedSlots, change);
 		if (!applied || !hasMeaningfulSlotChange(change, applied)) return [];
@@ -387,7 +388,7 @@ export function deriveAdvancedDutyRevisionChangeSet(
 			{
 				id: input.makeSlotChangeId(),
 				orgId: input.draft.orgId,
-				changeSetId: '',
+				changeSetId,
 				dutyEventId: change.dutyEventId ?? applied.dutyEventId ?? null,
 				eventDate: change.eventDate,
 				slotKey: change.slotKey,
@@ -410,7 +411,6 @@ export function deriveAdvancedDutyRevisionChangeSet(
 		];
 	});
 
-	const changeSetId = input.makeChangeSetId();
 	return {
 		changeSet: {
 			id: changeSetId,
@@ -427,7 +427,7 @@ export function deriveAdvancedDutyRevisionChangeSet(
 			appliedAt: input.now,
 			createdAt: input.now
 		},
-		slotChanges: slotChanges.map((change) => ({ ...change, changeSetId }))
+		slotChanges
 	};
 }
 

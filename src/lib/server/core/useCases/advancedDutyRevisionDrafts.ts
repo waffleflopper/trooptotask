@@ -169,32 +169,12 @@ function advancedDutyRevisionDraftIsCleanupEligible(draft: AdvancedDutyRevisionD
 }
 
 function draftToDbRow(draft: AdvancedDutyRevisionDraftRecord): Record<string, unknown> {
-	return {
-		id: draft.id,
-		organization_id: draft.orgId,
-		applied_run_id: draft.appliedRunId,
-		source_snapshot_id: draft.sourceSnapshotId,
-		source_snapshot_fingerprint: draft.sourceSnapshotFingerprint,
-		source_run_created_at: draft.sourceRunCreatedAt,
-		source_run_updated_at: draft.sourceRunUpdatedAt,
-		status: draft.status,
-		slot_changes: draft.slotChanges,
-		reason: draft.reason,
-		latest_validation: draft.latestValidation,
-		latest_error: draft.latestError,
-		conflict_summary: draft.conflictSummary,
-		draft_version: draft.draftVersion,
-		created_by_user_id: draft.createdByUserId,
-		updated_by_user_id: draft.updatedByUserId,
-		applied_by_user_id: draft.appliedByUserId,
-		discarded_by_user_id: draft.discardedByUserId,
-		expires_at: draft.expiresAt,
-		discard_cleanup_after: draft.discardCleanupAfter,
-		applied_at: draft.appliedAt,
-		discarded_at: draft.discardedAt,
-		created_at: draft.createdAt,
-		updated_at: draft.updatedAt
-	};
+	return Object.fromEntries(
+		Object.entries(AdvancedDutyRevisionDraftEntity.fieldMap).map(([key, column]) => [
+			column,
+			draft[key as keyof AdvancedDutyRevisionDraftRecord]
+		])
+	);
 }
 
 function changeSetToDbRow(changeSet: AdvancedDutyRevisionChangeSetRecord): Record<string, unknown> {
@@ -311,25 +291,27 @@ export async function getActiveAdvancedDutyRevisionDraft(
 
 export async function listAdvancedDutyRevisionDrafts(
 	ctx: AdvancedDutyRevisionQueryContext,
-	input: { appliedRunId?: string } = {}
+	input: { appliedRunId?: string; statuses?: AdvancedDutyRevisionDraftRecord['status'][] } = {}
 ): Promise<AdvancedDutyRevisionDraftRecord[]> {
 	requireAdvancedDutyAccess(ctx.auth);
 	const rows = await ctx.advancedDutyPersistence.listAdvancedDutyRevisionDrafts({
 		orgId: ctx.auth.orgId,
-		appliedRunId: input.appliedRunId
+		appliedRunId: input.appliedRunId,
+		statuses: input.statuses
 	});
 	return AdvancedDutyRevisionDraftEntity.fromDbArray(rows);
 }
 
-// Intended for scheduled org-scoped server maintenance. This deletes temporary draft rows only;
-// applied revision change sets and slot-change history stay as the official record.
+// Intended for scheduled org-scoped server maintenance. The scheduled caller still needs an
+// Advanced Duty-capable auth context so cleanup follows the same org access rules as draft edits.
+// This deletes temporary draft rows only; applied revision history stays as the official record.
 export async function cleanupAdvancedDutyRevisionDrafts(
 	ctx: AdvancedDutyRevisionWriteContext,
 	input: CleanupAdvancedDutyRevisionDraftsInput = {}
 ): Promise<CleanupAdvancedDutyRevisionDraftsResult> {
 	requireAdvancedDutyAccess(ctx.auth);
 	const now = input.now ?? new Date().toISOString();
-	const drafts = await listAdvancedDutyRevisionDrafts(ctx);
+	const drafts = await listAdvancedDutyRevisionDrafts(ctx, { statuses: ['draft', 'discarded'] });
 	const draftIds = drafts
 		.filter((draft) => advancedDutyRevisionDraftIsCleanupEligible(draft, now))
 		.map((draft) => draft.id);

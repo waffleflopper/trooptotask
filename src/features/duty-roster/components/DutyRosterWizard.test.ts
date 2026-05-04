@@ -1975,7 +1975,11 @@ describe('DutyRosterWizard', () => {
 	});
 
 	it('opens an applied duty event revision draft and saves dropdown changes to the draft only', async () => {
-		const startDraftHandler = vi.fn(async () => makeRevisionDraftSession());
+		const startDraftHandler = vi.fn(async () =>
+			makeRevisionDraftSession({
+				draft: { ...makeRevisionDraftSession().draft, expiresAt: '2026-05-17T00:00:00.000Z' }
+			})
+		);
 		const updateDraftHandler = vi.fn(async (input: ExistingDutyEventInput) => {
 			if (input.slotOverrides?.[0]?.assigneeId === 'person-alt') {
 				return makeRevisionDraftSession({
@@ -1983,6 +1987,7 @@ describe('DutyRosterWizard', () => {
 					draft: {
 						...makeRevisionDraftSession().draft,
 						draftVersion: 2,
+						expiresAt: '2026-05-17T00:00:00.000Z',
 						slotChanges: [
 							{
 								eventDate: '2026-04-10',
@@ -2028,9 +2033,8 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText(/Draft v1 pending/)).toBeTruthy();
 		expect(screen.getAllByText('SGT Nolan').length).toBeGreaterThan(0);
 
-		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-10 NCO #1'), {
-			target: { value: 'person-alt' }
-		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assignee for 2026-04-10 NCO #1' }));
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Zimmer' }));
 
 		await waitFor(() => {
 			expect(updateDraftHandler).toHaveBeenLastCalledWith({

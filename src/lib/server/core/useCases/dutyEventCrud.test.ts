@@ -5147,6 +5147,94 @@ describe('existing duty event editing', () => {
 		expect(storedSlotRows).toEqual(originalSlotRows);
 	});
 
+	it('increments a revision draft once when one dropdown changes in a multi-slot event', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-bravo',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-charlie',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Charlie',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] },
+				{ roleLabel: 'Runner', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }
+			]
+		});
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+		const unchangedSlot = applied.slotInstances[0];
+		const changedSlot = applied.slotInstances[1];
+
+		const session = await updateAdvancedDutyRevisionDraftForEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [
+				{
+					templateSlotId: unchangedSlot.templateSlotId,
+					slotIndex: unchangedSlot.slotIndex,
+					assigneeId: unchangedSlot.assigneeId,
+					assignmentSource: undefined
+				},
+				{
+					templateSlotId: changedSlot.templateSlotId,
+					slotIndex: changedSlot.slotIndex,
+					assigneeId: 'person-charlie',
+					assignmentSource: 'manual'
+				}
+			]
+		});
+
+		expect(session.draft.draftVersion).toBe(2);
+		expect(session.draft.slotChanges).toHaveLength(1);
+		expect(session.draft.slotChanges[0]).toMatchObject({
+			templateSlotId: changedSlot.templateSlotId,
+			slotIndex: changedSlot.slotIndex,
+			newPersonnelId: 'person-charlie'
+		});
+	});
+
 	it('discards a revision draft while preserving the applied event records', async () => {
 		const ctx = createTestContext();
 

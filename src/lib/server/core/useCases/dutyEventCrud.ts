@@ -69,6 +69,7 @@ import {
 	buildAdvancedDutyRevisionDraftChangeFromOverride,
 	buildAdvancedDutyRevisionSlotKey,
 	deriveAdvancedDutyRevisionChangeSet,
+	hasOperationalAdvancedDutyRevisionSlotChange,
 	listAdvancedDutyRevisionDraftSlotChanges,
 	validateAdvancedDutyRevisionReapply
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
@@ -1559,7 +1560,10 @@ async function loadAppliedSlotsForRevision(
 	};
 }
 
-function buildRevisionConflictMaps(draft: AdvancedDutyRevisionDraftRecord): {
+function buildRevisionConflictMaps(
+	draft: AdvancedDutyRevisionDraftRecord,
+	appliedSlots: AdvancedDutyRevisionAppliedSlot[]
+): {
 	hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
 	reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
 } {
@@ -1567,6 +1571,10 @@ function buildRevisionConflictMaps(draft: AdvancedDutyRevisionDraftRecord): {
 	const reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
 	for (const change of listAdvancedDutyRevisionDraftSlotChanges(draft)) {
 		const identity = advancedDutyRevisionSlotIdentity(change);
+		const appliedSlot = appliedSlots.find((slot) => advancedDutyRevisionSlotIdentity(slot) === identity);
+		if (!appliedSlot || !hasOperationalAdvancedDutyRevisionSlotChange(change, appliedSlot)) {
+			continue;
+		}
 		if (change.warningState === 'conflict') {
 			hardConflictsBySlotKey[identity] = [{ code: 'draft-hard-conflict', message: 'Draft slot has a hard conflict.' }];
 		} else if (change.warningState === 'warning') {
@@ -1576,6 +1584,19 @@ function buildRevisionConflictMaps(draft: AdvancedDutyRevisionDraftRecord): {
 		}
 	}
 	return { hardConflictsBySlotKey, reviewableConflictsBySlotKey };
+}
+
+function overrideChangesAppliedSlot(
+	override: DutyEventSlotOverrideInput,
+	appliedSlot: AdvancedDutyRevisionAppliedSlot
+): boolean {
+	if ((override.assigneeId ?? null) !== (appliedSlot.personnelId ?? null)) {
+		return true;
+	}
+	if (override.assignmentSource && override.assignmentSource !== (appliedSlot.assignmentSource ?? null)) {
+		return true;
+	}
+	return false;
 }
 
 function revisionReapplyConflictMessage(validation: ReturnType<typeof validateAdvancedDutyRevisionReapply>): string {
@@ -1667,12 +1688,21 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 		event,
 		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft)
 	);
+	const { appliedSlots } = await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
 
 	for (const override of input.slotOverrides ?? []) {
-		draft = await updateAdvancedDutyRevisionDraftChange(ctx, {
-			draftId: draft.id,
-			change: buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override })
-		});
+		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override });
+		const appliedSlot = appliedSlots.find(
+			(slot) => advancedDutyRevisionSlotIdentity(slot) === advancedDutyRevisionSlotIdentity(change)
+		);
+		if (
+			!appliedSlot ||
+			!overrideChangesAppliedSlot(override, appliedSlot) ||
+			!hasOperationalAdvancedDutyRevisionSlotChange(change, appliedSlot)
+		) {
+			continue;
+		}
+		draft = await updateAdvancedDutyRevisionDraftChange(ctx, { draftId: draft.id, change });
 	}
 
 	return {
@@ -1723,7 +1753,7 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 	const now = new Date().toISOString();
 	const { appliedSlots, slotRowsByIdentity, eventRowsById, personnelFacts, personnelSnapshots } =
 		await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
-	const { hardConflictsBySlotKey, reviewableConflictsBySlotKey } = buildRevisionConflictMaps(draft);
+	const { hardConflictsBySlotKey, reviewableConflictsBySlotKey } = buildRevisionConflictMaps(draft, appliedSlots);
 	const validation = validateAdvancedDutyRevisionReapply({
 		draft,
 		canReapply: true,

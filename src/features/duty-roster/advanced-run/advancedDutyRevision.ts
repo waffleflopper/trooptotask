@@ -226,7 +226,7 @@ export function buildAdvancedDutyRevisionDraftChangeFromOverride(input: {
 		roleLabel: slot?.roleLabel,
 		slotIndex: input.override.slotIndex,
 		newPersonnelId: input.override.assigneeId,
-		assignmentSource: input.override.assignmentSource ?? 'manual',
+		assignmentSource: input.override.assignmentSource ?? slot?.assignmentSource ?? 'manual',
 		warningState: slot?.warningState ?? 'none',
 		changeIntent: revisionChangeIntentFromOverride(input.override)
 	};
@@ -246,11 +246,17 @@ function hasMeaningfulSlotChange(
 	return (
 		(change.newPersonnelId ?? null) !== (applied.personnelId ?? null) ||
 		(change.assignmentSource ?? null) !== (applied.assignmentSource ?? null) ||
-		(change.warningState ?? null) !== (applied.warningState ?? null) ||
 		change.changeIntent === 'clear' ||
 		change.changeIntent === 'lock-open' ||
 		change.changeIntent === 'lock-assigned'
 	);
+}
+
+export function hasOperationalAdvancedDutyRevisionSlotChange(
+	change: AdvancedDutyRevisionDraftSlotChange,
+	applied: AdvancedDutyRevisionAppliedSlot
+): boolean {
+	return hasMeaningfulSlotChange(change, applied);
 }
 
 export function startAdvancedDutyRevisionDraft(

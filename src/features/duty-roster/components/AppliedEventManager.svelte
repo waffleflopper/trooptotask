@@ -35,6 +35,7 @@
 		getSlotExplanationSections,
 		type AppliedEventRunGroup
 	} from './dutyRosterWizard.helpers';
+	import { listAdvancedDutyRevisionDraftSlotChanges } from '../advanced-run/advancedDutyRevision';
 
 	interface Props {
 		advancedDutyEvents: DutyEvent[];
@@ -115,6 +116,24 @@
 		selectedAppliedEventId ? (appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null) : null
 	);
 	const appliedEventCollisionMessages = $derived(appliedEventPreview?.collisionSummary.conflicts ?? []);
+	const appliedEventDraftReviewMessages = $derived.by(() => {
+		if (!appliedEventRevisionDraft) return [];
+		return listAdvancedDutyRevisionDraftSlotChanges(appliedEventRevisionDraft)
+			.filter((change) => change.warningState === 'warning' && isOperationalDraftReviewChange(change))
+			.map((change) => {
+				const slotLabel = change.roleLabel ? `${change.roleLabel} #${(change.slotIndex ?? 0) + 1}` : change.slotKey;
+				return `${formatDisplayDate(change.eventDate)} ${slotLabel}: Reviewable conflicts are present for this draft slot.`;
+			});
+	});
+	const hasOperationalAppliedEventDraftChanges = $derived.by(() => {
+		if (!appliedEventRevisionDraft) return false;
+		return listAdvancedDutyRevisionDraftSlotChanges(appliedEventRevisionDraft).some(isOperationalDraftReviewChange);
+	});
+	const appliedEventReviewableConflictMessages = $derived(
+		hasOperationalAppliedEventDraftChanges
+			? [...new Set([...appliedEventCollisionMessages, ...appliedEventDraftReviewMessages])]
+			: []
+	);
 	const appliedSnapshotByRunId = $derived.by(
 		() =>
 			new Map(
@@ -187,6 +206,23 @@
 
 	function canViewAppliedRunDa6(group: AppliedEventRunGroup): boolean {
 		return Boolean(group.runId && da6SnapshotByRunId.has(group.runId));
+	}
+
+	function isOperationalDraftReviewChange(change: ReturnType<typeof listAdvancedDutyRevisionDraftSlotChanges>[number]) {
+		const event = appliedAdvancedEvents.find(
+			(item) => item.runId === selectedAppliedEvent?.runId && item.eventDate === change.eventDate
+		);
+		const appliedSlot = event?.slotInstances.find(
+			(slot) => `${slot.templateSlotId ?? slot.roleLabel}:${slot.slotIndex}` === change.slotKey
+		);
+		if (!appliedSlot) return true;
+		return (
+			(change.newPersonnelId ?? null) !== (appliedSlot.assigneeId ?? null) ||
+			(change.assignmentSource ?? null) !== (appliedSlot.assignmentSource ?? null) ||
+			change.changeIntent === 'clear' ||
+			change.changeIntent === 'lock-open' ||
+			change.changeIntent === 'lock-assigned'
+		);
 	}
 
 	function upsertActiveRevisionDraft(draft: AdvancedDutyRevisionDraftRecord) {
@@ -304,7 +340,7 @@
 			revisionReapplyError = 'Enter a reason before reapplying this Advanced Duty revision.';
 			return;
 		}
-		if (appliedEventCollisionMessages.length > 0 && !appliedEventCollisionReviewConfirmed) {
+		if (appliedEventReviewableConflictMessages.length > 0 && !appliedEventCollisionReviewConfirmed) {
 			revisionReapplyError = 'Confirm reviewable conflicts before reapplying this Advanced Duty revision.';
 			return;
 		}
@@ -432,7 +468,7 @@
 	reapplyReason={revisionReapplyReason}
 	reapplyError={revisionReapplyError}
 	collisionReviewConfirmed={appliedEventCollisionReviewConfirmed}
-	collisionMessages={appliedEventCollisionMessages}
+	collisionMessages={appliedEventReviewableConflictMessages}
 	personnelOptions={previewPersonnelOptions}
 	formatAssignee={(id) => formatSlotAssignee(id, personnelById)}
 	{formatDisplayDate}

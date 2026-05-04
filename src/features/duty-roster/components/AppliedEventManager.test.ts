@@ -185,6 +185,11 @@ function makeReapplyResult(
 	};
 }
 
+async function chooseAssignee(label: RegExp, optionName: RegExp) {
+	await fireEvent.click(screen.getByRole('button', { name: label }));
+	await fireEvent.mouseDown(await screen.findByRole('option', { name: optionName }));
+}
+
 function makeRevisionHistory(): AdvancedDutyRevisionHistoryEntry[] {
 	return [
 		{
@@ -390,7 +395,7 @@ describe('AppliedEventManager revision draft workflow', () => {
 		expect(screen.getAllByText(/Draft v1 pending/i).length).toBeGreaterThan(0);
 		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Draft Autosaved/i }).disabled).toBe(true);
 
-		await fireEvent.change(screen.getByLabelText(/Assignee for/i), { target: { value: 'person-bravo' } });
+		await chooseAssignee(/Assignee for/i, /SGT Bravo/i);
 
 		await waitFor(() =>
 			expect(onUpdateAdvancedRevisionDraft).toHaveBeenCalledWith({
@@ -564,6 +569,93 @@ describe('AppliedEventManager revision draft workflow', () => {
 			expect(onReapplyAdvancedRevisionDraft).toHaveBeenCalledWith({
 				dutyEventId: 'event-1',
 				reason: 'Leader reviewed the conflict.',
+				reviewableConflictsConfirmed: true
+			})
+		);
+	});
+
+	it('does not ask for conflict confirmation before any operational draft change is staged', async () => {
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'created',
+					conflicts: ['SGT Alpha already has this applied duty event.'],
+					draft: { slotChanges: [] }
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft: vi.fn(async () => makeReapplyResult()),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+
+		expect(await screen.findByText('Review applied duty revision')).not.toBeNull();
+		expect(screen.queryByRole('checkbox', { name: /I reviewed the conflicts/i })).toBeNull();
+		expect(screen.queryByText(/SGT Alpha already has this applied duty event/i)).toBeNull();
+	});
+
+	it('requires confirmation when the draft has reviewable warnings even without preview collision messages', async () => {
+		const onReapplyAdvancedRevisionDraft = vi.fn(async () => makeReapplyResult());
+		const personnel = [makePersonnel('person-alpha', 'Alpha'), makePersonnel('person-bravo', 'Bravo')];
+
+		render(AppliedEventManager, {
+			advancedDutyEvents: [makeEvent()],
+			advancedDutySnapshots: [],
+			personnelById: new Map(personnel.map((person) => [person.id, person] as const)),
+			previewPersonnelOptions: personnel,
+			onStartAdvancedRevisionDraft: vi.fn(async () =>
+				makeSession({
+					action: 'reopened',
+					draft: {
+						slotChanges: [
+							{
+								eventDate: '2026-04-10',
+								slotKey: 'slot-nco:0',
+								roleLabel: 'NCO',
+								slotIndex: 0,
+								newPersonnelId: 'person-bravo',
+								warningState: 'warning'
+							}
+						]
+					}
+				})
+			),
+			onUpdateAdvancedRevisionDraft: vi.fn(async () => makeSession({ action: 'updated' })),
+			onDiscardAdvancedRevisionDraft: vi.fn(async () => makeDraft({ status: 'discarded' })),
+			onReapplyAdvancedRevisionDraft,
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => null),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => null)
+		});
+
+		await fireEvent.click(screen.getAllByRole('button', { name: /open event/i })[0]);
+		await fireEvent.input(await screen.findByLabelText('Reason'), {
+			target: { value: 'Leader reviewed the warning.' }
+		});
+		expect(await screen.findByText(/Reviewable conflicts are present for this draft slot/i)).not.toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		expect(onReapplyAdvancedRevisionDraft).not.toHaveBeenCalled();
+		expect(screen.getByRole('alert').textContent).toContain('Confirm reviewable conflicts');
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: /I reviewed the conflicts/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /Reapply Revision/i }));
+
+		await waitFor(() =>
+			expect(onReapplyAdvancedRevisionDraft).toHaveBeenCalledWith({
+				dutyEventId: 'event-1',
+				reason: 'Leader reviewed the warning.',
 				reviewableConflictsConfirmed: true
 			})
 		);

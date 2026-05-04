@@ -1682,7 +1682,9 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 	requireAdvancedDutyAccess(ctx.auth);
 	const event = await getDutyEventById(ctx, input.dutyEventId);
 	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
-	let { draft } = await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun });
+	let draft =
+		(await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id })) ??
+		(await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun })).draft;
 	const preview = await previewExistingDutyEventWithOverrides(
 		ctx,
 		event,

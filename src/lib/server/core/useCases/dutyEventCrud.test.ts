@@ -5222,6 +5222,7 @@ describe('existing duty event editing', () => {
 		const changedRadioSlot = applied.slotInstances[2];
 		const runnerReplacement = changedRunnerSlot.assigneeId === 'person-delta' ? 'person-alpha' : 'person-delta';
 		const radioReplacement = changedRadioSlot.assigneeId === 'person-alpha' ? 'person-delta' : 'person-alpha';
+		await startAdvancedDutyRevisionDraftForEvent(ctx, { dutyEventId: applied.id });
 		const updateDraft = vi.spyOn(ctx.advancedDutyPersistence, 'updateAdvancedDutyRevisionDraft');
 
 		const session = await updateAdvancedDutyRevisionDraftForEvent(ctx, {

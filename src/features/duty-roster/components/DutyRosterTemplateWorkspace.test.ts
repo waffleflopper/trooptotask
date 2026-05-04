@@ -285,6 +285,52 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
 	});
 
+	it('renders invalidation warnings and uses the required confirmation copy', async () => {
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [acceptedRun({ applied: true, calendarAssignmentsEdited: true })]
+				}
+			}
+		});
+
+		expect(screen.getByText(/Calendar assignments linked to this run changed after apply/)).toBeTruthy();
+		const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
+		await fireEvent.submit(invalidateButton.closest('form') as HTMLFormElement);
+
+		expect(confirm).toHaveBeenCalledWith(
+			'Invalidating this run will remove the assignments from the calendar. Are you sure?'
+		);
+	});
+
+	it('keeps invalidated History visible but locked from normal actions', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [acceptedRun({ invalidated: true })]
+				}
+			}
+		});
+
+		expect(screen.getByText('Invalidated')).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Accepted Duty Roster list' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Print official' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Export official' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Invalidate run' })).toBeNull();
+	});
+
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -501,18 +547,22 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 	};
 }
 
-function acceptedRun() {
+function acceptedRun(options: { applied?: boolean; invalidated?: boolean; calendarAssignmentsEdited?: boolean } = {}) {
 	return {
 		id: 'run-1',
 		templateId: 'template-1',
 		templateName: 'CQ NCO',
-		status: 'accepted' as const,
+		status: options.invalidated ? ('invalidated' as const) : ('accepted' as const),
 		startDate: '2026-06-01',
 		endDate: '2026-06-01',
 		acceptedAt: '2026-06-01T00:00:00.000Z',
 		acceptedByUserId: 'user-1',
-		appliedAt: null,
-		appliedByUserId: null,
+		appliedAt: options.applied ? '2026-06-01T00:10:00.000Z' : null,
+		appliedByUserId: options.applied ? 'user-1' : null,
+		invalidatedAt: options.invalidated ? '2026-06-01T00:20:00.000Z' : null,
+		invalidatedByUserId: options.invalidated ? 'user-1' : null,
+		linkedCalendarAssignmentCount: options.applied ? 1 : 0,
+		calendarAssignmentsEdited: Boolean(options.calendarAssignmentsEdited),
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

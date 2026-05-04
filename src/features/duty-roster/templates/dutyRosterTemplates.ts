@@ -79,13 +79,17 @@ export interface DutyRosterTemplateAcceptedRun {
 	id: string;
 	templateId: string;
 	templateName: string;
-	status: 'accepted';
+	status: 'accepted' | 'invalidated';
 	startDate: string;
 	endDate: string;
 	acceptedAt: string;
 	acceptedByUserId: string | null;
 	appliedAt: string | null;
 	appliedByUserId: string | null;
+	invalidatedAt: string | null;
+	invalidatedByUserId: string | null;
+	linkedCalendarAssignmentCount: number;
+	calendarAssignmentsEdited: boolean;
 	snapshotPayload: Record<string, unknown>;
 	createdAt: string;
 }

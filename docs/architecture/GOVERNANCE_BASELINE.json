@@ -614,6 +614,18 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260504000500_duty_roster_run_invalidation.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_edit_*"
+			],
+			"ownerIssue": "#808",
+			"reason": "Duty Roster Run invalidation RLS uses the existing Calendar helper API for the table-level status update while the service layer enforces latest-run invalidation and Calendar rollback rules.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

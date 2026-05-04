@@ -24,6 +24,7 @@
 		manualError?: string;
 		settingsError?: string;
 		applyError?: string;
+		invalidateError?: string;
 		preview?: DutyRosterTemplatePreview;
 		acceptedRun?: DutyRosterTemplateAcceptedRun;
 		printAcceptedRun?: boolean;
@@ -51,6 +52,7 @@
 	let acceptAndPrintPending = $state(false);
 	let acceptAndPrintError = $state<string | null>(null);
 
+	const INVALIDATE_CONFIRMATION = 'Invalidating this run will remove the assignments from the calendar. Are you sure?';
 	const basePath = $derived(`/org/${data.orgId}/duty-rosters`);
 	const createAction = $derived(`${basePath}?/createTemplate`);
 	const selectedTemplate = $derived(data.selectedTemplate ?? data.templates[0] ?? null);
@@ -72,10 +74,14 @@
 	const applyAcceptedRunAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history?/applyAcceptedRun` : createAction
 	);
+	const invalidateAcceptedRunAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history?/invalidateAcceptedRun` : createAction
+	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
 	);
 	const acceptedRuns = $derived(data.acceptedRuns ?? []);
+	const latestHistoryRunId = $derived(acceptedRuns[0]?.id ?? null);
 	const baselineLocked = $derived(acceptedRuns.length > 0);
 	const rankOptions = $derived(uniqueOptions(data.settings?.personnel.map((person) => person.rank) ?? []));
 	const groupOptions = $derived(uniqueGroupOptions(data.settings?.personnel ?? []));
@@ -162,6 +168,12 @@
 
 	function exportAcceptedRun(run: DutyRosterTemplateAcceptedRun): void {
 		exportDutyRosterForBrowser({ acceptedSnapshot: acceptedSnapshot(run), statusLabel: 'Official' });
+	}
+
+	function confirmRunInvalidation(event: SubmitEvent): void {
+		if (!confirm(INVALIDATE_CONFIRMATION)) {
+			event.preventDefault();
+		}
 	}
 
 	function actionResultData(resultText: string): Record<string, unknown> | null {
@@ -543,12 +555,17 @@
 						{#if actionForm?.applyError}
 							<p class="form-error settings-error" role="alert">{actionForm.applyError}</p>
 						{/if}
+						{#if actionForm?.invalidateError}
+							<p class="form-error settings-error" role="alert">{actionForm.invalidateError}</p>
+						{/if}
 						{#if acceptedRuns.length === 0}
 							<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 						{:else}
 							<div class="accepted-run-list">
 								{#each acceptedRuns as run (run.id)}
 									{@const snapshot = acceptedSnapshot(run)}
+									{@const isInvalidated = run.status === 'invalidated'}
+									{@const canInvalidateRun = !isInvalidated && run.id === latestHistoryRunId}
 									<section class="settings-section accepted-run" aria-label={`${run.templateName} accepted run`}>
 										<div class="accepted-run-heading">
 											<div>
@@ -556,24 +573,47 @@
 												<p>{run.startDate} to {run.endDate}</p>
 											</div>
 											<div class="accepted-output-actions">
-												<span class="official-badge">Official</span>
-												<span class:applied-badge={Boolean(run.appliedAt)} class:apply-later-badge={!run.appliedAt}>
-													{run.appliedAt ? 'Applied' : 'Apply later'}
+												<span class:official-badge={!isInvalidated} class:invalidated-badge={isInvalidated}>
+													{isInvalidated ? 'Invalidated' : 'Official'}
 												</span>
-												<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
-													Print official
-												</button>
-												<button class="btn btn-secondary btn-sm" type="button" onclick={() => exportAcceptedRun(run)}>
-													Export official
-												</button>
-												{#if !run.appliedAt}
+												{#if !isInvalidated}
+													<span class:applied-badge={Boolean(run.appliedAt)} class:apply-later-badge={!run.appliedAt}>
+														{run.appliedAt ? 'Applied' : 'Apply later'}
+													</span>
+													<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
+														Print official
+													</button>
+													<button class="btn btn-secondary btn-sm" type="button" onclick={() => exportAcceptedRun(run)}>
+														Export official
+													</button>
+												{/if}
+												{#if !isInvalidated && !run.appliedAt}
 													<form class="accept-preview-form" method="POST" action={applyAcceptedRunAction}>
 														<input type="hidden" name="runId" value={run.id} />
 														<button class="btn btn-primary btn-sm" type="submit">Apply to Calendar</button>
 													</form>
 												{/if}
+												{#if canInvalidateRun}
+													<form
+														class="accept-preview-form"
+														method="POST"
+														action={invalidateAcceptedRunAction}
+														onsubmit={confirmRunInvalidation}
+													>
+														<input type="hidden" name="runId" value={run.id} />
+														<button class="btn btn-danger btn-sm" type="submit">Invalidate run</button>
+													</form>
+												{:else if !isInvalidated}
+													<span class="locked-history-note">Only latest run can be invalidated.</span>
+												{/if}
 											</div>
 										</div>
+										{#if run.calendarAssignmentsEdited && !isInvalidated}
+											<p class="history-warning">
+												Calendar assignments linked to this run changed after apply. Invalidation will still remove the
+												run footprint after confirmation.
+											</p>
+										{/if}
 
 										<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
 											<div class="preview-row preview-head" role="row">
@@ -1389,7 +1429,9 @@
 
 	.official-badge,
 	.applied-badge,
-	.apply-later-badge {
+	.apply-later-badge,
+	.invalidated-badge,
+	.locked-history-note {
 		display: inline-flex;
 		width: fit-content;
 		border: 1px solid var(--border-default);
@@ -1404,6 +1446,11 @@
 		text-transform: uppercase;
 	}
 
+	.invalidated-badge {
+		background: var(--danger-bg, var(--surface-subtle));
+		color: var(--danger, var(--text-primary));
+	}
+
 	.applied-badge {
 		background: var(--success-bg, var(--surface-subtle));
 		color: var(--success, var(--text-primary));
@@ -1412,6 +1459,21 @@
 	.apply-later-badge {
 		background: var(--surface-subtle);
 		color: var(--text-secondary);
+	}
+
+	.locked-history-note {
+		background: var(--surface-subtle);
+		color: var(--text-tertiary);
+	}
+
+	.history-warning {
+		margin: 0 var(--sp-3);
+		border: 1px solid var(--warning-border, var(--border-default));
+		border-radius: 4px;
+		background: var(--warning-bg, var(--surface-subtle));
+		color: var(--text-primary);
+		font-size: 0.9rem;
+		padding: var(--sp-2) var(--sp-3);
 	}
 
 	.matrix-scroll {

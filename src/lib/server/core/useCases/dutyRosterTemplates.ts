@@ -93,7 +93,7 @@ type DutyRosterTemplateRunRow = {
 	organization_id: string;
 	template_id: string;
 	template_name: string;
-	status: 'accepted';
+	status: 'accepted' | 'invalidated';
 	start_date: string;
 	end_date: string;
 	snapshot_payload: Record<string, unknown>;
@@ -101,6 +101,8 @@ type DutyRosterTemplateRunRow = {
 	accepted_at: string;
 	applied_by_user_id: string | null;
 	applied_at: string | null;
+	invalidated_by_user_id: string | null;
+	invalidated_at: string | null;
 	created_at: string;
 };
 
@@ -133,6 +135,10 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 		acceptedByUserId: row.accepted_by_user_id,
 		appliedAt: row.applied_at ?? null,
 		appliedByUserId: row.applied_by_user_id ?? null,
+		invalidatedAt: row.invalidated_at ?? null,
+		invalidatedByUserId: row.invalidated_by_user_id ?? null,
+		linkedCalendarAssignmentCount: 0,
+		calendarAssignmentsEdited: false,
 		snapshotPayload: row.snapshot_payload,
 		createdAt: row.created_at
 	};
@@ -140,6 +146,61 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 
 function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
 	return row.snapshot_payload as unknown as DutyRosterTemplateAcceptedSnapshot;
+}
+
+type DutyRosterTemplateLinkedCalendarAssignmentRow = {
+	id: string;
+	duty_roster_template_run_id: string;
+	duty_roster_template_run_row_date: string | null;
+	date: string;
+	assignment_type_id: string;
+	assignee_id: string;
+};
+
+function expectedCalendarAssignmentsByRowDate(
+	run: DutyRosterTemplateAcceptedRun
+): Map<string, { assignmentTypeId: string; assigneeId: string }> {
+	const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+	const expected = new Map<string, { assignmentTypeId: string; assigneeId: string }>();
+
+	for (const row of snapshot.finalRows) {
+		if (!row.finalAssigneeId) continue;
+		expected.set(row.date, {
+			assignmentTypeId: snapshot.template.id,
+			assigneeId: row.finalAssigneeId
+		});
+	}
+
+	return expected;
+}
+
+function linkedCalendarAssignmentsWereEdited(
+	run: DutyRosterTemplateAcceptedRun,
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+): boolean {
+	if (!run.appliedAt) {
+		return false;
+	}
+
+	const expected = expectedCalendarAssignmentsByRowDate(run);
+	if (rows.length !== expected.size) {
+		return true;
+	}
+
+	for (const row of rows) {
+		const rowDate = row.duty_roster_template_run_row_date ?? row.date;
+		const expectedRow = expected.get(rowDate);
+		if (
+			!expectedRow ||
+			row.date !== rowDate ||
+			row.assignment_type_id !== expectedRow.assignmentTypeId ||
+			row.assignee_id !== expectedRow.assigneeId
+		) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function normalizePoolCriteriaFromDb(value: Record<string, unknown> | null | undefined): DutyRosterPoolCriteria {
@@ -344,6 +405,42 @@ async function buildTemplatePreviewFromCurrentState(
 	});
 }
 
+async function hydrateAcceptedRunCalendarState(
+	ctx: QueryPorts,
+	runs: DutyRosterTemplateAcceptedRun[]
+): Promise<DutyRosterTemplateAcceptedRun[]> {
+	const appliedRunIds = runs.filter((run) => run.appliedAt).map((run) => run.id);
+	if (appliedRunIds.length === 0) {
+		return runs;
+	}
+
+	const rows = await ctx.store.findMany<DutyRosterTemplateLinkedCalendarAssignmentRow>(
+		'daily_assignments',
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { duty_roster_template_run_id: appliedRunIds },
+			select:
+				'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
+		}
+	);
+	const rowsByRunId = new Map<string, DutyRosterTemplateLinkedCalendarAssignmentRow[]>();
+	for (const row of rows) {
+		const runRows = rowsByRunId.get(row.duty_roster_template_run_id) ?? [];
+		runRows.push(row);
+		rowsByRunId.set(row.duty_roster_template_run_id, runRows);
+	}
+
+	return runs.map((run) => {
+		const runRows = rowsByRunId.get(run.id) ?? [];
+		return {
+			...run,
+			linkedCalendarAssignmentCount: runRows.length,
+			calendarAssignmentsEdited: linkedCalendarAssignmentsWereEdited(run, runRows)
+		};
+	});
+}
+
 export async function listDutyRosterTemplates(ctx: DutyRosterTemplateQueryPorts): Promise<DutyRosterTemplate[]> {
 	await requireTemplateView(ctx);
 
@@ -476,11 +573,14 @@ export async function listAcceptedDutyRosterTemplateRuns(
 	const rows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
 		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
 		ctx.auth.orgId,
-		{ template_id: templateId, status: 'accepted' },
-		{ orderBy: [{ column: 'accepted_at', ascending: false }] }
+		{ template_id: templateId },
+		{
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: false }]
+		}
 	);
 
-	return rows.map(toAcceptedRun);
+	return hydrateAcceptedRunCalendarState(ctx, rows.map(toAcceptedRun));
 }
 
 export async function updateDutyRosterTemplateSettings(
@@ -724,6 +824,94 @@ export async function applyAcceptedDutyRosterTemplateRun(
 	}
 
 	return applyAcceptedDutyRosterTemplateRunRecord(ctx, toAcceptedRun(row));
+}
+
+type DutyRosterTemplateInvalidateResult = {
+	invalidatedRun: DutyRosterTemplateAcceptedRun;
+	removedCalendarAssignments: number;
+	calendarAssignmentsEdited: boolean;
+};
+
+export async function invalidateLatestDutyRosterTemplateRun(
+	ctx: WritePorts,
+	input: { runId: string }
+): Promise<DutyRosterTemplateInvalidateResult> {
+	await requireTemplateManagement(ctx);
+
+	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
+		id: input.runId
+	});
+	if (!row) {
+		fail(404, 'Accepted Duty Roster Run not found');
+	}
+	if (row.status === 'invalidated') {
+		fail(400, 'Duty Roster Run is already invalidated.');
+	}
+
+	const templateRuns = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: row.template_id },
+		{
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: false }]
+		}
+	);
+	if (templateRuns[0]?.id !== row.id) {
+		fail(400, 'Only the latest Accepted Duty Roster Run can be invalidated.');
+	}
+
+	const acceptedRun = toAcceptedRun(row);
+	const linkedRows = row.applied_at
+		? await ctx.store.findMany<DutyRosterTemplateLinkedCalendarAssignmentRow>(
+				'daily_assignments',
+				ctx.auth.orgId,
+				{ duty_roster_template_run_id: row.id },
+				{
+					select:
+						'id, duty_roster_template_run_id, duty_roster_template_run_row_date, date, assignment_type_id, assignee_id'
+				}
+			)
+		: [];
+	const calendarAssignmentsEdited = linkedCalendarAssignmentsWereEdited(acceptedRun, linkedRows);
+	const calendarRemoval =
+		linkedRows.length > 0
+			? await batchDailyAssignments(ctx, {
+					records: linkedRows.map((assignment) => ({
+						date: assignment.date,
+						assignmentTypeId: assignment.assignment_type_id,
+						assigneeId: ''
+					}))
+				})
+			: { inserted: [], cleared: 0 };
+
+	const invalidatedAt = new Date().toISOString();
+	const updated = await ctx.store.update<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		row.id,
+		{
+			status: 'invalidated',
+			invalidated_at: invalidatedAt,
+			invalidated_by_user_id: ctx.auth.userId
+		}
+	);
+
+	await ctx.audit.log({
+		action: 'duty_roster_template_run.invalidated',
+		resourceType: 'duty_roster_template_run',
+		resourceId: row.id,
+		details: {
+			removedCalendarAssignments: calendarRemoval.cleared,
+			calendarAssignmentsEdited
+		}
+	});
+
+	return {
+		invalidatedRun: toAcceptedRun(updated),
+		removedCalendarAssignments: calendarRemoval.cleared,
+		calendarAssignmentsEdited
+	};
 }
 
 export async function acceptAndApplyDutyRosterTemplatePreview(

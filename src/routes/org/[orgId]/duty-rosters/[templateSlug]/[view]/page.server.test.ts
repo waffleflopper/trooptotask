@@ -5,6 +5,7 @@ const {
 	acceptAndApplyDutyRosterTemplatePreviewMock,
 	applyAcceptedDutyRosterTemplateRunMock,
 	applyDutyRosterTemplatePreviewManualSelectionMock,
+	invalidateLatestDutyRosterTemplateRunMock,
 	loadWithContextMock,
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
@@ -19,6 +20,7 @@ const {
 	acceptAndApplyDutyRosterTemplatePreviewMock: vi.fn(),
 	applyAcceptedDutyRosterTemplateRunMock: vi.fn(),
 	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
+	invalidateLatestDutyRosterTemplateRunMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	applyDutyRosterTemplatePreviewManualSelection: applyDutyRosterTemplatePreviewManualSelectionMock,
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
+	invalidateLatestDutyRosterTemplateRun: invalidateLatestDutyRosterTemplateRunMock,
 	listAcceptedDutyRosterTemplateRuns: listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
@@ -77,6 +80,11 @@ describe('Duty Roster Template view route', () => {
 		applyAcceptedDutyRosterTemplateRunMock.mockResolvedValue({
 			acceptedRun: acceptedRun({ applied: true }),
 			insertedCount: 1
+		});
+		invalidateLatestDutyRosterTemplateRunMock.mockResolvedValue({
+			invalidatedRun: acceptedRun({ invalidated: true }),
+			removedCalendarAssignments: 1,
+			calendarAssignmentsEdited: false
 		});
 		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([]);
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
@@ -377,6 +385,29 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('invalidates an accepted run from History', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1'
+			})
+		});
+
+		await expect(
+			actions.invalidateAcceptedRun({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1'
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);
@@ -536,18 +567,22 @@ function preview(options: { manual?: boolean } = {}) {
 	};
 }
 
-function acceptedRun(options: { applied?: boolean } = {}) {
+function acceptedRun(options: { applied?: boolean; invalidated?: boolean } = {}) {
 	return {
 		id: 'run-1',
 		templateId: 'template-1',
 		templateName: 'CQ NCO',
-		status: 'accepted',
+		status: options.invalidated ? 'invalidated' : 'accepted',
 		startDate: '2026-06-01',
 		endDate: '2026-06-01',
 		acceptedAt: '2026-06-01T00:00:00.000Z',
 		acceptedByUserId: 'user-1',
 		appliedAt: options.applied ? '2026-06-01T00:10:00.000Z' : null,
 		appliedByUserId: options.applied ? 'user-1' : null,
+		invalidatedAt: options.invalidated ? '2026-06-01T00:20:00.000Z' : null,
+		invalidatedByUserId: options.invalidated ? 'user-1' : null,
+		linkedCalendarAssignmentCount: options.applied ? 1 : 0,
+		calendarAssignmentsEdited: false,
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

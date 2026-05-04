@@ -8,6 +8,7 @@ import {
 	applyDutyRosterTemplatePreviewManualSelection,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
+	invalidateLatestDutyRosterTemplateRun,
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
@@ -15,7 +16,7 @@ import {
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
 
-type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError' | 'applyError';
+type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError' | 'applyError' | 'invalidateError';
 
 function formValues(formData: FormData, name: string): string[] {
 	return formData.getAll(name).map((value) => String(value));
@@ -209,6 +210,23 @@ export const actions: Actions = {
 			return actionError(errorValue, {
 				key: 'applyError',
 				fallback: 'Failed to apply accepted Duty Roster Run to Calendar.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+	},
+	invalidateAcceptedRun: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await invalidateLatestDutyRosterTemplateRun(ctx, {
+				runId: String(formData.get('runId') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'invalidateError',
+				fallback: 'Failed to invalidate accepted Duty Roster Run.'
 			});
 		}
 

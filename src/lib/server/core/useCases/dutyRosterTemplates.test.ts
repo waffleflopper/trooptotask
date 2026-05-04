@@ -8,6 +8,7 @@ import {
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
+	invalidateLatestDutyRosterTemplateRun,
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
@@ -717,6 +718,125 @@ describe('Duty Roster Template use cases', () => {
 		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
+	it('invalidates the latest accepted run and excludes it from future count derivation', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const firstRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstPreview)
+		});
+		acceptedRunRows[0].accepted_at = '2026-06-01T00:00:00.000Z';
+		const secondPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+		const secondRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(secondPreview)
+		});
+		acceptedRunRows[1].accepted_at = '2026-06-02T00:00:00.000Z';
+
+		const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: secondRun.id });
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-03',
+			endDate: '2026-06-03'
+		});
+
+		expect(result.invalidatedRun).toMatchObject({
+			id: secondRun.id,
+			status: 'invalidated',
+			invalidatedAt: expect.any(String),
+			invalidatedByUserId: 'user-1'
+		});
+		expect(listedRuns.map((run) => ({ id: run.id, status: run.status }))).toEqual([
+			{ id: secondRun.id, status: 'invalidated' },
+			{ id: firstRun.id, status: 'accepted' }
+		]);
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-03', assigneeId: 'bravo' }]);
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.invalidated',
+				resourceType: 'duty_roster_template_run',
+				resourceId: secondRun.id
+			})
+		);
+	});
+
+	it('blocks invalidating older accepted runs', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const firstRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstPreview)
+		});
+		acceptedRunRows[0].accepted_at = '2026-06-01T00:00:00.000Z';
+		const secondPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(secondPreview)
+		});
+		acceptedRunRows[1].accepted_at = '2026-06-02T00:00:00.000Z';
+
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: firstRun.id })).rejects.toMatchObject({
+			status: 400,
+			message: 'Only the latest Accepted Duty Roster Run can be invalidated.'
+		});
+	});
+
+	it('removes linked Calendar assignments when invalidating an applied run and reports edited rows', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		dailyAssignmentRows[0].assignee_id = 'bravo';
+
+		const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id });
+
+		expect(result).toMatchObject({
+			removedCalendarAssignments: 1,
+			calendarAssignmentsEdited: true
+		});
+		expect(dailyAssignmentRows).toHaveLength(0);
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.invalidated',
+				resourceType: 'duty_roster_template_run',
+				resourceId: applied.acceptedRun.id
+			})
+		);
+	});
+
 	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -899,6 +1019,8 @@ function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unkn
 		accepted_at: '2026-06-01T12:00:00.000Z',
 		applied_by_user_id: null,
 		applied_at: null,
+		invalidated_by_user_id: null,
+		invalidated_at: null,
 		created_at: '2026-06-01T12:00:00.000Z',
 		...overrides
 	};

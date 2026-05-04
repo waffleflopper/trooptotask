@@ -72,17 +72,9 @@ This pattern is appropriate for dashboard-style surfaces where components should
 Calendar and duty-roster have several current examples of this direction:
 
 - `CalendarRangeCoordinator` owns client-side calendar range expansion, request de-duping, range-store merging, retry state, and advanced duty event merging for the calendar page.
-- `advancedDutyCollections` owns duty-roster template normalization and applied-duty timeline update rules so the page component does not repeat collection ordering and replacement rules inside every handler.
 - `DutyRosterRun` owns legacy simple-duty run snapshots, DA6 selection and numbering semantics, snapshot-derived apply/history payloads, and the formatting-neutral export model. The old simple-duty generator UI has been removed; keep any retained run logic behind module boundaries until it is either consumed by the replacement Duty Roster surface or removed in a dedicated cleanup.
 - `dutyRosterBrowserExport` is a temporary browser download adapter for the current Excel-compatible HTML export. It may format and download an existing run export model or saved history record, but it must not rebuild selection, DA6 numbering, apply payloads, or history payloads.
-- The `Advanced Duty Run Module` lives in `src/features/duty-roster/advanced-run/`.
-  - It owns advanced team-duty generation decisions, draft Advanced Run Snapshots, availability/blocking classifications, slot proposals, snapshot-derived apply payloads, and the Team Duty Packet Export Model.
-  - It is also the target home for post-apply revision semantics: one active Advanced Duty Revision Draft per applied Advanced Duty Run, compact Advanced Duty Revision Change Sets on reapply, hard/reviewable conflict classification, and revision-history display models.
-  - `dutyEventCrud.ts` should load authorized data, enforce apply/reapply contracts, load current safety facts, persist records through use-case/adapters, and call this module instead of rebuilding generation or revision rules inline.
-  - The snapshot custody contract is recorded in `docs/architecture/adrs/0007-advanced-duty-snapshot-custody.md`; the revision deepening contract is recorded in `docs/plans/2026-05-02-advanced-duty-run-revision-deepening-rfc.md`.
-- Remaining tolerated advanced-duty use-case responsibilities are request authorization, Read-Only Mode checks, provider-agnostic row loading, persistence/rollback orchestration, aggregate `duty_events` fill-summary updates after revision reapply, and route-facing payload hydration. These should not grow into new generation, conflict, warning, revision, or export product rules.
-- Advanced duty route files and Svelte components should stay in request glue, wizard state, rendering, manual override controls, and feedback orchestration. They may carry `snapshotId` plus `snapshotFingerprint`, but they must not decide slot selection, transient series fairness, collision semantics, status-treatment behavior, or export-model content.
-- `buildDutyPacketMarkup` and similar browser adapters are temporary formatting adapters for an existing Team Duty Packet Export Model. They may format, label, and download preview or applied packet output, but they must not rebuild advanced generation, explanations, warnings, conflicts, or assignment-source decisions.
+- The old Advanced Duty Run server module and `/api/duty-events/**` write/revision endpoints have been removed. `dutyEventCrud.ts` is now a read-only calendar hydration shim for old persisted `duty_events` rows.
 
 These are feature-owned client orchestration boundaries. They should not grow into provider access, permission evaluation, or new duty-roster product behavior.
 

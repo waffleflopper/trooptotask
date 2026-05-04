@@ -1,6 +1,5 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { AdvancedDutyRevisionDraftRecord } from '$features/duty-roster/duty-roster.types';
 
 export type FeatureArea =
 	| 'calendar'
@@ -72,23 +71,6 @@ export interface PersistedDutyTemplateAggregate {
 	rotationBaselineRows: Record<string, unknown>[];
 }
 
-export interface PersistedDutyEventAggregate {
-	eventRow: Record<string, unknown>;
-	slotRows: Record<string, unknown>[];
-}
-
-export interface DraftAdvancedRunSnapshotReplacement {
-	orgId: string;
-	draftLineageKey: string;
-	snapshotData: Record<string, unknown>;
-}
-
-export interface AdvancedDutyRevisionReapplyPersistenceResult {
-	changeSetRow: Record<string, unknown>;
-	slotChangeRows: Record<string, unknown>[];
-	draftRow: Record<string, unknown>;
-}
-
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
@@ -132,61 +114,6 @@ export interface AdvancedDutyPersistencePort {
 		slotRows: Record<string, unknown>[];
 		rotationBaselineRows: Record<string, unknown>[];
 	}): Promise<PersistedDutyTemplateAggregate>;
-
-	updateDutyEventAggregate(input: {
-		orgId: string;
-		dutyEventId: string;
-		eventData: Record<string, unknown>;
-		slotRows: Record<string, unknown>[];
-	}): Promise<PersistedDutyEventAggregate>;
-
-	replaceDraftAdvancedRunSnapshot(input: DraftAdvancedRunSnapshotReplacement): Promise<Record<string, unknown>>;
-
-	findActiveAdvancedDutyRevisionDraft(input: {
-		orgId: string;
-		appliedRunId: string;
-	}): Promise<Record<string, unknown> | null>;
-
-	findAdvancedDutyRevisionDraft(input: { orgId: string; draftId: string }): Promise<Record<string, unknown> | null>;
-
-	listAdvancedDutyRevisionDrafts(input: {
-		orgId: string;
-		appliedRunId?: string;
-		statuses?: AdvancedDutyRevisionDraftRecord['status'][];
-	}): Promise<Record<string, unknown>[]>;
-
-	createAdvancedDutyRevisionDraft(input: {
-		orgId: string;
-		draftData: Record<string, unknown>;
-	}): Promise<Record<string, unknown>>;
-
-	updateAdvancedDutyRevisionDraft(input: {
-		orgId: string;
-		draftId: string;
-		draftData: Record<string, unknown>;
-	}): Promise<Record<string, unknown>>;
-
-	deleteAdvancedDutyRevisionDrafts(input: { orgId: string; draftIds: string[] }): Promise<number>;
-
-	applyAdvancedDutyRevision(input: {
-		orgId: string;
-		draftId: string;
-		slotUpdateRows: Record<string, unknown>[];
-		changeSetData: Record<string, unknown>;
-		slotChangeRows: Record<string, unknown>[];
-		appliedDraftData: Record<string, unknown>;
-		now: string;
-	}): Promise<AdvancedDutyRevisionReapplyPersistenceResult>;
-
-	listAdvancedDutyRevisionChangeSets(input: {
-		orgId: string;
-		appliedRunIds?: string[];
-	}): Promise<Record<string, unknown>[]>;
-
-	listAdvancedDutyRevisionSlotChanges(input: {
-		orgId: string;
-		changeSetIds?: string[];
-	}): Promise<Record<string, unknown>[]>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */

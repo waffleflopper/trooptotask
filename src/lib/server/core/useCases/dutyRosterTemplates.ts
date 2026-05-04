@@ -177,8 +177,16 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 	};
 }
 
+function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown>): DutyRosterTemplateAcceptedSnapshot {
+	if (snapshotPayload.snapshotVersion !== 1) {
+		fail(500, 'Unsupported Duty Roster accepted snapshot version.');
+	}
+
+	return snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+}
+
 function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
-	return row.snapshot_payload as unknown as DutyRosterTemplateAcceptedSnapshot;
+	return parseAcceptedRunSnapshot(row.snapshot_payload);
 }
 
 function snapshotPersonDisplay(
@@ -920,7 +928,7 @@ async function hydrateAcceptedRunCorrections(
 	}
 
 	return runs.map((run) => {
-		const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+		const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
 		const corrections = (correctionsByRunId.get(run.id) ?? []).map((correction) => ({
 			id: correction.id,
 			runId: correction.run_id,
@@ -1302,7 +1310,7 @@ type DutyRosterTemplateApplyResult = {
 };
 
 function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
-	const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
 	return snapshot.finalRows.map((row) => ({
 		date: row.date,
 		assignmentTypeId: snapshot.template.id,
@@ -1385,6 +1393,9 @@ export async function recordDutyRosterTemplateRunCorrection(
 	if (row.status === 'invalidated') {
 		fail(400, 'Invalidated Duty Roster Runs cannot be corrected.');
 	}
+	if (!row.applied_at) {
+		fail(400, 'Only applied Duty Roster Runs can be corrected.');
+	}
 
 	const snapshot = acceptedRunSnapshot(row);
 	const acceptedRow = snapshot.finalRows.find((candidate) => candidate.date === parsed.runRowDate);
@@ -1394,8 +1405,15 @@ export async function recordDutyRosterTemplateRunCorrection(
 	if (!acceptedRow.finalAssigneeId) {
 		fail(400, 'Only assigned Duty Roster rows can be corrected.');
 	}
-	if (acceptedRow.finalAssigneeId === parsed.replacementAssigneeId) {
-		fail(400, 'Replacement Soldier must differ from the accepted Soldier.');
+	const latestCorrections = await ctx.store.findMany<DutyRosterTemplateRunCorrectionRow>(
+		DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE,
+		ctx.auth.orgId,
+		{ run_id: parsed.runId, run_row_date: parsed.runRowDate },
+		{ orderBy: [{ column: 'corrected_at', ascending: false }], limit: 1 }
+	);
+	const currentEffectiveAssigneeId = latestCorrections[0]?.replacement_assignee_id ?? acceptedRow.finalAssigneeId;
+	if (currentEffectiveAssigneeId === parsed.replacementAssigneeId) {
+		fail(400, 'Replacement Soldier must differ from the current Soldier.');
 	}
 
 	const replacement = await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, {
@@ -1413,7 +1431,7 @@ export async function recordDutyRosterTemplateRunCorrection(
 		{
 			run_id: row.id,
 			run_row_date: parsed.runRowDate,
-			original_assignee_id: acceptedRow.finalAssigneeId,
+			original_assignee_id: currentEffectiveAssigneeId,
 			replacement_assignee_id: parsed.replacementAssigneeId,
 			reason: parsed.reason,
 			corrected_by_user_id: ctx.auth.userId,

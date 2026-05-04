@@ -801,8 +801,24 @@ describe('Duty Roster Template use cases', () => {
 		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
-	it('records append-only corrections and uses the replacement Soldier for future counts', async () => {
+	it('rejects unsupported accepted snapshot versions before applying a run', async () => {
 		const ctx = createCtx();
+		acceptedRunRows.push(
+			acceptedRunRow({
+				id: 'run-v2',
+				snapshot_payload: { snapshotVersion: 2 }
+			})
+		);
+
+		await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: 'run-v2' })).rejects.toMatchObject({
+			status: 500,
+			message: 'Unsupported Duty Roster accepted snapshot version.'
+		});
+		expect(dailyAssignmentRows).toHaveLength(0);
+	});
+
+	it('records append-only corrections and uses the replacement Soldier for future counts', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
 			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
@@ -813,12 +829,12 @@ describe('Duty Roster Template use cases', () => {
 			startDate: '2026-06-01',
 			endDate: '2026-06-01'
 		});
-		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(preview)
 		});
 
 		const correction = await recordDutyRosterTemplateRunCorrection(ctx, {
-			runId: accepted.id,
+			runId: applied.acceptedRun.id,
 			runRowDate: '2026-06-01',
 			replacementAssigneeId: 'bravo',
 			reason: 'Emergency leave swap.'
@@ -831,7 +847,7 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		expect(correction).toMatchObject({
-			runId: accepted.id,
+			runId: applied.acceptedRun.id,
 			runRowDate: '2026-06-01',
 			originalAssigneeId: 'alpha',
 			replacementAssigneeId: 'bravo',
@@ -852,9 +868,39 @@ describe('Duty Roster Template use cases', () => {
 			expect.objectContaining({
 				action: 'duty_roster_template_run.corrected',
 				resourceType: 'duty_roster_template_run',
-				resourceId: accepted.id
+				resourceId: applied.acceptedRun.id
 			})
 		);
+	});
+
+	it('rejects corrections before the accepted run has been applied to Calendar', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: accepted.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Emergency leave swap.'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Only applied Duty Roster Runs can be corrected.'
+		});
+		expect(correctionRows).toHaveLength(0);
 	});
 
 	it('requires a correction reason', async () => {
@@ -920,8 +966,8 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
-	it('keeps corrections visible but non-counting when the parent run is invalidated', async () => {
-		const ctx = createCtx();
+	it('rejects duplicate no-op corrections against the current effective Soldier', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
 			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
@@ -932,17 +978,53 @@ describe('Duty Roster Template use cases', () => {
 			startDate: '2026-06-01',
 			endDate: '2026-06-01'
 		});
-		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(preview)
 		});
 		await recordDutyRosterTemplateRunCorrection(ctx, {
-			runId: accepted.id,
+			runId: applied.acceptedRun.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Soldier performed duty for original assignee.'
+		});
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: applied.acceptedRun.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Duplicate correction.'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Replacement Soldier must differ from the current Soldier.'
+		});
+		expect(correctionRows).toHaveLength(1);
+	});
+
+	it('keeps corrections visible but non-counting when the parent run is invalidated', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: applied.acceptedRun.id,
 			runRowDate: '2026-06-01',
 			replacementAssigneeId: 'bravo',
 			reason: 'Emergency leave swap.'
 		});
 
-		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: accepted.id });
+		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: applied.acceptedRun.id });
 		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
 		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
 			templateId: template.id,
@@ -951,7 +1033,7 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		expect(listedRuns[0]).toMatchObject({
-			id: accepted.id,
+			id: applied.acceptedRun.id,
 			status: 'invalidated',
 			corrections: [expect.objectContaining({ replacementAssigneeId: 'bravo', countsTowardFuture: false })]
 		});
@@ -1151,7 +1233,7 @@ describe('Duty Roster Template use cases', () => {
 	});
 
 	it('derives count read models from manual accepted selections, corrections, and invalidated history', async () => {
-		const ctx = createCtx();
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
 			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
@@ -1178,12 +1260,12 @@ describe('Duty Roster Template use cases', () => {
 			startDate: '2026-06-02',
 			endDate: '2026-06-02'
 		});
-		const secondRun = await acceptDutyRosterTemplatePreview(ctx, {
+		const secondRun = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(secondPreview)
 		});
 		acceptedRunRows[1].accepted_at = '2026-06-02T00:00:00.000Z';
 		await recordDutyRosterTemplateRunCorrection(ctx, {
-			runId: secondRun.id,
+			runId: secondRun.acceptedRun.id,
 			runRowDate: '2026-06-02',
 			replacementAssigneeId: 'charlie',
 			reason: 'Soldier performed duty for original assignee.'
@@ -1207,7 +1289,7 @@ describe('Duty Roster Template use cases', () => {
 			['charlie', 1, '2026-06-02']
 		]);
 
-		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: secondRun.id });
+		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: secondRun.acceptedRun.id });
 		const invalidatedReadModel = await loadDutyRosterTemplateCountReadModel(ctx, template);
 
 		expect(invalidatedReadModel).toMatchObject({

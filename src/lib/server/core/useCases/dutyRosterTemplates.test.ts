@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
-import { createDutyRosterTemplate, findDutyRosterTemplateBySlug, listDutyRosterTemplates } from './dutyRosterTemplates';
+import {
+	createDutyRosterTemplate,
+	findDutyRosterTemplateBySlug,
+	listDutyRosterTemplates,
+	loadDutyRosterTemplateSettings,
+	updateDutyRosterTemplateSettings
+} from './dutyRosterTemplates';
 
 const rows: Record<string, unknown>[] = [];
+const personnelRows: Record<string, unknown>[] = [];
 const auditEvents: Array<{ action: string; resourceType: string; resourceId?: string }> = [];
 
 function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
@@ -33,17 +40,27 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 }
 
 const store: DataStore = {
-	async findOne(_table, orgId, filters) {
+	async findOne(table, orgId, filters) {
+		const source = table === 'personnel' ? personnelRows : rows;
 		return (
-			rows.find((row) =>
+			source.find((row) =>
 				Object.entries({ organization_id: orgId, ...filters }).every(([key, value]) => row[key] === value)
 			) ?? null
 		);
 	},
-	async findMany(_table, orgId, filters = {}, options) {
-		let result = rows.filter((row) =>
+	async findMany(table, orgId, filters = {}, options) {
+		const source = table === 'personnel' ? personnelRows : rows;
+		let result = source.filter((row) =>
 			Object.entries({ organization_id: orgId, ...filters }).every(([key, value]) => row[key] === value)
 		);
+
+		if (options?.isNull) {
+			result = result.filter((row) =>
+				Object.entries(options.isNull ?? {}).every(([key, shouldBeNull]) =>
+					shouldBeNull ? row[key] === null || row[key] === undefined : row[key] !== null && row[key] !== undefined
+				)
+			);
+		}
 
 		if (options?.select === 'slug') {
 			return result.map((row) => ({ slug: row.slug }));
@@ -55,7 +72,13 @@ const store: DataStore = {
 
 		return result;
 	},
-	async insert(_table, orgId, data) {
+	async insert(table, orgId, data) {
+		if (table === 'personnel') {
+			const row = { id: `person-${personnelRows.length + 1}`, organization_id: orgId, ...data };
+			personnelRows.push(row);
+			return row;
+		}
+
 		if (rows.some((row) => row.organization_id === orgId && row.slug === data.slug)) {
 			throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
 		}
@@ -68,7 +91,16 @@ const store: DataStore = {
 		rows.push(row);
 		return row;
 	},
-	update: vi.fn(),
+	async update(table, orgId, id, data) {
+		const source = table === 'personnel' ? personnelRows : rows;
+		const index = source.findIndex((row) => row.organization_id === orgId && row.id === id);
+		if (index === -1) {
+			throw new Error('row not found');
+		}
+
+		source[index] = { ...source[index], ...data };
+		return source[index];
+	},
 	updateById: vi.fn(),
 	delete: vi.fn(),
 	deleteWhere: vi.fn(),
@@ -100,6 +132,7 @@ function createCtx(auth = createAuth()) {
 describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
 		rows.length = 0;
+		personnelRows.length = 0;
 		auditEvents.length = 0;
 		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
 	});
@@ -172,4 +205,107 @@ describe('Duty Roster Template use cases', () => {
 			status: 403
 		});
 	});
+
+	it('loads settings with resolved pool and baseline rows from active scoped personnel', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' }),
+			personnelRow({ id: 'p2', rank: 'CPL', last_name: 'Baker', group_id: 'alpha', groupName: 'Alpha' }),
+			personnelRow({ id: 'p3', rank: 'SGT', last_name: 'Charlie', group_id: 'bravo', groupName: 'Bravo' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT', 'CPL'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: ['p1'],
+			manualBaselineCounts: { p2: 4 }
+		});
+
+		const settings = await loadDutyRosterTemplateSettings(ctx, updated);
+
+		expect(settings.resolvedPool.map((person) => person.id)).toEqual(['p1', 'p2']);
+		expect(settings.baselineRows.map((row) => [row.personnel.id, row.startingCount])).toEqual([['p2', 4]]);
+	});
+
+	it('rejects exemptions and Manual DA6 Baseline counts outside the resolved non-exempt pool', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: ['missing-person'],
+				manualBaselineCounts: {}
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: ['p1'],
+				manualBaselineCounts: { p1: 3 }
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('rejects invalid Manual DA6 Baseline count values instead of dropping them silently', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: [],
+				manualBaselineCounts: { p1: Number.NaN }
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Manual DA6 Baseline counts must be whole numbers zero or greater.'
+		});
+	});
 });
+
+function personnelRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: 'p1',
+		organization_id: 'org-1',
+		rank: 'SGT',
+		first_name: 'Test',
+		last_name: 'Soldier',
+		mos: '11B',
+		clinic_role: 'Rifleman',
+		group_id: null,
+		groups: { name: overrides.groupName ?? '' },
+		archived_at: null,
+		...overrides
+	};
+}

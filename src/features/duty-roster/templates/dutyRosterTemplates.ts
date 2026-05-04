@@ -8,6 +8,9 @@ export interface DutyRosterTemplate {
 	slug: string;
 	shortCode: string | null;
 	status: 'active' | 'archived';
+	poolCriteria: DutyRosterPoolCriteria;
+	exemptPersonnelIds: string[];
+	manualBaselineCounts: Record<string, number>;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -17,9 +20,53 @@ export interface DutyRosterTemplateCreateInput {
 	shortCode?: string | null;
 }
 
+export interface DutyRosterPoolCriteria {
+	rankValues: string[];
+	groupIds: string[];
+	mosValues: string[];
+	dutyRoleValues: string[];
+}
+
+export interface DutyRosterPoolPersonnel {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+	mos: string;
+	dutyRole: string;
+	groupId: string | null;
+	groupName: string;
+	archivedAt?: string | null;
+}
+
+export interface DutyRosterBaselineRow {
+	personnel: DutyRosterPoolPersonnel;
+	startingCount: number | null;
+}
+
+export interface DutyRosterTemplateSettingsData {
+	personnel: DutyRosterPoolPersonnel[];
+	resolvedPool: DutyRosterPoolPersonnel[];
+	baselineRows: DutyRosterBaselineRow[];
+}
+
+export interface DutyRosterTemplateSettingsInput {
+	templateId: string;
+	poolCriteria: DutyRosterPoolCriteria;
+	exemptPersonnelIds: string[];
+	manualBaselineCounts: Record<string, number | null | undefined>;
+}
+
 const DEFAULT_SLUG = 'duty-roster';
 const MAX_SLUG_LENGTH = 72;
 const MAX_SHORT_CODE_LENGTH = 12;
+
+export const EMPTY_DUTY_ROSTER_POOL_CRITERIA: DutyRosterPoolCriteria = {
+	rankValues: [],
+	groupIds: [],
+	mosValues: [],
+	dutyRoleValues: []
+};
 
 export function isDutyRosterTemplateView(value: string): value is DutyRosterTemplateView {
 	return DUTY_ROSTER_TEMPLATE_VIEWS.includes(value as DutyRosterTemplateView);

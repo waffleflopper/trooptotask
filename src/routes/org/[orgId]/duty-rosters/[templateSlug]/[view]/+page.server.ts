@@ -1,8 +1,48 @@
-import { error, redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { findDutyRosterTemplateBySlug, listDutyRosterTemplates } from '$lib/server/core/useCases/dutyRosterTemplates';
+import { error, fail as actionFail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
+import {
+	findDutyRosterTemplateBySlug,
+	listDutyRosterTemplates,
+	loadDutyRosterTemplateSettings,
+	updateDutyRosterTemplateSettings
+} from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+
+function formValues(formData: FormData, name: string): string[] {
+	return formData.getAll(name).map((value) => String(value));
+}
+
+function parseBaselineCounts(formData: FormData): Record<string, number | null> {
+	const counts: Record<string, number | null> = {};
+
+	for (const [key, value] of formData.entries()) {
+		if (!key.startsWith('baseline:')) {
+			continue;
+		}
+
+		const personId = key.slice('baseline:'.length);
+		const raw = String(value).trim();
+		counts[personId] = raw ? Number(raw) : null;
+	}
+
+	return counts;
+}
+
+function actionError(errorValue: unknown) {
+	const status =
+		errorValue && typeof errorValue === 'object' && 'status' in errorValue && typeof errorValue.status === 'number'
+			? errorValue.status
+			: 500;
+	const message =
+		status >= 500
+			? 'Failed to update Duty Roster Template settings.'
+			: errorValue instanceof Error
+				? errorValue.message
+				: 'Failed to update Duty Roster Template settings.';
+
+	return actionFail(status, { settingsError: message });
+}
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId, templateSlug, view } = params;
@@ -24,7 +64,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				throw error(404, 'Duty Roster Template not found');
 			}
 
-			return { templates, selectedTemplate };
+			const settings = view === 'settings' ? await loadDutyRosterTemplateSettings(ctx, selectedTemplate) : null;
+
+			return { templates, selectedTemplate, settings };
 		}
 	});
 
@@ -33,6 +75,32 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		orgName: parentData.orgName,
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
+		settings: data.settings,
 		view
 	};
+};
+
+export const actions: Actions = {
+	updateSettings: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await updateDutyRosterTemplateSettings(ctx, {
+				templateId: String(formData.get('templateId') ?? ''),
+				poolCriteria: {
+					rankValues: formValues(formData, 'rankValues'),
+					groupIds: formValues(formData, 'groupIds'),
+					mosValues: formValues(formData, 'mosValues'),
+					dutyRoleValues: formValues(formData, 'dutyRoleValues')
+				},
+				exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds'),
+				manualBaselineCounts: parseBaselineCounts(formData)
+			});
+		} catch (errorValue) {
+			return actionError(errorValue);
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/settings`);
+	}
 };

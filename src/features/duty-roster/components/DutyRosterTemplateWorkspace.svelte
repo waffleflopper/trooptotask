@@ -1,8 +1,13 @@
 <script lang="ts">
-	import type { DutyRosterTemplate, DutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+	import type {
+		DutyRosterTemplate,
+		DutyRosterTemplateSettingsData,
+		DutyRosterTemplateView
+	} from '$features/duty-roster/templates/dutyRosterTemplates';
 
 	type ActionForm = {
 		error?: string;
+		settingsError?: string;
 		values?: {
 			name?: string;
 			shortCode?: string;
@@ -14,6 +19,7 @@
 		orgName: string;
 		templates: DutyRosterTemplate[];
 		selectedTemplate?: DutyRosterTemplate | null;
+		settings?: DutyRosterTemplateSettingsData | null;
 		view?: DutyRosterTemplateView;
 	}
 
@@ -24,12 +30,40 @@
 	const selectedTemplate = $derived(data.selectedTemplate ?? data.templates[0] ?? null);
 	const selectedView = $derived(data.view ?? 'generate');
 	const actionForm = $derived((form && typeof form === 'object' ? form : null) as ActionForm | null);
+	const settingsAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
+	);
+	const rankOptions = $derived(uniqueOptions(data.settings?.personnel.map((person) => person.rank) ?? []));
+	const groupOptions = $derived(uniqueGroupOptions(data.settings?.personnel ?? []));
+	const mosOptions = $derived(
+		uniqueOptions(data.settings?.personnel.map((person) => person.mos).filter(Boolean) ?? [])
+	);
+	const dutyRoleOptions = $derived(
+		uniqueOptions(data.settings?.personnel.map((person) => person.dutyRole).filter(Boolean) ?? [])
+	);
 
 	const viewTabs: Array<{ id: DutyRosterTemplateView; label: string; note: string }> = [
 		{ id: 'generate', label: 'Generate', note: 'Preview future DA6 runs' },
 		{ id: 'history', label: 'History', note: 'Accepted runs will appear here' },
 		{ id: 'settings', label: 'Settings', note: 'Template identity and setup' }
 	];
+
+	function uniqueOptions(values: string[]): string[] {
+		return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+	}
+
+	function uniqueGroupOptions(
+		personnel: DutyRosterTemplateSettingsData['personnel']
+	): Array<{ id: string; label: string }> {
+		const groups: Array<{ id: string; label: string }> = [];
+		for (const person of personnel) {
+			if (person.groupId && !groups.some((group) => group.id === person.groupId)) {
+				groups.push({ id: person.groupId, label: person.groupName || 'Unassigned Group' });
+			}
+		}
+
+		return groups.sort((a, b) => a.label.localeCompare(b.label));
+	}
 </script>
 
 <svelte:head>
@@ -171,21 +205,165 @@
 						<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 					{:else}
 						<p class="eyebrow">Settings View</p>
-						<h3 id="template-view-heading">Template identity</h3>
-						<dl class="settings-list">
-							<div>
-								<dt>Name</dt>
-								<dd>{selectedTemplate.name}</dd>
-							</div>
-							<div>
-								<dt>Slug</dt>
-								<dd><code>{selectedTemplate.slug}</code></dd>
-							</div>
-							<div>
-								<dt>Short code</dt>
-								<dd>{selectedTemplate.shortCode ?? 'None'}</dd>
-							</div>
-						</dl>
+						<h3 id="template-view-heading">Template setup</h3>
+						<p>
+							Pool filters combine with OR inside one category and AND across categories. Exemptions remove Soldiers
+							from this duty only. Manual DA6 Baseline counts are optional first-use setup data.
+						</p>
+
+						{#if actionForm?.settingsError}
+							<p class="form-error settings-error" role="alert">{actionForm.settingsError}</p>
+						{/if}
+
+						{#if data.settings}
+							<form class="settings-form" method="POST" action={settingsAction}>
+								<input type="hidden" name="templateId" value={selectedTemplate.id} />
+
+								<div class="settings-summary" aria-label="Resolved pool summary">
+									<div>
+										<span>Resolved pool</span>
+										<strong>{data.settings.resolvedPool.length}</strong>
+									</div>
+									<div>
+										<span>Exemptions</span>
+										<strong>{selectedTemplate.exemptPersonnelIds.length}</strong>
+									</div>
+									<div>
+										<span>Baseline rows</span>
+										<strong>{data.settings.baselineRows.length}</strong>
+									</div>
+								</div>
+
+								<section class="settings-section" aria-labelledby="pool-criteria-heading">
+									<h4 id="pool-criteria-heading">Pool criteria</h4>
+									<div class="criteria-grid">
+										<fieldset>
+											<legend>Rank</legend>
+											{#each rankOptions as rank (rank)}
+												<label>
+													<input
+														type="checkbox"
+														name="rankValues"
+														value={rank}
+														checked={selectedTemplate.poolCriteria.rankValues.includes(rank)}
+													/>
+													<span>{rank}</span>
+												</label>
+											{/each}
+										</fieldset>
+										<fieldset>
+											<legend>Group</legend>
+											{#each groupOptions as group (group.id)}
+												<label>
+													<input
+														type="checkbox"
+														name="groupIds"
+														value={group.id}
+														checked={selectedTemplate.poolCriteria.groupIds.includes(group.id)}
+													/>
+													<span>{group.label}</span>
+												</label>
+											{/each}
+										</fieldset>
+										<fieldset>
+											<legend>MOS</legend>
+											{#each mosOptions as mos (mos)}
+												<label>
+													<input
+														type="checkbox"
+														name="mosValues"
+														value={mos}
+														checked={selectedTemplate.poolCriteria.mosValues.includes(mos)}
+													/>
+													<span>{mos}</span>
+												</label>
+											{/each}
+										</fieldset>
+										<fieldset>
+											<legend>Duty Role</legend>
+											{#each dutyRoleOptions as role (role)}
+												<label>
+													<input
+														type="checkbox"
+														name="dutyRoleValues"
+														value={role}
+														checked={selectedTemplate.poolCriteria.dutyRoleValues.includes(role)}
+													/>
+													<span>{role}</span>
+												</label>
+											{/each}
+										</fieldset>
+									</div>
+								</section>
+
+								<section class="settings-section" aria-labelledby="pool-preview-heading">
+									<h4 id="pool-preview-heading">Resolved pool and exemptions</h4>
+									{#if data.settings.resolvedPool.length === 0}
+										<div class="empty-history">No active Personnel Records match the current pool criteria.</div>
+									{:else}
+										<div class="pool-table" role="table" aria-label="Resolved Duty Roster pool">
+											<div class="pool-row pool-head" role="row">
+												<span role="columnheader">Soldier</span>
+												<span role="columnheader">Group</span>
+												<span role="columnheader">MOS</span>
+												<span role="columnheader">Exempt</span>
+											</div>
+											{#each data.settings.resolvedPool as person (person.id)}
+												<div class="pool-row" role="row">
+													<span role="cell">{person.rank} {person.lastName}, {person.firstName}</span>
+													<span role="cell">{person.groupName || 'No Group'}</span>
+													<span role="cell">{person.mos || 'No MOS'}</span>
+													<span role="cell">
+														<label class="row-check">
+															<input
+																type="checkbox"
+																name="exemptPersonnelIds"
+																value={person.id}
+																checked={selectedTemplate.exemptPersonnelIds.includes(person.id)}
+															/>
+															<span>Exempt</span>
+														</label>
+													</span>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</section>
+
+								<section class="settings-section" aria-labelledby="baseline-heading">
+									<h4 id="baseline-heading">Manual DA6 Baseline</h4>
+									<p>
+										Counts are optional and apply only until the first accepted run for this template. Leave blank to
+										start from DA6 roster order.
+									</p>
+									{#if data.settings.baselineRows.length === 0}
+										<div class="empty-history">
+											No baseline rows are available until the non-exempt pool has members.
+										</div>
+									{:else}
+										<div class="baseline-list">
+											{#each data.settings.baselineRows as row (row.personnel.id)}
+												<label>
+													<span>{row.personnel.rank} {row.personnel.lastName}, {row.personnel.firstName}</span>
+													<input
+														type="number"
+														min="0"
+														step="1"
+														name={`baseline:${row.personnel.id}`}
+														value={row.startingCount ?? ''}
+														placeholder="Count"
+													/>
+												</label>
+											{/each}
+										</div>
+									{/if}
+								</section>
+
+								<button class="btn btn-primary" type="submit">Save settings</button>
+							</form>
+						{:else}
+							<div class="empty-history">Loading template settings...</div>
+						{/if}
 					{/if}
 				</section>
 			{:else}
@@ -410,8 +588,7 @@
 	}
 
 	.template-identity code,
-	.state-grid code,
-	.settings-list code {
+	.state-grid code {
 		color: var(--text-primary);
 		font-family: var(--font-mono);
 	}
@@ -448,8 +625,7 @@
 		margin-top: var(--sp-4);
 	}
 
-	.state-grid div,
-	.settings-list div {
+	.state-grid div {
 		display: grid;
 		gap: 4px;
 		border: 1px solid var(--border-default);
@@ -458,8 +634,7 @@
 		padding: var(--sp-3);
 	}
 
-	.state-grid span,
-	.settings-list dt {
+	.state-grid span {
 		color: var(--text-tertiary);
 		font-family: var(--font-mono);
 		font-size: 0.7rem;
@@ -467,16 +642,136 @@
 		text-transform: uppercase;
 	}
 
-	.state-grid strong,
-	.settings-list dd {
+	.state-grid strong {
 		margin: 0;
 		color: var(--text-primary);
 	}
 
-	.settings-list {
+	.settings-error {
+		margin-top: var(--sp-4);
+	}
+
+	.settings-form {
+		display: grid;
+		gap: var(--sp-4);
+		margin-top: var(--sp-4);
+	}
+
+	.settings-summary,
+	.criteria-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.criteria-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+
+	.settings-summary div,
+	.settings-section {
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+	}
+
+	.settings-summary div {
+		display: grid;
+		gap: 4px;
+		padding: var(--sp-3);
+	}
+
+	.settings-summary span,
+	.pool-head,
+	.settings-section h4,
+	.criteria-grid legend {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.settings-summary strong {
+		color: var(--text-primary);
+		font-size: 1.35rem;
+		line-height: 1;
+	}
+
+	.settings-section {
 		display: grid;
 		gap: var(--sp-3);
-		margin: var(--sp-4) 0 0;
+		padding: var(--sp-4);
+	}
+
+	.settings-section h4 {
+		margin: 0;
+	}
+
+	.criteria-grid fieldset {
+		display: grid;
+		gap: var(--sp-2);
+		min-width: 0;
+		margin: 0;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+		padding: var(--sp-3);
+	}
+
+	.criteria-grid label,
+	.row-check,
+	.baseline-list label {
+		display: flex;
+		gap: var(--sp-2);
+		align-items: center;
+		color: var(--text-primary);
+	}
+
+	.pool-table,
+	.baseline-list {
+		display: grid;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		overflow: hidden;
+		background: var(--surface-panel);
+	}
+
+	.pool-row {
+		display: grid;
+		grid-template-columns: minmax(10rem, 1.3fr) minmax(7rem, 0.8fr) minmax(5rem, 0.5fr) minmax(6rem, 0.5fr);
+		gap: var(--sp-3);
+		align-items: center;
+		padding: var(--sp-2) var(--sp-3);
+		border-top: 1px solid var(--border-default);
+	}
+
+	.pool-row:first-child {
+		border-top: 0;
+	}
+
+	.pool-head {
+		background: var(--surface-subtle);
+	}
+
+	.baseline-list label {
+		justify-content: space-between;
+		padding: var(--sp-2) var(--sp-3);
+		border-top: 1px solid var(--border-default);
+	}
+
+	.baseline-list label:first-child {
+		border-top: 0;
+	}
+
+	.baseline-list input {
+		width: 7rem;
+		min-height: 2.25rem;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+		padding: 0 var(--sp-2);
 	}
 
 	@media (max-width: 900px) {
@@ -496,7 +791,10 @@
 
 		.workspace-grid,
 		.view-tabs,
-		.state-grid {
+		.state-grid,
+		.settings-summary,
+		.criteria-grid,
+		.pool-row {
 			grid-template-columns: 1fr;
 		}
 	}

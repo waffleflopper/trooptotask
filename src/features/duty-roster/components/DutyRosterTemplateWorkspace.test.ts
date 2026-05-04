@@ -10,6 +10,14 @@ const template: DutyRosterTemplate = {
 	slug: 'cq-nco',
 	shortCode: 'CQ',
 	status: 'active',
+	poolCriteria: {
+		rankValues: [],
+		groupIds: [],
+		mosValues: [],
+		dutyRoleValues: []
+	},
+	exemptPersonnelIds: [],
+	manualBaselineCounts: {},
 	createdAt: '2026-05-04T00:00:00Z',
 	updatedAt: '2026-05-04T00:00:00Z'
 };
@@ -97,5 +105,107 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('alert').textContent).toBe('Name is required');
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
+	});
+
+	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [
+						{
+							...template,
+							poolCriteria: {
+								rankValues: ['SGT'],
+								groupIds: ['alpha'],
+								mosValues: ['11B'],
+								dutyRoleValues: ['Rifleman']
+							},
+							exemptPersonnelIds: ['person-1'],
+							manualBaselineCounts: { 'person-2': 4 }
+						}
+					],
+					selectedTemplate: {
+						...template,
+						poolCriteria: {
+							rankValues: ['SGT'],
+							groupIds: ['alpha'],
+							mosValues: ['11B'],
+							dutyRoleValues: ['Rifleman']
+						},
+						exemptPersonnelIds: ['person-1'],
+						manualBaselineCounts: { 'person-2': 4 }
+					},
+					settings: {
+						personnel: [
+							{
+								id: 'person-1',
+								rank: 'SGT',
+								firstName: 'Ann',
+								lastName: 'Able',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							},
+							{
+								id: 'person-2',
+								rank: 'CPL',
+								firstName: 'Ben',
+								lastName: 'Baker',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							}
+						],
+						resolvedPool: [
+							{
+								id: 'person-1',
+								rank: 'SGT',
+								firstName: 'Ann',
+								lastName: 'Able',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							},
+							{
+								id: 'person-2',
+								rank: 'CPL',
+								firstName: 'Ben',
+								lastName: 'Baker',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							}
+						],
+						baselineRows: [
+							{
+								personnel: {
+									id: 'person-2',
+									rank: 'CPL',
+									firstName: 'Ben',
+									lastName: 'Baker',
+									mos: '11B',
+									dutyRole: 'Rifleman',
+									groupId: 'alpha',
+									groupName: 'Alpha'
+								},
+								startingCount: 4
+							}
+						]
+					},
+					view: 'settings'
+				}
+			}
+		});
+
+		expect(screen.getByRole('heading', { name: 'Pool criteria' })).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
+		expect(screen.getByDisplayValue('4')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
 	});
 });

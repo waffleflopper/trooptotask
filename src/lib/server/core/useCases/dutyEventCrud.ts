@@ -13,11 +13,10 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
 import {
-	appendAdvancedDutyRevisionChangeSet,
+	applyAdvancedDutyRevisionReapply,
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
 	getActiveAdvancedDutyRevisionDraft,
-	markAdvancedDutyRevisionDraftAppliedById,
 	updateAdvancedDutyRevisionDraftChange
 } from './advancedDutyRevisionDrafts';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
@@ -1785,17 +1784,23 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 	}
 
 	const touchedEventIds = new Set<string>();
+	const slotUpdateRows: Record<string, unknown>[] = [];
 	for (const slotChange of derived.slotChanges) {
 		const slotRow = slotRowsByIdentity.get(advancedDutyRevisionSlotIdentity(slotChange));
 		if (!slotRow) {
 			fail(409, 'The applied duty slot no longer exists.');
 		}
 		const eventId = String(slotRow.duty_event_id);
+		if (!eventRowsById.has(eventId)) {
+			fail(409, 'The applied duty event no longer exists.');
+		}
 		const assignmentSource: DutyEventAssignmentSource =
 			slotChange.newAssignmentSource ??
 			(slotChange.changeIntent === 'lock-assigned' || slotChange.changeIntent === 'lock-open' ? 'locked' : 'manual');
 		const warningState: DutyEventWarningState = slotChange.newWarningState ?? 'none';
-		await ctx.store.update<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, String(slotRow.id), {
+		slotUpdateRows.push({
+			id: String(slotRow.id),
+			duty_event_id: eventId,
 			assignee_id: slotChange.newPersonnelId,
 			assignment_source: assignmentSource,
 			warning_state: warningState,
@@ -1805,23 +1810,9 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 		touchedEventIds.add(eventId);
 	}
 
-	for (const eventId of touchedEventIds) {
-		const currentSlotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
-			duty_event_id: eventId
-		});
-		const totalSlots = currentSlotRows.length;
-		const filledSlots = currentSlotRows.filter((row) => row.assignee_id).length;
-		await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, eventId, {
-			fill_summary: {
-				totalSlots,
-				filledSlots,
-				unfilledSlots: totalSlots - filledSlots
-			},
-			updated_at: now
-		});
-	}
-
-	const persistedChangeSet = await appendAdvancedDutyRevisionChangeSet(ctx, {
+	const persistedReapply = await applyAdvancedDutyRevisionReapply(ctx, {
+		draftId: draft.id,
+		slotUpdateRows,
 		changeSet: {
 			...derived.changeSet,
 			reviewableConflictsConfirmed: input.reviewableConflictsConfirmed ?? false,
@@ -1832,20 +1823,23 @@ export async function reapplyAdvancedDutyRevisionDraftForEvent(
 					? { reviewableConflictCount: validation.reviewableConflicts.length }
 					: null
 		},
-		slotChanges: derived.slotChanges
+		slotChanges: derived.slotChanges,
+		appliedDraft: {
+			...draft,
+			status: 'applied',
+			updatedByUserId: ctx.auth.userId,
+			appliedByUserId: ctx.auth.userId,
+			appliedAt: now,
+			updatedAt: now
+		},
+		now
 	});
-	const appliedDraft = await markAdvancedDutyRevisionDraftAppliedById(ctx, { draftId: draft.id, now });
 	const updatedEvents = await hydrateRevisionUpdatedEvents(ctx, [...touchedEventIds], appliedRun.id);
-	for (const eventId of touchedEventIds) {
-		if (!eventRowsById.has(eventId)) {
-			fail(409, 'The applied duty event no longer exists.');
-		}
-	}
 
 	return {
-		draft: appliedDraft,
-		changeSet: persistedChangeSet.changeSet,
-		slotChanges: persistedChangeSet.slotChanges,
+		draft: persistedReapply.draft,
+		changeSet: persistedReapply.changeSet,
+		slotChanges: persistedReapply.slotChanges,
 		updatedEvents
 	};
 }

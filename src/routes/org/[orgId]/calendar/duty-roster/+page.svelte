@@ -63,7 +63,8 @@
 		advancedDutyTemplates: resolvedData.advancedDutyTemplates,
 		advancedDutyEvents: resolvedData.advancedDutyEvents,
 		advancedDutySnapshots: resolvedData.advancedDutySnapshots,
-		advancedDutyRevisionHistory: resolvedData.advancedDutyRevisionHistory ?? []
+		advancedDutyRevisionHistory: resolvedData.advancedDutyRevisionHistory ?? [],
+		advancedDutyRevisionDrafts: resolvedData.advancedDutyRevisionDrafts ?? []
 	}));
 </script>
 

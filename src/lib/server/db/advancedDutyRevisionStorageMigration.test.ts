@@ -63,4 +63,16 @@ describe('Advanced Duty revision storage migration', () => {
 		expect(normalized).toContain('create policy "advanced duty actors can write advanced duty revision history"');
 		expect(normalized).not.toContain('can_view_calendar"("organization_id") with check');
 	});
+
+	it('adds an atomic revision reapply RPC for operational writes and history', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain('create or replace function "public"."apply_advanced_duty_revision"');
+		expect(normalized).toContain('update "public"."duty_event_slots"');
+		expect(normalized).toContain('update "public"."duty_events"');
+		expect(normalized).toContain('insert into "public"."advanced_duty_revision_change_sets"');
+		expect(normalized).toContain('insert into "public"."advanced_duty_revision_slot_changes"');
+		expect(normalized).toContain('update "public"."advanced_duty_revision_drafts"');
+		expect(normalized).toContain('grant all on function "public"."apply_advanced_duty_revision"');
+	});
 });

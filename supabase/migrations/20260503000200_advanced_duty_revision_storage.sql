@@ -217,6 +217,169 @@ CREATE POLICY "Calendar viewers can read advanced duty revision slot history" ON
 
 CREATE POLICY "Advanced duty actors can write advanced duty revision slot history" ON "public"."advanced_duty_revision_slot_changes" FOR ALL USING ("public"."advanced_duty_revision_actor_can_manage"("organization_id")) WITH CHECK ("public"."advanced_duty_revision_actor_can_manage"("organization_id"));
 
+CREATE OR REPLACE FUNCTION "public"."apply_advanced_duty_revision"(
+  "p_org_id" "uuid",
+  "p_draft_id" "uuid",
+  "p_slot_updates" "jsonb",
+  "p_change_set_data" "jsonb",
+  "p_slot_change_rows" "jsonb",
+  "p_applied_draft_data" "jsonb",
+  "p_now" timestamp with time zone
+) RETURNS "jsonb"
+LANGUAGE "plpgsql"
+SECURITY INVOKER
+SET "search_path" = "public"
+AS $$
+DECLARE
+  "v_change_set_row" "public"."advanced_duty_revision_change_sets";
+  "v_draft_row" "public"."advanced_duty_revision_drafts";
+  "v_slot_change_rows" "jsonb" := '[]'::"jsonb";
+  "v_requested_slot_count" integer := 0;
+  "v_existing_slot_count" integer := 0;
+  "v_requested_event_count" integer := 0;
+  "v_existing_event_count" integer := 0;
+  "v_event_id" "uuid";
+BEGIN
+  IF "jsonb_typeof"(COALESCE("p_slot_updates", '[]'::"jsonb")) <> 'array' THEN
+    RAISE EXCEPTION 'Advanced Duty revision slot updates must be an array.' USING ERRCODE = '22023';
+  END IF;
+
+  IF "jsonb_typeof"(COALESCE("p_slot_change_rows", '[]'::"jsonb")) <> 'array' THEN
+    RAISE EXCEPTION 'Advanced Duty revision slot change rows must be an array.' USING ERRCODE = '22023';
+  END IF;
+
+  WITH "requested_slots" AS (
+    SELECT DISTINCT ("value" ->> 'id')::"uuid" AS "id"
+    FROM "jsonb_array_elements"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "value"
+  )
+  SELECT COUNT(*) INTO "v_requested_slot_count" FROM "requested_slots";
+
+  WITH "requested_slots" AS (
+    SELECT DISTINCT ("value" ->> 'id')::"uuid" AS "id"
+    FROM "jsonb_array_elements"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "value"
+  )
+  SELECT COUNT(*) INTO "v_existing_slot_count"
+  FROM "public"."duty_event_slots"
+  JOIN "requested_slots" ON "requested_slots"."id" = "duty_event_slots"."id"
+  WHERE "duty_event_slots"."organization_id" = "p_org_id";
+
+  IF "v_existing_slot_count" <> "v_requested_slot_count" THEN
+    RAISE EXCEPTION 'The applied duty slot no longer exists.' USING ERRCODE = 'P0002';
+  END IF;
+
+  WITH "requested_events" AS (
+    SELECT DISTINCT ("value" ->> 'duty_event_id')::"uuid" AS "id"
+    FROM "jsonb_array_elements"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "value"
+  )
+  SELECT COUNT(*) INTO "v_requested_event_count" FROM "requested_events";
+
+  WITH "requested_events" AS (
+    SELECT DISTINCT ("value" ->> 'duty_event_id')::"uuid" AS "id"
+    FROM "jsonb_array_elements"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "value"
+  )
+  SELECT COUNT(*) INTO "v_existing_event_count"
+  FROM "public"."duty_events"
+  JOIN "requested_events" ON "requested_events"."id" = "duty_events"."id"
+  WHERE "duty_events"."organization_id" = "p_org_id";
+
+  IF "v_existing_event_count" <> "v_requested_event_count" THEN
+    RAISE EXCEPTION 'The applied duty event no longer exists.' USING ERRCODE = 'P0002';
+  END IF;
+
+  UPDATE "public"."duty_event_slots"
+  SET
+    "assignee_id" = "slot_updates"."assignee_id",
+    "assignment_source" = "slot_updates"."assignment_source",
+    "warning_state" = "slot_updates"."warning_state",
+    "selection_reason" = "slot_updates"."selection_reason",
+    "unfilled_reason" = "slot_updates"."unfilled_reason"
+  FROM "jsonb_to_recordset"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "slot_updates"(
+    "id" "uuid",
+    "duty_event_id" "uuid",
+    "assignee_id" "uuid",
+    "assignment_source" "text",
+    "warning_state" "text",
+    "selection_reason" "text",
+    "unfilled_reason" "text"
+  )
+  WHERE "duty_event_slots"."organization_id" = "p_org_id"
+    AND "duty_event_slots"."id" = "slot_updates"."id"
+    AND "duty_event_slots"."duty_event_id" = "slot_updates"."duty_event_id";
+
+  FOR "v_event_id" IN
+    SELECT DISTINCT ("value" ->> 'duty_event_id')::"uuid"
+    FROM "jsonb_array_elements"(COALESCE("p_slot_updates", '[]'::"jsonb")) AS "value"
+  LOOP
+    UPDATE "public"."duty_events"
+    SET
+      "fill_summary" = (
+        SELECT "jsonb_build_object"(
+          'totalSlots', COUNT(*),
+          'filledSlots', COUNT(*) FILTER (WHERE "duty_event_slots"."assignee_id" IS NOT NULL),
+          'unfilledSlots', COUNT(*) FILTER (WHERE "duty_event_slots"."assignee_id" IS NULL)
+        )
+        FROM "public"."duty_event_slots"
+        WHERE "duty_event_slots"."organization_id" = "p_org_id"
+          AND "duty_event_slots"."duty_event_id" = "v_event_id"
+      ),
+      "updated_at" = "p_now"
+    WHERE "duty_events"."organization_id" = "p_org_id"
+      AND "duty_events"."id" = "v_event_id";
+  END LOOP;
+
+  INSERT INTO "public"."advanced_duty_revision_change_sets"
+  SELECT * FROM "jsonb_populate_record"(NULL::"public"."advanced_duty_revision_change_sets", "p_change_set_data")
+  RETURNING * INTO "v_change_set_row";
+
+  WITH "inserted_slot_changes" AS (
+    INSERT INTO "public"."advanced_duty_revision_slot_changes"
+    SELECT * FROM "jsonb_populate_recordset"(
+      NULL::"public"."advanced_duty_revision_slot_changes",
+      COALESCE("p_slot_change_rows", '[]'::"jsonb")
+    )
+    RETURNING *
+  )
+  SELECT COALESCE("jsonb_agg"("to_jsonb"("inserted_slot_changes")), '[]'::"jsonb")
+  INTO "v_slot_change_rows"
+  FROM "inserted_slot_changes";
+
+  UPDATE "public"."advanced_duty_revision_drafts"
+  SET
+    "source_snapshot_id" = ("p_applied_draft_data" ->> 'source_snapshot_id')::"uuid",
+    "source_snapshot_fingerprint" = "p_applied_draft_data" ->> 'source_snapshot_fingerprint',
+    "source_run_created_at" = ("p_applied_draft_data" ->> 'source_run_created_at')::timestamp with time zone,
+    "source_run_updated_at" = ("p_applied_draft_data" ->> 'source_run_updated_at')::timestamp with time zone,
+    "status" = "p_applied_draft_data" ->> 'status',
+    "slot_changes" = COALESCE("p_applied_draft_data" -> 'slot_changes', '[]'::"jsonb"),
+    "reason" = "p_applied_draft_data" ->> 'reason',
+    "latest_validation" = NULLIF("p_applied_draft_data" -> 'latest_validation', 'null'::"jsonb"),
+    "latest_error" = "p_applied_draft_data" ->> 'latest_error',
+    "conflict_summary" = NULLIF("p_applied_draft_data" -> 'conflict_summary', 'null'::"jsonb"),
+    "draft_version" = ("p_applied_draft_data" ->> 'draft_version')::integer,
+    "updated_by_user_id" = ("p_applied_draft_data" ->> 'updated_by_user_id')::"uuid",
+    "applied_by_user_id" = ("p_applied_draft_data" ->> 'applied_by_user_id')::"uuid",
+    "expires_at" = ("p_applied_draft_data" ->> 'expires_at')::timestamp with time zone,
+    "applied_at" = "p_now",
+    "updated_at" = "p_now"
+  WHERE "advanced_duty_revision_drafts"."organization_id" = "p_org_id"
+    AND "advanced_duty_revision_drafts"."id" = "p_draft_id"
+    AND "advanced_duty_revision_drafts"."status" = 'draft'::"text"
+  RETURNING * INTO "v_draft_row";
+
+  IF "v_draft_row"."id" IS NULL THEN
+    RAISE EXCEPTION 'Advanced Duty revision draft not found.' USING ERRCODE = 'P0002';
+  END IF;
+
+  RETURN "jsonb_build_object"(
+    'changeSetRow', "to_jsonb"("v_change_set_row"),
+    'slotChangeRows', "v_slot_change_rows",
+    'draftRow', "to_jsonb"("v_draft_row")
+  );
+END;
+$$;
+
+ALTER FUNCTION "public"."apply_advanced_duty_revision"("p_org_id" "uuid", "p_draft_id" "uuid", "p_slot_updates" "jsonb", "p_change_set_data" "jsonb", "p_slot_change_rows" "jsonb", "p_applied_draft_data" "jsonb", "p_now" timestamp with time zone) OWNER TO "postgres";
+
 REVOKE ALL ON TABLE "public"."advanced_duty_revision_drafts" FROM "anon";
 REVOKE ALL ON TABLE "public"."advanced_duty_revision_change_sets" FROM "anon";
 REVOKE ALL ON TABLE "public"."advanced_duty_revision_slot_changes" FROM "anon";
@@ -230,3 +393,5 @@ GRANT ALL ON TABLE "public"."advanced_duty_revision_slot_changes" TO "service_ro
 
 GRANT ALL ON FUNCTION "public"."advanced_duty_revision_actor_can_manage"("p_organization_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."advanced_duty_revision_actor_can_manage"("p_organization_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."apply_advanced_duty_revision"("p_org_id" "uuid", "p_draft_id" "uuid", "p_slot_updates" "jsonb", "p_change_set_data" "jsonb", "p_slot_change_rows" "jsonb", "p_applied_draft_data" "jsonb", "p_now" timestamp with time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."apply_advanced_duty_revision"("p_org_id" "uuid", "p_draft_id" "uuid", "p_slot_updates" "jsonb", "p_change_set_data" "jsonb", "p_slot_change_rows" "jsonb", "p_applied_draft_data" "jsonb", "p_now" timestamp with time zone) TO "service_role";

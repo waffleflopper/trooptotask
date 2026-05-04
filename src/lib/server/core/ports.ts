@@ -87,6 +87,10 @@ export interface AdvancedDutyRevisionChangeSetPersistenceResult {
 	slotChangeRows: Record<string, unknown>[];
 }
 
+export interface AdvancedDutyRevisionReapplyPersistenceResult extends AdvancedDutyRevisionChangeSetPersistenceResult {
+	draftRow: Record<string, unknown>;
+}
+
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
 export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
@@ -165,6 +169,16 @@ export interface AdvancedDutyPersistencePort {
 		changeSetData: Record<string, unknown>;
 		slotChangeRows: Record<string, unknown>[];
 	}): Promise<AdvancedDutyRevisionChangeSetPersistenceResult>;
+
+	applyAdvancedDutyRevision(input: {
+		orgId: string;
+		draftId: string;
+		slotUpdateRows: Record<string, unknown>[];
+		changeSetData: Record<string, unknown>;
+		slotChangeRows: Record<string, unknown>[];
+		appliedDraftData: Record<string, unknown>;
+		now: string;
+	}): Promise<AdvancedDutyRevisionReapplyPersistenceResult>;
 
 	listAdvancedDutyRevisionChangeSets(input: {
 		orgId: string;

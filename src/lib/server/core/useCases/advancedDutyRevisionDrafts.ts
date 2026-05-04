@@ -67,6 +67,17 @@ export interface AdvancedDutyRevisionChangeSetPersistenceResult {
 	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
 }
 
+export interface AdvancedDutyRevisionReapplyPersistenceInput extends DerivedAdvancedDutyRevisionChangeSet {
+	draftId: string;
+	slotUpdateRows: Record<string, unknown>[];
+	appliedDraft: AdvancedDutyRevisionDraftRecord;
+	now: string;
+}
+
+export interface AdvancedDutyRevisionReapplyPersistenceResult extends AdvancedDutyRevisionChangeSetPersistenceResult {
+	draft: AdvancedDutyRevisionDraftRecord;
+}
+
 interface RevisionActorMembershipRow {
 	user_id: string | null;
 	email: string | null;
@@ -419,6 +430,44 @@ export async function appendAdvancedDutyRevisionChangeSet(
 		}
 	});
 	return {
+		changeSet: AdvancedDutyRevisionChangeSetEntity.fromDb(result.changeSetRow),
+		slotChanges: AdvancedDutyRevisionSlotChangeEntity.fromDbArray(result.slotChangeRows)
+	};
+}
+
+export async function applyAdvancedDutyRevisionReapply(
+	ctx: AdvancedDutyRevisionWriteContext,
+	input: AdvancedDutyRevisionReapplyPersistenceInput
+): Promise<AdvancedDutyRevisionReapplyPersistenceResult> {
+	await requireWritableAdvancedDuty(ctx);
+	const result = await ctx.advancedDutyPersistence.applyAdvancedDutyRevision({
+		orgId: ctx.auth.orgId,
+		draftId: input.draftId,
+		slotUpdateRows: input.slotUpdateRows,
+		changeSetData: changeSetToDbRow(input.changeSet),
+		slotChangeRows: input.slotChanges.map(slotChangeToDbRow),
+		appliedDraftData: draftToDbRow(input.appliedDraft),
+		now: input.now
+	});
+
+	ctx.audit.log({
+		action: 'advanced-duty-revision-change-set.created',
+		resourceType: 'advanced_duty_revision_change_set',
+		resourceId: String(result.changeSetRow.id),
+		details: {
+			appliedRunId: input.changeSet.appliedRunId,
+			slotChangeCount: input.slotChanges.length
+		}
+	});
+	ctx.audit.log({
+		action: 'advanced-duty-revision-draft.applied',
+		resourceType: 'advanced_duty_revision_draft',
+		resourceId: input.draftId,
+		details: { appliedRunId: input.appliedDraft.appliedRunId }
+	});
+
+	return {
+		draft: AdvancedDutyRevisionDraftEntity.fromDb(result.draftRow),
 		changeSet: AdvancedDutyRevisionChangeSetEntity.fromDb(result.changeSetRow),
 		slotChanges: AdvancedDutyRevisionSlotChangeEntity.fromDbArray(result.slotChangeRows)
 	};

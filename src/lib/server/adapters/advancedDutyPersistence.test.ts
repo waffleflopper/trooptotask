@@ -224,6 +224,43 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 		]);
 	});
 
+	it('applies revision reapply through one RPC call', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: {
+				changeSetRow: { id: 'change-set-1' },
+				slotChangeRows: [{ id: 'slot-change-1' }],
+				draftRow: { id: 'draft-1', status: 'applied' }
+			},
+			error: null
+		});
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ rpc } as unknown as SupabaseClient);
+
+		const result = await adapter.applyAdvancedDutyRevision({
+			orgId: 'org-1',
+			draftId: 'draft-1',
+			slotUpdateRows: [{ id: 'slot-1', duty_event_id: 'event-1', assignee_id: 'person-2' }],
+			changeSetData: { id: 'change-set-1', organization_id: 'org-1' },
+			slotChangeRows: [{ id: 'slot-change-1', organization_id: 'org-1' }],
+			appliedDraftData: { id: 'draft-1', status: 'applied' },
+			now: '2026-05-04T00:00:00.000Z'
+		});
+
+		expect(result).toEqual({
+			changeSetRow: { id: 'change-set-1' },
+			slotChangeRows: [{ id: 'slot-change-1' }],
+			draftRow: { id: 'draft-1', status: 'applied' }
+		});
+		expect(rpc).toHaveBeenCalledWith('apply_advanced_duty_revision', {
+			p_org_id: 'org-1',
+			p_draft_id: 'draft-1',
+			p_slot_updates: [{ id: 'slot-1', duty_event_id: 'event-1', assignee_id: 'person-2' }],
+			p_change_set_data: { id: 'change-set-1', organization_id: 'org-1' },
+			p_slot_change_rows: [{ id: 'slot-change-1', organization_id: 'org-1' }],
+			p_applied_draft_data: { id: 'draft-1', status: 'applied' },
+			p_now: '2026-05-04T00:00:00.000Z'
+		});
+	});
+
 	it('reads compact revision history rows from the approved history tables', async () => {
 		const changeSetBuilder = queryBuilder({ data: [{ id: 'change-set-1' }], error: null });
 		const slotBuilder = queryBuilder({ data: [{ id: 'slot-change-1' }], error: null });
@@ -288,5 +325,82 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 				}
 			})
 		).resolves.toMatchObject({ id: 'draft-2' });
+	});
+
+	it('restores in-memory operational rows when revision reapply persistence fails mid-write', async () => {
+		const store = createInMemoryDataStore();
+		const adapter = createInMemoryAdvancedDutyPersistenceAdapter(store);
+		store.seed('duty_events', [
+			{
+				id: 'event-1',
+				organization_id: 'org-1',
+				fill_summary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+				updated_at: '2026-05-03T00:00:00.000Z'
+			}
+		]);
+		store.seed('duty_event_slots', [
+			{
+				id: 'slot-1',
+				organization_id: 'org-1',
+				duty_event_id: 'event-1',
+				assignee_id: 'person-1',
+				assignment_source: 'generated',
+				warning_state: 'none'
+			}
+		]);
+		store.seed('advanced_duty_revision_drafts', [
+			{
+				id: 'draft-1',
+				organization_id: 'org-1',
+				applied_run_id: 'run-1',
+				status: 'draft',
+				slot_changes: [],
+				draft_version: 1
+			}
+		]);
+		const originalInsertMany: typeof store.insertMany = store.insertMany.bind(store);
+		store.insertMany = vi.fn(
+			async <T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]> => {
+				if (table === 'advanced_duty_revision_slot_changes') {
+					throw new Error('slot change insert failed');
+				}
+				return originalInsertMany<T>(table, orgId, rows, select);
+			}
+		) as typeof store.insertMany;
+
+		await expect(
+			adapter.applyAdvancedDutyRevision({
+				orgId: 'org-1',
+				draftId: 'draft-1',
+				slotUpdateRows: [
+					{
+						id: 'slot-1',
+						duty_event_id: 'event-1',
+						assignee_id: 'person-2',
+						assignment_source: 'manual',
+						warning_state: 'none',
+						selection_reason: 'Reapplied from Advanced Duty revision draft.',
+						unfilled_reason: null
+					}
+				],
+				changeSetData: { id: 'change-set-1', organization_id: 'org-1', applied_run_id: 'run-1', reason: 'Review' },
+				slotChangeRows: [{ id: 'slot-change-1', organization_id: 'org-1', change_set_id: 'change-set-1' }],
+				appliedDraftData: { id: 'draft-1', status: 'applied' },
+				now: '2026-05-04T00:00:00.000Z'
+			})
+		).rejects.toThrow('slot change insert failed');
+
+		await expect(store.findOne('duty_event_slots', 'org-1', { id: 'slot-1' })).resolves.toMatchObject({
+			assignee_id: 'person-1',
+			assignment_source: 'generated'
+		});
+		await expect(store.findOne('duty_events', 'org-1', { id: 'event-1' })).resolves.toMatchObject({
+			fill_summary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
+			updated_at: '2026-05-03T00:00:00.000Z'
+		});
+		await expect(store.findMany('advanced_duty_revision_change_sets', 'org-1')).resolves.toHaveLength(0);
+		await expect(store.findOne('advanced_duty_revision_drafts', 'org-1', { id: 'draft-1' })).resolves.toMatchObject({
+			status: 'draft'
+		});
 	});
 });

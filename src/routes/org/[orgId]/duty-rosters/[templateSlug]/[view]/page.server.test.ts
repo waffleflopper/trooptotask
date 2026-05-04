@@ -295,6 +295,30 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('accepts a preview for print without redirecting before the browser opens official output', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview),
+				intent: 'print'
+			})
+		});
+
+		const result = await actions.acceptPreview({
+			request,
+			params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+		} as never);
+
+		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview)
+		});
+		expect(result).toMatchObject({
+			acceptedRun: { id: 'run-1', templateName: 'CQ NCO' },
+			printAcceptedRun: true
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);

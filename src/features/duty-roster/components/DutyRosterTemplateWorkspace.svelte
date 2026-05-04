@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { deserialize } from '$app/forms';
 	import type {
 		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
@@ -11,6 +12,11 @@
 		type DutyRosterTemplateAcceptedSnapshot,
 		type DutyRosterTemplatePreview
 	} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+	import {
+		exportDutyRosterForBrowser,
+		printDutyRosterForBrowser
+	} from '$features/duty-roster/export/dutyRosterBrowserExport';
+	import { parse as parseDevalue } from 'devalue';
 
 	type ActionForm = {
 		error?: string;
@@ -18,6 +24,8 @@
 		manualError?: string;
 		settingsError?: string;
 		preview?: DutyRosterTemplatePreview;
+		acceptedRun?: DutyRosterTemplateAcceptedRun;
+		printAcceptedRun?: boolean;
 		generateValues?: {
 			startDate?: string;
 			endDate?: string;
@@ -39,6 +47,8 @@
 	}
 
 	let { data, form }: { data: WorkspaceData; form?: unknown } = $props();
+	let acceptAndPrintPending = $state(false);
+	let acceptAndPrintError = $state<string | null>(null);
 
 	const basePath = $derived(`/org/${data.orgId}/duty-rosters`);
 	const createAction = $derived(`${basePath}?/createTemplate`);
@@ -104,6 +114,17 @@
 		return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 	}
 
+	function isAcceptedRun(value: unknown): value is DutyRosterTemplateAcceptedRun {
+		return Boolean(
+			value &&
+			typeof value === 'object' &&
+			'id' in value &&
+			'snapshotPayload' in value &&
+			value.snapshotPayload &&
+			typeof value.snapshotPayload === 'object'
+		);
+	}
+
 	function acceptedCellDisplay(
 		cell: DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
 	): string {
@@ -118,6 +139,86 @@
 			return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
 		}
 		return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
+	}
+
+	function printDraftPreview(preview: DutyRosterTemplatePreview): void {
+		printDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
+	}
+
+	function exportDraftPreview(preview: DutyRosterTemplatePreview): void {
+		exportDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
+	}
+
+	function printAcceptedRun(run: DutyRosterTemplateAcceptedRun): void {
+		printDutyRosterForBrowser({ acceptedSnapshot: acceptedSnapshot(run), statusLabel: 'Official' });
+	}
+
+	function exportAcceptedRun(run: DutyRosterTemplateAcceptedRun): void {
+		exportDutyRosterForBrowser({ acceptedSnapshot: acceptedSnapshot(run), statusLabel: 'Official' });
+	}
+
+	function actionResultData(resultText: string): Record<string, unknown> | null {
+		let result: { type?: unknown; data?: unknown };
+		try {
+			result = deserialize(resultText) as { type?: unknown; data?: unknown };
+		} catch {
+			try {
+				result = JSON.parse(resultText) as { type?: unknown; data?: unknown };
+			} catch {
+				return null;
+			}
+		}
+
+		if (result.type !== 'success') {
+			return null;
+		}
+
+		if (result.data && typeof result.data === 'object') {
+			return result.data as Record<string, unknown>;
+		}
+
+		if (typeof result.data === 'string') {
+			try {
+				const parsed = parseDevalue(result.data);
+				return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+			} catch {
+				return null;
+			}
+		}
+
+		return null;
+	}
+
+	async function acceptAndPrintPreview(preview: DutyRosterTemplatePreview): Promise<void> {
+		if (acceptAndPrintPending) {
+			return;
+		}
+
+		acceptAndPrintPending = true;
+		acceptAndPrintError = null;
+
+		const formData = new FormData();
+		formData.set('preview', previewFormValue(preview));
+		formData.set('intent', 'print');
+
+		try {
+			const response = await fetch(acceptPreviewAction, {
+				method: 'POST',
+				body: formData
+			});
+			const resultData = actionResultData(await response.text());
+
+			if (isAcceptedRun(resultData?.acceptedRun)) {
+				printAcceptedRun(resultData.acceptedRun);
+				return;
+			}
+
+			acceptAndPrintError = 'Could not accept and print this Duty Roster preview.';
+		} catch {
+			acceptAndPrintError = 'Could not accept and print this Duty Roster preview.';
+		} finally {
+			acceptAndPrintPending = false;
+		}
 	}
 </script>
 
@@ -382,10 +483,29 @@
 								</div>
 							</section>
 
-							<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-								<input type="hidden" name="preview" value={previewFormValue(preview)} />
-								<button class="btn btn-primary" type="submit">Accept run</button>
-							</form>
+							<div class="preview-output-actions" aria-label="Draft and official output actions">
+								<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
+									Print Draft
+								</button>
+								<button class="btn btn-secondary" type="button" onclick={() => exportDraftPreview(preview)}>
+									Export Draft
+								</button>
+								<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+									<input type="hidden" name="preview" value={previewFormValue(preview)} />
+									<button class="btn btn-primary" type="submit">Accept run</button>
+								</form>
+								<button
+									class="btn btn-primary"
+									type="button"
+									disabled={acceptAndPrintPending}
+									onclick={() => acceptAndPrintPreview(preview)}
+								>
+									{acceptAndPrintPending ? 'Accepting...' : 'Accept and Print'}
+								</button>
+								{#if acceptAndPrintError}
+									<p class="form-error inline-output-error" role="alert">{acceptAndPrintError}</p>
+								{/if}
+							</div>
 						{:else}
 							<div class="state-grid" aria-label="Generate readiness">
 								<div>
@@ -421,7 +541,15 @@
 												<h4>{run.templateName}</h4>
 												<p>{run.startDate} to {run.endDate}</p>
 											</div>
-											<span class="official-badge">Official</span>
+											<div class="accepted-output-actions">
+												<span class="official-badge">Official</span>
+												<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
+													Print official
+												</button>
+												<button class="btn btn-secondary btn-sm" type="button" onclick={() => exportAcceptedRun(run)}>
+													Export official
+												</button>
+											</div>
 										</div>
 
 										<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
@@ -1194,6 +1322,19 @@
 	.accept-preview-form {
 		display: flex;
 		justify-content: flex-end;
+	}
+
+	.preview-output-actions,
+	.accepted-output-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	.inline-output-error {
+		flex-basis: 100%;
 	}
 
 	.accepted-run-list,

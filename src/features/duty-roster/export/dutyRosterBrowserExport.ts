@@ -1,5 +1,12 @@
 import type { DA6Data, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix, DutyRosterExportModel } from '../run';
+import {
+	manualSelectionForDate,
+	previewFinalAssigneeId,
+	type DutyRosterTemplateAcceptedSnapshot,
+	type DutyRosterTemplatePreview,
+	type DutyRosterTemplatePreviewPersonnel
+} from '../templates/dutyRosterTemplatePreview';
 
 type SnapshotBrowserExportInput = {
 	model: DutyRosterExportModel;
@@ -16,7 +23,37 @@ type HistoryBrowserExportInput = {
 	};
 };
 
-type BrowserExportInput = SnapshotBrowserExportInput | HistoryBrowserExportInput;
+type TemplatePreviewBrowserExportInput = {
+	templatePreview: DutyRosterTemplatePreview;
+	statusLabel: 'Draft';
+};
+
+type AcceptedSnapshotBrowserExportInput = {
+	acceptedSnapshot: DutyRosterTemplateAcceptedSnapshot;
+	statusLabel: 'Official';
+};
+
+type BrowserExportInput =
+	| SnapshotBrowserExportInput
+	| HistoryBrowserExportInput
+	| TemplatePreviewBrowserExportInput
+	| AcceptedSnapshotBrowserExportInput;
+
+interface BrowserExportDetails {
+	typeName: string;
+	statusLabel: 'Draft' | 'Official' | null;
+	startDate: string;
+	endDate: string;
+	rosterRows: Array<{
+		date: string;
+		assignee: DutyRosterTemplatePreviewPersonnel | null;
+		generatedAssignee?: DutyRosterTemplatePreviewPersonnel | null;
+		source?: 'generated' | 'manual';
+		reason?: string | null;
+		warnings?: string[];
+	}>;
+	da6: Da6Matrix | DA6Data | null;
+}
 
 function formatDisplayDate(dateStr: string): string {
 	const date = new Date(`${dateStr}T00:00:00`);
@@ -40,6 +77,21 @@ function escapeHtml(value: string | null | undefined): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
+}
+
+function displayName(person: DutyRosterTemplatePreviewPersonnel | null): string {
+	if (!person) return '';
+	return person.firstName ? `${person.lastName}, ${person.firstName}` : person.lastName;
+}
+
+function formatDa6CellLabel(cell: Da6Matrix['rows'][number]['cells'][number]): string {
+	if (cell.da6Code === 'A') {
+		return 'A';
+	}
+	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
+		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
+	}
+	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }
 
 function buildDa6Data(da6: Da6Matrix | DA6Data | undefined): DA6Data | null {
@@ -67,49 +119,26 @@ function buildDa6Data(da6: Da6Matrix | DA6Data | undefined): DA6Data | null {
 	};
 }
 
-function renderRosterRows(input: BrowserExportInput): string {
-	if ('history' in input) {
-		return input.history.roster
-			.map((entry) => {
-				const displayDate = formatDisplayDate(entry.date);
-				const dayName = formatDayName(entry.date);
-				if (!entry.assigneeId) {
-					return `
-						<tr class="unavailable">
-							<td>${displayDate}</td>
-							<td>${dayName}</td>
-							<td colspan="3">UNFILLED</td>
-							<td>${escapeHtml(entry.reason)}</td>
-						</tr>
-					`;
-				}
-				return `
-					<tr>
-						<td>${displayDate}</td>
-						<td>${dayName}</td>
-						<td>${escapeHtml(entry.assigneeName)}</td>
-						<td>${escapeHtml(entry.assigneeRank)}</td>
-						<td>${escapeHtml(entry.assigneeGroup)}</td>
-						<td></td>
-					</tr>
-				`;
-			})
-			.join('');
-	}
-
-	const personnelById = new Map(input.model.da6.rows.map((row) => [row.personnelId, row.display] as const));
-	return input.model.rosterRows
+function renderRosterRows(details: BrowserExportDetails): string {
+	return details.rosterRows
 		.map((entry) => {
-			const assignee = entry.assigneeId ? (personnelById.get(entry.assigneeId) ?? null) : null;
 			const displayDate = formatDisplayDate(entry.date);
 			const dayName = formatDayName(entry.date);
-			if (!assignee) {
+			const warningText = entry.warnings?.length ? `Warnings: ${entry.warnings.join('; ')}` : '';
+			const generatedText =
+				entry.source === 'manual' && entry.generatedAssignee
+					? `Generated: ${entry.generatedAssignee.rank} ${displayName(entry.generatedAssignee)}`
+					: '';
+			const note = [entry.source === 'manual' ? 'MANUAL' : '', generatedText, warningText, entry.reason]
+				.filter(Boolean)
+				.join(' | ');
+			if (!entry.assignee) {
 				return `
 					<tr class="unavailable">
 						<td>${displayDate}</td>
 						<td>${dayName}</td>
 						<td colspan="3">UNFILLED</td>
-						<td>${escapeHtml(entry.reason)}</td>
+						<td>${escapeHtml(note)}</td>
 					</tr>
 				`;
 			}
@@ -117,17 +146,44 @@ function renderRosterRows(input: BrowserExportInput): string {
 				<tr>
 					<td>${displayDate}</td>
 					<td>${dayName}</td>
-					<td>${escapeHtml(`${assignee.lastName}, ${assignee.firstName}`)}</td>
-					<td>${escapeHtml(assignee.rank)}</td>
-					<td>${escapeHtml(assignee.groupName)}</td>
-					<td></td>
+					<td>${escapeHtml(displayName(entry.assignee))}</td>
+					<td>${escapeHtml(entry.assignee.rank)}</td>
+					<td>${escapeHtml(entry.assignee.groupName)}</td>
+					<td>${escapeHtml(note)}</td>
 				</tr>
 			`;
 		})
 		.join('');
 }
 
-function renderDa6Grid(da6: DA6Data | null): string {
+function renderDa6Matrix(da6: Da6Matrix): string {
+	if (da6.columns.length === 0) return '';
+
+	const headerCells = da6.columns.map((column) => `<th>${formatShortDate(column.date)}</th>`).join('');
+	const bodyRows = da6.rows
+		.map((row) => {
+			const cells = row.cells
+				.map((cell) => `<td class="da6-position">${escapeHtml(formatDa6CellLabel(cell))}</td>`)
+				.join('');
+			return `<tr><td>${escapeHtml(row.display.rank)}</td><td>${escapeHtml(`${row.display.lastName}, ${row.display.firstName}`)}</td>${cells}</tr>`;
+		})
+		.join('');
+
+	return `
+		<h2>DA6 Matrix</h2>
+		<p>Authorized markings only: roster numbers, A, D#, and U#.</p>
+		<table>
+			<tr>
+				<th>Rank</th>
+				<th>Name</th>
+				${headerCells}
+			</tr>
+			${bodyRows}
+		</table>
+	`;
+}
+
+function renderLegacyDa6Grid(da6: DA6Data | null): string {
 	if (!da6 || da6.dates.length === 0) return '';
 
 	const headerCells = da6.dates.map((date) => `<th>${formatShortDate(date.date)}</th>`).join('');
@@ -164,25 +220,115 @@ function renderDa6Grid(da6: DA6Data | null): string {
 	`;
 }
 
-function getExportDetails(input: BrowserExportInput) {
+function personnelByIdFromDa6(da6: Da6Matrix): Map<string, DutyRosterTemplatePreviewPersonnel> {
+	return new Map(
+		da6.rows.map((row) => [
+			row.personnelId,
+			{
+				id: row.personnelId,
+				rank: row.display.rank,
+				lastName: row.display.lastName,
+				firstName: row.display.firstName,
+				groupId: row.display.groupId,
+				groupName: row.display.groupName,
+				archivedAt: null
+			}
+		])
+	);
+}
+
+function previewAssignee(
+	preview: DutyRosterTemplatePreview,
+	assigneeId: string | null
+): DutyRosterTemplatePreviewPersonnel | null {
+	return assigneeId ? (preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null) : null;
+}
+
+function getExportDetails(input: BrowserExportInput): BrowserExportDetails {
+	if ('templatePreview' in input) {
+		return {
+			typeName: input.templatePreview.assignmentType.name,
+			statusLabel: input.statusLabel,
+			startDate: input.templatePreview.config.startDate,
+			endDate: input.templatePreview.config.endDate,
+			rosterRows: input.templatePreview.rosterRows.map((row) => {
+				const manualSelection = manualSelectionForDate(input.templatePreview, row.date);
+				const finalAssigneeId = previewFinalAssigneeId(input.templatePreview, row.date);
+				return {
+					date: row.date,
+					assignee: previewAssignee(input.templatePreview, finalAssigneeId),
+					generatedAssignee: previewAssignee(input.templatePreview, row.assigneeId),
+					source: manualSelection ? 'manual' : 'generated',
+					reason: manualSelection?.reason ?? row.reason ?? null,
+					warnings: manualSelection?.warnings.map((warning) => warning.message) ?? []
+				};
+			}),
+			da6: input.templatePreview.da6
+		};
+	}
+
+	if ('acceptedSnapshot' in input) {
+		return {
+			typeName: input.acceptedSnapshot.template.name,
+			statusLabel: input.statusLabel,
+			startDate: input.acceptedSnapshot.config.startDate,
+			endDate: input.acceptedSnapshot.config.endDate,
+			rosterRows: input.acceptedSnapshot.finalRows.map((row) => ({
+				date: row.date,
+				assignee: row.finalDisplay,
+				generatedAssignee: row.generatedDisplay,
+				source: row.assignmentSource,
+				reason: row.reason,
+				warnings: row.warnings.map((warning) => warning.message)
+			})),
+			da6: input.acceptedSnapshot.da6
+		};
+	}
+
 	if ('history' in input) {
 		return {
 			typeName: input.history.typeName,
+			statusLabel: null,
 			startDate: input.history.startDate,
 			endDate: input.history.endDate,
+			rosterRows: input.history.roster.map((row) => ({
+				date: row.date,
+				assignee: row.assigneeId
+					? {
+							id: row.assigneeId,
+							rank: row.assigneeRank ?? '',
+							lastName: row.assigneeName ?? '',
+							firstName: '',
+							groupId: null,
+							groupName: row.assigneeGroup ?? '',
+							archivedAt: null
+						}
+					: null,
+				reason: row.reason ?? null
+			})),
 			da6: buildDa6Data(input.history.da6)
 		};
 	}
+	const personnelById = personnelByIdFromDa6(input.model.da6);
 	return {
 		typeName: input.model.assignmentType.name,
+		statusLabel: null,
 		startDate: input.model.startDate,
 		endDate: input.model.endDate,
-		da6: buildDa6Data(input.da6 ?? input.model.da6)
+		rosterRows: input.model.rosterRows.map((row) => ({
+			date: row.date,
+			assignee: row.assigneeId ? (personnelById.get(row.assigneeId) ?? null) : null,
+			reason: row.reason ?? null
+		})),
+		da6: input.da6 ?? input.model.da6
 	};
 }
 
 export function buildDutyRosterBrowserExportHtml(input: BrowserExportInput): string {
-	const { typeName, startDate, endDate, da6 } = getExportDetails(input);
+	const details = getExportDetails(input);
+	const statusTitle = details.statusLabel ? `${details.statusLabel} ` : '';
+	const da6Markup =
+		details.da6 && 'rows' in details.da6 ? renderDa6Matrix(details.da6) : renderLegacyDa6Grid(details.da6);
 
 	return `
 		<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
@@ -199,9 +345,9 @@ export function buildDutyRosterBrowserExportHtml(input: BrowserExportInput): str
 			</style>
 		</head>
 		<body>
-			<h2>${escapeHtml(typeName)} Roster</h2>
+			<h2>${escapeHtml(statusTitle)}${escapeHtml(details.typeName)} Roster</h2>
 			<p>Generated: ${new Date().toLocaleDateString()}</p>
-			<p>Period: ${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}</p>
+			<p>Period: ${formatDisplayDate(details.startDate)} - ${formatDisplayDate(details.endDate)}</p>
 			<table>
 				<tr>
 					<th>Date</th>
@@ -211,24 +357,36 @@ export function buildDutyRosterBrowserExportHtml(input: BrowserExportInput): str
 					<th>Group</th>
 					<th>Notes</th>
 				</tr>
-				${renderRosterRows(input)}
+				${renderRosterRows(details)}
 			</table>
-			${renderDa6Grid(da6)}
+			${da6Markup}
 		</body>
 	</html>`;
 }
 
 export function exportDutyRosterForBrowser(input: BrowserExportInput): void {
-	const { typeName, startDate, endDate } = getExportDetails(input);
+	const { typeName, startDate, endDate, statusLabel } = getExportDetails(input);
 	const html = buildDutyRosterBrowserExportHtml(input);
 	const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
 	const url = URL.createObjectURL(blob);
 	const link = document.createElement('a');
+	const prefix = statusLabel ? `${statusLabel}_` : '';
 
 	link.href = url;
-	link.download = `${typeName.replace(/\s+/g, '_')}_Roster_${startDate}_to_${endDate}.xls`;
+	link.download = `${prefix}${typeName.replace(/\s+/g, '_')}_Roster_${startDate}_to_${endDate}.xls`;
 	document.body.appendChild(link);
 	link.click();
 	document.body.removeChild(link);
 	setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+export function printDutyRosterForBrowser(input: BrowserExportInput): void {
+	const printWindow = window.open('', '_blank');
+	if (!printWindow) return;
+	printWindow.opener = null;
+	printWindow.document.open();
+	printWindow.document.write(buildDutyRosterBrowserExportHtml(input));
+	printWindow.document.close();
+	printWindow.focus();
+	printWindow.print();
 }

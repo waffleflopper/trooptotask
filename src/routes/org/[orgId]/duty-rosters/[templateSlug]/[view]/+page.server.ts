@@ -163,9 +163,12 @@ export const actions: Actions = {
 
 		try {
 			const ctx = await buildRouteContext(event);
-			await acceptDutyRosterTemplatePreview(ctx, {
+			const acceptedRun = await acceptDutyRosterTemplatePreview(ctx, {
 				preview: String(formData.get('preview') ?? '')
 			});
+			if (String(formData.get('intent') ?? '') === 'print') {
+				return { acceptedRun, printAcceptedRun: true };
+			}
 		} catch (errorValue) {
 			return actionError(errorValue, {
 				key: 'generateError',

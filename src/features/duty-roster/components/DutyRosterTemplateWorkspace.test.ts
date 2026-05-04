@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { stringify } from 'devalue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import DutyRosterTemplateWorkspace from './DutyRosterTemplateWorkspace.svelte';
 import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
@@ -25,6 +26,8 @@ const template: DutyRosterTemplate = {
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 describe('DutyRosterTemplateWorkspace', () => {
@@ -133,7 +136,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(list).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept and Print' })).toBeTruthy();
 	});
 
 	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', () => {
@@ -191,6 +197,66 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
 	});
 
+	it('accepts then prints official output from the server-returned accepted snapshot', async () => {
+		const print = vi.fn();
+		const focus = vi.fn();
+		const documentMock = {
+			open: vi.fn(),
+			write: vi.fn(),
+			close: vi.fn()
+		};
+		vi.spyOn(window, 'open').mockReturnValue({
+			opener: null,
+			document: documentMock,
+			focus,
+			print
+		} as unknown as Window);
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					type: 'success',
+					status: 200,
+					data: stringify({ acceptedRun: acceptedRun(), printAcceptedRun: true })
+				})
+			)
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'generate'
+				},
+				form: {
+					preview: preview(),
+					generateValues: {
+						startDate: '2026-06-01',
+						endDate: '2026-06-01'
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept and Print' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview',
+			expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
+		);
+		const submitted = fetchMock.mock.calls[0][1].body as FormData;
+		expect(submitted.get('intent')).toBe('print');
+		expect(JSON.parse(String(submitted.get('preview'))).config.startDate).toBe('2026-06-01');
+		await waitFor(() =>
+			expect(documentMock.write).toHaveBeenCalledWith(expect.stringContaining('Official CQ NCO Roster'))
+		);
+		expect(print).toHaveBeenCalledOnce();
+	});
+
 	it('renders accepted History from the saved snapshot list and matrix', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -211,6 +277,8 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
 		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Accepted DA6 matrix' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Print official' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export official' })).toBeTruthy();
 	});
 
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {

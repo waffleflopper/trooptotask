@@ -133,9 +133,6 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Generate preview' })).toBeTruthy();
-		expect(screen.getByLabelText('Duty Roster count source')).toBeTruthy();
-		expect(screen.getAllByText('Manual DA6 Baseline').length).toBeGreaterThan(0);
-		expect(screen.getByText('1 Soldier with counts')).toBeTruthy();
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
 		expect(list).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
@@ -264,7 +261,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(print).toHaveBeenCalledOnce();
 	});
 
-	it('renders accepted History from the saved snapshot list and matrix', () => {
+	it('renders accepted History register with header actions', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -280,19 +277,15 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByText('Official')).toBeTruthy();
-		expect(screen.getByText('Accepted history')).toBeTruthy();
-		expect(screen.getByText('1 counting corrections')).toBeTruthy();
-		expect(screen.getAllByText('SGT Baker, Ben').length).toBeGreaterThan(0);
-		const list = screen.getByRole('table', { name: 'Accepted Duty Roster list' });
-		expect(within(list).getByText('MANUAL')).toBeTruthy();
-		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
-		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
+		expect(screen.getByText('History')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View Roster' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View DA6' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Roster' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print DA6' })).toBeTruthy();
 		expect(screen.getByText('Not applied')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
+		// Roster table is hidden in collapsed list view
+		expect(screen.queryByRole('table', { name: 'Accepted Duty Roster list' })).toBeNull();
 	});
 
 	it('renders correction history and an inline correction form for accepted rows', async () => {
@@ -333,7 +326,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ applied: true, calendarAssignmentsEdited: true })]
+					acceptedRuns: [acceptedRun({ applied: true, calendarAssignmentsEdited: true })],
+					historyDetailRunId: 'run-1',
+					historyDetailMode: 'roster'
 				}
 			}
 		});
@@ -356,7 +351,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ invalidated: true, corrected: true })]
+					acceptedRuns: [acceptedRun({ invalidated: true, corrected: true })],
+					historyDetailRunId: 'run-1',
+					historyDetailMode: 'roster'
 				}
 			}
 		});
@@ -371,7 +368,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('button', { name: 'Record correction' })).toBeNull();
 	});
 
-	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
+	it('renders scan-friendly settings tabs for pool, exemptions, and baseline setup', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -467,11 +464,19 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Pool criteria' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'General settings' })).toBeTruthy();
 		expect(screen.getByLabelText('Template name')).toBeTruthy();
-		expect(screen.getByLabelText('Route slug')).toBeTruthy();
-		expect(screen.getAllByLabelText('Short code')).toHaveLength(1);
+		expect(screen.getByLabelText(/URL slug/)).toBeTruthy();
+		expect(screen.getAllByLabelText(/Short code/)).toHaveLength(1);
+		expect(screen.queryByRole('heading', { name: 'Pool & filters' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Pool & Filters' }));
+		expect(screen.getByRole('heading', { name: 'Pool & filters' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Exemptions' }));
 		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Baseline' }));
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
 	});

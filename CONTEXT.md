@@ -180,9 +180,53 @@ _Avoid_: Calendar color only
 The optional duty-roster meaning attached to a **Status Type** for DA Form 6 availability and numbering.
 _Avoid_: Status type, DA6 code, color
 
+**Duty Roster**:
+The replacement DA Form 6 planning surface for recurring one-duty roster templates, generated runs, accepted history, exports, and optional Calendar application.
+_Avoid_: Advanced duty roster, simple duty roster, Assignments / Taskings when the DA6 roster feature is meant
+
+**Duty Roster Template**:
+A reusable definition for one duty roster, including its pool, duty-specific exemptions, and starting count source.
+_Avoid_: Multi-position template, assignment type counter
+
+**Duty Roster Template Workspace**:
+The URL-addressable work surface for one **Duty Roster Template**, including generation, history, and settings.
+_Avoid_: Client-only tab state, modal-only template detail
+
+**Duty Roster Template Slug**:
+The human-readable route key for one **Duty Roster Template**, unique inside its **Organization** while the internal template id remains stable.
+_Avoid_: UUID-only template URL, global slug
+
+**Duty Roster Short Code**:
+The optional compact display label for a **Duty Roster Template** in dense UI, Calendar badges, and exports.
+_Avoid_: Route slug, unique template identity
+
+**Duty Roster Pool**:
+The resolved set of **Personnel Records** included in a **Duty Roster Template** before duty-specific exemptions are removed.
+_Avoid_: Exemption list, date availability, all personnel
+
+**DA6 Roster Order**:
+The standard order for a new DA Form 6: alphabetically within pay grade, beginning with the highest pay grade.
+_Avoid_: Current-count order, random starting order
+
+**Accepted Duty Roster Run**:
+A generated **Duty Roster Run** that has been saved as official DA Form 6 history and may later be printed, exported, or applied to the **Calendar**.
+_Avoid_: Preview, draft print, unsaved generation
+
+**Manual Duty Roster Selection**:
+A pre-acceptance human change to a generated roster row that replaces the proposed Soldier for a duty date.
+_Avoid_: Silent override, post-apply correction
+
+**Duty Roster Correction**:
+A post-acceptance record that changes who actually performs a duty date while preserving the original accepted assignment and reason.
+_Avoid_: In-place row edit, regenerated history
+
+**Invalidated Duty Roster Run**:
+The latest **Accepted Duty Roster Run** marked unusable so future counts roll back to the prior accepted history while the invalidated record remains locked and visible.
+_Avoid_: Deleted roster, hidden undo, editing history in place
+
 **Advanced Duty Run**:
-One generated team-duty run for a selected advanced duty template and event date pattern.
-_Avoid_: DA6 run, regenerated apply payload
+The legacy current-state team-duty run for a selected advanced duty template and event date pattern.
+_Avoid_: DA6 roster, replacement duty roster, regenerated apply payload
 
 **Advanced Run Snapshot**:
 The immutable inputs and outputs produced by an **Advanced Duty Run** preview.
@@ -305,6 +349,78 @@ _Avoid_: Training type
 - Existing **Status Types** may be backfilled by conservative name matching for common seeded labels, while custom or unclear names should default to no **DA6 Availability Treatment**.
 - **Duty Roster Runs** should consume **DA6 Availability Treatment** from **Status Types** instead of asking users to redefine excluded statuses per run.
 - When multiple **Availability Statuses** overlap on one duty date, **Authorized Absence** takes precedence over **Other Duty** because approved leave or another authorized absence is nonchargeable; future **Misconduct Unavailable** takes precedence once enabled.
+- The replacement **Duty Roster** surface supersedes the old simple duty roster, advanced duty roster, and Assignments / Taskings duty-roster surfaces.
+- A **Duty Roster Template** describes one duty position such as CQ NCO or CQ runner; separate duty positions use separate templates so each keeps its own DA Form 6 counts.
+- The **Duty Roster** route is template-first: each **Duty Roster Template** should expose generate, history, and settings actions from its own **Duty Roster Template Workspace**.
+- **Duty Roster Template Workspace** views must be URL-addressable so browser refresh, direct links, and back/forward navigation preserve the selected template and view.
+- Refreshing on a template settings or history view must return to that same template view, not the base **Duty Roster** entry point.
+- The **Duty Roster Template Workspace** route should use a **Duty Roster Template Slug** rather than exposing the template UUID in the address bar.
+- A **Duty Roster Template Slug** is scoped to its **Organization**, so two Organizations may use the same template slug without conflict.
+- The internal template id remains the stable database identity even when the route uses a human-readable **Duty Roster Template Slug**.
+- The intended route shape is `/org/[orgId]/duty-rosters/[templateSlug]/generate`, `/history`, and `/settings`, with `[orgId]` able to become an organization slug in a future route migration.
+- A **Duty Roster Template Slug** may be edited in template settings, but the app should not keep indefinite slug redirect history.
+- If stale slug redirects are added, they should be short-lived cleanup aids rather than permanent history for every prior template name.
+- A **Duty Roster Template Slug** is generated from the template name by default, such as `cq-nco` for CQ NCO.
+- Template slug collisions are resolved inside the **Organization** by suggesting a suffix such as `cq-nco-2` or asking the user to choose another slug.
+- Template settings should show the slug field clearly enough that users understand it affects the URL.
+- A **Duty Roster Template** may have an optional **Duty Roster Short Code** for compact display, such as `CQ`.
+- **Duty Roster Short Codes** are not unique template identity and may be reused across related templates such as CQ NCO and CQ runner.
+- The **Duty Roster Template Slug** owns URL uniqueness; the **Duty Roster Short Code** owns compact display.
+- A **Duty Roster Template** builds its **Duty Roster Pool** from inclusive criteria such as **Rank**, **Group**, **MOS**, and **Duty Role**.
+- **Duty Roster Pool** criteria use OR within a category and AND across categories, such as SGT or SSG who are also in the selected Groups.
+- Duty-specific exemptions are selected only from people already included in the **Duty Roster Pool**.
+- A duty-specific exemption removes someone from that duty's pool; it is not the same thing as an **Availability Status** for a specific date.
+- A **Manual DA6 Baseline** is optional setup data for a **Duty Roster Template** so the first generated run can pick up from a prior manual or outside system.
+- A **Manual DA6 Baseline** stores optional starting counts for people in the resolved, non-exempt **Duty Roster Pool** rather than importing old roster rows.
+- A person with no baseline count starts from **DA6 Roster Order**.
+- If no **Manual DA6 Baseline** exists, the first generated run starts from **DA6 Roster Order**.
+- After the first **Accepted Duty Roster Run** for a template, the **Manual DA6 Baseline** is locked as setup history and future counts come from accepted, non-invalidated runs.
+- Duty selection uses the longest break from that duty first; **DA6 Roster Order** breaks ties when history and baseline data do not separate Soldiers.
+- A **Duty Roster Run** keeps pool members in the **DA6 Matrix** when they are unavailable on a duty date; the reason they are unavailable controls whether their count increments.
+- **Authorized Absence** uses `A`, is nonchargeable, and interrupts the Soldier's DA Form 6 numbering sequence.
+- **Other Duty** uses `D`, is chargeable, and continues the Soldier's DA Form 6 numbering sequence.
+- **Misconduct Unavailable** uses `U`, is chargeable, and continues the Soldier's DA Form 6 numbering sequence once that product workflow exists.
+- The DA6 engine should preserve **Misconduct Unavailable** support, but normal UI setup must not enable it until the product has an explicit misconduct/AWOL workflow and audit trail.
+- **Duty Roster Templates** consume each **Status Type**'s **DA6 Availability Treatment** and do not redefine unavailable statuses per template.
+- When statuses overlap during **Duty Roster** generation, the selected DA6 treatment follows the documented priority: future **Misconduct Unavailable** first once enabled, then **Authorized Absence**, then **Other Duty**.
+- **Calendar** assignments stay in **Calendar**; applying an accepted **Duty Roster Run** may create or update Calendar records, but the DA Form 6 history belongs to **Duty Roster**.
+- Calendar assignments created from an **Accepted Duty Roster Run** must keep lineage back to that run.
+- Run-to-Calendar lineage lets invalidation remove exactly the Calendar assignments created by that run without guessing by date, template, or person.
+- Generating a **Duty Roster Run** creates a preview only; it does not change DA Form 6 history or future counts until accepted.
+- Before acceptance, the operator may make a **Manual Duty Roster Selection** for a duty date in the generated preview.
+- Accepted history must preserve whether each roster row was generated or manually selected, with manual selections clearly marked in UI and print/export output.
+- A simple `MANUAL` marker is the preferred visible label for manually selected roster rows.
+- The preview list should show the final selected Soldier, a `MANUAL` marker when changed by the operator, and access to the original generated Soldier.
+- The **DA6 Matrix** should show only authorized DA Form 6 markings such as sequence numbers, `A`, `D`, and future `U`; it should not show `MANUAL` inside matrix cells.
+- Accepted history for a **Duty Roster Run** should provide both an operational list view and a **DA6 Matrix** view.
+- The accepted-history list view supports understanding, correction review, and duty-swap context; the **DA6 Matrix** view supports DA Form 6 review, print, and export.
+- **Manual Duty Roster Selections** may choose someone outside the generated **Duty Roster Pool** as a reviewable human decision, but the UI must warn and preserve that choice in history.
+- Archived or missing Personnel Records are hard blocks for **Manual Duty Roster Selections**.
+- Most manual-selection conflicts should be reviewable with clear warnings and reason capture rather than hard-blocked.
+- **Manual Duty Roster Selections** require a reason only when they carry a reviewable warning such as outside-pool, unavailable status, or another duty conflict.
+- Clean pre-acceptance swaps between eligible Soldiers may be marked `MANUAL` without requiring a reason.
+- Post-acceptance changes use a **Duty Roster Correction**, not a **Manual Duty Roster Selection**.
+- A **Duty Roster Correction** should capture the original Soldier, replacement Soldier, duty date, reason, actor, and timestamp.
+- A **Duty Roster Correction** requires a reason because it changes official history and future count derivation.
+- **Duty Roster Corrections** should support duty-swap memo language such as one Soldier performing the duty for another Soldier because of a stated reason.
+- A **Duty Roster Correction** preserves the original accepted row and records what actually happened; it does not mutate accepted history in place.
+- Future count derivation uses the Soldier who actually performed duty after **Duty Roster Corrections**, while history still shows the original accepted Soldier.
+- If an **Accepted Duty Roster Run** is invalidated, its **Duty Roster Corrections** remain visible in that run's history but no longer affect future count derivation.
+- When a **Duty Roster Correction** changes a run that was applied to the **Calendar**, the Calendar assignment should update to the Soldier who actually performs the duty while preserving lineage to the accepted run.
+- A generated **Duty Roster Run** snapshots the resolved pool, duty-specific exemptions, baseline/count source, relevant **Availability Status** treatment, generated result, and display fields the operator reviewed.
+- An **Accepted Duty Roster Run** advances future duty counts whether or not it is immediately applied to the **Calendar**.
+- Accepted history, official exports, and later Calendar apply from history use the saved **Run Snapshot**, not current Personnel, template, or Calendar state.
+- Editing a **Duty Roster Template** affects future generated runs only and must not mutate **Accepted Duty Roster Run** history.
+- Corrections to the latest accepted history use latest-run invalidation followed by a new generated run, not in-place template-driven history changes.
+- Applying a **Duty Roster Run** to the **Calendar** accepts it if it was still only a preview.
+- Draft printing is allowed from a preview, but official print/export output should come from an **Accepted Duty Roster Run**.
+- An **Accepted Duty Roster Run** that was not applied to the **Calendar** at acceptance time may be applied later from history.
+- Accepting and opening print preview saves the **Accepted Duty Roster Run** before the print surface opens, even if the user cancels printing.
+- Only the latest **Accepted Duty Roster Run** for a **Duty Roster Template** may be invalidated.
+- An **Invalidated Duty Roster Run** remains visible in history, is locked from normal apply/print actions, and is excluded from future count derivation.
+- Invalidating a run is an audit action for recent mistakes such as incorrect statuses or roster setup, not a way to rewrite older DA Form 6 history.
+- Invalidating an **Accepted Duty Roster Run** that was applied to the **Calendar** removes the Calendar assignments from that run after explicit confirmation.
+- The invalidation confirmation should clearly warn: "Invalidating this run will remove the assignments from the calendar. Are you sure?"
 - An **Advanced Duty Run** produces exactly one draft **Advanced Run Snapshot** during preview.
 - **Snapshot Custody** keeps the draft **Advanced Run Snapshot** server-side so apply, retry, and export can reference the same previewed run.
 - An unapplied **Advanced Run Snapshot** may produce a preview-only team duty packet export, but it is not a final applied record.

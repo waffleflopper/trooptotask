@@ -1,5 +1,7 @@
 # Advanced Duty Run Module RFC
 
+> Supersession note: the replacement target is now `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`. The new direction treats the advanced team-duty model as legacy current-state and replaces the old simple/advanced split with one DA6 Duty Roster surface. Use this RFC only as historical context unless explicitly working on legacy advanced-duty removal.
+
 ## Purpose
 
 Carry the Duty Roster Run Module work into the advanced duty workflow.

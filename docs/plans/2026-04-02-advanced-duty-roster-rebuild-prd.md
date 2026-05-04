@@ -1,5 +1,7 @@
 # Advanced Duty Roster Rebuild PRD
 
+> Supersession note: the replacement target is now `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`. The new direction replaces both old simple duty rosters and advanced duty rosters with a template-first DA6 Duty Roster surface. Treat this older two-lane simple/advanced plan as historical context, not the current implementation target.
+
 ## Problem Statement
 
 The current duty-roster generator works for a narrow slice of the duty-planning problem: one assignment type, one assignee per date, a simple date range, and a simplified DA Form 6-style fairness rule. That is useful for basic recurring duties, but it breaks down for the real-world Army workflows users are asking for.

@@ -1,5 +1,7 @@
 # Advanced Duty Workspace Redesign Plan
 
+> Supersession note: the replacement target is now `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`. This workspace redesign is no longer the current target UI. Future UI work should focus on the template-first DA6 Duty Roster workspace, with URL-addressable Generate, History, and Settings views.
+
 ## Purpose
 
 Turn issue #708 into an implementation-ready design plan for the **Advanced Duty Workspace**.

@@ -11,6 +11,7 @@ import {
 	invalidateLatestDutyRosterTemplateRun,
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
+	loadDutyRosterTemplateCountReadModel,
 	loadDutyRosterTemplateSettings,
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
@@ -1043,6 +1044,116 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'bravo' }]);
+	});
+
+	it('reports Manual DA6 Baseline as the count read model until the first accepted run', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { bravo: 2, charlie: 1 }
+		});
+
+		const readModel = await loadDutyRosterTemplateCountReadModel(ctx, updated);
+
+		expect(readModel).toMatchObject({
+			source: 'manual-da6-baseline',
+			sourceLabel: 'Manual DA6 Baseline',
+			acceptedRunCount: 0,
+			invalidatedRunCount: 0
+		});
+		expect(readModel.rows.map((row) => [row.personnelId, row.count])).toEqual([
+			['alpha', 0],
+			['bravo', 2],
+			['charlie', 1]
+		]);
+	});
+
+	it('derives count read models from manual accepted selections, corrections, and invalidated history', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const manualFirstPreview = await applyDutyRosterTemplatePreviewManualSelection(ctx, {
+			preview: JSON.stringify(firstPreview),
+			date: '2026-06-01',
+			assigneeId: 'bravo',
+			reason: null
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(manualFirstPreview)
+		});
+		acceptedRunRows[0].accepted_at = '2026-06-01T00:00:00.000Z';
+		const secondPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+		const secondRun = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(secondPreview)
+		});
+		acceptedRunRows[1].accepted_at = '2026-06-02T00:00:00.000Z';
+		await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: secondRun.id,
+			runRowDate: '2026-06-02',
+			replacementAssigneeId: 'charlie',
+			reason: 'Soldier performed duty for original assignee.'
+		});
+
+		const correctedReadModel = await loadDutyRosterTemplateCountReadModel(ctx, template);
+
+		expect(correctedReadModel).toMatchObject({
+			source: 'accepted-history',
+			sourceLabel: 'Accepted history',
+			acceptedRunCount: 2,
+			invalidatedRunCount: 0,
+			countingCorrectionCount: 1,
+			nonCountingCorrectionCount: 0
+		});
+		expect(correctedReadModel.sourceDescription).toContain('Manual accepted selections');
+		expect(correctedReadModel.sourceDescription).toContain('Latest counting corrections');
+		expect(correctedReadModel.rows.map((row) => [row.personnelId, row.count, row.lastDutyDate])).toEqual([
+			['alpha', 0, null],
+			['bravo', 1, '2026-06-01'],
+			['charlie', 1, '2026-06-02']
+		]);
+
+		await invalidateLatestDutyRosterTemplateRun(ctx, { runId: secondRun.id });
+		const invalidatedReadModel = await loadDutyRosterTemplateCountReadModel(ctx, template);
+
+		expect(invalidatedReadModel).toMatchObject({
+			source: 'accepted-history',
+			acceptedRunCount: 1,
+			invalidatedRunCount: 1,
+			countingCorrectionCount: 0,
+			nonCountingCorrectionCount: 1
+		});
+		expect(invalidatedReadModel.sourceDescription).toContain('Invalidated runs stay visible');
+		expect(invalidatedReadModel.rows.map((row) => [row.personnelId, row.count, row.lastDutyDate])).toEqual([
+			['alpha', 0, null],
+			['bravo', 1, '2026-06-01'],
+			['charlie', 0, null]
+		]);
 	});
 
 	it('lists accepted Duty Roster Template runs newest first', async () => {

@@ -11,6 +11,8 @@ import {
 	type DutyRosterTemplate,
 	type DutyRosterTemplateAcceptPreviewInput,
 	type DutyRosterTemplateAcceptedRun,
+	type DutyRosterTemplateCountReadModel,
+	type DutyRosterTemplateCountRow,
 	type DutyRosterTemplateCorrectionInput,
 	type DutyRosterTemplateCreateInput,
 	type DutyRosterTemplateGenerateInput,
@@ -19,7 +21,8 @@ import {
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
 	type DutyRosterPoolCriteria,
-	type DutyRosterPoolPersonnel
+	type DutyRosterPoolPersonnel,
+	type DutyRosterPoolPersonnelDisplay
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import {
 	buildDutyRosterBaselineRows,
@@ -36,6 +39,7 @@ import {
 	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type { DutyRosterContinuationHistoryItem } from '$features/duty-roster/run/dutyRosterRun.types';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
@@ -421,21 +425,252 @@ function defaultDutyRosterAssignmentShortName(input: { name: string; shortCode: 
 	return input.shortCode ?? input.name.slice(0, 12).trim().toUpperCase();
 }
 
-async function loadAcceptedContinuationHistory(ctx: QueryPorts, templateId: string) {
-	const acceptedRunRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
-		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
-		ctx.auth.orgId,
-		{ template_id: templateId, status: 'accepted' },
-		{ orderBy: [{ column: 'accepted_at', ascending: true }] }
+type DutyRosterTemplateCountReadModelWithHistory = DutyRosterTemplateCountReadModel & {
+	continuationHistory: DutyRosterContinuationHistoryItem[];
+};
+
+function poolDisplay(person: DutyRosterPoolPersonnel): DutyRosterPoolPersonnelDisplay {
+	return {
+		id: person.id,
+		rank: person.rank,
+		lastName: person.lastName,
+		firstName: person.firstName,
+		groupName: person.groupName
+	};
+}
+
+function countSourceText(input: {
+	source: DutyRosterTemplateCountReadModel['source'];
+	invalidatedRunCount: number;
+	countingCorrectionCount: number;
+}): Pick<DutyRosterTemplateCountReadModel, 'sourceLabel' | 'sourceDescription'> {
+	switch (input.source) {
+		case 'accepted-history':
+			return {
+				sourceLabel: 'Accepted history',
+				sourceDescription: [
+					'Future previews use accepted, non-invalidated Duty Roster history.',
+					'Manual accepted selections are treated as the final selection.',
+					input.countingCorrectionCount > 0 ? 'Latest counting corrections use the Soldier who actually served.' : null,
+					input.invalidatedRunCount > 0 ? 'Invalidated runs stay visible in History but do not affect counts.' : null
+				]
+					.filter((part): part is string => Boolean(part))
+					.join(' ')
+			};
+		case 'manual-da6-baseline':
+			return {
+				sourceLabel: 'Manual DA6 Baseline',
+				sourceDescription:
+					'Future previews use Manual DA6 Baseline until this template has its first accepted Duty Roster Run.'
+			};
+		case 'da6-roster-order':
+			return {
+				sourceLabel: 'DA6 roster order',
+				sourceDescription:
+					'Future previews use DA6 roster order because this template has no accepted history or Manual DA6 Baseline counts.'
+			};
+	}
+}
+
+function countRowsFromHistory(
+	history: DutyRosterContinuationHistoryItem[],
+	resolvedPool: DutyRosterPoolPersonnel[]
+): DutyRosterTemplateCountRow[] {
+	const rowsById = new Map<string, DutyRosterTemplateCountRow>(
+		resolvedPool.map((person) => [
+			person.id,
+			{
+				personnelId: person.id,
+				display: poolDisplay(person),
+				count: 0,
+				lastDutyDate: null
+			}
+		])
+	);
+
+	for (const historyItem of history) {
+		for (const row of historyItem.roster) {
+			if (!row.assigneeId) continue;
+
+			const existing = rowsById.get(row.assigneeId) ?? {
+				personnelId: row.assigneeId,
+				display: row.assigneeName
+					? {
+							id: row.assigneeId,
+							rank: row.assigneeRank ?? '',
+							lastName: row.assigneeName.split(',')[0]?.trim() ?? row.assigneeName,
+							firstName: row.assigneeName.split(',')[1]?.trim() ?? '',
+							groupName: row.assigneeGroup ?? ''
+						}
+					: null,
+				count: 0,
+				lastDutyDate: null
+			};
+			rowsById.set(row.assigneeId, {
+				...existing,
+				count: existing.count + 1,
+				lastDutyDate: !existing.lastDutyDate || row.date > existing.lastDutyDate ? row.date : existing.lastDutyDate
+			});
+		}
+	}
+
+	return [...rowsById.values()].sort(compareCountRows);
+}
+
+function countRowsFromBaseline(
+	template: DutyRosterTemplate,
+	resolvedPool: DutyRosterPoolPersonnel[]
+): DutyRosterTemplateCountRow[] {
+	return resolvedPool
+		.map((person) => ({
+			personnelId: person.id,
+			display: poolDisplay(person),
+			count: template.manualBaselineCounts[person.id] ?? 0,
+			lastDutyDate: null
+		}))
+		.sort(compareCountRows);
+}
+
+function zeroCountRows(resolvedPool: DutyRosterPoolPersonnel[]): DutyRosterTemplateCountRow[] {
+	return resolvedPool
+		.map((person) => ({
+			personnelId: person.id,
+			display: poolDisplay(person),
+			count: 0,
+			lastDutyDate: null
+		}))
+		.sort(compareCountRows);
+}
+
+function compareCountRows(left: DutyRosterTemplateCountRow, right: DutyRosterTemplateCountRow): number {
+	const leftLast = left.display?.lastName ?? '';
+	const rightLast = right.display?.lastName ?? '';
+	const lastNameComparison = leftLast.localeCompare(rightLast);
+	if (lastNameComparison !== 0) return lastNameComparison;
+
+	const leftFirst = left.display?.firstName ?? '';
+	const rightFirst = right.display?.firstName ?? '';
+	const firstNameComparison = leftFirst.localeCompare(rightFirst);
+	if (firstNameComparison !== 0) return firstNameComparison;
+
+	return left.personnelId.localeCompare(right.personnelId);
+}
+
+function buildBaselineContinuationHistory(
+	template: DutyRosterTemplate,
+	resolvedPool: DutyRosterPoolPersonnel[],
+	startDate: string
+): DutyRosterContinuationHistoryItem[] {
+	const counts = Object.entries(template.manualBaselineCounts)
+		.filter(([personnelId, count]) => count > 0 && resolvedPool.some((person) => person.id === personnelId))
+		.sort(([left], [right]) => left.localeCompare(right));
+	if (counts.length === 0) {
+		return [];
+	}
+
+	const highestCount = Math.max(...counts.map(([, count]) => count));
+	return [
+		{
+			assignmentTypeId: template.assignmentTypeId,
+			startDate: shiftDate(startDate, -highestCount),
+			endDate: shiftDate(startDate, -1),
+			roster: counts.map(([personnelId, count]) => {
+				const person = resolvedPool.find((candidate) => candidate.id === personnelId);
+				return {
+					date: shiftDate(startDate, -(highestCount - count + 1)),
+					assigneeId: personnelId,
+					assigneeName: person ? `${person.lastName}, ${person.firstName}` : null,
+					assigneeRank: person?.rank ?? null,
+					assigneeGroup: person?.groupName ?? null
+				};
+			}),
+			config: {
+				historySource: 'manual-da6-baseline'
+			}
+		}
+	];
+}
+
+function shiftDate(value: string, offsetDays: number): string {
+	const [yearValue, monthValue, dayValue] = value.split('-').map(Number);
+	const date = new Date(Date.UTC(yearValue, monthValue - 1, dayValue + offsetDays));
+	const year = date.getUTCFullYear();
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(date.getUTCDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+async function loadTemplateCountReadModel(
+	ctx: QueryPorts,
+	template: DutyRosterTemplate,
+	input: { baselineStartDate?: string; personnel?: DutyRosterPoolPersonnel[] } = {}
+): Promise<DutyRosterTemplateCountReadModelWithHistory> {
+	const personnelPromise = input.personnel ? Promise.resolve(input.personnel) : listActiveDutyRosterPersonnel(ctx);
+	const [personnel, runRows] = await Promise.all([
+		personnelPromise,
+		ctx.store.findMany<DutyRosterTemplateRunRow>(
+			DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+			ctx.auth.orgId,
+			{ template_id: template.id },
+			{
+				inFilters: { status: ['accepted', 'invalidated'] },
+				orderBy: [{ column: 'accepted_at', ascending: true }]
+			}
+		)
+	]);
+	const resolvedPool = resolveDutyRosterPool({ criteria: template.poolCriteria, personnel }).filter(
+		(person) => !template.exemptPersonnelIds.includes(person.id)
 	);
 	const correctionsByRunId = await loadCorrectionsByRunId(
 		ctx,
-		acceptedRunRows.map((row) => row.id)
+		runRows.map((row) => row.id)
 	);
-
-	return acceptedRunRows
+	const continuationHistory = runRows
+		.filter((row) => row.status === 'accepted')
 		.map((row) => acceptedSnapshotWithLatestCorrections(acceptedRunSnapshot(row), correctionsByRunId.get(row.id) ?? []))
 		.map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
+	const acceptedRunCount = runRows.filter((row) => row.status === 'accepted').length;
+	const invalidatedRunCount = runRows.filter((row) => row.status === 'invalidated').length;
+	const statusByRunId = new Map(runRows.map((row) => [row.id, row.status]));
+	const corrections = [...correctionsByRunId.values()].flat();
+	const countingCorrectionCount = corrections.filter(
+		(correction) => statusByRunId.get(correction.run_id) === 'accepted'
+	).length;
+	const nonCountingCorrectionCount = corrections.filter(
+		(correction) => statusByRunId.get(correction.run_id) === 'invalidated'
+	).length;
+	const hasOfficialRunHistory = runRows.length > 0;
+	const hasBaselineCounts = Object.values(template.manualBaselineCounts).some((count) => count > 0);
+	const source: DutyRosterTemplateCountReadModel['source'] = hasOfficialRunHistory
+		? 'accepted-history'
+		: hasBaselineCounts
+			? 'manual-da6-baseline'
+			: 'da6-roster-order';
+	const effectiveHistory =
+		source === 'accepted-history'
+			? continuationHistory
+			: source === 'manual-da6-baseline' && input.baselineStartDate
+				? buildBaselineContinuationHistory(template, resolvedPool, input.baselineStartDate)
+				: [];
+	const rows =
+		source === 'accepted-history'
+			? countRowsFromHistory(continuationHistory, resolvedPool)
+			: source === 'manual-da6-baseline'
+				? countRowsFromBaseline(template, resolvedPool)
+				: zeroCountRows(resolvedPool);
+	const text = countSourceText({ source, invalidatedRunCount, countingCorrectionCount });
+
+	return {
+		templateId: template.id,
+		source,
+		...text,
+		rows,
+		acceptedRunCount,
+		invalidatedRunCount,
+		countingCorrectionCount,
+		nonCountingCorrectionCount,
+		continuationHistory: effectiveHistory
+	};
 }
 
 async function loadCorrectionsByRunId(
@@ -515,8 +750,8 @@ async function buildTemplatePreviewFromCurrentState(
 		generatedAt?: string;
 	}
 ): Promise<DutyRosterTemplatePreview> {
-	const [personnel, statusTypeRows, availabilityRows, specialDayRows, acceptedHistory] = await Promise.all([
-		listActiveDutyRosterPersonnel(ctx),
+	const personnel = await listActiveDutyRosterPersonnel(ctx);
+	const [statusTypeRows, availabilityRows, specialDayRows, countReadModel] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -536,7 +771,7 @@ async function buildTemplatePreviewFromCurrentState(
 			],
 			orderBy: [{ column: 'date', ascending: true }]
 		}),
-		loadAcceptedContinuationHistory(ctx, input.template.id)
+		loadTemplateCountReadModel(ctx, input.template, { baselineStartDate: input.startDate, personnel })
 	]);
 
 	return buildDutyRosterTemplatePreview({
@@ -545,7 +780,7 @@ async function buildTemplatePreviewFromCurrentState(
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
-		acceptedHistory,
+		acceptedHistory: countReadModel.continuationHistory,
 		startDate: input.startDate,
 		endDate: input.endDate,
 		generatedAt: input.generatedAt
@@ -774,6 +1009,25 @@ export async function loadDutyRosterTemplateSettings(
 		personnel,
 		resolvedPool,
 		baselineRows
+	};
+}
+
+export async function loadDutyRosterTemplateCountReadModel(
+	ctx: DutyRosterTemplateQueryPorts,
+	template: DutyRosterTemplate
+): Promise<DutyRosterTemplateCountReadModel> {
+	await requireTemplateView(ctx);
+	const readModel = await loadTemplateCountReadModel(ctx, template);
+	return {
+		templateId: readModel.templateId,
+		source: readModel.source,
+		sourceLabel: readModel.sourceLabel,
+		sourceDescription: readModel.sourceDescription,
+		rows: readModel.rows,
+		acceptedRunCount: readModel.acceptedRunCount,
+		invalidatedRunCount: readModel.invalidatedRunCount,
+		countingCorrectionCount: readModel.countingCorrectionCount,
+		nonCountingCorrectionCount: readModel.nonCountingCorrectionCount
 	};
 }
 

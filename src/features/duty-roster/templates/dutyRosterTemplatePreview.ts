@@ -99,10 +99,7 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		assignmentType: templateAssignmentType(input.template),
 		personnel: resolvedPool.map(toPersonnel),
 		assignments: [],
-		rosterHistory:
-			input.acceptedHistory && input.acceptedHistory.length > 0
-				? input.acceptedHistory
-				: buildManualBaselineHistory(input.template, input.startDate),
+		rosterHistory: input.acceptedHistory ?? buildManualBaselineHistory(input.template, input.startDate),
 		advancedDutyEvents: [],
 		availabilityEntries: input.availabilityEntries,
 		statusTypes: input.statusTypes,

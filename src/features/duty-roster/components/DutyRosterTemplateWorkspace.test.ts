@@ -120,7 +120,8 @@ describe('DutyRosterTemplateWorkspace', () => {
 					orgName: 'Able Company',
 					templates: [template],
 					selectedTemplate: template,
-					view: 'generate'
+					view: 'generate',
+					countReadModel: countReadModel({ source: 'manual-da6-baseline' })
 				},
 				form: {
 					preview: preview(),
@@ -133,6 +134,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Generate preview' })).toBeTruthy();
+		expect(screen.getByLabelText('Duty Roster count source')).toBeTruthy();
+		expect(screen.getByText('Manual DA6 Baseline')).toBeTruthy();
+		expect(screen.getByText('1 Soldier with counts')).toBeTruthy();
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
 		expect(list).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
@@ -268,12 +272,16 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun()]
+					acceptedRuns: [acceptedRun()],
+					countReadModel: countReadModel({ source: 'accepted-history', corrected: true })
 				}
 			}
 		});
 
 		expect(screen.getByText('Official')).toBeTruthy();
+		expect(screen.getByText('Accepted history')).toBeTruthy();
+		expect(screen.getByText('1 counting corrections')).toBeTruthy();
+		expect(screen.getAllByText('SGT Baker, Ben').length).toBeGreaterThan(0);
 		const list = screen.getByRole('table', { name: 'Accepted Duty Roster list' });
 		expect(within(list).getByText('MANUAL')).toBeTruthy();
 		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
@@ -571,6 +579,48 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 			sequencePeriods: []
 		},
 		warnings: []
+	};
+}
+
+function countReadModel(options: { source: 'manual-da6-baseline' | 'accepted-history'; corrected?: boolean }) {
+	return {
+		templateId: 'template-1',
+		source: options.source,
+		sourceLabel: options.source === 'accepted-history' ? 'Accepted history' : 'Manual DA6 Baseline',
+		sourceDescription:
+			options.source === 'accepted-history'
+				? 'Future previews use accepted, non-invalidated Duty Roster history. Manual accepted selections are treated as the final selection. Latest counting corrections use the Soldier who actually served.'
+				: 'Future previews use Manual DA6 Baseline until this template has its first accepted Duty Roster Run.',
+		rows: [
+			{
+				personnelId: 'person-1',
+				display: {
+					id: 'person-1',
+					rank: 'SGT',
+					lastName: 'Able',
+					firstName: 'Ann',
+					groupName: 'Alpha'
+				},
+				count: options.source === 'manual-da6-baseline' ? 1 : 0,
+				lastDutyDate: null
+			},
+			{
+				personnelId: 'person-2',
+				display: {
+					id: 'person-2',
+					rank: 'SGT',
+					lastName: 'Baker',
+					firstName: 'Ben',
+					groupName: 'Bravo'
+				},
+				count: options.source === 'accepted-history' ? 1 : 0,
+				lastDutyDate: options.source === 'accepted-history' ? '2026-06-01' : null
+			}
+		],
+		acceptedRunCount: options.source === 'accepted-history' ? 1 : 0,
+		invalidatedRunCount: 0,
+		countingCorrectionCount: options.corrected ? 1 : 0,
+		nonCountingCorrectionCount: 0
 	};
 }
 

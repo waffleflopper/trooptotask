@@ -51,6 +51,27 @@ export interface DutyRosterTemplateSettingsData {
 	baselineRows: DutyRosterBaselineRow[];
 }
 
+export type DutyRosterTemplateCountSource = 'da6-roster-order' | 'manual-da6-baseline' | 'accepted-history';
+
+export interface DutyRosterTemplateCountRow {
+	personnelId: string;
+	display: DutyRosterPoolPersonnelDisplay | null;
+	count: number;
+	lastDutyDate: string | null;
+}
+
+export interface DutyRosterTemplateCountReadModel {
+	templateId: string;
+	source: DutyRosterTemplateCountSource;
+	sourceLabel: string;
+	sourceDescription: string;
+	rows: DutyRosterTemplateCountRow[];
+	acceptedRunCount: number;
+	invalidatedRunCount: number;
+	countingCorrectionCount: number;
+	nonCountingCorrectionCount: number;
+}
+
 export interface DutyRosterTemplateSettingsInput {
 	templateId: string;
 	poolCriteria: DutyRosterPoolCriteria;

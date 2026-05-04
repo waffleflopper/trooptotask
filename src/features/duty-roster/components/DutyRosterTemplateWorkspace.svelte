@@ -3,6 +3,7 @@
 	import type {
 		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
+		DutyRosterTemplateCountReadModel,
 		DutyRosterTemplateRunCorrection,
 		DutyRosterTemplateSettingsData,
 		DutyRosterTemplateView
@@ -47,6 +48,7 @@
 		selectedTemplate?: DutyRosterTemplate | null;
 		settings?: DutyRosterTemplateSettingsData | null;
 		acceptedRuns?: DutyRosterTemplateAcceptedRun[];
+		countReadModel?: DutyRosterTemplateCountReadModel | null;
 		view?: DutyRosterTemplateView;
 	}
 
@@ -86,6 +88,7 @@
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
 	);
 	const acceptedRuns = $derived(data.acceptedRuns ?? []);
+	const countReadModel = $derived(data.countReadModel ?? null);
 	const latestHistoryRunId = $derived(acceptedRuns[0]?.id ?? null);
 	const baselineLocked = $derived(acceptedRuns.length > 0);
 	const rankOptions = $derived(uniqueOptions(data.settings?.personnel.map((person) => person.rank) ?? []));
@@ -158,6 +161,14 @@
 		fallbackId: string
 	): string {
 		return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : fallbackId;
+	}
+
+	function countRowName(row: DutyRosterTemplateCountReadModel['rows'][number]): string {
+		return row.display ? `${row.display.rank} ${row.display.lastName}, ${row.display.firstName}` : row.personnelId;
+	}
+
+	function countedSoldierLabel(count: number): string {
+		return `${count} ${count === 1 ? 'Soldier' : 'Soldiers'} with counts`;
 	}
 
 	function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
@@ -372,6 +383,22 @@
 							Generate creates a preview only. Review the proposed roster in the list and DA6 matrix before it becomes
 							official history in a later slice.
 						</p>
+						{#if countReadModel}
+							<div class="count-source-panel" aria-label="Duty Roster count source">
+								<div>
+									<span>Count source</span>
+									<strong>{countReadModel.sourceLabel}</strong>
+									<small>{countReadModel.sourceDescription}</small>
+								</div>
+								<div class="count-source-meta">
+									<span>{countedSoldierLabel(countReadModel.rows.filter((row) => row.count > 0).length)}</span>
+									<span>{countReadModel.acceptedRunCount} accepted runs</span>
+									{#if countReadModel.invalidatedRunCount > 0}
+										<span>{countReadModel.invalidatedRunCount} invalidated runs excluded</span>
+									{/if}
+								</div>
+							</div>
+						{/if}
 
 						{#if actionForm?.generateError}
 							<p class="form-error settings-error" role="alert">{actionForm.generateError}</p>
@@ -568,6 +595,35 @@
 							Accepted Duty Roster Runs are official history. List review shows generated versus manual rows; the matrix
 							renders from the saved snapshot.
 						</p>
+						{#if countReadModel}
+							<div class="count-source-panel" aria-label="Duty Roster count source">
+								<div>
+									<span>Count source</span>
+									<strong>{countReadModel.sourceLabel}</strong>
+									<small>{countReadModel.sourceDescription}</small>
+								</div>
+								<div class="count-source-meta">
+									<span>{countedSoldierLabel(countReadModel.rows.filter((row) => row.count > 0).length)}</span>
+									<span>{countReadModel.acceptedRunCount} accepted runs</span>
+									{#if countReadModel.countingCorrectionCount > 0}
+										<span>{countReadModel.countingCorrectionCount} counting corrections</span>
+									{/if}
+									{#if countReadModel.nonCountingCorrectionCount > 0}
+										<span>{countReadModel.nonCountingCorrectionCount} non-counting corrections</span>
+									{/if}
+								</div>
+								{#if countReadModel.rows.some((row) => row.count > 0)}
+									<div class="count-row-strip" aria-label="Current Duty Roster counts">
+										{#each countReadModel.rows.filter((row) => row.count > 0).slice(0, 4) as row (row.personnelId)}
+											<span>
+												{countRowName(row)}
+												<strong>{row.count}</strong>
+											</span>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/if}
 						{#if actionForm?.applyError}
 							<p class="form-error settings-error" role="alert">{actionForm.applyError}</p>
 						{/if}
@@ -1242,6 +1298,68 @@
 	.state-grid strong {
 		margin: 0;
 		color: var(--text-primary);
+	}
+
+	.count-source-panel {
+		display: grid;
+		gap: var(--sp-3);
+		margin-top: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-left: 3px solid var(--amber);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+		padding: var(--sp-4);
+	}
+
+	.count-source-panel > div:first-child {
+		display: grid;
+		gap: 4px;
+	}
+
+	.count-source-panel span,
+	.count-source-panel small {
+		color: var(--text-tertiary);
+	}
+
+	.count-source-panel span {
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.count-source-panel strong {
+		color: var(--text-primary);
+	}
+
+	.count-source-panel small {
+		line-height: 1.4;
+	}
+
+	.count-source-meta,
+	.count-row-strip {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.count-source-meta span,
+	.count-row-strip span {
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-default);
+		padding: 0.35rem 0.5rem;
+	}
+
+	.count-row-strip span {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		color: var(--text-secondary);
+		font-family: inherit;
+		font-size: 0.78rem;
+		font-weight: 600;
+		text-transform: none;
 	}
 
 	.settings-error {

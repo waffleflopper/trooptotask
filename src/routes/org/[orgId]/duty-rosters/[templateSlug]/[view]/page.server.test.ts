@@ -7,6 +7,7 @@ const {
 	applyDutyRosterTemplatePreviewManualSelectionMock,
 	invalidateLatestDutyRosterTemplateRunMock,
 	loadWithContextMock,
+	loadDutyRosterTemplateCountReadModelMock,
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreviewMock,
@@ -23,6 +24,7 @@ const {
 	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
 	invalidateLatestDutyRosterTemplateRunMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
+	loadDutyRosterTemplateCountReadModelMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
 	generateDutyRosterTemplatePreviewMock: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	invalidateLatestDutyRosterTemplateRun: invalidateLatestDutyRosterTemplateRunMock,
 	listAcceptedDutyRosterTemplateRuns: listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
+	loadDutyRosterTemplateCountReadModel: loadDutyRosterTemplateCountReadModelMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
 	recordDutyRosterTemplateRunCorrection: recordDutyRosterTemplateRunCorrectionMock,
 	updateDutyRosterTemplateSettings: updateDutyRosterTemplateSettingsMock
@@ -76,6 +79,7 @@ describe('Duty Roster Template view route', () => {
 			template({ id: 'template-1', name: 'CQ NCO', slug: 'cq-nco', shortCode: 'CQ', status: 'active' })
 		);
 		loadDutyRosterTemplateSettingsMock.mockResolvedValue({ personnel: [], resolvedPool: [], baselineRows: [] });
+		loadDutyRosterTemplateCountReadModelMock.mockResolvedValue(countReadModel());
 		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
 		applyDutyRosterTemplatePreviewManualSelectionMock.mockResolvedValue(preview({ manual: true }));
 		acceptDutyRosterTemplatePreviewMock.mockResolvedValue(acceptedRun());
@@ -111,6 +115,7 @@ describe('Duty Roster Template view route', () => {
 			orgId: 'org-1',
 			orgName: 'Able Company',
 			selectedTemplate: { id: 'template-1', slug: 'cq-nco' },
+			countReadModel: { sourceLabel: 'DA6 roster order' },
 			view: 'history'
 		});
 	});
@@ -601,6 +606,21 @@ function preview(options: { manual?: boolean } = {}) {
 		},
 		exportModel: {},
 		warnings: []
+	};
+}
+
+function countReadModel() {
+	return {
+		templateId: 'template-1',
+		source: 'da6-roster-order',
+		sourceLabel: 'DA6 roster order',
+		sourceDescription:
+			'Future previews use DA6 roster order because this template has no accepted history or Manual DA6 Baseline counts.',
+		rows: [],
+		acceptedRunCount: 0,
+		invalidatedRunCount: 0,
+		countingCorrectionCount: 0,
+		nonCountingCorrectionCount: 0
 	};
 }
 

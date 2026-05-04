@@ -11,6 +11,7 @@ import {
 	invalidateLatestDutyRosterTemplateRun,
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
+	loadDutyRosterTemplateCountReadModel,
 	loadDutyRosterTemplateSettings,
 	recordDutyRosterTemplateRunCorrection,
 	updateDutyRosterTemplateSettings
@@ -84,12 +85,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 			}
 
 			const settings = view === 'settings' ? await loadDutyRosterTemplateSettings(ctx, selectedTemplate) : null;
+			const countReadModel = await loadDutyRosterTemplateCountReadModel(ctx, selectedTemplate);
 			const acceptedRuns =
 				view === 'settings' || view === 'history'
 					? await listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id)
 					: [];
 
-			return { templates, selectedTemplate, settings, acceptedRuns };
+			return { templates, selectedTemplate, settings, acceptedRuns, countReadModel };
 		}
 	});
 
@@ -100,6 +102,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		selectedTemplate: data.selectedTemplate,
 		settings: data.settings,
 		acceptedRuns: data.acceptedRuns,
+		countReadModel: data.countReadModel,
 		view
 	};
 };

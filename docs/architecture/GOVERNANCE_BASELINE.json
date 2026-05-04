@@ -588,6 +588,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260504000100_duty_roster_templates.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#801",
+			"reason": "Duty Roster Template RLS uses the existing Calendar helper API for table-level read/write protection while route and service behavior is enforced through Policy Decisions.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

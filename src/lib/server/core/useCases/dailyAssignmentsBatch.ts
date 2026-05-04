@@ -49,6 +49,8 @@ interface BatchRecord {
 	date: string;
 	assignmentTypeId: string;
 	assigneeId: string; // empty string = clear slot
+	dutyRosterTemplateRunId?: string | null;
+	dutyRosterTemplateRunRowDate?: string | null;
 }
 
 interface BatchInput {
@@ -200,7 +202,13 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 	if (upserts.length > 0) {
 		const rows = upserts.map((r) =>
 			entity.toDbInsert(
-				{ date: r.date, assignmentTypeId: r.assignmentTypeId, assigneeId: r.assigneeId },
+				{
+					date: r.date,
+					assignmentTypeId: r.assignmentTypeId,
+					assigneeId: r.assigneeId,
+					dutyRosterTemplateRunId: r.dutyRosterTemplateRunId,
+					dutyRosterTemplateRunRowDate: r.dutyRosterTemplateRunRowDate
+				},
 				ctx.auth.orgId
 			)
 		);

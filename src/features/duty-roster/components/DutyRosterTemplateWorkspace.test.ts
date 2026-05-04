@@ -8,6 +8,7 @@ import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
+	assignmentTypeId: 'template-1',
 	name: 'CQ NCO',
 	slug: 'cq-nco',
 	shortCode: 'CQ',
@@ -139,6 +140,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept and Apply to Calendar' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept and Print' })).toBeTruthy();
 	});
 
@@ -279,6 +281,8 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('table', { name: 'Accepted DA6 matrix' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print official' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export official' })).toBeTruthy();
+		expect(screen.getByText('Apply later')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
 	});
 
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
@@ -507,6 +511,8 @@ function acceptedRun() {
 		endDate: '2026-06-01',
 		acceptedAt: '2026-06-01T00:00:00.000Z',
 		acceptedByUserId: 'user-1',
+		appliedAt: null,
+		appliedByUserId: null,
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

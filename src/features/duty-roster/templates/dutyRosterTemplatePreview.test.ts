@@ -37,6 +37,7 @@ const statusTypes: StatusType[] = [
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
+	assignmentTypeId: 'assignment-type-1',
 	name: 'CQ NCO',
 	slug: 'cq-nco',
 	shortCode: 'CQ',

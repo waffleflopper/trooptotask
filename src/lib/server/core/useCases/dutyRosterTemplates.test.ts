@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
 	acceptDutyRosterTemplatePreview,
+	acceptAndApplyDutyRosterTemplatePreview,
+	applyAcceptedDutyRosterTemplateRun,
 	applyDutyRosterTemplatePreviewManualSelection,
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
@@ -13,7 +15,9 @@ import {
 } from './dutyRosterTemplates';
 
 const rows: Record<string, unknown>[] = [];
+const assignmentTypeRows: Record<string, unknown>[] = [];
 const acceptedRunRows: Record<string, unknown>[] = [];
+const dailyAssignmentRows: Record<string, unknown>[] = [];
 const personnelRows: Record<string, unknown>[] = [];
 const availabilityRows: Record<string, unknown>[] = [];
 const specialDayRows: Record<string, unknown>[] = [];
@@ -70,6 +74,12 @@ const store: DataStore = {
 			);
 		}
 
+		if (options?.inFilters) {
+			result = result.filter((row) =>
+				Object.entries(options.inFilters ?? {}).every(([key, values]) => values.includes(row[key]))
+			);
+		}
+
 		if (options?.rangeFilters) {
 			result = result.filter((row) =>
 				options.rangeFilters?.every(({ column, op, value }) => {
@@ -122,6 +132,26 @@ const store: DataStore = {
 			return row;
 		}
 
+		if (table === 'assignment_types') {
+			const row = {
+				id: String(data.id ?? `assignment-type-${assignmentTypeRows.length + 1}`),
+				organization_id: orgId,
+				...data
+			};
+			assignmentTypeRows.push(row);
+			return row;
+		}
+
+		if (table === 'daily_assignments') {
+			const row = {
+				id: `daily-assignment-${dailyAssignmentRows.length + 1}`,
+				organization_id: orgId,
+				...data
+			};
+			dailyAssignmentRows.push(row);
+			return row;
+		}
+
 		if (
 			table === 'duty_roster_templates' &&
 			rows.some((row) => row.organization_id === orgId && row.slug === data.slug)
@@ -148,11 +178,34 @@ const store: DataStore = {
 		return source[index];
 	},
 	updateById: vi.fn(),
-	delete: vi.fn(),
+	async delete(table, orgId, id) {
+		const source = tableRows(table);
+		const index = source.findIndex((row) => row.organization_id === orgId && row.id === id);
+		if (index !== -1) {
+			source.splice(index, 1);
+		}
+	},
 	deleteWhere: vi.fn(),
-	deleteWhereAny: vi.fn(),
+	async deleteWhereAny(table, orgId, filterGroups) {
+		const source = tableRows(table);
+		for (let index = source.length - 1; index >= 0; index -= 1) {
+			const row = source[index];
+			if (
+				row?.organization_id === orgId &&
+				filterGroups.some((filters) => Object.entries(filters).every(([key, value]) => row[key] === value))
+			) {
+				source.splice(index, 1);
+			}
+		}
+	},
 	deleteManyByIds: vi.fn(),
-	insertMany: vi.fn(),
+	async insertMany(table, orgId, dataRows) {
+		const inserted: Record<string, unknown>[] = [];
+		for (const data of dataRows) {
+			inserted.push((await store.insert(table, orgId, data)) as Record<string, unknown>);
+		}
+		return inserted;
+	},
 	findManyWithCount: vi.fn()
 } as DataStore;
 
@@ -178,7 +231,9 @@ function createCtx(auth = createAuth()) {
 describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
 		rows.length = 0;
+		assignmentTypeRows.length = 0;
 		acceptedRunRows.length = 0;
+		dailyAssignmentRows.length = 0;
 		personnelRows.length = 0;
 		availabilityRows.length = 0;
 		specialDayRows.length = 0;
@@ -191,16 +246,25 @@ describe('Duty Roster Template use cases', () => {
 		const template = await createDutyRosterTemplate(createCtx(), { name: 'CQ NCO', shortCode: 'cq' });
 
 		expect(template).toMatchObject({
-			id: 'template-1',
+			assignmentTypeId: template.id,
 			name: 'CQ NCO',
 			slug: 'cq-nco',
 			shortCode: 'CQ',
 			status: 'active'
 		});
+		expect(assignmentTypeRows).toContainEqual(
+			expect.objectContaining({
+				id: template.id,
+				name: 'CQ NCO',
+				short_name: 'CQ',
+				assign_to: 'personnel',
+				show_in_date_header: false
+			})
+		);
 		expect(auditEvents).toContainEqual({
 			action: 'duty_roster_template.created',
 			resourceType: 'duty_roster_template',
-			resourceId: 'template-1'
+			resourceId: template.id
 		});
 	});
 
@@ -558,6 +622,101 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
+	it('accepts a preview before applying it to Calendar with run row lineage', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-02'
+		});
+
+		const result = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
+		expect(result.insertedCount).toBe(2);
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'alpha',
+				duty_roster_template_run_id: result.acceptedRun.id,
+				duty_roster_template_run_row_date: '2026-06-01'
+			}),
+			expect.objectContaining({
+				date: '2026-06-02',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'bravo',
+				duty_roster_template_run_id: result.acceptedRun.id,
+				duty_roster_template_run_row_date: '2026-06-02'
+			})
+		]);
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.applied_to_calendar',
+				resourceType: 'duty_roster_template_run',
+				resourceId: result.acceptedRun.id
+			})
+		);
+	});
+
+	it('applies an accepted run later from history', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		const result = await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+
+		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'alpha',
+				duty_roster_template_run_id: accepted.id
+			})
+		]);
+	});
+
+	it('does not reapply an already applied accepted run', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+
+		await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toMatchObject({
+			status: 400,
+			message: 'Accepted Duty Roster Run has already been applied to Calendar.'
+		});
+		expect(dailyAssignmentRows).toHaveLength(1);
+	});
+
 	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -655,8 +814,12 @@ describe('Duty Roster Template use cases', () => {
 
 function tableRows(table: string): Record<string, unknown>[] {
 	switch (table) {
+		case 'assignment_types':
+			return assignmentTypeRows;
 		case 'availability_entries':
 			return availabilityRows;
+		case 'daily_assignments':
+			return dailyAssignmentRows;
 		case 'duty_roster_template_runs':
 			return acceptedRunRows;
 		case 'personnel':
@@ -734,6 +897,8 @@ function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unkn
 		},
 		accepted_by_user_id: 'user-1',
 		accepted_at: '2026-06-01T12:00:00.000Z',
+		applied_by_user_id: null,
+		applied_at: null,
 		created_at: '2026-06-01T12:00:00.000Z',
 		...overrides
 	};

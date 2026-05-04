@@ -4,6 +4,7 @@ export type DutyRosterTemplateView = (typeof DUTY_ROSTER_TEMPLATE_VIEWS)[number]
 
 export interface DutyRosterTemplate {
 	id: string;
+	assignmentTypeId: string;
 	name: string;
 	slug: string;
 	shortCode: string | null;
@@ -83,6 +84,8 @@ export interface DutyRosterTemplateAcceptedRun {
 	endDate: string;
 	acceptedAt: string;
 	acceptedByUserId: string | null;
+	appliedAt: string | null;
+	appliedByUserId: string | null;
 	snapshotPayload: Record<string, unknown>;
 	createdAt: string;
 }

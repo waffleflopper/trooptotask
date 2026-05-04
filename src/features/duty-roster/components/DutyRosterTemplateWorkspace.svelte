@@ -23,6 +23,7 @@
 		generateError?: string;
 		manualError?: string;
 		settingsError?: string;
+		applyError?: string;
 		preview?: DutyRosterTemplatePreview;
 		acceptedRun?: DutyRosterTemplateAcceptedRun;
 		printAcceptedRun?: boolean;
@@ -64,6 +65,12 @@
 	);
 	const acceptPreviewAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/acceptPreview` : createAction
+	);
+	const applyPreviewAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/applyPreview` : createAction
+	);
+	const applyAcceptedRunAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/history?/applyAcceptedRun` : createAction
 	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
@@ -494,6 +501,10 @@
 									<input type="hidden" name="preview" value={previewFormValue(preview)} />
 									<button class="btn btn-primary" type="submit">Accept run</button>
 								</form>
+								<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
+									<input type="hidden" name="preview" value={previewFormValue(preview)} />
+									<button class="btn btn-primary" type="submit">Accept and Apply to Calendar</button>
+								</form>
 								<button
 									class="btn btn-primary"
 									type="button"
@@ -529,6 +540,9 @@
 							Accepted Duty Roster Runs are official history. List review shows generated versus manual rows; the matrix
 							renders from the saved snapshot.
 						</p>
+						{#if actionForm?.applyError}
+							<p class="form-error settings-error" role="alert">{actionForm.applyError}</p>
+						{/if}
 						{#if acceptedRuns.length === 0}
 							<div class="empty-history">History is empty until a DA6 run is accepted.</div>
 						{:else}
@@ -543,12 +557,21 @@
 											</div>
 											<div class="accepted-output-actions">
 												<span class="official-badge">Official</span>
+												<span class:applied-badge={Boolean(run.appliedAt)} class:apply-later-badge={!run.appliedAt}>
+													{run.appliedAt ? 'Applied' : 'Apply later'}
+												</span>
 												<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
 													Print official
 												</button>
 												<button class="btn btn-secondary btn-sm" type="button" onclick={() => exportAcceptedRun(run)}>
 													Export official
 												</button>
+												{#if !run.appliedAt}
+													<form class="accept-preview-form" method="POST" action={applyAcceptedRunAction}>
+														<input type="hidden" name="runId" value={run.id} />
+														<button class="btn btn-primary btn-sm" type="submit">Apply to Calendar</button>
+													</form>
+												{/if}
 											</div>
 										</div>
 
@@ -1364,7 +1387,9 @@
 		text-transform: uppercase;
 	}
 
-	.official-badge {
+	.official-badge,
+	.applied-badge,
+	.apply-later-badge {
 		display: inline-flex;
 		width: fit-content;
 		border: 1px solid var(--border-default);
@@ -1377,6 +1402,16 @@
 		letter-spacing: 0;
 		padding: 2px var(--sp-2);
 		text-transform: uppercase;
+	}
+
+	.applied-badge {
+		background: var(--success-bg, var(--surface-subtle));
+		color: var(--success, var(--text-primary));
+	}
+
+	.apply-later-badge {
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
 	}
 
 	.matrix-scroll {

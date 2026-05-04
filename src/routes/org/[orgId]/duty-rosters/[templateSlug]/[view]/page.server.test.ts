@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
 	acceptDutyRosterTemplatePreviewMock,
+	acceptAndApplyDutyRosterTemplatePreviewMock,
+	applyAcceptedDutyRosterTemplateRunMock,
 	applyDutyRosterTemplatePreviewManualSelectionMock,
 	loadWithContextMock,
 	loadDutyRosterTemplateSettingsMock,
@@ -14,6 +16,8 @@ const {
 	mockCtx
 } = vi.hoisted(() => ({
 	acceptDutyRosterTemplatePreviewMock: vi.fn(),
+	acceptAndApplyDutyRosterTemplatePreviewMock: vi.fn(),
+	applyAcceptedDutyRosterTemplateRunMock: vi.fn(),
 	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
@@ -37,6 +41,8 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	acceptDutyRosterTemplatePreview: acceptDutyRosterTemplatePreviewMock,
+	acceptAndApplyDutyRosterTemplatePreview: acceptAndApplyDutyRosterTemplatePreviewMock,
+	applyAcceptedDutyRosterTemplateRun: applyAcceptedDutyRosterTemplateRunMock,
 	applyDutyRosterTemplatePreviewManualSelection: applyDutyRosterTemplatePreviewManualSelectionMock,
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
@@ -67,6 +73,11 @@ describe('Duty Roster Template view route', () => {
 		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
 		applyDutyRosterTemplatePreviewManualSelectionMock.mockResolvedValue(preview({ manual: true }));
 		acceptDutyRosterTemplatePreviewMock.mockResolvedValue(acceptedRun());
+		acceptAndApplyDutyRosterTemplatePreviewMock.mockResolvedValue({ acceptedRun: acceptedRun(), insertedCount: 1 });
+		applyAcceptedDutyRosterTemplateRunMock.mockResolvedValue({
+			acceptedRun: acceptedRun({ applied: true }),
+			insertedCount: 1
+		});
 		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([]);
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
 	});
@@ -319,6 +330,53 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('accepts and applies a preview to Calendar before redirecting to History', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview)
+			})
+		});
+
+		await expect(
+			actions.applyPreview({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		expect(acceptAndApplyDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview)
+		});
+	});
+
+	it('applies an accepted run to Calendar from History', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1'
+			})
+		});
+
+		await expect(
+			actions.applyAcceptedRun({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		expect(applyAcceptedDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1'
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);
@@ -361,6 +419,7 @@ describe('Duty Roster Template view route', () => {
 function template(overrides: Record<string, unknown> = {}) {
 	return {
 		id: 'template-1',
+		assignmentTypeId: 'template-1',
 		name: 'CQ NCO',
 		slug: 'cq-nco',
 		shortCode: 'CQ',
@@ -477,7 +536,7 @@ function preview(options: { manual?: boolean } = {}) {
 	};
 }
 
-function acceptedRun() {
+function acceptedRun(options: { applied?: boolean } = {}) {
 	return {
 		id: 'run-1',
 		templateId: 'template-1',
@@ -487,6 +546,8 @@ function acceptedRun() {
 		endDate: '2026-06-01',
 		acceptedAt: '2026-06-01T00:00:00.000Z',
 		acceptedByUserId: 'user-1',
+		appliedAt: options.applied ? '2026-06-01T00:10:00.000Z' : null,
+		appliedByUserId: options.applied ? 'user-1' : null,
 		snapshotPayload: {
 			snapshotVersion: 1,
 			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },

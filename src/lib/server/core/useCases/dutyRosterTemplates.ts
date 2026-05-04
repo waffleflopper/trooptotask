@@ -38,9 +38,11 @@ import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry'
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
+const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
 const MAX_PREVIEW_DAYS = 62;
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -76,6 +78,7 @@ type DutyRosterTemplateRow = {
 	id: string;
 	name: string;
 	slug: string;
+	assignment_type_id: string;
 	short_code: string | null;
 	status: 'active' | 'archived';
 	pool_criteria?: Record<string, unknown> | null;
@@ -96,6 +99,8 @@ type DutyRosterTemplateRunRow = {
 	snapshot_payload: Record<string, unknown>;
 	accepted_by_user_id: string | null;
 	accepted_at: string;
+	applied_by_user_id: string | null;
+	applied_at: string | null;
 	created_at: string;
 };
 
@@ -103,6 +108,7 @@ function toTemplate(row: DutyRosterTemplateRow): DutyRosterTemplate {
 	const poolCriteria = normalizePoolCriteriaFromDb(row.pool_criteria);
 	return {
 		id: row.id,
+		assignmentTypeId: row.assignment_type_id ?? row.id,
 		name: row.name,
 		slug: row.slug,
 		shortCode: row.short_code,
@@ -125,6 +131,8 @@ function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAccepte
 		endDate: row.end_date,
 		acceptedAt: row.accepted_at,
 		acceptedByUserId: row.accepted_by_user_id,
+		appliedAt: row.applied_at ?? null,
+		appliedByUserId: row.applied_by_user_id ?? null,
 		snapshotPayload: row.snapshot_payload,
 		createdAt: row.created_at
 	};
@@ -275,6 +283,10 @@ function isUniqueSlugError(error: unknown): boolean {
 	return error instanceof Error && /duplicate|unique|duty_roster_templates_org_slug_key/i.test(error.message);
 }
 
+function defaultDutyRosterAssignmentShortName(input: { name: string; shortCode: string | null }): string {
+	return input.shortCode ?? input.name.slice(0, 12).trim().toUpperCase();
+}
+
 async function loadAcceptedContinuationHistory(ctx: QueryPorts, templateId: string) {
 	const acceptedRunRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
 		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
@@ -374,6 +386,7 @@ export async function createDutyRosterTemplate(
 	);
 
 	for (let attempt = 0; attempt < 3; attempt += 1) {
+		const templateId = crypto.randomUUID();
 		const slug = buildUniqueDutyRosterTemplateSlug({
 			name: parsed.name,
 			existingSlugs: existingRows.map((row) => row.slug)
@@ -381,7 +394,20 @@ export async function createDutyRosterTemplate(
 		const now = new Date().toISOString();
 
 		try {
+			await ctx.store.insert<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, {
+				id: templateId,
+				name: parsed.name,
+				short_name: defaultDutyRosterAssignmentShortName(parsed),
+				assign_to: 'personnel',
+				color: '#8a5a22',
+				sort_order: 0,
+				show_in_date_header: false,
+				exempt_personnel_ids: []
+			});
+
 			const row = await ctx.store.insert<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+				id: templateId,
+				assignment_type_id: templateId,
 				name: parsed.name,
 				slug,
 				short_code: parsed.shortCode,
@@ -402,6 +428,12 @@ export async function createDutyRosterTemplate(
 
 			return toTemplate(row);
 		} catch (error) {
+			try {
+				await ctx.store.delete(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, templateId);
+			} catch {
+				// Best-effort cleanup for the companion Calendar assignment type after a failed template insert.
+			}
+
 			if (!isUniqueSlugError(error) || attempt === 2) {
 				throw error;
 			}
@@ -618,6 +650,88 @@ export async function acceptDutyRosterTemplatePreview(
 	});
 
 	return toAcceptedRun(inserted);
+}
+
+type DutyRosterTemplateApplyResult = {
+	acceptedRun: DutyRosterTemplateAcceptedRun;
+	insertedCount: number;
+	clearedCount: number;
+};
+
+function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
+	const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+	return snapshot.finalRows.map((row) => ({
+		date: row.date,
+		assignmentTypeId: snapshot.template.id,
+		assigneeId: row.finalAssigneeId ?? '',
+		dutyRosterTemplateRunId: run.id,
+		dutyRosterTemplateRunRowDate: row.date
+	}));
+}
+
+async function applyAcceptedDutyRosterTemplateRunRecord(
+	ctx: WritePorts,
+	run: DutyRosterTemplateAcceptedRun
+): Promise<DutyRosterTemplateApplyResult> {
+	await requireTemplateManagement(ctx);
+	if (run.appliedAt) {
+		fail(400, 'Accepted Duty Roster Run has already been applied to Calendar.');
+	}
+
+	const result = await batchDailyAssignments(ctx, {
+		records: applyRecordsFromAcceptedRun(run)
+	});
+	const appliedAt = new Date().toISOString();
+	const updated = await ctx.store.update<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		run.id,
+		{
+			applied_at: appliedAt,
+			applied_by_user_id: ctx.auth.userId
+		}
+	);
+
+	await ctx.audit.log({
+		action: 'duty_roster_template_run.applied_to_calendar',
+		resourceType: 'duty_roster_template_run',
+		resourceId: run.id,
+		details: {
+			inserted: result.inserted.length,
+			cleared: result.cleared
+		}
+	});
+
+	return {
+		acceptedRun: toAcceptedRun(updated),
+		insertedCount: result.inserted.length,
+		clearedCount: result.cleared
+	};
+}
+
+export async function applyAcceptedDutyRosterTemplateRun(
+	ctx: WritePorts,
+	input: { runId: string }
+): Promise<DutyRosterTemplateApplyResult> {
+	await requireTemplateManagement(ctx);
+
+	const row = await ctx.store.findOne<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
+		id: input.runId,
+		status: 'accepted'
+	});
+	if (!row) {
+		fail(404, 'Accepted Duty Roster Run not found');
+	}
+
+	return applyAcceptedDutyRosterTemplateRunRecord(ctx, toAcceptedRun(row));
+}
+
+export async function acceptAndApplyDutyRosterTemplatePreview(
+	ctx: WritePorts,
+	input: DutyRosterTemplateAcceptPreviewInput
+): Promise<DutyRosterTemplateApplyResult> {
+	const acceptedRun = await acceptDutyRosterTemplatePreview(ctx, input);
+	return applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun);
 }
 
 export async function applyDutyRosterTemplatePreviewManualSelection(

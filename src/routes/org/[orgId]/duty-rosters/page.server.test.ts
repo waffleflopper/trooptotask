@@ -27,9 +27,7 @@ describe('Duty Roster Templates route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) => config.fn(mockCtx));
-		listDutyRosterTemplatesMock.mockResolvedValue([
-			{ id: 'template-1', name: 'CQ NCO', slug: 'cq-nco', shortCode: 'CQ', status: 'active' }
-		]);
+		listDutyRosterTemplatesMock.mockResolvedValue([template()]);
 		createDutyRosterTemplateMock.mockResolvedValue({ slug: 'cq-nco' });
 	});
 
@@ -50,8 +48,8 @@ describe('Duty Roster Templates route', () => {
 		expect(result).toEqual({
 			orgId: 'org-1',
 			orgName: 'Able Company',
-			templates: [{ id: 'template-1', name: 'CQ NCO', slug: 'cq-nco', shortCode: 'CQ', status: 'active' }],
-			selectedTemplate: { id: 'template-1', name: 'CQ NCO', slug: 'cq-nco', shortCode: 'CQ', status: 'active' },
+			templates: [template()],
+			selectedTemplate: template(),
 			view: 'generate'
 		});
 	});
@@ -75,3 +73,14 @@ describe('Duty Roster Templates route', () => {
 		expect(createDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, { name: 'CQ NCO', shortCode: 'cq' });
 	});
 });
+
+function template() {
+	return {
+		id: 'template-1',
+		assignmentTypeId: 'template-1',
+		name: 'CQ NCO',
+		slug: 'cq-nco',
+		shortCode: 'CQ',
+		status: 'active'
+	};
+}

@@ -255,13 +255,13 @@ export function assertDutyRosterTemplatePreview(value: unknown): asserts value i
 
 function templateAssignmentType(template: DutyRosterTemplate): AssignmentType {
 	return {
-		id: template.id,
+		id: template.assignmentTypeId,
 		name: template.name,
 		shortName: template.shortCode ?? template.name.slice(0, 12),
 		assignTo: 'personnel',
 		color: '#8a5a22',
 		exemptPersonnelIds: [],
-		showInDateHeader: true
+		showInDateHeader: false
 	};
 }
 
@@ -353,7 +353,7 @@ function buildManualBaselineHistory(template: DutyRosterTemplate, startDate: str
 	const highestCount = Math.max(...counts.map(([, count]) => count));
 	return [
 		{
-			assignmentTypeId: template.id,
+			assignmentTypeId: template.assignmentTypeId,
 			startDate: shiftDate(startDate, -highestCount),
 			endDate: shiftDate(startDate, -1),
 			roster: counts.map(([personnelId, count]) => ({

@@ -3,6 +3,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	acceptDutyRosterTemplatePreview,
+	acceptAndApplyDutyRosterTemplatePreview,
+	applyAcceptedDutyRosterTemplateRun,
 	applyDutyRosterTemplatePreviewManualSelection,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
@@ -13,7 +15,7 @@ import {
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
 
-type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError';
+type ActionErrorKey = 'generateError' | 'manualError' | 'settingsError' | 'applyError';
 
 function formValues(formData: FormData, name: string): string[] {
 	return formData.getAll(name).map((value) => String(value));
@@ -173,6 +175,40 @@ export const actions: Actions = {
 			return actionError(errorValue, {
 				key: 'generateError',
 				fallback: 'Failed to accept Duty Roster preview.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+	},
+	applyPreview: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+				preview: String(formData.get('preview') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'generateError',
+				fallback: 'Failed to apply Duty Roster preview to Calendar.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
+	},
+	applyAcceptedRun: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await applyAcceptedDutyRosterTemplateRun(ctx, {
+				runId: String(formData.get('runId') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'applyError',
+				fallback: 'Failed to apply accepted Duty Roster Run to Calendar.'
 			});
 		}
 

@@ -133,7 +133,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(list).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: /Accept/ })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Accept run' })).toBeTruthy();
 	});
 
 	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', () => {
@@ -189,6 +189,28 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('alert').textContent).toContain('A reason is required for this manual selection.');
 		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
+	});
+
+	it('renders accepted History from the saved snapshot list and matrix', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [acceptedRun()]
+				}
+			}
+		});
+
+		expect(screen.getByText('Official')).toBeTruthy();
+		const list = screen.getByRole('table', { name: 'Accepted Duty Roster list' });
+		expect(within(list).getByText('MANUAL')).toBeTruthy();
+		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
+		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Accepted DA6 matrix' })).toBeTruthy();
 	});
 
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
@@ -404,5 +426,99 @@ function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview 
 			sequencePeriods: []
 		},
 		warnings: []
+	};
+}
+
+function acceptedRun() {
+	return {
+		id: 'run-1',
+		templateId: 'template-1',
+		templateName: 'CQ NCO',
+		status: 'accepted' as const,
+		startDate: '2026-06-01',
+		endDate: '2026-06-01',
+		acceptedAt: '2026-06-01T00:00:00.000Z',
+		acceptedByUserId: 'user-1',
+		snapshotPayload: {
+			snapshotVersion: 1,
+			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },
+			generatedAt: '2026-05-04T00:00:00.000Z',
+			acceptedAt: '2026-06-01T00:00:00.000Z',
+			acceptedByUserId: 'user-1',
+			config: {
+				startDate: '2026-06-01',
+				endDate: '2026-06-01',
+				dutyDuration: 'daily',
+				excludedStatusIds: [],
+				excludeWeekends: false,
+				excludeHolidays: false,
+				excludeOrgClosures: false,
+				exemptPersonnelIds: [],
+				numberingMode: 'single-sequence',
+				misconductUnavailablePersonnelDates: {}
+			},
+			resolvedPool: [
+				{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupId: 'alpha', groupName: 'Alpha' }
+			],
+			selectionPersonnel: [
+				{
+					id: 'person-1',
+					rank: 'SGT',
+					lastName: 'Able',
+					firstName: 'Ann',
+					groupId: 'alpha',
+					groupName: 'Alpha',
+					archivedAt: null
+				},
+				{
+					id: 'person-2',
+					rank: 'SGT',
+					lastName: 'Baker',
+					firstName: 'Ben',
+					groupId: 'bravo',
+					groupName: 'Bravo',
+					archivedAt: null
+				}
+			],
+			generatedRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
+			finalRows: [
+				{
+					date: '2026-06-01',
+					generatedAssigneeId: 'person-1',
+					finalAssigneeId: 'person-2',
+					assignmentSource: 'manual',
+					generatedDisplay: {
+						id: 'person-1',
+						rank: 'SGT',
+						lastName: 'Able',
+						firstName: 'Ann',
+						groupId: 'alpha',
+						groupName: 'Alpha',
+						archivedAt: null
+					},
+					finalDisplay: {
+						id: 'person-2',
+						rank: 'SGT',
+						lastName: 'Baker',
+						firstName: 'Ben',
+						groupId: 'bravo',
+						groupName: 'Bravo',
+						archivedAt: null
+					},
+					reason: 'Commander approved outside-pool replacement.',
+					warnings: [
+						{
+							code: 'outside-pool',
+							message: 'Selected Soldier is outside this template pool.'
+						}
+					]
+				}
+			],
+			manualSelections: [],
+			da6: preview().da6,
+			exportModel: preview().exportModel,
+			warnings: []
+		},
+		createdAt: '2026-06-01T00:00:00.000Z'
 	};
 }

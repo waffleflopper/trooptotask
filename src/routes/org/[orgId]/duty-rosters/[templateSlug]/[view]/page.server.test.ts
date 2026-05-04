@@ -1,21 +1,25 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
+	acceptDutyRosterTemplatePreviewMock,
 	applyDutyRosterTemplatePreviewManualSelectionMock,
 	loadWithContextMock,
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreviewMock,
+	listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplatesMock,
 	updateDutyRosterTemplateSettingsMock,
 	isDutyRosterTemplateViewMock,
 	mockCtx
 } = vi.hoisted(() => ({
+	acceptDutyRosterTemplatePreviewMock: vi.fn(),
 	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
 	generateDutyRosterTemplatePreviewMock: vi.fn(),
+	listAcceptedDutyRosterTemplateRunsMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
 	updateDutyRosterTemplateSettingsMock: vi.fn(),
 	isDutyRosterTemplateViewMock: vi.fn(),
@@ -32,9 +36,11 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
+	acceptDutyRosterTemplatePreview: acceptDutyRosterTemplatePreviewMock,
 	applyDutyRosterTemplatePreviewManualSelection: applyDutyRosterTemplatePreviewManualSelectionMock,
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
+	listAcceptedDutyRosterTemplateRuns: listAcceptedDutyRosterTemplateRunsMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
 	updateDutyRosterTemplateSettings: updateDutyRosterTemplateSettingsMock
@@ -60,6 +66,8 @@ describe('Duty Roster Template view route', () => {
 		loadDutyRosterTemplateSettingsMock.mockResolvedValue({ personnel: [], resolvedPool: [], baselineRows: [] });
 		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
 		applyDutyRosterTemplatePreviewManualSelectionMock.mockResolvedValue(preview({ manual: true }));
+		acceptDutyRosterTemplatePreviewMock.mockResolvedValue(acceptedRun());
+		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([]);
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
 	});
 
@@ -104,6 +112,22 @@ describe('Duty Roster Template view route', () => {
 			selectedTemplate: { id: 'template-1', slug: 'cq-nco' },
 			settings,
 			view: 'settings'
+		});
+	});
+
+	it('loads History through the accepted runs service', async () => {
+		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([acceptedRun()]);
+
+		const result = await load({
+			params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'history' },
+			locals: {},
+			cookies: {},
+			parent: async () => ({ orgName: 'Able Company' })
+		} as never);
+
+		expect(listAcceptedDutyRosterTemplateRunsMock).toHaveBeenCalledWith(mockCtx, 'template-1');
+		expect(result).toMatchObject({
+			acceptedRuns: [{ id: 'run-1', templateName: 'CQ NCO' }]
 		});
 	});
 
@@ -244,6 +268,30 @@ describe('Duty Roster Template view route', () => {
 			preview: {
 				manualSelections: [{ date: '2026-06-01', assigneeId: 'person-2' }]
 			}
+		});
+	});
+
+	it('accepts a preview through the service layer and redirects to History', async () => {
+		const currentPreview = preview();
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				preview: JSON.stringify(currentPreview)
+			})
+		});
+
+		await expect(
+			actions.acceptPreview({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history'
+		});
+
+		expect(acceptDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			preview: JSON.stringify(currentPreview)
 		});
 	});
 
@@ -402,5 +450,46 @@ function preview(options: { manual?: boolean } = {}) {
 		},
 		exportModel: {},
 		warnings: []
+	};
+}
+
+function acceptedRun() {
+	return {
+		id: 'run-1',
+		templateId: 'template-1',
+		templateName: 'CQ NCO',
+		status: 'accepted',
+		startDate: '2026-06-01',
+		endDate: '2026-06-01',
+		acceptedAt: '2026-06-01T00:00:00.000Z',
+		acceptedByUserId: 'user-1',
+		snapshotPayload: {
+			snapshotVersion: 1,
+			template: { id: 'template-1', name: 'CQ NCO', shortCode: 'CQ' },
+			generatedAt: '2026-05-04T00:00:00.000Z',
+			acceptedAt: '2026-06-01T00:00:00.000Z',
+			acceptedByUserId: 'user-1',
+			config: {
+				startDate: '2026-06-01',
+				endDate: '2026-06-01',
+				dutyDuration: 'daily',
+				excludedStatusIds: [],
+				excludeWeekends: false,
+				excludeHolidays: false,
+				excludeOrgClosures: false,
+				exemptPersonnelIds: [],
+				numberingMode: 'single-sequence',
+				misconductUnavailablePersonnelDates: {}
+			},
+			resolvedPool: [],
+			selectionPersonnel: [],
+			generatedRows: [],
+			finalRows: [],
+			manualSelections: [],
+			da6: { numberingMode: 'single-sequence', columns: [], rows: [] },
+			exportModel: {},
+			warnings: []
+		},
+		createdAt: '2026-06-01T00:00:00.000Z'
 	};
 }

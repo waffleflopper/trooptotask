@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import {
+	acceptDutyRosterTemplatePreview,
 	applyDutyRosterTemplatePreviewManualSelection,
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
+	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
 	updateDutyRosterTemplateSettings
 } from './dutyRosterTemplates';
 
 const rows: Record<string, unknown>[] = [];
+const acceptedRunRows: Record<string, unknown>[] = [];
 const personnelRows: Record<string, unknown>[] = [];
 const availabilityRows: Record<string, unknown>[] = [];
 const specialDayRows: Record<string, unknown>[] = [];
@@ -89,8 +92,15 @@ const store: DataStore = {
 			return result.map((row) => ({ slug: row.slug }));
 		}
 
-		if (options?.orderBy?.some((order) => order.column === 'name')) {
-			result = [...result].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+		for (const order of options?.orderBy ?? []) {
+			result = [...result].sort((a, b) => {
+				const comparison = String(a[order.column] ?? '').localeCompare(String(b[order.column] ?? ''));
+				return order.ascending ? comparison : -comparison;
+			});
+		}
+
+		if (typeof options?.limit === 'number') {
+			result = result.slice(0, options.limit);
 		}
 
 		return result;
@@ -102,7 +112,20 @@ const store: DataStore = {
 			return row;
 		}
 
-		if (rows.some((row) => row.organization_id === orgId && row.slug === data.slug)) {
+		if (table === 'duty_roster_template_runs') {
+			const row = {
+				id: `run-${acceptedRunRows.length + 1}`,
+				organization_id: orgId,
+				...data
+			};
+			acceptedRunRows.push(row);
+			return row;
+		}
+
+		if (
+			table === 'duty_roster_templates' &&
+			rows.some((row) => row.organization_id === orgId && row.slug === data.slug)
+		) {
 			throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
 		}
 
@@ -155,6 +178,7 @@ function createCtx(auth = createAuth()) {
 describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
 		rows.length = 0;
+		acceptedRunRows.length = 0;
 		personnelRows.length = 0;
 		availabilityRows.length = 0;
 		specialDayRows.length = 0;
@@ -445,12 +469,196 @@ describe('Duty Roster Template use cases', () => {
 			}
 		]);
 	});
+
+	it('accepts a preview as immutable Duty Roster Template run history', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const manualPreview = await applyDutyRosterTemplatePreviewManualSelection(ctx, {
+			preview: JSON.stringify(preview),
+			date: '2026-06-01',
+			assigneeId: 'bravo',
+			reason: 'Commander directed swap'
+		});
+
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(manualPreview)
+		});
+
+		expect(accepted).toMatchObject({
+			id: 'run-1',
+			templateId: template.id,
+			templateName: 'CQ NCO',
+			status: 'accepted',
+			startDate: '2026-06-01',
+			endDate: '2026-06-01',
+			acceptedByUserId: 'user-1'
+		});
+		expect(acceptedRunRows).toHaveLength(1);
+		expect(acceptedRunRows[0].snapshot_payload).toMatchObject({
+			snapshotVersion: 1,
+			template: { id: template.id, name: 'CQ NCO', shortCode: 'CQ' },
+			finalRows: [
+				{
+					date: '2026-06-01',
+					generatedAssigneeId: 'alpha',
+					finalAssigneeId: 'bravo',
+					assignmentSource: 'manual',
+					reason: 'Commander directed swap',
+					warnings: []
+				}
+			]
+		});
+		expect(auditEvents).toContainEqual({
+			action: 'duty_roster_template_run.accepted',
+			resourceType: 'duty_roster_template_run',
+			resourceId: 'run-1'
+		});
+	});
+
+	it('rebuilds accepted snapshots from server state instead of trusting hidden preview rows', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const tamperedPreview = {
+			...preview,
+			rosterRows: [{ date: '2026-06-01', assigneeId: 'bravo' }]
+		};
+
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(tamperedPreview)
+		});
+
+		expect(acceptedRunRows[0].snapshot_payload).toMatchObject({
+			generatedRows: [{ date: '2026-06-01', assigneeId: 'alpha' }],
+			finalRows: [
+				{
+					date: '2026-06-01',
+					generatedAssigneeId: 'alpha',
+					finalAssigneeId: 'alpha',
+					assignmentSource: 'generated'
+				}
+			]
+		});
+	});
+
+	it('uses accepted runs, not Manual DA6 Baseline, as the future preview count source', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { bravo: 1 }
+		});
+		const firstPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'alpha' }]);
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(firstPreview)
+		});
+
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'bravo' }]);
+	});
+
+	it('lists accepted Duty Roster Template runs newest first', async () => {
+		const ctx = createCtx();
+		acceptedRunRows.push(
+			acceptedRunRow({ id: 'older-run', accepted_at: '2026-06-01T12:00:00.000Z' }),
+			acceptedRunRow({ id: 'newer-run', accepted_at: '2026-06-02T12:00:00.000Z' })
+		);
+
+		const runs = await listAcceptedDutyRosterTemplateRuns(ctx, 'template-1');
+
+		expect(runs.map((run) => run.id)).toEqual(['newer-run', 'older-run']);
+	});
+
+	it('locks Manual DA6 Baseline setup data after the first accepted run', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { alpha: 2 }
+		});
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: [],
+				manualBaselineCounts: { alpha: 3 }
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Manual DA6 Baseline is locked after the first accepted run.'
+		});
+	});
 });
 
 function tableRows(table: string): Record<string, unknown>[] {
 	switch (table) {
 		case 'availability_entries':
 			return availabilityRows;
+		case 'duty_roster_template_runs':
+			return acceptedRunRows;
 		case 'personnel':
 			return personnelRows;
 		case 'special_days':
@@ -488,6 +696,45 @@ function statusTypeRow(overrides: Record<string, unknown>): Record<string, unkno
 		da6_availability_treatment: null,
 		da6_treatment_reviewed: true,
 		sort_order: 0,
+		...overrides
+	};
+}
+
+function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: 'run-1',
+		organization_id: 'org-1',
+		template_id: 'template-1',
+		template_name: 'CQ NCO',
+		status: 'accepted',
+		start_date: '2026-06-01',
+		end_date: '2026-06-01',
+		snapshot_payload: {
+			snapshotVersion: 1,
+			template: {
+				id: 'template-1',
+				name: 'CQ NCO',
+				shortCode: 'CQ'
+			},
+			generatedAt: '2026-06-01T00:00:00.000Z',
+			acceptedAt: String(overrides.accepted_at ?? '2026-06-01T12:00:00.000Z'),
+			acceptedByUserId: 'user-1',
+			config: {
+				startDate: '2026-06-01',
+				endDate: '2026-06-01'
+			},
+			resolvedPool: [],
+			selectionPersonnel: [],
+			generatedRows: [],
+			finalRows: [],
+			manualSelections: [],
+			da6: { columns: [], rows: [] },
+			exportModel: { title: 'CQ NCO', sequencePeriods: [], rows: [] },
+			warnings: []
+		},
+		accepted_by_user_id: 'user-1',
+		accepted_at: '2026-06-01T12:00:00.000Z',
+		created_at: '2026-06-01T12:00:00.000Z',
 		...overrides
 	};
 }

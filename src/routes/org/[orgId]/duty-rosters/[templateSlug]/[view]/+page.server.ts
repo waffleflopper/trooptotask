@@ -2,9 +2,11 @@ import { error, fail as actionFail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
+	acceptDutyRosterTemplatePreview,
 	applyDutyRosterTemplatePreviewManualSelection,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
+	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
 	updateDutyRosterTemplateSettings
@@ -72,8 +74,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 			}
 
 			const settings = view === 'settings' ? await loadDutyRosterTemplateSettings(ctx, selectedTemplate) : null;
+			const acceptedRuns =
+				view === 'settings' || view === 'history'
+					? await listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id)
+					: [];
 
-			return { templates, selectedTemplate, settings };
+			return { templates, selectedTemplate, settings, acceptedRuns };
 		}
 	});
 
@@ -83,6 +89,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
 		settings: data.settings,
+		acceptedRuns: data.acceptedRuns,
 		view
 	};
 };
@@ -150,6 +157,23 @@ export const actions: Actions = {
 
 			return actionFail(status, { manualError: message, preview: submittedPreview, generateValues: values });
 		}
+	},
+	acceptPreview: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await acceptDutyRosterTemplatePreview(ctx, {
+				preview: String(formData.get('preview') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'generateError',
+				fallback: 'Failed to accept Duty Roster preview.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/history`);
 	},
 	updateSettings: async (event) => {
 		const formData = await event.request.formData();

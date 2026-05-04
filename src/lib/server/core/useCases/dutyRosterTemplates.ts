@@ -9,6 +9,8 @@ import {
 	normalizeDutyRosterShortCode,
 	normalizeDutyRosterTemplateName,
 	type DutyRosterTemplate,
+	type DutyRosterTemplateAcceptPreviewInput,
+	type DutyRosterTemplateAcceptedRun,
 	type DutyRosterTemplateCreateInput,
 	type DutyRosterTemplateGenerateInput,
 	type DutyRosterTemplateManualSelectionInput,
@@ -24,9 +26,12 @@ import {
 	resolveDutyRosterPool
 } from '$features/duty-roster/templates/dutyRosterPool';
 import {
+	acceptedSnapshotToContinuationHistory,
 	applyDutyRosterTemplateManualSelection,
 	assertDutyRosterTemplatePreview,
+	buildDutyRosterTemplateAcceptedSnapshot,
 	buildDutyRosterTemplatePreview,
+	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
@@ -35,6 +40,7 @@ import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
+const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 const MAX_PREVIEW_DAYS = 62;
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -62,6 +68,9 @@ const manualSelectionSchema = z.object({
 	assigneeId: z.string().trim().min(1, 'Selected Soldier is required'),
 	reason: z.string().trim().nullable().optional()
 });
+const acceptPreviewSchema = z.object({
+	preview: z.string().trim().min(1, 'Generate the preview again before accepting.')
+});
 
 type DutyRosterTemplateRow = {
 	id: string;
@@ -74,6 +83,20 @@ type DutyRosterTemplateRow = {
 	manual_baseline_counts?: Record<string, unknown> | null;
 	created_at: string;
 	updated_at: string;
+};
+
+type DutyRosterTemplateRunRow = {
+	id: string;
+	organization_id: string;
+	template_id: string;
+	template_name: string;
+	status: 'accepted';
+	start_date: string;
+	end_date: string;
+	snapshot_payload: Record<string, unknown>;
+	accepted_by_user_id: string | null;
+	accepted_at: string;
+	created_at: string;
 };
 
 function toTemplate(row: DutyRosterTemplateRow): DutyRosterTemplate {
@@ -90,6 +113,25 @@ function toTemplate(row: DutyRosterTemplateRow): DutyRosterTemplate {
 		createdAt: row.created_at,
 		updatedAt: row.updated_at
 	};
+}
+
+function toAcceptedRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedRun {
+	return {
+		id: row.id,
+		templateId: row.template_id,
+		templateName: row.template_name,
+		status: row.status,
+		startDate: row.start_date,
+		endDate: row.end_date,
+		acceptedAt: row.accepted_at,
+		acceptedByUserId: row.accepted_by_user_id,
+		snapshotPayload: row.snapshot_payload,
+		createdAt: row.created_at
+	};
+}
+
+function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
+	return row.snapshot_payload as unknown as DutyRosterTemplateAcceptedSnapshot;
 }
 
 function normalizePoolCriteriaFromDb(value: Record<string, unknown> | null | undefined): DutyRosterPoolCriteria {
@@ -134,6 +176,12 @@ function findInvalidBaselineCountValues(value: Record<string, unknown> | null | 
 		.filter(([, count]) => typeof count !== 'number' || !Number.isInteger(count) || count < 0)
 		.map(([personId]) => personId)
 		.sort((a, b) => a.localeCompare(b));
+}
+
+function baselineCountsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+	const leftEntries = Object.entries(left).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+	const rightEntries = Object.entries(right).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+	return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
 }
 
 function isValidDateOnly(value: string): boolean {
@@ -214,8 +262,74 @@ function parseManualSelectionInput(
 	return parsed.data;
 }
 
+function parseAcceptPreviewInput(input: DutyRosterTemplateAcceptPreviewInput): DutyRosterTemplateAcceptPreviewInput {
+	const parsed = acceptPreviewSchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Accept preview input is invalid');
+	}
+
+	return parsed.data;
+}
+
 function isUniqueSlugError(error: unknown): boolean {
 	return error instanceof Error && /duplicate|unique|duty_roster_templates_org_slug_key/i.test(error.message);
+}
+
+async function loadAcceptedContinuationHistory(ctx: QueryPorts, templateId: string) {
+	const acceptedRunRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: templateId, status: 'accepted' },
+		{ orderBy: [{ column: 'accepted_at', ascending: true }] }
+	);
+
+	return acceptedRunRows.map(acceptedRunSnapshot).map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
+}
+
+async function buildTemplatePreviewFromCurrentState(
+	ctx: QueryPorts,
+	input: {
+		template: DutyRosterTemplate;
+		startDate: string;
+		endDate: string;
+		generatedAt?: string;
+	}
+): Promise<DutyRosterTemplatePreview> {
+	const [personnel, statusTypeRows, availabilityRows, specialDayRows, acceptedHistory] = await Promise.all([
+		listActiveDutyRosterPersonnel(ctx),
+		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
+			select: StatusTypeEntity.select,
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+			select: AvailabilityEntryEntity.select,
+			rangeFilters: [
+				{ column: 'end_date', op: 'gte', value: input.startDate },
+				{ column: 'start_date', op: 'lte', value: input.endDate }
+			]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
+			select: SpecialDayEntity.select,
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: input.startDate },
+				{ column: 'date', op: 'lte', value: input.endDate }
+			],
+			orderBy: [{ column: 'date', ascending: true }]
+		}),
+		loadAcceptedContinuationHistory(ctx, input.template.id)
+	]);
+
+	return buildDutyRosterTemplatePreview({
+		template: input.template,
+		personnel,
+		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
+		acceptedHistory,
+		startDate: input.startDate,
+		endDate: input.endDate,
+		generatedAt: input.generatedAt
+	});
 }
 
 export async function listDutyRosterTemplates(ctx: DutyRosterTemplateQueryPorts): Promise<DutyRosterTemplate[]> {
@@ -321,6 +435,22 @@ export async function loadDutyRosterTemplateSettings(
 	};
 }
 
+export async function listAcceptedDutyRosterTemplateRuns(
+	ctx: DutyRosterTemplateQueryPorts,
+	templateId: string
+): Promise<DutyRosterTemplateAcceptedRun[]> {
+	await requireTemplateView(ctx);
+
+	const rows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: templateId, status: 'accepted' },
+		{ orderBy: [{ column: 'accepted_at', ascending: false }] }
+	);
+
+	return rows.map(toAcceptedRun);
+}
+
 export async function updateDutyRosterTemplateSettings(
 	ctx: WritePorts,
 	input: DutyRosterTemplateSettingsInput
@@ -344,10 +474,22 @@ export async function updateDutyRosterTemplateSettings(
 	}
 
 	const manualBaselineCounts = normalizeBaselineCounts(input.manualBaselineCounts);
+	const existingBaselineCounts = normalizeBaselineCounts(existing.manual_baseline_counts);
+	const acceptedRuns = await ctx.store.findMany<{ id: string }>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: input.templateId, status: 'accepted' },
+		{ select: 'id', limit: 1 }
+	);
+	const hasAcceptedRun = acceptedRuns.length > 0;
+	if (hasAcceptedRun && !baselineCountsEqual(manualBaselineCounts, existingBaselineCounts)) {
+		fail(400, 'Manual DA6 Baseline is locked after the first accepted run.');
+	}
+
 	const exemptPersonnelIds = normalizeStringArray(input.exemptPersonnelIds);
 	const invalid = findInvalidDutyRosterSetupIds({
 		exemptPersonnelIds,
-		manualBaselineCounts,
+		manualBaselineCounts: hasAcceptedRun ? {} : manualBaselineCounts,
 		resolvedPool
 	});
 
@@ -366,7 +508,7 @@ export async function updateDutyRosterTemplateSettings(
 		{
 			pool_criteria: poolCriteria,
 			exempt_personnel_ids: exemptPersonnelIds,
-			manual_baseline_counts: manualBaselineCounts,
+			manual_baseline_counts: hasAcceptedRun ? existingBaselineCounts : manualBaselineCounts,
 			updated_at: new Date().toISOString()
 		}
 	);
@@ -396,39 +538,86 @@ export async function generateDutyRosterTemplatePreview(
 	}
 
 	const template = toTemplate(existing);
-	const [personnel, statusTypeRows, availabilityRows, specialDayRows] = await Promise.all([
-		listActiveDutyRosterPersonnel(ctx),
-		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: parsed.startDate },
-				{ column: 'start_date', op: 'lte', value: parsed.endDate }
-			]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
-			select: SpecialDayEntity.select,
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: parsed.startDate },
-				{ column: 'date', op: 'lte', value: parsed.endDate }
-			],
-			orderBy: [{ column: 'date', ascending: true }]
-		})
-	]);
-
-	return buildDutyRosterTemplatePreview({
+	return buildTemplatePreviewFromCurrentState(ctx, {
 		template,
-		personnel,
-		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
-		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 		startDate: parsed.startDate,
 		endDate: parsed.endDate,
 		generatedAt: new Date().toISOString()
 	});
+}
+
+export async function acceptDutyRosterTemplatePreview(
+	ctx: WritePorts,
+	input: DutyRosterTemplateAcceptPreviewInput
+): Promise<DutyRosterTemplateAcceptedRun> {
+	await requireTemplateManagement(ctx);
+
+	const parsed = parseAcceptPreviewInput(input);
+	let preview: DutyRosterTemplatePreview;
+	try {
+		const parsedPreview: unknown = JSON.parse(parsed.preview);
+		assertDutyRosterTemplatePreview(parsedPreview);
+		preview = parsedPreview;
+	} catch (errorValue) {
+		fail(400, errorValue instanceof Error ? errorValue.message : 'Accept preview input is invalid');
+	}
+
+	const existing = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		id: preview.assignmentType.id,
+		status: 'active'
+	});
+	if (!existing) {
+		fail(404, 'Duty Roster Template not found');
+	}
+
+	const previewRange = parseGenerateInput({
+		templateId: preview.assignmentType.id,
+		startDate: preview.config.startDate,
+		endDate: preview.config.endDate
+	});
+	let acceptedPreview = await buildTemplatePreviewFromCurrentState(ctx, {
+		template: toTemplate(existing),
+		startDate: previewRange.startDate,
+		endDate: previewRange.endDate,
+		generatedAt: preview.generatedAt
+	});
+	try {
+		for (const selection of preview.manualSelections) {
+			acceptedPreview = applyDutyRosterTemplateManualSelection(acceptedPreview, {
+				date: selection.date,
+				assigneeId: selection.assigneeId,
+				reason: selection.reason
+			});
+		}
+	} catch (errorValue) {
+		fail(400, errorValue instanceof Error ? errorValue.message : 'Accept preview input is invalid');
+	}
+
+	const acceptedAt = new Date().toISOString();
+	const snapshot = buildDutyRosterTemplateAcceptedSnapshot({
+		preview: acceptedPreview,
+		acceptedAt,
+		acceptedByUserId: ctx.auth.userId
+	});
+	const inserted = await ctx.store.insert<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, {
+		template_id: acceptedPreview.assignmentType.id,
+		template_name: acceptedPreview.assignmentType.name,
+		status: 'accepted',
+		start_date: acceptedPreview.config.startDate,
+		end_date: acceptedPreview.config.endDate,
+		snapshot_payload: snapshot as unknown as Record<string, unknown>,
+		accepted_by_user_id: ctx.auth.userId,
+		accepted_at: acceptedAt,
+		created_at: acceptedAt
+	});
+
+	await ctx.audit.log({
+		action: 'duty_roster_template_run.accepted',
+		resourceType: 'duty_roster_template_run',
+		resourceId: inserted.id
+	});
+
+	return toAcceptedRun(inserted);
 }
 
 export async function applyDutyRosterTemplatePreviewManualSelection(

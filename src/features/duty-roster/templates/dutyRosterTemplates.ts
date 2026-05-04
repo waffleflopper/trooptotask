@@ -70,6 +70,23 @@ export interface DutyRosterTemplateManualSelectionInput {
 	reason?: string | null;
 }
 
+export interface DutyRosterTemplateAcceptPreviewInput {
+	preview: string;
+}
+
+export interface DutyRosterTemplateAcceptedRun {
+	id: string;
+	templateId: string;
+	templateName: string;
+	status: 'accepted';
+	startDate: string;
+	endDate: string;
+	acceptedAt: string;
+	acceptedByUserId: string | null;
+	snapshotPayload: Record<string, unknown>;
+	createdAt: string;
+}
+
 const DEFAULT_SLUG = 'duty-roster';
 const MAX_SLUG_LENGTH = 72;
 const MAX_SHORT_CODE_LENGTH = 12;

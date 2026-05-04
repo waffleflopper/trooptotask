@@ -1,5 +1,9 @@
 import { buildDutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun';
-import type { DutyRosterRunDuration, DutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun.types';
+import type {
+	DutyRosterContinuationHistoryItem,
+	DutyRosterRunDuration,
+	DutyRosterRunSnapshot
+} from '$features/duty-roster/run/dutyRosterRun.types';
 import type { AssignmentType, AvailabilityEntry, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
 import { resolveDutyRosterPool } from './dutyRosterPool';
@@ -35,6 +39,38 @@ export interface DutyRosterTemplateManualSelectionInput {
 	reason?: string | null;
 }
 
+export interface DutyRosterTemplateAcceptedSnapshotRow {
+	date: string;
+	generatedAssigneeId: string | null;
+	finalAssigneeId: string | null;
+	assignmentSource: 'generated' | 'manual';
+	generatedDisplay: DutyRosterTemplatePreviewPersonnel | null;
+	finalDisplay: DutyRosterTemplatePreviewPersonnel | null;
+	reason: string | null;
+	warnings: DutyRosterTemplateManualSelectionWarning[];
+}
+
+export interface DutyRosterTemplateAcceptedSnapshot {
+	snapshotVersion: 1;
+	template: {
+		id: string;
+		name: string;
+		shortCode: string;
+	};
+	generatedAt: string;
+	acceptedAt: string;
+	acceptedByUserId: string | null;
+	config: DutyRosterTemplatePreview['config'];
+	resolvedPool: DutyRosterTemplatePreview['personnel'];
+	selectionPersonnel: DutyRosterTemplatePreviewPersonnel[];
+	generatedRows: DutyRosterTemplatePreview['rosterRows'];
+	finalRows: DutyRosterTemplateAcceptedSnapshotRow[];
+	manualSelections: DutyRosterTemplateManualSelection[];
+	da6: DutyRosterTemplatePreview['da6'];
+	exportModel: DutyRosterTemplatePreview['exportModel'];
+	warnings: string[];
+}
+
 export interface DutyRosterTemplatePreviewInput {
 	template: DutyRosterTemplate;
 	personnel: DutyRosterPoolPersonnel[];
@@ -43,6 +79,7 @@ export interface DutyRosterTemplatePreviewInput {
 	specialDays: SpecialDay[];
 	startDate: string;
 	endDate: string;
+	acceptedHistory?: DutyRosterContinuationHistoryItem[];
 	dutyDuration?: DutyRosterRunDuration;
 	generatedAt?: string;
 }
@@ -62,7 +99,10 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		assignmentType: templateAssignmentType(input.template),
 		personnel: resolvedPool.map(toPersonnel),
 		assignments: [],
-		rosterHistory: buildManualBaselineHistory(input.template, input.startDate),
+		rosterHistory:
+			input.acceptedHistory && input.acceptedHistory.length > 0
+				? input.acceptedHistory
+				: buildManualBaselineHistory(input.template, input.startDate),
 		advancedDutyEvents: [],
 		availabilityEntries: input.availabilityEntries,
 		statusTypes: input.statusTypes,
@@ -147,6 +187,54 @@ export function previewFinalAssigneeId(preview: DutyRosterTemplatePreview, date:
 	return preview.rosterRows.find((row) => row.date === date)?.assigneeId ?? null;
 }
 
+export function buildDutyRosterTemplateAcceptedSnapshot(input: {
+	preview: DutyRosterTemplatePreview;
+	acceptedAt: string;
+	acceptedByUserId: string | null;
+}): DutyRosterTemplateAcceptedSnapshot {
+	return deepFreeze({
+		snapshotVersion: 1,
+		template: {
+			id: input.preview.assignmentType.id,
+			name: input.preview.assignmentType.name,
+			shortCode: input.preview.assignmentType.shortName
+		},
+		generatedAt: input.preview.generatedAt,
+		acceptedAt: input.acceptedAt,
+		acceptedByUserId: input.acceptedByUserId,
+		config: input.preview.config,
+		resolvedPool: input.preview.personnel,
+		selectionPersonnel: input.preview.selectionPersonnel,
+		generatedRows: input.preview.rosterRows,
+		finalRows: input.preview.rosterRows.map((row) => acceptedSnapshotRow(input.preview, row.date)),
+		manualSelections: input.preview.manualSelections,
+		da6: input.preview.da6,
+		exportModel: input.preview.exportModel,
+		warnings: input.preview.warnings
+	});
+}
+
+export function acceptedSnapshotToContinuationHistory(
+	snapshot: DutyRosterTemplateAcceptedSnapshot
+): DutyRosterContinuationHistoryItem {
+	return {
+		assignmentTypeId: snapshot.template.id,
+		startDate: snapshot.config.startDate,
+		endDate: snapshot.config.endDate,
+		roster: snapshot.finalRows.map((row) => ({
+			date: row.date,
+			assigneeId: row.finalAssigneeId,
+			assigneeName: row.finalDisplay ? `${row.finalDisplay.lastName}, ${row.finalDisplay.firstName}` : null,
+			assigneeRank: row.finalDisplay?.rank ?? null,
+			assigneeGroup: row.finalDisplay?.groupName ?? null,
+			reason: row.reason ?? undefined
+		})),
+		config: {
+			historySource: 'accepted-duty-roster-run'
+		}
+	};
+}
+
 export function assertDutyRosterTemplatePreview(value: unknown): asserts value is DutyRosterTemplatePreview {
 	if (!value || typeof value !== 'object') {
 		throw new Error('Generate the preview again before changing assignments.');
@@ -228,6 +316,32 @@ function manualSelectionWarnings(
 	}
 
 	return warnings;
+}
+
+function acceptedSnapshotRow(preview: DutyRosterTemplatePreview, date: string): DutyRosterTemplateAcceptedSnapshotRow {
+	const generatedRow = preview.rosterRows.find((row) => row.date === date) ?? null;
+	const manualSelection = manualSelectionForDate(preview, date);
+	const finalAssigneeId = previewFinalAssigneeId(preview, date);
+	const generatedDisplay = generatedRow?.assigneeId ? previewAssignee(preview, generatedRow.assigneeId) : null;
+	const finalDisplay = finalAssigneeId ? previewAssignee(preview, finalAssigneeId) : null;
+
+	return {
+		date,
+		generatedAssigneeId: generatedRow?.assigneeId ?? null,
+		finalAssigneeId,
+		assignmentSource: manualSelection ? 'manual' : 'generated',
+		generatedDisplay,
+		finalDisplay,
+		reason: manualSelection?.reason ?? generatedRow?.reason ?? null,
+		warnings: manualSelection?.warnings ?? []
+	};
+}
+
+function previewAssignee(
+	preview: DutyRosterTemplatePreview,
+	assigneeId: string
+): DutyRosterTemplatePreviewPersonnel | null {
+	return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
 }
 
 function buildManualBaselineHistory(template: DutyRosterTemplate, startDate: string) {

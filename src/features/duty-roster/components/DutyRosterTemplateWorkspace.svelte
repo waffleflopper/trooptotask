@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type {
+		DutyRosterTemplateAcceptedRun,
 		DutyRosterTemplate,
 		DutyRosterTemplateSettingsData,
 		DutyRosterTemplateView
@@ -7,6 +8,7 @@
 	import {
 		manualSelectionForDate,
 		previewFinalAssigneeId,
+		type DutyRosterTemplateAcceptedSnapshot,
 		type DutyRosterTemplatePreview
 	} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
@@ -32,6 +34,7 @@
 		templates: DutyRosterTemplate[];
 		selectedTemplate?: DutyRosterTemplate | null;
 		settings?: DutyRosterTemplateSettingsData | null;
+		acceptedRuns?: DutyRosterTemplateAcceptedRun[];
 		view?: DutyRosterTemplateView;
 	}
 
@@ -49,9 +52,14 @@
 	const manualPreviewAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/manualPreviewSelection` : createAction
 	);
+	const acceptPreviewAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/acceptPreview` : createAction
+	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
 	);
+	const acceptedRuns = $derived(data.acceptedRuns ?? []);
+	const baselineLocked = $derived(acceptedRuns.length > 0);
 	const rankOptions = $derived(uniqueOptions(data.settings?.personnel.map((person) => person.rank) ?? []));
 	const groupOptions = $derived(uniqueGroupOptions(data.settings?.personnel ?? []));
 	const mosOptions = $derived(
@@ -90,6 +98,16 @@
 
 	function previewFormValue(preview: DutyRosterTemplatePreview): string {
 		return JSON.stringify(preview);
+	}
+
+	function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
+		return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+	}
+
+	function acceptedCellDisplay(
+		cell: DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
+	): string {
+		return previewCellDisplay(cell);
 	}
 
 	function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
@@ -363,6 +381,11 @@
 									</table>
 								</div>
 							</section>
+
+							<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+								<input type="hidden" name="preview" value={previewFormValue(preview)} />
+								<button class="btn btn-primary" type="submit">Accept run</button>
+							</form>
 						{:else}
 							<div class="state-grid" aria-label="Generate readiness">
 								<div>
@@ -383,10 +406,101 @@
 						<p class="eyebrow">History View</p>
 						<h3 id="template-view-heading">Accepted runs</h3>
 						<p>
-							Accepted Duty Roster Runs will appear here as locked history. No run history exists for this foundation
-							slice.
+							Accepted Duty Roster Runs are official history. List review shows generated versus manual rows; the matrix
+							renders from the saved snapshot.
 						</p>
-						<div class="empty-history">History is empty until a DA6 run is accepted.</div>
+						{#if acceptedRuns.length === 0}
+							<div class="empty-history">History is empty until a DA6 run is accepted.</div>
+						{:else}
+							<div class="accepted-run-list">
+								{#each acceptedRuns as run (run.id)}
+									{@const snapshot = acceptedSnapshot(run)}
+									<section class="settings-section accepted-run" aria-label={`${run.templateName} accepted run`}>
+										<div class="accepted-run-heading">
+											<div>
+												<h4>{run.templateName}</h4>
+												<p>{run.startDate} to {run.endDate}</p>
+											</div>
+											<span class="official-badge">Official</span>
+										</div>
+
+										<div class="preview-list" role="table" aria-label="Accepted Duty Roster list">
+											<div class="preview-row preview-head" role="row">
+												<span role="columnheader">Date</span>
+												<span role="columnheader">Assigned Soldier</span>
+												<span role="columnheader">Source</span>
+												<span role="columnheader">Review state</span>
+											</div>
+											{#each snapshot.finalRows as row (row.date)}
+												<div class="preview-row" role="row">
+													<span role="cell">{row.date}</span>
+													<div class="preview-selection" role="cell">
+														{#if row.finalDisplay}
+															<strong
+																>{row.finalDisplay.rank}
+																{row.finalDisplay.lastName}, {row.finalDisplay.firstName}</strong
+															>
+														{:else}
+															Unfilled
+														{/if}
+														{#if row.assignmentSource === 'manual' && row.generatedDisplay}
+															<small>
+																Generated: {row.generatedDisplay.rank}
+																{row.generatedDisplay.lastName}, {row.generatedDisplay.firstName}
+															</small>
+														{/if}
+													</div>
+													<span role="cell">
+														{#if row.assignmentSource === 'manual'}
+															<span class="manual-badge">MANUAL</span>
+														{:else}
+															Generated
+														{/if}
+													</span>
+													<div class="preview-selection" role="cell">
+														{#if row.warnings.length}
+															<ul class="manual-warnings" aria-label={`Accepted warnings for ${row.date}`}>
+																{#each row.warnings as warning (warning.code)}
+																	<li>{warning.message}</li>
+																{/each}
+															</ul>
+														{:else}
+															<small>No warnings</small>
+														{/if}
+														{#if row.reason}
+															<small>Reason: {row.reason}</small>
+														{/if}
+													</div>
+												</div>
+											{/each}
+										</div>
+
+										<div class="matrix-scroll">
+											<table class="da6-matrix" aria-label="Accepted DA6 matrix">
+												<thead>
+													<tr>
+														<th scope="col">Soldier</th>
+														{#each snapshot.da6.columns as column (column.date)}
+															<th scope="col">{column.date}</th>
+														{/each}
+													</tr>
+												</thead>
+												<tbody>
+													{#each snapshot.da6.rows as row (row.personnelId)}
+														<tr>
+															<th scope="row">{row.display.rank} {row.display.lastName}</th>
+															{#each row.cells as cell (cell.date)}
+																<td class:assigned={cell.assigned}>{acceptedCellDisplay(cell)}</td>
+															{/each}
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+										</div>
+									</section>
+								{/each}
+							</div>
+						{/if}
 					{:else}
 						<p class="eyebrow">Settings View</p>
 						<h3 id="template-view-heading">Template setup</h3>
@@ -520,6 +634,12 @@
 										Counts are optional and apply only until the first accepted run for this template. Leave blank to
 										start from DA6 roster order.
 									</p>
+									{#if baselineLocked}
+										<p class="baseline-lock">
+											Manual DA6 Baseline is locked because this template has accepted history. Future previews use
+											accepted runs for DA6 continuity.
+										</p>
+									{/if}
 									{#if data.settings.baselineRows.length === 0}
 										<div class="empty-history">
 											No baseline rows are available until the non-exempt pool has members.
@@ -536,6 +656,7 @@
 														name={`baseline:${row.personnel.id}`}
 														value={row.startingCount ?? ''}
 														placeholder="Count"
+														readonly={baselineLocked}
 													/>
 												</label>
 											{/each}
@@ -927,6 +1048,14 @@
 		margin: 0;
 	}
 
+	.baseline-lock {
+		margin: 0;
+		border-left: 3px solid var(--amber);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		padding: var(--sp-2) var(--sp-3);
+	}
+
 	.criteria-grid fieldset {
 		display: grid;
 		gap: var(--sp-2);
@@ -1060,6 +1189,53 @@
 		font: inherit;
 		font-family: var(--font-body);
 		padding: 0 var(--sp-2);
+	}
+
+	.accept-preview-form {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.accepted-run-list,
+	.accepted-run {
+		display: grid;
+		gap: var(--sp-4);
+	}
+
+	.accepted-run-heading {
+		display: flex;
+		gap: var(--sp-3);
+		align-items: flex-start;
+		justify-content: space-between;
+		padding: var(--sp-3);
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.accepted-run-heading h4,
+	.accepted-run-heading p {
+		margin: 0;
+	}
+
+	.accepted-run-heading p {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+	}
+
+	.official-badge {
+		display: inline-flex;
+		width: fit-content;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		padding: 2px var(--sp-2);
+		text-transform: uppercase;
 	}
 
 	.matrix-scroll {

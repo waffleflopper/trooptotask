@@ -17,7 +17,7 @@ import {
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
 	getActiveAdvancedDutyRevisionDraft,
-	updateAdvancedDutyRevisionDraftChange
+	updateAdvancedDutyRevisionDraftChanges
 } from './advancedDutyRevisionDrafts';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import { findDutyCoverageConflicts } from './dutyAvailability';
@@ -59,6 +59,7 @@ import type {
 import type {
 	AdvancedDutyRevisionAppliedSlot,
 	AdvancedDutyRevisionAppliedRun,
+	AdvancedDutyRevisionDraftSlotChange,
 	AdvancedDutyRevisionPersonnelFact,
 	AdvancedDutyRevisionPersonnelSnapshot
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
@@ -1688,6 +1689,7 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft)
 	);
 	const { appliedSlots } = await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
+	const changes: AdvancedDutyRevisionDraftSlotChange[] = [];
 
 	for (const override of input.slotOverrides ?? []) {
 		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override });
@@ -1701,7 +1703,11 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 		) {
 			continue;
 		}
-		draft = await updateAdvancedDutyRevisionDraftChange(ctx, { draftId: draft.id, change });
+		changes.push(change);
+	}
+
+	if (changes.length > 0) {
+		draft = await updateAdvancedDutyRevisionDraftChanges(ctx, { draftId: draft.id, changes });
 	}
 
 	return {

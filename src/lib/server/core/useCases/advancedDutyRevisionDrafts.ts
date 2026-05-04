@@ -15,7 +15,7 @@ import {
 	buildAdvancedDutyRevisionHistoryModel,
 	discardAdvancedDutyRevisionDraft,
 	startAdvancedDutyRevisionDraft,
-	updateAdvancedDutyRevisionDraftSlotChange,
+	updateAdvancedDutyRevisionDraftSlotChanges,
 	type AdvancedDutyRevisionAppliedRun,
 	type AdvancedDutyRevisionDraftSlotChange,
 	type DerivedAdvancedDutyRevisionChangeSet,
@@ -41,6 +41,12 @@ export interface CreateOrReopenAdvancedDutyRevisionDraftInput {
 export interface UpdateAdvancedDutyRevisionDraftChangeInput {
 	draftId: string;
 	change: AdvancedDutyRevisionDraftSlotChange;
+	now?: string;
+}
+
+export interface UpdateAdvancedDutyRevisionDraftChangesInput {
+	draftId: string;
+	changes: AdvancedDutyRevisionDraftSlotChange[];
 	now?: string;
 }
 
@@ -325,14 +331,28 @@ export async function updateAdvancedDutyRevisionDraftChange(
 	ctx: AdvancedDutyRevisionWriteContext,
 	input: UpdateAdvancedDutyRevisionDraftChangeInput
 ): Promise<AdvancedDutyRevisionDraftRecord> {
+	return updateAdvancedDutyRevisionDraftChanges(ctx, {
+		draftId: input.draftId,
+		changes: [input.change],
+		now: input.now
+	});
+}
+
+export async function updateAdvancedDutyRevisionDraftChanges(
+	ctx: AdvancedDutyRevisionWriteContext,
+	input: UpdateAdvancedDutyRevisionDraftChangesInput
+): Promise<AdvancedDutyRevisionDraftRecord> {
 	const actorUserId = await requireWritableAdvancedDuty(ctx);
 	const draft = await loadRevisionDraftOrFail(ctx, input.draftId);
 	if (draft.status !== 'draft') {
 		fail(409, 'Only active Advanced Duty revision drafts can be updated.');
 	}
-	const updatedDraft = updateAdvancedDutyRevisionDraftSlotChange({
+	if (input.changes.length === 0) {
+		return draft;
+	}
+	const updatedDraft = updateAdvancedDutyRevisionDraftSlotChanges({
 		draft,
-		change: input.change,
+		changes: input.changes,
 		actorUserId,
 		now: input.now ?? new Date().toISOString()
 	});

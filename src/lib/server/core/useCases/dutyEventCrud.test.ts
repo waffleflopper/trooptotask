@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createDutyTemplate } from './dutyTemplateCrud';
 import {
@@ -5147,7 +5147,7 @@ describe('existing duty event editing', () => {
 		expect(storedSlotRows).toEqual(originalSlotRows);
 	});
 
-	it('increments a revision draft once when one dropdown changes in a multi-slot event', async () => {
+	it('batches meaningful dropdown changes into one revision draft save', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -5183,6 +5183,17 @@ describe('existing duty event editing', () => {
 				clinic_role: 'Squad Leader',
 				group_id: 'group-hq',
 				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-delta',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Delta',
+				first_name: 'Drew',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
 			}
 		]);
 
@@ -5198,7 +5209,8 @@ describe('existing duty event editing', () => {
 			cooldownHours: 24,
 			slots: [
 				{ roleLabel: 'NCO', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] },
-				{ roleLabel: 'Runner', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }
+				{ roleLabel: 'Runner', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] },
+				{ roleLabel: 'Radio Watch', quantity: 1, allowedRanks: ['SGT'], allowedGroupIds: ['group-hq'] }
 			]
 		});
 		const applied = await applyDutyEventFromTemplate(ctx, {
@@ -5206,7 +5218,11 @@ describe('existing duty event editing', () => {
 			eventDate: '2026-04-10'
 		});
 		const unchangedSlot = applied.slotInstances[0];
-		const changedSlot = applied.slotInstances[1];
+		const changedRunnerSlot = applied.slotInstances[1];
+		const changedRadioSlot = applied.slotInstances[2];
+		const runnerReplacement = changedRunnerSlot.assigneeId === 'person-delta' ? 'person-alpha' : 'person-delta';
+		const radioReplacement = changedRadioSlot.assigneeId === 'person-alpha' ? 'person-delta' : 'person-alpha';
+		const updateDraft = vi.spyOn(ctx.advancedDutyPersistence, 'updateAdvancedDutyRevisionDraft');
 
 		const session = await updateAdvancedDutyRevisionDraftForEvent(ctx, {
 			dutyEventId: applied.id,
@@ -5218,21 +5234,34 @@ describe('existing duty event editing', () => {
 					assignmentSource: undefined
 				},
 				{
-					templateSlotId: changedSlot.templateSlotId,
-					slotIndex: changedSlot.slotIndex,
-					assigneeId: 'person-charlie',
+					templateSlotId: changedRunnerSlot.templateSlotId,
+					slotIndex: changedRunnerSlot.slotIndex,
+					assigneeId: runnerReplacement,
+					assignmentSource: 'manual'
+				},
+				{
+					templateSlotId: changedRadioSlot.templateSlotId,
+					slotIndex: changedRadioSlot.slotIndex,
+					assigneeId: radioReplacement,
 					assignmentSource: 'manual'
 				}
 			]
 		});
 
 		expect(session.draft.draftVersion).toBe(2);
-		expect(session.draft.slotChanges).toHaveLength(1);
-		expect(session.draft.slotChanges[0]).toMatchObject({
-			templateSlotId: changedSlot.templateSlotId,
-			slotIndex: changedSlot.slotIndex,
-			newPersonnelId: 'person-charlie'
-		});
+		expect(session.draft.slotChanges).toEqual([
+			expect.objectContaining({
+				templateSlotId: changedRunnerSlot.templateSlotId,
+				slotIndex: changedRunnerSlot.slotIndex,
+				newPersonnelId: runnerReplacement
+			}),
+			expect.objectContaining({
+				templateSlotId: changedRadioSlot.templateSlotId,
+				slotIndex: changedRadioSlot.slotIndex,
+				newPersonnelId: radioReplacement
+			})
+		]);
+		expect(updateDraft).toHaveBeenCalledTimes(1);
 	});
 
 	it('discards a revision draft while preserving the applied event records', async () => {

@@ -70,6 +70,13 @@ export interface UpdateAdvancedDutyRevisionDraftSlotChangeInput {
 	now: string;
 }
 
+export interface UpdateAdvancedDutyRevisionDraftSlotChangesInput {
+	draft: AdvancedDutyRevisionDraftRecord;
+	changes: AdvancedDutyRevisionDraftSlotChange[];
+	actorUserId: string;
+	now: string;
+}
+
 export interface DiscardAdvancedDutyRevisionDraftInput {
 	draft: AdvancedDutyRevisionDraftRecord;
 	actorUserId: string;
@@ -311,12 +318,29 @@ export function startAdvancedDutyRevisionDraft(
 export function updateAdvancedDutyRevisionDraftSlotChange(
 	input: UpdateAdvancedDutyRevisionDraftSlotChangeInput
 ): AdvancedDutyRevisionDraftRecord {
+	return updateAdvancedDutyRevisionDraftSlotChanges({
+		...input,
+		changes: [input.change]
+	});
+}
+
+export function updateAdvancedDutyRevisionDraftSlotChanges(
+	input: UpdateAdvancedDutyRevisionDraftSlotChangesInput
+): AdvancedDutyRevisionDraftRecord {
+	if (input.changes.length === 0) {
+		return input.draft;
+	}
 	const currentChanges = draftSlotChanges(input.draft);
-	const existingIndex = currentChanges.findIndex((change) => slotIdentity(change) === slotIdentity(input.change));
-	const nextChanges =
-		existingIndex >= 0
-			? currentChanges.map((change, index) => (index === existingIndex ? input.change : change))
-			: [...currentChanges, input.change];
+	const nextChanges = [...currentChanges];
+
+	for (const incomingChange of input.changes) {
+		const existingIndex = nextChanges.findIndex((change) => slotIdentity(change) === slotIdentity(incomingChange));
+		if (existingIndex >= 0) {
+			nextChanges[existingIndex] = incomingChange;
+		} else {
+			nextChanges.push(incomingChange);
+		}
+	}
 
 	return {
 		...input.draft,

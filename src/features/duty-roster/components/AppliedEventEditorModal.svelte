@@ -3,7 +3,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import AppliedEventEditor from './AppliedEventEditor.svelte';
 	import type { Personnel } from '$lib/types';
-	import type { DutyEvent, DutyEventPreview, DutyEventPreviewSlotInstance } from '../duty-roster.types';
+	import type {
+		AdvancedDutyRevisionDraftRecord,
+		DutyEvent,
+		DutyEventPreview,
+		DutyEventPreviewSlotInstance
+	} from '../duty-roster.types';
 	import type { SlotExplanationSection } from './dutyRosterWizard.helpers';
 	interface Props {
 		event: DutyEvent | null;
@@ -11,6 +16,11 @@
 		isLoadingPreview: boolean;
 		isRefreshing: boolean;
 		isSaving: boolean;
+		isDiscardingDraft: boolean;
+		isReapplyingDraft: boolean;
+		revisionDraft: AdvancedDutyRevisionDraftRecord | null;
+		reapplyReason: string;
+		reapplyError: string | null;
 		collisionReviewConfirmed: boolean;
 		collisionMessages: string[];
 		personnelOptions: Personnel[];
@@ -23,14 +33,15 @@
 		}) => string;
 		getExplanationSections: (slot: DutyEventPreviewSlotInstance) => SlotExplanationSection[];
 		onClose: () => void;
-		onSave: () => void;
-		onRegenerate: () => void;
+		onDiscardDraft: () => void;
+		onReapplyDraft: () => void;
+		onReapplyReasonChange: (reason: string) => void;
+		onOpenDraftChangeDate: (eventDate: string) => void;
 		onExportPacket: () => void;
 		onCollisionConfirmedChange: (value: boolean) => void;
 		onUpdateSlotAssignee: (slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
 		onToggleSlotLock: (slot: DutyEventPreviewSlotInstance) => void;
 		onClearSlot: (slot: DutyEventPreviewSlotInstance) => void;
-		onRegenerateSlot: (slot: DutyEventPreviewSlotInstance) => void;
 	}
 	let props: Props = $props();
 </script>
@@ -41,7 +52,7 @@
 		onClose={props.onClose}
 		width="1100px"
 		titleId="applied-event-editor-title"
-		canClose={!props.isRefreshing && !props.isSaving}
+		canClose={!props.isRefreshing && !props.isSaving && !props.isReapplyingDraft}
 	>
 		{#if props.preview}
 			<AppliedEventEditor
@@ -50,6 +61,11 @@
 				isLoadingPreview={props.isLoadingPreview}
 				isRefreshing={props.isRefreshing}
 				isSaving={props.isSaving}
+				isDiscardingDraft={props.isDiscardingDraft}
+				isReapplyingDraft={props.isReapplyingDraft}
+				revisionDraft={props.revisionDraft}
+				reapplyReason={props.reapplyReason}
+				reapplyError={props.reapplyError}
 				collisionReviewConfirmed={props.collisionReviewConfirmed}
 				collisionMessages={props.collisionMessages}
 				personnelOptions={props.personnelOptions}
@@ -57,14 +73,15 @@
 				formatDisplayDate={props.formatDisplayDate}
 				formatCoverageLabel={props.formatCoverageLabel}
 				getExplanationSections={props.getExplanationSections}
-				onSave={props.onSave}
-				onRegenerate={props.onRegenerate}
+				onDiscardDraft={props.onDiscardDraft}
+				onReapplyDraft={props.onReapplyDraft}
+				onReapplyReasonChange={props.onReapplyReasonChange}
+				onOpenDraftChangeDate={props.onOpenDraftChangeDate}
 				onExportPacket={props.onExportPacket}
 				onCollisionConfirmedChange={props.onCollisionConfirmedChange}
 				onUpdateSlotAssignee={props.onUpdateSlotAssignee}
 				onToggleSlotLock={props.onToggleSlotLock}
 				onClearSlot={props.onClearSlot}
-				onRegenerateSlot={props.onRegenerateSlot}
 			/>
 		{:else}
 			<div class="applied-editor-loading" aria-live="polite">

@@ -23,16 +23,10 @@ describe('critical CSS inlining', () => {
 	const html = readFileSync(APP_HTML, 'utf-8');
 	const inlineStyles = getInlineStyles(html);
 
-	it('app.html contains inline theme fallback styles for first paint', () => {
+	it('app.html includes first-paint theme and base fallback styles', () => {
 		expect(inlineStyles).toContain('color-scheme: light');
 		expect(inlineStyles).toContain('background: #f8f7f4');
-	});
-
-	it('app.html inlines dark mode design tokens', () => {
 		expect(inlineStyles).toContain("[data-theme='dark']");
-	});
-
-	it('app.html inlines base element resets', () => {
 		expect(inlineStyles).toContain('min-height: 100%');
 		expect(inlineStyles).toContain('margin: 0');
 	});

@@ -19,6 +19,11 @@ export { TrainingViewEntity } from './trainingView';
 export { IctTaskEntity } from './ictTask';
 export { PersonnelIctCompletionEntity } from './personnelIctCompletion';
 export { AdvancedDutyRunSnapshotEntity } from './advancedDutyRunSnapshot';
+export {
+	AdvancedDutyRevisionChangeSetEntity,
+	AdvancedDutyRevisionDraftEntity,
+	AdvancedDutyRevisionSlotChangeEntity
+} from './advancedDutyRevision';
 
 export type { CounselingRecord } from './counselingRecord';
 export type { DevelopmentGoal } from './developmentGoal';

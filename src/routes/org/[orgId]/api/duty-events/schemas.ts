@@ -70,6 +70,12 @@ export const existingDutyEventUpdateInputSchema = existingDutyEventInputSchema.e
 	collisionReviewConfirmed: z.boolean().optional()
 });
 
+export const advancedDutyRevisionReapplyInputSchema = z.object({
+	dutyEventId: uuidField('Duty event ID'),
+	reason: stringField('Revision reason'),
+	reviewableConflictsConfirmed: z.boolean().optional()
+});
+
 export const dutyEventSeriesInputSchema = z.object({
 	templateId: uuidField('Template ID'),
 	startDate: dateField('Start date').optional(),

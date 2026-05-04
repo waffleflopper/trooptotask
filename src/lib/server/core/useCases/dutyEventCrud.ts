@@ -4,6 +4,7 @@ import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry'
 import { DutyEventEntity } from '$lib/server/entities/dutyEvent';
 import { DutyEventRunEntity } from '$lib/server/entities/dutyEventRun';
 import { DutyEventSlotEntity } from '$lib/server/entities/dutyEventSlot';
+import { AdvancedDutyRunSnapshotEntity } from '$lib/server/entities/advancedDutyRunSnapshot';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
@@ -11,13 +12,21 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
+import {
+	applyAdvancedDutyRevisionReapply,
+	createOrReopenAdvancedDutyRevisionDraft,
+	discardAdvancedDutyRevisionDraftById,
+	getActiveAdvancedDutyRevisionDraft,
+	updateAdvancedDutyRevisionDraftChanges
+} from './advancedDutyRevisionDrafts';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import { findDutyCoverageConflicts } from './dutyAvailability';
 import {
 	buildAdvancedDutyCoverage,
 	buildAdvancedRunSnapshot,
 	type AdvancedRunSnapshot,
-	type AdvancedRunHistoryEvent
+	type AdvancedRunHistoryEvent,
+	withAdvancedDutyReplacementCollision
 } from '$features/duty-roster/advanced-run/advancedDutyRun';
 import type {
 	DutyEvent,
@@ -40,8 +49,30 @@ import type {
 	ExistingDutyEventUpdateInput,
 	SoftPreferenceConfig,
 	DutyTemplate,
-	DutyEventFairnessConfidence
+	DutyEventFairnessConfidence,
+	AdvancedDutyRevisionDraftRecord,
+	AdvancedDutyRevisionDraftSession,
+	AdvancedDutyRevisionReapplyResult,
+	DutyEventAssignmentSource,
+	DutyEventWarningState
 } from '$features/duty-roster/duty-roster.types';
+import type {
+	AdvancedDutyRevisionAppliedSlot,
+	AdvancedDutyRevisionAppliedRun,
+	AdvancedDutyRevisionDraftSlotChange,
+	AdvancedDutyRevisionPersonnelFact,
+	AdvancedDutyRevisionPersonnelSnapshot
+} from '$features/duty-roster/advanced-run/advancedDutyRevision';
+import {
+	advancedDutyRevisionDraftSlotChangesToOverrides,
+	advancedDutyRevisionSlotIdentity,
+	buildAdvancedDutyRevisionDraftChangeFromOverride,
+	buildAdvancedDutyRevisionSlotKey,
+	deriveAdvancedDutyRevisionChangeSet,
+	hasOperationalAdvancedDutyRevisionSlotChange,
+	listAdvancedDutyRevisionDraftSlotChanges,
+	validateAdvancedDutyRevisionReapply
+} from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
 	cloneDefaultSoftPreferences,
 	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder
@@ -1014,10 +1045,6 @@ function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
 	};
 }
 
-function buildReplacementCollisionMessage(templateName: string, eventDate: string): string {
-	return `An applied advanced duty event already exists for ${templateName} on ${eventDate}. Applying again will replace its current team assignments. Review this replacement before apply.`;
-}
-
 function buildDutyEventRestorePayload(eventRow: Record<string, unknown>): Record<string, unknown> {
 	return {
 		run_id: eventRow.run_id ?? null,
@@ -1037,20 +1064,6 @@ function buildDutyEventRestorePayload(eventRow: Record<string, unknown>): Record
 	};
 }
 
-function withCollisionMessage(preview: AdvancedDutyRunEventPreview, message: string): AdvancedDutyRunEventPreview {
-	if (preview.collisionSummary.conflicts.includes(message)) {
-		return preview;
-	}
-
-	return {
-		...preview,
-		collisionSummary: {
-			hasConflicts: true,
-			conflicts: [message, ...preview.collisionSummary.conflicts]
-		}
-	};
-}
-
 function buildSlotOverridesFromDutyEvent(event: DutyEvent): DutyEventSlotOverrideInput[] {
 	return event.slotInstances.map((slot) => ({
 		templateSlotId: slot.templateSlotId,
@@ -1058,6 +1071,16 @@ function buildSlotOverridesFromDutyEvent(event: DutyEvent): DutyEventSlotOverrid
 		assigneeId: slot.assigneeId,
 		assignmentSource: slot.assignmentSource === 'generated' ? undefined : slot.assignmentSource
 	}));
+}
+
+function assertLegacyDirectUpdateAllowed(event: DutyEvent): void {
+	// Deprecated compatibility path: legacy/non-run events may still use direct updates.
+	if (event.run && !event.run.isLegacy) {
+		fail(
+			409,
+			'Applied Advanced Duty events must be changed through the revision draft workflow. Open a revision draft, review the changes, and reapply it.'
+		);
+	}
 }
 
 async function getDutyEventById(ctx: QueryPorts, dutyEventId: string): Promise<DutyEvent> {
@@ -1157,17 +1180,14 @@ export async function applyDutyEventFromTemplate(
 	// exclude it from the collision check — otherwise its own stored assignments would show as
 	// blocking conflicts against themselves.
 	const existingEventRow = await findExistingTemplateDutyEvent(ctx, input.templateId, input.eventDate);
-	const replacementCollisionMessage = existingEventRow
-		? buildReplacementCollisionMessage(template.name, input.eventDate)
-		: null;
 
 	const generatedPreview = buildApprovedAdvancedRunEventPreview(approvedSnapshot, input.eventDate);
 	const originalProposal =
 		getOriginalProposalFromAdvancedRunSnapshot(approvedSnapshot, input.eventDate) ??
 		buildAdvancedRunOriginalProposal(generatedPreview);
 	const preview = generatedPreview;
-	const collisionReviewPreview = replacementCollisionMessage
-		? withCollisionMessage(preview, replacementCollisionMessage)
+	const collisionReviewPreview = existingEventRow
+		? withAdvancedDutyReplacementCollision(preview, { templateName: template.name, eventDate: input.eventDate })
 		: preview;
 	failForHardRuleConflicts('Resolve hard-rule assignment conflicts before applying this duty event.', preview);
 	if (collisionReviewPreview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
@@ -1346,7 +1366,10 @@ export async function previewDutyEventFromTemplate(
 	const preview = toAdvancedDutyRunEventPreview(snapshot.events[0]);
 	const publicPreview = toPublicAdvancedDutyPreview(
 		existingEventRow
-			? withCollisionMessage(preview, buildReplacementCollisionMessage(preview.templateName, input.eventDate))
+			? withAdvancedDutyReplacementCollision(preview, {
+					templateName: preview.templateName,
+					eventDate: input.eventDate
+				})
 			: preview
 	);
 	const snapshotMetadata = await createDraftAdvancedRunSnapshot(ctx, {
@@ -1373,14 +1396,42 @@ export async function previewDutyEventFromTemplate(
 	};
 }
 
-export async function previewExistingDutyEvent(
+async function loadAppliedAdvancedDutyRunForRevision(
 	ctx: QueryPorts,
-	input: ExistingDutyEventInput
-): Promise<DutyEventPreview> {
-	requireAdvancedDutyAccess(ctx.auth);
+	event: DutyEvent
+): Promise<AdvancedDutyRevisionAppliedRun> {
+	if (!event.runId) {
+		fail(400, 'Legacy applied duty events cannot use Advanced Duty revision drafts yet.');
+	}
+	const runById = await loadDutyEventRunsByIds(ctx, [event.runId]);
+	const run = runById.get(event.runId);
+	if (!run) {
+		fail(404, 'Applied Advanced Duty run not found.');
+	}
+	const sourceSnapshot = await ctx.store.findOne<Record<string, unknown>>(
+		AdvancedDutyRunSnapshotEntity.table,
+		ctx.auth.orgId,
+		{
+			applied_run_id: run.id,
+			status: 'applied'
+		}
+	);
+	return {
+		id: run.id,
+		orgId: run.orgId,
+		sourceSnapshotId: sourceSnapshot ? String(sourceSnapshot.id) : null,
+		sourceSnapshotFingerprint: sourceSnapshot ? String(sourceSnapshot.snapshot_fingerprint ?? '') || null : null,
+		createdAt: run.createdAt,
+		updatedAt: run.updatedAt
+	};
+}
 
-	const event = await getDutyEventById(ctx, input.dutyEventId);
-	if (input.slotOverrides === undefined) {
+async function previewExistingDutyEventWithOverrides(
+	ctx: QueryPorts,
+	event: DutyEvent,
+	slotOverrides: DutyEventSlotOverrideInput[] | undefined
+): Promise<DutyEventPreview> {
+	if (slotOverrides === undefined) {
 		return buildPreviewFromDutyEvent(event);
 	}
 
@@ -1391,11 +1442,428 @@ export async function previewExistingDutyEvent(
 			template,
 			event.eventDate,
 			undefined,
-			input.slotOverrides,
+			slotOverrides,
 			[],
 			[event.id]
 		)
 	);
+}
+
+async function buildRevisionDraftSessionPreview(
+	ctx: QueryPorts,
+	event: DutyEvent,
+	draft: AdvancedDutyRevisionDraftRecord
+): Promise<DutyEventPreview> {
+	return previewExistingDutyEventWithOverrides(
+		ctx,
+		event,
+		advancedDutyRevisionDraftSlotChangesToOverrides(draft, event.eventDate)
+	);
+}
+
+function personnelSnapshotFromRow(row: Record<string, unknown>): AdvancedDutyRevisionPersonnelSnapshot {
+	return {
+		rank: String(row.rank ?? ''),
+		firstName: String(row.first_name ?? ''),
+		lastName: String(row.last_name ?? ''),
+		groupLabel: String(row.group_name ?? '')
+	};
+}
+
+async function loadRevisionPersonnelFacts(
+	ctx: QueryPorts,
+	personnelIds: string[]
+): Promise<{
+	facts: Record<string, AdvancedDutyRevisionPersonnelFact>;
+	snapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot>;
+}> {
+	const uniqueIds = [...new Set(personnelIds.filter(Boolean))];
+	if (uniqueIds.length === 0) {
+		return { facts: {}, snapshots: {} };
+	}
+	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueIds }
+	});
+	const facts: Record<string, AdvancedDutyRevisionPersonnelFact> = {};
+	const snapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot> = {};
+	for (const row of rows) {
+		const id = String(row.id);
+		facts[id] = { archived: Boolean(row.archived_at) };
+		snapshots[id] = personnelSnapshotFromRow(row);
+	}
+	return { facts, snapshots };
+}
+
+async function loadAppliedSlotsForRevision(
+	ctx: QueryPorts,
+	appliedRunId: string,
+	draft: AdvancedDutyRevisionDraftRecord
+): Promise<{
+	appliedSlots: AdvancedDutyRevisionAppliedSlot[];
+	slotRowsByIdentity: Map<string, Record<string, unknown>>;
+	eventRowsById: Map<string, Record<string, unknown>>;
+	personnelFacts: Record<string, AdvancedDutyRevisionPersonnelFact>;
+	personnelSnapshots: Record<string, AdvancedDutyRevisionPersonnelSnapshot>;
+}> {
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_events',
+		ctx.auth.orgId,
+		{ run_id: appliedRunId },
+		{ orderBy: [{ column: 'event_date', ascending: true }] }
+	);
+	const eventRowsById = new Map(eventRows.map((row) => [String(row.id), row]));
+	const eventIds = eventRows.map((row) => String(row.id));
+	const slotRows =
+		eventIds.length === 0
+			? []
+			: await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+					inFilters: { duty_event_id: eventIds },
+					orderBy: [
+						{ column: 'duty_event_id', ascending: true },
+						{ column: 'sort_order', ascending: true }
+					]
+				});
+	const draftSlotChanges = listAdvancedDutyRevisionDraftSlotChanges(draft);
+	const personnelIds = [
+		...slotRows.map((row) => row.assignee_id).filter((value): value is string => typeof value === 'string'),
+		...draftSlotChanges
+			.map((change) => change.newPersonnelId)
+			.filter((value): value is string => typeof value === 'string')
+	];
+	const { facts, snapshots } = await loadRevisionPersonnelFacts(ctx, personnelIds);
+	const slotRowsByIdentity = new Map<string, Record<string, unknown>>();
+	const appliedSlots = slotRows.flatMap((row) => {
+		const eventRow = eventRowsById.get(String(row.duty_event_id));
+		if (!eventRow) return [];
+		const slot = DutyEventSlotEntity.fromDb(row);
+		const eventDate = String(eventRow.event_date);
+		const slotKey = buildAdvancedDutyRevisionSlotKey(slot);
+		const identity = advancedDutyRevisionSlotIdentity({ eventDate, slotKey });
+		slotRowsByIdentity.set(identity, row);
+		return [
+			{
+				eventDate,
+				slotKey,
+				dutyEventId: slot.dutyEventId,
+				templateSlotId: slot.templateSlotId,
+				roleLabel: slot.roleLabel,
+				slotIndex: slot.slotIndex,
+				personnelId: slot.assigneeId,
+				personnelSnapshot: slot.assigneeId ? (snapshots[slot.assigneeId] ?? null) : null,
+				assignmentSource: slot.assignmentSource,
+				warningState: slot.warningState
+			} satisfies AdvancedDutyRevisionAppliedSlot
+		];
+	});
+	return {
+		appliedSlots,
+		slotRowsByIdentity,
+		eventRowsById,
+		personnelFacts: facts,
+		personnelSnapshots: snapshots
+	};
+}
+
+function buildRevisionConflictMaps(
+	draft: AdvancedDutyRevisionDraftRecord,
+	appliedSlots: AdvancedDutyRevisionAppliedSlot[]
+): {
+	hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
+	reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>>;
+} {
+	const hardConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
+	const reviewableConflictsBySlotKey: Record<string, Array<{ code: string; message: string }>> = {};
+	for (const change of listAdvancedDutyRevisionDraftSlotChanges(draft)) {
+		const identity = advancedDutyRevisionSlotIdentity(change);
+		const appliedSlot = appliedSlots.find((slot) => advancedDutyRevisionSlotIdentity(slot) === identity);
+		if (!appliedSlot || !hasOperationalAdvancedDutyRevisionSlotChange(change, appliedSlot)) {
+			continue;
+		}
+		if (change.warningState === 'conflict') {
+			hardConflictsBySlotKey[identity] = [{ code: 'draft-hard-conflict', message: 'Draft slot has a hard conflict.' }];
+		} else if (change.warningState === 'warning') {
+			reviewableConflictsBySlotKey[identity] = [
+				{ code: 'draft-reviewable-warning', message: 'Reviewable conflicts are present for this draft slot.' }
+			];
+		}
+	}
+	return { hardConflictsBySlotKey, reviewableConflictsBySlotKey };
+}
+
+function overrideChangesAppliedSlot(
+	override: DutyEventSlotOverrideInput,
+	appliedSlot: AdvancedDutyRevisionAppliedSlot
+): boolean {
+	if ((override.assigneeId ?? null) !== (appliedSlot.personnelId ?? null)) {
+		return true;
+	}
+	if (override.assignmentSource && override.assignmentSource !== (appliedSlot.assignmentSource ?? null)) {
+		return true;
+	}
+	return false;
+}
+
+function revisionReapplyConflictMessage(validation: ReturnType<typeof validateAdvancedDutyRevisionReapply>): string {
+	if (validation.reasonRequired) {
+		return 'Advanced Duty revision reapply requires a reason.';
+	}
+	if (validation.hardConflicts.length > 0) {
+		return validation.hardConflicts.map((conflict) => conflict.message).join(' ');
+	}
+	if (validation.requiresReviewableConflictConfirmation) {
+		return 'Reviewable conflicts require explicit confirmation before reapply.';
+	}
+	return 'Advanced Duty revision draft cannot be reapplied.';
+}
+
+function assertRevisionDraftSourceRunFresh(
+	draft: AdvancedDutyRevisionDraftRecord,
+	appliedRun: AdvancedDutyRevisionAppliedRun
+): void {
+	// Older draft records may not have captured a source timestamp; only enforce freshness
+	// when the draft has a source value to compare against the current applied run.
+	if (!draft.sourceRunUpdatedAt || draft.sourceRunUpdatedAt === appliedRun.updatedAt) {
+		return;
+	}
+	fail(
+		409,
+		'The source applied run changed after this Advanced Duty revision draft was opened. Discard this draft and open a new revision draft before reapplying.'
+	);
+}
+
+async function hydrateRevisionUpdatedEvents(ctx: QueryPorts, eventIds: string[], runId: string): Promise<DutyEvent[]> {
+	if (eventIds.length === 0) {
+		return [];
+	}
+	const uniqueEventIds = [...new Set(eventIds)];
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueEventIds },
+		orderBy: [{ column: 'event_date', ascending: true }]
+	});
+	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+		inFilters: { duty_event_id: uniqueEventIds },
+		orderBy: [
+			{ column: 'duty_event_id', ascending: true },
+			{ column: 'sort_order', ascending: true }
+		]
+	});
+	const slotsByEvent = new Map<string, Record<string, unknown>[]>();
+	for (const row of slotRows) {
+		const eventId = String(row.duty_event_id);
+		slotsByEvent.set(eventId, [...(slotsByEvent.get(eventId) ?? []), row]);
+	}
+	const runById = await loadDutyEventRunsByIds(ctx, [runId]);
+	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(String(row.id)) ?? [], runById));
+}
+
+export async function previewExistingDutyEvent(
+	ctx: QueryPorts,
+	input: ExistingDutyEventInput
+): Promise<DutyEventPreview> {
+	requireAdvancedDutyAccess(ctx.auth);
+
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	return previewExistingDutyEventWithOverrides(ctx, event, input.slotOverrides);
+}
+
+export async function startAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string }
+): Promise<AdvancedDutyRevisionDraftSession & { action: 'created' | 'reopened' }> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const result = await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun });
+	return {
+		action: result.action,
+		draft: result.draft,
+		preview: await buildRevisionDraftSessionPreview(ctx, event, result.draft)
+	};
+}
+
+export async function updateAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: ExistingDutyEventInput
+): Promise<AdvancedDutyRevisionDraftSession & { action: 'updated' }> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	let draft =
+		(await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id })) ??
+		(await createOrReopenAdvancedDutyRevisionDraft(ctx, { appliedRun })).draft;
+	const preview = await previewExistingDutyEventWithOverrides(
+		ctx,
+		event,
+		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft, event.eventDate)
+	);
+	const { appliedSlots } = await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
+	const changes: AdvancedDutyRevisionDraftSlotChange[] = [];
+	const replaceSlotIdentities: string[] = [];
+
+	for (const override of input.slotOverrides ?? []) {
+		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override });
+		const appliedSlot = appliedSlots.find(
+			(slot) => advancedDutyRevisionSlotIdentity(slot) === advancedDutyRevisionSlotIdentity(change)
+		);
+		if (!appliedSlot) {
+			continue;
+		}
+		replaceSlotIdentities.push(advancedDutyRevisionSlotIdentity(change));
+		if (
+			!overrideChangesAppliedSlot(override, appliedSlot) ||
+			!hasOperationalAdvancedDutyRevisionSlotChange(change, appliedSlot)
+		) {
+			continue;
+		}
+		changes.push(change);
+	}
+
+	if (changes.length > 0 || replaceSlotIdentities.length > 0) {
+		draft = await updateAdvancedDutyRevisionDraftChanges(ctx, {
+			draftId: draft.id,
+			changes,
+			replaceSlotIdentities
+		});
+	}
+
+	return {
+		action: 'updated',
+		draft,
+		preview: await buildRevisionDraftSessionPreview(ctx, event, draft)
+	};
+}
+
+export async function discardAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string }
+): Promise<AdvancedDutyRevisionDraftRecord> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const activeDraft = await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id });
+	if (!activeDraft) {
+		fail(404, 'Advanced Duty revision draft not found.');
+	}
+	return discardAdvancedDutyRevisionDraftById(ctx, { draftId: activeDraft.id });
+}
+
+export async function reapplyAdvancedDutyRevisionDraftForEvent(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: { dutyEventId: string; reason: string; reviewableConflictsConfirmed?: boolean }
+): Promise<AdvancedDutyRevisionReapplyResult> {
+	requireAdvancedDutyAccess(ctx.auth);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+	if (!ctx.auth.userId) {
+		fail(401, 'Sign in before reapplying Advanced Duty revision drafts.');
+	}
+
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	const appliedRun = await loadAppliedAdvancedDutyRunForRevision(ctx, event);
+	const draft = await getActiveAdvancedDutyRevisionDraft(ctx, { appliedRunId: appliedRun.id });
+	if (!draft) {
+		fail(404, 'Advanced Duty revision draft not found.');
+	}
+	if (draft.status !== 'draft') {
+		fail(409, 'Only active Advanced Duty revision drafts can be reapplied.');
+	}
+	assertRevisionDraftSourceRunFresh(draft, appliedRun);
+
+	const now = new Date().toISOString();
+	const { appliedSlots, slotRowsByIdentity, eventRowsById, personnelFacts, personnelSnapshots } =
+		await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
+	const { hardConflictsBySlotKey, reviewableConflictsBySlotKey } = buildRevisionConflictMaps(draft, appliedSlots);
+	const validation = validateAdvancedDutyRevisionReapply({
+		draft,
+		canReapply: true,
+		readOnly: false,
+		reason: input.reason,
+		reviewableConflictsConfirmed: input.reviewableConflictsConfirmed ?? false,
+		appliedSlots,
+		personnel: personnelFacts,
+		hardConflictsBySlotKey,
+		reviewableConflictsBySlotKey
+	});
+
+	if (!validation.canReapply) {
+		fail(validation.reasonRequired ? 400 : 409, revisionReapplyConflictMessage(validation));
+	}
+
+	const derived = deriveAdvancedDutyRevisionChangeSet({
+		draft,
+		appliedSlots,
+		personnelSnapshots,
+		reason: input.reason,
+		actorUserId: ctx.auth.userId,
+		now,
+		makeChangeSetId: () => crypto.randomUUID(),
+		makeSlotChangeId: () => crypto.randomUUID()
+	});
+	if (derived.slotChanges.length === 0) {
+		fail(400, 'Advanced Duty revision draft has no operational changes to reapply.');
+	}
+
+	const touchedEventIds = new Set<string>();
+	const slotUpdateRows: Record<string, unknown>[] = [];
+	for (const slotChange of derived.slotChanges) {
+		const slotRow = slotRowsByIdentity.get(advancedDutyRevisionSlotIdentity(slotChange));
+		if (!slotRow) {
+			fail(409, 'The applied duty slot no longer exists.');
+		}
+		const eventId = String(slotRow.duty_event_id);
+		if (!eventRowsById.has(eventId)) {
+			fail(409, 'The applied duty event no longer exists.');
+		}
+		const assignmentSource: DutyEventAssignmentSource =
+			slotChange.newAssignmentSource ??
+			(slotChange.changeIntent === 'lock-assigned' || slotChange.changeIntent === 'lock-open' ? 'locked' : 'manual');
+		const warningState: DutyEventWarningState = slotChange.newWarningState ?? 'none';
+		slotUpdateRows.push({
+			id: String(slotRow.id),
+			duty_event_id: eventId,
+			assignee_id: slotChange.newPersonnelId,
+			assignment_source: assignmentSource,
+			warning_state: warningState,
+			selection_reason: slotChange.newPersonnelId ? 'Reapplied from Advanced Duty revision draft.' : null,
+			unfilled_reason: slotChange.newPersonnelId ? null : 'Cleared by Advanced Duty revision draft.'
+		});
+		touchedEventIds.add(eventId);
+	}
+
+	const persistedReapply = await applyAdvancedDutyRevisionReapply(ctx, {
+		draftId: draft.id,
+		slotUpdateRows,
+		changeSet: {
+			...derived.changeSet,
+			reviewableConflictsConfirmed: input.reviewableConflictsConfirmed ?? false,
+			conflictSummary:
+				validation.hardConflicts.length > 0 ? { hardConflictCount: validation.hardConflicts.length } : null,
+			warningSummary:
+				validation.reviewableConflicts.length > 0
+					? { reviewableConflictCount: validation.reviewableConflicts.length }
+					: null
+		},
+		slotChanges: derived.slotChanges,
+		appliedDraft: {
+			...draft,
+			status: 'applied',
+			updatedByUserId: ctx.auth.userId,
+			appliedByUserId: ctx.auth.userId,
+			appliedAt: now,
+			updatedAt: now
+		},
+		now
+	});
+	const updatedEvents = await hydrateRevisionUpdatedEvents(ctx, [...touchedEventIds], appliedRun.id);
+
+	return {
+		draft: persistedReapply.draft,
+		changeSet: persistedReapply.changeSet,
+		slotChanges: persistedReapply.slotChanges,
+		updatedEvents
+	};
 }
 
 export async function updateExistingDutyEvent(
@@ -1410,6 +1878,7 @@ export async function updateExistingDutyEvent(
 	}
 
 	const existingEvent = await getDutyEventById(ctx, input.dutyEventId);
+	assertLegacyDirectUpdateAllowed(existingEvent);
 	const template = buildTemplateFromRulesSnapshot(existingEvent.rulesSnapshot);
 	const preview = await buildDutyEventPreviewFromResolvedTemplate(
 		ctx,
@@ -1592,7 +2061,10 @@ export async function previewDutyEventSeriesFromTemplate(
 		const existingId = existingIdByDate.get(event.eventDate);
 		return toPublicAdvancedDutyPreview(
 			existingId
-				? withCollisionMessage(internalPreview, buildReplacementCollisionMessage(template.name, event.eventDate))
+				? withAdvancedDutyReplacementCollision(internalPreview, {
+						templateName: template.name,
+						eventDate: event.eventDate
+					})
 				: internalPreview
 		);
 	});

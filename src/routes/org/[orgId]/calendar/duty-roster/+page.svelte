@@ -62,7 +62,9 @@
 		rosterHistory: resolvedData.rosterHistory,
 		advancedDutyTemplates: resolvedData.advancedDutyTemplates,
 		advancedDutyEvents: resolvedData.advancedDutyEvents,
-		advancedDutySnapshots: resolvedData.advancedDutySnapshots
+		advancedDutySnapshots: resolvedData.advancedDutySnapshots,
+		advancedDutyRevisionHistory: resolvedData.advancedDutyRevisionHistory ?? [],
+		advancedDutyRevisionDrafts: resolvedData.advancedDutyRevisionDrafts ?? []
 	}));
 </script>
 

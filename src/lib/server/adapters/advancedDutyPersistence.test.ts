@@ -196,54 +196,6 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 		expect(builder.order).toHaveBeenCalledWith('updated_at', { ascending: false });
 	});
 
-	it('writes revision change sets and slot changes to the approved history tables', async () => {
-		const changeSetBuilder = queryBuilder({ data: { id: 'change-set-1' }, error: null });
-		const slotBuilder = queryBuilder({ data: [{ id: 'slot-change-1' }], error: null });
-		const from = vi.fn().mockReturnValueOnce(changeSetBuilder).mockReturnValueOnce(slotBuilder);
-		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ from } as unknown as SupabaseClient);
-
-		const result = await adapter.appendAdvancedDutyRevisionChangeSet({
-			orgId: 'org-1',
-			changeSetData: {
-				id: 'change-set-1',
-				organization_id: 'org-1',
-				applied_run_id: 'run-1',
-				reason: 'Coverage changed'
-			},
-			slotChangeRows: [
-				{
-					id: 'slot-change-1',
-					organization_id: 'org-1',
-					change_set_id: 'change-set-1',
-					event_date: '2026-05-02',
-					slot_key: 'slot-nco:0'
-				}
-			]
-		});
-
-		expect(result).toEqual({
-			changeSetRow: { id: 'change-set-1' },
-			slotChangeRows: [{ id: 'slot-change-1' }]
-		});
-		expect(from).toHaveBeenNthCalledWith(1, 'advanced_duty_revision_change_sets');
-		expect(from).toHaveBeenNthCalledWith(2, 'advanced_duty_revision_slot_changes');
-		expect(changeSetBuilder.insert).toHaveBeenCalledWith({
-			id: 'change-set-1',
-			organization_id: 'org-1',
-			applied_run_id: 'run-1',
-			reason: 'Coverage changed'
-		});
-		expect(slotBuilder.insert).toHaveBeenCalledWith([
-			{
-				id: 'slot-change-1',
-				organization_id: 'org-1',
-				change_set_id: 'change-set-1',
-				event_date: '2026-05-02',
-				slot_key: 'slot-nco:0'
-			}
-		]);
-	});
-
 	it('applies revision reapply through one RPC call', async () => {
 		const rpc = vi.fn().mockResolvedValue({
 			data: {

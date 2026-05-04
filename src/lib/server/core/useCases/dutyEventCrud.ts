@@ -1454,7 +1454,11 @@ async function buildRevisionDraftSessionPreview(
 	event: DutyEvent,
 	draft: AdvancedDutyRevisionDraftRecord
 ): Promise<DutyEventPreview> {
-	return previewExistingDutyEventWithOverrides(ctx, event, advancedDutyRevisionDraftSlotChangesToOverrides(draft));
+	return previewExistingDutyEventWithOverrides(
+		ctx,
+		event,
+		advancedDutyRevisionDraftSlotChangesToOverrides(draft, event.eventDate)
+	);
 }
 
 function personnelSnapshotFromRow(row: Record<string, unknown>): AdvancedDutyRevisionPersonnelSnapshot {
@@ -1690,18 +1694,22 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 	const preview = await previewExistingDutyEventWithOverrides(
 		ctx,
 		event,
-		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft)
+		input.slotOverrides ?? advancedDutyRevisionDraftSlotChangesToOverrides(draft, event.eventDate)
 	);
 	const { appliedSlots } = await loadAppliedSlotsForRevision(ctx, appliedRun.id, draft);
 	const changes: AdvancedDutyRevisionDraftSlotChange[] = [];
+	const replaceSlotIdentities: string[] = [];
 
 	for (const override of input.slotOverrides ?? []) {
 		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({ event, preview, override });
 		const appliedSlot = appliedSlots.find(
 			(slot) => advancedDutyRevisionSlotIdentity(slot) === advancedDutyRevisionSlotIdentity(change)
 		);
+		if (!appliedSlot) {
+			continue;
+		}
+		replaceSlotIdentities.push(advancedDutyRevisionSlotIdentity(change));
 		if (
-			!appliedSlot ||
 			!overrideChangesAppliedSlot(override, appliedSlot) ||
 			!hasOperationalAdvancedDutyRevisionSlotChange(change, appliedSlot)
 		) {
@@ -1710,14 +1718,18 @@ export async function updateAdvancedDutyRevisionDraftForEvent(
 		changes.push(change);
 	}
 
-	if (changes.length > 0) {
-		draft = await updateAdvancedDutyRevisionDraftChanges(ctx, { draftId: draft.id, changes });
+	if (changes.length > 0 || replaceSlotIdentities.length > 0) {
+		draft = await updateAdvancedDutyRevisionDraftChanges(ctx, {
+			draftId: draft.id,
+			changes,
+			replaceSlotIdentities
+		});
 	}
 
 	return {
 		action: 'updated',
 		draft,
-		preview
+		preview: await buildRevisionDraftSessionPreview(ctx, event, draft)
 	};
 }
 

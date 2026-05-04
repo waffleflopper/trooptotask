@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type {
 	AdvancedDutyRevisionAppliedRun,
-	AdvancedDutyRevisionDraftSlotChange,
-	DerivedAdvancedDutyRevisionChangeSet
+	AdvancedDutyRevisionDraftSlotChange
 } from '$features/duty-roster/advanced-run/advancedDutyRevision';
 import {
-	appendAdvancedDutyRevisionChangeSet,
 	cleanupAdvancedDutyRevisionDrafts,
 	createOrReopenAdvancedDutyRevisionDraft,
 	discardAdvancedDutyRevisionDraftById,
@@ -43,6 +41,62 @@ function slotChange(overrides?: Partial<AdvancedDutyRevisionDraftSlotChange>): A
 		changeIntent: 'assign',
 		...overrides
 	};
+}
+
+function seedRevisionHistory(
+	ctx: ReturnType<typeof createTestContext>,
+	input?: {
+		changeSet?: Record<string, unknown>;
+		slotChanges?: Record<string, unknown>[];
+	}
+) {
+	const changeSetId = String(input?.changeSet?.id ?? 'change-set-1');
+	ctx.store.seed('advanced_duty_revision_change_sets', [
+		{
+			id: changeSetId,
+			organization_id: 'test-org',
+			applied_run_id: 'run-1',
+			source_draft_id: 'draft-1',
+			source_snapshot_id: 'snapshot-1',
+			source_snapshot_fingerprint: 'fingerprint-1',
+			reason: 'Leader reviewed coverage conflict.',
+			actor_user_id: 'user-1',
+			reviewable_conflicts_confirmed: true,
+			conflict_summary: null,
+			warning_summary: { reviewable: 1 },
+			applied_at: '2026-05-03T02:00:00.000Z',
+			created_at: '2026-05-03T02:00:00.000Z',
+			...input?.changeSet
+		}
+	]);
+	ctx.store.seed(
+		'advanced_duty_revision_slot_changes',
+		input?.slotChanges ?? [
+			{
+				id: 'slot-change-1',
+				organization_id: 'test-org',
+				change_set_id: changeSetId,
+				duty_event_id: 'event-1',
+				event_date: '2026-05-04',
+				slot_key: 'slot-nco:0',
+				template_slot_id: 'slot-nco',
+				role_label: 'NCO',
+				slot_index: 0,
+				previous_personnel_id: 'person-alpha',
+				new_personnel_id: 'person-bravo',
+				previous_personnel_snapshot: { rank: 'SGT', firstName: 'Alex', lastName: 'Alpha' },
+				new_personnel_snapshot: { rank: 'SSG', firstName: 'Blake', lastName: 'Bravo' },
+				previous_assignment_source: 'generated',
+				new_assignment_source: 'manual',
+				previous_warning_state: 'none',
+				new_warning_state: 'warning',
+				change_intent: 'assign',
+				warning_metadata: { note: 'reviewed' },
+				conflict_metadata: null,
+				created_at: '2026-05-03T02:00:00.000Z'
+			}
+		]
+	);
 }
 
 describe('advanced duty revision draft use cases', () => {
@@ -107,110 +161,12 @@ describe('advanced duty revision draft use cases', () => {
 		expect(active).toBeNull();
 	});
 
-	it('persists applied change sets and compact slot-change history behind the use case', async () => {
-		const ctx = createTestContext();
-		const derived: DerivedAdvancedDutyRevisionChangeSet = {
-			changeSet: {
-				id: 'change-set-1',
-				orgId: 'test-org',
-				appliedRunId: 'run-1',
-				sourceDraftId: 'draft-1',
-				sourceSnapshotId: 'snapshot-1',
-				sourceSnapshotFingerprint: 'fingerprint-1',
-				reason: 'Coverage changed',
-				actorUserId: 'test-user',
-				reviewableConflictsConfirmed: true,
-				conflictSummary: { hard: 0 },
-				warningSummary: { reviewable: 1 },
-				appliedAt: '2026-05-03T02:00:00.000Z',
-				createdAt: '2026-05-03T02:00:00.000Z'
-			},
-			slotChanges: [
-				{
-					id: 'slot-change-1',
-					orgId: 'test-org',
-					changeSetId: 'change-set-1',
-					dutyEventId: 'event-1',
-					eventDate: '2026-05-04',
-					slotKey: 'slot-nco:0',
-					templateSlotId: 'slot-nco',
-					roleLabel: 'NCO',
-					slotIndex: 0,
-					previousPersonnelId: 'person-alpha',
-					newPersonnelId: 'person-bravo',
-					previousPersonnelSnapshot: { rank: 'SGT', lastName: 'Alpha' },
-					newPersonnelSnapshot: { rank: 'SGT', lastName: 'Bravo' },
-					previousAssignmentSource: 'generated',
-					newAssignmentSource: 'manual',
-					previousWarningState: 'none',
-					newWarningState: 'warning',
-					changeIntent: 'assign',
-					warningMetadata: { note: 'reviewed' },
-					conflictMetadata: null,
-					createdAt: '2026-05-03T02:00:00.000Z'
-				}
-			]
-		};
-
-		const result = await appendAdvancedDutyRevisionChangeSet(ctx, derived);
-
-		expect(result.changeSet).toMatchObject({ id: 'change-set-1', reason: 'Coverage changed' });
-		expect(result.slotChanges).toHaveLength(1);
-		expect(
-			await ctx.rawStore.findMany<Record<string, unknown>>('advanced_duty_revision_change_sets', 'test-org')
-		).toHaveLength(1);
-		expect(
-			await ctx.rawStore.findMany<Record<string, unknown>>('advanced_duty_revision_slot_changes', 'test-org')
-		).toHaveLength(1);
-	});
-
 	it('lists compact applied revision history without exposing draft payloads or snapshots', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organization_memberships', [
 			{ id: 'membership-1', organization_id: 'test-org', user_id: 'user-1', email: 'approver@example.mil' }
 		]);
-		await appendAdvancedDutyRevisionChangeSet(ctx, {
-			changeSet: {
-				id: 'change-set-1',
-				orgId: 'test-org',
-				appliedRunId: 'run-1',
-				sourceDraftId: 'draft-1',
-				sourceSnapshotId: 'snapshot-1',
-				sourceSnapshotFingerprint: 'fingerprint-1',
-				reason: 'Leader reviewed coverage conflict.',
-				actorUserId: 'user-1',
-				reviewableConflictsConfirmed: true,
-				conflictSummary: null,
-				warningSummary: { reviewable: 1 },
-				appliedAt: '2026-05-03T02:00:00.000Z',
-				createdAt: '2026-05-03T02:00:00.000Z'
-			},
-			slotChanges: [
-				{
-					id: 'slot-change-1',
-					orgId: 'test-org',
-					changeSetId: 'change-set-1',
-					dutyEventId: 'event-1',
-					eventDate: '2026-05-04',
-					slotKey: 'slot-nco:0',
-					templateSlotId: 'slot-nco',
-					roleLabel: 'NCO',
-					slotIndex: 0,
-					previousPersonnelId: 'person-alpha',
-					newPersonnelId: 'person-bravo',
-					previousPersonnelSnapshot: { rank: 'SGT', firstName: 'Alex', lastName: 'Alpha' },
-					newPersonnelSnapshot: { rank: 'SSG', firstName: 'Blake', lastName: 'Bravo' },
-					previousAssignmentSource: 'generated',
-					newAssignmentSource: 'manual',
-					previousWarningState: 'none',
-					newWarningState: 'warning',
-					changeIntent: 'assign',
-					warningMetadata: { note: 'reviewed' },
-					conflictMetadata: null,
-					createdAt: '2026-05-03T02:00:00.000Z'
-				}
-			]
-		});
+		seedRevisionHistory(ctx);
 
 		const result = await listAdvancedDutyRevisionHistory(ctx, { appliedRunIds: ['run-1'] });
 
@@ -238,21 +194,11 @@ describe('advanced duty revision draft use cases', () => {
 
 	it('uses an unavailable actor label when the change-set actor membership is missing', async () => {
 		const ctx = createTestContext();
-		await appendAdvancedDutyRevisionChangeSet(ctx, {
+		seedRevisionHistory(ctx, {
 			changeSet: {
 				id: 'change-set-1',
-				orgId: 'test-org',
-				appliedRunId: 'run-1',
-				sourceDraftId: 'draft-1',
-				sourceSnapshotId: 'snapshot-1',
-				sourceSnapshotFingerprint: 'fingerprint-1',
-				reason: 'Leader reviewed coverage conflict.',
-				actorUserId: 'deleted-user',
-				reviewableConflictsConfirmed: true,
-				conflictSummary: null,
-				warningSummary: null,
-				appliedAt: '2026-05-03T02:00:00.000Z',
-				createdAt: '2026-05-03T02:00:00.000Z'
+				actor_user_id: 'deleted-user',
+				warning_summary: null
 			},
 			slotChanges: []
 		});
@@ -304,45 +250,37 @@ describe('advanced duty revision draft use cases', () => {
 			draftId: applied.draft.id,
 			now: '2026-05-02T00:00:00.000Z'
 		});
-		await appendAdvancedDutyRevisionChangeSet(ctx, {
+		seedRevisionHistory(ctx, {
 			changeSet: {
 				id: 'change-set-1',
-				orgId: 'test-org',
-				appliedRunId: 'run-expired',
-				sourceDraftId: expiredActive.draft.id,
-				sourceSnapshotId: 'snapshot-1',
-				sourceSnapshotFingerprint: 'fingerprint-1',
-				reason: 'Leader reviewed coverage conflict.',
-				actorUserId: 'test-user',
-				reviewableConflictsConfirmed: true,
-				conflictSummary: null,
-				warningSummary: null,
-				appliedAt: '2026-05-03T02:00:00.000Z',
-				createdAt: '2026-05-03T02:00:00.000Z'
+				applied_run_id: 'run-expired',
+				source_draft_id: expiredActive.draft.id,
+				actor_user_id: 'test-user',
+				warning_summary: null
 			},
 			slotChanges: [
 				{
 					id: 'slot-change-1',
-					orgId: 'test-org',
-					changeSetId: 'change-set-1',
-					dutyEventId: 'event-1',
-					eventDate: '2026-05-04',
-					slotKey: 'slot-nco:0',
-					templateSlotId: 'slot-nco',
-					roleLabel: 'NCO',
-					slotIndex: 0,
-					previousPersonnelId: 'person-alpha',
-					newPersonnelId: 'person-bravo',
-					previousPersonnelSnapshot: null,
-					newPersonnelSnapshot: null,
-					previousAssignmentSource: 'generated',
-					newAssignmentSource: 'manual',
-					previousWarningState: 'none',
-					newWarningState: 'none',
-					changeIntent: 'assign',
-					warningMetadata: null,
-					conflictMetadata: null,
-					createdAt: '2026-05-03T02:00:00.000Z'
+					organization_id: 'test-org',
+					change_set_id: 'change-set-1',
+					duty_event_id: 'event-1',
+					event_date: '2026-05-04',
+					slot_key: 'slot-nco:0',
+					template_slot_id: 'slot-nco',
+					role_label: 'NCO',
+					slot_index: 0,
+					previous_personnel_id: 'person-alpha',
+					new_personnel_id: 'person-bravo',
+					previous_personnel_snapshot: null,
+					new_personnel_snapshot: null,
+					previous_assignment_source: 'generated',
+					new_assignment_source: 'manual',
+					previous_warning_state: 'none',
+					new_warning_state: 'none',
+					change_intent: 'assign',
+					warning_metadata: null,
+					conflict_metadata: null,
+					created_at: '2026-05-03T02:00:00.000Z'
 				}
 			]
 		});

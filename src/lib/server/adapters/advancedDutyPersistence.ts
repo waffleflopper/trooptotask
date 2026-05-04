@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-	AdvancedDutyRevisionChangeSetPersistenceResult,
 	AdvancedDutyRevisionReapplyPersistenceResult,
 	AdvancedDutyPersistencePort,
 	DataStore,
@@ -206,38 +205,6 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			}
 
 			return ((data as Record<string, unknown>[] | null) ?? []).length;
-		},
-
-		async appendAdvancedDutyRevisionChangeSet(input) {
-			const changeSetOperation = `${REVISION_CHANGE_SETS_TABLE}.insert`;
-			const { data: changeSetData, error: changeSetError } = await supabase
-				.from(REVISION_CHANGE_SETS_TABLE)
-				.insert(input.changeSetData)
-				.select('*')
-				.single();
-
-			if (changeSetError) {
-				throw buildTableError(changeSetOperation, changeSetError.message);
-			}
-
-			let slotChangeRows: Record<string, unknown>[] = [];
-			if (input.slotChangeRows.length > 0) {
-				const slotChangeOperation = `${REVISION_SLOT_CHANGES_TABLE}.insert`;
-				const { data, error } = await supabase
-					.from(REVISION_SLOT_CHANGES_TABLE)
-					.insert(input.slotChangeRows)
-					.select('*');
-
-				if (error) {
-					throw buildTableError(slotChangeOperation, error.message);
-				}
-				slotChangeRows = (data as Record<string, unknown>[] | null) ?? [];
-			}
-
-			return {
-				changeSetRow: asRow(changeSetData, changeSetOperation),
-				slotChangeRows
-			};
 		},
 
 		async applyAdvancedDutyRevision(input) {
@@ -454,27 +421,6 @@ export function createInMemoryAdvancedDutyPersistenceAdapter(store: DataStore): 
 
 		async deleteAdvancedDutyRevisionDrafts(input) {
 			return store.deleteManyByIds(REVISION_DRAFTS_TABLE, input.orgId, input.draftIds);
-		},
-
-		async appendAdvancedDutyRevisionChangeSet(input): Promise<AdvancedDutyRevisionChangeSetPersistenceResult> {
-			const changeSetRow = await store.insert<Record<string, unknown>>(
-				REVISION_CHANGE_SETS_TABLE,
-				input.orgId,
-				input.changeSetData
-			);
-			const slotChangeRows =
-				input.slotChangeRows.length > 0
-					? await store.insertMany<Record<string, unknown>>(
-							REVISION_SLOT_CHANGES_TABLE,
-							input.orgId,
-							input.slotChangeRows
-						)
-					: [];
-
-			return {
-				changeSetRow,
-				slotChangeRows
-			};
 		},
 
 		async applyAdvancedDutyRevision(input): Promise<AdvancedDutyRevisionReapplyPersistenceResult> {

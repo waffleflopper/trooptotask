@@ -281,6 +281,42 @@ describe('advanced duty revision drafts', () => {
 		]);
 	});
 
+	it('filters editor overrides to one event date inside the revision module', () => {
+		const draft = createDraft({
+			slotChanges: [
+				{
+					eventDate: '2026-05-04',
+					slotKey: 'staff-duty:0',
+					templateSlotId: 'template-slot-1',
+					slotIndex: 0,
+					newPersonnelId: 'person-2',
+					assignmentSource: 'manual',
+					warningState: 'none',
+					changeIntent: 'assign'
+				},
+				{
+					eventDate: '2026-05-05',
+					slotKey: 'staff-duty:0',
+					templateSlotId: 'template-slot-1',
+					slotIndex: 0,
+					newPersonnelId: 'person-3',
+					assignmentSource: 'manual',
+					warningState: 'none',
+					changeIntent: 'assign'
+				}
+			]
+		});
+
+		expect(advancedDutyRevisionDraftSlotChangesToOverrides(draft, '2026-05-04')).toEqual([
+			{
+				templateSlotId: 'template-slot-1',
+				slotIndex: 0,
+				assigneeId: 'person-2',
+				assignmentSource: 'manual'
+			}
+		]);
+	});
+
 	it('derives a revision draft slot change from the previewed override result', () => {
 		const change = buildAdvancedDutyRevisionDraftChangeFromOverride({
 			event: createDutyEvent(),

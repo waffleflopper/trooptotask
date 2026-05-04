@@ -47,6 +47,7 @@ export interface UpdateAdvancedDutyRevisionDraftChangeInput {
 export interface UpdateAdvancedDutyRevisionDraftChangesInput {
 	draftId: string;
 	changes: AdvancedDutyRevisionDraftSlotChange[];
+	replaceSlotIdentities?: string[];
 	now?: string;
 }
 
@@ -77,11 +78,6 @@ export interface AdvancedDutyRevisionHistoryLookupInput {
 	appliedRunIds?: string[];
 }
 
-export interface AdvancedDutyRevisionChangeSetPersistenceResult {
-	changeSet: AdvancedDutyRevisionChangeSetRecord;
-	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
-}
-
 export interface AdvancedDutyRevisionReapplyPersistenceInput extends DerivedAdvancedDutyRevisionChangeSet {
 	draftId: string;
 	slotUpdateRows: Record<string, unknown>[];
@@ -89,8 +85,10 @@ export interface AdvancedDutyRevisionReapplyPersistenceInput extends DerivedAdva
 	now: string;
 }
 
-export interface AdvancedDutyRevisionReapplyPersistenceResult extends AdvancedDutyRevisionChangeSetPersistenceResult {
+export interface AdvancedDutyRevisionReapplyPersistenceResult {
 	draft: AdvancedDutyRevisionDraftRecord;
+	changeSet: AdvancedDutyRevisionChangeSetRecord;
+	slotChanges: AdvancedDutyRevisionSlotChangeRecord[];
 }
 
 interface RevisionActorMembershipRow {
@@ -386,15 +384,20 @@ export async function updateAdvancedDutyRevisionDraftChanges(
 	if (draft.status !== 'draft') {
 		fail(409, 'Only active Advanced Duty revision drafts can be updated.');
 	}
-	if (input.changes.length === 0) {
+	const replaceSlotIdentities = input.replaceSlotIdentities ?? [];
+	if (input.changes.length === 0 && replaceSlotIdentities.length === 0) {
 		return draft;
 	}
 	const updatedDraft = updateAdvancedDutyRevisionDraftSlotChanges({
 		draft,
 		changes: input.changes,
+		replaceSlotIdentities,
 		actorUserId,
 		now: input.now ?? new Date().toISOString()
 	});
+	if (updatedDraft === draft) {
+		return draft;
+	}
 	const row = await ctx.advancedDutyPersistence.updateAdvancedDutyRevisionDraft({
 		orgId: ctx.auth.orgId,
 		draftId: input.draftId,
@@ -467,31 +470,6 @@ export async function markAdvancedDutyRevisionDraftAppliedById(
 		details: { appliedRunId: appliedDraft.appliedRunId }
 	});
 	return AdvancedDutyRevisionDraftEntity.fromDb(row);
-}
-
-export async function appendAdvancedDutyRevisionChangeSet(
-	ctx: AdvancedDutyRevisionWriteContext,
-	input: DerivedAdvancedDutyRevisionChangeSet
-): Promise<AdvancedDutyRevisionChangeSetPersistenceResult> {
-	await requireWritableAdvancedDuty(ctx);
-	const result = await ctx.advancedDutyPersistence.appendAdvancedDutyRevisionChangeSet({
-		orgId: ctx.auth.orgId,
-		changeSetData: changeSetToDbRow(input.changeSet),
-		slotChangeRows: input.slotChanges.map(slotChangeToDbRow)
-	});
-	ctx.audit.log({
-		action: 'advanced-duty-revision-change-set.created',
-		resourceType: 'advanced_duty_revision_change_set',
-		resourceId: String(result.changeSetRow.id),
-		details: {
-			appliedRunId: input.changeSet.appliedRunId,
-			slotChangeCount: input.slotChanges.length
-		}
-	});
-	return {
-		changeSet: AdvancedDutyRevisionChangeSetEntity.fromDb(result.changeSetRow),
-		slotChanges: AdvancedDutyRevisionSlotChangeEntity.fromDbArray(result.slotChangeRows)
-	};
 }
 
 export async function applyAdvancedDutyRevisionReapply(

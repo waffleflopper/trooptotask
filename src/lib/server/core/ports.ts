@@ -83,12 +83,9 @@ export interface DraftAdvancedRunSnapshotReplacement {
 	snapshotData: Record<string, unknown>;
 }
 
-export interface AdvancedDutyRevisionChangeSetPersistenceResult {
+export interface AdvancedDutyRevisionReapplyPersistenceResult {
 	changeSetRow: Record<string, unknown>;
 	slotChangeRows: Record<string, unknown>[];
-}
-
-export interface AdvancedDutyRevisionReapplyPersistenceResult extends AdvancedDutyRevisionChangeSetPersistenceResult {
 	draftRow: Record<string, unknown>;
 }
 
@@ -170,12 +167,6 @@ export interface AdvancedDutyPersistencePort {
 	}): Promise<Record<string, unknown>>;
 
 	deleteAdvancedDutyRevisionDrafts(input: { orgId: string; draftIds: string[] }): Promise<number>;
-
-	appendAdvancedDutyRevisionChangeSet(input: {
-		orgId: string;
-		changeSetData: Record<string, unknown>;
-		slotChangeRows: Record<string, unknown>[];
-	}): Promise<AdvancedDutyRevisionChangeSetPersistenceResult>;
 
 	applyAdvancedDutyRevision(input: {
 		orgId: string;

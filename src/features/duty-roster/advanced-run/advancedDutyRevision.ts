@@ -73,6 +73,7 @@ export interface UpdateAdvancedDutyRevisionDraftSlotChangeInput {
 export interface UpdateAdvancedDutyRevisionDraftSlotChangesInput {
 	draft: AdvancedDutyRevisionDraftRecord;
 	changes: AdvancedDutyRevisionDraftSlotChange[];
+	replaceSlotIdentities?: string[];
 	actorUserId: string;
 	now: string;
 }
@@ -178,9 +179,10 @@ export function advancedDutyRevisionSlotIdentity(
 }
 
 export function advancedDutyRevisionDraftSlotChangesToOverrides(
-	draft: AdvancedDutyRevisionDraftRecord
+	draft: AdvancedDutyRevisionDraftRecord,
+	eventDate?: string
 ): DutyEventSlotOverrideInput[] | undefined {
-	const changes = draftSlotChanges(draft);
+	const changes = draftSlotChanges(draft).filter((change) => !eventDate || change.eventDate === eventDate);
 	if (changes.length === 0) return undefined;
 	return changes.map((change) => ({
 		templateSlotId: change.templateSlotId ?? null,
@@ -327,11 +329,12 @@ export function updateAdvancedDutyRevisionDraftSlotChange(
 export function updateAdvancedDutyRevisionDraftSlotChanges(
 	input: UpdateAdvancedDutyRevisionDraftSlotChangesInput
 ): AdvancedDutyRevisionDraftRecord {
-	if (input.changes.length === 0) {
+	const replaceSlotIdentities = new Set(input.replaceSlotIdentities ?? []);
+	if (input.changes.length === 0 && replaceSlotIdentities.size === 0) {
 		return input.draft;
 	}
 	const currentChanges = draftSlotChanges(input.draft);
-	const nextChanges = [...currentChanges];
+	const nextChanges = currentChanges.filter((change) => !replaceSlotIdentities.has(slotIdentity(change)));
 
 	for (const incomingChange of input.changes) {
 		const existingIndex = nextChanges.findIndex((change) => slotIdentity(change) === slotIdentity(incomingChange));
@@ -340,6 +343,10 @@ export function updateAdvancedDutyRevisionDraftSlotChanges(
 		} else {
 			nextChanges.push(incomingChange);
 		}
+	}
+
+	if (JSON.stringify(nextChanges) === JSON.stringify(currentChanges)) {
+		return input.draft;
 	}
 
 	return {

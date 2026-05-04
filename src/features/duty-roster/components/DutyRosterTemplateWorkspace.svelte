@@ -4,10 +4,17 @@
 		DutyRosterTemplateSettingsData,
 		DutyRosterTemplateView
 	} from '$features/duty-roster/templates/dutyRosterTemplates';
+	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
 	type ActionForm = {
 		error?: string;
+		generateError?: string;
 		settingsError?: string;
+		preview?: DutyRosterTemplatePreview;
+		generateValues?: {
+			startDate?: string;
+			endDate?: string;
+		};
 		values?: {
 			name?: string;
 			shortCode?: string;
@@ -30,6 +37,10 @@
 	const selectedTemplate = $derived(data.selectedTemplate ?? data.templates[0] ?? null);
 	const selectedView = $derived(data.view ?? 'generate');
 	const actionForm = $derived((form && typeof form === 'object' ? form : null) as ActionForm | null);
+	const preview = $derived(selectedView === 'generate' ? (actionForm?.preview ?? null) : null);
+	const generateAction = $derived(
+		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/generatePreview` : createAction
+	);
 	const settingsAction = $derived(
 		selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction
 	);
@@ -63,6 +74,20 @@
 		}
 
 		return groups.sort((a, b) => a.label.localeCompare(b.label));
+	}
+
+	function previewAssignee(preview: DutyRosterTemplatePreview, assigneeId: string | null) {
+		return preview.personnel.find((person) => person.id === assigneeId) ?? null;
+	}
+
+	function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
+		if (cell.da6Code === 'A') {
+			return 'A';
+		}
+		if (cell.da6Code === 'D' || cell.da6Code === 'U') {
+			return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
+		}
+		return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 	}
 </script>
 
@@ -178,23 +203,109 @@
 						<p class="eyebrow">Generate View</p>
 						<h3 id="template-view-heading">DA6 preview workspace</h3>
 						<p>
-							This foundation keeps the Generate URL refresh-safe. Pool setup and DA6 preview controls arrive in the
-							next slices.
+							Generate creates a preview only. Review the proposed roster in the list and DA6 matrix before it becomes
+							official history in a later slice.
 						</p>
-						<div class="state-grid" aria-label="Generate readiness">
-							<div>
-								<span>Template ID</span>
-								<code>{selectedTemplate.id}</code>
+
+						{#if actionForm?.generateError}
+							<p class="form-error settings-error" role="alert">{actionForm.generateError}</p>
+						{/if}
+
+						<form class="generate-form" method="POST" action={generateAction}>
+							<input type="hidden" name="templateId" value={selectedTemplate.id} />
+							<label>
+								<span>Start date</span>
+								<input name="startDate" type="date" required value={actionForm?.generateValues?.startDate ?? ''} />
+							</label>
+							<label>
+								<span>End date</span>
+								<input name="endDate" type="date" required value={actionForm?.generateValues?.endDate ?? ''} />
+							</label>
+							<button class="btn btn-primary" type="submit">Generate preview</button>
+						</form>
+
+						{#if preview}
+							<div class="preview-summary" aria-label="Generated preview summary">
+								<div>
+									<span>Duty dates</span>
+									<strong>{preview.rosterRows.length}</strong>
+								</div>
+								<div>
+									<span>Pool rows</span>
+									<strong>{preview.da6.rows.length}</strong>
+								</div>
+								<div>
+									<span>Preview state</span>
+									<strong>Unsaved</strong>
+								</div>
 							</div>
-							<div>
-								<span>Route State</span>
-								<strong>Refresh-safe</strong>
+
+							<section class="settings-section" aria-labelledby="preview-list-heading">
+								<h4 id="preview-list-heading">Preview list</h4>
+								<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
+									<div class="preview-row preview-head" role="row">
+										<span role="columnheader">Date</span>
+										<span role="columnheader">Selected Soldier</span>
+										<span role="columnheader">Source</span>
+									</div>
+									{#each preview.rosterRows as row (row.date)}
+										{@const assignee = previewAssignee(preview, row.assigneeId)}
+										<div class="preview-row" role="row">
+											<span role="cell">{row.date}</span>
+											<span role="cell">
+												{#if assignee}
+													{assignee.rank} {assignee.lastName}, {assignee.firstName}
+												{:else}
+													{row.reason ?? 'No eligible Soldier'}
+												{/if}
+											</span>
+											<span role="cell">Generated</span>
+										</div>
+									{/each}
+								</div>
+							</section>
+
+							<section class="settings-section" aria-labelledby="preview-matrix-heading">
+								<h4 id="preview-matrix-heading">DA6 matrix</h4>
+								<div class="matrix-scroll">
+									<table class="da6-matrix" aria-label="DA6 preview matrix">
+										<thead>
+											<tr>
+												<th scope="col">Soldier</th>
+												{#each preview.da6.columns as column (column.date)}
+													<th scope="col">{column.date}</th>
+												{/each}
+											</tr>
+										</thead>
+										<tbody>
+											{#each preview.da6.rows as row (row.personnelId)}
+												<tr>
+													<th scope="row">{row.display.rank} {row.display.lastName}</th>
+													{#each row.cells as cell (cell.date)}
+														<td class:assigned={cell.assigned}>{previewCellDisplay(cell)}</td>
+													{/each}
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						{:else}
+							<div class="state-grid" aria-label="Generate readiness">
+								<div>
+									<span>Template ID</span>
+									<code>{selectedTemplate.id}</code>
+								</div>
+								<div>
+									<span>Route State</span>
+									<strong>Refresh-safe</strong>
+								</div>
+								<div>
+									<span>Generation</span>
+									<strong>Preview only</strong>
+								</div>
 							</div>
-							<div>
-								<span>Generation</span>
-								<strong>Not started</strong>
-							</div>
-						</div>
+						{/if}
 					{:else if selectedView === 'history'}
 						<p class="eyebrow">History View</p>
 						<h3 id="template-view-heading">Accepted runs</h3>
@@ -513,6 +624,35 @@
 		outline-offset: 2px;
 	}
 
+	.generate-form {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 14rem)) auto;
+		gap: var(--sp-3);
+		align-items: end;
+		margin-top: var(--sp-4);
+	}
+
+	.generate-form label {
+		display: grid;
+		gap: var(--sp-1);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.generate-form input {
+		min-height: 2.45rem;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+		font: inherit;
+		font-family: var(--font-body);
+		padding: 0 var(--sp-2);
+	}
+
 	.form-error {
 		margin: 0;
 		border: 1px solid var(--danger);
@@ -658,6 +798,7 @@
 	}
 
 	.settings-summary,
+	.preview-summary,
 	.criteria-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -669,20 +810,24 @@
 	}
 
 	.settings-summary div,
+	.preview-summary div,
 	.settings-section {
 		border: 1px solid var(--border-default);
 		border-radius: 4px;
 		background: var(--surface-subtle);
 	}
 
-	.settings-summary div {
+	.settings-summary div,
+	.preview-summary div {
 		display: grid;
 		gap: 4px;
 		padding: var(--sp-3);
 	}
 
 	.settings-summary span,
+	.preview-summary span,
 	.pool-head,
+	.preview-head,
 	.settings-section h4,
 	.criteria-grid legend {
 		color: var(--text-tertiary);
@@ -692,7 +837,8 @@
 		text-transform: uppercase;
 	}
 
-	.settings-summary strong {
+	.settings-summary strong,
+	.preview-summary strong {
 		color: var(--text-primary);
 		font-size: 1.35rem;
 		line-height: 1;
@@ -729,6 +875,7 @@
 	}
 
 	.pool-table,
+	.preview-list,
 	.baseline-list {
 		display: grid;
 		border: 1px solid var(--border-default);
@@ -752,6 +899,72 @@
 
 	.pool-head {
 		background: var(--surface-subtle);
+	}
+
+	.preview-summary {
+		margin-top: var(--sp-4);
+	}
+
+	.preview-row {
+		display: grid;
+		grid-template-columns: minmax(7rem, 0.6fr) minmax(12rem, 1.3fr) minmax(7rem, 0.5fr);
+		gap: var(--sp-3);
+		align-items: center;
+		padding: var(--sp-2) var(--sp-3);
+		border-top: 1px solid var(--border-default);
+	}
+
+	.preview-row:first-child {
+		border-top: 0;
+	}
+
+	.preview-head {
+		background: var(--surface-subtle);
+	}
+
+	.matrix-scroll {
+		overflow-x: auto;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--surface-panel);
+	}
+
+	.da6-matrix {
+		width: 100%;
+		min-width: 38rem;
+		border-collapse: collapse;
+	}
+
+	.da6-matrix th,
+	.da6-matrix td {
+		border: 1px solid var(--border-default);
+		padding: var(--sp-2);
+		text-align: center;
+	}
+
+	.da6-matrix th {
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		text-transform: uppercase;
+	}
+
+	.da6-matrix th:first-child {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		text-align: left;
+	}
+
+	.da6-matrix td {
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+	}
+
+	.da6-matrix td.assigned {
+		background: var(--surface-subtle);
+		font-weight: 800;
 	}
 
 	.baseline-list label {
@@ -790,11 +1003,14 @@
 		}
 
 		.workspace-grid,
+		.generate-form,
 		.view-tabs,
 		.state-grid,
 		.settings-summary,
+		.preview-summary,
 		.criteria-grid,
-		.pool-row {
+		.pool-row,
+		.preview-row {
 			grid-template-columns: 1fr;
 		}
 	}

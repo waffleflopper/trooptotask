@@ -4,6 +4,7 @@ const {
 	loadWithContextMock,
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
+	generateDutyRosterTemplatePreviewMock,
 	listDutyRosterTemplatesMock,
 	updateDutyRosterTemplateSettingsMock,
 	isDutyRosterTemplateViewMock,
@@ -12,6 +13,7 @@ const {
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
+	generateDutyRosterTemplatePreviewMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
 	updateDutyRosterTemplateSettingsMock: vi.fn(),
 	isDutyRosterTemplateViewMock: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
+	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
 	updateDutyRosterTemplateSettings: updateDutyRosterTemplateSettingsMock
@@ -52,6 +55,7 @@ describe('Duty Roster Template view route', () => {
 			template({ id: 'template-1', name: 'CQ NCO', slug: 'cq-nco', shortCode: 'CQ', status: 'active' })
 		);
 		loadDutyRosterTemplateSettingsMock.mockResolvedValue({ personnel: [], resolvedPool: [], baselineRows: [] });
+		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
 	});
 
@@ -142,6 +146,67 @@ describe('Duty Roster Template view route', () => {
 		});
 	});
 
+	it('generates a preview through the service layer without redirecting', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				templateId: 'template-1',
+				startDate: '2026-06-01',
+				endDate: '2026-06-03'
+			})
+		});
+
+		const result = await actions.generatePreview({
+			request,
+			params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+		} as never);
+
+		expect(generateDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
+			templateId: 'template-1',
+			startDate: '2026-06-01',
+			endDate: '2026-06-03'
+		});
+		expect(result).toMatchObject({
+			generateValues: {
+				startDate: '2026-06-01',
+				endDate: '2026-06-03'
+			},
+			preview: {
+				rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }]
+			}
+		});
+	});
+
+	it('returns Generate-specific validation messages from the preview action', async () => {
+		const error = Object.assign(new Error('End date must be on or after the start date'), { status: 400 });
+		generateDutyRosterTemplatePreviewMock.mockRejectedValue(error);
+
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				templateId: 'template-1',
+				startDate: '2026-06-03',
+				endDate: '2026-06-01'
+			})
+		});
+
+		const result = await actions.generatePreview({
+			request,
+			params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+		} as never);
+
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				generateError: 'End date must be on or after the start date',
+				generateValues: {
+					startDate: '2026-06-03',
+					endDate: '2026-06-01'
+				}
+			}
+		});
+	});
+
 	it('returns Settings-specific validation messages from the update action', async () => {
 		const error = Object.assign(new Error('Duty exemptions must come from the resolved pool.'), { status: 400 });
 		updateDutyRosterTemplateSettingsMock.mockRejectedValue(error);
@@ -199,5 +264,70 @@ function template(overrides: Record<string, unknown> = {}) {
 		createdAt: '2026-05-04T00:00:00.000Z',
 		updatedAt: '2026-05-04T00:00:00.000Z',
 		...overrides
+	};
+}
+
+function preview() {
+	return {
+		generatedAt: '2026-05-04T00:00:00.000Z',
+		assignmentType: { id: 'template-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
+		config: {
+			startDate: '2026-06-01',
+			endDate: '2026-06-01',
+			dutyDuration: 'daily',
+			excludedStatusIds: [],
+			excludeWeekends: false,
+			excludeHolidays: false,
+			excludeOrgClosures: false,
+			exemptPersonnelIds: [],
+			numberingMode: 'single-sequence',
+			misconductUnavailablePersonnelDates: {}
+		},
+		personnel: [
+			{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupId: 'alpha', groupName: 'Alpha' }
+		],
+		rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
+		da6: {
+			numberingMode: 'single-sequence',
+			columns: [
+				{
+					date: '2026-06-01',
+					sequenceKind: 'weekday',
+					sequenceKey: 'single',
+					specialDayIds: [],
+					chargeSequenceStart: 1,
+					chargeableCount: 1
+				}
+			],
+			rows: [
+				{
+					personnelId: 'person-1',
+					display: {
+						id: 'person-1',
+						rank: 'SGT',
+						lastName: 'Able',
+						firstName: 'Ann',
+						groupId: 'alpha',
+						groupName: 'Alpha'
+					},
+					cells: [
+						{
+							date: '2026-06-01',
+							personnelId: 'person-1',
+							code: 'assigned',
+							da6Code: null,
+							chargeable: true,
+							queuePosition: 1,
+							sequenceNumber: 1,
+							assigned: true,
+							reason: null,
+							reasonCode: null
+						}
+					]
+				}
+			]
+		},
+		exportModel: {},
+		warnings: []
 	};
 }

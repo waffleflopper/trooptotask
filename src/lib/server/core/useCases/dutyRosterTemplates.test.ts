@@ -3,6 +3,7 @@ import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/serv
 import {
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
+	generateDutyRosterTemplatePreview,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
 	updateDutyRosterTemplateSettings
@@ -10,6 +11,9 @@ import {
 
 const rows: Record<string, unknown>[] = [];
 const personnelRows: Record<string, unknown>[] = [];
+const availabilityRows: Record<string, unknown>[] = [];
+const specialDayRows: Record<string, unknown>[] = [];
+const statusTypeRows: Record<string, unknown>[] = [];
 const auditEvents: Array<{ action: string; resourceType: string; resourceId?: string }> = [];
 
 function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
@@ -41,7 +45,7 @@ function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 
 const store: DataStore = {
 	async findOne(table, orgId, filters) {
-		const source = table === 'personnel' ? personnelRows : rows;
+		const source = tableRows(table);
 		return (
 			source.find((row) =>
 				Object.entries({ organization_id: orgId, ...filters }).every(([key, value]) => row[key] === value)
@@ -49,7 +53,7 @@ const store: DataStore = {
 		);
 	},
 	async findMany(table, orgId, filters = {}, options) {
-		const source = table === 'personnel' ? personnelRows : rows;
+		const source = tableRows(table);
 		let result = source.filter((row) =>
 			Object.entries({ organization_id: orgId, ...filters }).every(([key, value]) => row[key] === value)
 		);
@@ -59,6 +63,24 @@ const store: DataStore = {
 				Object.entries(options.isNull ?? {}).every(([key, shouldBeNull]) =>
 					shouldBeNull ? row[key] === null || row[key] === undefined : row[key] !== null && row[key] !== undefined
 				)
+			);
+		}
+
+		if (options?.rangeFilters) {
+			result = result.filter((row) =>
+				options.rangeFilters?.every(({ column, op, value }) => {
+					const rowValue = String(row[column] ?? '');
+					switch (op) {
+						case 'gte':
+							return rowValue >= value;
+						case 'lte':
+							return rowValue <= value;
+						case 'gt':
+							return rowValue > value;
+						case 'lt':
+							return rowValue < value;
+					}
+				})
 			);
 		}
 
@@ -92,7 +114,7 @@ const store: DataStore = {
 		return row;
 	},
 	async update(table, orgId, id, data) {
-		const source = table === 'personnel' ? personnelRows : rows;
+		const source = tableRows(table);
 		const index = source.findIndex((row) => row.organization_id === orgId && row.id === id);
 		if (index === -1) {
 			throw new Error('row not found');
@@ -133,6 +155,9 @@ describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
 		rows.length = 0;
 		personnelRows.length = 0;
+		availabilityRows.length = 0;
+		specialDayRows.length = 0;
+		statusTypeRows.length = 0;
 		auditEvents.length = 0;
 		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
 	});
@@ -292,7 +317,118 @@ describe('Duty Roster Template use cases', () => {
 			message: 'Manual DA6 Baseline counts must be whole numbers zero or greater.'
 		});
 	});
+
+	it('generates a preview from template setup without mutating accepted history or Calendar tables', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		statusTypeRows.push(
+			statusTypeRow({ id: 'leave', name: 'Leave', da6_availability_treatment: 'authorized-absence' }),
+			statusTypeRow({ id: 'detail', name: 'Other Duty', da6_availability_treatment: 'other-duty' })
+		);
+		availabilityRows.push(
+			{
+				id: 'leave-alpha',
+				organization_id: 'org-1',
+				personnel_id: 'alpha',
+				status_type_id: 'leave',
+				start_date: '2026-06-01',
+				end_date: '2026-06-01',
+				note: null
+			},
+			{
+				id: 'detail-bravo',
+				organization_id: 'org-1',
+				personnel_id: 'bravo',
+				status_type_id: 'detail',
+				start_date: '2026-06-01',
+				end_date: '2026-06-01',
+				note: null
+			}
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		auditEvents.length = 0;
+		const templateRowsBefore = rows.length;
+
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: updated.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		expect(preview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'charlie' }]);
+		expect(preview.da6.rows.map((row) => row.cells[0].da6Code)).toEqual(['A', 'D', null]);
+		expect(rows).toHaveLength(templateRowsBefore);
+		expect(auditEvents).toEqual([]);
+	});
+
+	it('rejects invalid or oversized Generate preview ranges before loading preview data', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		await expect(
+			generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: '2026-02-31',
+				endDate: '2026-03-01'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Start date is required'
+		});
+
+		await expect(
+			generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: '2026-06-01',
+				endDate: '2026-09-01'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Generate preview can cover 62 days or fewer'
+		});
+
+		await expect(
+			generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: '2026-03-01',
+				endDate: '2026-05-02'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Generate preview can cover 62 days or fewer'
+		});
+	});
 });
+
+function tableRows(table: string): Record<string, unknown>[] {
+	switch (table) {
+		case 'availability_entries':
+			return availabilityRows;
+		case 'personnel':
+			return personnelRows;
+		case 'special_days':
+			return specialDayRows;
+		case 'status_types':
+			return statusTypeRows;
+		default:
+			return rows;
+	}
+}
 
 function personnelRow(overrides: Record<string, unknown>): Record<string, unknown> {
 	return {
@@ -306,6 +442,20 @@ function personnelRow(overrides: Record<string, unknown>): Record<string, unknow
 		group_id: null,
 		groups: { name: overrides.groupName ?? '' },
 		archived_at: null,
+		...overrides
+	};
+}
+
+function statusTypeRow(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		id: 'status',
+		organization_id: 'org-1',
+		name: 'Status',
+		color: '#111827',
+		text_color: '#ffffff',
+		da6_availability_treatment: null,
+		da6_treatment_reviewed: true,
+		sort_order: 0,
 		...overrides
 	};
 }

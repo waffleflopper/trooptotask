@@ -57,6 +57,12 @@ export interface DutyRosterTemplateSettingsInput {
 	manualBaselineCounts: Record<string, number | null | undefined>;
 }
 
+export interface DutyRosterTemplateGenerateInput {
+	templateId: string;
+	startDate: string;
+	endDate: string;
+}
+
 const DEFAULT_SLUG = 'duty-roster';
 const MAX_SLUG_LENGTH = 72;
 const MAX_SHORT_CODE_LENGTH = 12;

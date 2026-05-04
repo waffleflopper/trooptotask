@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import DutyRosterTemplateWorkspace from './DutyRosterTemplateWorkspace.svelte';
 import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
@@ -107,6 +108,33 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
 
+	it('renders generated preview list and DA6 matrix without official actions', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'generate'
+				},
+				form: {
+					preview: preview(),
+					generateValues: {
+						startDate: '2026-06-01',
+						endDate: '2026-06-01'
+					}
+				}
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Generate preview' })).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Generated Duty Roster preview' })).toBeTruthy();
+		expect(screen.getByText('SGT Able, Ann')).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Accept/ })).toBeNull();
+	});
+
 	it('renders scan-friendly settings for pool, exemptions, and baseline setup', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -209,3 +237,78 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
 	});
 });
+
+function preview(): DutyRosterTemplatePreview {
+	const da6 = {
+		numberingMode: 'single-sequence' as const,
+		columns: [
+			{
+				date: '2026-06-01',
+				sequenceKind: 'weekday' as const,
+				sequenceKey: 'single' as const,
+				specialDayIds: [],
+				chargeSequenceStart: 1,
+				chargeableCount: 1
+			}
+		],
+		rows: [
+			{
+				personnelId: 'person-1',
+				display: {
+					id: 'person-1',
+					rank: 'SGT',
+					lastName: 'Able',
+					firstName: 'Ann',
+					groupId: 'alpha',
+					groupName: 'Alpha'
+				},
+				cells: [
+					{
+						date: '2026-06-01',
+						personnelId: 'person-1',
+						code: 'assigned' as const,
+						da6Code: null,
+						chargeable: true,
+						queuePosition: 1,
+						sequenceNumber: 1,
+						assigned: true,
+						reason: null,
+						reasonCode: null
+					}
+				]
+			}
+		]
+	};
+
+	return {
+		generatedAt: '2026-05-04T00:00:00.000Z',
+		assignmentType: { id: 'template-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
+		config: {
+			startDate: '2026-06-01',
+			endDate: '2026-06-01',
+			dutyDuration: 'daily',
+			excludedStatusIds: [],
+			excludeWeekends: false,
+			excludeHolidays: false,
+			excludeOrgClosures: false,
+			exemptPersonnelIds: [],
+			numberingMode: 'single-sequence',
+			misconductUnavailablePersonnelDates: {}
+		},
+		personnel: [
+			{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Ann', groupId: 'alpha', groupName: 'Alpha' }
+		],
+		rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
+		da6,
+		exportModel: {
+			assignmentType: { id: 'template-1', name: 'CQ NCO', shortName: 'CQ', color: '#8a5a22' },
+			startDate: '2026-06-01',
+			endDate: '2026-06-01',
+			numberingMode: 'single-sequence',
+			rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }],
+			da6,
+			sequencePeriods: []
+		},
+		warnings: []
+	};
+}

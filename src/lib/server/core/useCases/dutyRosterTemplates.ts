@@ -10,6 +10,7 @@ import {
 	normalizeDutyRosterTemplateName,
 	type DutyRosterTemplate,
 	type DutyRosterTemplateCreateInput,
+	type DutyRosterTemplateGenerateInput,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
 	type DutyRosterPoolCriteria,
@@ -21,14 +22,37 @@ import {
 	normalizeDutyRosterPoolCriteria,
 	resolveDutyRosterPool
 } from '$features/duty-roster/templates/dutyRosterPool';
+import {
+	buildDutyRosterTemplatePreview,
+	type DutyRosterTemplatePreview
+} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { SpecialDayEntity } from '$lib/server/entities/specialDay';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
+const MAX_PREVIEW_DAYS = 62;
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const createTemplateSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
 	shortCode: z.string().trim().max(12, 'Short code must be 12 characters or fewer').nullable().optional()
 });
+const generatePreviewSchema = z
+	.object({
+		templateId: z.string().trim().min(1, 'Duty Roster Template is required'),
+		startDate: z.string().refine(isValidDateOnly, 'Start date is required'),
+		endDate: z.string().refine(isValidDateOnly, 'End date is required')
+	})
+	.refine((input) => input.endDate >= input.startDate, {
+		message: 'End date must be on or after the start date',
+		path: ['endDate']
+	})
+	.refine((input) => inclusiveDateSpan(input.startDate, input.endDate) <= MAX_PREVIEW_DAYS, {
+		message: `Generate preview can cover ${MAX_PREVIEW_DAYS} days or fewer`,
+		path: ['endDate']
+	});
 
 type DutyRosterTemplateRow = {
 	id: string;
@@ -103,6 +127,33 @@ function findInvalidBaselineCountValues(value: Record<string, unknown> | null | 
 		.sort((a, b) => a.localeCompare(b));
 }
 
+function isValidDateOnly(value: string): boolean {
+	if (!DATE_ONLY_PATTERN.test(value)) {
+		return false;
+	}
+
+	const date = dateOnlyUtc(value);
+	if (Number.isNaN(date.getTime())) {
+		return false;
+	}
+
+	const year = date.getUTCFullYear();
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(date.getUTCDate()).padStart(2, '0');
+	return `${year}-${month}-${day}` === value;
+}
+
+function inclusiveDateSpan(startDate: string, endDate: string): number {
+	const start = dateOnlyUtc(startDate).getTime();
+	const end = dateOnlyUtc(endDate).getTime();
+	return Math.floor((end - start) / 86_400_000) + 1;
+}
+
+function dateOnlyUtc(value: string): Date {
+	const [year, month, day] = value.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day));
+}
+
 type DutyRosterTemplateQueryPorts = QueryPorts & Pick<UseCaseContext, 'audit'>;
 
 async function requireTemplateView(ctx: DutyRosterTemplateQueryPorts): Promise<void> {
@@ -132,6 +183,15 @@ function parseCreateInput(input: DutyRosterTemplateCreateInput): {
 		name: normalizeDutyRosterTemplateName(parsed.data.name),
 		shortCode: normalizeDutyRosterShortCode(parsed.data.shortCode)
 	};
+}
+
+function parseGenerateInput(input: DutyRosterTemplateGenerateInput): DutyRosterTemplateGenerateInput {
+	const parsed = generatePreviewSchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster preview input is invalid');
+	}
+
+	return parsed.data;
 }
 
 function isUniqueSlugError(error: unknown): boolean {
@@ -298,6 +358,57 @@ export async function updateDutyRosterTemplateSettings(
 	});
 
 	return toTemplate(row);
+}
+
+export async function generateDutyRosterTemplatePreview(
+	ctx: WritePorts,
+	input: DutyRosterTemplateGenerateInput
+): Promise<DutyRosterTemplatePreview> {
+	await requireTemplateManagement(ctx);
+
+	const parsed = parseGenerateInput(input);
+	const existing = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		id: parsed.templateId,
+		status: 'active'
+	});
+	if (!existing) {
+		fail(404, 'Duty Roster Template not found');
+	}
+
+	const template = toTemplate(existing);
+	const [personnel, statusTypeRows, availabilityRows, specialDayRows] = await Promise.all([
+		listActiveDutyRosterPersonnel(ctx),
+		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
+			select: StatusTypeEntity.select,
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+			select: AvailabilityEntryEntity.select,
+			rangeFilters: [
+				{ column: 'end_date', op: 'gte', value: parsed.startDate },
+				{ column: 'start_date', op: 'lte', value: parsed.endDate }
+			]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
+			select: SpecialDayEntity.select,
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: parsed.startDate },
+				{ column: 'date', op: 'lte', value: parsed.endDate }
+			],
+			orderBy: [{ column: 'date', ascending: true }]
+		})
+	]);
+
+	return buildDutyRosterTemplatePreview({
+		template,
+		personnel,
+		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
+		startDate: parsed.startDate,
+		endDate: parsed.endDate,
+		generatedAt: new Date().toISOString()
+	});
 }
 
 async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<DutyRosterPoolPersonnel[]> {

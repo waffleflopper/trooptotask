@@ -3,11 +3,14 @@ import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	findDutyRosterTemplateBySlug,
+	generateDutyRosterTemplatePreview,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSettings,
 	updateDutyRosterTemplateSettings
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+
+type ActionErrorKey = 'generateError' | 'settingsError';
 
 function formValues(formData: FormData, name: string): string[] {
 	return formData.getAll(name).map((value) => String(value));
@@ -29,19 +32,22 @@ function parseBaselineCounts(formData: FormData): Record<string, number | null> 
 	return counts;
 }
 
-function actionError(errorValue: unknown) {
+function actionError(
+	errorValue: unknown,
+	input: {
+		key: ActionErrorKey;
+		fallback: string;
+		values?: Record<string, string>;
+	}
+) {
 	const status =
 		errorValue && typeof errorValue === 'object' && 'status' in errorValue && typeof errorValue.status === 'number'
 			? errorValue.status
 			: 500;
-	const message =
-		status >= 500
-			? 'Failed to update Duty Roster Template settings.'
-			: errorValue instanceof Error
-				? errorValue.message
-				: 'Failed to update Duty Roster Template settings.';
+	const message = status >= 500 ? input.fallback : errorValue instanceof Error ? errorValue.message : input.fallback;
 
-	return actionFail(status, { settingsError: message });
+	const data = input.values ? { [input.key]: message, generateValues: input.values } : { [input.key]: message };
+	return actionFail(status, data);
 }
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
@@ -81,6 +87,30 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 };
 
 export const actions: Actions = {
+	generatePreview: async (event) => {
+		const formData = await event.request.formData();
+		const values = {
+			startDate: String(formData.get('startDate') ?? ''),
+			endDate: String(formData.get('endDate') ?? '')
+		};
+
+		try {
+			const ctx = await buildRouteContext(event);
+			const preview = await generateDutyRosterTemplatePreview(ctx, {
+				templateId: String(formData.get('templateId') ?? ''),
+				startDate: values.startDate,
+				endDate: values.endDate
+			});
+
+			return { preview, generateValues: values };
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'generateError',
+				fallback: 'Failed to generate Duty Roster preview.',
+				values
+			});
+		}
+	},
 	updateSettings: async (event) => {
 		const formData = await event.request.formData();
 
@@ -98,7 +128,10 @@ export const actions: Actions = {
 				manualBaselineCounts: parseBaselineCounts(formData)
 			});
 		} catch (errorValue) {
-			return actionError(errorValue);
+			return actionError(errorValue, {
+				key: 'settingsError',
+				fallback: 'Failed to update Duty Roster Template settings.'
+			});
 		}
 
 		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${event.params.templateSlug}/settings`);

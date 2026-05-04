@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe('DutyRosterTemplateWorkspace', () => {
-	it('renders a useful empty state and create form', () => {
+	it('renders a useful template register empty state and New Template link', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -45,11 +45,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Duty Rosters' })).toBeTruthy();
+		expect(screen.getAllByRole('heading', { name: 'Duty Rosters' }).length).toBeGreaterThan(0);
 		expect(screen.getByText('No templates yet')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Create template' })).toBeTruthy();
-		expect(screen.getByLabelText('Name')).toBeTruthy();
-		expect(screen.getByLabelText('Short code')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'New Template' }).getAttribute('href')).toBe('/org/org-1/duty-rosters/new');
 	});
 
 	it('renders template links and durable Generate, History, and Settings URLs', () => {
@@ -65,12 +63,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		const templateList = screen.getByRole('navigation', { name: 'Open Duty Roster Template' });
-		expect(
-			within(templateList)
-				.getByRole('link', { name: /CQ NCO/ })
-				.getAttribute('href')
-		).toBe('/org/org-1/duty-rosters/cq-nco/generate');
+		expect(screen.getByRole('heading', { name: 'CQ NCO' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to Templates' }).getAttribute('href')).toBe(
+			'/org/org-1/duty-rosters'
+		);
+		expect(screen.queryByRole('navigation', { name: 'Open Duty Roster Template' })).toBeNull();
 
 		const viewTabs = screen.getByRole('navigation', { name: 'Duty Roster Template views' });
 		expect(
@@ -91,7 +88,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('heading', { name: 'Accepted runs' })).toBeTruthy();
 	});
 
-	it('shows validation errors without dropping entered values', () => {
+	it('shows New Template wizard validation errors without dropping entered values', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -99,16 +96,18 @@ describe('DutyRosterTemplateWorkspace', () => {
 					orgName: 'Able Company',
 					templates: [],
 					selectedTemplate: null,
-					view: 'generate'
+					view: 'new',
+					setupOptions: { personnel: [] }
 				},
 				form: {
-					error: 'Name is required',
-					values: { name: ' ', shortCode: 'CQ' }
+					settingsError: 'Name is required',
+					values: { name: ' ', slug: 'cq-nco', shortCode: 'CQ' }
 				}
 			}
 		});
 
 		expect(screen.getByRole('alert').textContent).toBe('Name is required');
+		expect(screen.getByLabelText<HTMLInputElement>('Route slug').value).toBe('cq-nco');
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
 
@@ -143,10 +142,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
 		expect(screen.getByRole('table', { name: 'DA6 preview matrix' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept run' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept and Apply to Calendar' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept and Print' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Export Draft' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Accept Run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept & Print' })).toBeTruthy();
 	});
 
 	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', async () => {
@@ -249,7 +248,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Accept and Print' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept & Print' }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
 		expect(fetchMock).toHaveBeenCalledWith(
@@ -292,7 +291,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'View DA6' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Roster' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print DA6' })).toBeTruthy();
-		expect(screen.getByText('Apply later')).toBeTruthy();
+		expect(screen.getByText('Not applied')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
 	});
 
@@ -305,7 +304,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ applied: true, corrected: true })],
+					acceptedRuns: [acceptedRun({ corrected: true })],
 					historyDetailRunId: 'run-1',
 					historyDetailMode: 'roster'
 				}
@@ -471,7 +470,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('heading', { name: 'Pool criteria' })).toBeTruthy();
 		expect(screen.getByLabelText('Template name')).toBeTruthy();
 		expect(screen.getByLabelText('Route slug')).toBeTruthy();
-		expect(screen.getAllByLabelText('Short code')).toHaveLength(2);
+		expect(screen.getAllByLabelText('Short code')).toHaveLength(1);
 		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();

@@ -784,7 +784,7 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
-	it('does not reapply an already applied accepted run', async () => {
+	it('re-applies an already applied accepted run when Calendar needs sync', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
@@ -800,10 +800,9 @@ describe('Duty Roster Template use cases', () => {
 		});
 		await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
 
-		await expect(applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id })).rejects.toMatchObject({
-			status: 400,
-			message: 'Accepted Duty Roster Run has already been applied to Calendar.'
-		});
+		const result = await applyAcceptedDutyRosterTemplateRun(ctx, { runId: accepted.id });
+
+		expect(result.acceptedRun.appliedAt).toEqual(expect.any(String));
 		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
@@ -879,7 +878,7 @@ describe('Duty Roster Template use cases', () => {
 		);
 	});
 
-	it('rejects corrections before the accepted run has been applied to Calendar', async () => {
+	it('records corrections before the accepted run has been applied to Calendar', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
@@ -895,18 +894,21 @@ describe('Duty Roster Template use cases', () => {
 			preview: JSON.stringify(preview)
 		});
 
-		await expect(
-			recordDutyRosterTemplateRunCorrection(ctx, {
-				runId: accepted.id,
-				runRowDate: '2026-06-01',
-				replacementAssigneeId: 'bravo',
-				reason: 'Emergency leave swap.'
-			})
-		).rejects.toMatchObject({
-			status: 400,
-			message: 'Only applied Duty Roster Runs can be corrected.'
+		const correction = await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: accepted.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Emergency leave swap.'
 		});
-		expect(correctionRows).toHaveLength(0);
+
+		expect(correction).toMatchObject({
+			runId: accepted.id,
+			originalAssigneeId: 'alpha',
+			replacementAssigneeId: 'bravo',
+			countsTowardFuture: true
+		});
+		expect(correctionRows).toHaveLength(1);
+		expect(dailyAssignmentRows).toHaveLength(0);
 	});
 
 	it('requires a correction reason', async () => {

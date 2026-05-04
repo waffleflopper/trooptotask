@@ -19,6 +19,7 @@ import {
 	type DutyRosterTemplateGenerateInput,
 	type DutyRosterTemplateManualSelectionInput,
 	type DutyRosterTemplateRunCorrection,
+	type DutyRosterTemplateSetupOptions,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
 	type DutyRosterPoolCriteria,
@@ -1088,6 +1089,16 @@ export async function loadDutyRosterTemplateSettings(
 	};
 }
 
+export async function loadDutyRosterTemplateSetupOptions(
+	ctx: DutyRosterTemplateQueryPorts
+): Promise<DutyRosterTemplateSetupOptions> {
+	await requireTemplateView(ctx);
+
+	return {
+		personnel: await listActiveDutyRosterPersonnel(ctx)
+	};
+}
+
 export async function loadDutyRosterTemplateCountReadModel(
 	ctx: DutyRosterTemplateQueryPorts,
 	template: DutyRosterTemplate
@@ -1323,10 +1334,11 @@ type DutyRosterTemplateApplyResult = {
 
 function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
 	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
+	const correctionByDate = new Map(run.corrections.map((correction) => [correction.runRowDate, correction]));
 	return snapshot.finalRows.map((row) => ({
 		date: row.date,
 		assignmentTypeId: snapshot.template.id,
-		assigneeId: row.finalAssigneeId ?? '',
+		assigneeId: correctionByDate.get(row.date)?.replacementAssigneeId ?? row.finalAssigneeId ?? '',
 		dutyRosterTemplateRunId: run.id,
 		dutyRosterTemplateRunRowDate: row.date
 	}));
@@ -1337,9 +1349,6 @@ async function applyAcceptedDutyRosterTemplateRunRecord(
 	run: DutyRosterTemplateAcceptedRun
 ): Promise<DutyRosterTemplateApplyResult> {
 	await requireTemplateManagement(ctx);
-	if (run.appliedAt) {
-		fail(400, 'Accepted Duty Roster Run has already been applied to Calendar.');
-	}
 
 	const result = await batchDailyAssignments(ctx, {
 		records: applyRecordsFromAcceptedRun(run)
@@ -1386,7 +1395,8 @@ export async function applyAcceptedDutyRosterTemplateRun(
 		fail(404, 'Accepted Duty Roster Run not found');
 	}
 
-	return applyAcceptedDutyRosterTemplateRunRecord(ctx, toAcceptedRun(row));
+	const [hydrated] = await hydrateAcceptedRunCorrections(ctx, [toAcceptedRun(row)]);
+	return applyAcceptedDutyRosterTemplateRunRecord(ctx, hydrated ?? toAcceptedRun(row));
 }
 
 export async function recordDutyRosterTemplateRunCorrection(
@@ -1404,9 +1414,6 @@ export async function recordDutyRosterTemplateRunCorrection(
 	}
 	if (row.status === 'invalidated') {
 		fail(400, 'Invalidated Duty Roster Runs cannot be corrected.');
-	}
-	if (!row.applied_at) {
-		fail(400, 'Only applied Duty Roster Runs can be corrected.');
 	}
 
 	const snapshot = acceptedRunSnapshot(row);

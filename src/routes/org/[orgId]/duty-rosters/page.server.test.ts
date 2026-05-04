@@ -49,7 +49,7 @@ describe('Duty Roster Templates route', () => {
 			orgId: 'org-1',
 			orgName: 'Able Company',
 			templates: [template()],
-			selectedTemplate: template(),
+			selectedTemplate: null,
 			view: 'generate'
 		});
 	});

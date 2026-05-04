@@ -51,6 +51,10 @@ export interface DutyRosterTemplateSettingsData {
 	baselineRows: DutyRosterBaselineRow[];
 }
 
+export interface DutyRosterTemplateSetupOptions {
+	personnel: DutyRosterPoolPersonnel[];
+}
+
 export type DutyRosterTemplateCountSource = 'da6-roster-order' | 'manual-da6-baseline' | 'accepted-history';
 
 export interface DutyRosterTemplateCountRow {

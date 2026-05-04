@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		orgId,
 		orgName: parentData.orgName,
 		templates,
-		selectedTemplate: templates[0] ?? null,
+		selectedTemplate: null,
 		view: 'generate' as const
 	};
 };

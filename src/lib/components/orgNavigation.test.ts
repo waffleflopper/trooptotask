@@ -32,6 +32,7 @@ describe('getOrgNavigation', () => {
 		});
 
 		expect(nav.find((item) => item.id === 'calendar')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'training')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'critical-tasks')?.visible).toBe(true);
@@ -59,6 +60,40 @@ describe('getOrgNavigation', () => {
 			])
 		);
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
+	});
+
+	it('shows replacement Duty Rosters for calendar viewers and hides it without calendar view access', () => {
+		const withCalendar = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+		const withoutCalendar = getOrgNavigation('org-1', basePermissions);
+
+		expect(withCalendar).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 'duty-rosters',
+					href: '/org/org-1/duty-rosters',
+					label: 'Duty Rosters',
+					compactLabel: 'Duty',
+					visible: true
+				})
+			])
+		);
+		expect(withoutCalendar.find((item) => item.id === 'duty-rosters')?.visible).toBe(false);
+	});
+
+	it('treats replacement Duty Rosters child routes as active for the nav item', () => {
+		const item = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		}).find((navItem) => navItem.id === 'duty-rosters');
+
+		if (!item) {
+			throw new Error('Duty Rosters nav item missing');
+		}
+
+		expect(isOrgNavItemActive('/org/org-1/duty-rosters/cq-nco/history', item)).toBe(true);
 	});
 
 	it('treats Critical Tasks child routes as active for the nav item', () => {
@@ -120,10 +155,21 @@ describe('getOrgBreadcrumbs', () => {
 			'Calendar',
 			'Settings'
 		]);
-		expect(getOrgBreadcrumbs('/org/org-1/calendar/duty-roster', 'Test Org', nav).map((crumb) => crumb.label)).toEqual([
-			'Test Org',
-			'Calendar',
-			'Duty Roster'
+	});
+
+	it('uses first-class Duty Rosters breadcrumbs for the replacement route', () => {
+		const nav = getOrgNavigation('org-1', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Duty Rosters' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/history', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' }
 		]);
 	});
 

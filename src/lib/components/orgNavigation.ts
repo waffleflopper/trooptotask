@@ -4,6 +4,7 @@ import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccess
 export type OrgNavIcon =
 	| 'dashboard'
 	| 'calendar'
+	| 'duty-roster'
 	| 'personnel'
 	| 'rating-scheme'
 	| 'training'
@@ -104,6 +105,15 @@ export function getOrgNavigation(orgId: string, access: OrganizationMemberPermis
 			href: `/org/${orgId}/calendar`,
 			label: 'Calendar',
 			icon: 'calendar',
+			visible: canView('calendar'),
+			exactMatch: false
+		},
+		{
+			id: 'duty-rosters',
+			href: `/org/${orgId}/duty-rosters`,
+			label: 'Duty Rosters',
+			compactLabel: 'Duty',
+			icon: 'duty-roster',
 			visible: canView('calendar'),
 			exactMatch: false
 		},

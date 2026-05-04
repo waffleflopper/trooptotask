@@ -84,7 +84,7 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		expect(result.assignmentTypes).toHaveLength(1);
 		expect(result.dailyAssignments).toHaveLength(1);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
-		// rosterHistory no longer loaded in calendar layout — moved to /calendar/duty-roster page server
+		// Duty Roster cutover must not reintroduce legacy roster payloads into Calendar bootstrap.
 		expect((result as Record<string, unknown>).rosterHistory).toBeUndefined();
 		expect(result.activeOnboardingPersonnelIds).toEqual([]);
 	});

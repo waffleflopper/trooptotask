@@ -224,7 +224,7 @@
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
+		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
 	/>
 {/if}
 
@@ -239,7 +239,7 @@
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
+		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
 	/>
 {/if}
 

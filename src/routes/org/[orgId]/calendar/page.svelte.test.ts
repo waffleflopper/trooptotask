@@ -309,9 +309,7 @@ describe('calendar page', () => {
 		);
 
 		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Planning' }));
-		expect(screen.getByRole('menuitem', { name: 'Duty Roster' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/duty-roster'
-		);
+		expect(screen.getByRole('menuitem', { name: 'Duty Rosters' }).getAttribute('href')).toBe('/org/org-1/duty-rosters');
 		expect(screen.getByRole('menuitem', { name: 'Assignment Planner' }).getAttribute('href')).toBe(
 			'/org/org-1/calendar/assignments'
 		);

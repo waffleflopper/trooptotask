@@ -42,7 +42,7 @@
 	);
 	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const relatedLinks = $derived([
-		{ label: 'Duty Roster', href: `/org/${org.orgId}/calendar/duty-roster` },
+		{ label: 'Duty Rosters', href: `/org/${org.orgId}/duty-rosters` },
 		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
 	]);
 </script>

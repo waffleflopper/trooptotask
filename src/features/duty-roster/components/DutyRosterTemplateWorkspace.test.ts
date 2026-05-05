@@ -62,10 +62,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'CQ NCO' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Back to Templates' }).getAttribute('href')).toBe(
-			'/org/org-1/duty-rosters'
-		);
+		expect(screen.getByRole('heading', { name: 'CQ NCO history' })).toBeTruthy();
+		expect(screen.queryByText('Duty Roster Template')).toBeNull();
+		expect(screen.queryByText('CQ /cq-nco')).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Back to Templates' })).toBeNull();
 		expect(screen.queryByRole('navigation', { name: 'Open Duty Roster Template' })).toBeNull();
 
 		const viewTabs = screen.getByRole('navigation', { name: 'Duty Roster Template views' });

@@ -176,21 +176,8 @@
 </svelte:head>
 
 <section class="duty-roster-workspace" aria-labelledby="duty-roster-title">
-	{#if selectedTemplate && !isNewTemplate && selectedView === 'settings'}
-		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} settings</h1>
-	{:else if selectedTemplate && !isNewTemplate}
-		<header class="template-detail-header">
-			<div>
-				<p class="eyebrow">Duty Roster Template</p>
-				<h1 id="duty-roster-title">{selectedTemplate.name}</h1>
-				<p class="summary">
-					{selectedTemplate.shortCode
-						? `${selectedTemplate.shortCode} /${selectedTemplate.slug}`
-						: `/${selectedTemplate.slug}`}
-				</p>
-			</div>
-			<a class="btn btn-secondary" href={basePath}>Back to Templates</a>
-		</header>
+	{#if selectedTemplate && !isNewTemplate}
+		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} {selectedView}</h1>
 	{:else}
 		<header class="workspace-header">
 			<div>
@@ -239,14 +226,14 @@
 			</div>
 
 			{#if data.templates.length === 0}
-				<div class="empty-register">
-					<p class="empty-title">No templates yet</p>
+				<div class="admin-empty">
+					<p>No templates yet</p>
 					<p>Create a one-duty template for CQ, Staff Duty, or another DA Form 6 roster.</p>
 				</div>
 			{:else}
 				<div class="template-grid" aria-label="Duty Roster Template list">
 					{#each data.templates as template (template.id)}
-						<article class="template-card">
+						<article class="template-card card card-flat">
 							<a class="template-card__main" href={`${basePath}/${template.slug}/generate`}>
 								<div class="template-card__header">
 									<div>
@@ -298,7 +285,7 @@
 					{/if}
 
 					<div class="generate-workspace">
-						<aside class="setup-rail" aria-label="Generate setup">
+						<aside class="setup-rail card card-flat" aria-label="Generate setup">
 							<div>
 								<p class="eyebrow">Setup</p>
 								<h4>{selectedTemplate.name}</h4>
@@ -326,6 +313,7 @@
 								<label>
 									<span>Start date</span>
 									<input
+										class="input"
 										name="startDate"
 										type="date"
 										required
@@ -337,6 +325,7 @@
 								<label>
 									<span>End date</span>
 									<input
+										class="input"
 										name="endDate"
 										type="date"
 										required
@@ -349,7 +338,7 @@
 									{generatingPreview ? 'Generating...' : 'Generate preview'}
 								</button>
 							</form>
-							<p id="generate-date-help" class="field-help">
+							<p id="generate-date-help" class="field-hint">
 								Start date must be today or later, and the end date must be on or after the start date.
 							</p>
 						</aside>
@@ -362,7 +351,7 @@
 							{/if}
 
 							{#if preview}
-								<div class="run-header" aria-label="Generated preview summary">
+								<div class="run-header card card-flat" aria-label="Generated preview summary">
 									<div>
 										<h3>Draft Preview</h3>
 										<p>
@@ -379,7 +368,7 @@
 										</div>
 										<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
 											<input type="hidden" name="preview" value={previewFormValue(preview)} />
-											<button class="btn btn-primary btn-calendar" type="submit">Accept then Apply</button>
+											<button class="btn btn-amber" type="submit">Accept then Apply</button>
 										</form>
 										<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
 											<input type="hidden" name="preview" value={previewFormValue(preview)} />
@@ -391,7 +380,7 @@
 									</div>
 								</div>
 
-								<div class="view-switch" role="group" aria-label="Preview review mode">
+								<div class="view-switch admin-segmented" role="group" aria-label="Preview review mode">
 									<button type="button" class:active={previewMode === 'list'} onclick={() => (previewMode = 'list')}>
 										List
 									</button>
@@ -409,9 +398,9 @@
 								{/if}
 
 								{#if previewMode === 'list'}
-									<section class="preview-table-shell" aria-labelledby="preview-list-heading">
+									<section aria-labelledby="preview-list-heading">
 										<h4 id="preview-list-heading" class="sr-only">Preview list</h4>
-										<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
+										<div class="preview-list admin-table-shell" role="table" aria-label="Generated Duty Roster preview">
 											<div class="preview-row preview-head" role="row">
 												<span role="columnheader">Date</span>
 												<span role="columnheader">Selected Soldier</span>
@@ -441,7 +430,7 @@
 														{/if}
 														{#if manualSelection?.warnings.length}
 															<span
-																class="issue-badge"
+																class="issue-badge chip chip-warning"
 																title={issueTitle(manualSelection.warnings)}
 																aria-label={`Issue explanation: ${issueTitle(manualSelection.warnings)}`}
 															>
@@ -512,6 +501,7 @@
 																	<label>
 																		<span>Reason</span>
 																		<input
+																			class="input"
 																			name="reason"
 																			type="text"
 																			value={manualSelection?.reason ?? ''}
@@ -576,7 +566,7 @@
 									</section>
 								{/if}
 							{:else}
-								<div class="run-header">
+								<div class="run-header card card-flat">
 									<div>
 										<h3>Draft Preview</h3>
 										<p>
@@ -594,8 +584,11 @@
 										{generatingPreview ? 'Generating...' : 'Generate preview'}
 									</button>
 								</div>
-								<div class="pre-preview-state preview-table-shell" aria-label="Generate preview required">
-									<table class="empty-preview-table">
+								<div
+									class="pre-preview-state admin-table-shell admin-table-shell--scroll"
+									aria-label="Generate preview required"
+								>
+									<table class="admin-table">
 										<thead>
 											<tr>
 												<th>Date range</th>
@@ -633,13 +626,13 @@
 						<p class="form-error settings-error" role="alert">{actionForm.correctionError}</p>
 					{/if}
 					{#if acceptedRuns.length === 0}
-						<div class="empty-history">History is empty until a DA6 run is accepted.</div>
+						<div class="admin-empty">History is empty until a DA6 run is accepted.</div>
 					{:else}
 						{#if historyDetailRun}
 							{@const detailRunInvalidated = historyDetailRun.status === 'invalidated'}
 							{@const detailCalendarState = calendarActionState(historyDetailRun)}
 							{@const detailCanInvalidate = !detailRunInvalidated && historyDetailRun.id === latestHistoryRunId}
-							<section class="history-detail-banner" aria-label="Official Duty Roster record">
+							<section class="history-detail-banner card card-flat" aria-label="Official Duty Roster record">
 								<a class="btn btn-secondary btn-sm" href={`${basePath}/${selectedTemplate.slug}/history`}>
 									Back to History
 								</a>
@@ -647,12 +640,12 @@
 									<div class="history-detail-banner__title-row">
 										<h4>Run {historyDetailRun.startDate} to {historyDetailRun.endDate}</h4>
 										{#if detailRunInvalidated}
-											<span class="invalidated-record-chip">Invalidated</span>
+											<span class="chip chip-error">Invalidated</span>
 										{/if}
 									</div>
 								</div>
 								<div class="history-detail-banner__controls">
-									<div class="view-switch" role="group" aria-label="History detail review mode">
+									<div class="view-switch admin-segmented" role="group" aria-label="History detail review mode">
 										<a class:active={historyMode === 'list'} href={historyDetailHref(historyDetailRun, 'roster')}>
 											Roster
 										</a>
@@ -721,7 +714,7 @@
 								{@const isInvalidated = run.status === 'invalidated'}
 								{@const calendarState = calendarActionState(run)}
 								<div
-									class="history-run"
+									class="history-run card card-flat"
 									class:history-run--detail={historyDetailRun}
 									aria-label={`${run.templateName} accepted run`}
 								>
@@ -765,7 +758,7 @@
 									{/if}
 									{#if historyDetailRun}
 										{#if run.calendarAssignmentsEdited && !isInvalidated}
-											<p class="history-warning">
+											<p class="history-warning admin-alert admin-alert--warning">
 												Calendar assignments linked to this run changed after apply. Re-applying may overwrite linked
 												Calendar assignments, and invalidation will remove the run footprint after confirmation.
 											</p>
@@ -827,7 +820,7 @@
 															<div class="preview-selection">
 																{#if tableRow.finalRow.warnings.length}
 																	<span
-																		class="issue-badge"
+																		class="issue-badge chip chip-warning"
 																		title={issueTitle(tableRow.finalRow.warnings)}
 																		aria-label={`Issue explanation: ${issueTitle(tableRow.finalRow.warnings)}`}
 																	>
@@ -913,7 +906,7 @@
 																		</label>
 																		<label>
 																			<span>Reason</span>
-																			<input name="reason" placeholder="Reason for correction" required />
+																			<input class="input" name="reason" placeholder="Reason for correction" required />
 																		</label>
 																		<div class="inline-edit-actions">
 																			<button class="btn btn-primary btn-sm" type="submit">Save</button>
@@ -1017,7 +1010,7 @@
 									</button>
 								</nav>
 
-								<div class="settings-panel settings-panel--ledger">
+								<div class="settings-panel settings-panel--ledger card card-flat">
 									{#if settingsSection === 'general'}
 										<section
 											class="settings-section settings-section--general"
@@ -1027,16 +1020,22 @@
 											<div class="identity-grid identity-grid--ledger">
 												<label>
 													<span>Template name</span>
-													<input name="name" maxlength="120" required bind:value={settingsName} />
+													<input class="input" name="name" maxlength="120" required bind:value={settingsName} />
 												</label>
 												<label>
 													<span>URL slug</span>
-													<input name="slug" maxlength="72" required bind:value={settingsSlug} />
+													<input class="input" name="slug" maxlength="72" required bind:value={settingsSlug} />
 													<small>Scoped to organization. Must be unique.</small>
 												</label>
 												<label class="short-code-field">
 													<span>Short code</span>
-													<input name="shortCode" maxlength="12" bind:value={settingsShortCode} placeholder="CQ" />
+													<input
+														class="input"
+														name="shortCode"
+														maxlength="12"
+														bind:value={settingsShortCode}
+														placeholder="CQ"
+													/>
 													<small>Used for compact calendar badges. Can repeat across templates.</small>
 												</label>
 											</div>
@@ -1050,7 +1049,7 @@
 									{#if settingsSection === 'pool'}
 										<section class="settings-section" aria-labelledby="pool-criteria-heading">
 											<h4 id="pool-criteria-heading">Pool & filters</h4>
-											<p class="field-help">
+											<p class="field-hint">
 												Selections match any value inside a category, then combine across categories. For example, SGT
 												or CPL, and Alpha Group.
 											</p>
@@ -1115,9 +1114,9 @@
 										<section class="settings-section" aria-labelledby="pool-preview-heading">
 											<h4 id="pool-preview-heading">Exemptions</h4>
 											{#if data.settings.resolvedPool.length === 0}
-												<div class="empty-history">No active Personnel Records match the current pool criteria.</div>
+												<div class="admin-empty">No active Personnel Records match the current pool criteria.</div>
 											{:else}
-												<div class="pool-table" role="table" aria-label="Resolved Duty Roster pool">
+												<div class="pool-table admin-table-shell" role="table" aria-label="Resolved Duty Roster pool">
 													<div class="pool-row pool-head" role="row">
 														<span role="columnheader">Soldier</span>
 														<span role="columnheader">Group</span>
@@ -1165,21 +1164,22 @@
 												to start from DA6 roster order.
 											</p>
 											{#if baselineLocked}
-												<p class="baseline-lock">
+												<p class="admin-alert admin-alert--warning">
 													Manual DA6 Baseline is locked because this template has accepted history. Future previews use
 													accepted runs for DA6 continuity.
 												</p>
 											{/if}
 											{#if data.settings.baselineRows.length === 0}
-												<div class="empty-history">
+												<div class="admin-empty">
 													No baseline rows are available until the non-exempt pool has members.
 												</div>
 											{:else}
-												<div class="baseline-list">
+												<div class="baseline-list admin-table-shell">
 													{#each data.settings.baselineRows as row (row.personnel.id)}
 														<label>
 															<span>{row.personnel.rank} {row.personnel.lastName}, {row.personnel.firstName}</span>
 															<input
+																class="input"
 																type="number"
 																min="0"
 																step="1"
@@ -1217,7 +1217,7 @@
 							</div>
 						</form>
 					{:else}
-						<div class="empty-history">Loading template settings...</div>
+						<div class="admin-empty">Loading template settings...</div>
 					{/if}
 				{/if}
 			</main>

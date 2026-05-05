@@ -112,12 +112,13 @@
 
 		<div class="settings-panels">
 			{#if newTemplateStep === 'general'}
-				<section class="settings-section" aria-labelledby="wizard-general-heading">
+				<section class="settings-section card card-flat" aria-labelledby="wizard-general-heading">
 					<h4 id="wizard-general-heading">General</h4>
 					<div class="identity-grid">
 						<label>
 							<span>Template name</span>
 							<input
+								class="input"
 								name="name"
 								maxlength="120"
 								required
@@ -130,20 +131,27 @@
 						</label>
 						<label>
 							<span>Route slug</span>
-							<input name="slug" maxlength="72" required bind:value={newTemplateSlug} placeholder="cq-nco" />
+							<input
+								class="input"
+								name="slug"
+								maxlength="72"
+								required
+								bind:value={newTemplateSlug}
+								placeholder="cq-nco"
+							/>
 						</label>
 						<label>
 							<span>Short code</span>
-							<input name="shortCode" maxlength="12" bind:value={newTemplateShortCode} placeholder="CQ" />
+							<input class="input" name="shortCode" maxlength="12" bind:value={newTemplateShortCode} placeholder="CQ" />
 						</label>
 					</div>
 				</section>
 			{/if}
 
 			{#if newTemplateStep === 'pool'}
-				<section class="settings-section" aria-labelledby="wizard-pool-heading">
+				<section class="settings-section card card-flat" aria-labelledby="wizard-pool-heading">
 					<h4 id="wizard-pool-heading">Pool & Filters</h4>
-					<p class="field-help">Filters match any value inside one category, then combine across categories.</p>
+					<p class="field-hint">Filters match any value inside one category, then combine across categories.</p>
 					<div class="criteria-grid">
 						<label class="tag-field">
 							<span>Rank</span>
@@ -190,12 +198,12 @@
 			{/if}
 
 			{#if newTemplateStep === 'exemptions'}
-				<section class="settings-section" aria-labelledby="wizard-exemptions-heading">
+				<section class="settings-section card card-flat" aria-labelledby="wizard-exemptions-heading">
 					<h4 id="wizard-exemptions-heading">Exemptions</h4>
 					{#if wizardResolvedPool.length === 0}
-						<div class="empty-history">No Soldiers match the current pool filters.</div>
+						<div class="admin-empty">No Soldiers match the current pool filters.</div>
 					{:else}
-						<div class="pool-table" role="table" aria-label="New Template resolved pool">
+						<div class="pool-table admin-table-shell" role="table" aria-label="New Template resolved pool">
 							<div class="pool-row pool-head" role="row">
 								<span role="columnheader">Soldier</span>
 								<span role="columnheader">Group</span>
@@ -231,17 +239,24 @@
 			{/if}
 
 			{#if newTemplateStep === 'baseline'}
-				<section class="settings-section" aria-labelledby="wizard-baseline-heading">
+				<section class="settings-section card card-flat" aria-labelledby="wizard-baseline-heading">
 					<h4 id="wizard-baseline-heading">DA6 Baseline</h4>
-					<p class="field-help">Optional starting counts. Leave blank to start from DA6 roster order.</p>
+					<p class="field-hint">Optional starting counts. Leave blank to start from DA6 roster order.</p>
 					{#if wizardBaselineRows.length === 0}
-						<div class="empty-history">No baseline rows are available until the non-exempt pool has members.</div>
+						<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
 					{:else}
-						<div class="baseline-list">
+						<div class="baseline-list admin-table-shell">
 							{#each wizardBaselineRows as person (person.id)}
 								<label>
 									<span>{person.rank} {person.lastName}, {person.firstName}</span>
-									<input type="number" min="0" step="1" name={`baseline:${person.id}`} placeholder="Count" />
+									<input
+										class="input"
+										type="number"
+										min="0"
+										step="1"
+										name={`baseline:${person.id}`}
+										placeholder="Count"
+									/>
 								</label>
 							{/each}
 						</div>

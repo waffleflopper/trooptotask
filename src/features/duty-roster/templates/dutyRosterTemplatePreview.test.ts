@@ -4,7 +4,8 @@ import {
 	buildDutyRosterTemplateAcceptedSnapshot,
 	buildDutyRosterTemplatePreview,
 	manualSelectionForDate,
-	previewFinalAssigneeId
+	previewFinalAssigneeId,
+	reviewDutyRosterTemplateManualSelection
 } from './dutyRosterTemplatePreview';
 import { buildDutyRosterCountSource } from './dutyRosterCountSource';
 import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
@@ -325,5 +326,54 @@ describe('buildDutyRosterTemplatePreview', () => {
 				message: 'Selected Soldier is outside this template pool.'
 			}
 		]);
+	});
+
+	it('reviews manual selection warnings from the selected Soldier DA6 cell', () => {
+		const preview = buildDutyRosterTemplatePreview({
+			template,
+			personnel: [
+				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
+				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+			],
+			availabilityEntries: [
+				{
+					id: 'detail-bravo',
+					personnelId: 'bravo',
+					statusTypeId: 'other-duty',
+					startDate: '2026-06-01',
+					endDate: '2026-06-01'
+				}
+			],
+			statusTypes,
+			specialDays: [],
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+
+		const cleanReview = reviewDutyRosterTemplateManualSelection(preview, {
+			date: '2026-06-01',
+			assigneeId: 'charlie'
+		});
+		expect(cleanReview).toMatchObject({
+			blockedReason: null,
+			reasonRequired: false,
+			warnings: []
+		});
+
+		const unavailableReview = reviewDutyRosterTemplateManualSelection(preview, {
+			date: '2026-06-01',
+			assigneeId: 'bravo'
+		});
+		expect(unavailableReview).toMatchObject({
+			blockedReason: null,
+			reasonRequired: true,
+			warnings: [
+				{
+					code: 'unavailable-or-conflicting',
+					message: 'Other duty: Other Duty'
+				}
+			]
+		});
 	});
 });

@@ -39,6 +39,13 @@ export interface DutyRosterTemplateManualSelectionInput {
 	reason?: string | null;
 }
 
+export interface DutyRosterTemplateManualSelectionReview {
+	selected: DutyRosterTemplatePreviewPersonnel | null;
+	blockedReason: string | null;
+	warnings: DutyRosterTemplateManualSelectionWarning[];
+	reasonRequired: boolean;
+}
+
 export interface DutyRosterTemplateAcceptedSnapshotRow {
 	date: string;
 	generatedAssigneeId: string | null;
@@ -135,19 +142,18 @@ export function applyDutyRosterTemplateManualSelection(
 		throw new Error('Duty date is not part of this preview.');
 	}
 
-	const selected = preview.selectionPersonnel.find((person) => person.id === input.assigneeId);
-	if (!selected || selected.archivedAt) {
-		throw new Error('Selected Soldier is missing or archived.');
+	const review = reviewDutyRosterTemplateManualSelection(preview, input);
+	if (review.blockedReason) {
+		throw new Error(review.blockedReason);
 	}
 
 	const reason = input.reason?.trim() || null;
-	const warnings = manualSelectionWarnings(preview, input.date, selected.id);
-	if (warnings.length > 0 && !reason) {
+	if (review.reasonRequired && !reason) {
 		throw new Error('A reason is required for this manual selection.');
 	}
 
 	const manualSelections = preview.manualSelections.filter((selection) => selection.date !== input.date);
-	if (row.assigneeId === selected.id && warnings.length === 0 && !reason) {
+	if (row.assigneeId === review.selected?.id && review.warnings.length === 0 && !reason) {
 		return deepFreeze({
 			...preview,
 			manualSelections
@@ -161,12 +167,35 @@ export function applyDutyRosterTemplateManualSelection(
 			{
 				date: input.date,
 				originalAssigneeId: row.assigneeId,
-				assigneeId: selected.id,
+				assigneeId: review.selected?.id ?? input.assigneeId,
 				reason,
-				warnings
+				warnings: review.warnings
 			}
 		].sort((a, b) => a.date.localeCompare(b.date))
 	});
+}
+
+export function reviewDutyRosterTemplateManualSelection(
+	preview: DutyRosterTemplatePreview,
+	input: Pick<DutyRosterTemplateManualSelectionInput, 'date' | 'assigneeId'>
+): DutyRosterTemplateManualSelectionReview {
+	const selected = preview.selectionPersonnel.find((person) => person.id === input.assigneeId) ?? null;
+	if (!selected || selected.archivedAt) {
+		return {
+			selected,
+			blockedReason: 'Selected Soldier is missing or archived.',
+			warnings: [],
+			reasonRequired: false
+		};
+	}
+
+	const warnings = manualSelectionWarnings(preview, input.date, selected.id);
+	return {
+		selected,
+		blockedReason: null,
+		warnings,
+		reasonRequired: warnings.length > 0
+	};
 }
 
 export function manualSelectionForDate(

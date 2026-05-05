@@ -1,6 +1,7 @@
 import {
 	manualSelectionForDate,
 	previewFinalAssigneeId,
+	reviewDutyRosterTemplateManualSelection,
 	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplateManualSelection,
 	type DutyRosterTemplatePreview,
@@ -309,18 +310,8 @@ function previewAssignee(
 }
 
 function previewSelectionWarnings(preview: DutyRosterTemplatePreview, date: string, selectedId: string): string[] {
-	const warnings: string[] = [];
-	const selected = preview.selectionPersonnel.find((person) => person.id === selectedId);
-	if (!selected) return warnings;
-
-	if (!preview.personnel.some((person) => person.id === selectedId)) {
-		warnings.push('Selected Soldier is outside this template pool.');
-	}
-
-	const generatedRow = preview.rosterRows.find((row) => row.date === date);
-	if (generatedRow?.reason) {
-		warnings.push(generatedRow.reason);
-	}
-
-	return warnings;
+	if (!selectedId) return [];
+	return reviewDutyRosterTemplateManualSelection(preview, { date, assigneeId: selectedId }).warnings.map(
+		(warning) => warning.message
+	);
 }

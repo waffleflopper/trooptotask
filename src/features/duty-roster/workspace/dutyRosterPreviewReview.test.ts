@@ -37,9 +37,62 @@ describe('dutyRosterPreviewReview', () => {
 				editAssigneeId: 'person-3',
 				finalAssignee: null,
 				unfilledReason: 'No eligible personnel available',
-				liveWarnings: ['Selected Soldier is outside this template pool.', 'No eligible personnel available']
+				liveWarnings: ['Selected Soldier is outside this template pool.']
 			}
 		]);
+	});
+
+	it('uses selected Soldier review warnings instead of the generated row reason', () => {
+		const preview = previewSnapshot();
+		preview.da6.rows.push({
+			personnelId: 'person-3',
+			display: {
+				id: 'person-3',
+				rank: 'SPC',
+				lastName: 'Cross',
+				firstName: 'Cy',
+				groupId: 'charlie',
+				groupName: 'Charlie'
+			},
+			cells: [
+				{
+					date: '2026-06-01',
+					personnelId: 'person-3',
+					code: 'blocked-by-duty',
+					da6Code: 'D',
+					chargeable: true,
+					queuePosition: 2,
+					sequenceNumber: 2,
+					assigned: false,
+					reason: 'Other duty: Staff Duty',
+					reasonCode: 'blocked-by-duty'
+				},
+				{
+					date: '2026-06-02',
+					personnelId: 'person-3',
+					code: 'available-not-selected',
+					da6Code: null,
+					chargeable: true,
+					queuePosition: 1,
+					sequenceNumber: 1,
+					assigned: false,
+					reason: null,
+					reasonCode: null
+				}
+			]
+		});
+		preview.rosterRows[1] = {
+			date: '2026-06-02',
+			assigneeId: null,
+			reason: 'No eligible personnel available'
+		};
+
+		const model = buildDutyRosterPreviewReviewModel({
+			preview,
+			selectedAssigneeIds: { '2026-06-02': 'person-3' }
+		});
+
+		expect(model.rows[1]?.liveWarnings).toEqual(['Selected Soldier is outside this template pool.']);
 	});
 
 	it('shapes DA6 matrix cells without leaking raw cell rules to the view', () => {

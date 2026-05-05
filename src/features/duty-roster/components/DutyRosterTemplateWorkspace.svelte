@@ -66,7 +66,7 @@
 <section class="duty-roster-workspace" aria-labelledby="duty-roster-title">
 	{#if selectedTemplate && !isNewTemplate}
 		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} {selectedView}</h1>
-	{:else}
+	{:else if isNewTemplate}
 		<header class="workspace-header">
 			<div>
 				<p class="eyebrow">{data.orgName}</p>
@@ -78,6 +78,8 @@
 				<p>{data.templates.length === 1 ? 'Template' : 'Templates'}</p>
 			</div>
 		</header>
+	{:else}
+		<h1 id="duty-roster-title" class="sr-only">Duty Rosters</h1>
 	{/if}
 
 	{#if isNewTemplate}
@@ -101,7 +103,7 @@
 			bind:wizardExemptPersonnelIds
 		/>
 	{:else if !selectedTemplate}
-		<DutyRosterTemplateRegister {basePath} templates={data.templates} />
+		<DutyRosterTemplateRegister {basePath} templates={data.templates} setupOptions={data.setupOptions ?? null} />
 	{:else}
 		<div class="template-detail-workspace">
 			{#if actionForm?.error}

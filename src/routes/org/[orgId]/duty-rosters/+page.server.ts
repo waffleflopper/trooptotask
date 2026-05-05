@@ -1,7 +1,11 @@
 import { fail as actionFail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { createDutyRosterTemplate, listDutyRosterTemplates } from '$lib/server/core/useCases/dutyRosterTemplates';
+import {
+	createDutyRosterTemplate,
+	listDutyRosterTemplates,
+	loadDutyRosterTemplateSetupOptions
+} from '$lib/server/core/useCases/dutyRosterTemplates';
 
 function actionError(error: unknown, values: { name?: string; shortCode?: string }) {
 	const status =
@@ -23,15 +27,19 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const { orgId } = params;
 	const parentData = await parent();
 
-	const templates = await loadWithContext(locals, cookies, orgId, {
+	const { templates, setupOptions } = await loadWithContext(locals, cookies, orgId, {
 		permission: 'calendar',
-		fn: listDutyRosterTemplates
+		fn: async (ctx) => ({
+			templates: await listDutyRosterTemplates(ctx),
+			setupOptions: await loadDutyRosterTemplateSetupOptions(ctx)
+		})
 	});
 
 	return {
 		orgId,
 		orgName: parentData.orgName,
 		templates,
+		setupOptions,
 		selectedTemplate: null,
 		view: 'generate' as const
 	};

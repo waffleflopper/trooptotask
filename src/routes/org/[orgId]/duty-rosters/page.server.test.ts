@@ -1,9 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const { loadWithContextMock, createDutyRosterTemplateMock, listDutyRosterTemplatesMock, mockCtx } = vi.hoisted(() => ({
+const {
+	loadWithContextMock,
+	createDutyRosterTemplateMock,
+	listDutyRosterTemplatesMock,
+	loadDutyRosterTemplateSetupOptionsMock,
+	mockCtx
+} = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
 	createDutyRosterTemplateMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
+	loadDutyRosterTemplateSetupOptionsMock: vi.fn(),
 	mockCtx: {
 		auth: {
 			orgId: 'org-1'
@@ -18,7 +25,8 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	createDutyRosterTemplate: createDutyRosterTemplateMock,
-	listDutyRosterTemplates: listDutyRosterTemplatesMock
+	listDutyRosterTemplates: listDutyRosterTemplatesMock,
+	loadDutyRosterTemplateSetupOptions: loadDutyRosterTemplateSetupOptionsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -28,6 +36,7 @@ describe('Duty Roster Templates route', () => {
 		vi.clearAllMocks();
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) => config.fn(mockCtx));
 		listDutyRosterTemplatesMock.mockResolvedValue([template()]);
+		loadDutyRosterTemplateSetupOptionsMock.mockResolvedValue({ personnel: [] });
 		createDutyRosterTemplateMock.mockResolvedValue({ slug: 'cq-nco' });
 	});
 
@@ -43,12 +52,15 @@ describe('Duty Roster Templates route', () => {
 			{},
 			{},
 			'org-1',
-			expect.objectContaining({ permission: 'calendar', fn: listDutyRosterTemplatesMock })
+			expect.objectContaining({ permission: 'calendar', fn: expect.any(Function) })
 		);
+		expect(listDutyRosterTemplatesMock).toHaveBeenCalledWith(mockCtx);
+		expect(loadDutyRosterTemplateSetupOptionsMock).toHaveBeenCalledWith(mockCtx);
 		expect(result).toEqual({
 			orgId: 'org-1',
 			orgName: 'Able Company',
 			templates: [template()],
+			setupOptions: { personnel: [] },
 			selectedTemplate: null,
 			view: 'generate'
 		});

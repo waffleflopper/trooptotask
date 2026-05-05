@@ -19,8 +19,7 @@ import {
 	type DutyRosterTemplateSetupOptions,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
-	type DutyRosterPoolCriteria,
-	type DutyRosterPoolPersonnel
+	type DutyRosterPoolCriteria
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import {
 	buildDutyRosterBaselineRows,
@@ -31,23 +30,23 @@ import {
 import {
 	applyDutyRosterTemplateManualSelection,
 	assertDutyRosterTemplatePreview,
-	buildDutyRosterTemplatePreview,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { SpecialDayEntity } from '$lib/server/entities/specialDay';
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import {
 	acceptReviewedDutyRosterTemplatePreview,
 	applyAcceptedDutyRosterTemplateRun as applyAcceptedRunLifecycle,
 	hasAcceptedDutyRosterTemplateRun,
 	invalidateLatestDutyRosterTemplateRun as invalidateLatestRunLifecycle,
 	listAcceptedDutyRosterTemplateRuns as listAcceptedRunsLifecycle,
-	loadAcceptedDutyRosterRunCountSource,
-	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle,
-	type AcceptedDutyRosterRunCountSource
+	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle
 } from './acceptedRuns';
+import {
+	assertReviewedDutyRosterTemplatePreviewIsCurrent,
+	buildDutyRosterTemplatePreviewFromCurrentState,
+	listActiveDutyRosterPersonnel,
+	loadDutyRosterTemplateCountReadModelSource,
+	toDutyRosterTemplateCountReadModel
+} from './templatePreviewAssembly';
 
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
@@ -298,91 +297,6 @@ function defaultDutyRosterAssignmentShortName(input: { name: string; shortCode: 
 	return input.shortCode ?? input.name.slice(0, 12).trim().toUpperCase();
 }
 
-async function loadTemplateCountReadModel(
-	ctx: QueryPorts,
-	template: DutyRosterTemplate,
-	input: { baselineStartDate?: string; personnel?: DutyRosterPoolPersonnel[] } = {}
-): Promise<AcceptedDutyRosterRunCountSource> {
-	const personnel = input.personnel ?? (await listActiveDutyRosterPersonnel(ctx));
-	return loadAcceptedDutyRosterRunCountSource(ctx, {
-		template,
-		personnel,
-		baselineStartDate: input.baselineStartDate
-	});
-}
-
-async function buildTemplatePreviewFromCurrentState(
-	ctx: QueryPorts,
-	input: {
-		template: DutyRosterTemplate;
-		startDate: string;
-		endDate: string;
-		generatedAt?: string;
-	}
-): Promise<DutyRosterTemplatePreview> {
-	const personnel = await listActiveDutyRosterPersonnel(ctx);
-	const [statusTypeRows, availabilityRows, specialDayRows, countReadModel] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: input.startDate },
-				{ column: 'start_date', op: 'lte', value: input.endDate }
-			]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('special_days', ctx.auth.orgId, undefined, {
-			select: SpecialDayEntity.select,
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: input.startDate },
-				{ column: 'date', op: 'lte', value: input.endDate }
-			],
-			orderBy: [{ column: 'date', ascending: true }]
-		}),
-		loadTemplateCountReadModel(ctx, input.template, { baselineStartDate: input.startDate, personnel })
-	]);
-
-	return buildDutyRosterTemplatePreview({
-		template: input.template,
-		personnel,
-		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
-		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
-		continuationHistory: countReadModel.continuationHistory,
-		startDate: input.startDate,
-		endDate: input.endDate,
-		generatedAt: input.generatedAt
-	});
-}
-
-function reviewedPreviewPayload(preview: DutyRosterTemplatePreview): Record<string, unknown> {
-	return {
-		generatedAt: preview.generatedAt,
-		assignmentType: preview.assignmentType,
-		config: preview.config,
-		personnel: preview.personnel,
-		selectionPersonnel: preview.selectionPersonnel,
-		rosterRows: preview.rosterRows,
-		da6: preview.da6,
-		exportModel: preview.exportModel,
-		warnings: preview.warnings
-	};
-}
-
-function assertReviewedPreviewStillCurrent(input: {
-	reviewedPreview: DutyRosterTemplatePreview;
-	currentPreview: DutyRosterTemplatePreview;
-}): void {
-	if (
-		JSON.stringify(reviewedPreviewPayload(input.reviewedPreview)) !==
-		JSON.stringify(reviewedPreviewPayload(input.currentPreview))
-	) {
-		fail(409, 'Duty Roster preview changed. Generate the preview again before accepting.');
-	}
-}
-
 export async function listDutyRosterTemplatesLifecycle(ctx: QueryPorts): Promise<DutyRosterTemplate[]> {
 	const rows = await ctx.store.findMany<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
@@ -510,18 +424,8 @@ export async function loadDutyRosterTemplateCountReadModelLifecycle(
 	ctx: QueryPorts,
 	template: DutyRosterTemplate
 ): Promise<DutyRosterTemplateCountReadModel> {
-	const readModel = await loadTemplateCountReadModel(ctx, template);
-	return {
-		templateId: readModel.templateId,
-		source: readModel.source,
-		sourceLabel: readModel.sourceLabel,
-		sourceDescription: readModel.sourceDescription,
-		rows: readModel.rows,
-		acceptedRunCount: readModel.acceptedRunCount,
-		invalidatedRunCount: readModel.invalidatedRunCount,
-		countingCorrectionCount: readModel.countingCorrectionCount,
-		nonCountingCorrectionCount: readModel.nonCountingCorrectionCount
-	};
+	const readModel = await loadDutyRosterTemplateCountReadModelSource(ctx, template);
+	return toDutyRosterTemplateCountReadModel(readModel);
 }
 
 export async function listAcceptedDutyRosterTemplateRunsLifecycle(
@@ -623,7 +527,7 @@ export async function generateDutyRosterTemplatePreviewLifecycle(
 	}
 
 	const template = toTemplate(existing);
-	return buildTemplatePreviewFromCurrentState(ctx, {
+	return buildDutyRosterTemplatePreviewFromCurrentState(ctx, {
 		template,
 		startDate: parsed.startDate,
 		endDate: parsed.endDate,
@@ -658,13 +562,13 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 		startDate: preview.config.startDate,
 		endDate: preview.config.endDate
 	});
-	let acceptedPreview = await buildTemplatePreviewFromCurrentState(ctx, {
+	let acceptedPreview = await buildDutyRosterTemplatePreviewFromCurrentState(ctx, {
 		template: toTemplate(existing),
 		startDate: previewRange.startDate,
 		endDate: previewRange.endDate,
 		generatedAt: preview.generatedAt
 	});
-	assertReviewedPreviewStillCurrent({
+	assertReviewedDutyRosterTemplatePreviewIsCurrent({
 		reviewedPreview: preview,
 		currentPreview: acceptedPreview
 	});
@@ -724,32 +628,4 @@ export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(
 	} catch (errorValue) {
 		fail(400, errorValue instanceof Error ? errorValue.message : 'Manual selection input is invalid');
 	}
-}
-
-async function listActiveDutyRosterPersonnel(ctx: QueryPorts): Promise<DutyRosterPoolPersonnel[]> {
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel',
-		ctx.auth.orgId,
-		{},
-		{
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [
-				{ column: 'last_name', ascending: true },
-				{ column: 'first_name', ascending: true }
-			]
-		}
-	);
-
-	return PersonnelEntity.fromDbArray(rows).map((person) => ({
-		id: person.id,
-		rank: person.rank,
-		lastName: person.lastName,
-		firstName: person.firstName,
-		mos: person.mos ?? '',
-		dutyRole: person.clinicRole ?? '',
-		groupId: person.groupId ?? null,
-		groupName: person.groupName ?? '',
-		archivedAt: person.archivedAt ?? null
-	}));
 }

@@ -122,7 +122,46 @@ describe('buildDutyRosterTemplatePreview', () => {
 			endDate: '2026-06-01'
 		});
 
-		expect(preview.rosterRows[0].assigneeId).toBe('bravo');
+		expect(preview.rosterRows[0].assigneeId).toBe('alpha');
+	});
+
+	it('selects the highest Manual DA6 Baseline count before roster-order tie breaking', () => {
+		const personnel = [
+			person({ id: 'chen', rank: 'SPC', lastName: 'Chen' }),
+			person({ id: 'ramsey', rank: 'SPC', lastName: 'Ramsey' }),
+			person({ id: 'rivera', rank: 'SPC', lastName: 'Rivera' })
+		];
+		const templateWithBaseline = {
+			...template,
+			manualBaselineCounts: {
+				chen: 3,
+				ramsey: 38,
+				rivera: 38
+			}
+		};
+		const countSource = buildDutyRosterCountSource({
+			template: templateWithBaseline,
+			resolvedPool: personnel,
+			runs: [],
+			baselineStartDate: '2026-06-01'
+		});
+		const preview = buildDutyRosterTemplatePreview({
+			template: templateWithBaseline,
+			personnel,
+			availabilityEntries: [],
+			statusTypes,
+			specialDays: [],
+			continuationHistory: countSource.continuationHistory,
+			startDate: '2026-06-01',
+			endDate: '2026-06-02'
+		});
+
+		expect(preview.rosterRows.map((row) => row.assigneeId)).toEqual(['ramsey', 'rivera']);
+		expect(preview.da6.rows.map((row) => row.cells.map((cell) => cell.sequenceNumber))).toEqual([
+			[3, 4],
+			[38, 1],
+			[38, 39]
+		]);
 	});
 
 	it('keeps preview generation read-only while showing A, D, and future U matrix markings', () => {

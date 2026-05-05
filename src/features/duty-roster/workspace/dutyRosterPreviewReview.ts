@@ -24,6 +24,8 @@ export type DutyRosterPreviewReviewRow = {
 	liveWarnings: string[];
 };
 
+export type DutyRosterMatrixCellTone = 'default' | 'assigned' | 'warning' | 'danger';
+
 export type DutyRosterPreviewReviewModel = {
 	rows: DutyRosterPreviewReviewRow[];
 	selectionOptions: Array<{ value: string; label: string; description?: string }>;
@@ -36,6 +38,7 @@ export type DutyRosterPreviewReviewModel = {
 			cells: Array<{
 				date: string;
 				assigned: boolean;
+				tone: DutyRosterMatrixCellTone;
 				display: string;
 			}>;
 		}>;
@@ -81,6 +84,7 @@ export type DutyRosterAcceptedRunReviewModel = {
 			cells: Array<{
 				date: string;
 				assigned: boolean;
+				tone: DutyRosterMatrixCellTone;
 				display: string;
 			}>;
 		}>;
@@ -151,6 +155,7 @@ export function buildDutyRosterPreviewReviewModel(input: {
 				cells: row.cells.map((cell) => ({
 					date: cell.date,
 					assigned: cell.assigned,
+					tone: da6CellTone(cell),
 					display: previewCellDisplay(cell)
 				}))
 			}))
@@ -229,6 +234,7 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 				cells: row.cells.map((cell) => ({
 					date: cell.date,
 					assigned: cell.assigned,
+					tone: da6CellTone(cell),
 					display: da6CellDisplay(cell)
 				}))
 			}))
@@ -264,6 +270,17 @@ export function previewFormValue(preview: DutyRosterTemplatePreview): string {
 
 export function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
 	return da6CellDisplay(cell);
+}
+
+function da6CellTone(
+	cell:
+		| DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]
+		| DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
+): DutyRosterMatrixCellTone {
+	if (cell.assigned) return 'assigned';
+	if (cell.da6Code === 'A') return 'warning';
+	if (cell.da6Code === 'D' || cell.da6Code === 'U') return 'danger';
+	return 'default';
 }
 
 export function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {

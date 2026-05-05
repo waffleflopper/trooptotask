@@ -93,6 +93,12 @@ describe('dutyRosterPreviewReview', () => {
 		});
 
 		expect(model.rows[1]?.liveWarnings).toEqual(['Selected Soldier is outside this template pool.']);
+		expect(model.matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toEqual({
+			date: '2026-06-01',
+			assigned: false,
+			tone: 'danger',
+			display: 'D'
+		});
 	});
 
 	it('shapes DA6 matrix cells without leaking raw cell rules to the view', () => {
@@ -107,8 +113,8 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, display: 'X' },
-					{ date: '2026-06-02', assigned: false, display: 'A' }
+					{ date: '2026-06-01', assigned: true, tone: 'assigned', display: 'X' },
+					{ date: '2026-06-02', assigned: false, tone: 'warning', display: 'A' }
 				]
 			}
 		]);
@@ -175,8 +181,8 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, display: 'X' },
-					{ date: '2026-06-02', assigned: false, display: 'A' }
+					{ date: '2026-06-01', assigned: true, tone: 'assigned', display: 'X' },
+					{ date: '2026-06-02', assigned: false, tone: 'warning', display: 'A' }
 				]
 			}
 		]);

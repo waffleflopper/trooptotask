@@ -259,7 +259,7 @@ describe('buildDutyRosterRunSnapshot', () => {
 						roster: [],
 						config: {
 							historySource: 'manual-da6-baseline',
-							manualBaselineCounts: { alpha: 20, bravo: 20, charlie: 20 }
+							manualBaselineCounts: { alpha: 20, bravo: 20, charlie: 30 }
 						}
 					}
 				],

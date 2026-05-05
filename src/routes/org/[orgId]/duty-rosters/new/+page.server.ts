@@ -23,7 +23,18 @@ function parseBaselineCounts(formData: FormData): Record<string, number | null> 
 	return counts;
 }
 
-function actionError(error: unknown, values: Record<string, string | string[]>) {
+function baselineFormValues(formData: FormData): Record<string, string> {
+	const counts: Record<string, string> = {};
+
+	for (const [key, value] of formData.entries()) {
+		if (!key.startsWith('baseline:')) continue;
+		counts[key.slice('baseline:'.length)] = String(value);
+	}
+
+	return counts;
+}
+
+function actionError(error: unknown, values: Record<string, string | string[] | Record<string, string>>) {
 	const status =
 		error && typeof error === 'object' && 'status' in error && typeof error.status === 'number' ? error.status : 500;
 	const message =
@@ -77,7 +88,8 @@ export const actions: Actions = {
 			groupIds: formValues(formData, 'groupIds'),
 			mosValues: formValues(formData, 'mosValues'),
 			dutyRoleValues: formValues(formData, 'dutyRoleValues'),
-			exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds')
+			exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds'),
+			manualBaselineCounts: baselineFormValues(formData)
 		};
 
 		let slug: string;

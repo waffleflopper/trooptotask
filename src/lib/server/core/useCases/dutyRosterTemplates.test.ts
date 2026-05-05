@@ -1262,7 +1262,7 @@ describe('Duty Roster Template use cases', () => {
 			startDate: '2026-06-01',
 			endDate: '2026-06-01'
 		});
-		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'alpha' }]);
+		expect(firstPreview.rosterRows).toEqual([{ date: '2026-06-01', assigneeId: 'bravo' }]);
 		await acceptDutyRosterTemplatePreview(ctx, {
 			preview: JSON.stringify(firstPreview)
 		});
@@ -1273,7 +1273,7 @@ describe('Duty Roster Template use cases', () => {
 			endDate: '2026-06-02'
 		});
 
-		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'bravo' }]);
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
 	});
 
 	it('reports Manual DA6 Baseline as the count read model until the first accepted run', async () => {

@@ -33,6 +33,7 @@ export type DutyRosterWorkspaceActionForm = {
 		mosValues?: string[];
 		dutyRoleValues?: string[];
 		exemptPersonnelIds?: string[];
+		manualBaselineCounts?: Record<string, string>;
 	};
 };
 

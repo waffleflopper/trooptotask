@@ -500,7 +500,13 @@
 										<tr>
 											<th scope="row">{row.soldierLabel}</th>
 											{#each row.cells as cell (cell.date)}
-												<td class:assigned={cell.assigned}>{cell.display}</td>
+												<td
+													class:assigned={cell.tone === 'assigned'}
+													class:warning={cell.tone === 'warning'}
+													class:danger={cell.tone === 'danger'}
+												>
+													{cell.display}
+												</td>
 											{/each}
 										</tr>
 									{/each}
@@ -533,7 +539,7 @@
 									<dd>Unavailable</dd>
 								</div>
 							</dl>
-							<p>Highlighted cells indicate the finally assigned Soldier for each date.</p>
+							<p>Highlighted cells flag assigned duty, authorized absence, and chargeable duty conflicts.</p>
 						</section>
 						<section>
 							<h3>Run Summary</h3>

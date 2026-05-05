@@ -27,7 +27,8 @@
 		groupFilterValues = $bindable(),
 		mosFilterValues = $bindable(),
 		dutyRoleFilterValues = $bindable(),
-		wizardExemptPersonnelIds = $bindable()
+		wizardExemptPersonnelIds = $bindable(),
+		wizardBaselineCounts = $bindable()
 	}: {
 		basePath: string;
 		createWizardAction: string;
@@ -46,6 +47,7 @@
 		mosFilterValues: string[];
 		dutyRoleFilterValues: string[];
 		wizardExemptPersonnelIds: string[];
+		wizardBaselineCounts: Record<string, string>;
 	} = $props();
 
 	const setupSteps: Array<{ id: SetupStep; label: string; note: string }> = [
@@ -94,6 +96,13 @@
 
 	function removeExemption(personnelId: string) {
 		wizardExemptPersonnelIds = wizardExemptPersonnelIds.filter((id) => id !== personnelId);
+	}
+
+	function setBaselineCount(personnelId: string, value: string) {
+		wizardBaselineCounts = {
+			...wizardBaselineCounts,
+			[personnelId]: value
+		};
 	}
 </script>
 
@@ -300,6 +309,8 @@
 												name={`baseline:${person.id}`}
 												aria-label={`Starting count for ${person.rank} ${person.lastName}, ${person.firstName}`}
 												placeholder="0"
+												value={wizardBaselineCounts[person.id] ?? ''}
+												oninput={(event) => setBaselineCount(person.id, event.currentTarget.value)}
 											/>
 										</span>
 										<span role="cell" aria-hidden="true">×</span>
@@ -338,6 +349,10 @@
 							<div>
 								<dt>Baseline rows</dt>
 								<dd>{wizardBaselineRows.length}</dd>
+							</div>
+							<div>
+								<dt>Entered baselines</dt>
+								<dd>{Object.values(wizardBaselineCounts).filter((value) => value.trim()).length}</dd>
 							</div>
 						</dl>
 					</section>
@@ -487,6 +502,16 @@
 		{#each wizardExemptPersonnelIds as value (value)}
 			<input type="hidden" name="exemptPersonnelIds" {value} />
 		{/each}
+		{#if newTemplateStep !== 'general'}
+			<input type="hidden" name="name" value={newTemplateName} />
+			<input type="hidden" name="slug" value={templateSlug} />
+			<input type="hidden" name="shortCode" value={newTemplateShortCode} />
+		{/if}
+		{#if newTemplateStep !== 'baseline'}
+			{#each Object.entries(wizardBaselineCounts).filter( ([, value]) => value.trim() ) as [personnelId, value] (personnelId)}
+				<input type="hidden" name={`baseline:${personnelId}`} {value} />
+			{/each}
+		{/if}
 
 		<div class="wizard-actions new-template-actions">
 			<button

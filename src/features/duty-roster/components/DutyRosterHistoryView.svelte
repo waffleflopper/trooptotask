@@ -368,7 +368,13 @@
 										<tr>
 											<th scope="row">{row.soldierLabel}</th>
 											{#each row.cells as cell (cell.date)}
-												<td class:assigned={cell.assigned}>{cell.display}</td>
+												<td
+													class:assigned={cell.tone === 'assigned'}
+													class:warning={cell.tone === 'warning'}
+													class:danger={cell.tone === 'danger'}
+												>
+													{cell.display}
+												</td>
 											{/each}
 										</tr>
 									{/each}

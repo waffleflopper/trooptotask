@@ -20,6 +20,7 @@
 	let newTemplateSlug = $state('');
 	let newTemplateShortCode = $state('');
 	let wizardExemptPersonnelIds = $state<string[]>([]);
+	let wizardBaselineCounts = $state<Record<string, string>>({});
 
 	const workspace = $derived(buildDutyRosterWorkspaceReadModel(data, form));
 	const basePath = $derived(workspace.basePath);
@@ -56,6 +57,7 @@
 		mosFilterValues = [...(actionForm.values.mosValues ?? [])];
 		dutyRoleFilterValues = [...(actionForm.values.dutyRoleValues ?? [])];
 		wizardExemptPersonnelIds = [...(actionForm.values.exemptPersonnelIds ?? [])];
+		wizardBaselineCounts = { ...(actionForm.values.manualBaselineCounts ?? {}) };
 	});
 </script>
 
@@ -91,6 +93,7 @@
 			bind:mosFilterValues
 			bind:dutyRoleFilterValues
 			bind:wizardExemptPersonnelIds
+			bind:wizardBaselineCounts
 		/>
 	{:else if !selectedTemplate}
 		<DutyRosterTemplateRegister {basePath} templates={data.templates} setupOptions={data.setupOptions ?? null} />

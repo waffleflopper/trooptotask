@@ -475,6 +475,10 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const dutyDates = buildDutyDates(config, input.specialDays);
 	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
 	const manualBaselineCounts = getManualBaselineCounts(input);
+	const selectionCounts =
+		manualBaselineCounts.size > 0
+			? new Map(personnel.map((person) => [person.id, manualBaselineCounts.get(person.id) ?? 0]))
+			: null;
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(personnel.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
 	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
@@ -492,6 +496,14 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 			personnel.map((person) => [person.id, classifyAvailability(person.id, date, input, config)])
 		);
 		const rankedPersonnel = [...personnel].sort((a, b) => {
+			if (selectionCounts) {
+				const countDiff = (selectionCounts.get(b.id) ?? 0) - (selectionCounts.get(a.id) ?? 0);
+				if (countDiff !== 0) {
+					return countDiff;
+				}
+				return comparePersonnelByRankThenName(a, b);
+			}
+
 			const lastDutyDiff = compareOldestFirst(lastDutyDates.get(a.id) ?? null, lastDutyDates.get(b.id) ?? null);
 			if (lastDutyDiff !== 0) {
 				return lastDutyDiff;
@@ -544,6 +556,15 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber + 1);
 			} else if (sequenceNumber !== undefined) {
 				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber);
+			}
+
+			if (selectionCounts) {
+				const currentCount = selectionCounts.get(person.id) ?? 0;
+				if (isAssigned) {
+					selectionCounts.set(person.id, 0);
+				} else if (classification.chargeable) {
+					selectionCounts.set(person.id, currentCount + 1);
+				}
 			}
 		}
 

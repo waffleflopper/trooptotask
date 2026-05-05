@@ -110,6 +110,62 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
 
+	it('submits New Template wizard values from the review step', async () => {
+		const submitted: Record<string, FormDataEntryValue | null> = {};
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [],
+					selectedTemplate: null,
+					view: 'new',
+					setupOptions: {
+						personnel: [
+							{
+								id: 'person-1',
+								rank: 'SGT',
+								lastName: 'Able',
+								firstName: 'Ann',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							}
+						]
+					}
+				}
+			}
+		});
+
+		const form = document.querySelector<HTMLFormElement>('form.new-template-form');
+		expect(form).toBeTruthy();
+		form?.addEventListener('submit', (event) => {
+			event.preventDefault();
+			const formData = new FormData(form);
+			submitted.name = formData.get('name');
+			submitted.slug = formData.get('slug');
+			submitted.shortCode = formData.get('shortCode');
+			submitted.baseline = formData.get('baseline:person-1');
+		});
+
+		await fireEvent.input(screen.getByLabelText<HTMLInputElement>('Template name'), { target: { value: 'CQ NCO' } });
+		await fireEvent.input(screen.getByLabelText<HTMLInputElement>('Route slug'), { target: { value: 'cq-nco' } });
+		await fireEvent.input(screen.getByLabelText<HTMLInputElement>('Short code'), { target: { value: 'CQ' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		await fireEvent.input(screen.getByLabelText<HTMLInputElement>('Starting count for SGT Able, Ann'), {
+			target: { value: '4' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
+
+		expect(submitted.name).toBe('CQ NCO');
+		expect(submitted.slug).toBe('cq-nco');
+		expect(submitted.shortCode).toBe('CQ');
+		expect(submitted.baseline).toBe('4');
+	});
+
 	it('renders generated preview list and DA6 matrix without official actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {

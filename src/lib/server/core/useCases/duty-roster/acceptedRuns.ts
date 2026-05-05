@@ -3,10 +3,18 @@ import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type {
 	DutyRosterPoolPersonnel,
+	DutyRosterTemplate,
 	DutyRosterTemplateAcceptedRun,
+	DutyRosterTemplateCountReadModel,
 	DutyRosterTemplateCorrectionInput,
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
+import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
+import {
+	buildDutyRosterCountSource,
+	type DutyRosterCountSourceModel,
+	type DutyRosterCountSourceRun
+} from '$features/duty-roster/templates/dutyRosterCountSource';
 import {
 	buildDutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplateAcceptedSnapshot,
@@ -69,7 +77,11 @@ export type DutyRosterTemplateInvalidateResult = {
 	calendarAssignmentsEdited: boolean;
 };
 
-export function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedRun {
+export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
+	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
+};
+
+function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedRun {
 	return {
 		id: row.id,
 		templateId: row.template_id,
@@ -91,7 +103,7 @@ export function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): 
 	};
 }
 
-export function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown>): DutyRosterTemplateAcceptedSnapshot {
+function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown>): DutyRosterTemplateAcceptedSnapshot {
 	if (snapshotPayload.snapshotVersion !== 1) {
 		fail(500, 'Unsupported Duty Roster accepted snapshot version.');
 	}
@@ -99,11 +111,11 @@ export function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown
 	return snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
 }
 
-export function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
+function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
 	return parseAcceptedRunSnapshot(row.snapshot_payload);
 }
 
-export async function loadDutyRosterRunCorrectionsByRunId(
+async function loadDutyRosterRunCorrectionsByRunId(
 	ctx: QueryPorts,
 	runIds: string[]
 ): Promise<Map<string, DutyRosterTemplateRunCorrectionRow[]>> {
@@ -133,34 +145,6 @@ export async function loadDutyRosterRunCorrectionsByRunId(
 	return correctionsByRunId;
 }
 
-export function acceptedSnapshotWithLatestCorrections(
-	snapshot: DutyRosterTemplateAcceptedSnapshot,
-	corrections: DutyRosterTemplateRunCorrectionRow[]
-): DutyRosterTemplateAcceptedSnapshot {
-	const latest = latestCorrectionsByDate(corrections);
-	if (latest.size === 0) {
-		return snapshot;
-	}
-
-	return {
-		...snapshot,
-		finalRows: snapshot.finalRows.map((row) => {
-			const correction = latest.get(row.date);
-			if (!correction) return row;
-
-			const replacementDisplay =
-				snapshot.selectionPersonnel.find((person) => person.id === correction.replacement_assignee_id) ??
-				(row.finalDisplay?.id === correction.replacement_assignee_id ? row.finalDisplay : null);
-			return {
-				...row,
-				finalAssigneeId: correction.replacement_assignee_id,
-				finalDisplay: replacementDisplay,
-				reason: correction.reason
-			};
-		})
-	};
-}
-
 export async function listAcceptedDutyRosterTemplateRuns(
 	ctx: QueryPorts,
 	templateId: string
@@ -177,6 +161,62 @@ export async function listAcceptedDutyRosterTemplateRuns(
 
 	const runsWithCorrections = await hydrateAcceptedRunCorrections(ctx, rows.map(toAcceptedDutyRosterTemplateRun));
 	return hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
+}
+
+export async function hasAcceptedDutyRosterTemplateRun(ctx: QueryPorts, templateId: string): Promise<boolean> {
+	const rows = await ctx.store.findMany<{ id: string }>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: templateId, status: 'accepted' },
+		{ select: 'id', limit: 1 }
+	);
+
+	return rows.length > 0;
+}
+
+export async function loadAcceptedDutyRosterRunCountSource(
+	ctx: QueryPorts,
+	input: {
+		template: DutyRosterTemplate;
+		personnel: DutyRosterPoolPersonnel[];
+		baselineStartDate?: string;
+	}
+): Promise<AcceptedDutyRosterRunCountSource> {
+	const runRows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: input.template.id },
+		{
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: true }]
+		}
+	);
+	const correctionsByRunId = await loadDutyRosterRunCorrectionsByRunId(
+		ctx,
+		runRows.map((row) => row.id)
+	);
+	const resolvedPool = resolveDutyRosterPool({
+		criteria: input.template.poolCriteria,
+		personnel: input.personnel
+	}).filter((person) => !input.template.exemptPersonnelIds.includes(person.id));
+	const runs: DutyRosterCountSourceRun[] = runRows.map((row) => ({
+		id: row.id,
+		status: row.status,
+		acceptedAt: row.accepted_at,
+		snapshot: acceptedRunSnapshot(row),
+		corrections: (correctionsByRunId.get(row.id) ?? []).map((correction) => ({
+			runRowDate: correction.run_row_date,
+			replacementAssigneeId: correction.replacement_assignee_id,
+			reason: correction.reason
+		}))
+	}));
+
+	return buildDutyRosterCountSource({
+		template: input.template,
+		resolvedPool,
+		runs,
+		baselineStartDate: input.baselineStartDate
+	});
 }
 
 export async function acceptReviewedDutyRosterTemplatePreview(
@@ -414,16 +454,6 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 ): Promise<DutyRosterTemplateApplyResult> {
 	const acceptedRun = await acceptReviewedDutyRosterTemplatePreview(ctx, input);
 	return applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun);
-}
-
-function latestCorrectionsByDate(
-	corrections: DutyRosterTemplateRunCorrectionRow[]
-): Map<string, DutyRosterTemplateRunCorrectionRow> {
-	const latest = new Map<string, DutyRosterTemplateRunCorrectionRow>();
-	for (const correction of corrections) {
-		latest.set(correction.run_row_date, correction);
-	}
-	return latest;
 }
 
 function snapshotPersonDisplay(

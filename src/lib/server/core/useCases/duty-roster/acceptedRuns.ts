@@ -17,53 +17,25 @@ import {
 } from '$features/duty-roster/templates/dutyRosterCountSource';
 import {
 	buildDutyRosterTemplateAcceptedSnapshot,
-	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { batchDailyAssignments } from '../dailyAssignmentsBatch';
+import {
+	acceptedRunSnapshot,
+	applyRecordsFromAcceptedRun,
+	buildDutyRosterTemplateRunCorrectionReadModel,
+	dbPersonnelDisplay,
+	linkedCalendarAssignmentsWereEdited,
+	parseAcceptedRunSnapshot,
+	snapshotPersonDisplay,
+	toAcceptedDutyRosterTemplateRun,
+	type DutyRosterTemplateLinkedCalendarAssignmentRow,
+	type DutyRosterTemplateRunCorrectionRow,
+	type DutyRosterTemplateRunRow
+} from './acceptedRunRecord';
 
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
 const DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE = 'duty_roster_template_run_corrections';
-
-export type DutyRosterTemplateRunRow = {
-	id: string;
-	organization_id: string;
-	template_id: string;
-	template_name: string;
-	status: 'accepted' | 'invalidated';
-	start_date: string;
-	end_date: string;
-	snapshot_payload: Record<string, unknown>;
-	accepted_by_user_id: string | null;
-	accepted_at: string;
-	applied_by_user_id: string | null;
-	applied_at: string | null;
-	invalidated_by_user_id: string | null;
-	invalidated_at: string | null;
-	created_at: string;
-};
-
-export type DutyRosterTemplateRunCorrectionRow = {
-	id: string;
-	organization_id: string;
-	run_id: string;
-	run_row_date: string;
-	original_assignee_id: string;
-	replacement_assignee_id: string;
-	reason: string;
-	corrected_by_user_id: string | null;
-	corrected_at: string;
-	created_at: string;
-};
-
-type DutyRosterTemplateLinkedCalendarAssignmentRow = {
-	id: string;
-	duty_roster_template_run_id: string;
-	duty_roster_template_run_row_date: string | null;
-	date: string;
-	assignment_type_id: string;
-	assignee_id: string;
-};
 
 export type DutyRosterTemplateApplyResult = {
 	acceptedRun: DutyRosterTemplateAcceptedRun;
@@ -80,40 +52,6 @@ export type DutyRosterTemplateInvalidateResult = {
 export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel & {
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
 };
-
-function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedRun {
-	return {
-		id: row.id,
-		templateId: row.template_id,
-		templateName: row.template_name,
-		status: row.status,
-		startDate: row.start_date,
-		endDate: row.end_date,
-		acceptedAt: row.accepted_at,
-		acceptedByUserId: row.accepted_by_user_id,
-		appliedAt: row.applied_at ?? null,
-		appliedByUserId: row.applied_by_user_id ?? null,
-		invalidatedAt: row.invalidated_at ?? null,
-		invalidatedByUserId: row.invalidated_by_user_id ?? null,
-		linkedCalendarAssignmentCount: 0,
-		calendarAssignmentsEdited: false,
-		corrections: [],
-		snapshotPayload: row.snapshot_payload,
-		createdAt: row.created_at
-	};
-}
-
-function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown>): DutyRosterTemplateAcceptedSnapshot {
-	if (snapshotPayload.snapshotVersion !== 1) {
-		fail(500, 'Unsupported Duty Roster accepted snapshot version.');
-	}
-
-	return snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
-}
-
-function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
-	return parseAcceptedRunSnapshot(row.snapshot_payload);
-}
 
 async function loadDutyRosterRunCorrectionsByRunId(
 	ctx: QueryPorts,
@@ -456,105 +394,6 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	return applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun);
 }
 
-function snapshotPersonDisplay(
-	snapshot: DutyRosterTemplateAcceptedSnapshot,
-	personnelId: string | null
-): DutyRosterTemplateRunCorrection['originalDisplay'] {
-	if (!personnelId) return null;
-	const person = snapshot.selectionPersonnel.find((candidate) => candidate.id === personnelId);
-	if (!person) return null;
-
-	return {
-		id: person.id,
-		rank: person.rank,
-		lastName: person.lastName,
-		firstName: person.firstName,
-		groupName: person.groupName ?? ''
-	};
-}
-
-function dbPersonnelDisplay(
-	person:
-		| {
-				id: string;
-				rank: string;
-				lastName: string;
-				firstName: string;
-				groupName?: string;
-		  }
-		| undefined
-): DutyRosterTemplateRunCorrection['replacementDisplay'] {
-	if (!person) return null;
-
-	return {
-		id: person.id,
-		rank: person.rank,
-		lastName: person.lastName,
-		firstName: person.firstName,
-		groupName: person.groupName ?? ''
-	};
-}
-
-function expectedCalendarAssignmentsByRowDate(
-	run: DutyRosterTemplateAcceptedRun
-): Map<string, { assignmentTypeId: string; assigneeId: string }> {
-	const snapshot = run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
-	const expected = new Map<string, { assignmentTypeId: string; assigneeId: string }>();
-	const correctionByDate = new Map(run.corrections.map((correction) => [correction.runRowDate, correction]));
-
-	for (const row of snapshot.finalRows) {
-		const assigneeId = correctionByDate.get(row.date)?.replacementAssigneeId ?? row.finalAssigneeId;
-		if (!assigneeId) continue;
-		expected.set(row.date, {
-			assignmentTypeId: snapshot.template.id,
-			assigneeId
-		});
-	}
-
-	return expected;
-}
-
-function linkedCalendarAssignmentsWereEdited(
-	run: DutyRosterTemplateAcceptedRun,
-	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
-): boolean {
-	if (!run.appliedAt) {
-		return false;
-	}
-
-	const expected = expectedCalendarAssignmentsByRowDate(run);
-	if (rows.length !== expected.size) {
-		return true;
-	}
-
-	for (const row of rows) {
-		const rowDate = row.duty_roster_template_run_row_date ?? row.date;
-		const expectedRow = expected.get(rowDate);
-		if (
-			!expectedRow ||
-			row.date !== rowDate ||
-			row.assignment_type_id !== expectedRow.assignmentTypeId ||
-			row.assignee_id !== expectedRow.assigneeId
-		) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
-	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
-	const correctionByDate = new Map(run.corrections.map((correction) => [correction.runRowDate, correction]));
-	return snapshot.finalRows.map((row) => ({
-		date: row.date,
-		assignmentTypeId: snapshot.template.id,
-		assigneeId: correctionByDate.get(row.date)?.replacementAssigneeId ?? row.finalAssigneeId ?? '',
-		dutyRosterTemplateRunId: run.id,
-		dutyRosterTemplateRunRowDate: row.date
-	}));
-}
-
 async function applyAcceptedDutyRosterTemplateRunRecord(
 	ctx: WritePorts,
 	run: DutyRosterTemplateAcceptedRun
@@ -668,23 +507,14 @@ async function hydrateAcceptedRunCorrections(
 
 	return runs.map((run) => {
 		const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
-		const corrections = (correctionsByRunId.get(run.id) ?? []).map((correction) => ({
-			id: correction.id,
-			runId: correction.run_id,
-			runRowDate: correction.run_row_date,
-			originalAssigneeId: correction.original_assignee_id,
-			originalDisplay:
-				snapshotPersonDisplay(snapshot, correction.original_assignee_id) ??
-				dbPersonnelDisplay(personnelById.get(correction.original_assignee_id)),
-			replacementAssigneeId: correction.replacement_assignee_id,
-			replacementDisplay:
-				snapshotPersonDisplay(snapshot, correction.replacement_assignee_id) ??
-				dbPersonnelDisplay(personnelById.get(correction.replacement_assignee_id)),
-			reason: correction.reason,
-			correctedByUserId: correction.corrected_by_user_id,
-			correctedAt: correction.corrected_at,
-			countsTowardFuture: run.status === 'accepted'
-		}));
+		const corrections = (correctionsByRunId.get(run.id) ?? []).map((row) =>
+			buildDutyRosterTemplateRunCorrectionReadModel({
+				row,
+				runStatus: run.status,
+				snapshot,
+				personnelById
+			})
+		);
 		return {
 			...run,
 			corrections

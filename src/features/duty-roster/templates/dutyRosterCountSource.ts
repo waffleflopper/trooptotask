@@ -1,4 +1,5 @@
 import type { DutyRosterContinuationHistoryItem } from '$features/duty-roster/run/dutyRosterRun.types';
+import { applyDutyRosterCorrectionsToSnapshot } from './dutyRosterCorrection';
 import type { DutyRosterTemplateAcceptedSnapshot } from './dutyRosterTemplatePreview';
 import type {
 	DutyRosterPoolPersonnel,
@@ -35,7 +36,7 @@ export function buildDutyRosterCountSource(input: {
 	const runs = [...input.runs].sort((left, right) => left.acceptedAt.localeCompare(right.acceptedAt));
 	const continuationHistory = runs
 		.filter((run) => run.status === 'accepted')
-		.map((run) => snapshotWithLatestCorrections(run.snapshot, run.corrections))
+		.map((run) => applyDutyRosterCorrectionsToSnapshot(run.snapshot, run.corrections))
 		.map((snapshot) => acceptedSnapshotToContinuationHistory(snapshot));
 	const acceptedRunCount = runs.filter((run) => run.status === 'accepted').length;
 	const invalidatedRunCount = runs.filter((run) => run.status === 'invalidated').length;
@@ -235,34 +236,6 @@ function acceptedSnapshotToContinuationHistory(
 		config: {
 			historySource: 'accepted-duty-roster-run'
 		}
-	};
-}
-
-function snapshotWithLatestCorrections(
-	snapshot: DutyRosterTemplateAcceptedSnapshot,
-	corrections: DutyRosterCountSourceCorrection[]
-): DutyRosterTemplateAcceptedSnapshot {
-	const latest = new Map(corrections.map((correction) => [correction.runRowDate, correction]));
-	if (latest.size === 0) {
-		return snapshot;
-	}
-
-	return {
-		...snapshot,
-		finalRows: snapshot.finalRows.map((row) => {
-			const correction = latest.get(row.date);
-			if (!correction) return row;
-
-			const replacementDisplay =
-				snapshot.selectionPersonnel.find((person) => person.id === correction.replacementAssigneeId) ??
-				(row.finalDisplay?.id === correction.replacementAssigneeId ? row.finalDisplay : null);
-			return {
-				...row,
-				finalAssigneeId: correction.replacementAssigneeId,
-				finalDisplay: replacementDisplay,
-				reason: correction.reason
-			};
-		})
 	};
 }
 

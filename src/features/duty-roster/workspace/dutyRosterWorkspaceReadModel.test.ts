@@ -38,7 +38,7 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.basePath).toBe('/org/org-1/duty-rosters');
 		expect(model.generateAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/generatePreview');
 		expect(model.acceptPreviewAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview');
-		expect(model.settingsAction).toBe('/org/org-1/duty-rosters/cq-nco/settings?/updateSettings');
+		expect(model.settingsWorkspace?.settingsAction).toBe('/org/org-1/duty-rosters/cq-nco/settings?/updateSettings');
 		expect(model.generateWorkspace).toMatchObject({
 			selectedTemplate: template,
 			generateAction: '/org/org-1/duty-rosters/cq-nco/generate?/generatePreview',

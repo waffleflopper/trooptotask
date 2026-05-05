@@ -71,6 +71,19 @@ export type DutyRosterGenerateWorkspaceModel = {
 	canGenerate: boolean;
 };
 
+export type DutyRosterTemplateSettingsWorkspaceModel = {
+	basePath: string;
+	selectedTemplate: DutyRosterTemplate;
+	actionForm: DutyRosterWorkspaceActionForm | null;
+	settings: DutyRosterTemplateSettingsData | null;
+	settingsAction: string;
+	baselineLocked: boolean;
+	rankOptions: string[];
+	groupOptions: Array<{ id: string; label: string }>;
+	mosOptions: string[];
+	dutyRoleOptions: string[];
+};
+
 export type DutyRosterWorkspaceReadModel = {
 	basePath: string;
 	createAction: string;
@@ -81,6 +94,7 @@ export type DutyRosterWorkspaceReadModel = {
 	actionForm: DutyRosterWorkspaceActionForm | null;
 	preview: DutyRosterTemplatePreview | null;
 	generateWorkspace: DutyRosterGenerateWorkspaceModel | null;
+	settingsWorkspace: DutyRosterTemplateSettingsWorkspaceModel | null;
 	generateAction: string;
 	manualPreviewAction: string;
 	acceptPreviewAction: string;
@@ -88,13 +102,11 @@ export type DutyRosterWorkspaceReadModel = {
 	applyAcceptedRunAction: string;
 	invalidateAcceptedRunAction: string;
 	correctAcceptedRunAction: string;
-	settingsAction: string;
 	acceptedRuns: DutyRosterTemplateAcceptedRun[];
 	setupPersonnel: DutyRosterTemplateSettingsData['personnel'];
 	historyDetailRun: DutyRosterTemplateAcceptedRun | null;
 	countReadModel: DutyRosterTemplateCountReadModel | null;
 	latestHistoryRunId: string | null;
-	baselineLocked: boolean;
 	rankOptions: string[];
 	groupOptions: Array<{ id: string; label: string }>;
 	mosOptions: string[];
@@ -166,6 +178,28 @@ export function buildDutyRosterWorkspaceReadModel(
 				canGenerate
 			}
 		: null;
+	const settingsAction = selectedTemplate
+		? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings`
+		: createAction;
+	const rankOptions = uniqueOptions(setupPersonnel.map((person) => person.rank));
+	const groupOptions = uniqueGroupOptions(setupPersonnel);
+	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
+	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
+	const baselineLocked = acceptedRuns.length > 0;
+	const settingsWorkspace = selectedTemplate
+		? {
+				basePath,
+				selectedTemplate,
+				actionForm,
+				settings: data.settings ?? null,
+				settingsAction,
+				baselineLocked,
+				rankOptions,
+				groupOptions,
+				mosOptions,
+				dutyRoleOptions
+			}
+		: null;
 
 	return {
 		basePath,
@@ -177,6 +211,7 @@ export function buildDutyRosterWorkspaceReadModel(
 		actionForm,
 		preview,
 		generateWorkspace,
+		settingsWorkspace,
 		generateAction,
 		manualPreviewAction,
 		acceptPreviewAction,
@@ -190,17 +225,15 @@ export function buildDutyRosterWorkspaceReadModel(
 		correctAcceptedRunAction: selectedTemplate
 			? `${basePath}/${selectedTemplate.slug}/history?/recordCorrection`
 			: createAction,
-		settingsAction: selectedTemplate ? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings` : createAction,
 		acceptedRuns,
 		setupPersonnel,
 		historyDetailRun,
 		countReadModel,
 		latestHistoryRunId: acceptedRuns[0]?.id ?? null,
-		baselineLocked: acceptedRuns.length > 0,
-		rankOptions: uniqueOptions(setupPersonnel.map((person) => person.rank)),
-		groupOptions: uniqueGroupOptions(setupPersonnel),
-		mosOptions: uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean)),
-		dutyRoleOptions: uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean)),
+		rankOptions,
+		groupOptions,
+		mosOptions,
+		dutyRoleOptions,
 		viewTabs: VIEW_TABS,
 		todayDate,
 		defaultDateRange,

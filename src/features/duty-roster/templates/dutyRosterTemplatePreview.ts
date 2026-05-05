@@ -79,7 +79,7 @@ export interface DutyRosterTemplatePreviewInput {
 	specialDays: SpecialDay[];
 	startDate: string;
 	endDate: string;
-	acceptedHistory?: DutyRosterContinuationHistoryItem[];
+	continuationHistory?: DutyRosterContinuationHistoryItem[];
 	dutyDuration?: DutyRosterRunDuration;
 	generatedAt?: string;
 }
@@ -99,7 +99,7 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 		assignmentType: templateAssignmentType(input.template),
 		personnel: resolvedPool.map(toPersonnel),
 		assignments: [],
-		rosterHistory: input.acceptedHistory ?? buildManualBaselineHistory(input.template, input.startDate),
+		rosterHistory: input.continuationHistory ?? [],
 		advancedDutyEvents: [],
 		availabilityEntries: input.availabilityEntries,
 		statusTypes: input.statusTypes,
@@ -221,27 +221,6 @@ export function buildDutyRosterTemplateAcceptedSnapshot(input: {
 		exportModel,
 		warnings: input.preview.warnings
 	});
-}
-
-export function acceptedSnapshotToContinuationHistory(
-	snapshot: DutyRosterTemplateAcceptedSnapshot
-): DutyRosterContinuationHistoryItem {
-	return {
-		assignmentTypeId: snapshot.template.id,
-		startDate: snapshot.config.startDate,
-		endDate: snapshot.config.endDate,
-		roster: snapshot.finalRows.map((row) => ({
-			date: row.date,
-			assigneeId: row.finalAssigneeId,
-			assigneeName: row.finalDisplay ? `${row.finalDisplay.lastName}, ${row.finalDisplay.firstName}` : null,
-			assigneeRank: row.finalDisplay?.rank ?? null,
-			assigneeGroup: row.finalDisplay?.groupName ?? null,
-			reason: row.reason ?? undefined
-		})),
-		config: {
-			historySource: 'accepted-duty-roster-run'
-		}
-	};
 }
 
 export function assertDutyRosterTemplatePreview(value: unknown): asserts value is DutyRosterTemplatePreview {
@@ -394,41 +373,6 @@ function previewAssignee(
 	assigneeId: string
 ): DutyRosterTemplatePreviewPersonnel | null {
 	return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
-}
-
-function buildManualBaselineHistory(template: DutyRosterTemplate, startDate: string) {
-	const counts = Object.entries(template.manualBaselineCounts).filter(([, count]) => count > 0);
-	if (counts.length === 0) {
-		return [];
-	}
-
-	const highestCount = Math.max(...counts.map(([, count]) => count));
-	return [
-		{
-			assignmentTypeId: template.assignmentTypeId,
-			startDate: shiftDate(startDate, -highestCount),
-			endDate: shiftDate(startDate, -1),
-			roster: counts.map(([personnelId, count]) => ({
-				date: shiftDate(startDate, -(highestCount - count + 1)),
-				assigneeId: personnelId,
-				assigneeName: null,
-				assigneeRank: null,
-				assigneeGroup: null
-			})),
-			config: {
-				historySource: 'manual-da6-baseline'
-			}
-		}
-	];
-}
-
-function shiftDate(value: string, offsetDays: number): string {
-	const [yearValue, monthValue, dayValue] = value.split('-').map(Number);
-	const date = new Date(Date.UTC(yearValue, monthValue - 1, dayValue + offsetDays));
-	const year = date.getUTCFullYear();
-	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-	const day = String(date.getUTCDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 function deepFreeze<T>(value: T): T {

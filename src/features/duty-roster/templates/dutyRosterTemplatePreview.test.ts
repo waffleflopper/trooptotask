@@ -6,6 +6,7 @@ import {
 	manualSelectionForDate,
 	previewFinalAssigneeId
 } from './dutyRosterTemplatePreview';
+import { buildDutyRosterCountSource } from './dutyRosterCountSource';
 import type { DutyRosterPoolPersonnel, DutyRosterTemplate } from './dutyRosterTemplates';
 import type { StatusType } from '$lib/types';
 
@@ -90,23 +91,32 @@ describe('buildDutyRosterTemplatePreview', () => {
 	});
 
 	it('uses Manual DA6 Baseline counts as first-use setup data for longest-break ranking', () => {
+		const personnel = [
+			person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
+			person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
+			person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+		];
+		const templateWithBaseline = {
+			...template,
+			manualBaselineCounts: {
+				alpha: 3,
+				bravo: 0,
+				charlie: 1
+			}
+		};
+		const countSource = buildDutyRosterCountSource({
+			template: templateWithBaseline,
+			resolvedPool: personnel,
+			runs: [],
+			baselineStartDate: '2026-06-01'
+		});
 		const preview = buildDutyRosterTemplatePreview({
-			template: {
-				...template,
-				manualBaselineCounts: {
-					alpha: 3,
-					bravo: 0,
-					charlie: 1
-				}
-			},
-			personnel: [
-				person({ id: 'alpha', rank: 'SGT', lastName: 'Able' }),
-				person({ id: 'bravo', rank: 'SGT', lastName: 'Baker' }),
-				person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
-			],
+			template: templateWithBaseline,
+			personnel,
 			availabilityEntries: [],
 			statusTypes,
 			specialDays: [],
+			continuationHistory: countSource.continuationHistory,
 			startDate: '2026-06-01',
 			endDate: '2026-06-01'
 		});

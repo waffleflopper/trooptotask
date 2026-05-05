@@ -8,17 +8,15 @@
 		DutyRosterTemplateAcceptedRun
 	} from '$features/duty-roster/templates/dutyRosterTemplates';
 	import {
-		acceptedCellDisplay,
-		acceptedHistoryRows,
-		acceptedSnapshot,
-		calendarActionState,
-		correctionKey,
-		correctionPersonName,
-		personnelOptionItems,
 		type DutyRosterWorkspaceActionForm,
 		type DutyRosterWorkspaceReadModel
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
-	import { issueLabel, issueTitle } from '$features/duty-roster/workspace/dutyRosterPreviewReview';
+	import {
+		buildDutyRosterAcceptedRunReviewModel,
+		correctionKey,
+		issueLabel,
+		issueTitle
+	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
 
 	let {
 		basePath,
@@ -64,7 +62,13 @@
 	}
 
 	function printAcceptedRun(run: DutyRosterTemplateAcceptedRun): void {
-		printDutyRosterForBrowser({ acceptedSnapshot: acceptedSnapshot(run), statusLabel: 'Official' });
+		printDutyRosterForBrowser({
+			acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
+				run,
+				isLatestRun: run.id === latestHistoryRunId
+			}).snapshot,
+			statusLabel: 'Official'
+		});
 	}
 </script>
 
@@ -82,15 +86,16 @@
 	<div class="admin-empty">History is empty until a DA6 run is accepted.</div>
 {:else}
 	{#if historyDetailRun}
-		{@const detailRunInvalidated = historyDetailRun.status === 'invalidated'}
-		{@const detailCalendarState = calendarActionState(historyDetailRun)}
-		{@const detailCanInvalidate = !detailRunInvalidated && historyDetailRun.id === latestHistoryRunId}
+		{@const detailReview = buildDutyRosterAcceptedRunReviewModel({
+			run: historyDetailRun,
+			isLatestRun: historyDetailRun.id === latestHistoryRunId
+		})}
 		<section class="history-detail-banner card card-flat" aria-label="Official Duty Roster record">
 			<a class="btn btn-secondary btn-sm" href={`${basePath}/${selectedTemplate.slug}/history`}> Back to History </a>
 			<div class="history-detail-banner__identity">
 				<div class="history-detail-banner__title-row">
 					<h4>Run {historyDetailRun.startDate} to {historyDetailRun.endDate}</h4>
-					{#if detailRunInvalidated}
+					{#if detailReview.isInvalidated}
 						<span class="chip chip-error">Invalidated</span>
 					{/if}
 				</div>
@@ -104,15 +109,15 @@
 					<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(historyDetailRun)}>
 						Print Record
 					</button>
-					{#if !detailRunInvalidated && detailCalendarState !== 'applied'}
+					{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
 						<form class="accept-preview-form" method="POST" action={applyAcceptedRunAction}>
 							<input type="hidden" name="runId" value={historyDetailRun.id} />
 							<button class="btn btn-primary btn-sm" type="submit">
-								{detailCalendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
+								{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
 							</button>
 						</form>
 					{/if}
-					{#if detailCanInvalidate}
+					{#if detailReview.canInvalidate}
 						<button
 							class="btn btn-danger btn-sm"
 							type="button"
@@ -127,7 +132,7 @@
 				</div>
 			</div>
 		</section>
-		{#if detailCanInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
+		{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
 			<section class="invalidation-confirm" aria-labelledby="invalidation-confirm-heading">
 				<div>
 					<p class="eyebrow">Invalidation Review</p>
@@ -149,9 +154,10 @@
 	{/if}
 	<div class="history-list">
 		{#each historyDetailRun ? [historyDetailRun] : acceptedRuns as run (run.id)}
-			{@const snapshot = acceptedSnapshot(run)}
-			{@const isInvalidated = run.status === 'invalidated'}
-			{@const calendarState = calendarActionState(run)}
+			{@const runReview = buildDutyRosterAcceptedRunReviewModel({
+				run,
+				isLatestRun: run.id === latestHistoryRunId
+			})}
 			<div
 				class="history-run card card-flat"
 				class:history-run--detail={historyDetailRun}
@@ -170,25 +176,19 @@
 								<span class="run-lifecycle__step run-lifecycle__step--complete">Draft</span>
 								<span
 									class="run-lifecycle__step"
-									class:run-lifecycle__step--complete={!isInvalidated}
-									class:run-lifecycle__step--invalid={isInvalidated}
+									class:run-lifecycle__step--complete={!runReview.isInvalidated}
+									class:run-lifecycle__step--invalid={runReview.isInvalidated}
 								>
-									{isInvalidated ? 'Invalidated' : 'Official'}
+									{runReview.isInvalidated ? 'Invalidated' : 'Official'}
 								</span>
 								<span
 									class="run-lifecycle__step"
-									class:run-lifecycle__step--complete={!isInvalidated && calendarState === 'applied'}
-									class:run-lifecycle__step--attention={!isInvalidated && calendarState === 'reapply'}
+									class:run-lifecycle__step--complete={!runReview.isInvalidated &&
+										runReview.calendarState === 'applied'}
+									class:run-lifecycle__step--attention={!runReview.isInvalidated &&
+										runReview.calendarState === 'reapply'}
 								>
-									{#if isInvalidated}
-										Closed
-									{:else if calendarState === 'applied'}
-										Applied
-									{:else if calendarState === 'reapply'}
-										Needs sync
-									{:else}
-										Not applied
-									{/if}
+									{runReview.calendarStepLabel}
 								</span>
 							</div>
 							<span class="open-record-note">Open official record</span>
@@ -196,7 +196,7 @@
 					</a>
 				{/if}
 				{#if historyDetailRun}
-					{#if run.calendarAssignmentsEdited && !isInvalidated}
+					{#if run.calendarAssignmentsEdited && !runReview.isInvalidated}
 						<p class="history-warning admin-alert admin-alert--warning">
 							Calendar assignments linked to this run changed after apply. Re-applying may overwrite linked Calendar
 							assignments, and invalidation will remove the run footprint after confirmation.
@@ -206,7 +206,7 @@
 					{#if historyMode === 'list'}
 						<div class="accepted-history-table">
 							<DataTable
-								data={acceptedHistoryRows(run, snapshot, isInvalidated)}
+								data={runReview.rows}
 								columns={acceptedHistoryColumns}
 								ariaLabel="Accepted Duty Roster list"
 								emptyMessage="No accepted Duty Roster rows are available."
@@ -242,9 +242,9 @@
 											{/if}
 										</div>
 									{:else if col.key === 'source'}
-										{#if tableRow.correction}
+										{#if tableRow.sourceLabel === 'CORRECTED'}
 											<Badge label="CORRECTED" variant="outlined" />
-										{:else if tableRow.finalRow.assignmentSource === 'manual'}
+										{:else if tableRow.sourceLabel === 'MANUAL'}
 											<Badge label="MANUAL" color="var(--color-warning-bg)" textColor="var(--color-warning-text)" />
 										{:else}
 											<Badge label="Generated" variant="outlined" />
@@ -268,68 +268,55 @@
 										</div>
 									{:else if col.key === 'review'}
 										<div class="preview-selection review-state-cell">
-											{#if tableRow.correction}
+											{#if tableRow.correctionSummary}
 												<div class="correction-summary">
 													<strong>Correction</strong>
 													<small>
-														{correctionPersonName(
-															tableRow.correction.replacementDisplay,
-															tableRow.correction.replacementAssigneeId
-														)}
+														{tableRow.correctionSummary.replacementName}
 														performed duty for
-														{correctionPersonName(
-															tableRow.correction.originalDisplay,
-															tableRow.correction.originalAssigneeId
-														)}.
+														{tableRow.correctionSummary.originalName}.
 													</small>
-													<small>Reason: {tableRow.correction.reason}</small>
-													<small
-														>{tableRow.correction.countsTowardFuture
-															? 'Counts toward future DA6 runs.'
-															: 'Non-counting because this run is invalidated.'}</small
-													>
+													<small>Reason: {tableRow.correctionSummary.reason}</small>
+													<small>{tableRow.correctionSummary.countText}</small>
 												</div>
 											{/if}
-											{#if tableRow.finalRow.reason}
-												<small>Reason: {tableRow.finalRow.reason}</small>
+											{#if tableRow.reasonText}
+												<small>Reason: {tableRow.reasonText}</small>
 											{/if}
-											{#if !tableRow.isInvalidated && tableRow.finalRow.finalAssigneeId && historyDetailRun && !isCorrectionOpen(tableRow.run.id, tableRow.finalRow.date)}
+											{#if tableRow.canCorrect && historyDetailRun && !isCorrectionOpen(tableRow.run.id, tableRow.date)}
 												<button
 													class="btn btn-secondary btn-sm change-assignment-button"
 													type="button"
 													onclick={() =>
 														(editingCorrections = {
 															...editingCorrections,
-															[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: true
+															[correctionKey(tableRow.run.id, tableRow.date)]: true
 														})}
 												>
 													Change Assignment
 												</button>
-											{:else if !tableRow.isInvalidated && tableRow.finalRow.finalAssigneeId && historyDetailRun}
+											{:else if tableRow.canCorrect && historyDetailRun}
 												<form class="correction-form" method="POST" action={correctAcceptedRunAction}>
 													<input type="hidden" name="runId" value={tableRow.run.id} />
-													<input type="hidden" name="runRowDate" value={tableRow.finalRow.date} />
+													<input type="hidden" name="runRowDate" value={tableRow.date} />
 													<input
 														type="hidden"
 														name="replacementAssigneeId"
-														value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.finalRow.date)}
+														value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.date)}
 													/>
 													<label>
 														<span>Actual Soldier</span>
 														<SearchSelect
-															options={personnelOptionItems(
-																tableRow.snapshot.selectionPersonnel,
-																tableRow.finalRow.finalAssigneeId
-															)}
-															value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.finalRow.date)}
-															ariaLabel={`Actual Soldier for ${tableRow.finalRow.date}`}
+															options={tableRow.correctionOptions}
+															value={selectedCorrectionAssigneeId(tableRow.run.id, tableRow.date)}
+															ariaLabel={`Actual Soldier for ${tableRow.date}`}
 															placeholder="Search Soldier"
 															clearable={false}
 															compact
 															onchange={(value) => {
 																selectedCorrectionAssignees = {
 																	...selectedCorrectionAssignees,
-																	[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: value
+																	[correctionKey(tableRow.run.id, tableRow.date)]: value
 																};
 															}}
 														/>
@@ -346,15 +333,15 @@
 															onclick={() =>
 																(editingCorrections = {
 																	...editingCorrections,
-																	[correctionKey(tableRow.run.id, tableRow.finalRow.date)]: false
+																	[correctionKey(tableRow.run.id, tableRow.date)]: false
 																})}
 														>
 															Cancel
 														</button>
 													</div>
 												</form>
-											{:else if tableRow.isInvalidated && tableRow.run.corrections.some((item) => item.runRowDate === tableRow.finalRow.date)}
-												<small>Correction trail is locked with this invalidated run.</small>
+											{:else if tableRow.correctionLockedText}
+												<small>{tableRow.correctionLockedText}</small>
 											{/if}
 										</div>
 									{:else}
@@ -371,17 +358,17 @@
 								<thead>
 									<tr>
 										<th scope="col">Soldier</th>
-										{#each snapshot.da6.columns as column (column.date)}
+										{#each runReview.matrix.columns as column (column.date)}
 											<th scope="col">{column.date}</th>
 										{/each}
 									</tr>
 								</thead>
 								<tbody>
-									{#each snapshot.da6.rows as row (row.personnelId)}
+									{#each runReview.matrix.rows as row (row.personnelId)}
 										<tr>
-											<th scope="row">{row.display.rank} {row.display.lastName}</th>
+											<th scope="row">{row.soldierLabel}</th>
 											{#each row.cells as cell (cell.date)}
-												<td class:assigned={cell.assigned}>{acceptedCellDisplay(cell)}</td>
+												<td class:assigned={cell.assigned}>{cell.display}</td>
 											{/each}
 										</tr>
 									{/each}

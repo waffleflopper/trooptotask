@@ -1,10 +1,17 @@
 import {
 	manualSelectionForDate,
 	previewFinalAssigneeId,
+	type DutyRosterTemplateAcceptedSnapshot,
 	type DutyRosterTemplateManualSelection,
 	type DutyRosterTemplatePreview,
 	type DutyRosterTemplatePreviewPersonnel
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type {
+	DutyRosterPoolPersonnelDisplay,
+	DutyRosterTemplateAcceptedRun,
+	DutyRosterTemplateRunCorrection
+} from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 export type DutyRosterPreviewReviewRow = {
 	date: string;
@@ -33,6 +40,83 @@ export type DutyRosterPreviewReviewModel = {
 		}>;
 	};
 };
+
+export type DutyRosterAcceptedHistoryTableRow = {
+	id: string;
+	run: DutyRosterTemplateAcceptedRun;
+	snapshot: DutyRosterTemplateAcceptedSnapshot;
+	finalRow: DutyRosterTemplateAcceptedSnapshot['finalRows'][number];
+	correction: DutyRosterTemplateRunCorrection | null;
+	isInvalidated: boolean;
+	date: string;
+	assignedSearchText: string;
+	sourceLabel: 'CORRECTED' | 'MANUAL' | 'Generated';
+	reviewText: string;
+	correctionSummary: {
+		replacementName: string;
+		originalName: string;
+		reason: string;
+		countText: string;
+	} | null;
+	correctionLockedText: string | null;
+	reasonText: string | null;
+	canCorrect: boolean;
+	correctionOptions: Array<{ value: string; label: string; description?: string }>;
+};
+
+export type DutyRosterAcceptedRunReviewModel = {
+	run: DutyRosterTemplateAcceptedRun;
+	snapshot: DutyRosterTemplateAcceptedSnapshot;
+	isInvalidated: boolean;
+	calendarState: 'apply' | 'applied' | 'reapply';
+	canInvalidate: boolean;
+	calendarStepLabel: 'Closed' | 'Applied' | 'Needs sync' | 'Not applied';
+	rows: DutyRosterAcceptedHistoryTableRow[];
+	matrix: {
+		columns: DutyRosterTemplateAcceptedSnapshot['da6']['columns'];
+		rows: Array<{
+			personnelId: string;
+			soldierLabel: string;
+			cells: Array<{
+				date: string;
+				assigned: boolean;
+				display: string;
+			}>;
+		}>;
+	};
+};
+
+export const acceptedHistoryColumns: ColumnDef<DutyRosterAcceptedHistoryTableRow>[] = [
+	{
+		key: 'date',
+		header: 'Date',
+		value: (row) => row.date
+	},
+	{
+		key: 'assigned',
+		header: 'Assigned',
+		value: (row) => row.finalRow.finalDisplay?.lastName ?? 'Unfilled',
+		searchValue: (row) => row.assignedSearchText
+	},
+	{
+		key: 'source',
+		header: 'Source',
+		value: (row) => row.sourceLabel,
+		sortable: false
+	},
+	{
+		key: 'warnings',
+		header: 'Warnings',
+		value: (row) => row.finalRow.warnings.length,
+		sortable: false
+	},
+	{
+		key: 'review',
+		header: 'Review State',
+		value: (row) => row.reviewText,
+		sortable: false
+	}
+];
 
 export function buildDutyRosterPreviewReviewModel(input: {
 	preview: DutyRosterTemplatePreview;
@@ -73,8 +157,86 @@ export function buildDutyRosterPreviewReviewModel(input: {
 	};
 }
 
+export function buildDutyRosterAcceptedRunReviewModel(input: {
+	run: DutyRosterTemplateAcceptedRun;
+	isLatestRun: boolean;
+}): DutyRosterAcceptedRunReviewModel {
+	const snapshot = acceptedSnapshot(input.run);
+	const isInvalidated = input.run.status === 'invalidated';
+	const calendarState = calendarActionState(input.run);
+	const rows = snapshot.finalRows.map((row) => {
+		const correction = latestCorrectionForDate(input.run, row.date);
+		const sourceLabel: DutyRosterAcceptedHistoryTableRow['sourceLabel'] = correction
+			? 'CORRECTED'
+			: row.assignmentSource === 'manual'
+				? 'MANUAL'
+				: 'Generated';
+		const correctionSummary = correction
+			? {
+					replacementName: correctionPersonName(correction.replacementDisplay, correction.replacementAssigneeId),
+					originalName: correctionPersonName(correction.originalDisplay, correction.originalAssigneeId),
+					reason: correction.reason,
+					countText: correction.countsTowardFuture
+						? 'Counts toward future DA6 runs.'
+						: 'Non-counting because this run is invalidated.'
+				}
+			: null;
+
+		return {
+			id: `${input.run.id}:${row.date}`,
+			run: input.run,
+			snapshot,
+			finalRow: row,
+			correction,
+			isInvalidated,
+			date: row.date,
+			assignedSearchText: row.finalDisplay
+				? `${row.finalDisplay.rank} ${row.finalDisplay.lastName}, ${row.finalDisplay.firstName}`
+				: 'Unfilled',
+			sourceLabel,
+			reviewText: correction ? 'Corrected' : row.reason || '',
+			correctionSummary,
+			correctionLockedText:
+				isInvalidated && input.run.corrections.some((item) => item.runRowDate === row.date)
+					? 'Correction trail is locked with this invalidated run.'
+					: null,
+			reasonText: row.reason,
+			canCorrect: !isInvalidated && Boolean(row.finalAssigneeId),
+			correctionOptions: personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId)
+		};
+	});
+
+	return {
+		run: input.run,
+		snapshot,
+		isInvalidated,
+		calendarState,
+		canInvalidate: !isInvalidated && input.isLatestRun,
+		calendarStepLabel: isInvalidated
+			? 'Closed'
+			: calendarState === 'applied'
+				? 'Applied'
+				: calendarState === 'reapply'
+					? 'Needs sync'
+					: 'Not applied',
+		rows,
+		matrix: {
+			columns: snapshot.da6.columns,
+			rows: snapshot.da6.rows.map((row) => ({
+				personnelId: row.personnelId,
+				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
+				cells: row.cells.map((cell) => ({
+					date: cell.date,
+					assigned: cell.assigned,
+					display: da6CellDisplay(cell)
+				}))
+			}))
+		}
+	};
+}
+
 export function personnelOptionItems(
-	personnel: DutyRosterTemplatePreview['selectionPersonnel'],
+	personnel: DutyRosterTemplatePreview['selectionPersonnel'] | DutyRosterTemplateAcceptedSnapshot['selectionPersonnel'],
 	excludeId?: string | null
 ): Array<{ value: string; label: string; description?: string }> {
 	return personnel
@@ -100,6 +262,36 @@ export function previewFormValue(preview: DutyRosterTemplatePreview): string {
 }
 
 export function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
+	return da6CellDisplay(cell);
+}
+
+export function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
+	return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+}
+
+export function latestCorrectionForDate(run: DutyRosterTemplateAcceptedRun, date: string) {
+	return run.corrections.filter((correction) => correction.runRowDate === date).at(-1) ?? null;
+}
+
+export function calendarActionState(run: DutyRosterTemplateAcceptedRun): 'apply' | 'applied' | 'reapply' {
+	if (!run.appliedAt) return 'apply';
+	if (run.calendarAssignmentsEdited) return 'reapply';
+	return 'applied';
+}
+
+export function correctionKey(runId: string, date: string): string {
+	return `${runId}:${date}`;
+}
+
+function correctionPersonName(display: DutyRosterPoolPersonnelDisplay | null, fallbackId: string): string {
+	return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : fallbackId;
+}
+
+function da6CellDisplay(
+	cell:
+		| DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]
+		| DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
+): string {
 	if (cell.da6Code === 'A') {
 		return 'A';
 	}

@@ -1,17 +1,13 @@
-import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 import type {
 	DutyRosterTemplate,
 	DutyRosterTemplateAcceptedRun,
 	DutyRosterTemplateCountReadModel,
-	DutyRosterTemplateRunCorrection,
 	DutyRosterTemplateSetupOptions,
 	DutyRosterTemplateSettingsData,
 	DutyRosterTemplateView
 } from '$features/duty-roster/templates/dutyRosterTemplates';
-import type {
-	DutyRosterTemplateAcceptedSnapshot,
-	DutyRosterTemplatePreview
-} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
 export type DutyRosterWorkspaceActionForm = {
 	error?: string;
@@ -75,17 +71,6 @@ export type DutyRosterGenerateWorkspaceModel = {
 	canGenerate: boolean;
 };
 
-export type AcceptedFinalRow = DutyRosterTemplateAcceptedSnapshot['finalRows'][number];
-
-export type AcceptedHistoryTableRow = {
-	id: string;
-	run: DutyRosterTemplateAcceptedRun;
-	snapshot: DutyRosterTemplateAcceptedSnapshot;
-	finalRow: AcceptedFinalRow;
-	correction: DutyRosterTemplateRunCorrection | null;
-	isInvalidated: boolean;
-};
-
 export type DutyRosterWorkspaceReadModel = {
 	basePath: string;
 	createAction: string;
@@ -121,48 +106,13 @@ export type DutyRosterWorkspaceReadModel = {
 	generateEndDate: string;
 	canGenerate: boolean;
 	historyMode: 'list' | 'matrix';
-	acceptedHistoryColumns: ColumnDef<AcceptedHistoryTableRow>[];
+	acceptedHistoryColumns: typeof acceptedHistoryColumns;
 };
 
 const VIEW_TABS: DutyRosterWorkspaceViewTab[] = [
 	{ id: 'generate', label: 'Generate', note: 'Preview future DA6 runs' },
 	{ id: 'history', label: 'History', note: 'Accepted runs will appear here' },
 	{ id: 'settings', label: 'Settings', note: 'Template identity and setup' }
-];
-
-export const acceptedHistoryColumns: ColumnDef<AcceptedHistoryTableRow>[] = [
-	{
-		key: 'date',
-		header: 'Date',
-		value: (row) => row.finalRow.date
-	},
-	{
-		key: 'assigned',
-		header: 'Assigned',
-		value: (row) => row.finalRow.finalDisplay?.lastName ?? 'Unfilled',
-		searchValue: (row) =>
-			row.finalRow.finalDisplay
-				? `${row.finalRow.finalDisplay.rank} ${row.finalRow.finalDisplay.lastName}, ${row.finalRow.finalDisplay.firstName}`
-				: 'Unfilled'
-	},
-	{
-		key: 'source',
-		header: 'Source',
-		value: (row) => (row.correction ? 'Corrected' : row.finalRow.assignmentSource),
-		sortable: false
-	},
-	{
-		key: 'warnings',
-		header: 'Warnings',
-		value: (row) => row.finalRow.warnings.length,
-		sortable: false
-	},
-	{
-		key: 'review',
-		header: 'Review State',
-		value: (row) => (row.correction ? 'Corrected' : row.finalRow.reason || ''),
-		sortable: false
-	}
 ];
 
 export function buildDutyRosterWorkspaceReadModel(
@@ -307,90 +257,4 @@ export function groupOptionItems(
 	values: Array<{ id: string; label: string }>
 ): Array<{ value: string; label: string }> {
 	return values.map((group) => ({ value: group.id, label: group.label }));
-}
-
-export function personnelOptionItems(
-	personnel: DutyRosterTemplatePreview['selectionPersonnel'] | DutyRosterTemplateAcceptedSnapshot['selectionPersonnel'],
-	excludeId?: string | null
-): Array<{ value: string; label: string; description?: string }> {
-	return personnel
-		.filter((person) => person.id !== excludeId && !person.archivedAt)
-		.map((person) => ({
-			value: person.id,
-			label: `${person.rank} ${person.lastName}, ${person.firstName}`,
-			description: person.groupName
-		}));
-}
-
-export function calendarActionState(run: DutyRosterTemplateAcceptedRun): 'apply' | 'applied' | 'reapply' {
-	if (!run.appliedAt) return 'apply';
-	if (run.calendarAssignmentsEdited) return 'reapply';
-	return 'applied';
-}
-
-export function correctionKey(runId: string, date: string): string {
-	return `${runId}:${date}`;
-}
-
-export function previewAssignee(preview: DutyRosterTemplatePreview, assigneeId: string | null) {
-	return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
-}
-
-export function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
-	return run.snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
-}
-
-export function latestCorrectionForDate(run: DutyRosterTemplateAcceptedRun, date: string) {
-	return run.corrections.filter((correction) => correction.runRowDate === date).at(-1) ?? null;
-}
-
-export function correctionPersonName(
-	display: DutyRosterTemplateRunCorrection['replacementDisplay'],
-	fallbackId: string
-): string {
-	return display ? `${display.rank} ${display.lastName}, ${display.firstName}` : fallbackId;
-}
-
-export function da6CellClasses(
-	cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number],
-	column?: DutyRosterTemplatePreview['da6']['columns'][number]
-): string {
-	const classes: string[] = [];
-	if (cell.assigned) classes.push('cell-duty');
-	if (cell.da6Code === 'A') classes.push('cell-a');
-	if (cell.da6Code === 'D') classes.push('cell-d');
-	if (cell.da6Code === 'U') classes.push('cell-u');
-	if (column?.sequenceKind === 'weekend') classes.push('cell-weekend');
-	return classes.join(' ');
-}
-
-function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
-	if (cell.da6Code === 'A') {
-		return 'A';
-	}
-	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
-	}
-	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
-}
-
-export function acceptedCellDisplay(
-	cell: DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
-): string {
-	return previewCellDisplay(cell);
-}
-
-export function acceptedHistoryRows(
-	run: DutyRosterTemplateAcceptedRun,
-	snapshot: DutyRosterTemplateAcceptedSnapshot,
-	isInvalidated: boolean
-): AcceptedHistoryTableRow[] {
-	return snapshot.finalRows.map((row) => ({
-		id: `${run.id}:${row.date}`,
-		run,
-		snapshot,
-		finalRow: row,
-		correction: latestCorrectionForDate(run, row.date),
-		isInvalidated
-	}));
 }

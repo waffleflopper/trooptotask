@@ -14,12 +14,11 @@
 		calendarActionState,
 		correctionKey,
 		correctionPersonName,
-		issueLabel,
-		issueTitle,
 		personnelOptionItems,
 		type DutyRosterWorkspaceActionForm,
 		type DutyRosterWorkspaceReadModel
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
+	import { issueLabel, issueTitle } from '$features/duty-roster/workspace/dutyRosterPreviewReview';
 
 	let {
 		basePath,

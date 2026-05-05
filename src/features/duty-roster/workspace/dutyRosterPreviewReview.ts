@@ -1,0 +1,134 @@
+import {
+	manualSelectionForDate,
+	previewFinalAssigneeId,
+	type DutyRosterTemplateManualSelection,
+	type DutyRosterTemplatePreview,
+	type DutyRosterTemplatePreviewPersonnel
+} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+
+export type DutyRosterPreviewReviewRow = {
+	date: string;
+	finalAssignee: DutyRosterTemplatePreviewPersonnel | null;
+	generatedAssignee: DutyRosterTemplatePreviewPersonnel | null;
+	unfilledReason: string;
+	editAssigneeId: string;
+	manualSelection: DutyRosterTemplateManualSelection | null;
+	liveWarnings: string[];
+};
+
+export type DutyRosterPreviewReviewModel = {
+	rows: DutyRosterPreviewReviewRow[];
+	selectionOptions: Array<{ value: string; label: string; description?: string }>;
+	previewPayload: string;
+	matrix: {
+		columns: DutyRosterTemplatePreview['da6']['columns'];
+		rows: Array<{
+			personnelId: string;
+			soldierLabel: string;
+			cells: Array<{
+				date: string;
+				assigned: boolean;
+				display: string;
+			}>;
+		}>;
+	};
+};
+
+export function buildDutyRosterPreviewReviewModel(input: {
+	preview: DutyRosterTemplatePreview;
+	selectedAssigneeIds?: Record<string, string>;
+}): DutyRosterPreviewReviewModel {
+	const selectedAssigneeIds = input.selectedAssigneeIds ?? {};
+
+	return {
+		rows: input.preview.rosterRows.map((row) => {
+			const manualSelection = manualSelectionForDate(input.preview, row.date);
+			const editAssigneeId =
+				selectedAssigneeIds[row.date] ?? previewFinalAssigneeId(input.preview, row.date) ?? row.assigneeId ?? '';
+
+			return {
+				date: row.date,
+				finalAssignee: previewAssignee(input.preview, previewFinalAssigneeId(input.preview, row.date)),
+				generatedAssignee: previewAssignee(input.preview, row.assigneeId),
+				unfilledReason: row.reason ?? 'No eligible Soldier',
+				editAssigneeId,
+				manualSelection,
+				liveWarnings: previewSelectionWarnings(input.preview, row.date, editAssigneeId)
+			};
+		}),
+		selectionOptions: personnelOptionItems(input.preview.selectionPersonnel),
+		previewPayload: previewFormValue(input.preview),
+		matrix: {
+			columns: input.preview.da6.columns,
+			rows: input.preview.da6.rows.map((row) => ({
+				personnelId: row.personnelId,
+				soldierLabel: `${row.display.rank} ${row.display.lastName}`,
+				cells: row.cells.map((cell) => ({
+					date: cell.date,
+					assigned: cell.assigned,
+					display: previewCellDisplay(cell)
+				}))
+			}))
+		}
+	};
+}
+
+export function personnelOptionItems(
+	personnel: DutyRosterTemplatePreview['selectionPersonnel'],
+	excludeId?: string | null
+): Array<{ value: string; label: string; description?: string }> {
+	return personnel
+		.filter((person) => person.id !== excludeId && !person.archivedAt)
+		.map((person) => ({
+			value: person.id,
+			label: `${person.rank} ${person.lastName}, ${person.firstName}`,
+			description: person.groupName
+		}));
+}
+
+export function issueLabel(warnings: Array<{ message: string }>): string {
+	if (warnings.length === 0) return 'Clear';
+	return warnings.length === 1 ? 'Review' : `${warnings.length} issues`;
+}
+
+export function issueTitle(warnings: Array<{ message: string }>): string {
+	return warnings.length > 0 ? warnings.map((warning) => warning.message).join(' ') : 'No issue flagged.';
+}
+
+export function previewFormValue(preview: DutyRosterTemplatePreview): string {
+	return JSON.stringify(preview);
+}
+
+export function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
+	if (cell.da6Code === 'A') {
+		return 'A';
+	}
+	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
+		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
+	}
+	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
+}
+
+function previewAssignee(
+	preview: DutyRosterTemplatePreview,
+	assigneeId: string | null
+): DutyRosterTemplatePreviewPersonnel | null {
+	return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
+}
+
+function previewSelectionWarnings(preview: DutyRosterTemplatePreview, date: string, selectedId: string): string[] {
+	const warnings: string[] = [];
+	const selected = preview.selectionPersonnel.find((person) => person.id === selectedId);
+	if (!selected) return warnings;
+
+	if (!preview.personnel.some((person) => person.id === selectedId)) {
+		warnings.push('Selected Soldier is outside this template pool.');
+	}
+
+	const generatedRow = preview.rosterRows.find((row) => row.date === date);
+	if (generatedRow?.reason) {
+		warnings.push(generatedRow.reason);
+	}
+
+	return warnings;
+}

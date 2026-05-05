@@ -5,81 +5,36 @@
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
-		manualSelectionForDate,
-		previewFinalAssigneeId,
-		type DutyRosterTemplatePreview
-	} from '$features/duty-roster/templates/dutyRosterTemplatePreview';
-	import type {
-		DutyRosterTemplate,
-		DutyRosterTemplateCountReadModel
-	} from '$features/duty-roster/templates/dutyRosterTemplates';
-	import {
+		buildDutyRosterPreviewReviewModel,
 		issueLabel,
 		issueTitle,
-		personnelOptionItems,
-		previewAssignee,
-		previewCellDisplay,
-		previewFormValue,
-		type DutyRosterWorkspaceActionForm
-	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
+		type DutyRosterPreviewReviewModel
+	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
+	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+	import type { DutyRosterGenerateWorkspaceModel } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
-	let {
-		selectedTemplate,
-		actionForm,
-		preview,
-		generateAction,
-		manualPreviewAction,
-		acceptPreviewAction,
-		applyPreviewAction,
-		countReadModel,
-		todayDate,
-		generateStartDate,
-		generateEndDate,
-		canGenerate
-	}: {
-		selectedTemplate: DutyRosterTemplate;
-		actionForm: DutyRosterWorkspaceActionForm | null;
-		preview: DutyRosterTemplatePreview | null;
-		generateAction: string;
-		manualPreviewAction: string;
-		acceptPreviewAction: string;
-		applyPreviewAction: string;
-		countReadModel: DutyRosterTemplateCountReadModel | null;
-		todayDate: string;
-		generateStartDate: string;
-		generateEndDate: string;
-		canGenerate: boolean;
-	} = $props();
+	let { generate }: { generate: DutyRosterGenerateWorkspaceModel } = $props();
 
 	let previewMode = $state<'list' | 'matrix'>('list');
 	let generatingPreview = $state(false);
 	let editingPreviewRows = $state<Record<string, boolean>>({});
 	let selectedPreviewAssignees = $state<Record<string, string>>({});
 
-	function previewEditAssigneeId(
-		preview: DutyRosterTemplatePreview,
-		date: string,
-		fallbackAssigneeId: string | null
-	): string {
-		return selectedPreviewAssignees[date] ?? previewFinalAssigneeId(preview, date) ?? fallbackAssigneeId ?? '';
-	}
-
-	function previewSelectionWarnings(preview: DutyRosterTemplatePreview, date: string, selectedId: string): string[] {
-		const warnings: string[] = [];
-		const selected = preview.selectionPersonnel.find((person) => person.id === selectedId);
-		if (!selected) return warnings;
-
-		if (!preview.personnel.some((person) => person.id === selectedId)) {
-			warnings.push('Selected Soldier is outside this template pool.');
-		}
-
-		const generatedRow = preview.rosterRows.find((row) => row.date === date);
-		if (generatedRow?.reason) {
-			warnings.push(generatedRow.reason);
-		}
-
-		return warnings;
-	}
+	const selectedTemplate = $derived(generate.selectedTemplate);
+	const actionForm = $derived(generate.actionForm);
+	const preview = $derived(generate.preview);
+	const generateAction = $derived(generate.generateAction);
+	const manualPreviewAction = $derived(generate.manualPreviewAction);
+	const acceptPreviewAction = $derived(generate.acceptPreviewAction);
+	const applyPreviewAction = $derived(generate.applyPreviewAction);
+	const countReadModel = $derived(generate.countReadModel);
+	const todayDate = $derived(generate.todayDate);
+	const generateStartDate = $derived(generate.generateStartDate);
+	const generateEndDate = $derived(generate.generateEndDate);
+	const canGenerate = $derived(generate.canGenerate);
+	const previewReview: DutyRosterPreviewReviewModel | null = $derived(
+		preview ? buildDutyRosterPreviewReviewModel({ preview, selectedAssigneeIds: selectedPreviewAssignees }) : null
+	);
 
 	function printDraftPreview(preview: DutyRosterTemplatePreview): void {
 		printDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
@@ -175,11 +130,11 @@
 						<span class="run-lifecycle__step">Applied</span>
 					</div>
 					<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
-						<input type="hidden" name="preview" value={previewFormValue(preview)} />
+						<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 						<button class="btn btn-amber" type="submit">Accept then Apply</button>
 					</form>
 					<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-						<input type="hidden" name="preview" value={previewFormValue(preview)} />
+						<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 						<button class="btn btn-secondary" type="submit">Accept Only</button>
 					</form>
 					<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
@@ -211,47 +166,43 @@
 							<span role="columnheader">Source</span>
 							<span role="columnheader">Manual change</span>
 						</div>
-						{#each preview.rosterRows as row (row.date)}
-							{@const manualSelection = manualSelectionForDate(preview, row.date)}
-							{@const finalAssignee = previewAssignee(preview, previewFinalAssigneeId(preview, row.date))}
-							{@const generatedAssignee = previewAssignee(preview, row.assigneeId)}
-							{@const editAssigneeId = previewEditAssigneeId(preview, row.date, row.assigneeId)}
-							{@const liveWarnings = previewSelectionWarnings(preview, row.date, editAssigneeId)}
+						{#each previewReview?.rows ?? [] as row (row.date)}
 							{@const rowInEdit = Boolean(editingPreviewRows[row.date])}
 							<div class="preview-row" role="row">
 								<span role="cell">{row.date}</span>
 								<div class="preview-selection" role="cell">
-									{#if finalAssignee}
-										<strong>{finalAssignee.rank} {finalAssignee.lastName}, {finalAssignee.firstName}</strong>
+									{#if row.finalAssignee}
+										<strong>{row.finalAssignee.rank} {row.finalAssignee.lastName}, {row.finalAssignee.firstName}</strong
+										>
 									{:else}
-										{row.reason ?? 'No eligible Soldier'}
+										{row.unfilledReason}
 									{/if}
-									{#if manualSelection && generatedAssignee}
+									{#if row.manualSelection && row.generatedAssignee}
 										<small>
-											Generated: {generatedAssignee.rank}
-											{generatedAssignee.lastName}, {generatedAssignee.firstName}
+											Generated: {row.generatedAssignee.rank}
+											{row.generatedAssignee.lastName}, {row.generatedAssignee.firstName}
 										</small>
 									{/if}
-									{#if manualSelection?.warnings.length}
+									{#if row.manualSelection?.warnings.length}
 										<span
 											class="issue-badge chip chip-warning"
-											title={issueTitle(manualSelection.warnings)}
-											aria-label={`Issue explanation: ${issueTitle(manualSelection.warnings)}`}
+											title={issueTitle(row.manualSelection.warnings)}
+											aria-label={`Issue explanation: ${issueTitle(row.manualSelection.warnings)}`}
 										>
-											{issueLabel(manualSelection.warnings)}
+											{issueLabel(row.manualSelection.warnings)}
 										</span>
 										<ul class="manual-warnings" aria-label={`Manual warnings for ${row.date}`}>
-											{#each manualSelection.warnings as warning (warning.code)}
+											{#each row.manualSelection.warnings as warning (warning.code)}
 												<li>{warning.message}</li>
 											{/each}
 										</ul>
 									{/if}
-									{#if manualSelection?.reason}
-										<small>Reason: {manualSelection.reason}</small>
+									{#if row.manualSelection?.reason}
+										<small>Reason: {row.manualSelection.reason}</small>
 									{/if}
 								</div>
 								<span role="cell">
-									{#if manualSelection}
+									{#if row.manualSelection}
 										<Badge label="MANUAL" color="var(--color-warning-bg)" textColor="var(--color-warning-text)" />
 									{:else}
 										<Badge label="Generated" variant="outlined" />
@@ -266,7 +217,7 @@
 												editingPreviewRows = { ...editingPreviewRows, [row.date]: true };
 												selectedPreviewAssignees = {
 													...selectedPreviewAssignees,
-													[row.date]: previewFinalAssigneeId(preview, row.date) ?? row.assigneeId ?? ''
+													[row.date]: row.editAssigneeId
 												};
 											}}
 										>
@@ -274,16 +225,16 @@
 										</button>
 									{:else}
 										<form class="manual-preview-form" method="POST" action={manualPreviewAction}>
-											<input type="hidden" name="preview" value={previewFormValue(preview)} />
+											<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 											<input type="hidden" name="date" value={row.date} />
 											<input type="hidden" name="startDate" value={actionForm?.generateValues?.startDate ?? ''} />
 											<input type="hidden" name="endDate" value={actionForm?.generateValues?.endDate ?? ''} />
-											<input type="hidden" name="assigneeId" value={editAssigneeId} />
+											<input type="hidden" name="assigneeId" value={row.editAssigneeId} />
 											<label>
 												<span>Soldier</span>
 												<SearchSelect
-													options={personnelOptionItems(preview.selectionPersonnel)}
-													value={editAssigneeId}
+													options={previewReview?.selectionOptions ?? []}
+													value={row.editAssigneeId}
 													ariaLabel={`Select Soldier for ${row.date}`}
 													placeholder="Search Soldier"
 													clearable={false}
@@ -293,14 +244,14 @@
 													}}
 												/>
 											</label>
-											{#if liveWarnings.length > 0}
+											{#if row.liveWarnings.length > 0}
 												<label>
 													<span>Reason</span>
 													<input
 														class="input"
 														name="reason"
 														type="text"
-														value={manualSelection?.reason ?? ''}
+														value={row.manualSelection?.reason ?? ''}
 														placeholder="Required for flagged changes"
 														required
 													/>
@@ -318,9 +269,9 @@
 													Cancel
 												</button>
 											</div>
-											{#if liveWarnings.length > 0}
+											{#if row.liveWarnings.length > 0}
 												<div class="issue-explain" role="status">
-													{#each liveWarnings as warning (warning)}
+													{#each row.liveWarnings as warning (warning)}
 														<span>{warning}</span>
 													{/each}
 												</div>
@@ -342,17 +293,17 @@
 							<thead>
 								<tr>
 									<th scope="col">Soldier</th>
-									{#each preview.da6.columns as column (column.date)}
+									{#each previewReview?.matrix.columns ?? [] as column (column.date)}
 										<th scope="col">{column.date}</th>
 									{/each}
 								</tr>
 							</thead>
 							<tbody>
-								{#each preview.da6.rows as row (row.personnelId)}
+								{#each previewReview?.matrix.rows ?? [] as row (row.personnelId)}
 									<tr>
-										<th scope="row">{row.display.rank} {row.display.lastName}</th>
+										<th scope="row">{row.soldierLabel}</th>
 										{#each row.cells as cell (cell.date)}
-											<td class:assigned={cell.assigned}>{previewCellDisplay(cell)}</td>
+											<td class:assigned={cell.assigned}>{cell.display}</td>
 										{/each}
 									</tr>
 								{/each}

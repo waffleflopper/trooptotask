@@ -36,18 +36,13 @@
 	const selectedTemplate = $derived(workspace.selectedTemplate);
 	const selectedView = $derived(workspace.selectedView);
 	const actionForm = $derived(workspace.actionForm);
-	const preview = $derived(workspace.preview);
-	const generateAction = $derived(workspace.generateAction);
-	const manualPreviewAction = $derived(workspace.manualPreviewAction);
-	const acceptPreviewAction = $derived(workspace.acceptPreviewAction);
-	const applyPreviewAction = $derived(workspace.applyPreviewAction);
+	const generateWorkspace = $derived(workspace.generateWorkspace);
 	const applyAcceptedRunAction = $derived(workspace.applyAcceptedRunAction);
 	const invalidateAcceptedRunAction = $derived(workspace.invalidateAcceptedRunAction);
 	const correctAcceptedRunAction = $derived(workspace.correctAcceptedRunAction);
 	const settingsAction = $derived(workspace.settingsAction);
 	const acceptedRuns = $derived(workspace.acceptedRuns);
 	const historyDetailRun = $derived(workspace.historyDetailRun);
-	const countReadModel = $derived(workspace.countReadModel);
 	const latestHistoryRunId = $derived(workspace.latestHistoryRunId);
 	const baselineLocked = $derived(workspace.baselineLocked);
 	const rankOptions = $derived(workspace.rankOptions);
@@ -56,10 +51,6 @@
 	const dutyRoleOptions = $derived(workspace.dutyRoleOptions);
 
 	const viewTabs = $derived(workspace.viewTabs);
-	const todayDate = $derived(workspace.todayDate);
-	const generateStartDate = $derived(workspace.generateStartDate);
-	const generateEndDate = $derived(workspace.generateEndDate);
-	const canGenerate = $derived(workspace.canGenerate);
 	const historyMode = $derived(workspace.historyMode);
 	const acceptedHistoryColumns = $derived(workspace.acceptedHistoryColumns);
 
@@ -160,20 +151,9 @@
 
 			<main class="view-panel" aria-labelledby="template-view-heading">
 				{#if selectedView === 'generate'}
-					<DutyRosterGenerateView
-						{selectedTemplate}
-						{actionForm}
-						{preview}
-						{generateAction}
-						{manualPreviewAction}
-						{acceptPreviewAction}
-						{applyPreviewAction}
-						{countReadModel}
-						{todayDate}
-						{generateStartDate}
-						{generateEndDate}
-						{canGenerate}
-					/>
+					{#if generateWorkspace}
+						<DutyRosterGenerateView generate={generateWorkspace} />
+					{/if}
 				{:else if selectedView === 'history'}
 					<DutyRosterHistoryView
 						{basePath}

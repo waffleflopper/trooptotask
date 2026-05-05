@@ -60,6 +60,21 @@ export type DutyRosterWorkspaceViewTab = {
 	note: string;
 };
 
+export type DutyRosterGenerateWorkspaceModel = {
+	selectedTemplate: DutyRosterTemplate;
+	actionForm: DutyRosterWorkspaceActionForm | null;
+	preview: DutyRosterTemplatePreview | null;
+	generateAction: string;
+	manualPreviewAction: string;
+	acceptPreviewAction: string;
+	applyPreviewAction: string;
+	countReadModel: DutyRosterTemplateCountReadModel | null;
+	todayDate: string;
+	generateStartDate: string;
+	generateEndDate: string;
+	canGenerate: boolean;
+};
+
 export type AcceptedFinalRow = DutyRosterTemplateAcceptedSnapshot['finalRows'][number];
 
 export type AcceptedHistoryTableRow = {
@@ -80,6 +95,7 @@ export type DutyRosterWorkspaceReadModel = {
 	selectedView: DutyRosterTemplateView | 'new';
 	actionForm: DutyRosterWorkspaceActionForm | null;
 	preview: DutyRosterTemplatePreview | null;
+	generateWorkspace: DutyRosterGenerateWorkspaceModel | null;
 	generateAction: string;
 	manualPreviewAction: string;
 	acceptPreviewAction: string;
@@ -171,6 +187,35 @@ export function buildDutyRosterWorkspaceReadModel(
 	const defaultDateRange = nextMonthRange(now);
 	const generateStartDate = actionForm?.generateValues?.startDate ?? defaultDateRange.startDate;
 	const generateEndDate = actionForm?.generateValues?.endDate ?? defaultDateRange.endDate;
+	const generateAction = selectedTemplate
+		? `${basePath}/${selectedTemplate.slug}/generate?/generatePreview`
+		: createAction;
+	const manualPreviewAction = selectedTemplate
+		? `${basePath}/${selectedTemplate.slug}/generate?/manualPreviewSelection`
+		: createAction;
+	const acceptPreviewAction = selectedTemplate
+		? `${basePath}/${selectedTemplate.slug}/generate?/acceptPreview`
+		: createAction;
+	const applyPreviewAction = selectedTemplate
+		? `${basePath}/${selectedTemplate.slug}/generate?/applyPreview`
+		: createAction;
+	const canGenerate = generateStartDate >= todayDate && generateEndDate >= generateStartDate;
+	const generateWorkspace = selectedTemplate
+		? {
+				selectedTemplate,
+				actionForm,
+				preview,
+				generateAction,
+				manualPreviewAction,
+				acceptPreviewAction,
+				applyPreviewAction,
+				countReadModel,
+				todayDate,
+				generateStartDate,
+				generateEndDate,
+				canGenerate
+			}
+		: null;
 
 	return {
 		basePath,
@@ -181,14 +226,11 @@ export function buildDutyRosterWorkspaceReadModel(
 		selectedView,
 		actionForm,
 		preview,
-		generateAction: selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/generatePreview` : createAction,
-		manualPreviewAction: selectedTemplate
-			? `${basePath}/${selectedTemplate.slug}/generate?/manualPreviewSelection`
-			: createAction,
-		acceptPreviewAction: selectedTemplate
-			? `${basePath}/${selectedTemplate.slug}/generate?/acceptPreview`
-			: createAction,
-		applyPreviewAction: selectedTemplate ? `${basePath}/${selectedTemplate.slug}/generate?/applyPreview` : createAction,
+		generateWorkspace,
+		generateAction,
+		manualPreviewAction,
+		acceptPreviewAction,
+		applyPreviewAction,
 		applyAcceptedRunAction: selectedTemplate
 			? `${basePath}/${selectedTemplate.slug}/history?/applyAcceptedRun`
 			: createAction,
@@ -214,7 +256,7 @@ export function buildDutyRosterWorkspaceReadModel(
 		defaultDateRange,
 		generateStartDate,
 		generateEndDate,
-		canGenerate: generateStartDate >= todayDate && generateEndDate >= generateStartDate,
+		canGenerate,
 		historyMode: data.historyDetailMode === 'da6' ? 'matrix' : 'list',
 		acceptedHistoryColumns
 	};
@@ -286,25 +328,12 @@ export function calendarActionState(run: DutyRosterTemplateAcceptedRun): 'apply'
 	return 'applied';
 }
 
-export function issueLabel(warnings: Array<{ message: string }>): string {
-	if (warnings.length === 0) return 'Clear';
-	return warnings.length === 1 ? 'Review' : `${warnings.length} issues`;
-}
-
-export function issueTitle(warnings: Array<{ message: string }>): string {
-	return warnings.length > 0 ? warnings.map((warning) => warning.message).join(' ') : 'No issue flagged.';
-}
-
 export function correctionKey(runId: string, date: string): string {
 	return `${runId}:${date}`;
 }
 
 export function previewAssignee(preview: DutyRosterTemplatePreview, assigneeId: string | null) {
 	return preview.selectionPersonnel.find((person) => person.id === assigneeId) ?? null;
-}
-
-export function previewFormValue(preview: DutyRosterTemplatePreview): string {
-	return JSON.stringify(preview);
 }
 
 export function acceptedSnapshot(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedSnapshot {
@@ -335,7 +364,7 @@ export function da6CellClasses(
 	return classes.join(' ');
 }
 
-export function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
+function previewCellDisplay(cell: DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]): string {
 	if (cell.da6Code === 'A') {
 		return 'A';
 	}

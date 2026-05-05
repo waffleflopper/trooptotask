@@ -47,6 +47,14 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.generateAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/generatePreview');
 		expect(model.acceptPreviewAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview');
 		expect(model.settingsAction).toBe('/org/org-1/duty-rosters/cq-nco/settings?/updateSettings');
+		expect(model.generateWorkspace).toMatchObject({
+			selectedTemplate: template,
+			generateAction: '/org/org-1/duty-rosters/cq-nco/generate?/generatePreview',
+			acceptPreviewAction: '/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview',
+			generateStartDate: '2026-06-01',
+			generateEndDate: '2026-06-30',
+			canGenerate: true
+		});
 		expect(model.generateStartDate).toBe('2026-06-01');
 		expect(model.generateEndDate).toBe('2026-06-30');
 		expect(model.canGenerate).toBe(true);

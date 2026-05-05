@@ -212,7 +212,8 @@ function buildBaselineContinuationHistory(
 				};
 			}),
 			config: {
-				historySource: 'manual-da6-baseline'
+				historySource: 'manual-da6-baseline',
+				manualBaselineCounts: template.manualBaselineCounts
 			}
 		}
 	];

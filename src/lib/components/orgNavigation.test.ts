@@ -171,6 +171,11 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Test Org', href: '/org/org-1' },
 			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' }
 		]);
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/new', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
+			{ label: 'New Template' }
+		]);
 	});
 
 	it('links parent breadcrumbs for Calendar subroutes', () => {

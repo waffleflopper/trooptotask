@@ -8,7 +8,7 @@
 		type DutyRosterWorkspaceReadModel
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
-	type SetupStep = 'general' | 'pool' | 'exemptions' | 'baseline';
+	type SetupStep = 'general' | 'pool' | 'baseline' | 'review';
 
 	let {
 		basePath,
@@ -48,6 +48,13 @@
 		wizardExemptPersonnelIds: string[];
 	} = $props();
 
+	const setupSteps: Array<{ id: SetupStep; label: string; note: string }> = [
+		{ id: 'general', label: 'Basics', note: 'Identity' },
+		{ id: 'pool', label: 'Pool', note: 'Eligible Soldiers' },
+		{ id: 'baseline', label: 'Baseline', note: 'Starting counts' },
+		{ id: 'review', label: 'Review', note: 'Confirm' }
+	];
+
 	const wizardResolvedPool = $derived(
 		setupPersonnel.filter((person) => {
 			if (rankFilterValues.length > 0 && !rankFilterValues.includes(person.rank)) return false;
@@ -59,210 +66,410 @@
 			return true;
 		})
 	);
+	const wizardExemptPersonnel = $derived(
+		wizardResolvedPool.filter((person) => wizardExemptPersonnelIds.includes(person.id))
+	);
 	const wizardBaselineRows = $derived(
 		wizardResolvedPool.filter((person) => !wizardExemptPersonnelIds.includes(person.id))
 	);
+	const templateSlug = $derived(newTemplateSlug || slugifyDutyRosterTemplateName(newTemplateName));
+	const routePreview = $derived(`${basePath}/${templateSlug}/generate`);
+	const selectedStepIndex = $derived(setupSteps.findIndex((step) => step.id === newTemplateStep));
 
 	function previousStep(step: SetupStep): SetupStep {
-		return step === 'baseline' ? 'exemptions' : step === 'exemptions' ? 'pool' : 'general';
+		return step === 'review' ? 'baseline' : step === 'baseline' ? 'pool' : 'general';
 	}
 
 	function nextStep(step: SetupStep): SetupStep {
-		return step === 'general' ? 'pool' : step === 'pool' ? 'exemptions' : 'baseline';
+		return step === 'general' ? 'pool' : step === 'pool' ? 'baseline' : 'review';
+	}
+
+	function clearFilters() {
+		rankFilterValues = [];
+		groupFilterValues = [];
+		mosFilterValues = [];
+		dutyRoleFilterValues = [];
+		wizardExemptPersonnelIds = [];
+	}
+
+	function removeExemption(personnelId: string) {
+		wizardExemptPersonnelIds = wizardExemptPersonnelIds.filter((id) => id !== personnelId);
 	}
 </script>
 
 <section class="new-template-workspace" aria-labelledby="new-template-heading">
-	<div class="template-title-row">
-		<div>
-			<p class="eyebrow">New Template</p>
-			<h2 id="new-template-heading">Create Duty Roster Template</h2>
-			<p class="summary">Complete each setup section, then save once to create the operational template.</p>
-		</div>
-		<a class="btn btn-secondary" href={basePath}>Back to Templates</a>
-	</div>
+	<h2 id="new-template-heading" class="sr-only">New Duty Roster Template</h2>
 
 	{#if actionForm?.settingsError}
 		<p class="form-error settings-error" role="alert">{actionForm.settingsError}</p>
 	{/if}
 
-	<form class="settings-form wizard-form" method="POST" action={createWizardAction}>
-		<nav class="settings-nav" aria-label="New Template steps">
-			<button type="button" class:active={newTemplateStep === 'general'} onclick={() => (newTemplateStep = 'general')}>
-				General
-			</button>
-			<button type="button" class:active={newTemplateStep === 'pool'} onclick={() => (newTemplateStep = 'pool')}>
-				Pool & Filters
-			</button>
-			<button
-				type="button"
-				class:active={newTemplateStep === 'exemptions'}
-				onclick={() => (newTemplateStep = 'exemptions')}
-			>
-				Exemptions
-			</button>
-			<button
-				type="button"
-				class:active={newTemplateStep === 'baseline'}
-				onclick={() => (newTemplateStep = 'baseline')}
-			>
-				DA6 Baseline
-			</button>
+	<form class="settings-form wizard-form new-template-form" method="POST" action={createWizardAction}>
+		<nav class="wizard-stepper" aria-label="New Template steps">
+			{#each setupSteps as step, index (step.id)}
+				<button
+					type="button"
+					class:active={newTemplateStep === step.id}
+					class:complete={index < selectedStepIndex}
+					onclick={() => (newTemplateStep = step.id)}
+				>
+					<span class="wizard-stepper__number">{index < selectedStepIndex ? '✓' : index + 1}</span>
+					<span>
+						<strong>{step.label}</strong>
+						<small>{step.note}</small>
+					</span>
+				</button>
+			{/each}
 		</nav>
 
-		<div class="settings-panels">
-			{#if newTemplateStep === 'general'}
-				<section class="settings-section card card-flat" aria-labelledby="wizard-general-heading">
-					<h4 id="wizard-general-heading">General</h4>
-					<div class="identity-grid">
-						<label>
-							<span>Template name</span>
-							<input
-								class="input"
-								name="name"
-								maxlength="120"
-								required
-								bind:value={newTemplateName}
-								onblur={() => {
-									if (!newTemplateSlug) newTemplateSlug = slugifyDutyRosterTemplateName(newTemplateName);
-								}}
-								placeholder="CQ NCO"
-							/>
-						</label>
-						<label>
-							<span>Route slug</span>
-							<input
-								class="input"
-								name="slug"
-								maxlength="72"
-								required
-								bind:value={newTemplateSlug}
-								placeholder="cq-nco"
-							/>
-						</label>
-						<label>
-							<span>Short code</span>
-							<input class="input" name="shortCode" maxlength="12" bind:value={newTemplateShortCode} placeholder="CQ" />
-						</label>
-					</div>
-				</section>
-			{/if}
-
-			{#if newTemplateStep === 'pool'}
-				<section class="settings-section card card-flat" aria-labelledby="wizard-pool-heading">
-					<h4 id="wizard-pool-heading">Pool & Filters</h4>
-					<p class="field-hint">Filters match any value inside one category, then combine across categories.</p>
-					<div class="criteria-grid">
-						<label class="tag-field">
-							<span>Rank</span>
-							<MultiTagSelect
-								options={optionItems(rankOptions)}
-								value={rankFilterValues}
-								ariaLabel="New Template rank filters"
-								placeholder="Any rank"
-								onChange={(values) => (rankFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>Group</span>
-							<MultiTagSelect
-								options={groupOptionItems(groupOptions)}
-								value={groupFilterValues}
-								ariaLabel="New Template group filters"
-								placeholder="Any group"
-								onChange={(values) => (groupFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>MOS</span>
-							<MultiTagSelect
-								options={optionItems(mosOptions)}
-								value={mosFilterValues}
-								ariaLabel="New Template MOS filters"
-								placeholder="Any MOS"
-								onChange={(values) => (mosFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>Duty Role</span>
-							<MultiTagSelect
-								options={optionItems(dutyRoleOptions)}
-								value={dutyRoleFilterValues}
-								ariaLabel="New Template Duty Role filters"
-								placeholder="Any role"
-								onChange={(values) => (dutyRoleFilterValues = values)}
-							/>
-						</label>
-					</div>
-				</section>
-			{/if}
-
-			{#if newTemplateStep === 'exemptions'}
-				<section class="settings-section card card-flat" aria-labelledby="wizard-exemptions-heading">
-					<h4 id="wizard-exemptions-heading">Exemptions</h4>
-					{#if wizardResolvedPool.length === 0}
-						<div class="admin-empty">No Soldiers match the current pool filters.</div>
-					{:else}
-						<div class="pool-table admin-table-shell" role="table" aria-label="New Template resolved pool">
-							<div class="pool-row pool-head" role="row">
-								<span role="columnheader">Soldier</span>
-								<span role="columnheader">Group</span>
-								<span role="columnheader">MOS</span>
-								<span role="columnheader">Exempt</span>
-							</div>
-							{#each wizardResolvedPool as person (person.id)}
-								<div class="pool-row" role="row">
-									<span role="cell">{person.rank} {person.lastName}, {person.firstName}</span>
-									<span role="cell">{person.groupName || 'No Group'}</span>
-									<span role="cell">{person.mos || 'No MOS'}</span>
-									<span role="cell">
-										<label class="row-check">
-											<input
-												type="checkbox"
-												value={person.id}
-												checked={wizardExemptPersonnelIds.includes(person.id)}
-												onchange={(event) => {
-													const checked = event.currentTarget.checked;
-													wizardExemptPersonnelIds = checked
-														? [...wizardExemptPersonnelIds, person.id]
-														: wizardExemptPersonnelIds.filter((id) => id !== person.id);
-												}}
-											/>
-											<span>Exempt</span>
-										</label>
-									</span>
-								</div>
-							{/each}
+		<div class="new-template-shell">
+			<div class="new-template-main">
+				{#if newTemplateStep === 'general'}
+					<section class="new-template-panel" aria-labelledby="wizard-general-heading">
+						<header class="new-template-section-header">
+							<h4 id="wizard-general-heading">Template basics</h4>
+						</header>
+						<div class="identity-ledger">
+							<label>
+								<span>Template name <b aria-hidden="true">*</b></span>
+								<small>Display name for this duty roster template.</small>
+								<input
+									class="input"
+									aria-label="Template name"
+									name="name"
+									maxlength="120"
+									required
+									bind:value={newTemplateName}
+									onblur={() => {
+										if (!newTemplateSlug) newTemplateSlug = slugifyDutyRosterTemplateName(newTemplateName);
+									}}
+									placeholder="CQ Runner"
+								/>
+							</label>
+							<label>
+								<span>Route slug <b aria-hidden="true">*</b></span>
+								<small>URL-friendly identifier used in links and routes.</small>
+								<input
+									class="input"
+									aria-label="Route slug"
+									name="slug"
+									maxlength="72"
+									required
+									bind:value={newTemplateSlug}
+									placeholder="cq-runner"
+								/>
+							</label>
+							<label>
+								<span>Short code</span>
+								<small>Compact label used in dense views and exports.</small>
+								<input
+									class="input short-code-input"
+									aria-label="Short code"
+									name="shortCode"
+									maxlength="12"
+									bind:value={newTemplateShortCode}
+									placeholder="CQ"
+								/>
+							</label>
 						</div>
-					{/if}
-				</section>
-			{/if}
+						<div class="route-preview-row">
+							<div>
+								<h5>Route preview</h5>
+								<p>This is how users will access this template.</p>
+							</div>
+							<output>{routePreview}</output>
+						</div>
+					</section>
+				{:else if newTemplateStep === 'pool'}
+					<section class="new-template-panel" aria-labelledby="wizard-pool-heading">
+						<header class="new-template-section-header new-template-section-header--split">
+							<div>
+								<h4 id="wizard-pool-heading">Pool criteria</h4>
+								<p>OR within each category. AND across categories.</p>
+							</div>
+							<button class="btn btn-secondary btn-sm" type="button" onclick={clearFilters}>Clear all</button>
+						</header>
+						<div class="criteria-grid criteria-grid--template">
+							<label class="tag-field">
+								<span>Rank</span>
+								<MultiTagSelect
+									options={optionItems(rankOptions)}
+									value={rankFilterValues}
+									ariaLabel="New Template rank filters"
+									placeholder="Any rank"
+									onChange={(values) => (rankFilterValues = values)}
+								/>
+							</label>
+							<label class="tag-field">
+								<span>Group</span>
+								<MultiTagSelect
+									options={groupOptionItems(groupOptions)}
+									value={groupFilterValues}
+									ariaLabel="New Template group filters"
+									placeholder="Any group"
+									onChange={(values) => (groupFilterValues = values)}
+								/>
+							</label>
+							<label class="tag-field">
+								<span>MOS</span>
+								<MultiTagSelect
+									options={optionItems(mosOptions)}
+									value={mosFilterValues}
+									ariaLabel="New Template MOS filters"
+									placeholder="Any MOS"
+									onChange={(values) => (mosFilterValues = values)}
+								/>
+							</label>
+							<label class="tag-field">
+								<span>Duty Role</span>
+								<MultiTagSelect
+									options={optionItems(dutyRoleOptions)}
+									value={dutyRoleFilterValues}
+									ariaLabel="New Template Duty Role filters"
+									placeholder="Any duty role"
+									onChange={(values) => (dutyRoleFilterValues = values)}
+								/>
+							</label>
+						</div>
+					</section>
 
-			{#if newTemplateStep === 'baseline'}
-				<section class="settings-section card card-flat" aria-labelledby="wizard-baseline-heading">
-					<h4 id="wizard-baseline-heading">DA6 Baseline</h4>
-					<p class="field-hint">Optional starting counts. Leave blank to start from DA6 roster order.</p>
-					{#if wizardBaselineRows.length === 0}
-						<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
+					<section class="new-template-panel new-template-panel--table" aria-labelledby="wizard-resolved-pool-heading">
+						<header class="new-template-section-header new-template-section-header--split">
+							<div>
+								<h4 id="wizard-resolved-pool-heading">Resolved pool</h4>
+								<p>
+									{wizardResolvedPool.length}
+									{wizardResolvedPool.length === 1 ? 'Soldier' : 'Soldiers'} match the current criteria.
+								</p>
+							</div>
+						</header>
+						{#if wizardResolvedPool.length === 0}
+							<div class="admin-empty">No Soldiers match the current pool filters.</div>
+						{:else}
+							<div class="pool-table pool-table--template" role="table" aria-label="New Template resolved pool">
+								<div class="pool-row pool-head" role="row">
+									<span role="columnheader">Rank</span>
+									<span role="columnheader">Name</span>
+									<span role="columnheader">Group</span>
+									<span role="columnheader">MOS</span>
+									<span role="columnheader">Duty Role</span>
+									<span role="columnheader">Eligible</span>
+								</div>
+								{#each wizardResolvedPool.slice(0, 10) as person (person.id)}
+									<div class="pool-row" role="row">
+										<span role="cell">{person.rank || 'No rank'}</span>
+										<span role="cell">{person.lastName}, {person.firstName}</span>
+										<span role="cell">{person.groupName || 'No Group'}</span>
+										<span role="cell">{person.mos || 'No MOS'}</span>
+										<span role="cell">{person.dutyRole || 'No Duty Role'}</span>
+										<span role="cell">
+											<span class="status-chip status-chip--success">Yes</span>
+										</span>
+									</div>
+								{/each}
+							</div>
+							<p class="table-count-note">
+								Showing {Math.min(wizardResolvedPool.length, 10)} of {wizardResolvedPool.length}
+							</p>
+						{/if}
+					</section>
+				{:else if newTemplateStep === 'baseline'}
+					<section class="new-template-panel new-template-panel--table" aria-labelledby="wizard-baseline-heading">
+						<header class="new-template-section-header">
+							<h4 id="wizard-baseline-heading">Manual DA6 baseline</h4>
+							<p>Optional starting counts. Leave blank to start from zero for that Soldier.</p>
+						</header>
+						{#if wizardBaselineRows.length === 0}
+							<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
+						{:else}
+							<div class="baseline-table" role="table" aria-label="New Template DA6 baseline">
+								<div class="baseline-row baseline-head" role="row">
+									<span role="columnheader">Soldier</span>
+									<span role="columnheader">Starting count</span>
+									<span role="columnheader">Clear</span>
+								</div>
+								{#each wizardBaselineRows as person (person.id)}
+									<div class="baseline-row" role="row">
+										<span role="cell">{person.rank} {person.lastName}, {person.firstName}</span>
+										<span role="cell">
+											<input
+												class="input"
+												type="number"
+												min="0"
+												step="1"
+												name={`baseline:${person.id}`}
+												aria-label={`Starting count for ${person.rank} ${person.lastName}, ${person.firstName}`}
+												placeholder="0"
+											/>
+										</span>
+										<span role="cell" aria-hidden="true">×</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</section>
+				{:else}
+					<section class="new-template-panel" aria-labelledby="wizard-review-heading">
+						<header class="new-template-section-header">
+							<h4 id="wizard-review-heading">Review</h4>
+							<p>Create this duty roster template with the current identity, pool, exemptions, and baseline counts.</p>
+						</header>
+						<dl class="review-ledger">
+							<div>
+								<dt>Name</dt>
+								<dd>{newTemplateName || 'Not set'}</dd>
+							</div>
+							<div>
+								<dt>Slug</dt>
+								<dd>{templateSlug}</dd>
+							</div>
+							<div>
+								<dt>Short code</dt>
+								<dd>{newTemplateShortCode || 'Not set'}</dd>
+							</div>
+							<div>
+								<dt>Pool</dt>
+								<dd>{wizardResolvedPool.length} {wizardResolvedPool.length === 1 ? 'Soldier' : 'Soldiers'}</dd>
+							</div>
+							<div>
+								<dt>Exemptions</dt>
+								<dd>{wizardExemptPersonnel.length}</dd>
+							</div>
+							<div>
+								<dt>Baseline rows</dt>
+								<dd>{wizardBaselineRows.length}</dd>
+							</div>
+						</dl>
+					</section>
+				{/if}
+			</div>
+
+			<aside class="new-template-context" aria-label="Selected step guidance">
+				{#if newTemplateStep === 'general'}
+					<section>
+						<h4>What this template represents</h4>
+						<p>
+							A duty roster template defines the people, rules, and schedule for one duty. It becomes the source for
+							generated rosters and histories.
+						</p>
+					</section>
+					<section>
+						<h4>URL + slug rules</h4>
+						<ul>
+							<li>Use lowercase letters, numbers, and hyphens.</li>
+							<li>Start and end with a letter or number.</li>
+							<li>Keep the slug unique inside this Organization.</li>
+						</ul>
+					</section>
+					<section class="template-summary-card">
+						<h4>Template summary preview</h4>
+						<dl>
+							<div>
+								<dt>Name</dt>
+								<dd>{newTemplateName || 'Not set'}</dd>
+							</div>
+							<div>
+								<dt>Slug</dt>
+								<dd>{templateSlug}</dd>
+							</div>
+							<div>
+								<dt>Code</dt>
+								<dd>{newTemplateShortCode || 'None'}</dd>
+							</div>
+						</dl>
+					</section>
+				{:else if newTemplateStep === 'pool'}
+					<section>
+						<div class="context-heading-row">
+							<h4>Duty-specific exemptions</h4>
+							<span class="status-chip">{wizardExemptPersonnel.length} selected</span>
+						</div>
+						<p>Select Soldiers to exclude from this template after the pool has resolved.</p>
+					</section>
+					{#if wizardResolvedPool.length === 0}
+						<p class="context-note">Exemptions can only be selected from the resolved pool.</p>
 					{:else}
-						<div class="baseline-list admin-table-shell">
-							{#each wizardBaselineRows as person (person.id)}
+						<div class="exemption-list">
+							{#each wizardResolvedPool as person (person.id)}
 								<label>
-									<span>{person.rank} {person.lastName}, {person.firstName}</span>
 									<input
-										class="input"
-										type="number"
-										min="0"
-										step="1"
-										name={`baseline:${person.id}`}
-										placeholder="Count"
+										type="checkbox"
+										value={person.id}
+										checked={wizardExemptPersonnelIds.includes(person.id)}
+										onchange={(event) => {
+											const checked = event.currentTarget.checked;
+											wizardExemptPersonnelIds = checked
+												? [...wizardExemptPersonnelIds, person.id]
+												: wizardExemptPersonnelIds.filter((id) => id !== person.id);
+										}}
 									/>
+									<span>{person.rank} {person.lastName}, {person.firstName}</span>
 								</label>
 							{/each}
 						</div>
 					{/if}
-				</section>
-			{/if}
+					<section class="pool-summary-card">
+						<h4>Pool summary</h4>
+						<div>
+							<strong>{wizardResolvedPool.length}</strong>
+							<span>Total eligible</span>
+						</div>
+						<div>
+							<strong>{wizardExemptPersonnel.length}</strong>
+							<span>Exempted</span>
+						</div>
+						<div>
+							<strong>{wizardBaselineRows.length}</strong>
+							<span>Baseline available</span>
+						</div>
+					</section>
+				{:else if newTemplateStep === 'baseline'}
+					<section>
+						<h4>Baseline rules</h4>
+						<p>
+							Manual DA6 baseline counts are setup data for the first generated run. People exempted from the pool are
+							not included here.
+						</p>
+					</section>
+					<section class="pool-summary-card">
+						<h4>Baseline summary</h4>
+						<div>
+							<strong>{wizardBaselineRows.length}</strong>
+							<span>Rows available</span>
+						</div>
+						<div>
+							<strong>{wizardExemptPersonnel.length}</strong>
+							<span>Excluded first</span>
+						</div>
+					</section>
+				{:else}
+					<section>
+						<h4>Ready to create</h4>
+						<p>You can review and change these details from Template Settings after creation.</p>
+					</section>
+					{#if wizardExemptPersonnel.length > 0}
+						<section>
+							<div class="context-heading-row">
+								<h4>Exempted Soldiers</h4>
+								<button type="button" onclick={() => (wizardExemptPersonnelIds = [])}>Remove all</button>
+							</div>
+							<div class="exempted-soldiers">
+								{#each wizardExemptPersonnel as person (person.id)}
+									<span>
+										{person.rank}
+										{person.lastName}, {person.firstName}
+										<button
+											type="button"
+											aria-label={`Remove ${person.rank} ${person.lastName}, ${person.firstName}`}
+											onclick={() => removeExemption(person.id)}>×</button
+										>
+									</span>
+								{/each}
+							</div>
+						</section>
+					{/if}
+				{/if}
+			</aside>
 		</div>
 
 		{#each rankFilterValues as value (value)}
@@ -281,7 +488,7 @@
 			<input type="hidden" name="exemptPersonnelIds" {value} />
 		{/each}
 
-		<div class="wizard-actions">
+		<div class="wizard-actions new-template-actions">
 			<button
 				class="btn btn-secondary"
 				type="button"
@@ -290,13 +497,16 @@
 			>
 				Back
 			</button>
-			{#if newTemplateStep !== 'baseline'}
-				<button class="btn btn-primary" type="button" onclick={() => (newTemplateStep = nextStep(newTemplateStep))}>
-					Continue
-				</button>
-			{:else}
-				<button class="btn btn-primary" type="submit">Save Template</button>
-			{/if}
+			<div>
+				<a class="btn btn-secondary" href={basePath}>Cancel</a>
+				{#if newTemplateStep !== 'review'}
+					<button class="btn btn-primary" type="button" onclick={() => (newTemplateStep = nextStep(newTemplateStep))}>
+						Continue
+					</button>
+				{:else}
+					<button class="btn btn-primary" type="submit">Save Template</button>
+				{/if}
+			</div>
 		</div>
 	</form>
 </section>

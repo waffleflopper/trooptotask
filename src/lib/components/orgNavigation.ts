@@ -48,6 +48,9 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	'critical-tasks': {
 		library: 'Library',
 		reports: 'Reports'
+	},
+	'duty-rosters': {
+		new: 'New Template'
 	}
 };
 

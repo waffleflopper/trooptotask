@@ -15,7 +15,7 @@
 	let groupFilterValues = $state<string[]>([]);
 	let mosFilterValues = $state<string[]>([]);
 	let dutyRoleFilterValues = $state<string[]>([]);
-	let newTemplateStep = $state<'general' | 'pool' | 'exemptions' | 'baseline'>('general');
+	let newTemplateStep = $state<'general' | 'pool' | 'baseline' | 'review'>('general');
 	let newTemplateName = $state('');
 	let newTemplateSlug = $state('');
 	let newTemplateShortCode = $state('');
@@ -67,17 +67,7 @@
 	{#if selectedTemplate && !isNewTemplate}
 		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} {selectedView}</h1>
 	{:else if isNewTemplate}
-		<header class="workspace-header">
-			<div>
-				<p class="eyebrow">{data.orgName}</p>
-				<h1 id="duty-roster-title">Duty Rosters</h1>
-				<p class="summary">One-duty DA Form 6 templates with durable workspace links.</p>
-			</div>
-			<div class="header-status" aria-label="Duty Roster Template count">
-				<span>{data.templates.length}</span>
-				<p>{data.templates.length === 1 ? 'Template' : 'Templates'}</p>
-			</div>
-		</header>
+		<h1 id="duty-roster-title" class="sr-only">New Duty Roster Template</h1>
 	{:else}
 		<h1 id="duty-roster-title" class="sr-only">Duty Rosters</h1>
 	{/if}

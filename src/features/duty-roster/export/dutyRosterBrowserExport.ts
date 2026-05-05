@@ -85,11 +85,14 @@ function displayName(person: DutyRosterTemplatePreviewPersonnel | null): string 
 }
 
 function formatDa6CellLabel(cell: Da6Matrix['rows'][number]['cells'][number]): string {
+	if (cell.assigned) {
+		return 'X';
+	}
 	if (cell.da6Code === 'A') {
 		return 'A';
 	}
 	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
+		return cell.da6Code;
 	}
 	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }

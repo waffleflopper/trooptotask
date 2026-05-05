@@ -78,7 +78,7 @@ describe('buildDutyRosterCountSource', () => {
 				assignmentTypeId: 'assignment-type-1',
 				startDate: '2026-05-29',
 				endDate: '2026-05-31',
-				config: { historySource: 'manual-da6-baseline' },
+				config: expect.objectContaining({ historySource: 'manual-da6-baseline' }),
 				roster: [
 					expect.objectContaining({ date: '2026-05-31', assigneeId: 'alpha' }),
 					expect.objectContaining({ date: '2026-05-29', assigneeId: 'charlie' })

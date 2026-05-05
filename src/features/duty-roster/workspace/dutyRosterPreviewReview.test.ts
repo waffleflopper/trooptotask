@@ -107,7 +107,7 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, display: '1' },
+					{ date: '2026-06-01', assigned: true, display: 'X' },
 					{ date: '2026-06-02', assigned: false, display: 'A' }
 				]
 			}
@@ -175,7 +175,7 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, display: '1' },
+					{ date: '2026-06-01', assigned: true, display: 'X' },
 					{ date: '2026-06-02', assigned: false, display: 'A' }
 				]
 			}

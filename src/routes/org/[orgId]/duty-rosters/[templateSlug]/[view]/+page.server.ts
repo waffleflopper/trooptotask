@@ -84,12 +84,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				throw error(404, 'Duty Roster Template not found');
 			}
 
-			const settings = view === 'settings' ? await loadDutyRosterTemplateSettings(ctx, selectedTemplate) : null;
-			const countReadModel = await loadDutyRosterTemplateCountReadModel(ctx, selectedTemplate);
-			const acceptedRuns =
-				view === 'settings' || view === 'history'
-					? await listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id)
-					: [];
+			const [settings, countReadModel, acceptedRuns] = await Promise.all([
+				view === 'settings' ? loadDutyRosterTemplateSettings(ctx, selectedTemplate) : Promise.resolve(null),
+				loadDutyRosterTemplateCountReadModel(ctx, selectedTemplate),
+				listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id)
+			]);
 
 			return { templates, selectedTemplate, settings, acceptedRuns, countReadModel };
 		}

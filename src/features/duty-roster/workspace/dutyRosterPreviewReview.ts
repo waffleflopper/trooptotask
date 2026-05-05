@@ -293,11 +293,14 @@ function da6CellDisplay(
 		| DutyRosterTemplatePreview['da6']['rows'][number]['cells'][number]
 		| DutyRosterTemplateAcceptedSnapshot['da6']['rows'][number]['cells'][number]
 ): string {
+	if (cell.assigned) {
+		return 'X';
+	}
 	if (cell.da6Code === 'A') {
 		return 'A';
 	}
 	if (cell.da6Code === 'D' || cell.da6Code === 'U') {
-		return `${cell.da6Code}${cell.sequenceNumber ?? ''}`;
+		return cell.da6Code;
 	}
 	return cell.sequenceNumber === null ? '' : String(cell.sequenceNumber);
 }

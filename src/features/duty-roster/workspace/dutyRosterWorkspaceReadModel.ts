@@ -60,10 +60,12 @@ export type DutyRosterGenerateWorkspaceModel = {
 	selectedTemplate: DutyRosterTemplate;
 	actionForm: DutyRosterWorkspaceActionForm | null;
 	preview: DutyRosterTemplatePreview | null;
+	acceptedRuns: DutyRosterTemplateAcceptedRun[];
 	generateAction: string;
 	manualPreviewAction: string;
 	acceptPreviewAction: string;
 	applyPreviewAction: string;
+	historyPath: string;
 	countReadModel: DutyRosterTemplateCountReadModel | null;
 	todayDate: string;
 	generateStartDate: string;
@@ -167,10 +169,12 @@ export function buildDutyRosterWorkspaceReadModel(
 				selectedTemplate,
 				actionForm,
 				preview,
+				acceptedRuns,
 				generateAction,
 				manualPreviewAction,
 				acceptPreviewAction,
 				applyPreviewAction,
+				historyPath: `${basePath}/${selectedTemplate.slug}/history`,
 				countReadModel,
 				todayDate,
 				generateStartDate,

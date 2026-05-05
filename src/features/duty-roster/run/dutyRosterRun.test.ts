@@ -238,6 +238,103 @@ describe('buildDutyRosterRunSnapshot', () => {
 		});
 	});
 
+	it('resets the visible DA6 count after duty, pauses it for A, and advances it for D', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha' }),
+					person({ id: 'bravo', rank: 'SGT', lastName: 'Bravo' }),
+					person({ id: 'charlie', rank: 'SGT', lastName: 'Charlie' })
+				],
+				assignments: [
+					daily({ id: 'alpha-recent', assigneeId: 'alpha', date: '2026-04-30' }),
+					daily({ id: 'bravo-recent', assigneeId: 'bravo', date: '2026-04-29' }),
+					daily({ id: 'charlie-old', assigneeId: 'charlie', date: '2026-04-01' })
+				],
+				rosterHistory: [
+					{
+						assignmentTypeId: 'staff-duty',
+						startDate: '2026-04-11',
+						endDate: '2026-04-30',
+						roster: [],
+						config: {
+							historySource: 'manual-da6-baseline',
+							manualBaselineCounts: { alpha: 20, bravo: 20, charlie: 20 }
+						}
+					}
+				],
+				statusTypes: [
+					{
+						id: 'leave',
+						name: 'Leave',
+						color: '#008000',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
+					},
+					{
+						id: 'detail',
+						name: 'Detail',
+						color: '#111827',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
+					}
+				],
+				availabilityEntries: [
+					{
+						id: 'leave-alpha',
+						personnelId: 'alpha',
+						statusTypeId: 'leave',
+						startDate: '2026-05-02',
+						endDate: '2026-05-06'
+					},
+					{
+						id: 'detail-bravo',
+						personnelId: 'bravo',
+						statusTypeId: 'detail',
+						startDate: '2026-05-02',
+						endDate: '2026-05-06'
+					}
+				],
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-07',
+					dutyDuration: 'daily',
+					excludedStatusIds: ['leave', 'detail'],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		const alpha = snapshot.da6.rows.find((row) => row.personnelId === 'alpha')!;
+		const bravo = snapshot.da6.rows.find((row) => row.personnelId === 'bravo')!;
+		const firstAssigned = snapshot.da6.rows.find((row) => row.cells[0].assigned)!;
+
+		expect(alpha.cells.map((cell) => [cell.da6Code, cell.sequenceNumber])).toEqual([
+			[null, 20],
+			['A', 21],
+			['A', 21],
+			['A', 21],
+			['A', 21],
+			['A', 21],
+			[null, 21]
+		]);
+		expect(bravo.cells.map((cell) => [cell.da6Code, cell.sequenceNumber])).toEqual([
+			[null, 20],
+			['D', 21],
+			['D', 22],
+			['D', 23],
+			['D', 24],
+			['D', 25],
+			[null, 26]
+		]);
+		expect(firstAssigned.cells[0].assigned).toBe(true);
+		expect(firstAssigned.cells[1].sequenceNumber).toBe(1);
+	});
+
 	it('records advanced duty overlap and cooldown as chargeable D cells that keep numbering moving', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({
@@ -522,8 +619,8 @@ describe('buildDutyRosterRunSnapshot', () => {
 				chargeableCount: 2
 			}
 		]);
-		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 4]);
-		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 2, 3]);
+		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 1]);
+		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 1, 2]);
 		expect(snapshot.exportModel.sequencePeriods).toEqual([
 			{
 				date: '2026-05-01',

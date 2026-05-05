@@ -211,6 +211,25 @@ function getLastDutyDates(
 	return dates;
 }
 
+function getManualBaselineCounts(input: DutyRosterRunInput): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const historyItem of input.rosterHistory ?? []) {
+		if (historyItem.assignmentTypeId !== input.assignmentType.id) {
+			continue;
+		}
+		const rawCounts = historyItem.config.manualBaselineCounts;
+		if (!rawCounts || typeof rawCounts !== 'object' || Array.isArray(rawCounts)) {
+			continue;
+		}
+		for (const [personnelId, count] of Object.entries(rawCounts)) {
+			if (typeof count === 'number' && Number.isInteger(count) && count > 0) {
+				counts.set(personnelId, count);
+			}
+		}
+	}
+	return counts;
+}
+
 function compareOldestFirst(a: string | null, b: string | null): number {
 	if (a && b && a !== b) {
 		return a.localeCompare(b);
@@ -455,6 +474,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		.sort(comparePersonnelByRankThenName);
 	const dutyDates = buildDutyDates(config, input.specialDays);
 	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
+	const manualBaselineCounts = getManualBaselineCounts(input);
 	const cellsByPersonnelId = new Map<string, Da6Cell[]>(personnel.map((person) => [person.id, []]));
 	const columns: Da6Column[] = [];
 	const sequencePeriodCounters = new Map<DutyRosterSequenceKey, number>([
@@ -462,7 +482,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		['weekday', 0],
 		['weekend-holiday', 0]
 	]);
-	const sequenceBaseByPerson = new Map<string, number>();
+	const sequenceNumberByPerson = new Map<string, number>();
 	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
 
 	for (const date of dutyDates) {
@@ -508,15 +528,23 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 			const queuePosition = queueIndex === -1 ? null : queueIndex + 1;
 			const isAssigned = assigned?.id === person.id;
 			const sequenceBaseKey = `${sequenceKey}::${person.id}`;
-			let sequenceBase = sequenceBaseByPerson.get(sequenceBaseKey);
-			if (sequenceBase === undefined && queuePosition !== null) {
-				sequenceBase = queuePosition - sequencePeriodIndex;
-				sequenceBaseByPerson.set(sequenceBaseKey, sequenceBase);
+			let sequenceNumber = sequenceNumberByPerson.get(sequenceBaseKey);
+			if (sequenceNumber === undefined) {
+				sequenceNumber = manualBaselineCounts.get(person.id);
 			}
-			const sequenceNumber = sequenceBase === undefined ? null : sequenceBase + sequencePeriodIndex;
+			if (sequenceNumber === undefined && queuePosition !== null) {
+				sequenceNumber = queuePosition;
+			}
 			cellsByPersonnelId
 				.get(person.id)!
-				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber, isAssigned));
+				.push(buildCell(person.id, date, classification, queuePosition, sequenceNumber ?? null, isAssigned));
+			if (isAssigned) {
+				sequenceNumberByPerson.set(sequenceBaseKey, 1);
+			} else if (classification.chargeable && sequenceNumber !== undefined) {
+				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber + 1);
+			} else if (sequenceNumber !== undefined) {
+				sequenceNumberByPerson.set(sequenceBaseKey, sequenceNumber);
+			}
 		}
 
 		sequencePeriodCounters.set(sequenceKey, sequencePeriodIndex + 1);

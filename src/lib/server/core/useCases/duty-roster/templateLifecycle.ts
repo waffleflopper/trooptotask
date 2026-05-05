@@ -10,6 +10,7 @@ import {
 	type DutyRosterTemplate,
 	type DutyRosterTemplateAcceptPreviewInput,
 	type DutyRosterTemplateAcceptedRun,
+	type DutyRosterTemplateConfiguredCreateInput,
 	type DutyRosterTemplateCountReadModel,
 	type DutyRosterTemplateCorrectionInput,
 	type DutyRosterTemplateCreateInput,
@@ -19,6 +20,7 @@ import {
 	type DutyRosterTemplateSetupOptions,
 	type DutyRosterTemplateSettingsData,
 	type DutyRosterTemplateSettingsInput,
+	type DutyRosterPoolPersonnel,
 	type DutyRosterPoolCriteria
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import {
@@ -61,6 +63,9 @@ const settingsIdentitySchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer').optional(),
 	slug: z.string().trim().max(72, 'Slug must be 72 characters or fewer').nullable().optional(),
 	shortCode: z.string().trim().max(12, 'Short code must be 12 characters or fewer').nullable().optional()
+});
+const configuredCreateIdentitySchema = settingsIdentitySchema.extend({
+	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer')
 });
 const generatePreviewSchema = z
 	.object({
@@ -251,6 +256,24 @@ function parseSettingsIdentityInput(
 	};
 }
 
+function parseConfiguredCreateIdentityInput(input: DutyRosterTemplateConfiguredCreateInput): {
+	name: string;
+	slug: string;
+	shortCode: string | null;
+} {
+	const parsed = configuredCreateIdentitySchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster Template identity input is invalid');
+	}
+
+	const name = normalizeDutyRosterTemplateName(parsed.data.name);
+	return {
+		name,
+		slug: normalizeDutyRosterTemplateSlug(parsed.data.slug, name),
+		shortCode: normalizeDutyRosterShortCode(parsed.data.shortCode)
+	};
+}
+
 function parseGenerateInput(input: DutyRosterTemplateGenerateInput): DutyRosterTemplateGenerateInput {
 	const parsed = generatePreviewSchema.safeParse(input);
 	if (!parsed.success) {
@@ -295,6 +318,45 @@ function isUniqueSlugError(error: unknown): boolean {
 
 function defaultDutyRosterAssignmentShortName(input: { name: string; shortCode: string | null }): string {
 	return input.shortCode ?? input.name.slice(0, 12).trim().toUpperCase();
+}
+
+function validateDutyRosterTemplateSetupInput(input: {
+	poolCriteria: DutyRosterPoolCriteria;
+	exemptPersonnelIds: string[];
+	manualBaselineCounts: Record<string, number | null | undefined>;
+	resolvedPool: DutyRosterPoolPersonnel[];
+}): {
+	poolCriteria: DutyRosterPoolCriteria;
+	exemptPersonnelIds: string[];
+	manualBaselineCounts: Record<string, number>;
+} {
+	const poolCriteria = normalizeDutyRosterPoolCriteria(input.poolCriteria);
+	const invalidBaselineCountValues = findInvalidBaselineCountValues(input.manualBaselineCounts);
+	if (invalidBaselineCountValues.length > 0) {
+		fail(400, 'Manual DA6 Baseline counts must be whole numbers zero or greater.');
+	}
+
+	const exemptPersonnelIds = normalizeStringArray(input.exemptPersonnelIds);
+	const manualBaselineCounts = normalizeBaselineCounts(input.manualBaselineCounts);
+	const invalid = findInvalidDutyRosterSetupIds({
+		exemptPersonnelIds,
+		manualBaselineCounts,
+		resolvedPool: input.resolvedPool
+	});
+
+	if (invalid.invalidExemptionIds.length > 0) {
+		fail(400, 'Duty exemptions must come from the resolved pool.');
+	}
+
+	if (invalid.invalidBaselineIds.length > 0) {
+		fail(400, 'Manual DA6 Baseline counts can only be entered for resolved, non-exempt pool members.');
+	}
+
+	return {
+		poolCriteria,
+		exemptPersonnelIds,
+		manualBaselineCounts
+	};
 }
 
 export async function listDutyRosterTemplatesLifecycle(ctx: QueryPorts): Promise<DutyRosterTemplate[]> {
@@ -397,6 +459,79 @@ export async function createDutyRosterTemplateLifecycle(
 	fail(500, 'Failed to create Duty Roster Template.');
 }
 
+export async function createConfiguredDutyRosterTemplateLifecycle(
+	ctx: WritePorts,
+	input: DutyRosterTemplateConfiguredCreateInput
+): Promise<DutyRosterTemplate> {
+	const identity = parseConfiguredCreateIdentityInput(input);
+	const slugRows = await ctx.store.findMany<{ id: string }>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		slug: identity.slug
+	});
+	if (slugRows.length > 0) {
+		fail(400, 'Duty Roster Template slug is already in use.');
+	}
+
+	const personnel = await listActiveDutyRosterPersonnel(ctx);
+	const poolCriteria = normalizeDutyRosterPoolCriteria(input.poolCriteria);
+	const resolvedPool = resolveDutyRosterPool({ criteria: poolCriteria, personnel });
+	const setup = validateDutyRosterTemplateSetupInput({
+		poolCriteria,
+		exemptPersonnelIds: input.exemptPersonnelIds,
+		manualBaselineCounts: input.manualBaselineCounts,
+		resolvedPool
+	});
+
+	const templateId = crypto.randomUUID();
+	const now = new Date().toISOString();
+
+	try {
+		await ctx.store.insert<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, {
+			id: templateId,
+			name: identity.name,
+			short_name: defaultDutyRosterAssignmentShortName(identity),
+			assign_to: 'personnel',
+			color: '#8a5a22',
+			sort_order: 0,
+			show_in_date_header: false,
+			exempt_personnel_ids: []
+		});
+
+		const row = await ctx.store.insert<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+			id: templateId,
+			assignment_type_id: templateId,
+			name: identity.name,
+			slug: identity.slug,
+			short_code: identity.shortCode,
+			status: 'active',
+			pool_criteria: setup.poolCriteria,
+			exempt_personnel_ids: setup.exemptPersonnelIds,
+			manual_baseline_counts: setup.manualBaselineCounts,
+			created_by_user_id: ctx.auth.userId,
+			created_at: now,
+			updated_at: now
+		});
+
+		ctx.audit.log({
+			action: 'duty_roster_template.created',
+			resourceType: 'duty_roster_template',
+			resourceId: row.id
+		});
+
+		return toTemplate(row);
+	} catch (error) {
+		try {
+			await ctx.store.delete(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, templateId);
+		} catch {
+			// Best-effort cleanup for the companion Calendar assignment type after a failed template insert.
+		}
+
+		if (isUniqueSlugError(error)) {
+			fail(400, 'Duty Roster Template slug is already in use.');
+		}
+		throw error;
+	}
+}
+
 export async function loadDutyRosterTemplateSettingsLifecycle(
 	ctx: QueryPorts,
 	template: DutyRosterTemplate
@@ -470,20 +605,12 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 		fail(400, 'Manual DA6 Baseline is locked after the first accepted run.');
 	}
 
-	const exemptPersonnelIds = normalizeStringArray(input.exemptPersonnelIds);
-	const invalid = findInvalidDutyRosterSetupIds({
-		exemptPersonnelIds,
+	const setup = validateDutyRosterTemplateSetupInput({
+		poolCriteria,
+		exemptPersonnelIds: input.exemptPersonnelIds,
 		manualBaselineCounts: hasAcceptedRun ? {} : manualBaselineCounts,
 		resolvedPool
 	});
-
-	if (invalid.invalidExemptionIds.length > 0) {
-		fail(400, 'Duty exemptions must come from the resolved pool.');
-	}
-
-	if (invalid.invalidBaselineIds.length > 0) {
-		fail(400, 'Manual DA6 Baseline counts can only be entered for resolved, non-exempt pool members.');
-	}
 
 	const row = await ctx.store.update<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
@@ -493,8 +620,8 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 			name: identity.name,
 			slug: identity.slug,
 			short_code: identity.shortCode,
-			pool_criteria: poolCriteria,
-			exempt_personnel_ids: exemptPersonnelIds,
+			pool_criteria: setup.poolCriteria,
+			exempt_personnel_ids: setup.exemptPersonnelIds,
 			manual_baseline_counts: hasAcceptedRun ? existingBaselineCounts : manualBaselineCounts,
 			updated_at: new Date().toISOString()
 		}

@@ -1,14 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
-	createDutyRosterTemplateMock,
+	createConfiguredDutyRosterTemplateMock,
 	listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSetupOptionsMock,
 	loadWithContextMock,
-	mockCtx,
-	updateDutyRosterTemplateSettingsMock
+	mockCtx
 } = vi.hoisted(() => ({
-	createDutyRosterTemplateMock: vi.fn(),
+	createConfiguredDutyRosterTemplateMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
 	loadDutyRosterTemplateSetupOptionsMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
@@ -16,8 +15,7 @@ const {
 		auth: {
 			orgId: 'org-1'
 		}
-	},
-	updateDutyRosterTemplateSettingsMock: vi.fn()
+	}
 }));
 
 vi.mock('$lib/server/adapters/httpAdapter', () => ({
@@ -26,10 +24,9 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
-	createDutyRosterTemplate: createDutyRosterTemplateMock,
+	createConfiguredDutyRosterTemplate: createConfiguredDutyRosterTemplateMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
-	loadDutyRosterTemplateSetupOptions: loadDutyRosterTemplateSetupOptionsMock,
-	updateDutyRosterTemplateSettings: updateDutyRosterTemplateSettingsMock
+	loadDutyRosterTemplateSetupOptions: loadDutyRosterTemplateSetupOptionsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -40,8 +37,7 @@ describe('New Duty Roster Template route', () => {
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) => config.fn(mockCtx));
 		listDutyRosterTemplatesMock.mockResolvedValue([template()]);
 		loadDutyRosterTemplateSetupOptionsMock.mockResolvedValue({ personnel: [] });
-		createDutyRosterTemplateMock.mockResolvedValue(template());
-		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ slug: 'cq-nco' }));
+		createConfiguredDutyRosterTemplateMock.mockResolvedValue(template({ slug: 'cq-nco' }));
 	});
 
 	it('loads URL-addressable wizard setup without selecting an operational template', async () => {
@@ -86,9 +82,7 @@ describe('New Duty Roster Template route', () => {
 			location: '/org/org-1/duty-rosters/cq-nco/generate'
 		});
 
-		expect(createDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, { name: 'CQ NCO', shortCode: 'CQ' });
-		expect(updateDutyRosterTemplateSettingsMock).toHaveBeenCalledWith(mockCtx, {
-			templateId: 'template-1',
+		expect(createConfiguredDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, {
 			name: 'CQ NCO',
 			slug: 'cq-nco',
 			shortCode: 'CQ',

@@ -21,6 +21,15 @@ export interface DutyRosterTemplateCreateInput {
 	shortCode?: string | null;
 }
 
+export interface DutyRosterTemplateConfiguredCreateInput {
+	name: string;
+	slug?: string | null;
+	shortCode?: string | null;
+	poolCriteria: DutyRosterPoolCriteria;
+	exemptPersonnelIds: string[];
+	manualBaselineCounts: Record<string, number | null | undefined>;
+}
+
 export interface DutyRosterPoolCriteria {
 	rankValues: string[];
 	groupIds: string[];

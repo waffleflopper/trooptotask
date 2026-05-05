@@ -2,10 +2,9 @@ import { fail as actionFail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
-	createDutyRosterTemplate,
+	createConfiguredDutyRosterTemplate,
 	listDutyRosterTemplates,
-	loadDutyRosterTemplateSetupOptions,
-	updateDutyRosterTemplateSettings
+	loadDutyRosterTemplateSetupOptions
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 
 function formValues(formData: FormData, name: string): string[] {
@@ -84,12 +83,7 @@ export const actions: Actions = {
 		let slug: string;
 		try {
 			const ctx = await buildRouteContext(event);
-			const template = await createDutyRosterTemplate(ctx, {
-				name: values.name,
-				shortCode: values.shortCode
-			});
-			const updated = await updateDutyRosterTemplateSettings(ctx, {
-				templateId: template.id,
+			const template = await createConfiguredDutyRosterTemplate(ctx, {
 				name: values.name,
 				slug: values.slug,
 				shortCode: values.shortCode,
@@ -102,7 +96,7 @@ export const actions: Actions = {
 				exemptPersonnelIds: values.exemptPersonnelIds,
 				manualBaselineCounts: parseBaselineCounts(formData)
 			});
-			slug = updated.slug;
+			slug = template.slug;
 		} catch (error) {
 			return actionError(error, values);
 		}

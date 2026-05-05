@@ -5,6 +5,7 @@ import {
 	acceptAndApplyDutyRosterTemplatePreview,
 	applyAcceptedDutyRosterTemplateRun,
 	applyDutyRosterTemplatePreviewManualSelection,
+	createConfiguredDutyRosterTemplate,
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
@@ -294,6 +295,76 @@ describe('Duty Roster Template use cases', () => {
 		const second = await createDutyRosterTemplate(createCtx(), { name: 'CQ NCO', shortCode: 'CQ' });
 
 		expect(second.slug).toBe('cq-nco-2');
+	});
+
+	it('creates a configured Duty Roster Template in one use-case call', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' }),
+			personnelRow({ id: 'p2', rank: 'SGT', last_name: 'Baker', group_id: 'alpha', groupName: 'Alpha' }),
+			personnelRow({ id: 'p3', rank: 'CPL', last_name: 'Charlie', group_id: 'bravo', groupName: 'Bravo' })
+		);
+
+		const template = await createConfiguredDutyRosterTemplate(ctx, {
+			name: 'CQ NCO',
+			slug: 'cq-nco',
+			shortCode: 'CQ',
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: ['p1'],
+			manualBaselineCounts: { p2: 3 }
+		});
+
+		expect(template).toMatchObject({
+			name: 'CQ NCO',
+			slug: 'cq-nco',
+			shortCode: 'CQ',
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: ['p1'],
+			manualBaselineCounts: { p2: 3 }
+		});
+		expect(assignmentTypeRows).toContainEqual(
+			expect.objectContaining({
+				id: template.assignmentTypeId,
+				name: 'CQ NCO',
+				short_name: 'CQ'
+			})
+		);
+	});
+
+	it('rejects invalid configured setup before creating partial template rows', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' })
+		);
+
+		await expect(
+			createConfiguredDutyRosterTemplate(ctx, {
+				name: 'CQ NCO',
+				slug: 'cq-nco',
+				shortCode: 'CQ',
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: ['missing-person'],
+				manualBaselineCounts: {}
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		expect(rows).toHaveLength(0);
+		expect(assignmentTypeRows).toHaveLength(0);
 	});
 
 	it('lists and opens active templates by slug for scoped Calendar viewers', async () => {

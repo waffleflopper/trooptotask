@@ -283,7 +283,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByText('Official')).toBeTruthy();
 		expect(screen.getByText('History')).toBeTruthy();
-		const recordLink = screen.getByRole('link', { name: /Run 2026-06-01 to 2026-06-01/ });
+		const recordLink = screen.getByRole('link', { name: /JUN 01, 2026 to JUN 01, 2026/ });
 		expect(recordLink.getAttribute('href')).toBe('/org/org-1/duty-rosters/cq-nco/history/run-1');
 		expect(screen.getByText('Not applied')).toBeTruthy();
 		expect(screen.getByText('Open official record')).toBeTruthy();

@@ -3,7 +3,6 @@
 		Calendar,
 		Database,
 		Eye,
-		FileText,
 		List,
 		Printer,
 		RefreshCw,
@@ -456,6 +455,7 @@
 						</div>
 					</div>
 					<div class="run-control-stack">
+						<p class="correction-note">Use Change Assignment on a roster row to record who actually served.</p>
 						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
 							<form method="POST" action={applyAcceptedRunAction}>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
@@ -560,57 +560,40 @@
 			<div class="history-ledger-table" role="table" aria-label="Duty Roster accepted runs">
 				<div class="history-ledger-table__row history-ledger-table__head" role="row">
 					<span role="columnheader">Run</span>
-					<span role="columnheader">Date Range</span>
-					<span role="columnheader">Accepted On</span>
-					<span role="columnheader">Accepted By</span>
 					<span role="columnheader">Calendar</span>
 					<span role="columnheader">Corrections</span>
-					<span role="columnheader">Export</span>
 					<span role="columnheader">State</span>
 					<span role="columnheader">Actions</span>
 				</div>
 				{#each filteredAcceptedRuns as run (run.id)}
-					{@const runReview = buildDutyRosterAcceptedRunReviewModel({
-						run,
-						isLatestRun: run.id === latestHistoryRunId
-					})}
 					<div
 						class="history-ledger-table__row"
 						class:history-ledger-table__row--latest={run.id === latestHistoryRunId}
 						role="row"
 					>
 						<span class="run-name-cell" role="cell">
-							<strong>Run {run.startDate} to {run.endDate}</strong>
-							<small>Weekly</small>
+							<strong>{formatDate(run.startDate)} to {formatDate(run.endDate)}</strong>
+							<small>Accepted {formatDateTime(run.acceptedAt)}</small>
 							<span class="open-record-note">Open official record</span>
 							{#if run.id === latestHistoryRunId}
 								<span class="status-chip status-chip--info">Latest</span>
 							{/if}
 						</span>
-						<span class="date-range-cell" role="cell">
-							<strong>{formatDate(run.startDate)} to {formatDate(run.endDate)}</strong>
-						</span>
-						<span role="cell">{formatDateTime(run.acceptedAt)}</span>
-						<span class="accepted-by-cell" role="cell" title={acceptedByLabel(run)}>{acceptedByLabel(run)}</span>
 						<span class="calendar-cell" role="cell">
 							<strong>{run.appliedAt ? 'Calendar' : 'History record'}</strong>
 							<small>{calendarStateLabel(run)}</small>
+							<small class="accepted-by-cell" title={acceptedByLabel(run)}>Accepted by {acceptedByLabel(run)}</small>
 						</span>
-						<span role="cell">
+						<span class="corrections-cell" role="cell">
+							<small>Corrections</small>
 							<span class="correction-count">{run.corrections.length}</span>
-						</span>
-						<span role="cell">
-							<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(run)}>
-								<FileText size={15} aria-hidden="true" />
-								PDF
-							</button>
 						</span>
 						<span role="cell"><span class={runStatusClass(run)}>{runStatusLabel(run)}</span></span>
 						<span class="history-actions-cell" role="cell">
 							<a
 								class="link-command link-command--icon"
 								href={historyDetailHref(run, 'roster')}
-								aria-label={`Run ${run.startDate} to ${run.endDate}`}
+								aria-label={formatDate(run.startDate) + ' to ' + formatDate(run.endDate)}
 							>
 								<Eye size={15} aria-hidden="true" />
 								Open

@@ -466,14 +466,15 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Template Details' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Template Identity' })).toBeTruthy();
 		expect(screen.getByLabelText('Template name')).toBeTruthy();
 		expect(screen.getByLabelText(/Template slug/)).toBeTruthy();
 		expect(screen.getAllByLabelText(/Short code/)).toHaveLength(1);
-		expect(screen.getByRole('heading', { name: 'Pool Criteria' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Duty-Specific Exemptions' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Eligibility Rules' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Individual Exclusions' })).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Manual DA6 Baseline' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'DA6 Continuity' })).toBeTruthy();
+		expect(screen.getByLabelText('Settings save actions')).toBeTruthy();
 		expect(screen.getByRole('complementary', { name: 'Template summary' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Open Generate' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/generate'
@@ -481,8 +482,17 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'Open History' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/history'
 		);
+		expect(screen.getByLabelText('Search pool')).toBeTruthy();
+		expect(screen.getByLabelText('Show excluded only')).toBeTruthy();
+		expect(screen.getByLabelText('Search baseline')).toBeTruthy();
+		expect(screen.getByLabelText('Show counted only')).toBeTruthy();
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Baker' } });
+		expect(screen.queryByText('Able, Ann')).toBeNull();
+		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-1"]')).toBeTruthy();
+
+		expect(screen.getByRole('button', { name: 'Save settings from sticky bar' })).toBeTruthy();
 	});
 });
 

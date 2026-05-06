@@ -360,6 +360,59 @@ function validateDutyRosterTemplateSetupInput(input: {
 	};
 }
 
+async function insertDutyRosterTemplateWithAssignmentType(
+	ctx: WritePorts,
+	input: {
+		templateId: string;
+		name: string;
+		slug: string;
+		shortCode: string | null;
+		poolCriteria: DutyRosterPoolCriteria;
+		exemptPersonnelIds: string[];
+		manualBaselineCounts: Record<string, number>;
+		timestamp: string;
+	}
+): Promise<DutyRosterTemplateRow> {
+	await ctx.store.insert<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, {
+		id: input.templateId,
+		name: input.name,
+		short_name: defaultDutyRosterAssignmentShortName(input),
+		assign_to: 'personnel',
+		color: '#8a5a22',
+		sort_order: 0,
+		show_in_date_header: false,
+		exempt_personnel_ids: []
+	});
+
+	try {
+		return await ctx.store.insert<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+			id: input.templateId,
+			assignment_type_id: input.templateId,
+			name: input.name,
+			slug: input.slug,
+			short_code: input.shortCode,
+			status: 'active',
+			pool_criteria: input.poolCriteria,
+			exempt_personnel_ids: input.exemptPersonnelIds,
+			manual_baseline_counts: input.manualBaselineCounts,
+			created_by_user_id: ctx.auth.userId,
+			created_at: input.timestamp,
+			updated_at: input.timestamp
+		});
+	} catch (error) {
+		await ctx.store.delete(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, input.templateId);
+		throw error;
+	}
+}
+
+function logDutyRosterTemplateCreated(ctx: WritePorts, row: DutyRosterTemplateRow): void {
+	ctx.audit.log({
+		action: 'duty_roster_template.created',
+		resourceType: 'duty_roster_template',
+		resourceId: row.id
+	});
+}
+
 export async function listDutyRosterTemplatesLifecycle(ctx: QueryPorts): Promise<DutyRosterTemplate[]> {
 	const rows = await ctx.store.findMany<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
@@ -404,46 +457,20 @@ export async function createDutyRosterTemplateLifecycle(
 		const now = new Date().toISOString();
 
 		try {
-			await ctx.store.insert<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, {
-				id: templateId,
-				name: parsed.name,
-				short_name: defaultDutyRosterAssignmentShortName(parsed),
-				assign_to: 'personnel',
-				color: '#8a5a22',
-				sort_order: 0,
-				show_in_date_header: false,
-				exempt_personnel_ids: []
-			});
-
-			const row = await ctx.store.insert<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
-				id: templateId,
-				assignment_type_id: templateId,
+			const row = await insertDutyRosterTemplateWithAssignmentType(ctx, {
+				templateId,
 				name: parsed.name,
 				slug,
-				short_code: parsed.shortCode,
-				status: 'active',
-				pool_criteria: EMPTY_DUTY_ROSTER_POOL_CRITERIA,
-				exempt_personnel_ids: [],
-				manual_baseline_counts: {},
-				created_by_user_id: ctx.auth.userId,
-				created_at: now,
-				updated_at: now
+				shortCode: parsed.shortCode,
+				poolCriteria: EMPTY_DUTY_ROSTER_POOL_CRITERIA,
+				exemptPersonnelIds: [],
+				manualBaselineCounts: {},
+				timestamp: now
 			});
-
-			ctx.audit.log({
-				action: 'duty_roster_template.created',
-				resourceType: 'duty_roster_template',
-				resourceId: row.id
-			});
+			logDutyRosterTemplateCreated(ctx, row);
 
 			return toTemplate(row);
 		} catch (error) {
-			try {
-				await ctx.store.delete(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, templateId);
-			} catch {
-				// Best-effort cleanup for the companion Calendar assignment type after a failed template insert.
-			}
-
 			if (!isUniqueSlugError(error) || attempt === 2) {
 				throw error;
 			}
@@ -486,46 +513,20 @@ export async function createConfiguredDutyRosterTemplateLifecycle(
 	const now = new Date().toISOString();
 
 	try {
-		await ctx.store.insert<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, {
-			id: templateId,
-			name: identity.name,
-			short_name: defaultDutyRosterAssignmentShortName(identity),
-			assign_to: 'personnel',
-			color: '#8a5a22',
-			sort_order: 0,
-			show_in_date_header: false,
-			exempt_personnel_ids: []
-		});
-
-		const row = await ctx.store.insert<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
-			id: templateId,
-			assignment_type_id: templateId,
+		const row = await insertDutyRosterTemplateWithAssignmentType(ctx, {
+			templateId,
 			name: identity.name,
 			slug: identity.slug,
-			short_code: identity.shortCode,
-			status: 'active',
-			pool_criteria: setup.poolCriteria,
-			exempt_personnel_ids: setup.exemptPersonnelIds,
-			manual_baseline_counts: setup.manualBaselineCounts,
-			created_by_user_id: ctx.auth.userId,
-			created_at: now,
-			updated_at: now
+			shortCode: identity.shortCode,
+			poolCriteria: setup.poolCriteria,
+			exemptPersonnelIds: setup.exemptPersonnelIds,
+			manualBaselineCounts: setup.manualBaselineCounts,
+			timestamp: now
 		});
-
-		ctx.audit.log({
-			action: 'duty_roster_template.created',
-			resourceType: 'duty_roster_template',
-			resourceId: row.id
-		});
+		logDutyRosterTemplateCreated(ctx, row);
 
 		return toTemplate(row);
 	} catch (error) {
-		try {
-			await ctx.store.delete(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, templateId);
-		} catch {
-			// Best-effort cleanup for the companion Calendar assignment type after a failed template insert.
-		}
-
 		if (isUniqueSlugError(error)) {
 			fail(400, 'Duty Roster Template slug is already in use.');
 		}

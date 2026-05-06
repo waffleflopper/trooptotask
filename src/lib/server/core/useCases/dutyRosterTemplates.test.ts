@@ -375,6 +375,58 @@ describe('Duty Roster Template use cases', () => {
 		expect(assignmentTypeRows).toHaveLength(0);
 	});
 
+	it('cleans up companion assignment types when simple template creation fails after assignment type creation', async () => {
+		const originalInsert = store.insert.bind(store);
+		const insertSpy = vi.spyOn(store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			if (table === 'duty_roster_templates') {
+				throw new Error('template insert failed');
+			}
+			return originalInsert(table, orgId, data, select);
+		});
+
+		await expect(createDutyRosterTemplate(createCtx(), { name: 'CQ NCO', shortCode: 'CQ' })).rejects.toThrow(
+			'template insert failed'
+		);
+
+		expect(rows).toHaveLength(0);
+		expect(assignmentTypeRows).toHaveLength(0);
+		insertSpy.mockRestore();
+	});
+
+	it('cleans up companion assignment types when configured template creation fails after assignment type creation', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'p1', rank: 'SGT', last_name: 'Able', group_id: 'alpha', groupName: 'Alpha' })
+		);
+		const originalInsert = store.insert.bind(store);
+		const insertSpy = vi.spyOn(store, 'insert').mockImplementation(async (table, orgId, data, select) => {
+			if (table === 'duty_roster_templates') {
+				throw new Error('configured template insert failed');
+			}
+			return originalInsert(table, orgId, data, select);
+		});
+
+		await expect(
+			createConfiguredDutyRosterTemplate(ctx, {
+				name: 'CQ NCO',
+				slug: 'cq-nco',
+				shortCode: 'CQ',
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: [],
+				manualBaselineCounts: { p1: 1 }
+			})
+		).rejects.toThrow('configured template insert failed');
+
+		expect(rows).toHaveLength(0);
+		expect(assignmentTypeRows).toHaveLength(0);
+		insertSpy.mockRestore();
+	});
+
 	it('lists and opens active templates by slug for scoped Calendar viewers', async () => {
 		await createDutyRosterTemplate(createCtx(), { name: 'Staff Duty NCO', shortCode: 'SD' });
 		await createDutyRosterTemplate(createCtx(), { name: 'CQ Runner', shortCode: 'CQ' });

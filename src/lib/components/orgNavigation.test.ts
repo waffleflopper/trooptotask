@@ -32,7 +32,7 @@ describe('getOrgNavigation', () => {
 		});
 
 		expect(nav.find((item) => item.id === 'calendar')?.visible).toBe(true);
-		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'training')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'critical-tasks')?.visible).toBe(true);
@@ -62,7 +62,7 @@ describe('getOrgNavigation', () => {
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
 	});
 
-	it('shows replacement Duty Rosters for calendar viewers and hides it without calendar view access', () => {
+	it('keeps replacement Duty Rosters out of primary navigation', () => {
 		const withCalendar = getOrgNavigation('org-1', {
 			...basePermissions,
 			canViewCalendar: true
@@ -76,7 +76,7 @@ describe('getOrgNavigation', () => {
 					href: '/org/org-1/duty-rosters',
 					label: 'Duty Rosters',
 					compactLabel: 'Duty',
-					visible: true
+					visible: false
 				})
 			])
 		);

@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-05-05-duty-roster-alpha',
+		date: '2026-05-05',
+		title: 'Duty Rosters Alpha',
+		items: [
+			'A new Duty Rosters system is now available from Calendar planning, built to better reflect how DA6 duty rosters are handled',
+			'This workflow is still under development and in an alpha state, so expect bugs. If you run into bugs or issues, please report them so they can be fixed'
+		]
+	},
+	{
 		id: '2026-04-30-duty-roster-workspace',
 		date: '2026-04-30',
 		title: 'Duty Roster Workspace Updates',

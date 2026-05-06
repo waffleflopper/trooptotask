@@ -117,7 +117,7 @@ export function getOrgNavigation(orgId: string, access: OrganizationMemberPermis
 			label: 'Duty Rosters',
 			compactLabel: 'Duty',
 			icon: 'duty-roster',
-			visible: canView('calendar'),
+			visible: false,
 			exactMatch: false
 		},
 		{

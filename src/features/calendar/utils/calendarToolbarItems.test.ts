@@ -75,7 +75,7 @@ describe('buildCalendarToolbarItems', () => {
 		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true, canManageConfig: true }));
 		const planning = items.find((i) => i.label === 'Planning');
 		const labels = planning!.menuItems!.map((i) => i.label);
-		expect(labels).toEqual(['Duty Rosters', 'Assignment Planner']);
+		expect(labels).toEqual(['Duty Rosters (alpha)', 'Assignment Planner']);
 		expect(planning!.menuItems![0].href).toBe('/org/org1/duty-rosters');
 	});
 

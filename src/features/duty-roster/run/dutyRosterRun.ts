@@ -67,7 +67,7 @@ function clonePersonnel(person: Personnel): DutyRosterSnapshotPersonnel {
 	};
 }
 
-function formatDate(value: Date): string {
+function formatLocalDate(value: Date): string {
 	const year = value.getFullYear();
 	const month = String(value.getMonth() + 1).padStart(2, '0');
 	const day = String(value.getDate()).padStart(2, '0');
@@ -78,7 +78,7 @@ function formatDateTime(value: Date): string {
 	const hours = String(value.getHours()).padStart(2, '0');
 	const minutes = String(value.getMinutes()).padStart(2, '0');
 	const seconds = String(value.getSeconds()).padStart(2, '0');
-	return `${formatDate(value)}T${hours}:${minutes}:${seconds}`;
+	return `${formatLocalDate(value)}T${hours}:${minutes}:${seconds}`;
 }
 
 function addHours(dateTime: string, hours: number): string {
@@ -87,20 +87,30 @@ function addHours(dateTime: string, hours: number): string {
 	return formatDateTime(value);
 }
 
-function addMonthsPreservingAnchor(value: Date, months: number, anchorDay: number): Date {
-	const next = new Date(value);
-	next.setDate(1);
-	next.setMonth(next.getMonth() + months);
-	const lastDayOfMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-	next.setDate(Math.min(anchorDay, lastDayOfMonth));
+function dateOnlyUtc(value: string): Date {
+	const [year, month, day] = value.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatDateOnlyUtc(value: Date): string {
+	const year = value.getUTCFullYear();
+	const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(value.getUTCDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+function addUtcMonthsPreservingAnchor(value: Date, months: number, anchorDay: number): Date {
+	const next = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + months, 1));
+	const lastDayOfMonth = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+	next.setUTCDate(Math.min(anchorDay, lastDayOfMonth));
 	return next;
 }
 
 function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: SpecialDay[]): string[] {
 	const dates: string[] = [];
-	const start = new Date(`${config.startDate}T00:00:00`);
-	const end = new Date(`${config.endDate}T00:00:00`);
-	const monthlyAnchorDay = start.getDate();
+	const start = dateOnlyUtc(config.startDate);
+	const end = dateOnlyUtc(config.endDate);
+	const monthlyAnchorDay = start.getUTCDate();
 	const excludedSpecialDays = new Set(
 		specialDays
 			.filter(
@@ -113,8 +123,8 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 	const current = new Date(start);
 
 	while (current <= end) {
-		const date = formatDate(current);
-		const dayOfWeek = current.getDay();
+		const date = formatDateOnlyUtc(current);
+		const dayOfWeek = current.getUTCDay();
 		const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 		if (!(config.excludeWeekends && isWeekend) && !excludedSpecialDays.has(date)) {
 			dates.push(date);
@@ -122,13 +132,13 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 
 		switch (config.dutyDuration) {
 			case 'daily':
-				current.setDate(current.getDate() + 1);
+				current.setUTCDate(current.getUTCDate() + 1);
 				break;
 			case 'weekly':
-				current.setDate(current.getDate() + 7);
+				current.setUTCDate(current.getUTCDate() + 7);
 				break;
 			case 'monthly':
-				current.setTime(addMonthsPreservingAnchor(current, 1, monthlyAnchorDay).getTime());
+				current.setTime(addUtcMonthsPreservingAnchor(current, 1, monthlyAnchorDay).getTime());
 				break;
 		}
 	}
@@ -137,7 +147,7 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 }
 
 function classifySequenceKind(date: string, specialDays: SpecialDay[]): DutyRosterSequenceKind {
-	const day = new Date(`${date}T00:00:00`).getDay();
+	const day = dateOnlyUtc(date).getUTCDay();
 	const isWeekend = day === 0 || day === 6;
 	const hasSpecialDay = specialDays.some((specialDay) => specialDay.date === date);
 

@@ -142,6 +142,20 @@ function advancedDuty(overrides: Partial<DutyEvent>): DutyEvent {
 	};
 }
 
+function withTimezone<T>(timezone: string, callback: () => T): T {
+	const previousTimezone = process.env.TZ;
+	process.env.TZ = timezone;
+	try {
+		return callback();
+	} finally {
+		if (previousTimezone === undefined) {
+			delete process.env.TZ;
+		} else {
+			process.env.TZ = previousTimezone;
+		}
+	}
+}
+
 describe('buildDutyRosterRunSnapshot', () => {
 	it('selects the Soldier with the longest break and uses DA6 roster order as the tie-breaker', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
@@ -534,6 +548,35 @@ describe('buildDutyRosterRunSnapshot', () => {
 			{ date: '2026-07-04', assigneeId: null, reason: 'No eligible personnel available' },
 			{ date: '2026-07-05', assigneeId: null, reason: 'No eligible personnel available' }
 		]);
+	});
+
+	it('iterates and classifies date-only duty dates with UTC semantics across server timezones', () => {
+		const input = baseInput({
+			config: {
+				startDate: '2011-12-29',
+				endDate: '2011-12-31',
+				dutyDuration: 'daily',
+				excludedStatusIds: [],
+				excludeWeekends: false,
+				excludeHolidays: false,
+				excludeOrgClosures: false
+			},
+			specialDays: [{ id: 'holiday', date: '2011-12-30', name: 'Training Holiday', type: 'federal-holiday' }]
+		});
+
+		const apia = withTimezone('Pacific/Apia', () => buildDutyRosterRunSnapshot(input));
+		const utc = withTimezone('UTC', () => buildDutyRosterRunSnapshot(input));
+
+		expect(apia.rosterRows.map((row) => row.date)).toEqual(['2011-12-29', '2011-12-30', '2011-12-31']);
+		expect(apia.da6.columns.map((column) => [column.date, column.sequenceKind])).toEqual([
+			['2011-12-29', 'weekday'],
+			['2011-12-30', 'holiday'],
+			['2011-12-31', 'weekend']
+		]);
+		expect(apia.rosterRows.map((row) => row.date)).toEqual(utc.rosterRows.map((row) => row.date));
+		expect(apia.da6.columns.map((column) => column.sequenceKind)).toEqual(
+			utc.da6.columns.map((column) => column.sequenceKind)
+		);
 	});
 
 	it('advances monthly duty dates without drifting from month-end starts', () => {

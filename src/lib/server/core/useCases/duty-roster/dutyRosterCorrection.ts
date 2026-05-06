@@ -155,17 +155,22 @@ export async function recordDutyRosterTemplateRunCorrection(
 	);
 
 	if (row.applied_at) {
-		await batchDailyAssignments(ctx, {
-			records: [
-				{
-					date: input.runRowDate,
-					assignmentTypeId: snapshot.template.id,
-					assigneeId: input.replacementAssigneeId,
-					dutyRosterTemplateRunId: row.id,
-					dutyRosterTemplateRunRowDate: input.runRowDate
-				}
-			]
-		});
+		try {
+			await batchDailyAssignments(ctx, {
+				records: [
+					{
+						date: input.runRowDate,
+						assignmentTypeId: snapshot.template.id,
+						assigneeId: input.replacementAssigneeId,
+						dutyRosterTemplateRunId: row.id,
+						dutyRosterTemplateRunRowDate: input.runRowDate
+					}
+				]
+			});
+		} catch (error) {
+			await ctx.store.delete(DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE, ctx.auth.orgId, inserted.id);
+			throw error;
+		}
 	}
 
 	await ctx.audit.log({

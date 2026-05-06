@@ -1090,6 +1090,59 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('rolls back correction history when applied Calendar assignment sync fails', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		const deleteWhereAnySpy = vi
+			.spyOn(store, 'deleteWhereAny')
+			.mockRejectedValueOnce(new Error('Calendar sync failed.'));
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: applied.acceptedRun.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Soldier performed duty for original assignee.'
+			})
+		).rejects.toThrow('Calendar sync failed.');
+
+		expect(correctionRows).toHaveLength(0);
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'alpha'
+			})
+		]);
+		expect(
+			auditEvents.some(
+				(event) => event.action === 'duty_roster_template_run.corrected' && event.resourceId === applied.acceptedRun.id
+			)
+		).toBe(false);
+
+		deleteWhereAnySpy.mockRestore();
+
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+
+		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'bravo' }]);
+	});
+
 	it('rejects duplicate no-op corrections against the current effective Soldier', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(

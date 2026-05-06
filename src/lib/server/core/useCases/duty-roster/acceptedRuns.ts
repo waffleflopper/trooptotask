@@ -167,6 +167,17 @@ export async function acceptReviewedDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: { preview: DutyRosterTemplatePreview; acceptedAt?: string }
 ): Promise<DutyRosterTemplateAcceptedRun> {
+	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
+
+	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+
+	return acceptedRun;
+}
+
+async function insertAcceptedDutyRosterTemplatePreview(
+	ctx: WritePorts,
+	input: { preview: DutyRosterTemplatePreview; acceptedAt?: string }
+): Promise<DutyRosterTemplateAcceptedRun> {
 	const acceptedAt = input.acceptedAt ?? new Date().toISOString();
 	const snapshot = buildDutyRosterTemplateAcceptedSnapshot({
 		preview: input.preview,
@@ -185,13 +196,15 @@ export async function acceptReviewedDutyRosterTemplatePreview(
 		created_at: acceptedAt
 	});
 
+	return toAcceptedDutyRosterTemplateRun(inserted);
+}
+
+async function logAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
 	await ctx.audit.log({
 		action: 'duty_roster_template_run.accepted',
 		resourceType: 'duty_roster_template_run',
-		resourceId: inserted.id
+		resourceId: runId
 	});
-
-	return toAcceptedDutyRosterTemplateRun(inserted);
 }
 
 export async function applyAcceptedDutyRosterTemplateRun(
@@ -301,13 +314,27 @@ export async function acceptAndApplyDutyRosterTemplatePreview(
 	ctx: WritePorts,
 	input: { preview: DutyRosterTemplatePreview }
 ): Promise<DutyRosterTemplateApplyResult> {
-	const acceptedRun = await acceptReviewedDutyRosterTemplatePreview(ctx, input);
-	return applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun);
+	const acceptedRun = await insertAcceptedDutyRosterTemplatePreview(ctx, input);
+	let result: DutyRosterTemplateApplyResult;
+	try {
+		result = await applyAcceptedDutyRosterTemplateRunRecord(ctx, acceptedRun, { audit: false });
+	} catch (error) {
+		await rollbackAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+		throw error;
+	}
+
+	await logAcceptedDutyRosterTemplateRun(ctx, acceptedRun.id);
+	await logAppliedDutyRosterTemplateRun(ctx, result.acceptedRun.id, {
+		inserted: result.insertedCount,
+		cleared: result.clearedCount
+	});
+	return result;
 }
 
 async function applyAcceptedDutyRosterTemplateRunRecord(
 	ctx: WritePorts,
-	run: DutyRosterTemplateAcceptedRun
+	run: DutyRosterTemplateAcceptedRun,
+	options: { audit?: boolean } = {}
 ): Promise<DutyRosterTemplateApplyResult> {
 	const result = await batchDailyAssignments(ctx, {
 		records: applyRecordsFromAcceptedRun(run)
@@ -323,21 +350,36 @@ async function applyAcceptedDutyRosterTemplateRunRecord(
 		}
 	);
 
-	await ctx.audit.log({
-		action: 'duty_roster_template_run.applied_to_calendar',
-		resourceType: 'duty_roster_template_run',
-		resourceId: run.id,
-		details: {
+	if (options.audit !== false) {
+		await logAppliedDutyRosterTemplateRun(ctx, run.id, {
 			inserted: result.inserted.length,
 			cleared: result.cleared
-		}
-	});
+		});
+	}
 
 	return {
 		acceptedRun: toAcceptedDutyRosterTemplateRun(updated),
 		insertedCount: result.inserted.length,
 		clearedCount: result.cleared
 	};
+}
+
+async function logAppliedDutyRosterTemplateRun(
+	ctx: WritePorts,
+	runId: string,
+	details: { inserted: number; cleared: number }
+): Promise<void> {
+	await ctx.audit.log({
+		action: 'duty_roster_template_run.applied_to_calendar',
+		resourceType: 'duty_roster_template_run',
+		resourceId: runId,
+		details
+	});
+}
+
+async function rollbackAcceptedDutyRosterTemplateRun(ctx: WritePorts, runId: string): Promise<void> {
+	await ctx.store.deleteWhere('daily_assignments', ctx.auth.orgId, { duty_roster_template_run_id: runId });
+	await ctx.store.delete(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, runId);
 }
 
 async function hydrateAcceptedRunCalendarState(

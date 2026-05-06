@@ -36,6 +36,7 @@ import {
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import {
 	acceptReviewedDutyRosterTemplatePreview,
+	acceptAndApplyDutyRosterTemplatePreview as acceptAndApplyAcceptedRunLifecycle,
 	applyAcceptedDutyRosterTemplateRun as applyAcceptedRunLifecycle,
 	hasAcceptedDutyRosterTemplateRun,
 	invalidateLatestDutyRosterTemplateRun as invalidateLatestRunLifecycle,
@@ -666,6 +667,15 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ): Promise<DutyRosterTemplateAcceptedRun> {
+	return acceptReviewedDutyRosterTemplatePreview(ctx, {
+		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
+	});
+}
+
+async function buildReviewedDutyRosterTemplatePreview(
+	ctx: WritePorts,
+	input: DutyRosterTemplateAcceptPreviewInput
+): Promise<DutyRosterTemplatePreview> {
 	const parsed = parseAcceptPreviewInput(input);
 	let preview: DutyRosterTemplatePreview;
 	try {
@@ -711,7 +721,7 @@ export async function acceptDutyRosterTemplatePreviewLifecycle(
 		fail(400, errorValue instanceof Error ? errorValue.message : 'Accept preview input is invalid');
 	}
 
-	return acceptReviewedDutyRosterTemplatePreview(ctx, { preview: acceptedPreview });
+	return acceptedPreview;
 }
 
 export async function applyAcceptedDutyRosterTemplateRunLifecycle(ctx: WritePorts, input: { runId: string }) {
@@ -734,8 +744,9 @@ export async function acceptAndApplyDutyRosterTemplatePreviewLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateAcceptPreviewInput
 ) {
-	const acceptedRun = await acceptDutyRosterTemplatePreviewLifecycle(ctx, input);
-	return applyAcceptedRunLifecycle(ctx, { runId: acceptedRun.id });
+	return acceptAndApplyAcceptedRunLifecycle(ctx, {
+		preview: await buildReviewedDutyRosterTemplatePreview(ctx, input)
+	});
 }
 
 export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(

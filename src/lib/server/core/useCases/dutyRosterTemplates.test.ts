@@ -200,7 +200,15 @@ const store: DataStore = {
 			source.splice(index, 1);
 		}
 	},
-	deleteWhere: vi.fn(),
+	async deleteWhere(table, orgId, filters) {
+		const source = tableRows(table);
+		for (let index = source.length - 1; index >= 0; index -= 1) {
+			const row = source[index];
+			if (row?.organization_id === orgId && Object.entries(filters).every(([key, value]) => row[key] === value)) {
+				source.splice(index, 1);
+			}
+		}
+	},
 	async deleteWhereAny(table, orgId, filterGroups) {
 		const source = tableRows(table);
 		for (let index = source.length - 1; index >= 0; index -= 1) {
@@ -825,6 +833,43 @@ describe('Duty Roster Template use cases', () => {
 				resourceId: result.acceptedRun.id
 			})
 		);
+	});
+
+	it('rolls back accepted history when accept-and-apply cannot write Calendar assignments', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const insertManySpy = vi.spyOn(store, 'insertMany').mockRejectedValueOnce(new Error('Calendar apply failed.'));
+
+		await expect(
+			acceptAndApplyDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			})
+		).rejects.toThrow('Calendar apply failed.');
+
+		expect(acceptedRunRows).toHaveLength(0);
+		expect(dailyAssignmentRows).toHaveLength(0);
+		expect(auditEvents).not.toContainEqual(expect.objectContaining({ action: 'duty_roster_template_run.accepted' }));
+		expect(auditEvents).not.toContainEqual(
+			expect.objectContaining({ action: 'duty_roster_template_run.applied_to_calendar' })
+		);
+
+		insertManySpy.mockRestore();
+
+		const retry = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		expect(acceptedRunRows).toHaveLength(1);
+		expect(retry.acceptedRun.appliedAt).toEqual(expect.any(String));
+		expect(dailyAssignmentRows).toHaveLength(1);
 	});
 
 	it('applies an accepted run later from history', async () => {

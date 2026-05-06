@@ -65,8 +65,46 @@ export async function listAcceptedDutyRosterTemplateRuns(
 		}
 	);
 
-	const runsWithCorrections = await hydrateAcceptedRunCorrections(ctx, rows.map(toAcceptedDutyRosterTemplateRun));
+	const runsWithCorrections = await hydrateAcceptedRunActorDisplayNames(
+		ctx,
+		await hydrateAcceptedRunCorrections(ctx, rows.map(toAcceptedDutyRosterTemplateRun))
+	);
 	return hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
+}
+
+type OrganizationMembershipActorRow = {
+	user_id: string;
+	email: string | null;
+};
+
+async function hydrateAcceptedRunActorDisplayNames(
+	ctx: QueryPorts,
+	runs: DutyRosterTemplateAcceptedRun[]
+): Promise<DutyRosterTemplateAcceptedRun[]> {
+	const actorIds = [...new Set(runs.map((run) => run.acceptedByUserId).filter((id): id is string => Boolean(id)))];
+	if (actorIds.length === 0) return runs;
+
+	const membershipRows = await ctx.store.findMany<OrganizationMembershipActorRow>(
+		'organization_memberships',
+		ctx.auth.orgId,
+		{},
+		{
+			select: 'user_id,email',
+			inFilters: { user_id: actorIds }
+		}
+	);
+	const displayByUserId = new Map(membershipRows.map((row) => [row.user_id, actorDisplayName(row.email, row.user_id)]));
+
+	return runs.map((run) => ({
+		...run,
+		acceptedByDisplayName: run.acceptedByUserId ? (displayByUserId.get(run.acceptedByUserId) ?? null) : null
+	}));
+}
+
+function actorDisplayName(email: string | null, fallbackUserId: string): string {
+	const normalized = email?.trim();
+	if (!normalized) return fallbackUserId;
+	return normalized;
 }
 
 export async function hasAcceptedDutyRosterTemplateRun(ctx: QueryPorts, templateId: string): Promise<boolean> {

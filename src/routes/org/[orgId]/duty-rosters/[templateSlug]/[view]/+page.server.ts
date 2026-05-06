@@ -97,6 +97,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	return {
 		orgId,
 		orgName: parentData.orgName,
+		breadcrumbLabel: data.selectedTemplate.name,
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
 		settings: data.settings,

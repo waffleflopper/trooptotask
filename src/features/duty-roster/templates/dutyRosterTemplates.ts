@@ -121,6 +121,7 @@ export interface DutyRosterTemplateAcceptedRun {
 	endDate: string;
 	acceptedAt: string;
 	acceptedByUserId: string | null;
+	acceptedByDisplayName?: string | null;
 	appliedAt: string | null;
 	appliedByUserId: string | null;
 	invalidatedAt: string | null;

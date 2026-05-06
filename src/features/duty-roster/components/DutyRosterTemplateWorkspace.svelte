@@ -44,7 +44,6 @@
 
 	const viewTabs = $derived(workspace.viewTabs);
 	const historyMode = $derived(workspace.historyMode);
-	const acceptedHistoryColumns = $derived(workspace.acceptedHistoryColumns);
 
 	$effect(() => {
 		if (!isNewTemplate || !actionForm?.values) return;
@@ -130,7 +129,6 @@
 						{historyDetailRun}
 						{latestHistoryRunId}
 						{historyMode}
-						{acceptedHistoryColumns}
 						{applyAcceptedRunAction}
 						{invalidateAcceptedRunAction}
 						{correctAcceptedRunAction}

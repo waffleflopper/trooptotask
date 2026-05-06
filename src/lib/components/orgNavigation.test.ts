@@ -167,9 +167,20 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Test Org', href: '/org/org-1' },
 			{ label: 'Duty Rosters' }
 		]);
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/history', 'Test Org', nav)).toEqual([
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/generate', 'Test Org', nav, 'CQ NCO')).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' }
+			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
+			{ label: 'CQ NCO' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/history', 'Test Org', nav, 'CQ NCO')).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
+			{ label: 'CQ NCO' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/settings', 'Test Org', nav, 'CQ NCO')).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
+			{ label: 'CQ NCO' }
 		]);
 		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/new', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },

@@ -114,6 +114,7 @@ describe('Duty Roster Template view route', () => {
 		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgName: 'Able Company',
+			breadcrumbLabel: 'CQ NCO',
 			selectedTemplate: { id: 'template-1', slug: 'cq-nco' },
 			countReadModel: { sourceLabel: 'DA6 roster order' },
 			view: 'history'

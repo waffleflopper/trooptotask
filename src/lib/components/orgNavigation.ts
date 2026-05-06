@@ -224,6 +224,11 @@ export function getOrgBreadcrumbs(
 
 	breadcrumbs[1].href = activeItem.href;
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
+	if (activeItem.id === 'duty-rosters' && childSegment && childSegment !== 'new' && routeLeafLabel) {
+		breadcrumbs.push({ label: routeLeafLabel });
+		return breadcrumbs;
+	}
+
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
 		(activeItem.id === 'critical-tasks' && childSegment ? (routeLeafLabel ?? 'Person') : undefined);

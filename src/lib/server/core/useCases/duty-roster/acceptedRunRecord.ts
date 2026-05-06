@@ -40,6 +40,7 @@ export function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): 
 		endDate: row.end_date,
 		acceptedAt: row.accepted_at,
 		acceptedByUserId: row.accepted_by_user_id,
+		acceptedByDisplayName: null,
 		appliedAt: row.applied_at ?? null,
 		appliedByUserId: row.applied_by_user_id ?? null,
 		invalidatedAt: row.invalidated_at ?? null,

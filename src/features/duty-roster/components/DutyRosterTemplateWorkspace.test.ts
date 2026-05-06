@@ -166,6 +166,33 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(submitted.baseline).toBe('4');
 	});
 
+	it('bounds New Template large-pool exemption rows while keeping search access', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [],
+					selectedTemplate: null,
+					view: 'new',
+					setupOptions: {
+						personnel: largePersonnel(130)
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+		expect(screen.getByText('Showing 100 of 130 matching Soldiers. Search to narrow large pools.')).toBeTruthy();
+		expect(screen.queryByText('SGT Large130, Test')).toBeNull();
+
+		await fireEvent.input(screen.getByLabelText<HTMLInputElement>('Search pool'), { target: { value: 'Large130' } });
+
+		expect(screen.getByText('SGT Large130, Test')).toBeTruthy();
+		expect(screen.getByText('Showing 1 of 1 matching Soldiers. Search to narrow large pools.')).toBeTruthy();
+	});
+
 	it('renders generated preview list and DA6 matrix without official actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -500,7 +527,65 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('button', { name: 'Save settings from sticky bar' })).toBeTruthy();
 	});
+
+	it('bounds large settings tables and preserves hidden selected values', async () => {
+		const personnel = largePersonnel(130);
+		const selectedLargeTemplate = {
+			...template,
+			exemptPersonnelIds: ['person-130'],
+			manualBaselineCounts: { 'person-129': 7 }
+		};
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [selectedLargeTemplate],
+					selectedTemplate: selectedLargeTemplate,
+					settings: {
+						personnel,
+						resolvedPool: personnel,
+						baselineRows: personnel.map((person) => ({
+							personnel: person,
+							startingCount: person.id === 'person-129' ? 7 : null
+						}))
+					},
+					view: 'settings'
+				}
+			}
+		});
+
+		expect(screen.getAllByText('Showing 100 of 130 matching Soldiers')).toHaveLength(2);
+		expect(screen.queryByText('Large130, Test')).toBeNull();
+		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-130"]')).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Large130' } });
+
+		expect(screen.getByText('Large130, Test')).toBeTruthy();
+		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
+
+		await fireEvent.input(screen.getByLabelText('Search baseline'), { target: { value: 'Large129' } });
+
+		expect(screen.getByText('Large129, Test')).toBeTruthy();
+		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
+	});
 });
+
+function largePersonnel(count: number) {
+	return Array.from({ length: count }, (_, index) => {
+		const personNumber = index + 1;
+		return {
+			id: `person-${personNumber}`,
+			rank: 'SGT',
+			firstName: 'Test',
+			lastName: `Large${personNumber}`,
+			mos: '11B',
+			dutyRole: 'Rifleman',
+			groupId: 'alpha',
+			groupName: 'Alpha'
+		};
+	});
+}
 
 function preview(options: { manual?: boolean } = {}): DutyRosterTemplatePreview {
 	const da6 = {

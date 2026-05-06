@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { AlertTriangle, Calendar, CheckCircle2, Info, Printer, Save, X } from '@lucide/svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
@@ -36,14 +37,32 @@
 		preview ? buildDutyRosterPreviewReviewModel({ preview, selectedAssigneeIds: selectedPreviewAssignees }) : null
 	);
 	const activePreviewRow = $derived(previewReview?.rows.find((row) => row.date === activePreviewDate) ?? null);
-	const previewAssignedCount = $derived(previewReview?.rows.filter((row) => row.finalAssignee).length ?? 0);
-	const previewManualCount = $derived(previewReview?.rows.filter((row) => row.manualSelection).length ?? 0);
-	const previewRequiresActionCount = $derived(previewReview?.rows.filter((row) => !row.finalAssignee).length ?? 0);
-	const previewWarningCount = $derived(
-		previewReview?.rows.reduce((total, row) => total + row.liveWarnings.length, 0) ?? 0
+	const previewMetrics = $derived(
+		previewReview?.rows.reduce(
+			(metrics, row) => ({
+				assignedCount: metrics.assignedCount + (row.finalAssignee ? 1 : 0),
+				manualCount: metrics.manualCount + (row.manualSelection ? 1 : 0),
+				requiresActionCount: metrics.requiresActionCount + (row.finalAssignee ? 0 : 1),
+				warningCount: metrics.warningCount + row.liveWarnings.length
+			}),
+			{ assignedCount: 0, manualCount: 0, requiresActionCount: 0, warningCount: 0 }
+		) ?? { assignedCount: 0, manualCount: 0, requiresActionCount: 0, warningCount: 0 }
 	);
+	const previewAssignedCount = $derived(previewMetrics.assignedCount);
+	const previewManualCount = $derived(previewMetrics.manualCount);
+	const previewRequiresActionCount = $derived(previewMetrics.requiresActionCount);
+	const previewWarningCount = $derived(previewMetrics.warningCount);
 	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
+
+	function handleGenerateEnhance() {
+		generatingPreview = true;
+
+		return async ({ update }: { update: () => Promise<void> }) => {
+			await update();
+			generatingPreview = false;
+		};
+	}
 
 	function printDraftPreview(preview: DutyRosterTemplatePreview): void {
 		printDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
@@ -106,9 +125,7 @@
 						class="generate-form"
 						method="POST"
 						action={generateAction}
-						onsubmit={() => {
-							generatingPreview = true;
-						}}
+						use:enhance={handleGenerateEnhance}
 					>
 						<input type="hidden" name="templateId" value={selectedTemplate.id} />
 						<div class="generate-form__fields">
@@ -283,18 +300,11 @@
 								<CheckCircle2 size={16} aria-hidden="true" />
 								Accept Run
 							</button>
-						</form>
-						<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-							<input type="hidden" name="intent" value="print" />
-							<button class="btn btn-secondary" type="submit">
+							<button class="btn btn-secondary" type="submit" name="intent" value="print">
 								<Printer size={16} aria-hidden="true" />
 								Accept Run + Print
 							</button>
-						</form>
-						<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
-							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-							<button class="btn btn-amber" type="submit">
+							<button class="btn btn-amber" type="submit" formaction={applyPreviewAction}>
 								<Calendar size={16} aria-hidden="true" />
 								Accept + Apply to Calendar
 							</button>

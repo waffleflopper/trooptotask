@@ -50,6 +50,11 @@
 		wizardBaselineCounts: Record<string, string>;
 	} = $props();
 
+	let wizardExemptionQuery = $state('');
+
+	const MAX_RESOLVED_POOL_PREVIEW_ROWS = 10;
+	const MAX_EXEMPTION_PICKER_ROWS = 100;
+
 	const setupSteps: Array<{ id: SetupStep; label: string; note: string }> = [
 		{ id: 'general', label: 'Basics', note: 'Identity' },
 		{ id: 'pool', label: 'Pool', note: 'Eligible Soldiers' },
@@ -57,22 +62,32 @@
 		{ id: 'review', label: 'Review', note: 'Confirm' }
 	];
 
+	const rankFilterSet = $derived(new Set(rankFilterValues));
+	const groupFilterSet = $derived(new Set(groupFilterValues));
+	const mosFilterSet = $derived(new Set(mosFilterValues));
+	const dutyRoleFilterSet = $derived(new Set(dutyRoleFilterValues));
+	const wizardExemptPersonnelIdSet = $derived(new Set(wizardExemptPersonnelIds));
 	const wizardResolvedPool = $derived(
 		setupPersonnel.filter((person) => {
-			if (rankFilterValues.length > 0 && !rankFilterValues.includes(person.rank)) return false;
-			if (groupFilterValues.length > 0 && (!person.groupId || !groupFilterValues.includes(person.groupId))) {
+			if (rankFilterSet.size > 0 && !rankFilterSet.has(person.rank)) return false;
+			if (groupFilterSet.size > 0 && (!person.groupId || !groupFilterSet.has(person.groupId))) {
 				return false;
 			}
-			if (mosFilterValues.length > 0 && !mosFilterValues.includes(person.mos)) return false;
-			if (dutyRoleFilterValues.length > 0 && !dutyRoleFilterValues.includes(person.dutyRole)) return false;
+			if (mosFilterSet.size > 0 && !mosFilterSet.has(person.mos ?? '')) return false;
+			if (dutyRoleFilterSet.size > 0 && !dutyRoleFilterSet.has(person.dutyRole ?? '')) return false;
 			return true;
 		})
 	);
+	const wizardResolvedPoolPreviewRows = $derived(wizardResolvedPool.slice(0, MAX_RESOLVED_POOL_PREVIEW_ROWS));
+	const filteredWizardExemptionRows = $derived(
+		wizardResolvedPool.filter((person) => matchesPersonnelQuery(person, wizardExemptionQuery))
+	);
+	const visibleWizardExemptionRows = $derived(filteredWizardExemptionRows.slice(0, MAX_EXEMPTION_PICKER_ROWS));
 	const wizardExemptPersonnel = $derived(
-		wizardResolvedPool.filter((person) => wizardExemptPersonnelIds.includes(person.id))
+		wizardResolvedPool.filter((person) => wizardExemptPersonnelIdSet.has(person.id))
 	);
 	const wizardBaselineRows = $derived(
-		wizardResolvedPool.filter((person) => !wizardExemptPersonnelIds.includes(person.id))
+		wizardResolvedPool.filter((person) => !wizardExemptPersonnelIdSet.has(person.id))
 	);
 	const templateSlug = $derived(newTemplateSlug || slugifyDutyRosterTemplateName(newTemplateName));
 	const routePreview = $derived(`${basePath}/${templateSlug}/generate`);
@@ -103,6 +118,19 @@
 			...wizardBaselineCounts,
 			[personnelId]: value
 		};
+	}
+
+	function matchesPersonnelQuery(
+		person: { rank: string; lastName: string; firstName: string; mos?: string | null; groupName?: string | null },
+		query: string
+	): boolean {
+		const normalizedQuery = query.trim().toLowerCase();
+		if (!normalizedQuery) return true;
+
+		return [person.rank, person.lastName, person.firstName, person.mos ?? '', person.groupName ?? 'No Group']
+			.join(' ')
+			.toLowerCase()
+			.includes(normalizedQuery);
 	}
 </script>
 
@@ -264,7 +292,7 @@
 									<span role="columnheader">Duty Role</span>
 									<span role="columnheader">Eligible</span>
 								</div>
-								{#each wizardResolvedPool.slice(0, 10) as person (person.id)}
+								{#each wizardResolvedPoolPreviewRows as person (person.id)}
 									<div class="pool-row" role="row">
 										<span role="cell">{person.rank || 'No rank'}</span>
 										<span role="cell">{person.lastName}, {person.firstName}</span>
@@ -278,7 +306,7 @@
 								{/each}
 							</div>
 							<p class="table-count-note">
-								Showing {Math.min(wizardResolvedPool.length, 10)} of {wizardResolvedPool.length}
+								Showing {wizardResolvedPoolPreviewRows.length} of {wizardResolvedPool.length}
 							</p>
 						{/if}
 					</section>
@@ -404,13 +432,22 @@
 					{#if wizardResolvedPool.length === 0}
 						<p class="context-note">Exemptions can only be selected from the resolved pool.</p>
 					{:else}
+						<label class="settings-table-search">
+							<span>Search pool</span>
+							<input
+								class="input"
+								type="search"
+								placeholder="Name, rank, MOS, group"
+								bind:value={wizardExemptionQuery}
+							/>
+						</label>
 						<div class="exemption-list">
-							{#each wizardResolvedPool as person (person.id)}
+							{#each visibleWizardExemptionRows as person (person.id)}
 								<label>
 									<input
 										type="checkbox"
 										value={person.id}
-										checked={wizardExemptPersonnelIds.includes(person.id)}
+										checked={wizardExemptPersonnelIdSet.has(person.id)}
 										onchange={(event) => {
 											const checked = event.currentTarget.checked;
 											wizardExemptPersonnelIds = checked
@@ -422,6 +459,10 @@
 								</label>
 							{/each}
 						</div>
+						<p class="context-note" aria-live="polite">
+							Showing {visibleWizardExemptionRows.length} of {filteredWizardExemptionRows.length} matching Soldiers. Search
+							to narrow large pools.
+						</p>
 					{/if}
 					<section class="pool-summary-card">
 						<h4>Pool summary</h4>

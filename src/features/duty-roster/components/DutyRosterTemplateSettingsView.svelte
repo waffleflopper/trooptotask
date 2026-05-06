@@ -23,6 +23,8 @@
 	let baselineQuery = $state('');
 	let showBaselineCountsOnly = $state(false);
 
+	const MAX_SETTINGS_TABLE_ROWS = 100;
+
 	const selectedTemplate = $derived(settings.selectedTemplate);
 	const actionForm = $derived(settings.actionForm);
 	const templateSettings = $derived(settings.settings);
@@ -32,10 +34,11 @@
 	const eligibleCount = $derived(
 		templateSettings ? Math.max(templateSettings.resolvedPool.length - settingsExemptPersonnelIds.length, 0) : 0
 	);
-	const visibleExemptionRows = $derived(
+	const settingsExemptPersonnelIdSet = $derived(new Set(settingsExemptPersonnelIds));
+	const filteredExemptionRows = $derived(
 		templateSettings
 			? templateSettings.resolvedPool.filter((person) => {
-					const isExcluded = settingsExemptPersonnelIds.includes(person.id);
+					const isExcluded = settingsExemptPersonnelIdSet.has(person.id);
 					return (
 						(!showExcludedOnly || isExcluded) &&
 						matchesPersonnelQuery(person, exemptionQuery, selectedTemplate.shortCode ?? selectedTemplate.name)
@@ -43,11 +46,12 @@
 				})
 			: []
 	);
+	const visibleExemptionRows = $derived(filteredExemptionRows.slice(0, MAX_SETTINGS_TABLE_ROWS));
 	const visibleExemptionIds = $derived(new Set(visibleExemptionRows.map((person) => person.id)));
 	const hiddenExemptPersonnelIds = $derived(
 		settingsExemptPersonnelIds.filter((personnelId) => !visibleExemptionIds.has(personnelId))
 	);
-	const visibleBaselineRows = $derived(
+	const filteredBaselineRows = $derived(
 		templateSettings
 			? templateSettings.baselineRows.filter((row) => {
 					const countValue = settingsBaselineCounts[row.personnel.id] ?? '';
@@ -58,6 +62,7 @@
 				})
 			: []
 	);
+	const visibleBaselineRows = $derived(filteredBaselineRows.slice(0, MAX_SETTINGS_TABLE_ROWS));
 	const visibleBaselineIds = $derived(new Set(visibleBaselineRows.map((row) => row.personnel.id)));
 	const hiddenBaselineRows = $derived(
 		templateSettings ? templateSettings.baselineRows.filter((row) => !visibleBaselineIds.has(row.personnel.id)) : []
@@ -268,8 +273,8 @@
 								<span>Show excluded only</span>
 							</label>
 							<p>
-								Showing {visibleExemptionRows.length} of {templateSettings.resolvedPool.length}
-								Soldiers
+								Showing {visibleExemptionRows.length} of {filteredExemptionRows.length}
+								matching Soldiers
 							</p>
 						</div>
 						<div class="pool-table admin-table-shell" role="table" aria-label="Resolved Duty Roster pool">
@@ -293,7 +298,7 @@
 												type="checkbox"
 												name="exemptPersonnelIds"
 												value={person.id}
-												checked={settingsExemptPersonnelIds.includes(person.id)}
+												checked={settingsExemptPersonnelIdSet.has(person.id)}
 												onchange={(event) => {
 													const checked = event.currentTarget.checked;
 													settingsExemptPersonnelIds = checked
@@ -347,8 +352,8 @@
 								<span>Show counted only</span>
 							</label>
 							<p>
-								Showing {visibleBaselineRows.length} of {templateSettings.baselineRows.length}
-								Soldiers
+								Showing {visibleBaselineRows.length} of {filteredBaselineRows.length}
+								matching Soldiers
 							</p>
 						</div>
 						<div class="baseline-list admin-table-shell" role="table" aria-label="Manual DA6 baseline">

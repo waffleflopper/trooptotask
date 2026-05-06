@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
@@ -55,8 +56,9 @@
 				? $page.data.breadcrumbLabel
 				: undefined
 	);
-	const navItems = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions).filter((item) => item.visible));
-	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, navItems, routeLeafLabel));
+	const allNavItems = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions));
+	const navItems = $derived(allNavItems.filter((item) => item.visible));
+	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
 
 	onMount(() => {
 		clientDashboardDateLabel = formatDashboardDisplayDate(formatDate(new Date()));
@@ -64,14 +66,14 @@
 </script>
 
 <aside class="app-rail" aria-label="Primary navigation">
-	<a href="/org/{orgId}" class="rail-mark-link" aria-label="Troop to Task dashboard">
+	<a href={resolve(`/org/${orgId}`)} class="rail-mark-link" aria-label="Troop to Task dashboard">
 		<span class="rail-mark">T2T</span>
 	</a>
 
 	<nav class="rail-nav">
 		{#each navItems as item (item.href)}
 			<a
-				href={item.href}
+				href={resolve(item.href as `/org/${string}`)}
 				class="rail-item"
 				class:active={isOrgNavItemActive(pathname, item)}
 				aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}

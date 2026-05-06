@@ -96,9 +96,9 @@
 						'Use "Assignments" from the toolbar to assign personnel to daily duties (MOD, Front Desk, CQ, etc.). The monthly planner lets you fill assignments quickly across the month.'
 				},
 				{
-					title: 'Duty Roster Generator',
+					title: 'Duty Rosters',
 					content:
-						'The Duty Roster tool automatically distributes assignments fairly across eligible personnel, taking into account availability and previous assignment counts.'
+						'Duty Rosters generate fair duty assignments across eligible personnel, taking into account availability and previous assignment counts.'
 				},
 				{
 					title: 'Bulk Status',
@@ -121,7 +121,7 @@
 				},
 				{
 					content:
-						'Bulk Status, Duty Roster Generator, and Export use Calendar policy access. Admins and owners retain full access.',
+						'Bulk Status, Duty Rosters, and Export use Calendar policy access. Admins and owners retain full access.',
 					role: 'admin'
 				}
 			]

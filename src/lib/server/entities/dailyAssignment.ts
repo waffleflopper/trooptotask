@@ -15,6 +15,12 @@ export const DailyAssignmentEntity = defineEntity<DailyAssignment>({
 		id: field(z.string(), { readOnly: true }),
 		date: field(z.string()),
 		assignmentTypeId: field(z.string(), { column: 'assignment_type_id' }),
-		assigneeId: field(z.string(), { column: 'assignee_id' })
+		assigneeId: field(z.string(), { column: 'assignee_id' }),
+		dutyRosterTemplateRunId: field(z.string().nullable().optional(), {
+			column: 'duty_roster_template_run_id'
+		}),
+		dutyRosterTemplateRunRowDate: field(z.string().nullable().optional(), {
+			column: 'duty_roster_template_run_row_date'
+		})
 	}
 });

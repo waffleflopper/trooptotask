@@ -46,7 +46,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<h4>More Tools (overflow menu)</h4>
 			<ul>
 				<li><strong>Bulk Status</strong> — apply the same status to multiple people at once</li>
-				<li><strong>Duty Roster Generator</strong> — auto-generate duty assignments with filters and rules (Pro feature)</li>
+				<li><strong>Duty Rosters</strong> — generate fair duty assignments with filters and rules (Pro feature)</li>
 				<li><strong>Export to Excel / Print</strong> — download or print the current month</li>
 				<li><strong>Show Status Text</strong> — toggle status names on cells</li>
 				<li><strong>Status Types / Assignment Types / Holidays</strong> — configure your organization's options</li>

@@ -8,16 +8,16 @@ Turn issue #708 into an implementation-ready design plan for the **Advanced Duty
 
 This plan keeps the product direction from #699 and ADR 0007 intact: advanced duties remain team-duty runs, preview creates a server-custodied draft **Advanced Run Snapshot**, apply consumes that reviewed snapshot by identity, and preview-only export stays clearly labeled as not applied output.
 
-The goal is not to restyle the current wizard. The goal is to replace the rigid stepper and stacked preview/history layout with a workspace that lets an operator configure, review, edit, apply, export, and inspect advanced duty runs without losing the active run as the primary job.
+The goal was not to restyle the then-current wizard. The goal was to replace the rigid stepper and stacked preview/history layout with a workspace that let an operator configure, review, edit, apply, export, and inspect advanced duty runs without losing the active run as the primary job.
 
-## Current State
+## Historical State At Plan Time
 
-- `DutyRosterPage.svelte` has a top-level toggle between the current wizard and advanced template management.
-- `DutyRosterWizard.svelte` owns lane selection, simple duty generation, advanced template selection, policy review, date pattern setup, candidate review, preview, apply, and the applied-event manager.
-- `AdvancedSeriesPreviewStep.svelte` and `SeriesPreviewPanel.svelte` render the active advanced preview as stacked date or pool cards.
-- `AppliedEventManager.svelte` and `AppliedEventsSection.svelte` are permanently stacked under the active advanced flow when the user is not in the simple template list or simple generator.
-- This makes applied-event history visually compete with the active run, even when the operator is trying to review one draft snapshot.
-- The current stepper is useful as a first-run guide, but it becomes a narrow path once the operator needs to iterate between setup, candidates, preview, overrides, collisions, export, and apply.
+- The removed legacy page had a top-level toggle between the old wizard and advanced template management.
+- The removed legacy wizard owned lane selection, simple duty generation, advanced template selection, policy review, date pattern setup, candidate review, preview, apply, and the applied-event manager.
+- Removed legacy preview components rendered the active advanced preview as stacked date or pool cards.
+- Removed legacy applied-event components were permanently stacked under the active advanced flow when the user was not in the simple template list or simple generator.
+- This made applied-event history visually compete with the active run, even when the operator was trying to review one draft snapshot.
+- The old stepper was useful as a first-run guide, but it became a narrow path once the operator needed to iterate between setup, candidates, preview, overrides, collisions, export, and apply.
 
 ## Design Register
 
@@ -238,7 +238,7 @@ Use a phased component shape so implementation can land in vertical slices:
 - `AdvancedDutyRunReviewTable.svelte`: owns dense preview rows and slot controls.
 - `AdvancedDutyRunActionBar.svelte`: owns apply/export/regenerate/retry/recovery actions.
 - `AdvancedDutyRunStateBanner.svelte`: owns snapshot and recovery state language.
-- Existing `AppliedEventManager.svelte`: moves behind the Applied Events view first, then can be refined later.
+- Existing applied-event manager: moves behind the Applied Events view first, then can be refined later.
 
 These names are directional, not mandatory. The implementation should follow existing feature-module conventions and keep the page component as orchestration rather than business logic.
 

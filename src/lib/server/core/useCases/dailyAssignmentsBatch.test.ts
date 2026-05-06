@@ -185,6 +185,33 @@ describe('batchDailyAssignments', () => {
 		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe('person-1');
 	});
 
+	it('preserves Duty Roster Template run lineage on inserted assignments', async () => {
+		const ctx = buildContext();
+
+		await batchDailyAssignments(ctx, {
+			records: [
+				{
+					date: '2026-03-22',
+					assignmentTypeId: 'type-a',
+					assigneeId: 'person-1',
+					dutyRosterTemplateRunId: 'run-1',
+					dutyRosterTemplateRunRowDate: '2026-03-22'
+				}
+			]
+		});
+
+		const remaining = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(remaining).toEqual([
+			expect.objectContaining({
+				date: '2026-03-22',
+				assignment_type_id: 'type-a',
+				assignee_id: 'person-1',
+				duty_roster_template_run_id: 'run-1',
+				duty_roster_template_run_row_date: '2026-03-22'
+			})
+		]);
+	});
+
 	it('checks duty coverage in bulk and clears affected assignment slots with one predicate delete', async () => {
 		const ctx = buildContext();
 		const findManyCalls: string[] = [];

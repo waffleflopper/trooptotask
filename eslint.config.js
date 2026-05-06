@@ -75,7 +75,8 @@ export default ts.config(
 			'.agents/skills/impeccable/scripts/',
 			'.vercel/',
 			'playwright-report/',
-			'test-results/'
+			'test-results/',
+			'tmp/'
 		]
 	}
 );

@@ -71,11 +71,12 @@ describe('buildCalendarToolbarItems', () => {
 		expect(labels).toEqual(['Assignment Planner']);
 	});
 
-	it('keeps Duty Roster planning behind Calendar configuration access while that workflow is still advanced-only', () => {
+	it('keeps Duty Rosters planning behind Calendar configuration access while that workflow is still advanced-only', () => {
 		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true, canManageConfig: true }));
 		const planning = items.find((i) => i.label === 'Planning');
 		const labels = planning!.menuItems!.map((i) => i.label);
-		expect(labels).toEqual(['Duty Roster', 'Assignment Planner']);
+		expect(labels).toEqual(['Duty Rosters (alpha)', 'Assignment Planner']);
+		expect(planning!.menuItems![0].href).toBe('/org/org1/duty-rosters');
 	});
 
 	it('includes settings as the first low-priority action to compact for admins', () => {

@@ -6,20 +6,20 @@
 
 Deepen the simple Duty Roster Generator into a feature-owned **Duty Roster Run Module** that owns DA Form 6-style generation, immutable run snapshots, apply/save payloads, and export-ready data.
 
-The current generator is useful, but too much duty logic lives inside `DutyRosterGenerator.svelte`: setup state, availability checks, advanced-duty blocking, DA6 matrix creation, apply payload creation, history payload creation, and browser export formatting. That makes the page module shallow: callers and tests have to understand nearly the entire implementation to verify one roster run.
+The removed simple generator was useful, but too much duty logic lived inside its Svelte component: setup state, availability checks, advanced-duty blocking, DA6 matrix creation, apply payload creation, history payload creation, and browser export formatting. That made the page module shallow: callers and tests had to understand nearly the entire implementation to verify one roster run.
 
-This RFC keeps the simple generator easy to use while making the underlying module robust enough for regulation-informed DA6 behavior and future export tooling.
+This RFC is now historical. Use it as prior art for the retained run module and DA6 snapshot model, not as implementation guidance to rebuild the removed simple-generator UI.
 
-## Current State
+## Historical State At RFC Time
 
-- `src/features/duty-roster/components/DutyRosterGenerator.svelte` owns generation, preview, apply, history save, DA6 data, and Excel HTML export behavior.
-- The current generator uses a simplified "longest since last duty, then alphabetical" assignment rule.
+- The removed simple-generator component owned generation, preview, apply, history save, DA6 data, and Excel HTML export behavior.
+- The removed generator used a simplified "longest since last duty, then alphabetical" assignment rule.
 - Advanced duty overlap and cooldown already affect whether a Soldier can be selected.
-- Saved roster history captures a snapshot-like payload, but the shape is assembled inside the Svelte page.
-- Export currently builds Excel-compatible HTML in the Svelte page.
+- Saved roster history captured a snapshot-like payload, but the shape was assembled inside the Svelte page.
+- Export built Excel-compatible HTML in the Svelte page.
 - The broader advanced duty rebuild already expects simple duties to remain lightweight while advanced duties gain richer templates and events.
 
-## Goals
+## Historical Goals
 
 1. Move duty-run logic behind a deep module with a small, testable interface.
 2. Preserve simple duty roster usability as the default path.
@@ -30,7 +30,7 @@ This RFC keeps the simple generator easy to use while making the underlying modu
 7. Produce export-ready data without formatting files directly.
 8. Leave clean seams for future Calendar status semantics, sitewide export, and manual DA6 adjustments.
 
-## Non-Goals
+## Historical Non-Goals
 
 - Do not build the sitewide export module in this slice.
 - Do not generate final Excel/PDF/DA6 files inside the Duty Roster Run Module.
@@ -229,7 +229,7 @@ Replace page-local generation with the run snapshot while preserving the visible
 
 Acceptance criteria:
 
-- `DutyRosterGenerator.svelte` calls the run module to generate preview.
+- The page-level generator calls the run module to generate preview.
 - Existing preview rows still render.
 - Generated DA6 data comes from the snapshot, not page-local reconstruction.
 - Changing form inputs after generation does not mutate the active snapshot.
@@ -270,7 +270,7 @@ Remove leftover duty-run business logic from the Svelte page and document remain
 
 Acceptance criteria:
 
-- `DutyRosterGenerator.svelte` no longer owns selection rules, DA6 numbering rules, apply payload construction, or history payload construction.
+- The page-level generator no longer owns selection rules, DA6 numbering rules, apply payload construction, or history payload construction.
 - Page code is mostly UI adapter state and callback orchestration.
 - Any temporary export formatting adapter is clearly isolated.
 - Relevant docs mention the Duty Roster Run Module and the future export/status follow-ups.

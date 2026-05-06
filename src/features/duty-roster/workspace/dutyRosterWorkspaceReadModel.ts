@@ -7,6 +7,7 @@ import type {
 	DutyRosterTemplateView
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-roster/templates/dutyRosterDatePolicy';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
 export type DutyRosterWorkspaceActionForm = {
@@ -162,8 +163,8 @@ export function buildDutyRosterWorkspaceReadModel(
 		? (acceptedRuns.find((run) => run.id === data.historyDetailRunId) ?? null)
 		: null;
 	const countReadModel = data.countReadModel ?? null;
-	const todayDate = dateOnlyLocal(now);
-	const defaultDateRange = nextMonthRange(now);
+	const todayDate = dutyRosterTodayDate(now);
+	const defaultDateRange = nextDutyRosterMonthRange(now);
 	const generateStartDate = actionForm?.generateValues?.startDate ?? defaultDateRange.startDate;
 	const generateEndDate = actionForm?.generateValues?.endDate ?? defaultDateRange.endDate;
 	const generateAction = selectedTemplate
@@ -286,22 +287,6 @@ export function uniqueGroupOptions(
 	}
 
 	return groups.sort((a, b) => a.label.localeCompare(b.label));
-}
-
-export function dateOnlyLocal(date: Date): string {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
-
-export function nextMonthRange(date: Date): { startDate: string; endDate: string } {
-	const start = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-	const end = new Date(date.getFullYear(), date.getMonth() + 2, 0);
-	return {
-		startDate: dateOnlyLocal(start),
-		endDate: dateOnlyLocal(end)
-	};
 }
 
 export function optionItems(values: string[]): Array<{ value: string; label: string }> {

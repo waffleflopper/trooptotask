@@ -270,6 +270,20 @@ function createCtx(auth = createAuth()) {
 	return { auth, store, rawStore: store, audit, readOnlyGuard, criticalTasksReadModel };
 }
 
+async function withTimezone<T>(timezone: string, callback: () => Promise<T>): Promise<T> {
+	const previousTimezone = process.env.TZ;
+	process.env.TZ = timezone;
+	try {
+		return await callback();
+	} finally {
+		if (previousTimezone === undefined) {
+			delete process.env.TZ;
+		} else {
+			process.env.TZ = previousTimezone;
+		}
+	}
+}
+
 describe('Duty Roster Template use cases', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -819,6 +833,38 @@ describe('Duty Roster Template use cases', () => {
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Generate preview can cover 62 days or fewer'
+		});
+	});
+
+	it('validates Generate preview start dates against UTC today instead of server-local midnight', async () => {
+		await withTimezone('America/Anchorage', async () => {
+			vi.setSystemTime(new Date('2026-05-05T00:30:00.000Z'));
+			const ctx = createCtx();
+			const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+			await expect(
+				generateDutyRosterTemplatePreview(ctx, {
+					templateId: template.id,
+					startDate: '2026-05-04',
+					endDate: '2026-05-04'
+				})
+			).rejects.toMatchObject({
+				status: 400,
+				message: 'Duty Roster previews cannot start in the past'
+			});
+
+			await expect(
+				generateDutyRosterTemplatePreview(ctx, {
+					templateId: template.id,
+					startDate: '2026-05-05',
+					endDate: '2026-05-05'
+				})
+			).resolves.toMatchObject({
+				config: {
+					startDate: '2026-05-05',
+					endDate: '2026-05-05'
+				}
+			});
 		});
 	});
 

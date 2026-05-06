@@ -75,6 +75,30 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.canGenerate).toBe(false);
 	});
 
+	it('uses UTC today for Generate input minimums across server timezones', () => {
+		const model = withTimezone('America/Anchorage', () =>
+			buildDutyRosterWorkspaceReadModel(
+				{
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'generate'
+				},
+				{
+					generateValues: {
+						startDate: '2026-05-04',
+						endDate: '2026-05-04'
+					}
+				},
+				new Date('2026-05-05T00:30:00.000Z')
+			)
+		);
+
+		expect(model.todayDate).toBe('2026-05-05');
+		expect(model.canGenerate).toBe(false);
+	});
+
 	it('normalizes setup option values for template setup screens', () => {
 		const model = buildDutyRosterWorkspaceReadModel(
 			{
@@ -117,3 +141,17 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.dutyRoleOptions).toEqual(['Rifleman']);
 	});
 });
+
+function withTimezone<T>(timezone: string, callback: () => T): T {
+	const previousTimezone = process.env.TZ;
+	process.env.TZ = timezone;
+	try {
+		return callback();
+	} finally {
+		if (previousTimezone === undefined) {
+			delete process.env.TZ;
+		} else {
+			process.env.TZ = previousTimezone;
+		}
+	}
+}

@@ -34,6 +34,7 @@ import {
 	assertDutyRosterTemplatePreview,
 	type DutyRosterTemplatePreview
 } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import { dutyRosterTodayDate } from '$features/duty-roster/templates/dutyRosterDatePolicy';
 import {
 	acceptReviewedDutyRosterTemplatePreview,
 	acceptAndApplyDutyRosterTemplatePreview as acceptAndApplyAcceptedRunLifecycle,
@@ -87,7 +88,7 @@ const generatePreviewSchema = z
 		message: `Generate preview can cover ${MAX_PREVIEW_DAYS} days or fewer`,
 		path: ['endDate']
 	})
-	.refine((input) => input.startDate >= currentDateOnly(), {
+	.refine((input) => input.startDate >= dutyRosterTodayDate(), {
 		message: 'Duty Roster previews cannot start in the past',
 		path: ['startDate']
 	});
@@ -221,14 +222,6 @@ function inclusiveDateSpan(startDate: string, endDate: string): number {
 function dateOnlyUtc(value: string): Date {
 	const [year, month, day] = value.split('-').map(Number);
 	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function currentDateOnly(): string {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = String(now.getMonth() + 1).padStart(2, '0');
-	const day = String(now.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 function parseCreateInput(input: DutyRosterTemplateCreateInput): {

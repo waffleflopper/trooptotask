@@ -16,6 +16,7 @@ import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalenda
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
+const MAX_DUTY_ROSTER_COOLDOWN_HOURS = 168;
 
 type AssignmentTarget = 'personnel' | 'group';
 type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };
@@ -49,6 +50,9 @@ interface BatchRecord {
 	date: string;
 	assignmentTypeId: string;
 	assigneeId: string; // empty string = clear slot
+	cooldownHours?: number;
+	dutyRosterTemplateRunId?: string | null;
+	dutyRosterTemplateRunRowDate?: string | null;
 }
 
 interface BatchInput {
@@ -129,6 +133,13 @@ function toSlotKey(date: string, assignmentTypeId: string): string {
 	return `${date}::${assignmentTypeId}`;
 }
 
+function normalizeBatchCooldownHours(value: number | undefined): number {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+		return 0;
+	}
+	return Math.min(Math.floor(value), MAX_DUTY_ROSTER_COOLDOWN_HOURS);
+}
+
 export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
 	const { records } = input;
 
@@ -169,7 +180,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 				assigneeId: record.assigneeId,
 				coverageStart: `${record.date}T00:00:00`,
 				coverageEnd: `${record.date}T23:59:59`,
-				cooldownHours: 0
+				cooldownHours: normalizeBatchCooldownHours(record.cooldownHours)
 			}));
 		const conflictsByCheck = await findDutyCoverageConflictsBatch(ctx, {
 			checks,
@@ -200,7 +211,13 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 	if (upserts.length > 0) {
 		const rows = upserts.map((r) =>
 			entity.toDbInsert(
-				{ date: r.date, assignmentTypeId: r.assignmentTypeId, assigneeId: r.assigneeId },
+				{
+					date: r.date,
+					assignmentTypeId: r.assignmentTypeId,
+					assigneeId: r.assigneeId,
+					dutyRosterTemplateRunId: r.dutyRosterTemplateRunId,
+					dutyRosterTemplateRunRowDate: r.dutyRosterTemplateRunRowDate
+				},
 				ctx.auth.orgId
 			)
 		);

@@ -2,8 +2,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildDutyRosterRunSnapshot } from '../run';
 import type { DutyRosterRunInput } from '../run';
+import type {
+	DutyRosterTemplateAcceptedSnapshot,
+	DutyRosterTemplatePreview
+} from '../templates/dutyRosterTemplatePreview';
 import type { AssignmentType, Personnel } from '$lib/types';
-import { exportDutyRosterForBrowser } from './dutyRosterBrowserExport';
+import {
+	buildDutyRosterBrowserExportHtml,
+	exportDutyRosterForBrowser,
+	printDutyRosterForBrowser
+} from './dutyRosterBrowserExport';
 
 const assignmentType: AssignmentType = {
 	id: 'staff-duty',
@@ -183,4 +191,137 @@ describe('exportDutyRosterForBrowser', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	it('builds draft output from preview final selections without saving official history', () => {
+		const preview = templatePreview();
+
+		const html = buildDutyRosterBrowserExportHtml({ templatePreview: preview, statusLabel: 'Draft' });
+
+		expect(html).toContain('Draft Staff Duty Roster');
+		expect(html).toContain('Baker, Blake');
+		expect(html).toContain('MANUAL');
+		expect(html).toContain('Generated: SGT Able, Avery');
+		expect(html).toContain('Commander directed swap');
+		expect(html).toContain('<p>Authorized markings only: roster numbers, A, D#, and U#.</p>');
+		expect(html).not.toContain('da6-assigned">X');
+	});
+
+	it('builds official output from accepted snapshots', () => {
+		const acceptedSnapshot = acceptedTemplateSnapshot();
+
+		const html = buildDutyRosterBrowserExportHtml({ acceptedSnapshot, statusLabel: 'Official' });
+
+		expect(html).toContain('Official Staff Duty Roster');
+		expect(html).toContain('Baker, Blake');
+		expect(html).toContain('MANUAL');
+		expect(html).toContain('Generated: SGT Able, Avery');
+		expect(html).not.toContain('da6-assigned">X');
+	});
+
+	it('opens a browser print window for roster output', () => {
+		const preview = templatePreview();
+		const print = vi.fn();
+		const focus = vi.fn();
+		const documentMock = {
+			open: vi.fn(),
+			write: vi.fn(),
+			close: vi.fn()
+		};
+		const originalOpen = window.open;
+		window.open = vi.fn(() => ({
+			opener: null,
+			document: documentMock,
+			focus,
+			print
+		})) as unknown as typeof window.open;
+
+		try {
+			printDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
+
+			expect(window.open).toHaveBeenCalledWith('', '_blank');
+			expect(documentMock.write).toHaveBeenCalledWith(expect.stringContaining('Draft Staff Duty Roster'));
+			expect(focus).toHaveBeenCalledOnce();
+			expect(print).toHaveBeenCalledOnce();
+		} finally {
+			window.open = originalOpen;
+		}
+	});
 });
+
+function templatePreview(): DutyRosterTemplatePreview {
+	const snapshot = buildDutyRosterRunSnapshot({
+		...runInput(),
+		personnel: [
+			person({ id: 'alpha', lastName: 'Able', firstName: 'Avery' }),
+			person({ id: 'bravo', lastName: 'Baker', firstName: 'Blake' })
+		]
+	});
+
+	return {
+		...snapshot,
+		selectionPersonnel: [
+			{
+				id: 'alpha',
+				rank: 'SGT',
+				lastName: 'Able',
+				firstName: 'Avery',
+				groupId: 'group-a',
+				groupName: 'Alpha',
+				archivedAt: null
+			},
+			{
+				id: 'bravo',
+				rank: 'SGT',
+				lastName: 'Baker',
+				firstName: 'Blake',
+				groupId: 'group-a',
+				groupName: 'Alpha',
+				archivedAt: null
+			}
+		],
+		manualSelections: [
+			{
+				date: '2026-05-01',
+				originalAssigneeId: 'alpha',
+				assigneeId: 'bravo',
+				reason: 'Commander directed swap',
+				warnings: []
+			}
+		]
+	};
+}
+
+function acceptedTemplateSnapshot(): DutyRosterTemplateAcceptedSnapshot {
+	const preview = templatePreview();
+	return {
+		snapshotVersion: 1,
+		template: {
+			id: preview.assignmentType.id,
+			name: preview.assignmentType.name,
+			shortCode: preview.assignmentType.shortName
+		},
+		generatedAt: preview.generatedAt,
+		acceptedAt: '2026-05-01T12:00:00.000Z',
+		acceptedByUserId: 'user-1',
+		config: preview.config,
+		resolvedPool: preview.personnel,
+		selectionPersonnel: preview.selectionPersonnel,
+		generatedRows: preview.rosterRows,
+		finalRows: [
+			{
+				date: '2026-05-01',
+				generatedAssigneeId: 'alpha',
+				finalAssigneeId: 'bravo',
+				assignmentSource: 'manual',
+				generatedDisplay: preview.selectionPersonnel[0],
+				finalDisplay: preview.selectionPersonnel[1],
+				reason: 'Commander directed swap',
+				warnings: []
+			}
+		],
+		manualSelections: preview.manualSelections,
+		da6: preview.da6,
+		exportModel: preview.exportModel,
+		warnings: []
+	};
+}

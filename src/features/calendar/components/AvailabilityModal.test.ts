@@ -101,7 +101,7 @@ function renderModal(
 
 describe('AvailabilityModal — advanced duty events', () => {
 	it('shows a duty section when the person is assigned to a duty event on that date', () => {
-		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/calendar/duty-roster/');
+		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/duty-rosters/');
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 	});
@@ -125,16 +125,16 @@ describe('AvailabilityModal — advanced duty events', () => {
 			coverageStart: '2026-04-06T20:00:00',
 			coverageEnd: '2026-04-07T06:00:00'
 		});
-		renderModal(new Date(2026, 3, 7), [overnightEvent], '/org/test/calendar/duty-roster/');
+		renderModal(new Date(2026, 3, 7), [overnightEvent], '/org/test/duty-rosters/');
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 	});
 
 	it('renders a link to the duty roster for the assigned duty event', () => {
-		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/calendar/duty-roster/');
+		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/duty-rosters/');
 
 		const link = screen.getByRole('link', { name: /Battalion Staff Duty/i });
-		expect(link.getAttribute('href')).toBe('/org/test/calendar/duty-roster/');
+		expect(link.getAttribute('href')).toBe('/org/test/duty-rosters/');
 	});
 });
 

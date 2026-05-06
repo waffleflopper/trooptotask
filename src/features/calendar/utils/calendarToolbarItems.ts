@@ -71,8 +71,8 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarA
 		const planningItems: NonNullable<ToolbarActionConfig['menuItems']> = [];
 		if (input.canManageConfig) {
 			planningItems.push({
-				label: 'Duty Roster',
-				href: `/org/${input.orgId}/calendar/duty-roster`,
+				label: 'Duty Rosters (alpha)',
+				href: `/org/${input.orgId}/duty-rosters`,
 				disabled: input.readOnly,
 				disabledReason: readOnlyReason
 			});

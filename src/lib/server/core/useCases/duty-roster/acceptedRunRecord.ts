@@ -1,0 +1,133 @@
+import { fail } from '$lib/server/core/errors';
+import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
+import { effectiveDutyRosterAssigneeId } from '$features/duty-roster/templates/dutyRosterCorrection';
+import type { DutyRosterTemplateAcceptedSnapshot } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+
+export type DutyRosterTemplateRunRow = {
+	id: string;
+	organization_id: string;
+	template_id: string;
+	template_name: string;
+	status: 'accepted' | 'invalidated';
+	start_date: string;
+	end_date: string;
+	snapshot_payload: Record<string, unknown>;
+	accepted_by_user_id: string | null;
+	accepted_at: string;
+	applied_by_user_id: string | null;
+	applied_at: string | null;
+	invalidated_by_user_id: string | null;
+	invalidated_at: string | null;
+	created_at: string;
+};
+
+export type DutyRosterTemplateLinkedCalendarAssignmentRow = {
+	id: string;
+	duty_roster_template_run_id: string;
+	duty_roster_template_run_row_date: string | null;
+	date: string;
+	assignment_type_id: string;
+	assignee_id: string;
+};
+
+export function toAcceptedDutyRosterTemplateRun(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedRun {
+	return {
+		id: row.id,
+		templateId: row.template_id,
+		templateName: row.template_name,
+		status: row.status,
+		startDate: row.start_date,
+		endDate: row.end_date,
+		acceptedAt: row.accepted_at,
+		acceptedByUserId: row.accepted_by_user_id,
+		acceptedByDisplayName: null,
+		appliedAt: row.applied_at ?? null,
+		appliedByUserId: row.applied_by_user_id ?? null,
+		invalidatedAt: row.invalidated_at ?? null,
+		invalidatedByUserId: row.invalidated_by_user_id ?? null,
+		linkedCalendarAssignmentCount: 0,
+		calendarAssignmentsEdited: false,
+		corrections: [],
+		snapshotPayload: row.snapshot_payload,
+		createdAt: row.created_at
+	};
+}
+
+export function parseAcceptedRunSnapshot(snapshotPayload: Record<string, unknown>): DutyRosterTemplateAcceptedSnapshot {
+	if (snapshotPayload.snapshotVersion !== 1) {
+		fail(500, 'Unsupported Duty Roster accepted snapshot version.');
+	}
+
+	return snapshotPayload as unknown as DutyRosterTemplateAcceptedSnapshot;
+}
+
+export function acceptedRunSnapshot(row: DutyRosterTemplateRunRow): DutyRosterTemplateAcceptedSnapshot {
+	return parseAcceptedRunSnapshot(row.snapshot_payload);
+}
+
+export function expectedCalendarAssignmentsByRowDate(
+	run: DutyRosterTemplateAcceptedRun
+): Map<string, { assignmentTypeId: string; assigneeId: string }> {
+	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
+	const expected = new Map<string, { assignmentTypeId: string; assigneeId: string }>();
+
+	for (const row of snapshot.finalRows) {
+		const assigneeId = effectiveDutyRosterAssigneeId({
+			runRowDate: row.date,
+			acceptedAssigneeId: row.finalAssigneeId,
+			corrections: run.corrections
+		});
+		if (!assigneeId) continue;
+		expected.set(row.date, {
+			assignmentTypeId: snapshot.template.id,
+			assigneeId
+		});
+	}
+
+	return expected;
+}
+
+export function linkedCalendarAssignmentsWereEdited(
+	run: DutyRosterTemplateAcceptedRun,
+	rows: DutyRosterTemplateLinkedCalendarAssignmentRow[]
+): boolean {
+	if (!run.appliedAt) {
+		return false;
+	}
+
+	const expected = expectedCalendarAssignmentsByRowDate(run);
+	if (rows.length !== expected.size) {
+		return true;
+	}
+
+	for (const row of rows) {
+		const rowDate = row.duty_roster_template_run_row_date ?? row.date;
+		const expectedRow = expected.get(rowDate);
+		if (
+			!expectedRow ||
+			row.date !== rowDate ||
+			row.assignment_type_id !== expectedRow.assignmentTypeId ||
+			row.assignee_id !== expectedRow.assigneeId
+		) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+export function applyRecordsFromAcceptedRun(run: DutyRosterTemplateAcceptedRun) {
+	const snapshot = parseAcceptedRunSnapshot(run.snapshotPayload);
+	return snapshot.finalRows.map((row) => ({
+		date: row.date,
+		assignmentTypeId: snapshot.template.id,
+		assigneeId:
+			effectiveDutyRosterAssigneeId({
+				runRowDate: row.date,
+				acceptedAssigneeId: row.finalAssigneeId,
+				corrections: run.corrections
+			}) ?? '',
+		dutyRosterTemplateRunId: run.id,
+		dutyRosterTemplateRunRowDate: row.date
+	}));
+}

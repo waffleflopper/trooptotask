@@ -41,8 +41,8 @@ const quickActions: Record<DashboardTabId, DashboardQuickAction[]> = {
 		},
 		{
 			id: 'duty-roster',
-			label: 'Duty Roster',
-			href: (orgId) => `/org/${orgId}/calendar/duty-roster`,
+			label: 'Duty Rosters',
+			href: (orgId) => `/org/${orgId}/duty-rosters`,
 			permission: 'canViewCalendar',
 			icon: 'clipboard-check'
 		},

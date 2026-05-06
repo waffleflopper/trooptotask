@@ -614,11 +614,16 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 		resolvedPool
 	});
 
-	const row = await ctx.store.update<DutyRosterTemplateRow>(
-		DUTY_ROSTER_TEMPLATE_TABLE,
-		ctx.auth.orgId,
-		input.templateId,
-		{
+	await assertDutyRosterSettingsInvariantsAtWriteTime(ctx, {
+		templateId: input.templateId,
+		slug: identity.slug,
+		manualBaselineCounts,
+		existingBaselineCounts
+	});
+
+	let row: DutyRosterTemplateRow;
+	try {
+		row = await ctx.store.update<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, input.templateId, {
 			name: identity.name,
 			slug: identity.slug,
 			short_code: identity.shortCode,
@@ -626,8 +631,13 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 			exempt_personnel_ids: setup.exemptPersonnelIds,
 			manual_baseline_counts: hasAcceptedRun ? existingBaselineCounts : manualBaselineCounts,
 			updated_at: new Date().toISOString()
+		});
+	} catch (error) {
+		if (isUniqueSlugError(error)) {
+			fail(400, 'Duty Roster Template slug is already in use.');
 		}
-	);
+		throw error;
+	}
 	await ctx.store.update<Record<string, unknown>>(ASSIGNMENT_TYPE_TABLE, ctx.auth.orgId, existing.assignment_type_id, {
 		name: identity.name,
 		short_name: defaultDutyRosterAssignmentShortName(identity)
@@ -640,6 +650,28 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 	});
 
 	return toTemplate(row);
+}
+
+async function assertDutyRosterSettingsInvariantsAtWriteTime(
+	ctx: WritePorts,
+	input: {
+		templateId: string;
+		slug: string;
+		manualBaselineCounts: Record<string, number>;
+		existingBaselineCounts: Record<string, number>;
+	}
+): Promise<void> {
+	const slugRows = await ctx.store.findMany<{ id: string }>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		slug: input.slug
+	});
+	if (slugRows.some((row) => row.id !== input.templateId)) {
+		fail(400, 'Duty Roster Template slug is already in use.');
+	}
+
+	const hasAcceptedRun = await hasAcceptedDutyRosterTemplateRun(ctx, input.templateId);
+	if (hasAcceptedRun && !baselineCountsEqual(input.manualBaselineCounts, input.existingBaselineCounts)) {
+		fail(409, 'Manual DA6 Baseline is locked because this template accepted a run. Refresh settings and try again.');
+	}
 }
 
 export async function generateDutyRosterTemplatePreviewLifecycle(

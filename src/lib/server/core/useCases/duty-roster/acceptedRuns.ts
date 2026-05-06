@@ -270,18 +270,9 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			)
 		: [];
 	const calendarAssignmentsEdited = linkedCalendarAssignmentsWereEdited(acceptedRun, linkedRows);
-	const calendarRemoval =
-		linkedRows.length > 0
-			? await batchDailyAssignments(ctx, {
-					records: linkedRows.map((assignment) => ({
-						date: assignment.date,
-						assignmentTypeId: assignment.assignment_type_id,
-						assigneeId: ''
-					}))
-				})
-			: { inserted: [], cleared: 0 };
 
 	const invalidatedAt = new Date().toISOString();
+	await assertDutyRosterRunIsLatestAtWriteTime(ctx, row);
 	const updated = await ctx.store.update<DutyRosterTemplateRunRow>(
 		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
 		ctx.auth.orgId,
@@ -292,6 +283,26 @@ export async function invalidateLatestDutyRosterTemplateRun(
 			invalidated_by_user_id: ctx.auth.userId
 		}
 	);
+	let calendarRemoval: { cleared: number };
+	try {
+		calendarRemoval =
+			linkedRows.length > 0
+				? await batchDailyAssignments(ctx, {
+						records: linkedRows.map((assignment) => ({
+							date: assignment.date,
+							assignmentTypeId: assignment.assignment_type_id,
+							assigneeId: ''
+						}))
+					})
+				: { inserted: [], cleared: 0 };
+	} catch (error) {
+		await ctx.store.update<DutyRosterTemplateRunRow>(DUTY_ROSTER_TEMPLATE_RUN_TABLE, ctx.auth.orgId, row.id, {
+			status: 'accepted',
+			invalidated_at: null,
+			invalidated_by_user_id: null
+		});
+		throw error;
+	}
 
 	await ctx.audit.log({
 		action: 'duty_roster_template_run.invalidated',
@@ -308,6 +319,21 @@ export async function invalidateLatestDutyRosterTemplateRun(
 		removedCalendarAssignments: calendarRemoval.cleared,
 		calendarAssignmentsEdited
 	};
+}
+
+async function assertDutyRosterRunIsLatestAtWriteTime(ctx: WritePorts, row: DutyRosterTemplateRunRow): Promise<void> {
+	const latestRuns = await ctx.store.findMany<DutyRosterTemplateRunRow>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: row.template_id },
+		{
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: false }]
+		}
+	);
+	if (latestRuns[0]?.id !== row.id) {
+		fail(409, 'Duty Roster Run changed before invalidation. Refresh history and try again.');
+	}
 }
 
 export async function acceptAndApplyDutyRosterTemplatePreview(

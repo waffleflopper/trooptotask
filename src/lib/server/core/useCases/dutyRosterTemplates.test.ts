@@ -193,6 +193,13 @@ const store: DataStore = {
 		if (index === -1) {
 			throw new Error('row not found');
 		}
+		if (
+			table === 'duty_roster_templates' &&
+			typeof data.slug === 'string' &&
+			source.some((row) => row.organization_id === orgId && row.id !== id && row.slug === data.slug)
+		) {
+			throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
+		}
 
 		source[index] = { ...source[index], ...data };
 		return source[index];
@@ -553,6 +560,56 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
+	it('rechecks template slug uniqueness immediately before settings writes', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const originalFindMany = store.findMany.bind(store);
+		let slugChecks = 0;
+		const findManySpy = vi.spyOn(store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
+			if (table === 'duty_roster_templates' && filters?.slug === 'updated-cq') {
+				slugChecks += 1;
+				if (slugChecks === 2) {
+					rows.push({
+						id: 'template-concurrent',
+						organization_id: orgId,
+						name: 'Concurrent CQ',
+						slug: 'updated-cq',
+						assignment_type_id: 'assignment-type-concurrent',
+						short_code: 'CCQ',
+						status: 'active',
+						pool_criteria: { rankValues: [], groupIds: [], mosValues: [], dutyRoleValues: [] },
+						exempt_personnel_ids: [],
+						manual_baseline_counts: {},
+						created_at: '2026-05-04T12:01:00.000Z',
+						updated_at: '2026-05-04T12:01:00.000Z'
+					});
+				}
+			}
+			return originalFindMany(table, orgId, filters, options);
+		});
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				name: 'Updated CQ',
+				slug: 'updated-cq',
+				shortCode: 'UCQ',
+				poolCriteria: { rankValues: [], groupIds: [], mosValues: [], dutyRoleValues: [] },
+				exemptPersonnelIds: [],
+				manualBaselineCounts: {}
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duty Roster Template slug is already in use.'
+		});
+
+		expect(rows.find((row) => row.id === template.id)).toMatchObject({
+			name: 'CQ NCO',
+			slug: 'cq-nco'
+		});
+		findManySpy.mockRestore();
+	});
+
 	it('rejects exemptions and Manual DA6 Baseline counts outside the resolved non-exempt pool', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -612,6 +669,52 @@ describe('Duty Roster Template use cases', () => {
 			status: 400,
 			message: 'Manual DA6 Baseline counts must be whole numbers zero or greater.'
 		});
+	});
+
+	it('rechecks Manual DA6 Baseline locks immediately before settings writes', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const originalFindMany = store.findMany.bind(store);
+		let acceptedRunChecks = 0;
+		const findManySpy = vi.spyOn(store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
+			if (table === 'duty_roster_template_runs' && filters?.template_id === template.id) {
+				acceptedRunChecks += 1;
+				if (acceptedRunChecks === 2) {
+					acceptedRunRows.push(
+						acceptedRunRow({
+							id: 'run-concurrent',
+							template_id: template.id,
+							template_name: template.name,
+							accepted_at: '2026-05-04T12:01:00.000Z'
+						})
+					);
+				}
+			}
+			return originalFindMany(table, orgId, filters, options);
+		});
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: [],
+				manualBaselineCounts: { alpha: 1 }
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'Manual DA6 Baseline is locked because this template accepted a run. Refresh settings and try again.'
+		});
+
+		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({});
+		findManySpy.mockRestore();
 	});
 
 	it('generates a preview from template setup without mutating accepted history or Calendar tables', async () => {
@@ -1521,6 +1624,57 @@ describe('Duty Roster Template use cases', () => {
 			status: 400,
 			message: 'Only the latest Accepted Duty Roster Run can be invalidated.'
 		});
+	});
+
+	it('rechecks latest-run status immediately before invalidation writes', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const run = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		const originalFindMany = store.findMany.bind(store);
+		let runChecks = 0;
+		const findManySpy = vi.spyOn(store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
+			if (table === 'duty_roster_template_runs' && filters?.template_id === template.id) {
+				runChecks += 1;
+				if (runChecks === 2) {
+					acceptedRunRows.push(
+						acceptedRunRow({
+							id: 'run-concurrent',
+							template_id: template.id,
+							template_name: template.name,
+							accepted_at: '2026-05-04T12:01:00.000Z'
+						})
+					);
+				}
+			}
+			return originalFindMany(table, orgId, filters, options);
+		});
+
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: run.id })).rejects.toMatchObject({
+			status: 409,
+			message: 'Duty Roster Run changed before invalidation. Refresh history and try again.'
+		});
+
+		expect(acceptedRunRows.find((row) => row.id === run.id)).toMatchObject({
+			status: 'accepted'
+		});
+		expect(auditEvents).not.toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.invalidated',
+				resourceId: run.id
+			})
+		);
+		findManySpy.mockRestore();
 	});
 
 	it('removes linked Calendar assignments when invalidating an applied run and reports edited rows', async () => {

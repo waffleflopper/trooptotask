@@ -70,6 +70,12 @@
 		return selectedCorrectionAssignees[correctionKey(runId, date)] ?? '';
 	}
 
+	function selectedCorrectionOverrideWarning(): string | null {
+		if (!selectedCorrectionRow) return null;
+		const assigneeId = selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date);
+		return selectedCorrectionRow.correctionOverrideWarnings[assigneeId] ?? null;
+	}
+
 	function openCorrection(runId: string, date: string): void {
 		selectedCorrectionKey = correctionKey(runId, date);
 	}
@@ -310,6 +316,9 @@
 											{tableRow.correctionSummary.originalName}.
 										</small>
 										<small>{tableRow.correctionSummary.countText}</small>
+										{#if tableRow.correctionSummary.overrideText}
+											<small>{tableRow.correctionSummary.overrideText}</small>
+										{/if}
 									{/if}
 								</span>
 								<span class="calendar-cell" role="cell">
@@ -400,6 +409,11 @@
 								performed duty for {selectedCorrectionRow.correctionSummary.originalName}.
 								{selectedCorrectionRow.correctionSummary.countText}
 							</p>
+							{#if selectedCorrectionRow.correctionSummary.overrideText}
+								<p class="correction-note correction-note--warning">
+									{selectedCorrectionRow.correctionSummary.overrideText}
+								</p>
+							{/if}
 						{/if}
 						<label>
 							<span>Soldier Who Actually Served</span>
@@ -418,6 +432,9 @@
 								}}
 							/>
 						</label>
+						{#if selectedCorrectionOverrideWarning()}
+							<p class="correction-note correction-note--warning">{selectedCorrectionOverrideWarning()}</p>
+						{/if}
 						<label>
 							<span>Reason</span>
 							<input class="input" name="reason" placeholder="Reason for correction" required />
@@ -435,6 +452,9 @@
 											>{soldierName(correction.originalDisplay)} to {soldierName(correction.replacementDisplay)}</span
 										>
 										<small>{correction.reason}</small>
+										{#if correction.poolOverride}
+											<small>Outside normal pool. Saved as an override.</small>
+										{/if}
 									</div>
 								{/each}
 							</div>

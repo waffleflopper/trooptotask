@@ -1860,6 +1860,14 @@
 	line-height: 1.45;
 }
 
+.correction-note--warning {
+	border-color: color-mix(in srgb, var(--amber) 32%, var(--ink-15) 68%);
+	background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
+	color: var(--amber-dark);
+	font-family: var(--font-sans);
+	font-weight: 700;
+}
+
 .prior-corrections {
 	display: grid;
 	gap: var(--sp-2);

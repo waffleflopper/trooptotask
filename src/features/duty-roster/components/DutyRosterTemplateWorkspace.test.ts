@@ -301,7 +301,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 					templates: [template],
 					selectedTemplate: template,
 					view: 'history',
-					acceptedRuns: [acceptedRun({ corrected: true })],
+					acceptedRuns: [acceptedRun({ corrected: true, correctionOverride: true })],
 					historyDetailRunId: 'run-1',
 					historyDetailMode: 'roster'
 				}
@@ -312,6 +312,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
 		expect(screen.getByText(/performed duty for/)).toBeTruthy();
 		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
+		expect(screen.getAllByText('Outside normal pool. Saved as an override.').length).toBeGreaterThan(0);
 		expect(screen.getByRole('button', { name: 'Change Assignment' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Change Assignment' }));
 		const form = screen.getByRole('button', { name: 'Save' }).closest('form') as HTMLFormElement;
@@ -657,7 +658,13 @@ function countReadModel(options: { source: 'manual-da6-baseline' | 'accepted-his
 }
 
 function acceptedRun(
-	options: { applied?: boolean; invalidated?: boolean; calendarAssignmentsEdited?: boolean; corrected?: boolean } = {}
+	options: {
+		applied?: boolean;
+		invalidated?: boolean;
+		calendarAssignmentsEdited?: boolean;
+		corrected?: boolean;
+		correctionOverride?: boolean;
+	} = {}
 ) {
 	return {
 		id: 'run-1',
@@ -699,7 +706,9 @@ function acceptedRun(
 						reason: 'Emergency leave swap.',
 						correctedByUserId: 'user-1',
 						correctedAt: '2026-06-01T12:00:00.000Z',
-						countsTowardFuture: !options.invalidated
+						countsTowardFuture: !options.invalidated,
+						poolOverride: Boolean(options.correctionOverride),
+						poolOverrideReasons: options.correctionOverride ? ['outside-pool' as const] : []
 					}
 				]
 			: [],

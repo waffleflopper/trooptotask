@@ -27,7 +27,12 @@ const personnelRows: Record<string, unknown>[] = [];
 const availabilityRows: Record<string, unknown>[] = [];
 const specialDayRows: Record<string, unknown>[] = [];
 const statusTypeRows: Record<string, unknown>[] = [];
-const auditEvents: Array<{ action: string; resourceType: string; resourceId?: string }> = [];
+const auditEvents: Array<{
+	action: string;
+	resourceType: string;
+	resourceId?: string;
+	details?: Record<string, unknown>;
+}> = [];
 
 function createAuth(overrides: Partial<AuthContext> = {}): AuthContext {
 	return {
@@ -1025,7 +1030,9 @@ describe('Duty Roster Template use cases', () => {
 			originalAssigneeId: 'alpha',
 			replacementAssigneeId: 'bravo',
 			reason: 'Emergency leave swap.',
-			countsTowardFuture: true
+			countsTowardFuture: true,
+			poolOverride: false,
+			poolOverrideReasons: []
 		});
 		expect(correctionRows).toHaveLength(1);
 		expect(listedRuns[0].corrections).toEqual([
@@ -1033,7 +1040,8 @@ describe('Duty Roster Template use cases', () => {
 				originalAssigneeId: 'alpha',
 				replacementAssigneeId: 'bravo',
 				replacementDisplay: expect.objectContaining({ lastName: 'Baker' }),
-				countsTowardFuture: true
+				countsTowardFuture: true,
+				poolOverride: false
 			})
 		]);
 		expect(nextPreview.rosterRows).toEqual([{ date: '2026-06-02', assigneeId: 'alpha' }]);
@@ -1041,7 +1049,130 @@ describe('Duty Roster Template use cases', () => {
 			expect.objectContaining({
 				action: 'duty_roster_template_run.corrected',
 				resourceType: 'duty_roster_template_run',
-				resourceId: applied.acceptedRun.id
+				resourceId: applied.acceptedRun.id,
+				details: expect.objectContaining({
+					poolOverride: false,
+					poolOverrideReasons: []
+				})
+			})
+		);
+	});
+
+	it('allows outside-pool correction overrides without adding the replacement to future candidates', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha', 'bravo'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Cole', first_name: 'Cam', group_id: 'bravo' })
+		);
+		const template = await createConfiguredDutyRosterTemplate(ctx, {
+			name: 'CQ NCO',
+			shortCode: 'CQ',
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		const correction = await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: applied.acceptedRun.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'charlie',
+			reason: 'Commander directed alternate Soldier.'
+		});
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+		const nextPreview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+
+		expect(correction).toMatchObject({
+			replacementAssigneeId: 'charlie',
+			poolOverride: true,
+			poolOverrideReasons: ['outside-pool'],
+			countsTowardFuture: true
+		});
+		expect(listedRuns[0].corrections).toEqual([
+			expect.objectContaining({
+				replacementAssigneeId: 'charlie',
+				replacementDisplay: expect.objectContaining({ lastName: 'Cole' }),
+				poolOverride: true,
+				poolOverrideReasons: ['outside-pool']
+			})
+		]);
+		expect(nextPreview.personnel.map((person) => person.id)).toEqual(['alpha', 'bravo']);
+		expect(nextPreview.rosterRows[0]?.assigneeId).not.toBe('charlie');
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.corrected',
+				details: expect.objectContaining({
+					poolOverride: true,
+					poolOverrideReasons: ['outside-pool']
+				})
+			})
+		);
+	});
+
+	it('allows duty-specific exempt correction overrides with required reason metadata', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Cole', first_name: 'Cam', group_id: 'alpha' })
+		);
+		const template = await createConfiguredDutyRosterTemplate(ctx, {
+			name: 'CQ NCO',
+			shortCode: 'CQ',
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: ['charlie'],
+			manualBaselineCounts: {}
+		});
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		const correction = await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: accepted.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'charlie',
+			reason: 'Commander approved exempt Soldier.'
+		});
+
+		expect(correction).toMatchObject({
+			replacementAssigneeId: 'charlie',
+			poolOverride: true,
+			poolOverrideReasons: ['exempt']
+		});
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template_run.corrected',
+				details: expect.objectContaining({
+					poolOverride: true,
+					poolOverrideReasons: ['exempt']
+				})
 			})
 		);
 	});
@@ -1106,6 +1237,43 @@ describe('Duty Roster Template use cases', () => {
 			status: 400,
 			message: 'Correction reason is required'
 		});
+	});
+
+	it('hard-blocks archived replacement Soldiers during correction', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({
+				id: 'bravo',
+				rank: 'SGT',
+				last_name: 'Baker',
+				first_name: 'Ben',
+				group_id: 'alpha',
+				archived_at: '2026-05-01T00:00:00.000Z'
+			})
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const accepted = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: accepted.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Soldier performed duty.'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Replacement Soldier is missing or archived.'
+		});
+		expect(correctionRows).toHaveLength(0);
 	});
 
 	it('updates applied Calendar assignments when recording a correction while preserving lineage', async () => {

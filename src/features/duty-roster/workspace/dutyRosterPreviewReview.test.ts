@@ -144,12 +144,31 @@ describe('dutyRosterPreviewReview', () => {
 					replacementName: 'SGT Baker, Ben',
 					originalName: 'SGT Able, Ann',
 					reason: 'Duty swap memo',
-					countText: 'Counts toward future DA6 runs.'
+					countText: 'Counts toward future DA6 runs.',
+					overrideText: null
 				},
 				canCorrect: true,
-				correctionOptions: [{ value: 'person-2', label: 'SGT Baker, Ben', description: 'Alpha' }]
+				correctionOptions: [{ value: 'person-2', label: 'SGT Baker, Ben', description: 'Alpha' }],
+				correctionOverrideWarnings: {}
 			}
 		]);
+	});
+
+	it('marks out-of-pool correction options and summaries as overrides', () => {
+		const run = acceptedRun({ poolOverride: true });
+		const model = buildDutyRosterAcceptedRunReviewModel({
+			run,
+			isLatestRun: true
+		});
+
+		expect(model.rows[0]).toMatchObject({
+			correctionSummary: {
+				overrideText: 'Outside normal pool. Saved as an override.'
+			},
+			correctionOverrideWarnings: {
+				'person-2': 'Outside normal pool. Saved as an override.'
+			}
+		});
 	});
 
 	it('shapes invalidated accepted history as locked non-counting review state', () => {
@@ -330,7 +349,7 @@ function previewPerson(id: string, rank: string, lastName: string, firstName: st
 	};
 }
 
-function acceptedRun(options: { invalidated?: boolean } = {}): DutyRosterTemplateAcceptedRun {
+function acceptedRun(options: { invalidated?: boolean; poolOverride?: boolean } = {}): DutyRosterTemplateAcceptedRun {
 	return {
 		id: 'run-1',
 		templateId: 'template-1',
@@ -358,15 +377,20 @@ function acceptedRun(options: { invalidated?: boolean } = {}): DutyRosterTemplat
 				reason: 'Duty swap memo',
 				correctedByUserId: 'user-1',
 				correctedAt: '2026-05-04T01:00:00Z',
-				countsTowardFuture: !options.invalidated
+				countsTowardFuture: !options.invalidated,
+				poolOverride: Boolean(options.poolOverride),
+				poolOverrideReasons: options.poolOverride ? ['outside-pool'] : []
 			}
 		],
-		snapshotPayload: acceptedSnapshotPayload() as unknown as Record<string, unknown>,
+		snapshotPayload: acceptedSnapshotPayload({ poolOverride: Boolean(options.poolOverride) }) as unknown as Record<
+			string,
+			unknown
+		>,
 		createdAt: '2026-05-04T00:00:00Z'
 	};
 }
 
-function acceptedSnapshotPayload(): DutyRosterTemplateAcceptedSnapshot {
+function acceptedSnapshotPayload(options: { poolOverride?: boolean } = {}): DutyRosterTemplateAcceptedSnapshot {
 	return {
 		snapshotVersion: 1,
 		template: {
@@ -389,7 +413,12 @@ function acceptedSnapshotPayload(): DutyRosterTemplateAcceptedSnapshot {
 			numberingMode: 'single-sequence',
 			misconductUnavailablePersonnelDates: {}
 		},
-		resolvedPool: [],
+		resolvedPool: options.poolOverride
+			? [previewPerson('person-1', 'SGT', 'Able', 'Ann', 'Alpha')]
+			: [
+					previewPerson('person-1', 'SGT', 'Able', 'Ann', 'Alpha'),
+					previewPerson('person-2', 'SGT', 'Baker', 'Ben', 'Alpha')
+				],
 		selectionPersonnel: [
 			previewPerson('person-1', 'SGT', 'Able', 'Ann', 'Alpha'),
 			previewPerson('person-2', 'SGT', 'Baker', 'Ben', 'Alpha')

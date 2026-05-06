@@ -14,6 +14,8 @@ import type {
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
+export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
+
 export type DutyRosterPreviewReviewRow = {
 	date: string;
 	finalAssignee: DutyRosterTemplatePreviewPersonnel | null;
@@ -61,11 +63,13 @@ export type DutyRosterAcceptedHistoryTableRow = {
 		originalName: string;
 		reason: string;
 		countText: string;
+		overrideText: string | null;
 	} | null;
 	correctionLockedText: string | null;
 	reasonText: string | null;
 	canCorrect: boolean;
 	correctionOptions: Array<{ value: string; label: string; description?: string }>;
+	correctionOverrideWarnings: Record<string, string>;
 };
 
 export type DutyRosterAcceptedRunReviewModel = {
@@ -184,7 +188,8 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 					reason: correction.reason,
 					countText: correction.countsTowardFuture
 						? 'Counts toward future DA6 runs.'
-						: 'Non-counting because this run is invalidated.'
+						: 'Non-counting because this run is invalidated.',
+					overrideText: correction.poolOverride ? DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING : null
 				}
 			: null;
 
@@ -208,7 +213,8 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 					: null,
 			reasonText: row.reason,
 			canCorrect: !isInvalidated && Boolean(row.finalAssigneeId),
-			correctionOptions: personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId)
+			correctionOptions: personnelOptionItems(snapshot.selectionPersonnel, row.finalAssigneeId),
+			correctionOverrideWarnings: correctionOverrideWarnings(snapshot, row.finalAssigneeId)
 		};
 	});
 
@@ -253,6 +259,21 @@ export function personnelOptionItems(
 			label: `${person.rank} ${person.lastName}, ${person.firstName}`,
 			description: person.groupName
 		}));
+}
+
+export function correctionOverrideWarnings(
+	snapshot: DutyRosterTemplateAcceptedSnapshot,
+	excludeId?: string | null
+): Record<string, string> {
+	const resolvedPoolIds = new Set(snapshot.resolvedPool.map((person) => person.id));
+	const exemptPersonnelIds = new Set(snapshot.config.exemptPersonnelIds ?? []);
+
+	return Object.fromEntries(
+		snapshot.selectionPersonnel
+			.filter((person) => person.id !== excludeId && !person.archivedAt)
+			.filter((person) => !resolvedPoolIds.has(person.id) || exemptPersonnelIds.has(person.id))
+			.map((person) => [person.id, DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING])
+	);
 }
 
 export function issueLabel(warnings: Array<{ message: string }>): string {

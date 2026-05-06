@@ -3,6 +3,7 @@ import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type {
 	DutyRosterPoolPersonnel,
+	DutyRosterCorrectionPoolOverrideReason,
 	DutyRosterTemplateAcceptedRun,
 	DutyRosterTemplateCorrectionInput,
 	DutyRosterTemplateRunCorrection
@@ -137,6 +138,7 @@ export async function recordDutyRosterTemplateRunCorrection(
 	if (!replacement) {
 		fail(400, 'Replacement Soldier is missing or archived.');
 	}
+	const poolOverrideReasons = dutyRosterCorrectionPoolOverrideReasons(snapshot, input.replacementAssigneeId);
 
 	const correctedAt = new Date().toISOString();
 	const inserted = await ctx.store.insert<DutyRosterTemplateRunCorrectionRow>(
@@ -182,6 +184,8 @@ export async function recordDutyRosterTemplateRunCorrection(
 			runRowDate: inserted.run_row_date,
 			originalAssigneeId: inserted.original_assignee_id,
 			replacementAssigneeId: inserted.replacement_assignee_id,
+			poolOverride: poolOverrideReasons.length > 0,
+			poolOverrideReasons,
 			calendarSynced: Boolean(row.applied_at)
 		}
 	});
@@ -239,6 +243,10 @@ function buildDutyRosterTemplateRunCorrectionReadModel(input: {
 	snapshot: ReturnType<typeof parseAcceptedRunSnapshot>;
 	personnelById?: Map<string, DutyRosterPoolPersonnel>;
 }): DutyRosterTemplateRunCorrection {
+	const poolOverrideReasons = dutyRosterCorrectionPoolOverrideReasons(
+		input.snapshot,
+		input.row.replacement_assignee_id
+	);
 	return {
 		id: input.row.id,
 		runId: input.row.run_id,
@@ -254,8 +262,27 @@ function buildDutyRosterTemplateRunCorrectionReadModel(input: {
 		reason: input.row.reason,
 		correctedByUserId: input.row.corrected_by_user_id,
 		correctedAt: input.row.corrected_at,
-		countsTowardFuture: dutyRosterCorrectionCountsTowardFuture({ runStatus: input.runStatus })
+		countsTowardFuture: dutyRosterCorrectionCountsTowardFuture({ runStatus: input.runStatus }),
+		poolOverride: poolOverrideReasons.length > 0,
+		poolOverrideReasons
 	};
+}
+
+function dutyRosterCorrectionPoolOverrideReasons(
+	snapshot: ReturnType<typeof parseAcceptedRunSnapshot>,
+	replacementAssigneeId: string
+): DutyRosterCorrectionPoolOverrideReason[] {
+	const resolvedPoolIds = new Set(snapshot.resolvedPool.map((person) => person.id));
+	const exemptPersonnelIds = new Set(snapshot.config.exemptPersonnelIds ?? []);
+	const reasons: DutyRosterCorrectionPoolOverrideReason[] = [];
+
+	if (exemptPersonnelIds.has(replacementAssigneeId)) {
+		reasons.push('exempt');
+	} else if (!resolvedPoolIds.has(replacementAssigneeId)) {
+		reasons.push('outside-pool');
+	}
+
+	return reasons;
 }
 
 function toCorrectionEffect(row: DutyRosterTemplateRunCorrectionRow) {

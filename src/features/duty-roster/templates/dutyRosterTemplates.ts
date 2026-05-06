@@ -145,7 +145,11 @@ export interface DutyRosterTemplateRunCorrection {
 	correctedByUserId: string | null;
 	correctedAt: string;
 	countsTowardFuture: boolean;
+	poolOverride: boolean;
+	poolOverrideReasons: DutyRosterCorrectionPoolOverrideReason[];
 }
+
+export type DutyRosterCorrectionPoolOverrideReason = 'outside-pool' | 'exempt';
 
 export interface DutyRosterPoolPersonnelDisplay {
 	id: string;

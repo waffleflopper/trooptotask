@@ -54,6 +54,8 @@ import {
 const DUTY_ROSTER_TEMPLATE_TABLE = 'duty_roster_templates';
 const ASSIGNMENT_TYPE_TABLE = 'assignment_types';
 const MAX_PREVIEW_DAYS = 62;
+const MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH = 2 * 1024 * 1024;
+const PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE = 'Duty Roster preview payload is too large. Generate the preview again.';
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const createTemplateSchema = z.object({
@@ -87,13 +89,21 @@ const generatePreviewSchema = z
 		path: ['startDate']
 	});
 const manualSelectionSchema = z.object({
-	preview: z.string().trim().min(1, 'Generate the preview again before changing assignments.'),
+	preview: z
+		.string()
+		.trim()
+		.min(1, 'Generate the preview again before changing assignments.')
+		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE),
 	date: z.string().refine(isValidDateOnly, 'Duty date is required'),
 	assigneeId: z.string().trim().min(1, 'Selected Soldier is required'),
 	reason: z.string().trim().nullable().optional()
 });
 const acceptPreviewSchema = z.object({
-	preview: z.string().trim().min(1, 'Generate the preview again before accepting.')
+	preview: z
+		.string()
+		.trim()
+		.min(1, 'Generate the preview again before accepting.')
+		.max(MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH, PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE)
 });
 const correctionSchema = z.object({
 	runId: z.string().trim().min(1, 'Accepted Duty Roster Run is required'),
@@ -712,9 +722,7 @@ async function buildReviewedDutyRosterTemplatePreview(
 	const parsed = parseAcceptPreviewInput(input);
 	let preview: DutyRosterTemplatePreview;
 	try {
-		const parsedPreview: unknown = JSON.parse(parsed.preview);
-		assertDutyRosterTemplatePreview(parsedPreview);
-		preview = parsedPreview;
+		preview = parseSubmittedDutyRosterPreview(parsed.preview);
 	} catch (errorValue) {
 		fail(400, errorValue instanceof Error ? errorValue.message : 'Accept preview input is invalid');
 	}
@@ -787,10 +795,8 @@ export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(
 	input: DutyRosterTemplateManualSelectionInput
 ): Promise<DutyRosterTemplatePreview> {
 	const parsed = parseManualSelectionInput(input);
-	let preview: unknown;
 	try {
-		preview = JSON.parse(parsed.preview);
-		assertDutyRosterTemplatePreview(preview);
+		const preview = parseSubmittedDutyRosterPreview(parsed.preview);
 		return applyDutyRosterTemplateManualSelection(preview, {
 			date: parsed.date,
 			assigneeId: parsed.assigneeId,
@@ -799,4 +805,10 @@ export async function applyDutyRosterTemplatePreviewManualSelectionLifecycle(
 	} catch (errorValue) {
 		fail(400, errorValue instanceof Error ? errorValue.message : 'Manual selection input is invalid');
 	}
+}
+
+function parseSubmittedDutyRosterPreview(previewPayload: string): DutyRosterTemplatePreview {
+	const preview: unknown = JSON.parse(previewPayload);
+	assertDutyRosterTemplatePreview(preview);
+	return preview;
 }

@@ -844,6 +844,33 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('rejects oversized preview payloads before manual selection parsing', async () => {
+		await expect(
+			applyDutyRosterTemplatePreviewManualSelection(createCtx(), {
+				preview: oversizedPreviewPayload(),
+				date: '2026-06-01',
+				assigneeId: 'alpha',
+				reason: null
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duty Roster preview payload is too large. Generate the preview again.'
+		});
+	});
+
+	it('rejects malformed preview payloads during manual selection', async () => {
+		await expect(
+			applyDutyRosterTemplatePreviewManualSelection(createCtx(), {
+				preview: '{"snapshotVersion":',
+				date: '2026-06-01',
+				assigneeId: 'alpha',
+				reason: null
+			})
+		).rejects.toMatchObject({
+			status: 400
+		});
+	});
+
 	it('accepts a preview as immutable Duty Roster Template run history', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
@@ -895,6 +922,27 @@ describe('Duty Roster Template use cases', () => {
 			action: 'duty_roster_template_run.accepted',
 			resourceType: 'duty_roster_template_run',
 			resourceId: 'run-1'
+		});
+	});
+
+	it('rejects oversized preview payloads before accept parsing', async () => {
+		await expect(
+			acceptDutyRosterTemplatePreview(createCtx(), {
+				preview: oversizedPreviewPayload()
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duty Roster preview payload is too large. Generate the preview again.'
+		});
+	});
+
+	it('rejects malformed preview payloads during accept', async () => {
+		await expect(
+			acceptDutyRosterTemplatePreview(createCtx(), {
+				preview: '{"snapshotVersion":'
+			})
+		).rejects.toMatchObject({
+			status: 400
 		});
 	});
 
@@ -1966,6 +2014,10 @@ function statusTypeRow(overrides: Record<string, unknown>): Record<string, unkno
 		sort_order: 0,
 		...overrides
 	};
+}
+
+function oversizedPreviewPayload(): string {
+	return 'x'.repeat(2 * 1024 * 1024 + 1);
 }
 
 function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unknown> {

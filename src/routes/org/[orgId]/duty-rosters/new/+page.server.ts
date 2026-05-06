@@ -1,4 +1,4 @@
-import { fail as actionFail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
@@ -6,49 +6,12 @@ import {
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSetupOptions
 } from '$lib/server/core/useCases/dutyRosterTemplates';
-
-function formValues(formData: FormData, name: string): string[] {
-	return formData.getAll(name).map((value) => String(value));
-}
-
-function parseBaselineCounts(formData: FormData): Record<string, number | null> {
-	const counts: Record<string, number | null> = {};
-
-	for (const [key, value] of formData.entries()) {
-		if (!key.startsWith('baseline:')) continue;
-		const raw = String(value).trim();
-		counts[key.slice('baseline:'.length)] = raw ? Number(raw) : null;
-	}
-
-	return counts;
-}
-
-function baselineFormValues(formData: FormData): Record<string, string> {
-	const counts: Record<string, string> = {};
-
-	for (const [key, value] of formData.entries()) {
-		if (!key.startsWith('baseline:')) continue;
-		counts[key.slice('baseline:'.length)] = String(value);
-	}
-
-	return counts;
-}
-
-function actionError(error: unknown, values: Record<string, string | string[] | Record<string, string>>) {
-	const status =
-		error && typeof error === 'object' && 'status' in error && typeof error.status === 'number' ? error.status : 500;
-	const message =
-		status >= 500
-			? 'Failed to create Duty Roster Template.'
-			: error instanceof Error
-				? error.message
-				: 'Failed to create Duty Roster Template.';
-
-	return actionFail(status, {
-		settingsError: message,
-		values
-	});
-}
+import {
+	dutyRosterActionError,
+	dutyRosterBaselineFormValues,
+	dutyRosterFormValues,
+	parseDutyRosterBaselineCounts
+} from '../routeHelpers.server';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
@@ -84,12 +47,12 @@ export const actions: Actions = {
 			name: String(formData.get('name') ?? ''),
 			slug: String(formData.get('slug') ?? ''),
 			shortCode: String(formData.get('shortCode') ?? ''),
-			rankValues: formValues(formData, 'rankValues'),
-			groupIds: formValues(formData, 'groupIds'),
-			mosValues: formValues(formData, 'mosValues'),
-			dutyRoleValues: formValues(formData, 'dutyRoleValues'),
-			exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds'),
-			manualBaselineCounts: baselineFormValues(formData)
+			rankValues: dutyRosterFormValues(formData, 'rankValues'),
+			groupIds: dutyRosterFormValues(formData, 'groupIds'),
+			mosValues: dutyRosterFormValues(formData, 'mosValues'),
+			dutyRoleValues: dutyRosterFormValues(formData, 'dutyRoleValues'),
+			exemptPersonnelIds: dutyRosterFormValues(formData, 'exemptPersonnelIds'),
+			manualBaselineCounts: dutyRosterBaselineFormValues(formData)
 		};
 
 		let slug: string;
@@ -106,11 +69,15 @@ export const actions: Actions = {
 					dutyRoleValues: values.dutyRoleValues
 				},
 				exemptPersonnelIds: values.exemptPersonnelIds,
-				manualBaselineCounts: parseBaselineCounts(formData)
+				manualBaselineCounts: parseDutyRosterBaselineCounts(formData)
 			});
 			slug = template.slug;
 		} catch (error) {
-			return actionError(error, values);
+			return dutyRosterActionError(error, {
+				key: 'settingsError',
+				fallback: 'Failed to create Duty Roster Template.',
+				values
+			});
 		}
 
 		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${slug}/generate`);

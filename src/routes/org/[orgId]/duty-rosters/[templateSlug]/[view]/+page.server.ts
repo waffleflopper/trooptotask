@@ -17,6 +17,13 @@ import {
 	updateDutyRosterTemplateSettings
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+import {
+	dutyRosterActionError,
+	dutyRosterActionMessage,
+	dutyRosterActionStatus,
+	dutyRosterFormValues,
+	parseDutyRosterBaselineCounts
+} from '../../routeHelpers.server';
 
 type ActionErrorKey =
 	| 'generateError'
@@ -26,26 +33,6 @@ type ActionErrorKey =
 	| 'invalidateError'
 	| 'correctionError';
 
-function formValues(formData: FormData, name: string): string[] {
-	return formData.getAll(name).map((value) => String(value));
-}
-
-function parseBaselineCounts(formData: FormData): Record<string, number | null> {
-	const counts: Record<string, number | null> = {};
-
-	for (const [key, value] of formData.entries()) {
-		if (!key.startsWith('baseline:')) {
-			continue;
-		}
-
-		const personId = key.slice('baseline:'.length);
-		const raw = String(value).trim();
-		counts[personId] = raw ? Number(raw) : null;
-	}
-
-	return counts;
-}
-
 function actionError(
 	errorValue: unknown,
 	input: {
@@ -54,14 +41,10 @@ function actionError(
 		values?: Record<string, string>;
 	}
 ) {
-	const status =
-		errorValue && typeof errorValue === 'object' && 'status' in errorValue && typeof errorValue.status === 'number'
-			? errorValue.status
-			: 500;
-	const message = status >= 500 ? input.fallback : errorValue instanceof Error ? errorValue.message : input.fallback;
-
-	const data = input.values ? { [input.key]: message, generateValues: input.values } : { [input.key]: message };
-	return actionFail(status, data);
+	return dutyRosterActionError(errorValue, {
+		...input,
+		valuesKey: 'generateValues'
+	});
 }
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
@@ -151,16 +134,8 @@ export const actions: Actions = {
 
 			return { preview: updatedPreview, generateValues: values };
 		} catch (errorValue) {
-			const status =
-				errorValue && typeof errorValue === 'object' && 'status' in errorValue && typeof errorValue.status === 'number'
-					? errorValue.status
-					: 500;
-			const message =
-				status >= 500
-					? 'Failed to update the manual preview selection.'
-					: errorValue instanceof Error
-						? errorValue.message
-						: 'Failed to update the manual preview selection.';
+			const status = dutyRosterActionStatus(errorValue);
+			const message = dutyRosterActionMessage(errorValue, 'Failed to update the manual preview selection.');
 			let submittedPreview: unknown = null;
 			try {
 				submittedPreview = JSON.parse(preview);
@@ -287,13 +262,13 @@ export const actions: Actions = {
 				slug: String(formData.get('slug') ?? ''),
 				shortCode: String(formData.get('shortCode') ?? ''),
 				poolCriteria: {
-					rankValues: formValues(formData, 'rankValues'),
-					groupIds: formValues(formData, 'groupIds'),
-					mosValues: formValues(formData, 'mosValues'),
-					dutyRoleValues: formValues(formData, 'dutyRoleValues')
+					rankValues: dutyRosterFormValues(formData, 'rankValues'),
+					groupIds: dutyRosterFormValues(formData, 'groupIds'),
+					mosValues: dutyRosterFormValues(formData, 'mosValues'),
+					dutyRoleValues: dutyRosterFormValues(formData, 'dutyRoleValues')
 				},
-				exemptPersonnelIds: formValues(formData, 'exemptPersonnelIds'),
-				manualBaselineCounts: parseBaselineCounts(formData)
+				exemptPersonnelIds: dutyRosterFormValues(formData, 'exemptPersonnelIds'),
+				manualBaselineCounts: parseDutyRosterBaselineCounts(formData)
 			});
 			slug = updated.slug;
 		} catch (errorValue) {

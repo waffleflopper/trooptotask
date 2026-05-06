@@ -6,7 +6,6 @@
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
 		buildDutyRosterPreviewReviewModel,
-		issueLabel,
 		type DutyRosterPreviewReviewModel
 	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
 	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
@@ -43,6 +42,7 @@
 	const previewWarningCount = $derived(
 		previewReview?.rows.reduce((total, row) => total + row.liveWarnings.length, 0) ?? 0
 	);
+	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
 
 	function printDraftPreview(preview: DutyRosterTemplatePreview): void {
@@ -71,6 +71,20 @@
 			.toUpperCase();
 
 		return { weekday, label };
+	}
+
+	function dayMonthLabel(date: string): string {
+		const [year, month, day] = date.split('-').map(Number);
+		const value = new Date(Date.UTC(year, month - 1, day));
+		const parts = new Intl.DateTimeFormat('en-US', {
+			day: '2-digit',
+			month: 'short',
+			timeZone: 'UTC'
+		}).formatToParts(value);
+		const dayPart = parts.find((part) => part.type === 'day')?.value ?? date.slice(-2);
+		const monthPart = parts.find((part) => part.type === 'month')?.value.toUpperCase() ?? '';
+
+		return `${dayPart}-${monthPart}`;
 	}
 </script>
 
@@ -226,7 +240,7 @@
 						<div class="recent-history-list">
 							{#each recentAcceptedRuns as run (run.id)}
 								<a href={`${historyPath}/${run.id}`} class="recent-history-row">
-									<span>{run.startDate} to {run.endDate}</span>
+									<span>{dayMonthLabel(run.startDate)} to {dayMonthLabel(run.endDate)}</span>
 									<strong>{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</strong>
 									<small>{dateParts(run.acceptedAt.slice(0, 10)).label}</small>
 								</a>
@@ -249,37 +263,43 @@
 			<div class="run-header" aria-label="Generated preview summary">
 				<div>
 					<p class="preview-kicker">
-						Preview <span>{generateStartDate} to {generateEndDate}</span>
+						Preview <span>{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</span>
 						<span>{preview.rosterRows.length} duty dates</span>
 					</p>
 				</div>
-				<div class="preview-output-actions" aria-label="Draft and official output actions">
-					<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
-						<Printer size={16} aria-hidden="true" />
-						Print Draft
-					</button>
-					<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-						<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-						<button class="btn btn-secondary" type="submit">
-							<CheckCircle2 size={16} aria-hidden="true" />
-							Accept
-						</button>
-					</form>
-					<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
-						<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-						<input type="hidden" name="intent" value="print" />
-						<button class="btn btn-secondary" type="submit">
+				<div class="preview-output-actions" aria-label="Draft preview and official run actions">
+					<div class="preview-action-group preview-action-group--draft" aria-label="Draft output">
+						<span>Draft</span>
+						<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
 							<Printer size={16} aria-hidden="true" />
-							Accept + Print
+							Print Draft
 						</button>
-					</form>
-					<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
-						<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-						<button class="btn btn-amber" type="submit">
-							<Calendar size={16} aria-hidden="true" />
-							Apply to Calendar
-						</button>
-					</form>
+					</div>
+					<div class="preview-action-group preview-action-group--official" aria-label="Official run actions">
+						<span>Official Run</span>
+						<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
+							<button class="btn btn-secondary" type="submit">
+								<CheckCircle2 size={16} aria-hidden="true" />
+								Accept Run
+							</button>
+						</form>
+						<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
+							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
+							<input type="hidden" name="intent" value="print" />
+							<button class="btn btn-secondary" type="submit">
+								<Printer size={16} aria-hidden="true" />
+								Accept Run + Print
+							</button>
+						</form>
+						<form class="accept-preview-form" method="POST" action={applyPreviewAction}>
+							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
+							<button class="btn btn-amber" type="submit">
+								<Calendar size={16} aria-hidden="true" />
+								Accept + Apply to Calendar
+							</button>
+						</form>
+					</div>
 				</div>
 			</div>
 
@@ -292,8 +312,57 @@
 						DA6 Matrix
 					</button>
 				</div>
-				<p><Info size={15} aria-hidden="true" /> Apply to Calendar will accept this run if it is still in preview.</p>
+				<p>
+					<Info size={15} aria-hidden="true" /> Accept Run writes official DA6 history. Accept + Apply to Calendar also creates
+					Calendar events.
+				</p>
 			</div>
+
+			<section class="preview-readiness-band" aria-labelledby="preview-readiness-heading">
+				<div
+					class="preview-commit-card"
+					class:preview-commit-card--ready={previewIsCommitReady}
+					class:preview-commit-card--blocked={!previewIsCommitReady}
+				>
+					<span>Commit Readiness</span>
+					<h3 id="preview-readiness-heading">{previewIsCommitReady ? 'Ready to accept' : 'Review before accepting'}</h3>
+					<p>
+						{#if previewIsCommitReady}
+							No unassigned dates or warnings remain. Official run actions can be used with confidence.
+						{:else}
+							Resolve unassigned dates and review warnings before writing official DA6 history.
+						{/if}
+					</p>
+				</div>
+				<div class="preview-run-summary" aria-label="Run summary">
+					<div>
+						<span>Run Window</span>
+						<strong>{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</strong>
+					</div>
+					<div>
+						<span>Duty Dates</span>
+						<strong>{preview.rosterRows.length}</strong>
+					</div>
+					<div>
+						<span>Automatic</span>
+						<strong>{previewAssignedCount}</strong>
+					</div>
+					<div>
+						<span>Manual</span>
+						<strong>{previewManualCount}</strong>
+					</div>
+				</div>
+				<div class="preview-unresolved-counts" aria-label="Unresolved review counts">
+					<div>
+						<span>Requires Action</span>
+						<strong>{previewRequiresActionCount}</strong>
+					</div>
+					<div>
+						<span>Warnings</span>
+						<strong>{previewWarningCount}</strong>
+					</div>
+				</div>
+			</section>
 
 			{#if actionForm?.manualError}
 				<p class="form-error settings-error" role="alert">{actionForm.manualError}</p>
@@ -306,11 +375,8 @@
 						<div class="preview-list" role="table" aria-label="Generated Duty Roster preview">
 							<div class="preview-row preview-head" role="row">
 								<span role="columnheader">Date</span>
-								<span role="columnheader">Generated Soldier</span>
-								<span role="columnheader">Final Selected Soldier</span>
-								<span role="columnheader">Status / Marker</span>
-								<span role="columnheader">Warnings</span>
-								<span role="columnheader">Reason</span>
+								<span role="columnheader">Assignment</span>
+								<span role="columnheader">Review</span>
 								<span role="columnheader">Action</span>
 							</div>
 							{#each previewReview?.rows ?? [] as row (row.date)}
@@ -321,16 +387,6 @@
 										<small>{parts.label}</small>
 									</span>
 									<div class="preview-selection" role="cell">
-										{#if row.generatedAssignee}
-											<strong
-												>{row.generatedAssignee.rank}
-												{row.generatedAssignee.lastName}, {row.generatedAssignee.firstName}</strong
-											>
-										{:else}
-											{row.unfilledReason}
-										{/if}
-									</div>
-									<div class="preview-selection" role="cell">
 										{#if row.finalAssignee}
 											<strong
 												>{row.finalAssignee.rank} {row.finalAssignee.lastName}, {row.finalAssignee.firstName}</strong
@@ -340,54 +396,57 @@
 										{/if}
 										{#if row.manualSelection && row.generatedAssignee}
 											<small>
-												Generated: {row.generatedAssignee.rank}
+												Generated {row.generatedAssignee.rank}
 												{row.generatedAssignee.lastName}, {row.generatedAssignee.firstName}
 											</small>
 										{/if}
 									</div>
-									<span role="cell">
-										{#if row.manualSelection}
+									<span class="preview-review-cell" role="cell">
+										{#if row.liveWarnings.length > 0}
+											<Badge label="REVIEW" color="var(--danger-bg)" textColor="var(--danger)" />
+											<details class="preview-warning-details">
+												<summary>
+													<AlertTriangle size={15} aria-hidden="true" />
+													{row.liveWarnings.length}
+													{row.liveWarnings.length === 1 ? 'warning' : 'warnings'}
+												</summary>
+												<ul aria-label={`Warnings for ${parts.weekday} ${parts.label}`}>
+													{#each row.liveWarnings as warning (warning)}
+														<li>{warning}</li>
+													{/each}
+												</ul>
+											</details>
+										{:else if row.manualSelection}
 											<Badge label="MANUAL" color="var(--amber-light)" textColor="var(--amber-dark)" />
+											<small>Changed</small>
 										{:else if !row.finalAssignee}
 											<Badge label="REQUIRES ACTION" color="var(--danger-bg)" textColor="var(--danger)" />
+											<small>No selection</small>
 										{:else}
-											<Badge label="AUTOMATIC" color="var(--success-bg)" textColor="var(--success)" />
+											<Badge label="READY" color="var(--success-bg)" textColor="var(--success)" />
+											<small>No changes</small>
 										{/if}
-										<small>{row.manualSelection ? 'Changed' : row.finalAssignee ? 'No changes' : 'No selection'}</small>
-									</span>
-									<span class="preview-warning-cell" role="cell">
-										{#if row.liveWarnings.length > 0}
-											<AlertTriangle size={16} aria-hidden="true" />
-											<span
-												class="warning-tooltip"
-												title={row.liveWarnings.join(' ')}
-												aria-label={`Warning detail: ${row.liveWarnings.join(' ')}`}
-											>
-												{issueLabel(row.liveWarnings.map((message) => ({ message })))}
-											</span>
-										{:else}
-											-
-										{/if}
-									</span>
-									<span class="preview-reason-cell" role="cell">
-										{row.manualSelection?.reason ?? (row.finalAssignee ? '-' : 'Reason required')}
 									</span>
 									<div class="preview-action-cell" role="cell">
-										<button class="link-command" type="button" onclick={() => openManualChange(row)}> Change </button>
+										<button
+											class="link-command"
+											type="button"
+											aria-label={`${row.liveWarnings.length > 0 ? 'Review warning and change assignment' : 'Change assignment'} for ${parts.weekday} ${parts.label}`}
+											onclick={() => openManualChange(row)}
+										>
+											{row.liveWarnings.length > 0 ? 'Review' : 'Change'}
+										</button>
 									</div>
 								</div>
 							{/each}
 						</div>
-						<div class="preview-summary-strip" aria-label="Preview totals">
-							<div><strong>{preview.rosterRows.length}</strong><span>Total Dates</span></div>
-							<div><strong>{previewAssignedCount}</strong><span>Automatic</span></div>
-							<div><strong>{previewManualCount}</strong><span>Manual</span></div>
-							<div><strong>{previewRequiresActionCount}</strong><span>Requires Action</span></div>
-							<div><strong>{previewWarningCount}</strong><span>Warnings</span></div>
-						</div>
 					</section>
 
-					<aside class="manual-change-panel" aria-labelledby="manual-change-heading">
+					<aside
+						class="manual-change-panel"
+						class:manual-change-panel--active={activePreviewRow}
+						aria-labelledby="manual-change-heading"
+					>
 						{#if activePreviewRow}
 							{@const activeParts = dateParts(activePreviewRow.date)}
 							<div class="manual-change-panel__header">
@@ -405,7 +464,18 @@
 								</button>
 							</div>
 							<div class="manual-original">
-								<span>Originally Generated</span>
+								<span>Current Selection</span>
+								<strong>
+									{#if activePreviewRow.finalAssignee}
+										{activePreviewRow.finalAssignee.rank}
+										{activePreviewRow.finalAssignee.lastName}, {activePreviewRow.finalAssignee.firstName}
+									{:else}
+										No final selection
+									{/if}
+								</strong>
+							</div>
+							<div class="manual-original">
+								<span>Generated Selection</span>
 								<strong>
 									{#if activePreviewRow.generatedAssignee}
 										{activePreviewRow.generatedAssignee.rank}
@@ -415,6 +485,12 @@
 									{/if}
 								</strong>
 							</div>
+							{#if activePreviewRow.manualSelection?.reason}
+								<div class="manual-original">
+									<span>Saved Reason</span>
+									<p>{activePreviewRow.manualSelection.reason}</p>
+								</div>
+							{/if}
 							<form class="manual-preview-form" method="POST" action={manualPreviewAction}>
 								<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 								<input type="hidden" name="date" value={activePreviewRow.date} />
@@ -430,7 +506,7 @@
 									<SearchSelect
 										options={previewReview?.selectionOptions ?? []}
 										value={selectedPreviewAssignees[activePreviewRow.date] ?? activePreviewRow.editAssigneeId}
-										ariaLabel={`Select Soldier for ${activePreviewRow.date}`}
+										ariaLabel={`Select Soldier for ${activeParts.weekday} ${activeParts.label}`}
 										placeholder="Search by name..."
 										clearable={false}
 										onchange={(value) => {
@@ -438,14 +514,19 @@
 										}}
 									/>
 								</label>
-								<div class="warning-summary">
+								<div class="warning-summary" role="region" aria-live="polite" aria-labelledby="warning-summary-heading">
 									<span>Warning Summary</span>
 									{#if activePreviewRow.liveWarnings.length > 0}
+										<p id="warning-summary-heading" class="warning-summary__lede">
+											Review these warnings before saving a manual change.
+										</p>
 										{#each activePreviewRow.liveWarnings as warning (warning)}
 											<p><AlertTriangle size={15} aria-hidden="true" /> {warning}</p>
 										{/each}
 									{:else}
-										<p><CheckCircle2 size={15} aria-hidden="true" /> No warnings for selected replacement.</p>
+										<p id="warning-summary-heading">
+											<CheckCircle2 size={15} aria-hidden="true" /> No warnings for selected replacement.
+										</p>
 									{/if}
 								</div>
 								{#if activePreviewRow.liveWarnings.length > 0}
@@ -471,7 +552,7 @@
 							</p>
 						{:else}
 							<h3 id="manual-change-heading">Change Assignment</h3>
-							<p class="manual-change-empty">Select Change on a preview row to review replacements.</p>
+							<p class="manual-change-empty">Select Review or Change on a preview row to review replacements.</p>
 						{/if}
 					</aside>
 				</div>
@@ -554,7 +635,7 @@
 								</div>
 								<div>
 									<dt>Dates</dt>
-									<dd>{generateStartDate} to {generateEndDate}</dd>
+									<dd>{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</dd>
 								</div>
 								<div>
 									<dt>Rosters</dt>
@@ -579,10 +660,10 @@
 							<p class="warning-count"><AlertTriangle size={16} aria-hidden="true" /> {previewWarningCount}</p>
 						</section>
 						<section>
-							<h3>Print / Export</h3>
+							<h3>Print</h3>
 							<button class="link-command link-command--icon" type="button" onclick={() => printDraftPreview(preview)}>
 								<Printer size={16} aria-hidden="true" />
-								Prints in DA6 format
+								Print DA6 draft
 							</button>
 						</section>
 					</aside>

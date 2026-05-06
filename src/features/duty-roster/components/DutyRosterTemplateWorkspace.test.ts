@@ -189,16 +189,19 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
 		expect(list).toBeTruthy();
+		expect(screen.getAllByText('01-JUN to 01-JUN').length).toBeGreaterThan(0);
+		expect(screen.getByText(/Accept Run writes official DA6 history/)).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
 		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(matrix).toBeTruthy();
 		expect(within(matrix).getByText('X')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Print DA6 draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Export Draft' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Accept + Print' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept + Apply to Calendar' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept Run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Accept Run + Print' })).toBeTruthy();
 	});
 
 	it('renders manual preview selections with warnings while keeping MANUAL out of the DA6 matrix', async () => {
@@ -222,14 +225,16 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
-		expect(within(list).getByText('MANUAL')).toBeTruthy();
-		expect(within(list).getByText('Generated: SGT Able, Ann')).toBeTruthy();
-		expect(within(list).queryByText('Selected Soldier is outside this template pool.')).toBeNull();
-		expect(screen.queryByText('Reason: Commander approved outside-pool replacement.')).toBeNull();
-		const warning = within(list).getByLabelText('Warning detail: Selected Soldier is outside this template pool.');
-		expect(warning.textContent).toBe('Review');
-		expect(warning.getAttribute('title')).toBe('Selected Soldier is outside this template pool.');
-		expect(within(list).getByText('Commander approved outside-pool replacement.')).toBeTruthy();
+		expect(within(list).getByText('REVIEW')).toBeTruthy();
+		expect(within(list).getByText(/Generated SGT\s+Able, Ann/)).toBeTruthy();
+		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
+		expect(within(list).queryByText('Commander approved outside-pool replacement.')).toBeNull();
+
+		await fireEvent.click(
+			within(list).getByRole('button', { name: 'Review warning and change assignment for MON JUN 01, 2026' })
+		);
+		expect(screen.getAllByText('Selected Soldier is outside this template pool.').length).toBeGreaterThan(1);
+		expect(screen.getByText('Commander approved outside-pool replacement.')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });

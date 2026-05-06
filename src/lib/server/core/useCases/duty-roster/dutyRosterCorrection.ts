@@ -17,6 +17,7 @@ import { acceptedRunSnapshot, parseAcceptedRunSnapshot, type DutyRosterTemplateR
 
 const DUTY_ROSTER_TEMPLATE_CORRECTION_TABLE = 'duty_roster_template_run_corrections';
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
+const MAX_DUTY_ROSTER_COOLDOWN_HOURS = 168;
 
 type DisplayPersonnel = {
 	id: string;
@@ -158,12 +159,14 @@ export async function recordDutyRosterTemplateRunCorrection(
 
 	if (row.applied_at) {
 		try {
+			const cooldownHours = await loadDutyRosterCorrectionCooldownHours(ctx, snapshot.template.id);
 			await batchDailyAssignments(ctx, {
 				records: [
 					{
 						date: input.runRowDate,
 						assignmentTypeId: snapshot.template.id,
 						assigneeId: input.replacementAssigneeId,
+						cooldownHours,
 						dutyRosterTemplateRunId: row.id,
 						dutyRosterTemplateRunRowDate: input.runRowDate
 					}
@@ -196,6 +199,21 @@ export async function recordDutyRosterTemplateRunCorrection(
 		snapshot,
 		personnelById: new Map([[input.replacementAssigneeId, toDutyRosterPoolPersonnel(replacement)]])
 	});
+}
+
+async function loadDutyRosterCorrectionCooldownHours(ctx: QueryPorts, assignmentTypeId: string): Promise<number> {
+	const row = await ctx.store.findOne<Record<string, unknown>>('assignment_types', ctx.auth.orgId, {
+		id: assignmentTypeId
+	});
+	return normalizeDutyRosterCooldownHours(row?.cooldown_hours);
+}
+
+function normalizeDutyRosterCooldownHours(value: unknown): number {
+	const cooldown = typeof value === 'number' ? value : Number(value ?? 0);
+	if (!Number.isFinite(cooldown) || cooldown <= 0) {
+		return 0;
+	}
+	return Math.min(Math.floor(cooldown), MAX_DUTY_ROSTER_COOLDOWN_HOURS);
 }
 
 function groupCorrectionsByRunId(

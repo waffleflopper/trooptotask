@@ -27,6 +27,8 @@ const personnelRows: Record<string, unknown>[] = [];
 const availabilityRows: Record<string, unknown>[] = [];
 const specialDayRows: Record<string, unknown>[] = [];
 const statusTypeRows: Record<string, unknown>[] = [];
+const dutyEventRows: Record<string, unknown>[] = [];
+const dutyEventSlotRows: Record<string, unknown>[] = [];
 const auditEvents: Array<{
 	action: string;
 	resourceType: string;
@@ -276,6 +278,8 @@ describe('Duty Roster Template use cases', () => {
 		availabilityRows.length = 0;
 		specialDayRows.length = 0;
 		statusTypeRows.length = 0;
+		dutyEventRows.length = 0;
+		dutyEventSlotRows.length = 0;
 		auditEvents.length = 0;
 		vi.mocked(readOnlyGuard.check).mockResolvedValue(false);
 	});
@@ -1461,6 +1465,120 @@ describe('Duty Roster Template use cases', () => {
 		]);
 	});
 
+	it('rejects applied corrections when the replacement violates Duty Roster cooldown', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const assignmentType = assignmentTypeRows.find((row) => row.id === template.assignmentTypeId);
+		if (assignmentType) {
+			assignmentType.cooldown_hours = 12;
+		}
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		dutyEventRows.push({
+			id: 'duty-event-bravo',
+			organization_id: 'org-1',
+			template_id: 'staff-duty',
+			template_name: 'Staff Duty',
+			event_date: '2026-06-02',
+			coverage_start: '2026-06-02T06:00:00',
+			coverage_end: '2026-06-02T18:00:00',
+			coverage_mode: 'timed',
+			start_time: '06:00',
+			end_time: '18:00',
+			is_blocking: true,
+			cooldown_hours: 0,
+			fill_summary: {},
+			collision_summary: {},
+			rules_snapshot: {}
+		});
+		dutyEventSlotRows.push({
+			id: 'duty-slot-bravo',
+			organization_id: 'org-1',
+			duty_event_id: 'duty-event-bravo',
+			template_slot_id: 'slot-nco',
+			role_label: 'NCO',
+			slot_index: 0,
+			assignee_id: 'bravo',
+			assignment_source: 'generated',
+			warning_state: 'none',
+			fairness_confidence: 'high',
+			selection_reason: null,
+			unfilled_reason: null,
+			sort_order: 0
+		});
+
+		await expect(
+			recordDutyRosterTemplateRunCorrection(ctx, {
+				runId: applied.acceptedRun.id,
+				runRowDate: '2026-06-01',
+				replacementAssigneeId: 'bravo',
+				reason: 'Soldier performed duty for original assignee.'
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message:
+				"SGT Baker has another duty beginning at 2026-06-02T06:00:00, which overlaps this duty's cooldown window ending 2026-06-02T11:59:59."
+		});
+
+		expect(correctionRows).toHaveLength(0);
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'alpha'
+			})
+		]);
+	});
+
+	it('allows applied corrections outside the Duty Roster cooldown window', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const assignmentType = assignmentTypeRows.find((row) => row.id === template.assignmentTypeId);
+		if (assignmentType) {
+			assignmentType.cooldown_hours = 12;
+		}
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		const applied = await acceptAndApplyDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		await recordDutyRosterTemplateRunCorrection(ctx, {
+			runId: applied.acceptedRun.id,
+			runRowDate: '2026-06-01',
+			replacementAssigneeId: 'bravo',
+			reason: 'Soldier performed duty for original assignee.'
+		});
+
+		expect(correctionRows).toHaveLength(1);
+		expect(dailyAssignmentRows).toEqual([
+			expect.objectContaining({
+				date: '2026-06-01',
+				assignment_type_id: template.assignmentTypeId,
+				assignee_id: 'bravo',
+				duty_roster_template_run_id: applied.acceptedRun.id,
+				duty_roster_template_run_row_date: '2026-06-01'
+			})
+		]);
+	});
+
 	it('rolls back correction history when applied Calendar assignment sync fails', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -1975,6 +2093,10 @@ function tableRows(table: string): Record<string, unknown>[] {
 			return acceptedRunRows;
 		case 'duty_roster_template_run_corrections':
 			return correctionRows;
+		case 'duty_events':
+			return dutyEventRows;
+		case 'duty_event_slots':
+			return dutyEventSlotRows;
 		case 'personnel':
 			return personnelRows;
 		case 'special_days':

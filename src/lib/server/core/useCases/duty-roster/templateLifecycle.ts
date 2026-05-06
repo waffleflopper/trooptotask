@@ -40,7 +40,10 @@ import {
 	applyAcceptedDutyRosterTemplateRun as applyAcceptedRunLifecycle,
 	hasAcceptedDutyRosterTemplateRun,
 	invalidateLatestDutyRosterTemplateRun as invalidateLatestRunLifecycle,
+	listAcceptedDutyRosterTemplateRunHistory as listAcceptedRunHistoryLifecycle,
 	listAcceptedDutyRosterTemplateRuns as listAcceptedRunsLifecycle,
+	type DutyRosterTemplateRunHistoryPage,
+	type ListAcceptedDutyRosterTemplateRunsOptions,
 	recordDutyRosterTemplateRunCorrection as recordRunCorrectionLifecycle
 } from './acceptedRuns';
 import {
@@ -577,9 +580,18 @@ export async function loadDutyRosterTemplateCountReadModelLifecycle(
 
 export async function listAcceptedDutyRosterTemplateRunsLifecycle(
 	ctx: QueryPorts,
-	templateId: string
+	templateId: string,
+	options?: ListAcceptedDutyRosterTemplateRunsOptions
 ): Promise<DutyRosterTemplateAcceptedRun[]> {
-	return listAcceptedRunsLifecycle(ctx, templateId);
+	return listAcceptedRunsLifecycle(ctx, templateId, options);
+}
+
+export async function listAcceptedDutyRosterTemplateRunHistoryLifecycle(
+	ctx: QueryPorts,
+	templateId: string,
+	options?: ListAcceptedDutyRosterTemplateRunsOptions
+): Promise<DutyRosterTemplateRunHistoryPage> {
+	return listAcceptedRunHistoryLifecycle(ctx, templateId, options);
 }
 
 export async function updateDutyRosterTemplateSettingsLifecycle(

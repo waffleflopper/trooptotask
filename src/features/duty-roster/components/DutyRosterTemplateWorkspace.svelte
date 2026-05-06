@@ -35,6 +35,7 @@
 	const invalidateAcceptedRunAction = $derived(workspace.invalidateAcceptedRunAction);
 	const correctAcceptedRunAction = $derived(workspace.correctAcceptedRunAction);
 	const acceptedRuns = $derived(workspace.acceptedRuns);
+	const historyPage = $derived(workspace.historyPage);
 	const historyDetailRun = $derived(workspace.historyDetailRun);
 	const latestHistoryRunId = $derived(workspace.latestHistoryRunId);
 	const rankOptions = $derived(workspace.rankOptions);
@@ -126,6 +127,7 @@
 						{selectedTemplate}
 						{actionForm}
 						{acceptedRuns}
+						{historyPage}
 						{historyDetailRun}
 						{latestHistoryRunId}
 						{historyMode}

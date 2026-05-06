@@ -9,7 +9,7 @@ import {
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
 	invalidateLatestDutyRosterTemplateRun,
-	listAcceptedDutyRosterTemplateRuns,
+	listAcceptedDutyRosterTemplateRunHistory,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateCountReadModel,
 	loadDutyRosterTemplateSettings,
@@ -47,7 +47,15 @@ function actionError(
 	});
 }
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
+const DEFAULT_HISTORY_PAGE = 1;
+
+function parseHistoryPage(value: string | null): number {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return DEFAULT_HISTORY_PAGE;
+	return Math.max(DEFAULT_HISTORY_PAGE, Math.trunc(parsed));
+}
+
+export const load: PageServerLoad = async ({ params, url, locals, cookies, parent }) => {
 	const { orgId, templateSlug, view } = params;
 	const parentData = await parent();
 
@@ -67,13 +75,15 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				throw error(404, 'Duty Roster Template not found');
 			}
 
-			const [settings, countReadModel, acceptedRuns] = await Promise.all([
+			const historyPageNumber =
+				view === 'history' ? parseHistoryPage(url.searchParams.get('page')) : DEFAULT_HISTORY_PAGE;
+			const [settings, countReadModel, acceptedRunHistory] = await Promise.all([
 				view === 'settings' ? loadDutyRosterTemplateSettings(ctx, selectedTemplate) : Promise.resolve(null),
 				loadDutyRosterTemplateCountReadModel(ctx, selectedTemplate),
-				listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id)
+				listAcceptedDutyRosterTemplateRunHistory(ctx, selectedTemplate.id, { page: historyPageNumber })
 			]);
 
-			return { templates, selectedTemplate, settings, acceptedRuns, countReadModel };
+			return { templates, selectedTemplate, settings, acceptedRunHistory, countReadModel };
 		}
 	});
 
@@ -84,7 +94,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
 		settings: data.settings,
-		acceptedRuns: data.acceptedRuns,
+		acceptedRuns: data.acceptedRunHistory.runs,
+		historyPage: data.acceptedRunHistory,
 		countReadModel: data.countReadModel,
 		view
 	};

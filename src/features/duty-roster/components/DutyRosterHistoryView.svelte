@@ -32,6 +32,7 @@
 		selectedTemplate,
 		actionForm,
 		acceptedRuns,
+		historyPage,
 		historyDetailRun,
 		latestHistoryRunId,
 		historyMode,
@@ -43,6 +44,7 @@
 		selectedTemplate: DutyRosterTemplate;
 		actionForm: DutyRosterWorkspaceActionForm | null;
 		acceptedRuns: DutyRosterTemplateAcceptedRun[];
+		historyPage: DutyRosterWorkspaceReadModel['historyPage'];
 		historyDetailRun: DutyRosterTemplateAcceptedRun | null;
 		latestHistoryRunId: string | null;
 		historyMode: DutyRosterWorkspaceReadModel['historyMode'];
@@ -64,6 +66,11 @@
 
 	function historyListHref(): string {
 		return `${basePath}/${selectedTemplate.slug}/history`;
+	}
+
+	function historyPageHref(page: number): string {
+		const listHref = historyListHref();
+		return page <= 1 ? listHref : `${listHref}?page=${page}`;
 	}
 
 	function selectedCorrectionAssigneeId(runId: string, date: string): string {
@@ -197,7 +204,9 @@
 	}
 
 	const filteredAcceptedRuns = $derived(acceptedRuns.filter(runMatchesHistoryFilter));
-	const latestRun = $derived(acceptedRuns.find((run) => run.id === latestHistoryRunId) ?? null);
+	const latestRun = $derived(
+		historyPage ? (acceptedRuns.find((run) => run.id === latestHistoryRunId) ?? null) : (acceptedRuns[0] ?? null)
+	);
 	const acceptedRunCount = $derived(acceptedRuns.filter((run) => run.status === 'accepted').length);
 	const pendingCorrectionCount = $derived(acceptedRuns.reduce((total, run) => total + run.corrections.length, 0));
 	const detailReview = $derived(
@@ -540,7 +549,7 @@
 			</div>
 			<div>
 				<Database size={26} aria-hidden="true" />
-				<span>Total accepted runs</span>
+				<span>Loaded accepted runs</span>
 				<strong>{acceptedRunCount}</strong>
 			</div>
 			<div>
@@ -628,7 +637,27 @@
 					</div>
 				{/each}
 			</div>
-			<p class="history-count-note">Showing {filteredAcceptedRuns.length} of {acceptedRuns.length} runs</p>
+			<div class="history-pagination" aria-label="History pagination">
+				<p class="history-count-note">
+					{#if historyPage}
+						Page {historyPage.page}. Showing {filteredAcceptedRuns.length} of {acceptedRuns.length} loaded runs.
+					{:else}
+						Showing {filteredAcceptedRuns.length} of {acceptedRuns.length} loaded runs.
+					{/if}
+				</p>
+				<div class="history-pagination__actions">
+					{#if historyPage?.previousPage}
+						<a class="btn btn-secondary btn-sm" href={historyPageHref(historyPage.previousPage)}>Newer runs</a>
+					{:else}
+						<span class="btn btn-secondary btn-sm disabled" aria-disabled="true">Newer runs</span>
+					{/if}
+					{#if historyPage?.hasMore && historyPage.nextPage}
+						<a class="btn btn-secondary btn-sm" href={historyPageHref(historyPage.nextPage)}>Older runs</a>
+					{:else}
+						<span class="btn btn-secondary btn-sm disabled" aria-disabled="true">Older runs</span>
+					{/if}
+				</div>
+			</div>
 		</div>
 	</section>
 {/if}

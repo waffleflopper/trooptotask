@@ -10,6 +10,7 @@ import {
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
 	invalidateLatestDutyRosterTemplateRun,
+	listAcceptedDutyRosterTemplateRunHistory,
 	listAcceptedDutyRosterTemplateRuns,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateCountReadModel,
@@ -119,6 +120,10 @@ const store: DataStore = {
 				const comparison = String(a[order.column] ?? '').localeCompare(String(b[order.column] ?? ''));
 				return order.ascending ? comparison : -comparison;
 			});
+		}
+
+		if (options?.range) {
+			result = result.slice(options.range.from, options.range.to + 1);
 		}
 
 		if (typeof options?.limit === 'number') {
@@ -2034,6 +2039,64 @@ describe('Duty Roster Template use cases', () => {
 		const runs = await listAcceptedDutyRosterTemplateRuns(ctx, 'template-1');
 
 		expect(runs.map((run) => run.id)).toEqual(['newer-run', 'older-run']);
+	});
+
+	it('loads accepted Duty Roster history in bounded pages', async () => {
+		const ctx = createCtx();
+		for (let index = 1; index <= 25; index += 1) {
+			const day = String(index).padStart(2, '0');
+			acceptedRunRows.push(
+				acceptedRunRow({
+					id: `run-${day}`,
+					accepted_at: `2026-06-${day}T12:00:00.000Z`,
+					created_at: `2026-06-${day}T12:00:00.000Z`
+				})
+			);
+		}
+
+		const firstPage = await listAcceptedDutyRosterTemplateRunHistory(ctx, 'template-1');
+		const secondPage = await listAcceptedDutyRosterTemplateRunHistory(ctx, 'template-1', { page: 2 });
+
+		expect(firstPage.runs).toHaveLength(20);
+		expect(firstPage.runs[0]?.id).toBe('run-25');
+		expect(firstPage.runs.at(-1)?.id).toBe('run-06');
+		expect(firstPage).toMatchObject({
+			page: 1,
+			pageSize: 20,
+			hasMore: true,
+			nextPage: 2,
+			previousPage: null,
+			latestRunId: 'run-25'
+		});
+		expect(secondPage.runs.map((run) => run.id)).toEqual(['run-05', 'run-04', 'run-03', 'run-02', 'run-01']);
+		expect(secondPage).toMatchObject({
+			page: 2,
+			hasMore: false,
+			nextPage: null,
+			previousPage: 1,
+			latestRunId: 'run-25'
+		});
+	});
+
+	it('includes a selected older Duty Roster history run without loading the full history', async () => {
+		const ctx = createCtx();
+		for (let index = 1; index <= 25; index += 1) {
+			const day = String(index).padStart(2, '0');
+			acceptedRunRows.push(
+				acceptedRunRow({
+					id: `run-${day}`,
+					accepted_at: `2026-06-${day}T12:00:00.000Z`,
+					created_at: `2026-06-${day}T12:00:00.000Z`
+				})
+			);
+		}
+
+		const page = await listAcceptedDutyRosterTemplateRunHistory(ctx, 'template-1', { includeRunId: 'run-01' });
+
+		expect(page.runs).toHaveLength(21);
+		expect(page.runs.map((run) => run.id)).toContain('run-01');
+		expect(page.runs[0]?.id).toBe('run-25');
+		expect(page.latestRunId).toBe('run-25');
 	});
 
 	it('locks Manual DA6 Baseline setup data after the first accepted run', async () => {

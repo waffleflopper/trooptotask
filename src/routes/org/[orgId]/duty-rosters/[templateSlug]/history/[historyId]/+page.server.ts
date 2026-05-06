@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	findDutyRosterTemplateBySlug,
-	listAcceptedDutyRosterTemplateRuns,
+	listAcceptedDutyRosterTemplateRunHistory,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateCountReadModel
 } from '$lib/server/core/useCases/dutyRosterTemplates';
@@ -26,15 +26,15 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 				throw error(404, 'Duty Roster Template not found');
 			}
 
-			const [acceptedRuns, countReadModel] = await Promise.all([
-				listAcceptedDutyRosterTemplateRuns(ctx, selectedTemplate.id),
+			const [acceptedRunHistory, countReadModel] = await Promise.all([
+				listAcceptedDutyRosterTemplateRunHistory(ctx, selectedTemplate.id, { includeRunId: historyId }),
 				loadDutyRosterTemplateCountReadModel(ctx, selectedTemplate)
 			]);
-			if (!acceptedRuns.some((run) => run.id === historyId)) {
+			if (!acceptedRunHistory.runs.some((run) => run.id === historyId)) {
 				throw error(404, 'Duty Roster Run not found');
 			}
 
-			return { templates, selectedTemplate, acceptedRuns, countReadModel };
+			return { templates, selectedTemplate, acceptedRunHistory, countReadModel };
 		}
 	});
 
@@ -48,7 +48,8 @@ export const load: PageServerLoad = async ({ params, url, locals, cookies, paren
 		templates: data.templates,
 		selectedTemplate: data.selectedTemplate,
 		settings: null,
-		acceptedRuns: data.acceptedRuns,
+		acceptedRuns: data.acceptedRunHistory.runs,
+		historyPage: data.acceptedRunHistory,
 		countReadModel: data.countReadModel,
 		view: 'history' as const,
 		historyDetailRunId: historyId,

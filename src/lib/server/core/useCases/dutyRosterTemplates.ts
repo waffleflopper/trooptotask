@@ -17,6 +17,10 @@ import type {
 	DutyRosterTemplateSettingsInput
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
+import type {
+	DutyRosterTemplateRunHistoryPage,
+	ListAcceptedDutyRosterTemplateRunsOptions
+} from './duty-roster/acceptedRuns';
 import {
 	acceptAndApplyDutyRosterTemplatePreviewLifecycle,
 	acceptDutyRosterTemplatePreviewLifecycle,
@@ -27,6 +31,7 @@ import {
 	findDutyRosterTemplateBySlugLifecycle,
 	generateDutyRosterTemplatePreviewLifecycle,
 	invalidateLatestDutyRosterTemplateRunLifecycle,
+	listAcceptedDutyRosterTemplateRunHistoryLifecycle,
 	listAcceptedDutyRosterTemplateRunsLifecycle,
 	listDutyRosterTemplatesLifecycle,
 	loadDutyRosterTemplateCountReadModelLifecycle,
@@ -106,10 +111,20 @@ export async function loadDutyRosterTemplateCountReadModel(
 
 export async function listAcceptedDutyRosterTemplateRuns(
 	ctx: DutyRosterTemplateQueryPorts,
-	templateId: string
+	templateId: string,
+	options?: ListAcceptedDutyRosterTemplateRunsOptions
 ): Promise<DutyRosterTemplateAcceptedRun[]> {
 	await requireTemplateView(ctx);
-	return listAcceptedDutyRosterTemplateRunsLifecycle(ctx, templateId);
+	return listAcceptedDutyRosterTemplateRunsLifecycle(ctx, templateId, options);
+}
+
+export async function listAcceptedDutyRosterTemplateRunHistory(
+	ctx: DutyRosterTemplateQueryPorts,
+	templateId: string,
+	options?: ListAcceptedDutyRosterTemplateRunsOptions
+): Promise<DutyRosterTemplateRunHistoryPage> {
+	await requireTemplateView(ctx);
+	return listAcceptedDutyRosterTemplateRunHistoryLifecycle(ctx, templateId, options);
 }
 
 export async function updateDutyRosterTemplateSettings(

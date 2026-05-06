@@ -34,6 +34,8 @@ import {
 } from './dutyRosterCorrection';
 
 const DUTY_ROSTER_TEMPLATE_RUN_TABLE = 'duty_roster_template_runs';
+export const DUTY_ROSTER_HISTORY_PAGE_SIZE = 20;
+export const DUTY_ROSTER_HISTORY_MAX_PAGE_SIZE = 50;
 
 export type DutyRosterTemplateApplyResult = {
 	acceptedRun: DutyRosterTemplateAcceptedRun;
@@ -51,25 +53,108 @@ export type AcceptedDutyRosterRunCountSource = DutyRosterTemplateCountReadModel 
 	continuationHistory: DutyRosterCountSourceModel['continuationHistory'];
 };
 
+export type ListAcceptedDutyRosterTemplateRunsOptions = {
+	page?: number;
+	pageSize?: number;
+	includeRunId?: string | null;
+};
+
+export type DutyRosterTemplateRunHistoryPage = {
+	runs: DutyRosterTemplateAcceptedRun[];
+	page: number;
+	pageSize: number;
+	hasMore: boolean;
+	nextPage: number | null;
+	previousPage: number | null;
+	latestRunId: string | null;
+};
+
 export async function listAcceptedDutyRosterTemplateRuns(
 	ctx: QueryPorts,
-	templateId: string
+	templateId: string,
+	options: ListAcceptedDutyRosterTemplateRunsOptions = {}
 ): Promise<DutyRosterTemplateAcceptedRun[]> {
+	const page = await listAcceptedDutyRosterTemplateRunHistory(ctx, templateId, options);
+	return page.runs;
+}
+
+export async function listAcceptedDutyRosterTemplateRunHistory(
+	ctx: QueryPorts,
+	templateId: string,
+	options: ListAcceptedDutyRosterTemplateRunsOptions = {}
+): Promise<DutyRosterTemplateRunHistoryPage> {
+	const page = normalizeHistoryPage(options.page);
+	const pageSize = normalizeHistoryPageSize(options.pageSize);
+	const from = (page - 1) * pageSize;
+	const to = from + pageSize;
 	const rows = await ctx.store.findMany<DutyRosterTemplateRunRow>(
 		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
 		ctx.auth.orgId,
 		{ template_id: templateId },
 		{
 			inFilters: { status: ['accepted', 'invalidated'] },
-			orderBy: [{ column: 'accepted_at', ascending: false }]
+			orderBy: [{ column: 'accepted_at', ascending: false }],
+			range: { from, to }
 		}
 	);
+	const latestRunId = await loadLatestAcceptedDutyRosterTemplateRunId(ctx, templateId);
+	const pageRows = rows.slice(0, pageSize);
+	const includeRunId = options.includeRunId?.trim();
+	const includesRequestedRun = Boolean(includeRunId && pageRows.some((row) => row.id === includeRunId));
+	if (includeRunId && !includesRequestedRun) {
+		const includedRow = await ctx.store.findOne<DutyRosterTemplateRunRow>(
+			DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+			ctx.auth.orgId,
+			{
+				id: includeRunId,
+				template_id: templateId
+			}
+		);
+		if (includedRow && (includedRow.status === 'accepted' || includedRow.status === 'invalidated')) {
+			pageRows.push(includedRow);
+		}
+	}
 
 	const runsWithCorrections = await hydrateAcceptedRunActorDisplayNames(
 		ctx,
-		await hydrateAcceptedRunCorrections(ctx, rows.map(toAcceptedDutyRosterTemplateRun))
+		await hydrateAcceptedRunCorrections(ctx, pageRows.map(toAcceptedDutyRosterTemplateRun))
 	);
-	return hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
+	const runs = await hydrateAcceptedRunCalendarState(ctx, runsWithCorrections);
+	return {
+		runs,
+		page,
+		pageSize,
+		hasMore: rows.length > pageSize,
+		nextPage: rows.length > pageSize ? page + 1 : null,
+		previousPage: page > 1 ? page - 1 : null,
+		latestRunId
+	};
+}
+
+function normalizeHistoryPage(value: number | undefined): number {
+	if (!Number.isFinite(value)) return 1;
+	return Math.max(1, Math.trunc(value ?? 1));
+}
+
+function normalizeHistoryPageSize(value: number | undefined): number {
+	if (!Number.isFinite(value)) return DUTY_ROSTER_HISTORY_PAGE_SIZE;
+	return Math.min(DUTY_ROSTER_HISTORY_MAX_PAGE_SIZE, Math.max(1, Math.trunc(value ?? DUTY_ROSTER_HISTORY_PAGE_SIZE)));
+}
+
+async function loadLatestAcceptedDutyRosterTemplateRunId(ctx: QueryPorts, templateId: string): Promise<string | null> {
+	const rows = await ctx.store.findMany<{ id: string }>(
+		DUTY_ROSTER_TEMPLATE_RUN_TABLE,
+		ctx.auth.orgId,
+		{ template_id: templateId },
+		{
+			select: 'id',
+			inFilters: { status: ['accepted', 'invalidated'] },
+			orderBy: [{ column: 'accepted_at', ascending: false }],
+			limit: 1
+		}
+	);
+
+	return rows[0]?.id ?? null;
 }
 
 type OrganizationMembershipActorRow = {

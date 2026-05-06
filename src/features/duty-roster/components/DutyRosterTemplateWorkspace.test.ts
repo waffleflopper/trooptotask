@@ -319,6 +319,36 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('table', { name: 'Accepted Duty Roster list' })).toBeNull();
 	});
 
+	it('renders bounded History page navigation for older runs', () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: template,
+					view: 'history',
+					acceptedRuns: [acceptedRun()],
+					historyPage: {
+						page: 1,
+						pageSize: 20,
+						hasMore: true,
+						nextPage: 2,
+						previousPage: null,
+						latestRunId: 'run-1'
+					},
+					countReadModel: countReadModel({ source: 'accepted-history', corrected: true })
+				}
+			}
+		});
+
+		expect(screen.getByText('Page 1. Showing 1 of 1 loaded runs.')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Older runs' }).getAttribute('href')).toBe(
+			'/org/org-1/duty-rosters/cq-nco/history?page=2'
+		);
+		expect(screen.getByText('Newer runs').getAttribute('aria-disabled')).toBe('true');
+	});
+
 	it('renders correction history and an inline correction form for accepted rows', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {

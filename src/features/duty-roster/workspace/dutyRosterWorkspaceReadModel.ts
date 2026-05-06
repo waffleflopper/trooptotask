@@ -49,7 +49,17 @@ export interface DutyRosterWorkspaceData {
 	view?: DutyRosterTemplateView | 'new';
 	historyDetailRunId?: string | null;
 	historyDetailMode?: 'roster' | 'da6';
+	historyPage?: DutyRosterHistoryPageInfo | null;
 }
+
+export type DutyRosterHistoryPageInfo = {
+	page: number;
+	pageSize: number;
+	hasMore: boolean;
+	nextPage: number | null;
+	previousPage: number | null;
+	latestRunId?: string | null;
+};
 
 export type DutyRosterWorkspaceViewTab = {
 	id: DutyRosterTemplateView;
@@ -108,6 +118,7 @@ export type DutyRosterWorkspaceReadModel = {
 	invalidateAcceptedRunAction: string;
 	correctAcceptedRunAction: string;
 	acceptedRuns: DutyRosterTemplateAcceptedRun[];
+	historyPage: DutyRosterHistoryPageInfo | null;
 	setupPersonnel: DutyRosterTemplateSettingsData['personnel'];
 	historyDetailRun: DutyRosterTemplateAcceptedRun | null;
 	countReadModel: DutyRosterTemplateCountReadModel | null;
@@ -145,6 +156,7 @@ export function buildDutyRosterWorkspaceReadModel(
 	const actionForm = parseActionForm(form);
 	const preview = selectedView === 'generate' ? (actionForm?.preview ?? null) : null;
 	const acceptedRuns = data.acceptedRuns ?? [];
+	const historyPage = data.historyPage ?? null;
 	const setupPersonnel = data.settings?.personnel ?? data.setupOptions?.personnel ?? [];
 	const historyDetailRun = data.historyDetailRunId
 		? (acceptedRuns.find((run) => run.id === data.historyDetailRunId) ?? null)
@@ -235,10 +247,11 @@ export function buildDutyRosterWorkspaceReadModel(
 			? `${basePath}/${selectedTemplate.slug}/history?/recordCorrection`
 			: createAction,
 		acceptedRuns,
+		historyPage,
 		setupPersonnel,
 		historyDetailRun,
 		countReadModel,
-		latestHistoryRunId: acceptedRuns[0]?.id ?? null,
+		latestHistoryRunId: historyPage?.latestRunId ?? acceptedRuns[0]?.id ?? null,
 		rankOptions,
 		groupOptions,
 		mosOptions,

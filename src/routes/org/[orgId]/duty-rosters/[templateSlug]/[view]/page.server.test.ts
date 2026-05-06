@@ -11,7 +11,7 @@ const {
 	loadDutyRosterTemplateSettingsMock,
 	findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreviewMock,
-	listAcceptedDutyRosterTemplateRunsMock,
+	listAcceptedDutyRosterTemplateRunHistoryMock,
 	listDutyRosterTemplatesMock,
 	recordDutyRosterTemplateRunCorrectionMock,
 	updateDutyRosterTemplateSettingsMock,
@@ -28,7 +28,7 @@ const {
 	loadDutyRosterTemplateSettingsMock: vi.fn(),
 	findDutyRosterTemplateBySlugMock: vi.fn(),
 	generateDutyRosterTemplatePreviewMock: vi.fn(),
-	listAcceptedDutyRosterTemplateRunsMock: vi.fn(),
+	listAcceptedDutyRosterTemplateRunHistoryMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
 	recordDutyRosterTemplateRunCorrectionMock: vi.fn(),
 	updateDutyRosterTemplateSettingsMock: vi.fn(),
@@ -53,7 +53,7 @@ vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
 	invalidateLatestDutyRosterTemplateRun: invalidateLatestDutyRosterTemplateRunMock,
-	listAcceptedDutyRosterTemplateRuns: listAcceptedDutyRosterTemplateRunsMock,
+	listAcceptedDutyRosterTemplateRunHistory: listAcceptedDutyRosterTemplateRunHistoryMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateCountReadModel: loadDutyRosterTemplateCountReadModelMock,
 	loadDutyRosterTemplateSettings: loadDutyRosterTemplateSettingsMock,
@@ -98,13 +98,14 @@ describe('Duty Roster Template view route', () => {
 			runId: 'run-1',
 			runRowDate: '2026-06-01'
 		});
-		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([]);
+		listAcceptedDutyRosterTemplateRunHistoryMock.mockResolvedValue(historyPage([]));
 		updateDutyRosterTemplateSettingsMock.mockResolvedValue(template({ id: 'template-1', slug: 'cq-nco' }));
 	});
 
 	it('loads direct History and Settings links through the selected template slug', async () => {
 		const result = await load({
 			params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'history' },
+			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history'),
 			locals: {},
 			cookies: {},
 			parent: async () => ({ orgName: 'Able Company' })
@@ -131,6 +132,7 @@ describe('Duty Roster Template view route', () => {
 
 		const result = await load({
 			params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'settings' },
+			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/settings'),
 			locals: {},
 			cookies: {},
 			parent: async () => ({ orgName: 'Able Company' })
@@ -149,18 +151,22 @@ describe('Duty Roster Template view route', () => {
 	});
 
 	it('loads History through the accepted runs service', async () => {
-		listAcceptedDutyRosterTemplateRunsMock.mockResolvedValue([acceptedRun()]);
+		listAcceptedDutyRosterTemplateRunHistoryMock.mockResolvedValue(
+			historyPage([acceptedRun()], { page: 2, hasMore: true, nextPage: 3, previousPage: 1 })
+		);
 
 		const result = await load({
 			params: { orgId: 'org-1', templateSlug: 'cq-nco', view: 'history' },
+			url: new URL('http://localhost/org/org-1/duty-rosters/cq-nco/history?page=2'),
 			locals: {},
 			cookies: {},
 			parent: async () => ({ orgName: 'Able Company' })
 		} as never);
 
-		expect(listAcceptedDutyRosterTemplateRunsMock).toHaveBeenCalledWith(mockCtx, 'template-1');
+		expect(listAcceptedDutyRosterTemplateRunHistoryMock).toHaveBeenCalledWith(mockCtx, 'template-1', { page: 2 });
 		expect(result).toMatchObject({
-			acceptedRuns: [{ id: 'run-1', templateName: 'CQ NCO' }]
+			acceptedRuns: [{ id: 'run-1', templateName: 'CQ NCO' }],
+			historyPage: { page: 2, hasMore: true, nextPage: 3, previousPage: 1 }
 		});
 	});
 
@@ -631,6 +637,29 @@ function countReadModel() {
 		invalidatedRunCount: 0,
 		countingCorrectionCount: 0,
 		nonCountingCorrectionCount: 0
+	};
+}
+
+function historyPage(
+	runs: ReturnType<typeof acceptedRun>[],
+	overrides: Partial<{
+		page: number;
+		pageSize: number;
+		hasMore: boolean;
+		nextPage: number | null;
+		previousPage: number | null;
+		latestRunId: string | null;
+	}> = {}
+) {
+	return {
+		runs,
+		page: 1,
+		pageSize: 20,
+		hasMore: false,
+		nextPage: null,
+		previousPage: null,
+		latestRunId: runs[0]?.id ?? null,
+		...overrides
 	};
 }
 

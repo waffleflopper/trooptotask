@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CalendarDays, History, Play, UsersRound, Zap } from '@lucide/svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import {
 		groupOptionItems,
@@ -6,11 +7,8 @@
 		type DutyRosterTemplateSettingsWorkspaceModel
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
-	type SettingsSection = 'general' | 'pool' | 'exemptions' | 'baseline';
-
 	let { settings }: { settings: DutyRosterTemplateSettingsWorkspaceModel } = $props();
 
-	let settingsSection = $state<SettingsSection>('general');
 	let settingsName = $state('');
 	let settingsSlug = $state('');
 	let settingsShortCode = $state('');
@@ -26,6 +24,10 @@
 	const templateSettings = $derived(settings.settings);
 	const settingsAction = $derived(settings.settingsAction);
 	const baselineLocked = $derived(settings.baselineLocked);
+	const latestAcceptedRun = $derived(settings.acceptedRuns[0] ?? null);
+	const eligibleCount = $derived(
+		templateSettings ? Math.max(templateSettings.resolvedPool.length - settingsExemptPersonnelIds.length, 0) : 0
+	);
 
 	$effect(() => {
 		if (!templateSettings) return;
@@ -45,6 +47,37 @@
 		mosFilterValues = [...selectedTemplate.poolCriteria.mosValues];
 		dutyRoleFilterValues = [...selectedTemplate.poolCriteria.dutyRoleValues];
 	});
+
+	function formatDate(value: string | null | undefined): string {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return value;
+		return new Intl.DateTimeFormat('en-US', {
+			day: '2-digit',
+			month: 'short',
+			year: 'numeric',
+			timeZone: 'UTC'
+		})
+			.format(date)
+			.toUpperCase();
+	}
+
+	function formatDateTime(value: string | null | undefined): string {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return value;
+		const dateText = formatDate(value);
+		const timeText = new Intl.DateTimeFormat('en-US', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		}).format(date);
+		return `${dateText} ${timeText}`;
+	}
+
+	function soldierLabel(person: { rank: string; lastName: string; firstName: string }): string {
+		return `${person.rank} ${person.lastName}, ${person.firstName}`;
+	}
 </script>
 
 <h2 id="template-view-heading" class="sr-only">Duty Roster Template settings</h2>
@@ -56,120 +89,76 @@
 	<form class="settings-form settings-form--ledger" method="POST" action={settingsAction}>
 		<input type="hidden" name="templateId" value={selectedTemplate.id} />
 
-		<div class="settings-layout settings-layout--ledger">
-			<nav class="settings-nav settings-nav--ledger" aria-label="Template settings sections">
-				<button
-					type="button"
-					class:active={settingsSection === 'general'}
-					aria-pressed={settingsSection === 'general'}
-					onclick={() => (settingsSection = 'general')}
-				>
-					General
-				</button>
-				<button
-					type="button"
-					class:active={settingsSection === 'pool'}
-					aria-pressed={settingsSection === 'pool'}
-					onclick={() => (settingsSection = 'pool')}
-				>
-					Pool & Filters
-				</button>
-				<button
-					type="button"
-					class:active={settingsSection === 'exemptions'}
-					aria-pressed={settingsSection === 'exemptions'}
-					onclick={() => (settingsSection = 'exemptions')}
-				>
-					Exemptions
-				</button>
-				<button
-					type="button"
-					class:active={settingsSection === 'baseline'}
-					aria-pressed={settingsSection === 'baseline'}
-					onclick={() => (settingsSection = 'baseline')}
-				>
-					DA6 Baseline
-				</button>
-			</nav>
+		<div class="settings-ledger-shell">
+			<div class="settings-ledger-main">
+				<section class="settings-section settings-section--general" aria-labelledby="template-identity-heading">
+					<h4 id="template-identity-heading">Template Details</h4>
+					<div class="identity-grid identity-grid--ledger">
+						<label>
+							<span>Template name</span>
+							<input class="input" name="name" maxlength="120" required bind:value={settingsName} />
+						</label>
+						<label>
+							<span>Template slug</span>
+							<input class="input" name="slug" maxlength="72" required bind:value={settingsSlug} />
+						</label>
+						<label class="short-code-field">
+							<span>Short code</span>
+							<input class="input" name="shortCode" maxlength="12" bind:value={settingsShortCode} placeholder="CQ" />
+						</label>
+						<label>
+							<span>Status</span>
+							<input class="input" value={selectedTemplate.status === 'active' ? 'Active' : 'Archived'} readonly />
+						</label>
+					</div>
+				</section>
 
-			<div class="settings-panel settings-panel--ledger card card-flat">
-				{#if settingsSection === 'general'}
-					<section class="settings-section settings-section--general" aria-labelledby="template-identity-heading">
-						<h4 id="template-identity-heading">General settings</h4>
-						<div class="identity-grid identity-grid--ledger">
-							<label>
-								<span>Template name</span>
-								<input class="input" name="name" maxlength="120" required bind:value={settingsName} />
-							</label>
-							<label>
-								<span>URL slug</span>
-								<input class="input" name="slug" maxlength="72" required bind:value={settingsSlug} />
-								<small>Scoped to organization. Must be unique.</small>
-							</label>
-							<label class="short-code-field">
-								<span>Short code</span>
-								<input class="input" name="shortCode" maxlength="12" bind:value={settingsShortCode} placeholder="CQ" />
-								<small>Used for compact calendar badges. Can repeat across templates.</small>
-							</label>
-						</div>
-					</section>
-				{:else}
-					<input type="hidden" name="name" value={settingsName} />
-					<input type="hidden" name="slug" value={settingsSlug} />
-					<input type="hidden" name="shortCode" value={settingsShortCode} />
-				{/if}
-
-				{#if settingsSection === 'pool'}
-					<section class="settings-section" aria-labelledby="pool-criteria-heading">
-						<h4 id="pool-criteria-heading">Pool & filters</h4>
-						<p class="field-hint">
-							Selections match any value inside a category, then combine across categories. For example, SGT or CPL, and
-							Alpha Group.
-						</p>
-						<div class="criteria-grid">
-							<label class="tag-field">
-								<span>Rank</span>
-								<MultiTagSelect
-									options={optionItems(settings.rankOptions)}
-									value={rankFilterValues}
-									ariaLabel="Rank filters"
-									placeholder="Any rank"
-									onChange={(values) => (rankFilterValues = values)}
-								/>
-							</label>
-							<label class="tag-field">
-								<span>Group</span>
-								<MultiTagSelect
-									options={groupOptionItems(settings.groupOptions)}
-									value={groupFilterValues}
-									ariaLabel="Group filters"
-									placeholder="Any group"
-									onChange={(values) => (groupFilterValues = values)}
-								/>
-							</label>
-							<label class="tag-field">
-								<span>MOS</span>
-								<MultiTagSelect
-									options={optionItems(settings.mosOptions)}
-									value={mosFilterValues}
-									ariaLabel="MOS filters"
-									placeholder="Any MOS"
-									onChange={(values) => (mosFilterValues = values)}
-								/>
-							</label>
-							<label class="tag-field">
-								<span>Duty Role</span>
-								<MultiTagSelect
-									options={optionItems(settings.dutyRoleOptions)}
-									value={dutyRoleFilterValues}
-									ariaLabel="Duty role filters"
-									placeholder="Any role"
-									onChange={(values) => (dutyRoleFilterValues = values)}
-								/>
-							</label>
-						</div>
-					</section>
-				{/if}
+				<section class="settings-section" aria-labelledby="pool-criteria-heading">
+					<h4 id="pool-criteria-heading">Pool Criteria</h4>
+					<div class="criteria-grid">
+						<label class="tag-field">
+							<span>Included ranks</span>
+							<MultiTagSelect
+								options={optionItems(settings.rankOptions)}
+								value={rankFilterValues}
+								ariaLabel="Rank filters"
+								placeholder="Any rank"
+								onChange={(values) => (rankFilterValues = values)}
+							/>
+						</label>
+						<label class="tag-field">
+							<span>Included groups</span>
+							<MultiTagSelect
+								options={groupOptionItems(settings.groupOptions)}
+								value={groupFilterValues}
+								ariaLabel="Group filters"
+								placeholder="Any group"
+								onChange={(values) => (groupFilterValues = values)}
+							/>
+						</label>
+						<label class="tag-field">
+							<span>Included MOS</span>
+							<MultiTagSelect
+								options={optionItems(settings.mosOptions)}
+								value={mosFilterValues}
+								ariaLabel="MOS filters"
+								placeholder="Any MOS"
+								onChange={(values) => (mosFilterValues = values)}
+							/>
+						</label>
+						<label class="tag-field">
+							<span>Duty roles</span>
+							<MultiTagSelect
+								options={optionItems(settings.dutyRoleOptions)}
+								value={dutyRoleFilterValues}
+								ariaLabel="Duty role filters"
+								placeholder="Any role"
+								onChange={(values) => (dutyRoleFilterValues = values)}
+							/>
+						</label>
+					</div>
+					<p class="field-hint">Soldiers must meet all selected criteria to be eligible for this duty.</p>
+				</section>
 				{#each rankFilterValues as value (value)}
 					<input type="hidden" name="rankValues" {value} />
 				{/each}
@@ -183,26 +172,30 @@
 					<input type="hidden" name="dutyRoleValues" {value} />
 				{/each}
 
-				{#if settingsSection === 'exemptions'}
+				<div class="settings-lower-grid">
 					<section class="settings-section" aria-labelledby="pool-preview-heading">
-						<h4 id="pool-preview-heading">Exemptions</h4>
+						<h4 id="pool-preview-heading">Duty-Specific Exemptions</h4>
+						<p class="field-hint">These Soldiers will be excluded from eligibility for this duty.</p>
 						{#if templateSettings.resolvedPool.length === 0}
 							<div class="admin-empty">No active Personnel Records match the current pool criteria.</div>
 						{:else}
 							<div class="pool-table admin-table-shell" role="table" aria-label="Resolved Duty Roster pool">
 								<div class="pool-row pool-head" role="row">
-									<span role="columnheader">Soldier</span>
-									<span role="columnheader">Group</span>
+									<span role="columnheader">Rank</span>
+									<span role="columnheader">Name</span>
 									<span role="columnheader">MOS</span>
+									<span role="columnheader">Group</span>
 									<span role="columnheader">Exempt</span>
 								</div>
 								{#each templateSettings.resolvedPool as person (person.id)}
 									<div class="pool-row" role="row">
-										<span role="cell">{person.rank} {person.lastName}, {person.firstName}</span>
+										<span role="cell">{person.rank}</span>
+										<span role="cell">{person.lastName}, {person.firstName}</span>
+										<span role="cell">{person.mos || '-'}</span>
 										<span role="cell">{person.groupName || 'No Group'}</span>
-										<span role="cell">{person.mos || 'No MOS'}</span>
 										<span role="cell">
-											<label class="row-check">
+											<label class="row-check row-check--icon-only">
+												<span class="sr-only">Exclude {person.rank} {person.lastName}, {person.firstName}</span>
 												<input
 													type="checkbox"
 													name="exemptPersonnelIds"
@@ -215,7 +208,6 @@
 															: settingsExemptPersonnelIds.filter((id) => id !== person.id);
 													}}
 												/>
-												<span>Exempt</span>
 											</label>
 										</span>
 									</div>
@@ -223,19 +215,10 @@
 							</div>
 						{/if}
 					</section>
-				{:else}
-					{#each settingsExemptPersonnelIds as value (value)}
-						<input type="hidden" name="exemptPersonnelIds" {value} />
-					{/each}
-				{/if}
 
-				{#if settingsSection === 'baseline'}
 					<section class="settings-section" aria-labelledby="baseline-heading">
-						<h4 id="baseline-heading">DA6 Baseline</h4>
-						<p>
-							Counts are optional and apply only until the first accepted run for this template. Leave blank to start
-							from DA6 roster order.
-						</p>
+						<h4 id="baseline-heading">Manual DA6 Baseline</h4>
+						<p class="field-hint">Adjust starting duty counts for these Soldiers for the next run.</p>
 						{#if baselineLocked}
 							<p class="admin-alert admin-alert--warning">
 								Manual DA6 Baseline is locked because this template has accepted history. Future previews use accepted
@@ -245,46 +228,129 @@
 						{#if templateSettings.baselineRows.length === 0}
 							<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
 						{:else}
-							<div class="baseline-list admin-table-shell">
+							<div class="baseline-list admin-table-shell" role="table" aria-label="Manual DA6 baseline">
+								<div class="baseline-row baseline-head" role="row">
+									<span role="columnheader">Rank</span>
+									<span role="columnheader">Name</span>
+									<span role="columnheader">MOS</span>
+									<span role="columnheader">Group</span>
+									<span role="columnheader">Count</span>
+								</div>
 								{#each templateSettings.baselineRows as row (row.personnel.id)}
-									<label>
-										<span>{row.personnel.rank} {row.personnel.lastName}, {row.personnel.firstName}</span>
-										<input
-											class="input"
-											type="number"
-											min="0"
-											step="1"
-											name={`baseline:${row.personnel.id}`}
-											value={settingsBaselineCounts[row.personnel.id] ?? ''}
-											placeholder="Count"
-											readonly={baselineLocked}
-											oninput={(event) => {
-												settingsBaselineCounts = {
-													...settingsBaselineCounts,
-													[row.personnel.id]: event.currentTarget.value
-												};
-											}}
-										/>
-									</label>
+									<div class="baseline-row" role="row">
+										<span role="cell">{row.personnel.rank}</span>
+										<span role="cell">{row.personnel.lastName}, {row.personnel.firstName}</span>
+										<span role="cell">{row.personnel.mos || '-'}</span>
+										<span role="cell">{row.personnel.groupName || 'No Group'}</span>
+										<span role="cell">
+											{#if baselineLocked}
+												<span class="baseline-count-value">{settingsBaselineCounts[row.personnel.id] || '0'}</span>
+												<input
+													type="hidden"
+													name={`baseline:${row.personnel.id}`}
+													value={settingsBaselineCounts[row.personnel.id] ?? ''}
+												/>
+											{:else}
+												<input
+													class="input"
+													type="number"
+													min="0"
+													step="1"
+													name={`baseline:${row.personnel.id}`}
+													value={settingsBaselineCounts[row.personnel.id] ?? ''}
+													aria-label={`Starting count for ${soldierLabel(row.personnel)}`}
+													placeholder="Count"
+													oninput={(event) => {
+														settingsBaselineCounts = {
+															...settingsBaselineCounts,
+															[row.personnel.id]: event.currentTarget.value
+														};
+													}}
+												/>
+											{/if}
+										</span>
+									</div>
 								{/each}
 							</div>
 						{/if}
 					</section>
-				{:else}
-					{#each templateSettings.baselineRows as row (row.personnel.id)}
-						<input
-							type="hidden"
-							name={`baseline:${row.personnel.id}`}
-							value={settingsBaselineCounts[row.personnel.id] ?? ''}
-						/>
-					{/each}
+				</div>
+
+				<p class="settings-impact-note">
+					Edits to this template affect future runs only. Accepted runs and historical assignments will not be changed.
+				</p>
+			</div>
+
+			<aside class="settings-ledger-rail" aria-label="Template summary">
+				<section class="settings-rail-card">
+					<h3><UsersRound size={20} aria-hidden="true" /> Template Summary</h3>
+					<dl>
+						<div>
+							<dt>Pool</dt>
+							<dd>{selectedTemplate.shortCode ?? selectedTemplate.name}</dd>
+						</div>
+						<div>
+							<dt>Total Soldiers</dt>
+							<dd>{templateSettings.personnel.length}</dd>
+						</div>
+						<div>
+							<dt>Eligible</dt>
+							<dd>{eligibleCount}</dd>
+						</div>
+						<div>
+							<dt>Excluded</dt>
+							<dd>{settingsExemptPersonnelIds.length}</dd>
+						</div>
+						<div>
+							<dt>Last Updated</dt>
+							<dd>{formatDateTime(selectedTemplate.updatedAt)}</dd>
+						</div>
+					</dl>
+				</section>
+
+				{#if latestAcceptedRun}
+					<section class="settings-rail-card">
+						<h3><CalendarDays size={20} aria-hidden="true" /> Latest Accepted Run</h3>
+						<dl>
+							<div>
+								<dt>Date Range</dt>
+								<dd>{formatDate(latestAcceptedRun.startDate)} to {formatDate(latestAcceptedRun.endDate)}</dd>
+							</div>
+							<div>
+								<dt>Applied On</dt>
+								<dd>{formatDateTime(latestAcceptedRun.appliedAt)}</dd>
+							</div>
+							<div>
+								<dt>Accepted By</dt>
+								<dd>{latestAcceptedRun.acceptedByDisplayName ?? '-'}</dd>
+							</div>
+							<div>
+								<dt>Run ID</dt>
+								<dd>{latestAcceptedRun.id}</dd>
+							</div>
+						</dl>
+					</section>
 				{/if}
 
+				<section class="settings-rail-card">
+					<h3><Zap size={20} aria-hidden="true" /> Quick Actions</h3>
+					<div class="settings-rail-actions">
+						<a class="btn btn-primary" href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>
+							<Play size={16} aria-hidden="true" />
+							Open Generate
+						</a>
+						<a class="btn btn-secondary" href={`${settings.basePath}/${selectedTemplate.slug}/history`}>
+							<History size={16} aria-hidden="true" />
+							Open History
+						</a>
+					</div>
+				</section>
+
 				<div class="settings-actions">
-					<a class="btn btn-secondary" href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>Cancel</a>
+					<a class="btn btn-secondary" href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>Discard</a>
 					<button class="btn btn-primary" type="submit">Save settings</button>
 				</div>
-			</div>
+			</aside>
 		</div>
 	</form>
 {:else}

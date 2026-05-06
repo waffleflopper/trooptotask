@@ -370,7 +370,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('button', { name: 'Change Assignment' })).toBeNull();
 	});
 
-	it('renders scan-friendly settings tabs for pool, exemptions, and baseline setup', async () => {
+	it('renders the settings ledger with pool, exemptions, baseline, and summary actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
 				data: {
@@ -466,19 +466,21 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'General settings' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Template Details' })).toBeTruthy();
 		expect(screen.getByLabelText('Template name')).toBeTruthy();
-		expect(screen.getByLabelText(/URL slug/)).toBeTruthy();
+		expect(screen.getByLabelText(/Template slug/)).toBeTruthy();
 		expect(screen.getAllByLabelText(/Short code/)).toHaveLength(1);
-		expect(screen.queryByRole('heading', { name: 'Pool & filters' })).toBeNull();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Pool & Filters' }));
-		expect(screen.getByRole('heading', { name: 'Pool & filters' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Exemptions' }));
+		expect(screen.getByRole('heading', { name: 'Pool Criteria' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Duty-Specific Exemptions' })).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Baseline' }));
+		expect(screen.getByRole('heading', { name: 'Manual DA6 Baseline' })).toBeTruthy();
+		expect(screen.getByRole('complementary', { name: 'Template summary' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open Generate' }).getAttribute('href')).toBe(
+			'/org/org-1/duty-rosters/cq-nco/generate'
+		);
+		expect(screen.getByRole('link', { name: 'Open History' }).getAttribute('href')).toBe(
+			'/org/org-1/duty-rosters/cq-nco/history'
+		);
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
 	});

@@ -81,6 +81,8 @@ export type DutyRosterTemplateSettingsWorkspaceModel = {
 	settings: DutyRosterTemplateSettingsData | null;
 	settingsAction: string;
 	baselineLocked: boolean;
+	acceptedRuns: DutyRosterTemplateAcceptedRun[];
+	countReadModel: DutyRosterTemplateCountReadModel | null;
 	rankOptions: string[];
 	groupOptions: Array<{ id: string; label: string }>;
 	mosOptions: string[];
@@ -199,6 +201,8 @@ export function buildDutyRosterWorkspaceReadModel(
 				settings: data.settings ?? null,
 				settingsAction,
 				baselineLocked,
+				acceptedRuns,
+				countReadModel,
 				rankOptions,
 				groupOptions,
 				mosOptions,

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Bell, CircleHelp, LogOut, Moon, Settings, Sun, UserRound } from '@lucide/svelte';
+	import BrandMark from '$lib/components/BrandMark.svelte';
 	import OrgNavIcon from '$lib/components/OrgNavIcon.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu/index.js';
@@ -91,10 +92,7 @@
 			<Sidebar.Menu>
 				<Sidebar.MenuItem>
 					<Sidebar.MenuButton size="lg" tooltipContent="Troop to Task">
-						<span
-							class="flex aspect-square size-8 items-center justify-center rounded-md border bg-sidebar-primary text-sidebar-primary-foreground"
-							>T2T</span
-						>
+						<BrandMark />
 						<span class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">Troop to Task</span>
 							<span class="truncate text-xs">{orgName}</span>

@@ -17,7 +17,6 @@
 		type StoredMemberPreset
 	} from '$lib/access/memberAccessShape';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -1185,30 +1184,59 @@
 {/if}
 
 {#if confirmPermanentDelete}
-	<ConfirmDialog
-		title="Permanently Delete Personnel"
-		message="Are you sure you want to permanently delete {confirmPermanentDelete.name}? This action cannot be undone and all associated records will be lost."
-		confirmLabel="Permanently Delete"
-		variant="danger"
-		onConfirm={() => handlePermanentDelete(confirmPermanentDelete!.id)}
-		onCancel={() => (confirmPermanentDelete = null)}
-	/>
+	<Dialog.Root open={Boolean(confirmPermanentDelete)} onOpenChange={(open) => !open && (confirmPermanentDelete = null)}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Permanently Delete Personnel</Dialog.Title>
+				<Dialog.Description>
+					Are you sure you want to permanently delete {confirmPermanentDelete.name}? This action cannot be undone and
+					all associated records will be lost.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button type="button" variant="outline" onclick={() => (confirmPermanentDelete = null)}>Cancel</Button>
+				<Button type="button" variant="destructive" onclick={() => handlePermanentDelete(confirmPermanentDelete!.id)}>
+					Permanently Delete
+				</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 {/if}
 
 {#if pendingRemoveMemberForm}
-	<ConfirmDialog
-		title="Remove Member"
-		message="Remove {pendingRemoveMemberEmail} from this organization?"
-		confirmLabel="Remove"
-		variant="danger"
-		onConfirm={() => {
-			pendingRemoveMemberForm?.requestSubmit();
-			pendingRemoveMemberForm = null;
-			pendingRemoveMemberEmail = '';
+	<Dialog.Root
+		open={Boolean(pendingRemoveMemberForm)}
+		onOpenChange={(open) => {
+			if (!open) {
+				pendingRemoveMemberForm = null;
+				pendingRemoveMemberEmail = '';
+			}
 		}}
-		onCancel={() => {
-			pendingRemoveMemberForm = null;
-			pendingRemoveMemberEmail = '';
-		}}
-	/>
+	>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Remove Member</Dialog.Title>
+				<Dialog.Description>Remove {pendingRemoveMemberEmail} from this organization?</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button
+					type="button"
+					variant="outline"
+					onclick={() => {
+						pendingRemoveMemberForm = null;
+						pendingRemoveMemberEmail = '';
+					}}>Cancel</Button
+				>
+				<Button
+					type="button"
+					variant="destructive"
+					onclick={() => {
+						pendingRemoveMemberForm?.requestSubmit();
+						pendingRemoveMemberForm = null;
+						pendingRemoveMemberEmail = '';
+					}}>Remove</Button
+				>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 {/if}

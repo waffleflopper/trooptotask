@@ -159,15 +159,14 @@ describe('DashboardPageView', () => {
 		expect(within(toolbar).getByRole('link', { name: 'Add Eval' }).getAttribute('href')).toBe('/org/org-1/evals');
 	});
 
-	it('renders the three dashboard tab buttons', () => {
+	it('renders the three dashboard tabs', () => {
 		const ctx = makeCtx();
 
 		render(DashboardPageView, { props: { ctx } });
 
-		// Each label appears in both desktop tab bar and mobile pill switcher
-		expect(screen.getAllByRole('button', { name: /unit readiness/i }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('button', { name: /people & duty/i }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('button', { name: /training & evals/i }).length).toBeGreaterThan(0);
+		expect(screen.getByRole('tab', { name: /unit readiness/i })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: /people & duty/i })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: /training & evals/i })).toBeTruthy();
 	});
 
 	it('renders skeleton blocks while data is hydrating', () => {

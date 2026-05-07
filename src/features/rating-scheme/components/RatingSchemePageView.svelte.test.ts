@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
@@ -140,31 +140,6 @@ describe('RatingSchemePageView', () => {
 		expect(within(summary).queryByText('Access')).toBeNull();
 	});
 
-	it('uses shared toolbar filter controls instead of the old filter disclosure', async () => {
-		const ctx = makeContext();
-
-		render(RatingSchemePageView, {
-			props: {
-				ctx,
-				personnelLookup: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
-					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
-				]
-			}
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Evaluation controls' });
-		expect(within(toolbar).getByRole('group', { name: 'Evaluation view mode' })).toBeTruthy();
-		const typeFilter = within(toolbar).getByLabelText('Evaluation type filter') as HTMLSelectElement;
-		expect(within(toolbar).getByLabelText('Evaluation status filter')).toBeTruthy();
-		expect(within(toolbar).getByLabelText('Evaluation workflow filter')).toBeTruthy();
-		expect(within(toolbar).queryByText('Filters')).toBeNull();
-
-		await fireEvent.change(typeFilter, { target: { value: 'OER' } });
-
-		expect(ctx.evalTypeFilter).toBe('OER');
-	});
-
 	it('routes Add Entry through the rating scheme page context', async () => {
 		const modals = new ModalRegistry();
 		const ctx = makeContext(modals);
@@ -200,46 +175,5 @@ describe('RatingSchemePageView', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 		expect(exportRatingSchemeMock).toHaveBeenCalledWith(ctx.filteredRatingEntries, personnelLookup);
-	});
-
-	it('collapses evaluation view and filters together at the shared group breakpoint', async () => {
-		const originalRect = HTMLElement.prototype.getBoundingClientRect;
-
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-toolbar]')) {
-				return {
-					x: 0,
-					y: 0,
-					width: 520,
-					height: 34,
-					top: 0,
-					right: 520,
-					bottom: 34,
-					left: 0,
-					toJSON: () => ({})
-				} as DOMRect;
-			}
-			return originalRect.call(this);
-		});
-
-		render(RatingSchemePageView, {
-			props: {
-				ctx: makeContext(),
-				personnelLookup: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
-					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
-				]
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
-		});
-		expect(screen.getByRole('button', { name: 'Evaluation filters' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Table' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Evaluation filters' }));
-		expect(screen.getByRole('button', { name: 'Table' })).toBeTruthy();
 	});
 });

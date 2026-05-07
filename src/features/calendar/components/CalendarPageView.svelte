@@ -7,13 +7,7 @@
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -110,55 +104,34 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<Toolbar ariaLabel="Calendar controls" leadingMin="29rem" searchCompactAt={1180}>
-					{#snippet leading()}
-						<ToolbarGroup label="Calendar filters" activeCount={activeCalendarFilterCount} testId="calendar-filters">
-							{#snippet full()}
-								<ToolbarFilterSelect
-									ariaLabel="Calendar group filter"
-									options={groupFilterOptions}
-									value={ctx.calendarGroupFilter}
-									defaultValue=""
-									mode="full"
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-								/>
-								<ToolbarSearchItem
-									ariaLabel="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									value={ctx.calendarPersonnelSearch}
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-								/>
-							{/snippet}
-							{#snippet panel()}
-								<ToolbarFilterSelect
-									ariaLabel="Calendar group filter"
-									options={groupFilterOptions}
-									value={ctx.calendarGroupFilter}
-									defaultValue=""
-									mode="full"
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-								/>
-								<ToolbarSearchItem
-									ariaLabel="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									value={ctx.calendarPersonnelSearch}
-									width="wide"
-									mode="full"
-									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-								/>
-							{/snippet}
-						</ToolbarGroup>
-					{/snippet}
+				<WorkspaceToolbar.Root ariaLabel="Calendar controls">
+					<WorkspaceToolbar.Group
+						label="Calendar filters"
+						activeCount={activeCalendarFilterCount}
+						data-testid="calendar-filters"
+					>
+						<WorkspaceToolbar.Select
+							ariaLabel="Calendar group filter"
+							options={groupFilterOptions}
+							value={ctx.calendarGroupFilter}
+							onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
+						/>
+						<WorkspaceToolbar.Search
+							ariaLabel="Search by name, rank, MOS, role, or group"
+							placeholder="Search name, rank, MOS, role, or group..."
+							value={ctx.calendarPersonnelSearch}
+							onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
+						/>
+					</WorkspaceToolbar.Group>
 
-					<ToolbarActions
-						actions={toolbarItems}
-						ariaLabel="Calendar actions"
-						overflowAriaLabel="More Calendar actions"
-					/>
-				</Toolbar>
+					<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
+						<WorkspaceToolbar.Actions
+							actions={toolbarItems}
+							ariaLabel="Calendar actions"
+							overflowAriaLabel="More Calendar actions"
+						/>
+					</WorkspaceToolbar.Group>
+				</WorkspaceToolbar.Root>
 
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView

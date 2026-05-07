@@ -4,15 +4,9 @@
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarGroup,
-		ToolbarMetaItem,
-		ToolbarSearchItem,
-		ToolbarViewToggle,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
@@ -47,42 +41,7 @@
 		personnelStore.items.some((person) => ctx.canManagePersonnelRecord(person))
 	);
 
-	const personnelActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [];
-		if (canImportPersonnel) {
-			items.push({
-				id: 'bulk-import',
-				label: 'Import',
-				onclick: () => ctx.openBulkManager(),
-				icon: 'upload',
-				disabled: readOnly,
-				priority: 'low'
-			});
-		}
-		if (canManageGroups) {
-			items.push({
-				id: 'manage-groups',
-				label: 'Manage Groups',
-				onclick: () => ctx.openGroupManager(),
-				icon: 'book-open',
-				disabled: readOnly,
-				variant: 'secondary'
-			});
-		}
-		if (canAddPersonnel) {
-			items.push({
-				id: 'add-person',
-				label: 'Add Person',
-				onclick: () => ctx.handleAdd(),
-				icon: 'clipboard-check',
-				disabled: readOnly,
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
-			});
-		}
-		return items;
-	});
+	const hasPersonnelActions = $derived(canImportPersonnel || canManageGroups || canAddPersonnel);
 
 	// Personnel DataTable setup
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
@@ -200,57 +159,52 @@
 		</div>
 	{:else}
 		<main class="page-content roster-content">
-			<Toolbar ariaLabel="Personnel controls" leadingMin="28rem" collapse="narrow" searchCompactAt={960}>
-				{#snippet leading()}
-					<ToolbarGroup label="Roster filters" activeCount={activeRosterFilterCount} testId="personnel-roster-filters">
-						{#snippet full()}
-							<ToolbarViewToggle
-								ariaLabel="Roster sort mode"
-								options={rosterViewOptions}
-								value={ctx.viewMode}
-								mode="full"
-								onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarSearchItem
-								testId="personnel-search"
-								ariaLabel="Search by name, rank, MOS, role, or group"
-								placeholder="Search name, rank, MOS, role, or group..."
-								width="wide"
-								bind:value={rosterSearch}
-							/>
-						{/snippet}
-						{#snippet panel()}
-							<ToolbarViewToggle
-								ariaLabel="Roster sort mode"
-								options={rosterViewOptions}
-								value={ctx.viewMode}
-								mode="full"
-								onValueChange={(value) => (ctx.viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarSearchItem
-								testId="personnel-search-panel"
-								ariaLabel="Search by name, rank, MOS, role, or group"
-								placeholder="Search name, rank, MOS, role, or group..."
-								width="wide"
-								mode="full"
-								bind:value={rosterSearch}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-				{/snippet}
-
-				{#if personnelActionItems.length > 0}
-					<ToolbarActions
-						actions={personnelActionItems}
-						ariaLabel="Personnel actions"
-						overflowAriaLabel="More personnel actions"
-						overflowIconOnly
+			<WorkspaceToolbar.Root ariaLabel="Personnel controls">
+				<WorkspaceToolbar.Group
+					label="Roster filters"
+					activeCount={activeRosterFilterCount}
+					data-testid="personnel-roster-filters"
+				>
+					<ButtonGroup.Root aria-label="Roster sort mode">
+						{#each rosterViewOptions as option (option.value)}
+							<Button
+								variant={ctx.viewMode === option.value ? 'secondary' : 'outline'}
+								aria-pressed={ctx.viewMode === option.value}
+								onclick={() => (ctx.viewMode = option.value as 'alphabetical' | 'by-group')}
+							>
+								{option.label}
+							</Button>
+						{/each}
+					</ButtonGroup.Root>
+					<WorkspaceToolbar.Search
+						testId="personnel-search"
+						ariaLabel="Search by name, rank, MOS, role, or group"
+						placeholder="Search name, rank, MOS, role, or group..."
+						bind:value={rosterSearch}
 					/>
+				</WorkspaceToolbar.Group>
+
+				{#if hasPersonnelActions}
+					<WorkspaceToolbar.Group label="Personnel actions" zone="actions">
+						{#if canImportPersonnel}
+							<Button variant="outline" disabled={readOnly} onclick={() => ctx.openBulkManager()}>Import</Button>
+						{/if}
+						{#if canManageGroups}
+							<Button variant="secondary" disabled={readOnly} onclick={() => ctx.openGroupManager()}
+								>Manage Groups</Button
+							>
+						{/if}
+						{#if canAddPersonnel}
+							<Button disabled={readOnly} onclick={() => ctx.handleAdd()}>Add Person</Button>
+						{/if}
+					</WorkspaceToolbar.Group>
 					{#if readOnly}
-						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
+						<WorkspaceToolbar.Group label="Personnel edit status" zone="meta">
+							<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
+						</WorkspaceToolbar.Group>
 					{/if}
 				{/if}
-			</Toolbar>
+			</WorkspaceToolbar.Root>
 
 			{#if ctx.totalPersonnel === 0}
 				<EmptyState

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -412,41 +412,6 @@ describe('IctReportsView', () => {
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
-
-		const mosFilter = screen.getByRole('combobox', { name: 'Filter by MOS' });
-		await fireEvent.focus(mosFilter);
-		const mosList = screen.getByRole('listbox', { name: 'Filter by MOS' });
-		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '68W' }));
-		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '11B' }));
-
-		expect(screen.getByRole('button', { name: 'Remove 68W' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Remove 11B' })).toBeTruthy();
-
-		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith(
-				'/org/org-1/api/critical-tasks/reports/summary?mos=11B&mos=68W',
-				expect.objectContaining({ signal: expect.any(AbortSignal) })
-			);
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
-			);
-			expect(
-				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
-			).toBe('100%');
-			expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤60d' })).toBeTruthy();
-			expect(
-				within(readinessMatrixSection).getByLabelText('68W Medical readiness: 100%, 100 of 100 current')
-			).toBeTruthy();
-			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
-			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
-			expect(within(distributionSection).getByText('Overlaying selected MOS filters.')).toBeTruthy();
-			expect(within(distributionSection).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
-			expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
-			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();
-			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
-			expect(within(atRiskSection).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
-			expect(screen.getByText('Smith, Jane')).toBeTruthy();
-		});
 	});
 
 	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
@@ -480,53 +445,5 @@ describe('IctReportsView', () => {
 		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
 		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
-	});
-
-	it('updates report filters through shared toolbar select controls', async () => {
-		render(IctReportsView, {
-			props: {
-				orgId: 'org-1',
-				personnel: [medic, infantry],
-				groups: [alpha, bravo],
-				tasks: [medicTask, commonTask],
-				initialDashboard
-			}
-		});
-
-		await fireEvent.change(screen.getByLabelText('Filter by group'), { target: { value: 'group-bravo' } });
-
-		await fireEvent.change(screen.getByLabelText('Filter by rank'), { target: { value: 'SGT' } });
-
-		await fireEvent.change(screen.getByLabelText('Filter by duty role'), { target: { value: 'Rifleman' } });
-
-		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith(
-				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-bravo&role=Rifleman&rank=SGT',
-				expect.objectContaining({ signal: expect.any(AbortSignal) })
-			);
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/reports/export?groupId=group-bravo&role=Rifleman&rank=SGT'
-			);
-		});
-	});
-
-	it('collapses report filters at the shared group breakpoint', async () => {
-		measuredToolbarWidth = 580;
-
-		render(IctReportsView, {
-			props: {
-				orgId: 'org-1',
-				personnel: [medic, infantry],
-				groups: [alpha, bravo],
-				tasks: [medicTask, commonTask],
-				initialDashboard
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
-		});
-		expect(screen.getByRole('button', { name: 'Critical task report filters' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 	});
 });

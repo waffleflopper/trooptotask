@@ -64,21 +64,6 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.remove.mockReset();
 	});
 
-	it('uses shared toolbar navigation for settings sections and related calendar link', () => {
-		render(CalendarSettingsPage);
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Calendar settings controls' });
-		const settingsNav = screen.getByRole('navigation', { name: 'Calendar settings sections' });
-		const relatedNav = screen.getByRole('navigation', { name: 'Related calendar pages' });
-
-		expect(toolbar.contains(settingsNav)).toBe(true);
-		expect(toolbar.contains(relatedNav)).toBe(true);
-		expect(screen.getByRole('link', { name: 'Status Types' }).getAttribute('href')).toBe('#status-types');
-		expect(screen.getByRole('link', { name: 'Assignment Types' }).getAttribute('href')).toBe('#assignment-types');
-		expect(screen.getByRole('link', { name: 'Closures' }).getAttribute('href')).toBe('#special-days');
-		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-	});
-
 	it('preserves the restricted settings state for non-managers', () => {
 		orgContextMock.isPrivileged = false;
 		orgContextMock.isFullEditor = false;

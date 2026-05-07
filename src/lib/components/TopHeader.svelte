@@ -348,7 +348,7 @@
 
 		<Sidebar.Inset>
 			<header
-				class="sticky top-(--banner-height,0px) z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4"
+				class="sticky top-(--banner-height,0px) z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4"
 			>
 				<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3"
 					>Skip to main content</a
@@ -447,7 +447,7 @@
 				</div>
 			</header>
 
-			<main id="main-content" class="min-h-svh bg-background">
+			<main id="main-content" class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-background">
 				{@render children?.()}
 			</main>
 		</Sidebar.Inset>

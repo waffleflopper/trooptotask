@@ -2,15 +2,10 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem,
-		ToolbarToggle,
-		ToolbarViewToggle
-	} from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import { Toggle } from '$lib/components/ui/toggle';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -28,7 +23,7 @@
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-	import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Personnel } from '$lib/types';
 
 	let { data } = $props();
@@ -158,8 +153,8 @@
 		showCompletionImportModal = true;
 	}
 
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [
 			{
 				id: 'export-csv',
 				label: 'Export CSV',
@@ -253,84 +248,53 @@
 		</section>
 	{:else}
 		<main class="page-content">
-			<Toolbar ariaLabel="Critical Tasks controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
-				{#snippet leading()}
-					<ToolbarGroup
-						label="Critical Tasks filters"
-						activeCount={activeFilterCount}
-						testId="critical-tasks-filter-group"
+			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls">
+				<WorkspaceToolbar.Group
+					label="Critical Tasks filters"
+					activeCount={activeFilterCount}
+					data-testid="critical-tasks-filter-group"
+				>
+					<ButtonGroup.Root aria-label="Critical Tasks matrix view mode">
+						{#each matrixViewOptions as option (option.value)}
+							<Button
+								variant={viewMode === option.value ? 'secondary' : 'outline'}
+								aria-pressed={viewMode === option.value}
+								onclick={() => (viewMode = option.value as 'alphabetical' | 'by-group')}
+							>
+								{option.label}
+							</Button>
+						{/each}
+					</ButtonGroup.Root>
+					<WorkspaceToolbar.Select
+						ariaLabel="Critical Tasks group filter"
+						options={groupFilterOptions}
+						value={selectedGroupId}
+						onValueChange={(value) => (selectedGroupId = value)}
+					/>
+					<Toggle
+						variant="outline"
+						pressed={gapsOnly}
+						title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+						onPressedChange={(pressed) => (gapsOnly = pressed)}
 					>
-						{#snippet full()}
-							<ToolbarViewToggle
-								ariaLabel="Critical Tasks matrix view mode"
-								options={matrixViewOptions}
-								value={viewMode}
-								mode="full"
-								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Critical Tasks group filter"
-								options={groupFilterOptions}
-								defaultValue=""
-								value={selectedGroupId}
-								width="wide"
-								mode="full"
-								onValueChange={(value) => (selectedGroupId = value)}
-							/>
-							<ToolbarToggle
-								label="Show gaps only"
-								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-								bind:pressed={gapsOnly}
-							/>
-							<ToolbarSearchItem
-								testId="critical-tasks-search"
-								ariaLabel="Search by name, rank, or MOS"
-								placeholder="Search name, rank, MOS..."
-								width="wide"
-								bind:value={personnelSearch}
-							/>
-						{/snippet}
-						{#snippet panel()}
-							<ToolbarViewToggle
-								ariaLabel="Critical Tasks matrix view mode"
-								options={matrixViewOptions}
-								value={viewMode}
-								mode="full"
-								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Critical Tasks group filter"
-								options={groupFilterOptions}
-								defaultValue=""
-								value={selectedGroupId}
-								width="wide"
-								mode="full"
-								onValueChange={(value) => (selectedGroupId = value)}
-							/>
-							<ToolbarToggle
-								label="Show gaps only"
-								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-								bind:pressed={gapsOnly}
-							/>
-							<ToolbarSearchItem
-								testId="critical-tasks-search"
-								ariaLabel="Search by name, rank, or MOS"
-								placeholder="Search name, rank, MOS..."
-								width="wide"
-								mode="full"
-								bind:value={personnelSearch}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-				{/snippet}
+						Show gaps only
+					</Toggle>
+					<WorkspaceToolbar.Search
+						testId="critical-tasks-search"
+						ariaLabel="Search by name, rank, or MOS"
+						placeholder="Search name, rank, MOS..."
+						bind:value={personnelSearch}
+					/>
+				</WorkspaceToolbar.Group>
 
-				<ToolbarActions
-					actions={toolbarActionItems}
-					ariaLabel="Critical Tasks actions"
-					overflowAriaLabel="More Critical Tasks actions"
-					overflowIconOnly
-				/>
-			</Toolbar>
+				<WorkspaceToolbar.Group label="Critical Tasks actions" zone="actions">
+					<WorkspaceToolbar.Actions
+						actions={toolbarActionItems}
+						ariaLabel="Critical Tasks actions"
+						overflowAriaLabel="More Critical Tasks actions"
+					/>
+				</WorkspaceToolbar.Group>
+			</WorkspaceToolbar.Root>
 
 			{#if loading}
 				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">

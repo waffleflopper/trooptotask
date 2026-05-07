@@ -1,11 +1,6 @@
 <script lang="ts">
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarNavGroup,
-		type ToolbarActionConfig,
-		type ToolbarNavItem
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -73,10 +68,10 @@
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
-	const onboardingNavItems = $derived<ToolbarNavItem[]>([
+	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
 	]);
-	const templateToolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
+	const templateToolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
 		if (!canMutate) return [];
 		return [
 			{
@@ -303,20 +298,21 @@
 </script>
 
 <div class="templates-page">
-	<Toolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
-		{#snippet leading()}
-			<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
-		{/snippet}
+	<WorkspaceToolbar.Root ariaLabel="Onboarding template controls">
+		<WorkspaceToolbar.Group label="Onboarding sections">
+			<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
+		</WorkspaceToolbar.Group>
 
 		{#if templateToolbarActions.length > 0}
-			<ToolbarActions
-				actions={templateToolbarActions}
-				ariaLabel="Onboarding template actions"
-				overflowAriaLabel="More onboarding template actions"
-				overflowIconOnly
-			/>
+			<WorkspaceToolbar.Group label="Onboarding template actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={templateToolbarActions}
+					ariaLabel="Onboarding template actions"
+					overflowAriaLabel="More onboarding template actions"
+				/>
+			</WorkspaceToolbar.Group>
 		{/if}
-	</Toolbar>
+	</WorkspaceToolbar.Root>
 
 	<div class="templates-layout">
 		<!-- Left panel: Template list -->

@@ -3,14 +3,8 @@
 
 	import { tick } from 'svelte';
 	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarMultiSelectFilter,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -29,7 +23,23 @@
 		type ReportFilters
 	} from '$features/training/utils/reportCalculations';
 
-	let { data, toolbarContainerWidth = undefined } = $props();
+	interface Props {
+		data: {
+			training?: {
+				data?: {
+					personnel?: Personnel[];
+					groups?: Group[];
+					[key: string]: unknown;
+				};
+			};
+			trainingReport?: TrainingReportData;
+			personnel?: Personnel[];
+			groups?: Group[];
+		};
+		toolbarContainerWidth?: number;
+	}
+
+	let { data }: Props = $props();
 
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
@@ -331,7 +341,7 @@
 		return 'var(--danger)';
 	}
 
-	const toolbarActions = $derived<ToolbarActionConfig[]>([
+	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
 		{
 			id: 'clear-filters',
 			label: 'Clear filters',
@@ -357,104 +367,82 @@
 	<EmptyState message="No training types configured. Create training types first." />
 {:else}
 	<div class="reports-page-shell">
-		<Toolbar
-			ariaLabel="Training report controls"
-			collapse="wide"
-			leadingMin="42rem"
-			containerWidth={toolbarContainerWidth}
-			compactLeadingWhenCrowded
-		>
-			{#snippet leading()}
-				<div class="report-filter-row" aria-label="Report filters">
-					<ToolbarGroup
-						label="Personnel filters"
-						activeCount={personnelFilterCount}
-						mode="compact"
-						testId="training-personnel-filters"
-					>
-						{#snippet full()}
-							<ToolbarFilterSelect
-								ariaLabel="Filter by rank"
-								options={rankFilterOptions}
-								value={filterRank}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterRank = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by MOS"
-								options={mosFilterOptions}
-								value={filterMos}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterMos = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by duty role"
-								options={roleFilterOptions}
-								value={filterRole}
-								defaultValue=""
-								width="wide"
-								mode="full"
-								onValueChange={(value) => {
-									filterRole = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-					<ToolbarGroup label="Report filters" activeCount={reportFilterCount} testId="training-report-filters">
-						{#snippet full()}
-							<ToolbarFilterSelect
-								ariaLabel="Filter by group"
-								options={groupFilterOptions}
-								value={filterGroupId}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterGroupId = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by status"
-								options={statusFilterOptions}
-								value={filterStatus}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterStatus = value as TrainingStatus | '';
-									void reloadFirstReportPage();
-								}}
-							/>
-							{#if typeFilterOptions.length > 1}
-								<ToolbarMultiSelectFilter
-									options={typeFilterOptions}
-									value={filterTypeIds}
-									placeholder="All training types"
-									ariaLabel="Filter by training type"
-									label="Training types"
-									mode="full"
-									onChange={setTypeFilters}
-								/>
-							{/if}
-						{/snippet}
-					</ToolbarGroup>
-				</div>
-			{/snippet}
+		<WorkspaceToolbar.Root ariaLabel="Training report controls">
+			<WorkspaceToolbar.Group
+				label="Personnel filters"
+				activeCount={personnelFilterCount}
+				data-testid="training-personnel-filters"
+			>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by rank"
+					options={rankFilterOptions}
+					value={filterRank}
+					onValueChange={(value) => {
+						filterRank = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by MOS"
+					options={mosFilterOptions}
+					value={filterMos}
+					onValueChange={(value) => {
+						filterMos = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by duty role"
+					options={roleFilterOptions}
+					value={filterRole}
+					onValueChange={(value) => {
+						filterRole = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+			</WorkspaceToolbar.Group>
+			<WorkspaceToolbar.Group
+				label="Report filters"
+				activeCount={reportFilterCount}
+				data-testid="training-report-filters"
+			>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by group"
+					options={groupFilterOptions}
+					value={filterGroupId}
+					onValueChange={(value) => {
+						filterGroupId = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by status"
+					options={statusFilterOptions}
+					value={filterStatus}
+					onValueChange={(value) => {
+						filterStatus = value as TrainingStatus | '';
+						void reloadFirstReportPage();
+					}}
+				/>
+				{#if typeFilterOptions.length > 1}
+					<WorkspaceToolbar.MultiSelect
+						options={typeFilterOptions}
+						value={filterTypeIds}
+						ariaLabel="Filter by training type"
+						label="Training types"
+						onChange={setTypeFilters}
+					/>
+				{/if}
+			</WorkspaceToolbar.Group>
 
-			<ToolbarActions
-				actions={toolbarActions}
-				ariaLabel="Training report actions"
-				overflowAriaLabel="More training report actions"
-			/>
-		</Toolbar>
+			<WorkspaceToolbar.Group label="Training report actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={toolbarActions}
+					ariaLabel="Training report actions"
+					overflowAriaLabel="More training report actions"
+				/>
+			</WorkspaceToolbar.Group>
+		</WorkspaceToolbar.Root>
 
 		<div class="dashboard">
 			<div class="dashboard-row">
@@ -659,19 +647,6 @@
 		flex-direction: column;
 		gap: var(--sp-4);
 		padding: var(--sp-3);
-	}
-
-	.report-filter-row {
-		display: flex;
-		align-items: center;
-		flex: 1 1 auto;
-		gap: var(--sp-2);
-		min-width: 0;
-		width: 100%;
-	}
-
-	.report-filter-row :global([data-testid='training-report-filters']:not(.toolbar-group--compact)) {
-		flex: 1 1 auto;
 	}
 
 	.dashboard {

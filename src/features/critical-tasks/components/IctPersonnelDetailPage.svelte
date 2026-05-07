@@ -1,14 +1,8 @@
 <script lang="ts">
 	import { SvelteDate } from 'svelte/reactivity';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -361,8 +355,8 @@
 		showTaskInputModal = true;
 	}
 
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [];
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [];
 
 		items.push({
 			id: 'print-record',
@@ -395,71 +389,39 @@
 </svelte:head>
 
 <main class="record-page">
-	<Toolbar ariaLabel="Personnel critical task controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
-		{#snippet leading()}
-			<ToolbarGroup label="Applicable task filters" activeCount={activeFilterCount} testId="ict-detail-filters">
-				{#snippet full()}
-					<ToolbarFilterSelect
-						ariaLabel="Status"
-						options={statusFilterOptions}
-						value={statusFilter}
-						defaultValue="all"
-						width="wide"
-						mode="full"
-						onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
-					/>
-					<ToolbarFilterSelect
-						ariaLabel="Category"
-						options={categoryFilterOptions}
-						value={categoryFilter}
-						defaultValue="all"
-						width="wide"
-						mode="full"
-						onValueChange={(value) => (categoryFilter = value)}
-					/>
-					<ToolbarSearchItem
-						ariaLabel="Filter by task ID or name"
-						placeholder="Filter by task ID or name..."
-						width="wide"
-						bind:value={taskSearch}
-					/>
-				{/snippet}
-				{#snippet panel()}
-					<ToolbarFilterSelect
-						ariaLabel="Status"
-						options={statusFilterOptions}
-						value={statusFilter}
-						defaultValue="all"
-						width="wide"
-						mode="full"
-						onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
-					/>
-					<ToolbarFilterSelect
-						ariaLabel="Category"
-						options={categoryFilterOptions}
-						value={categoryFilter}
-						defaultValue="all"
-						width="wide"
-						mode="full"
-						onValueChange={(value) => (categoryFilter = value)}
-					/>
-					<ToolbarSearchItem
-						ariaLabel="Filter by task ID or name"
-						placeholder="Filter by task ID or name..."
-						width="wide"
-						mode="full"
-						bind:value={taskSearch}
-					/>
-				{/snippet}
-			</ToolbarGroup>
-		{/snippet}
+	<WorkspaceToolbar.Root ariaLabel="Personnel critical task controls">
+		<WorkspaceToolbar.Group
+			label="Applicable task filters"
+			activeCount={activeFilterCount}
+			data-testid="ict-detail-filters"
+		>
+			<WorkspaceToolbar.Select
+				ariaLabel="Status"
+				options={statusFilterOptions}
+				value={statusFilter}
+				onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
+			/>
+			<WorkspaceToolbar.Select
+				ariaLabel="Category"
+				options={categoryFilterOptions}
+				value={categoryFilter}
+				onValueChange={(value) => (categoryFilter = value)}
+			/>
+			<WorkspaceToolbar.Search
+				ariaLabel="Filter by task ID or name"
+				placeholder="Filter by task ID or name..."
+				bind:value={taskSearch}
+			/>
+		</WorkspaceToolbar.Group>
 
-		<ToolbarActions
-			actions={toolbarActionItems}
-			ariaLabel="Personnel critical task actions"
-			overflowAriaLabel="More personnel critical task actions"
-		/>
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Personnel critical task actions" zone="actions">
+			<WorkspaceToolbar.Actions
+				actions={toolbarActionItems}
+				ariaLabel="Personnel critical task actions"
+				overflowAriaLabel="More personnel critical task actions"
+			/>
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if recordContextItems.length > 0}
 		<section class="record-context" aria-label="Personnel record context">

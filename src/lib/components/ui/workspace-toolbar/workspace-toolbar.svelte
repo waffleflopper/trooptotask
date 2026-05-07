@@ -16,7 +16,7 @@
 	aria-label={ariaLabel}
 	data-slot="workspace-toolbar"
 	class={cn(
-		'flex h-12 w-full flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-card p-2 text-card-foreground shadow-xs',
+		'flex h-12 w-full shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-card p-2 text-card-foreground shadow-xs',
 		'[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
 		'[&_[data-slot=button]]:shrink-0 [&_[data-slot=input-group]]:min-w-0',
 		className

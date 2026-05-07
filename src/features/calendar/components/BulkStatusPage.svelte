@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Toolbar, ToolbarNavGroup, ToolbarViewToggle } from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -11,6 +13,7 @@
 	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
+	import { resolve as kitResolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -35,6 +38,7 @@
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
+	const resolve = kitResolve as unknown as (path: string) => string;
 
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
@@ -53,7 +57,7 @@
 	function switchTab(tab: Tab) {
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
-		goto(url.toString(), { replaceState: true, noScroll: true });
+		goto(resolve(`${url.pathname}${url.search}`), { replaceState: true, noScroll: true });
 	}
 
 	// ---- Personnel data ----
@@ -95,21 +99,27 @@
 </script>
 
 <div class="bulk-page">
-	<Toolbar ariaLabel="Bulk status controls" collapse="narrow" leadingMin="24rem">
-		{#snippet leading()}
-			{#if canMutate}
-				<ToolbarViewToggle
-					ariaLabel="Bulk status sections"
-					options={TABS}
-					mode="full"
-					value={activeTab}
-					onValueChange={(tab) => switchTab(tab as Tab)}
-				/>
-			{/if}
-		{/snippet}
+	<WorkspaceToolbar.Root ariaLabel="Bulk status controls">
+		{#if canMutate}
+			<WorkspaceToolbar.Group label="Bulk status sections">
+				<ButtonGroup.Root>
+					{#each TABS as tab (tab.value)}
+						<Button
+							variant={activeTab === tab.value ? 'secondary' : 'outline'}
+							aria-pressed={activeTab === tab.value}
+							onclick={() => switchTab(tab.value)}
+						>
+							{tab.label}
+						</Button>
+					{/each}
+				</ButtonGroup.Root>
+			</WorkspaceToolbar.Group>
+		{/if}
 
-		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
+			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if !canMutate}
 		<section class="restricted-hero">

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import DashboardTabs from './DashboardTabs.svelte';
 	import UnitReadinessTab from './tabs/UnitReadinessTab.svelte';
 	import PeopleDutyTab from './tabs/PeopleDutyTab.svelte';
@@ -16,7 +17,7 @@
 		dashboardTabStore.init(ctx.data.orgId);
 	});
 
-	const dashboardToolbarActions = $derived<ToolbarActionConfig[]>(
+	const dashboardToolbarActions = $derived<WorkspaceToolbarAction[]>(
 		getDashboardToolbarActions(ctx.data.orgId, ctx.data.permissions, dashboardTabStore.activeTab)
 	);
 </script>
@@ -27,19 +28,21 @@
 
 <div class="dashboard-page">
 	<div class="dashboard-toolbar">
-		<Toolbar ariaLabel="Dashboard controls" collapse="narrow" leadingMin="0">
-			{#snippet leading()}
+		<WorkspaceToolbar.Root ariaLabel="Dashboard controls">
+			<WorkspaceToolbar.Group label="Dashboard sections">
 				<DashboardTabs orgId={ctx.data.orgId} />
-			{/snippet}
+			</WorkspaceToolbar.Group>
 
 			{#if dashboardToolbarActions.length > 0}
-				<ToolbarActions
-					actions={dashboardToolbarActions}
-					ariaLabel="Dashboard quick actions"
-					overflowAriaLabel="More dashboard actions"
-				/>
+				<WorkspaceToolbar.Group label="Dashboard quick actions" zone="actions">
+					<WorkspaceToolbar.Actions
+						actions={dashboardToolbarActions}
+						ariaLabel="Dashboard quick actions"
+						overflowAriaLabel="More dashboard actions"
+					/>
+				</WorkspaceToolbar.Group>
 			{/if}
-		</Toolbar>
+		</WorkspaceToolbar.Root>
 	</div>
 
 	<main class="dashboard-canvas page-scroll" id="main-content">

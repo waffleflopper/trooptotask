@@ -8,15 +8,10 @@
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarMetaItem,
-		ToolbarViewToggle,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -61,8 +56,8 @@
 		{ value: 'by-group', label: 'Group' }
 	];
 	const activeFilterCount = $derived((ctx.selectedViewId ? 1 : 0) + (ctx.selectedGroupId ? 1 : 0));
-	const toolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
-		const actions: ToolbarActionConfig[] = [];
+	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const actions: WorkspaceToolbarAction[] = [];
 
 		if (ctx.canManageConfig) {
 			actions.push(
@@ -127,47 +122,46 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			<Toolbar ariaLabel="Training controls" collapse="medium" leadingMin="34rem">
-				{#snippet leading()}
-					<ToolbarGroup label="Training filters" activeCount={activeFilterCount} testId="training-filters">
-						{#snippet full()}
-							<ToolbarViewToggle
-								ariaLabel="Training matrix view mode"
-								options={matrixViewOptions}
-								value={ctx.viewMode}
-								mode="full"
-								onValueChange={(value) => ctx.setViewMode(value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Training view filter"
-								options={trainingViewOptions}
-								value={ctx.selectedViewId ?? ''}
-								defaultValue=""
-								width="wide"
-								mode="full"
-								onValueChange={(value) => ctx.setSelectedViewId(value || null)}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Training group filter"
-								options={groupFilterOptions}
-								value={ctx.selectedGroupId}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => ctx.setSelectedGroupId(value)}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-				{/snippet}
+			<WorkspaceToolbar.Root ariaLabel="Training controls">
+				<WorkspaceToolbar.Group label="Training filters" activeCount={activeFilterCount} data-testid="training-filters">
+					<ButtonGroup.Root aria-label="Training matrix view mode">
+						{#each matrixViewOptions as option (option.value)}
+							<Button
+								variant={ctx.viewMode === option.value ? 'secondary' : 'outline'}
+								aria-pressed={ctx.viewMode === option.value}
+								onclick={() => ctx.setViewMode(option.value as 'alphabetical' | 'by-group')}
+							>
+								{option.label}
+							</Button>
+						{/each}
+					</ButtonGroup.Root>
+					<WorkspaceToolbar.Select
+						ariaLabel="Training view filter"
+						options={trainingViewOptions}
+						value={ctx.selectedViewId ?? ''}
+						onValueChange={(value) => ctx.setSelectedViewId(value || null)}
+					/>
+					<WorkspaceToolbar.Select
+						ariaLabel="Training group filter"
+						options={groupFilterOptions}
+						value={ctx.selectedGroupId}
+						onValueChange={(value) => ctx.setSelectedGroupId(value)}
+					/>
+				</WorkspaceToolbar.Group>
 
-				<ToolbarActions
-					actions={toolbarActions}
-					ariaLabel="Training actions"
-					overflowAriaLabel="More training actions"
-				/>
+				<WorkspaceToolbar.Group label="Training actions" zone="actions">
+					<WorkspaceToolbar.Actions
+						actions={toolbarActions}
+						ariaLabel="Training actions"
+						overflowAriaLabel="More training actions"
+					/>
+				</WorkspaceToolbar.Group>
 				{#if ctx.readOnly}
-					<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
+					<WorkspaceToolbar.Group label="Training edit status" zone="meta">
+						<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
+					</WorkspaceToolbar.Group>
 				{/if}
-			</Toolbar>
+			</WorkspaceToolbar.Root>
 
 			{#if loading}
 				<div class="skeleton-matrix-wrapper">

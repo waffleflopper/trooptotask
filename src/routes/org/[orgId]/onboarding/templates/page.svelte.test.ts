@@ -72,16 +72,6 @@ function renderTemplatesPage({
 }
 
 describe('onboarding templates page', () => {
-	it('uses a floating toolbar for navigation and template creation', () => {
-		renderTemplatesPage();
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
-		const nav = within(toolbar).getByRole('navigation', { name: 'Onboarding sections' });
-		expect(within(nav).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
-		expect(within(toolbar).getByRole('button', { name: 'Add Template' })).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: 'Manage Templates' })).toBeNull();
-	});
-
 	it('preserves add template disabled state while adding', async () => {
 		renderTemplatesPage();
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Toolbar, ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -48,13 +48,14 @@
 </script>
 
 <div class="assignment-planner-page">
-	<Toolbar ariaLabel="Assignment planner controls" collapse="narrow" leadingMin="18rem">
-		{#snippet leading()}
-			<span class="toolbar-context">Manual monthly coverage planning</span>
-		{/snippet}
-
-		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</Toolbar>
+	<WorkspaceToolbar.Root ariaLabel="Assignment planner controls">
+		<WorkspaceToolbar.Group label="Assignment planner context" zone="meta">
+			<WorkspaceToolbar.Meta>Manual monthly coverage planning</WorkspaceToolbar.Meta>
+		</WorkspaceToolbar.Group>
+		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
+			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if !canMutate}
 		<section class="restricted-hero">
@@ -82,11 +83,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
-	}
-
-	.toolbar-context {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
 	}
 
 	.restricted-hero {

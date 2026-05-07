@@ -1,4 +1,4 @@
-import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
+import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 import type { DashboardPermission, DashboardPermissions, DashboardTabId } from '../dashboard.types';
 import { hasDashboardPermission } from '../dashboard.types';
 
@@ -12,7 +12,7 @@ interface DashboardQuickAction {
 	label: string;
 	href: (orgId: string) => string;
 	permission?: DashboardPermission;
-	icon?: ToolbarActionConfig['icon'];
+	icon?: WorkspaceToolbarAction['icon'];
 }
 
 export const DASHBOARD_TABS: DashboardTab[] = [
@@ -76,7 +76,7 @@ export function getDashboardToolbarActions(
 	orgId: string,
 	permissions: DashboardPermissions,
 	activeTab: DashboardTabId
-): ToolbarActionConfig[] {
+): WorkspaceToolbarAction[] {
 	return quickActions[activeTab]
 		.filter((action) => hasDashboardPermission(permissions, action.permission))
 		.map((action) => ({

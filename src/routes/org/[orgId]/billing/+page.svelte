@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
 
 	let { data } = $props();
@@ -40,7 +41,7 @@
 	const billingToolbarActions = $derived.by(() => {
 		if (!data.canManageSubscription) return [];
 
-		const actions: ToolbarActionConfig[] = [
+		const actions: WorkspaceToolbarAction[] = [
 			{
 				id: 'cancel-subscription',
 				label: cancelLoading ? 'Canceling...' : 'Cancel Subscription',
@@ -201,14 +202,15 @@
 <div class="page">
 	<main class="page-content">
 		{#if billingToolbarActions.length > 0}
-			<Toolbar ariaLabel="Billing controls" leadingMin="0" collapse="narrow">
-				<ToolbarActions
-					actions={billingToolbarActions}
-					ariaLabel="Billing actions"
-					overflowAriaLabel="More billing actions"
-					overflowIconOnly
-				/>
-			</Toolbar>
+			<WorkspaceToolbar.Root ariaLabel="Billing controls">
+				<WorkspaceToolbar.Group label="Billing actions" zone="actions">
+					<WorkspaceToolbar.Actions
+						actions={billingToolbarActions}
+						ariaLabel="Billing actions"
+						overflowAriaLabel="More billing actions"
+					/>
+				</WorkspaceToolbar.Group>
+			</WorkspaceToolbar.Root>
 		{/if}
 
 		{#if isReadOnly}

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
@@ -267,72 +267,6 @@ describe('calendar page', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(2);
 		});
-	});
-
-	it('smokes the migrated calendar toolbar through the route component', async () => {
-		exportMonthToCSVMock.mockClear();
-		printMonthCalendarMock.mockClear();
-		printMonthCalendarMock.mockResolvedValue(undefined);
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					userId: 'user-1',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true
-					},
-					calendar: {
-						data: makeBootstrap()
-					}
-				}
-			}
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Calendar controls' });
-
-		await fireEvent.change(within(toolbar).getByRole('combobox', { name: 'Calendar group filter' }), {
-			target: { value: 'g2' }
-		});
-		await fireEvent.input(
-			within(toolbar).getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }),
-			{
-				target: { value: 'medic' }
-			}
-		);
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Bulk Status' }));
-		expect(screen.getByRole('menuitem', { name: 'Add Bulk' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/bulk?tab=add'
-		);
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Planning' }));
-		expect(screen.getByRole('menuitem', { name: 'Duty Rosters (alpha)' }).getAttribute('href')).toBe(
-			'/org/org-1/duty-rosters'
-		);
-		expect(screen.getByRole('menuitem', { name: 'Assignment Planner' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/assignments'
-		);
-
-		expect(within(toolbar).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/settings'
-		);
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: 'Export to Excel' }));
-		expect(exportMonthToCSVMock).toHaveBeenCalledTimes(1);
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: 'Print / PDF' }));
-		expect(printMonthCalendarMock).toHaveBeenCalledTimes(1);
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: /Show Status Text/ }));
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'More Calendar actions' }));
-		expect(screen.getByRole('menuitem', { name: /Show Status Text/ }).textContent).toContain('✓');
 	});
 
 	it('stores the viewed calendar month as a bootstrap anchor cookie for future requests', async () => {

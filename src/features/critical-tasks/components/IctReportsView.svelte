@@ -1,14 +1,8 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarMultiSelectFilter,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -80,8 +74,8 @@
 	const activeFilterCount = $derived(
 		(filterGroupId ? 1 : 0) + filterMosValues.length + (filterRole ? 1 : 0) + (filterRank ? 1 : 0)
 	);
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [];
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [];
 
 		if (hasActiveFilters) {
 			items.push({
@@ -157,63 +151,54 @@
 </script>
 
 <div class="reports-page-shell">
-	<Toolbar ariaLabel="Critical task report controls" collapse="wide" leadingMin="52rem">
-		{#snippet leading()}
-			<ToolbarGroup label="Critical task report filters" activeCount={activeFilterCount} testId="ict-report-filters">
-				{#snippet full()}
-					<ToolbarFilterSelect
-						options={groupOptions}
-						value={filterGroupId}
-						ariaLabel="Filter by group"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterGroupId = value)}
-					/>
+	<WorkspaceToolbar.Root ariaLabel="Critical task report controls">
+		<WorkspaceToolbar.Group
+			label="Critical task report filters"
+			activeCount={activeFilterCount}
+			data-testid="ict-report-filters"
+		>
+			<WorkspaceToolbar.Select
+				options={groupOptions}
+				value={filterGroupId}
+				ariaLabel="Filter by group"
+				disabled={loading}
+				onValueChange={(value) => (filterGroupId = value)}
+			/>
 
-					<ToolbarFilterSelect
-						options={rankOptions}
-						value={filterRank}
-						ariaLabel="Filter by rank"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterRank = value)}
-					/>
+			<WorkspaceToolbar.Select
+				options={rankOptions}
+				value={filterRank}
+				ariaLabel="Filter by rank"
+				disabled={loading}
+				onValueChange={(value) => (filterRank = value)}
+			/>
 
-					<ToolbarMultiSelectFilter
-						options={availableMosOptions}
-						value={filterMosValues}
-						label="MOS"
-						placeholder="All MOS"
-						ariaLabel="Filter by MOS"
-						disabled={loading}
-						mode="full"
-						onChange={(values) => (filterMosValues = values)}
-					/>
+			<WorkspaceToolbar.MultiSelect
+				options={availableMosOptions}
+				value={filterMosValues}
+				label="MOS"
+				ariaLabel="Filter by MOS"
+				disabled={loading}
+				onChange={(values) => (filterMosValues = values)}
+			/>
 
-					<ToolbarFilterSelect
-						options={roleOptions}
-						value={filterRole}
-						ariaLabel="Filter by duty role"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterRole = value)}
-					/>
-				{/snippet}
-			</ToolbarGroup>
-		{/snippet}
+			<WorkspaceToolbar.Select
+				options={roleOptions}
+				value={filterRole}
+				ariaLabel="Filter by duty role"
+				disabled={loading}
+				onValueChange={(value) => (filterRole = value)}
+			/>
+		</WorkspaceToolbar.Group>
 
-		<ToolbarActions
-			actions={toolbarActionItems}
-			ariaLabel="Critical task report actions"
-			overflowAriaLabel="More critical task report actions"
-		/>
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Critical task report actions" zone="actions">
+			<WorkspaceToolbar.Actions
+				actions={toolbarActionItems}
+				ariaLabel="Critical task report actions"
+				overflowAriaLabel="More critical task report actions"
+			/>
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if dashboardError}
 		<p class="report-error" role="alert">{dashboardError}</p>

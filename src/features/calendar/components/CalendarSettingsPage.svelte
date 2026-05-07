@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Toolbar, ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
@@ -256,13 +256,15 @@
 </script>
 
 <div class="settings-page">
-	<Toolbar ariaLabel="Calendar settings controls" collapse="medium" leadingMin="27rem">
-		{#snippet leading()}
-			<ToolbarNavGroup ariaLabel="Calendar settings sections" items={settingsLinks} />
-		{/snippet}
+	<WorkspaceToolbar.Root ariaLabel="Calendar settings controls">
+		<WorkspaceToolbar.Group label="Calendar settings sections">
+			<WorkspaceToolbar.Nav ariaLabel="Calendar settings sections" items={settingsLinks} />
+		</WorkspaceToolbar.Group>
 
-		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
+			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if !canManageConfig}
 		<section class="settings-hero">

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
-	import { Toolbar, ToolbarActions, type ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -217,7 +218,7 @@
 		}
 	}
 
-	const toolbarActions = $derived.by<ToolbarActionConfig[]>(() =>
+	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() =>
 		canMutate
 			? [
 					{
@@ -236,13 +237,15 @@
 </script>
 
 <main class="types-page">
-	<Toolbar ariaLabel="Training type controls" collapse="narrow" leadingMin="18rem">
-		<ToolbarActions
-			actions={toolbarActions}
-			ariaLabel="Training type actions"
-			overflowAriaLabel="More training type actions"
-		/>
-	</Toolbar>
+	<WorkspaceToolbar.Root ariaLabel="Training type controls">
+		<WorkspaceToolbar.Group label="Training type actions" zone="actions">
+			<WorkspaceToolbar.Actions
+				actions={toolbarActions}
+				ariaLabel="Training type actions"
+				overflowAriaLabel="More training type actions"
+			/>
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	<div class="types-layout">
 		<!-- Left panel: Type list -->

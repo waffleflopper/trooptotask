@@ -2,14 +2,8 @@
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarMetaItem,
-		ToolbarNavGroup,
-		type ToolbarActionConfig,
-		type ToolbarNavItem
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -20,12 +14,12 @@
 
 	let { ctx }: Props = $props();
 
-	const onboardingNavItems = $derived.by<ToolbarNavItem[]>(() => {
+	const onboardingNavItems = $derived.by<WorkspaceToolbarNavItem[]>(() => {
 		return [{ label: 'History', href: ctx.historyUrl }];
 	});
 
-	const onboardingToolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
-		const actions: ToolbarActionConfig[] = [];
+	const onboardingToolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const actions: WorkspaceToolbarAction[] = [];
 		for (const item of ctx.overflowItems) {
 			if (item.href === ctx.templatesUrl || item.label === 'Manage Templates') continue;
 			actions.push({
@@ -80,23 +74,26 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			<Toolbar ariaLabel="Onboarding controls" collapse="narrow">
-				{#snippet leading()}
-					<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
-				{/snippet}
+			<WorkspaceToolbar.Root ariaLabel="Onboarding controls">
+				<WorkspaceToolbar.Group label="Onboarding sections">
+					<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
+				</WorkspaceToolbar.Group>
 
 				{#if onboardingToolbarActions.length > 0}
-					<ToolbarActions
-						actions={onboardingToolbarActions}
-						ariaLabel="Onboarding actions"
-						overflowAriaLabel="More onboarding actions"
-						overflowIconOnly
-					/>
+					<WorkspaceToolbar.Group label="Onboarding actions" zone="actions">
+						<WorkspaceToolbar.Actions
+							actions={onboardingToolbarActions}
+							ariaLabel="Onboarding actions"
+							overflowAriaLabel="More onboarding actions"
+						/>
+					</WorkspaceToolbar.Group>
 					{#if ctx.readOnly}
-						<ToolbarMetaItem label="Upgrade to edit" tone="warning" />
+						<WorkspaceToolbar.Group label="Onboarding edit status" zone="meta">
+							<WorkspaceToolbar.Meta tone="warning">Upgrade to edit</WorkspaceToolbar.Meta>
+						</WorkspaceToolbar.Group>
 					{/if}
 				{/if}
-			</Toolbar>
+			</WorkspaceToolbar.Root>
 
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="notice-banner notice-banner--warning">

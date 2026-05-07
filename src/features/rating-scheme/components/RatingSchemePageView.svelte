@@ -7,14 +7,10 @@
 	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarViewToggle,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
@@ -68,8 +64,8 @@
 		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], color: RATING_STATUS_COLORS['due-60'] },
 		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], color: RATING_STATUS_COLORS['due-30'] }
 	]);
-	const ratingActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [
+	const ratingActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [
 			{
 				id: 'export',
 				label: exportLoading ? 'Exporting...' : 'Export',
@@ -120,95 +116,54 @@
 	{:else}
 		<main class="page-content">
 			<section class="evals-section">
-				<Toolbar ariaLabel="Evaluation controls" collapse="narrow" leadingMin="36rem" compactLeadingWhenCrowded>
-					{#snippet leading()}
-						<ToolbarGroup label="Evaluation filters" activeCount={activeFilterCount} testId="evaluation-filters">
-							{#snippet full()}
-								<ToolbarViewToggle
-									ariaLabel="Evaluation view mode"
-									options={ratingViewOptions}
-									value={ctx.ratingViewMode}
-									mode="full"
-									onValueChange={(value) => (ctx.ratingViewMode = value as 'grouped' | 'table')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation type filter"
-									options={evalTypeFilterOptions}
-									value={ctx.evalTypeFilter}
-									defaultValue="all"
-									mode="full"
-									onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation status filter"
-									options={ratingFilterOptions}
-									value={ctx.ratingFilter}
-									defaultValue="active"
-									width="wide"
-									mode="full"
-									onValueChange={(value) =>
-										(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
-								/>
-								{#if ctx.hasAnyWorkflowStatus}
-									<ToolbarFilterSelect
-										ariaLabel="Evaluation workflow filter"
-										options={workflowFilterOptions}
-										value={ctx.workflowFilter}
-										defaultValue="all"
-										width="wide"
-										mode="full"
-										onValueChange={setWorkflowFilter}
-									/>
-								{/if}
-							{/snippet}
-							{#snippet panel()}
-								<ToolbarViewToggle
-									ariaLabel="Evaluation view mode"
-									options={ratingViewOptions}
-									value={ctx.ratingViewMode}
-									mode="full"
-									onValueChange={(value) => (ctx.ratingViewMode = value as 'grouped' | 'table')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation type filter"
-									options={evalTypeFilterOptions}
-									value={ctx.evalTypeFilter}
-									defaultValue="all"
-									mode="full"
-									onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation status filter"
-									options={ratingFilterOptions}
-									value={ctx.ratingFilter}
-									defaultValue="active"
-									width="wide"
-									mode="full"
-									onValueChange={(value) =>
-										(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
-								/>
-								{#if ctx.hasAnyWorkflowStatus}
-									<ToolbarFilterSelect
-										ariaLabel="Evaluation workflow filter"
-										options={workflowFilterOptions}
-										value={ctx.workflowFilter}
-										defaultValue="all"
-										width="wide"
-										mode="full"
-										onValueChange={setWorkflowFilter}
-									/>
-								{/if}
-							{/snippet}
-						</ToolbarGroup>
-					{/snippet}
+				<WorkspaceToolbar.Root ariaLabel="Evaluation controls">
+					<WorkspaceToolbar.Group
+						label="Evaluation filters"
+						activeCount={activeFilterCount}
+						data-testid="evaluation-filters"
+					>
+						<ButtonGroup.Root aria-label="Evaluation view mode">
+							{#each ratingViewOptions as option (option.value)}
+								<Button
+									variant={ctx.ratingViewMode === option.value ? 'secondary' : 'outline'}
+									aria-pressed={ctx.ratingViewMode === option.value}
+									onclick={() => (ctx.ratingViewMode = option.value as 'grouped' | 'table')}
+								>
+									{option.label}
+								</Button>
+							{/each}
+						</ButtonGroup.Root>
+						<WorkspaceToolbar.Select
+							ariaLabel="Evaluation type filter"
+							options={evalTypeFilterOptions}
+							value={ctx.evalTypeFilter}
+							onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
+						/>
+						<WorkspaceToolbar.Select
+							ariaLabel="Evaluation status filter"
+							options={ratingFilterOptions}
+							value={ctx.ratingFilter}
+							onValueChange={(value) =>
+								(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
+						/>
+						{#if ctx.hasAnyWorkflowStatus}
+							<WorkspaceToolbar.Select
+								ariaLabel="Evaluation workflow filter"
+								options={workflowFilterOptions}
+								value={ctx.workflowFilter}
+								onValueChange={setWorkflowFilter}
+							/>
+						{/if}
+					</WorkspaceToolbar.Group>
 
-					<ToolbarActions
-						actions={ratingActionItems}
-						ariaLabel="Evaluation actions"
-						overflowAriaLabel="More evaluation actions"
-						overflowIconOnly
-					/>
-				</Toolbar>
+					<WorkspaceToolbar.Group label="Evaluation actions" zone="actions">
+						<WorkspaceToolbar.Actions
+							actions={ratingActionItems}
+							ariaLabel="Evaluation actions"
+							overflowAriaLabel="More evaluation actions"
+						/>
+					</WorkspaceToolbar.Group>
+				</WorkspaceToolbar.Root>
 
 				<div class="evals-content">
 					<div class="evals-table-header">

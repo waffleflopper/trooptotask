@@ -2,15 +2,10 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem,
-		ToolbarViewToggle,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -98,8 +93,8 @@
 	const canReorderTasks = $derived(
 		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
 	);
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [];
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [];
 
 		if (filtersActive) {
 			items.push({
@@ -345,71 +340,44 @@
 	</section>
 {:else}
 	<div class="library-page-shell">
-		<Toolbar ariaLabel="ICT task library controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
-			{#snippet leading()}
-				<ToolbarGroup
-					label="ICT task library filters"
-					activeCount={toolbarActiveFilterCount}
-					testId="ict-library-filters"
-				>
-					{#snippet full()}
-						<ToolbarViewToggle
-							ariaLabel="Filter ICT tasks by status"
-							options={taskStatusOptions}
-							value={taskStatusFilter}
-							mode="full"
-							onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
-						/>
-						<ToolbarFilterSelect
-							ariaLabel="MOS"
-							options={toolbarMosFilterOptions}
-							value={selectedMos}
-							defaultValue=""
-							width="wide"
-							mode="full"
-							onValueChange={(value) => (selectedMos = value)}
-						/>
-						<ToolbarSearchItem
-							ariaLabel="Search"
-							placeholder="Search task number or title..."
-							width="wide"
-							bind:value={taskSearch}
-						/>
-					{/snippet}
-					{#snippet panel()}
-						<ToolbarViewToggle
-							ariaLabel="Filter ICT tasks by status"
-							options={taskStatusOptions}
-							value={taskStatusFilter}
-							mode="full"
-							onValueChange={(value) => (taskStatusFilter = value as 'active' | 'archived')}
-						/>
-						<ToolbarFilterSelect
-							ariaLabel="MOS"
-							options={toolbarMosFilterOptions}
-							value={selectedMos}
-							defaultValue=""
-							width="wide"
-							mode="full"
-							onValueChange={(value) => (selectedMos = value)}
-						/>
-						<ToolbarSearchItem
-							ariaLabel="Search"
-							placeholder="Search task number or title..."
-							width="wide"
-							mode="full"
-							bind:value={taskSearch}
-						/>
-					{/snippet}
-				</ToolbarGroup>
-			{/snippet}
+		<WorkspaceToolbar.Root ariaLabel="ICT task library controls">
+			<WorkspaceToolbar.Group
+				label="ICT task library filters"
+				activeCount={toolbarActiveFilterCount}
+				data-testid="ict-library-filters"
+			>
+				<ButtonGroup.Root aria-label="Filter ICT tasks by status">
+					{#each taskStatusOptions as option (option.value)}
+						<Button
+							variant={taskStatusFilter === option.value ? 'secondary' : 'outline'}
+							aria-pressed={taskStatusFilter === option.value}
+							onclick={() => (taskStatusFilter = option.value as 'active' | 'archived')}
+						>
+							{option.label}
+						</Button>
+					{/each}
+				</ButtonGroup.Root>
+				<WorkspaceToolbar.Select
+					ariaLabel="MOS"
+					options={toolbarMosFilterOptions}
+					value={selectedMos}
+					onValueChange={(value) => (selectedMos = value)}
+				/>
+				<WorkspaceToolbar.Search
+					ariaLabel="Search"
+					placeholder="Search task number or title..."
+					bind:value={taskSearch}
+				/>
+			</WorkspaceToolbar.Group>
 
-			<ToolbarActions
-				actions={toolbarActionItems}
-				ariaLabel="ICT task library actions"
-				overflowAriaLabel="More ICT task library actions"
-			/>
-		</Toolbar>
+			<WorkspaceToolbar.Group label="ICT task library actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={toolbarActionItems}
+					ariaLabel="ICT task library actions"
+					overflowAriaLabel="More ICT task library actions"
+				/>
+			</WorkspaceToolbar.Group>
+		</WorkspaceToolbar.Root>
 
 		{#if loading}
 			<section class="route-loading" aria-busy="true" aria-live="polite" role="status">

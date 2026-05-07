@@ -41,9 +41,8 @@ describe('BannerStack', () => {
 		expect(container.querySelector('[data-testid="test-banner"]')).toBeTruthy();
 	});
 
-	it('should offset the fixed stack by the desktop app rail', () => {
-		expect(bannerStackSource).toContain('left: var(--app-rail-width, 0px);');
-		expect(bannerStackSource).toContain('@media (max-width: 920px)');
+	it('should pin the fixed stack above the shadcn app shell', () => {
+		expect(bannerStackSource).toContain('top: 0;');
 		expect(bannerStackSource).toContain('left: 0;');
 	});
 

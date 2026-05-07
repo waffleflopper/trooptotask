@@ -1,5 +1,9 @@
 <script lang="ts">
 	import type { OrganizationMember } from '$lib/types';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Separator } from '$lib/components/ui/separator/index.js';
 
 	let {
 		orgName,
@@ -18,23 +22,29 @@
 	} = $props();
 </script>
 
-<div class="danger-zone-tab">
-	<section class="ledger-section danger-ledger" aria-labelledby="destructive-actions-heading">
-		<div class="ledger-heading">
-			<span>!</span>
-			<h3 id="destructive-actions-heading">Destructive Actions</h3>
-			<p class="state-label state-label--danger">Owner only</p>
-		</div>
-
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="transfer-owner-target">Transfer ownership</label>
-				<p class="field-hint">Hand the Owner role to another member. You will become Admin.</p>
+<div class="grid gap-4">
+	<section
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="destructive-actions-heading"
+	>
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="destructive-actions-heading" class="text-lg font-semibold tracking-tight">Destructive Actions</h3>
+				<p class="text-sm text-muted-foreground">Owner-only controls for irreversible organization changes.</p>
 			</div>
-			<div class="danger-command-group">
+			<Badge variant="destructive">Owner only</Badge>
+		</div>
+		<Separator />
+
+		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+			<div class="grid gap-1">
+				<Label for="transfer-owner-target">Transfer ownership</Label>
+				<p class="text-sm text-muted-foreground">Hand the Owner role to another member. You will become Admin.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
 				<select
 					id="transfer-owner-target"
-					class="input danger-select"
+					class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 					value={transferTargetId ?? ''}
 					onchange={(event) => (transferTargetId = event.currentTarget.value || null)}
 				>
@@ -43,49 +53,40 @@
 						<option value={member.userId}>{member.email}</option>
 					{/each}
 				</select>
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm btn-danger-outline"
-					disabled={!transferTargetId}
-					onclick={onTransferConfirm}
-				>
+				<Button type="button" variant="outline" size="sm" disabled={!transferTargetId} onclick={onTransferConfirm}>
 					Transfer Ownership
-				</button>
+				</Button>
 				{#if transferOwnershipCandidates.length === 0}
-					<span class="export-help">No eligible member account is available.</span>
+					<span class="basis-full text-sm text-muted-foreground">No eligible member account is available.</span>
 				{/if}
 			</div>
 		</div>
 
-		<div class="ledger-row">
-			<div>
-				<p class="field-label">Purge archived</p>
-				<p class="field-hint">Permanently delete all archived personnel. Bypasses the retention window.</p>
+		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+			<div class="grid gap-1">
+				<p class="text-sm font-medium">Purge archived</p>
+				<p class="text-sm text-muted-foreground">
+					Permanently delete all archived personnel. Bypasses the retention window.
+				</p>
 			</div>
-			<div class="danger-command-group">
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm btn-danger-outline btn-coming-soon"
-					disabled
-					title="Coming soon"
-					aria-disabled="true"
-				>
+			<div>
+				<Button type="button" variant="outline" size="sm" disabled title="Coming soon" aria-disabled="true">
 					Purge Archived
-					<span>Coming Soon</span>
-				</button>
+					<Badge variant="outline">Coming Soon</Badge>
+				</Button>
 			</div>
 		</div>
 
-		<div class="ledger-row">
-			<div>
-				<p class="field-label">Delete organization</p>
-				<p class="field-hint">
+		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+			<div class="grid gap-1">
+				<p class="text-sm font-medium">Delete organization</p>
+				<p class="text-sm text-muted-foreground">
 					All personnel, training, calendar, and audit data is permanently destroyed. This action cannot be undone.
 				</p>
 			</div>
-			<div class="danger-command-group">
-				{#if form?.deleteError}<div class="error-message">{form.deleteError}</div>{/if}
-				<button type="button" class="btn btn-danger btn-sm" onclick={onDeleteConfirm}>Delete {orgName}</button>
+			<div class="grid gap-2">
+				{#if form?.deleteError}<p class="text-sm text-destructive">{form.deleteError}</p>{/if}
+				<Button type="button" variant="destructive" size="sm" onclick={onDeleteConfirm}>Delete {orgName}</Button>
 			</div>
 		</div>
 	</section>

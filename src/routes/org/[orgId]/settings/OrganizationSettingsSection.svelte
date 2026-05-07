@@ -1,17 +1,16 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { isBillingEnabled } from '$lib/config/billing';
-	import { formatRelativeDate } from '$lib/utils/dates';
-	import { formatCompactDate } from './settingsWorkspaceFormatters';
 
 	let {
 		data,
 		form,
 		loading = $bindable(false),
-		memberRoleSummary,
-		oldestPendingApproval,
-		nextPurgeDate,
-		auditEntriesLast30Days,
 		planBadge,
 		planPrice,
 		planCopy,
@@ -32,10 +31,6 @@
 			error?: string;
 		} | null;
 		loading?: boolean;
-		memberRoleSummary: string;
-		oldestPendingApproval: { created_at: string } | null;
-		nextPurgeDate: Date | null;
-		auditEntriesLast30Days: number;
 		planBadge: string;
 		planPrice: string;
 		planCopy: string;
@@ -44,48 +39,19 @@
 	}>();
 </script>
 
-<div class="organization-tab">
-	<div class="org-metrics" aria-label="Organization settings summary">
-		<div class="org-metric">
-			<span>Members</span>
-			<strong>{data.members.length}</strong>
-			<p>{memberRoleSummary}</p>
+<div class="grid gap-4">
+	<section
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="organization-profile-heading"
+	>
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="organization-profile-heading" class="text-lg font-semibold tracking-tight">Organization Profile</h3>
+				<p class="text-sm text-muted-foreground">Displayed across briefs, exports, and printed rosters.</p>
+			</div>
+			{#if form?.nameSuccess}<Badge variant="secondary">Saved</Badge>{/if}
 		</div>
-		<div class="org-metric">
-			<span>Pending approvals</span>
-			<strong>{data.pendingApprovalsCount}</strong>
-			<p>
-				{#if oldestPendingApproval}
-					Oldest {formatRelativeDate(oldestPendingApproval.created_at)}
-				{:else}
-					No pending requests
-				{/if}
-			</p>
-		</div>
-		<div class="org-metric">
-			<span>Archived</span>
-			<strong>{data.archivedPersonnel.length}</strong>
-			<p>
-				{#if nextPurgeDate}
-					Next purge {formatCompactDate(nextPurgeDate)}
-				{:else}
-					Retention {data.policies.retentionMonths} months
-				{/if}
-			</p>
-		</div>
-		<div class="org-metric">
-			<span>Audit entries</span>
-			<strong>{auditEntriesLast30Days}</strong>
-			<p>Last 30 days</p>
-		</div>
-	</div>
-
-	<section class="ledger-section" aria-labelledby="organization-profile-heading">
-		<div class="ledger-heading">
-			<span>01</span>
-			<h3 id="organization-profile-heading">Organization Profile</h3>
-			{#if form?.nameSuccess}<p class="state-label state-label--success">Saved</p>{/if}
-		</div>
+		<Separator />
 		<form
 			method="POST"
 			action="?/updateName"
@@ -97,87 +63,67 @@
 				};
 			}}
 		>
-			{#if form?.error}<div class="error-message error-message--inline">{form.error}</div>{/if}
-			<div class="ledger-row">
-				<div>
-					<label class="field-label" for="name">Organization name</label>
-					<p class="field-hint">Displayed across briefs, exports, and printed rosters.</p>
+			{#if form?.error}<p class="text-sm text-destructive">{form.error}</p>{/if}
+			<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+				<div class="grid gap-2">
+					<Label for="name">Organization name</Label>
+					<Input id="name" name="name" type="text" value={data.orgName ?? ''} required />
 				</div>
-				<div class="ledger-control">
-					<input id="name" name="name" type="text" class="input" value={data.orgName ?? ''} required />
-					<button type="submit" class="btn btn-primary" disabled={loading}>
+				<div class="flex items-end">
+					<Button type="submit" disabled={loading}>
 						{loading ? 'Saving...' : 'Update'}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</form>
-		<div class="ledger-row">
-			<div>
-				<p id="short-code-label" class="field-label">Short code</p>
-				<p class="field-hint">Used in URLs and DA-form headers. 3-6 chars.</p>
+		<div class="grid gap-4 rounded-md border bg-muted/30 p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+			<div class="grid gap-1">
+				<p id="short-code-label" class="text-sm font-medium">Short code</p>
+				<p class="text-sm text-muted-foreground">Used in URLs and DA-form headers. 3-6 chars.</p>
 			</div>
-			<div class="ledger-control">
-				<div class="coming-soon-field">
-					<button
-						type="button"
-						class="short-code-preview"
-						aria-disabled="true"
-						aria-labelledby="short-code-label short-code-value"
-						aria-describedby="short-code-tooltip"
-					>
-						<span id="short-code-value">Coming soon</span>
-					</button>
-					<span id="short-code-tooltip" class="coming-soon-tooltip" role="tooltip">
-						Coming soon: future organization slugs for URLs and printed headers.
-					</span>
-				</div>
+			<div class="grid gap-1">
+				<Button type="button" variant="outline" disabled aria-labelledby="short-code-label short-code-value">
+					<span id="short-code-value">Coming soon</span>
+				</Button>
+				<p class="text-sm text-muted-foreground">
+					Coming soon: future organization slugs for URLs and printed headers.
+				</p>
 			</div>
 		</div>
 	</section>
 
-	<section class="ledger-section" aria-labelledby="subscription-heading">
-		<div class="ledger-heading">
-			<span>02</span>
-			<h3 id="subscription-heading">Subscription & Billing</h3>
-			<p class="state-label">{planBadge} · {planPrice}</p>
-		</div>
-		<div class="ledger-row">
-			<div>
-				<p class="field-label">Plan</p>
-				<p class="field-hint">{planCopy}</p>
+	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="subscription-heading">
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="subscription-heading" class="text-lg font-semibold tracking-tight">Subscription & Billing</h3>
+				<p class="text-sm text-muted-foreground">{planCopy}</p>
 			</div>
-			<div class="billing-control">
-				<span class="tier-pill">{planBadge}</span>
-				<span class="billing-meta">{billingStatus}</span>
+			<Badge>{planBadge} · {planPrice}</Badge>
+		</div>
+		<Separator />
+		<div class="grid gap-4 md:grid-cols-2">
+			<div>
+				<p class="text-sm font-medium">Plan</p>
+				<p class="text-sm text-muted-foreground">{billingStatus}</p>
 				{#if isBillingEnabled}
-					<a class="btn btn-primary btn-sm" href={`/org/${data.orgId}/billing`}>Manage Billing</a>
+					<Button href={`/org/${data.orgId}/billing`} size="sm">Manage Billing</Button>
 				{/if}
 			</div>
-		</div>
-		<div class="ledger-row">
 			<div>
-				<p class="field-label">Personnel count</p>
-			</div>
-			<div class="session-actions">
-				<span class="mono-value">{personnelCount}</span>
+				<p class="text-sm font-medium">Personnel count</p>
+				<p class="text-sm text-muted-foreground">{personnelCount}</p>
 			</div>
 		</div>
 	</section>
 
-	<section class="ledger-section" aria-labelledby="session-heading">
-		<div class="ledger-heading">
-			<span>03</span>
-			<h3 id="session-heading">Session</h3>
+	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="session-heading">
+		<div class="grid gap-1">
+			<h3 id="session-heading" class="text-lg font-semibold tracking-tight">Session</h3>
+			<p class="text-sm text-muted-foreground">Sign out of this browser only. Other sessions are unaffected.</p>
 		</div>
-		<div class="ledger-row">
-			<div>
-				<p class="field-label">Active session</p>
-				<p class="field-hint">Sign out of this browser only. Other sessions are unaffected.</p>
-			</div>
-			<div class="session-actions">
-				<a class="btn btn-secondary btn-sm" href="/auth/logout">Sign Out</a>
-				<a class="btn btn-secondary btn-sm" href="/dashboard?show=all">Switch Organization</a>
-			</div>
+		<div class="flex flex-wrap gap-2">
+			<Button href="/auth/logout" variant="outline" size="sm">Sign Out</Button>
+			<Button href="/dashboard?show=all" variant="outline" size="sm">Switch Organization</Button>
 		</div>
 	</section>
 </div>

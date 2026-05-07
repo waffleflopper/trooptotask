@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import { formatAuditTimestamp, getAuditActionParts, getAuditTone } from './settingsWorkspaceFormatters';
+	import { formatAuditTimestamp, getAuditActionParts } from './settingsWorkspaceFormatters';
 
 	type ActivityTab = 'approvals' | 'audit';
 
@@ -76,62 +80,44 @@
 	}
 </script>
 
-<aside class="activity-rail" aria-label="Settings activity">
+<aside class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-label="Settings activity">
 	{#if collapsed}
-		<button
-			type="button"
-			class="activity-rail__restore"
-			aria-label="Show activity panel"
-			onclick={() => (collapsed = false)}
-		>
+		<Button type="button" aria-label="Show activity panel" variant="outline" onclick={() => (collapsed = false)}>
 			Activity
-		</button>
+		</Button>
 	{:else}
-		<div class="activity-tabs" role="tablist" aria-label="Settings activity views">
-			<button
-				type="button"
-				role="tab"
-				aria-selected={activityTab === 'approvals'}
-				class:is-active={activityTab === 'approvals'}
-				onclick={() => (activityTab = 'approvals')}
-			>
-				Approvals <span>{pendingApprovalsCount}</span>
-			</button>
-			<button
-				type="button"
-				role="tab"
-				aria-selected={activityTab === 'audit'}
-				class:is-active={activityTab === 'audit'}
-				onclick={() => (activityTab = 'audit')}
-			>
-				Audit Log
-			</button>
-			<button type="button" class="activity-tabs__collapse" aria-label="Collapse" onclick={() => (collapsed = true)}>
+		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<Tabs.Root bind:value={activityTab}>
+				<Tabs.List>
+					<Tabs.Trigger value="approvals">Approvals {pendingApprovalsCount}</Tabs.Trigger>
+					<Tabs.Trigger value="audit">Audit Log</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+			<Button type="button" variant="outline" size="sm" aria-label="Collapse" onclick={() => (collapsed = true)}>
 				Hide
-			</button>
+			</Button>
 		</div>
-		<div class="activity-rail__body">
-			{#if activityTab === 'approvals'}
-				<div class="activity-list" aria-label="Pending approval requests">
+		<Tabs.Root bind:value={activityTab} class="grid gap-4">
+			<Tabs.Content value="approvals" class="grid gap-3">
+				<div class="grid gap-3" aria-label="Pending approval requests">
 					{#each visibleApprovals as request (request.id)}
-						<article class="approval-item">
+						<article class="grid gap-2 rounded-md border p-3">
 							<header>
 								<strong>{request.requester_email ?? 'Unknown requester'}</strong>
 							</header>
 							{#if request.resource_url}
-								<a class="approval-item__title" href={request.resource_url}>
+								<a class="text-sm font-medium underline-offset-4 hover:underline" href={request.resource_url}>
 									{request.resource_description ?? request.resource_type}
 								</a>
 							{:else}
-								<p class="approval-item__title">{request.resource_description ?? request.resource_type}</p>
+								<p class="text-sm font-medium">{request.resource_description ?? request.resource_type}</p>
 							{/if}
-							<div class="approval-item__footer">
-								<span>{formatRelativeDate(request.created_at)} · Pending</span>
+							<div class="grid gap-2">
+								<span class="text-sm text-muted-foreground">{formatRelativeDate(request.created_at)} · Pending</span>
 								{#if denyingId === request.id}
-									<div class="deny-form deny-form--rail">
-										<input
+									<div class="flex flex-wrap gap-2">
+										<Input
 											type="text"
-											class="input deny-input"
 											aria-label="Denial reason"
 											placeholder="Reason"
 											bind:value={denialReason}
@@ -143,64 +129,67 @@
 												}
 											}}
 										/>
-										<button
-											class="btn btn-danger btn-sm"
+										<Button
+											variant="destructive"
+											size="sm"
 											disabled={processingApproval === request.id}
 											onclick={() => handleApprovalAction(request.id, 'deny', denialReason)}
 										>
 											{#if processingApproval === request.id}<Spinner />{/if}
 											Confirm
-										</button>
+										</Button>
 									</div>
 								{:else}
-									<div class="approval-item__actions">
-										<button
-											class="btn btn-primary btn-sm"
+									<div class="flex flex-wrap gap-2">
+										<Button
+											size="sm"
 											disabled={processingApproval === request.id}
 											onclick={() => handleApprovalAction(request.id, 'approve')}
 										>
 											{#if processingApproval === request.id}<Spinner />{/if}
 											Approve
-										</button>
-										<button class="rail-text-button" onclick={() => (denyingId = request.id)}>Deny</button>
+										</Button>
+										<Button variant="outline" size="sm" onclick={() => (denyingId = request.id)}>Deny</Button>
 									</div>
 								{/if}
 							</div>
 						</article>
 					{/each}
 					{#if pendingApprovals.length === 0}
-						<p class="activity-empty">No pending requests.</p>
+						<p class="text-sm text-muted-foreground">No pending requests.</p>
 					{:else if pendingApprovals.length <= visibleApprovals.length}
-						<p class="activity-empty">No more pending requests.</p>
+						<p class="text-sm text-muted-foreground">No more pending requests.</p>
 					{:else}
-						<a class="activity-view-all" href={`/org/${orgId}/settings/approvals`}>
+						<Button href={`/org/${orgId}/settings/approvals`} variant="outline" size="sm">
 							View all {pendingApprovals.length} pending requests
-						</a>
+						</Button>
 					{/if}
 				</div>
-			{:else}
-				<div class="audit-feed" aria-label="Recent audit log entries">
+			</Tabs.Content>
+
+			<Tabs.Content value="audit" class="grid gap-3">
+				<div class="grid gap-3" aria-label="Recent audit log entries">
 					{#each visibleAuditLogs as log (log.id)}
 						{@const actionParts = getAuditActionParts(log.action)}
-						<article class="audit-event">
-							<time datetime={log.createdAt}>{formatAuditTimestamp(log.createdAt)}</time>
+						<article class="grid gap-2 rounded-md border p-3">
+							<time class="text-sm text-muted-foreground" datetime={log.createdAt}
+								>{formatAuditTimestamp(log.createdAt)}</time
+							>
 							<div>
-								<span class={`audit-event__badge audit-event__badge--${getAuditTone(log.action)}`}>
-									{actionParts.area} › {actionParts.event}
-								</span>
-								<p>{log.actor ?? 'System'}</p>
+								<Badge variant="outline">{actionParts.area} › {actionParts.event}</Badge>
+								<p class="mt-1 text-sm text-muted-foreground">{log.actor ?? 'System'}</p>
 							</div>
 						</article>
 					{/each}
 					{#if auditLog.totalCount > 0}
-						<a class="activity-view-all" href={`/org/${orgId}/settings/audit`}>
+						<Button href={`/org/${orgId}/settings/audit`} variant="outline" size="sm">
 							View all {auditLog.totalCount} entries
-						</a>
+						</Button>
 					{:else}
-						<p class="activity-empty">No audit log entries yet.</p>
+						<p class="text-sm text-muted-foreground">No audit log entries yet.</p>
 					{/if}
 				</div>
-			{/if}
-		</div>
+			</Tabs.Content>
+		</Tabs.Root>
 	{/if}
 </aside>

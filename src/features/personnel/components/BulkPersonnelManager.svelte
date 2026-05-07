@@ -108,6 +108,12 @@
 
 	// Double-submit guard for the import action
 	let runningImport = $state(false);
+	let mergeRef = $state<ReturnType<typeof BulkPersonnelMerge>>();
+	let mergeFooterState = $state({
+		step: 'input' as 'input' | 'preview' | 'merging' | 'results',
+		disabled: true,
+		label: 'Preview Rows'
+	});
 
 	// --- Validate row for BulkImportTable ---
 	function validateRow(row: Record<string, string>) {
@@ -455,7 +461,15 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 
 				<Tabs.Content value="merge">
 					{#if activeTab === 'merge'}
-						<BulkPersonnelMerge {orgId} personnel={allPersonnel} {groups} onComplete={handleDone} />
+						<BulkPersonnelMerge
+							bind:this={mergeRef}
+							{orgId}
+							personnel={allPersonnel}
+							{groups}
+							onComplete={handleDone}
+							showInputActions={false}
+							bind:footerState={mergeFooterState}
+						/>
 					{/if}
 				</Tabs.Content>
 
@@ -531,6 +545,11 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
 				<Button variant="destructive" type="button" onclick={handleArchive} disabled={selectedIds.size === 0}>
 					Archive {selectedIds.size} Personnel
+				</Button>
+			{:else if activeTab === 'merge' && mergeFooterState.step === 'input'}
+				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+				<Button type="button" onclick={() => mergeRef?.previewRows()} disabled={mergeFooterState.disabled}>
+					{mergeFooterState.label}
 				</Button>
 			{/if}
 		</Dialog.Footer>

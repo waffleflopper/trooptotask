@@ -99,6 +99,7 @@ These docs contain detailed props, usage examples, and patterns. Read them when 
 
 - Shared components are visually authoritative. Route code consumes them; it does not restyle them.
 - Route-level visual overrides are forbidden unless Robert explicitly approves that specific visual change.
+- The approved visual baseline is the shadcn-svelte appearance calibrated in `/ui-showroom` and `/ui-showroom/app-shell`. During route migration, styling outside shadcn/shared components should be converted to Tailwind CSS and aligned with that baseline.
 - Allowed route-level variation is behavioral only: data, labels, validation, permissions, filters, columns, actions, open/closed state, and similar interaction configuration.
 - Behavioral changes must not affect other areas that consume the shared component. Stop and ask permission before wrapping a shared component for one route to change behavior.
 - Visual changes belong in tokens (`src/app.css`, `components.json`, theme variables) or shared component source files under `src/lib/components/**`.

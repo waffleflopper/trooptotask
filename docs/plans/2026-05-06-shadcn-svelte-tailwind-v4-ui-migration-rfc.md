@@ -46,6 +46,8 @@ TroopToTask will adopt shadcn-svelte as the primary shared component source and 
 
 Because shadcn-svelte gives the app source code for components, the generated code becomes TroopToTask-owned shared UI after installation. Upstream defaults are a starting point, not a permanent external dependency contract. Local changes should happen centrally in shared component files and token files, with the showroom proving those changes before route migration uses them.
 
+The approved target appearance is the shadcn-svelte visual style calibrated in `/ui-showroom` and `/ui-showroom/app-shell`. Migrated production surfaces should align all non-component styling with that baseline using Tailwind CSS utilities and shared tokens. This applies to layout scaffolding, spacing, local helper text, simple panels, empty permission states, and other route-owned structure that is not itself a shared shadcn/shared component.
+
 The migration must happen in phases:
 
 1. Install and configure shadcn-svelte and Tailwind v4.
@@ -71,6 +73,8 @@ Route-level code may configure behavior:
 - which validation rules apply
 - which labels, helper text, and empty-state messages are shown
 - which data is passed into cells, dialogs, forms, and menus
+
+Route-level code may use Tailwind CSS for route-owned layout and structure during migration, but that Tailwind must align with the approved showroom/app-shell baseline. It is for expressing shared spacing, layout, surface, and typography patterns consistently, not for creating a new route-specific look.
 
 Route-level code may not visually restyle calibrated shared components:
 
@@ -246,6 +250,7 @@ Route migration order should follow coherent app areas, not isolated opportunist
 Route migration rules:
 
 - Use calibrated shared components as-is.
+- Convert remaining non-component styling to Tailwind CSS that matches the `/ui-showroom` and `/ui-showroom/app-shell` visual baseline.
 - Keep route files thin: data wiring, feature context, and behavior configuration only.
 - Keep feature-specific orchestration inside `src/features/*`.
 - Move repeated route patterns into shared components instead of local wrappers.

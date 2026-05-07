@@ -16,11 +16,24 @@
 		personnel: Personnel[];
 		groups: Group[];
 		onComplete: () => void;
+		showInputActions?: boolean;
+		footerState?: {
+			step: MergeState;
+			disabled: boolean;
+			label: string;
+		};
 	}
 
-	let { orgId, personnel, groups, onComplete }: Props = $props();
-
 	type MergeState = 'input' | 'preview' | 'merging' | 'results';
+
+	let {
+		orgId,
+		personnel,
+		groups,
+		onComplete,
+		showInputActions = true,
+		footerState = $bindable({ step: 'input', disabled: true, label: 'Preview Rows' })
+	}: Props = $props();
 
 	interface MergeMessage {
 		index: number;
@@ -121,6 +134,15 @@ SSG,Jones,Pat,,2026-11-30`;
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
 	);
+	const previewLabel = $derived(`Preview ${dataRowCount > 0 ? dataRowCount : ''} Rows`);
+
+	$effect(() => {
+		footerState = {
+			step: mergeStep,
+			disabled: rawRows.length === 0,
+			label: previewLabel
+		};
+	});
 
 	function findMatches(row: Record<string, string>): Personnel[] {
 		const rank = (row.rank ?? '').trim().toLowerCase();
@@ -211,6 +233,10 @@ SSG,Jones,Pat,,2026-11-30`;
 
 	function goToPreview() {
 		mergeStep = 'preview';
+	}
+
+	export function previewRows() {
+		goToPreview();
 	}
 
 	function backToInput() {
@@ -350,11 +376,13 @@ SSG,Jones,Pat,,2026-11-30`;
 			<p class="text-sm text-destructive">{textError}</p>
 		{/if}
 
-		<div class="flex justify-end">
-			<Button type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
-				Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
-			</Button>
-		</div>
+		{#if showInputActions}
+			<div class="flex justify-end">
+				<Button type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
+					{previewLabel}
+				</Button>
+			</div>
+		{/if}
 	</div>
 {:else if mergeStep === 'preview'}
 	<div class="grid gap-4">

@@ -29,6 +29,7 @@ Rules:
 - Shared components are visually authoritative. Production routes consume shared component appearance as-is.
 - Visual styling comes from `src/app.css`, `components.json`, theme variables, or shared component source files under `src/lib/components/**`.
 - `/ui-showroom` should stay docs-like: no route-local component skinning, no custom variants, and no visual tuning of generated components.
+- The approved migration baseline is the shadcn-svelte visual appearance shown in `/ui-showroom` and `/ui-showroom/app-shell`. Non-component route layout and legacy CSS should migrate to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
 - Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
 - Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
 - Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.

@@ -10,16 +10,16 @@
 	let { compact = false, pending = false }: Props = $props();
 
 	const navItems = [
-		{ label: 'Approvals', href: '/org/org-1/settings/approvals', active: true },
-		{ label: 'Archived Personnel', href: '/org/org-1/settings/archived' },
+		{ label: 'Overview', href: '/org/org-1/settings', active: true },
+		{ label: 'Personnel', href: '/org/org-1/personnel' },
 		{
-			label: 'Locked Settings',
-			href: '/org/org-1/settings/policies',
+			label: 'Locked Billing',
+			href: '/org/org-1/billing',
 			disabled: true,
 			disabledReason: 'Upgrade to edit'
 		}
 	];
 </script>
 
-<ToolbarNavGroup ariaLabel="Organization settings sections" items={navItems} {compact} />
+<ToolbarNavGroup ariaLabel="Organization sections" items={navItems} {compact} />
 <ToolbarMetaItem label={pending ? 'Unsaved changes' : 'Saved'} tone={pending ? 'warning' : 'default'} />

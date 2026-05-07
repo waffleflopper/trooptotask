@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -56,6 +57,7 @@
 	const pendingApprovals = $derived(approvalRequests.filter((request) => request.status === 'pending'));
 	const visibleApprovals = $derived(pendingApprovals.slice(0, 4));
 	const visibleAuditLogs = $derived(auditLog.logs.slice(0, 9));
+	const settingsHref = $derived(resolve(`/org/${orgId}/settings`));
 
 	async function handleApprovalAction(id: string, action: 'approve' | 'deny', reason?: string) {
 		if (processingApproval) return;
@@ -106,7 +108,10 @@
 								<strong>{request.requester_email ?? 'Unknown requester'}</strong>
 							</header>
 							{#if request.resource_url}
-								<a class="text-sm font-medium underline-offset-4 hover:underline" href={request.resource_url}>
+								<a
+									class="text-sm font-medium underline-offset-4 hover:underline"
+									href={resolve(request.resource_url as '/')}
+								>
 									{request.resource_description ?? request.resource_type}
 								</a>
 							{:else}
@@ -160,7 +165,7 @@
 					{:else if pendingApprovals.length <= visibleApprovals.length}
 						<p class="text-sm text-muted-foreground">No more pending requests.</p>
 					{:else}
-						<Button href={`/org/${orgId}/settings/approvals`} variant="outline" size="sm">
+						<Button href={settingsHref} variant="outline" size="sm">
 							View all {pendingApprovals.length} pending requests
 						</Button>
 					{/if}
@@ -182,7 +187,7 @@
 						</article>
 					{/each}
 					{#if auditLog.totalCount > 0}
-						<Button href={`/org/${orgId}/settings/audit`} variant="outline" size="sm">
+						<Button href={settingsHref} variant="outline" size="sm">
 							View all {auditLog.totalCount} entries
 						</Button>
 					{:else}

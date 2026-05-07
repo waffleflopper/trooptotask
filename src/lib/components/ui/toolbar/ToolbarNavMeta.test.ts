@@ -11,15 +11,15 @@ describe('toolbar nav and meta primitives', () => {
 	it('renders navigation items as keyboard-accessible links with active state', () => {
 		render(ToolbarNavMetaTest);
 
-		const nav = screen.getByRole('navigation', { name: 'Organization settings sections' });
-		const approvals = screen.getByRole('link', { name: 'Approvals' });
-		const archived = screen.getByRole('link', { name: 'Archived Personnel' });
+		const nav = screen.getByRole('navigation', { name: 'Organization sections' });
+		const overview = screen.getByRole('link', { name: 'Overview' });
+		const personnel = screen.getByRole('link', { name: 'Personnel' });
 
-		expect(nav.contains(approvals)).toBe(true);
-		expect(approvals.getAttribute('href')).toBe('/org/org-1/settings/approvals');
-		expect(approvals.getAttribute('aria-current')).toBe('page');
-		expect(archived.getAttribute('href')).toBe('/org/org-1/settings/archived');
-		expect(archived.getAttribute('aria-current')).toBeNull();
+		expect(nav.contains(overview)).toBe(true);
+		expect(overview.getAttribute('href')).toBe('/org/org-1/settings');
+		expect(overview.getAttribute('aria-current')).toBe('page');
+		expect(personnel.getAttribute('href')).toBe('/org/org-1/personnel');
+		expect(personnel.getAttribute('aria-current')).toBeNull();
 	});
 
 	it('renders passive meta content as status text, not a command', () => {
@@ -33,17 +33,17 @@ describe('toolbar nav and meta primitives', () => {
 	it('keeps nav available in compact mode without moving links into command overflow', () => {
 		render(ToolbarNavMetaTest, { props: { compact: true } });
 
-		const nav = screen.getByRole('navigation', { name: 'Organization settings sections' });
+		const nav = screen.getByRole('navigation', { name: 'Organization sections' });
 
 		expect(nav.getAttribute('data-compact')).toBe('true');
-		expect(screen.getByRole('link', { name: 'Approvals' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Overview' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
 	});
 
 	it('renders disabled nav items without link semantics or a tab stop', () => {
 		render(ToolbarNavMetaTest);
 
-		const locked = screen.getByText('Locked Settings');
+		const locked = screen.getByText('Locked Billing');
 
 		expect(locked.getAttribute('aria-disabled')).toBe('true');
 		expect(locked.getAttribute('href')).toBeNull();
@@ -51,6 +51,6 @@ describe('toolbar nav and meta primitives', () => {
 		expect(locked.getAttribute('tabindex')).toBeNull();
 		expect(locked.getAttribute('title')).toBe('Upgrade to edit');
 		expect(locked.getAttribute('aria-describedby')).toBeTruthy();
-		expect(screen.queryByRole('link', { name: 'Locked Settings' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Locked Billing' })).toBeNull();
 	});
 });

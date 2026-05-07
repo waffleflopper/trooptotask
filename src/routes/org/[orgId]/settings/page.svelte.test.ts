@@ -274,7 +274,7 @@ describe('org settings page', () => {
 		expect(screen.getByRole('heading', { name: 'Data & Export' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export JSON' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'View Audit Log' }).getAttribute('href')).toBe('/org/org-1/settings/audit');
+		expect(screen.getByRole('link', { name: 'View Audit Log' }).getAttribute('href')).toBe('/org/org-1/settings');
 		const activity = screen.getByRole('complementary', { name: 'Settings activity' });
 		expect(within(activity).getByRole('tab', { name: /Approvals 1/ })).toBeTruthy();
 		expect(within(activity).getByText('Delete archived record')).toBeTruthy();

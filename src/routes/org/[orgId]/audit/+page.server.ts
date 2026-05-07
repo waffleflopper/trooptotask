@@ -2,5 +2,5 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
-	throw redirect(301, `/org/${params.orgId}/settings/audit`);
+	throw redirect(301, `/org/${params.orgId}/settings`);
 };

@@ -200,10 +200,8 @@ Wrappers to resolve first:
 
 Gaps:
 
-- The current settings route has large local markup and `settingsWorkspace.css`.
-- Permission capability editing needs a first-class shared pattern before visual migration.
-- Archived personnel should use shared table or DataTable, not a local table.
-- Activity rail tabs and mobile behavior need a shared pattern.
+- Permission capability editing needs a first-class shared pattern before deeper visual migration.
+- Activity rail tabs and mobile behavior need a shared pattern before reuse outside organization settings.
 
 ### Critical Tasks
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
@@ -27,6 +28,7 @@
 	} = $props();
 
 	const exportLimitReached = $derived(exportInfo.isLimited && exportInfo.exportsUsed >= exportInfo.exportsLimit);
+	const settingsHref = $derived(resolve(`/org/${orgId}/settings`));
 </script>
 
 <div class="grid gap-4">
@@ -112,7 +114,7 @@
 				<p class="text-sm text-muted-foreground">Last 90 days of activity.</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<Button href={`/org/${orgId}/settings/audit`} variant="outline" size="sm">View Audit Log</Button>
+				<Button href={settingsHref} variant="outline" size="sm">View Audit Log</Button>
 				<Button type="button" variant="outline" size="sm" disabled title="Coming soon" aria-disabled="true">
 					Export Audit
 					<Badge variant="outline">Coming Soon</Badge>

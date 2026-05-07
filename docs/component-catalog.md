@@ -6,6 +6,45 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 ---
 
+## UI Foundation Showroom
+
+Development route: `/ui-showroom`
+
+The showroom is the only approved preview and calibration surface for the shadcn-svelte + Tailwind v4 migration foundation. It is development-only and returns 404 outside `dev` mode.
+
+Use it to review shadcn-svelte primitives at desktop and mobile widths before production route migration work starts. The route renders docs-style examples of the selected foundation set: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+
+Replacement previews:
+
+- Legacy `DataTable` is represented by native shadcn `table` and `pagination` examples.
+- Legacy `toolbar` is represented by native shadcn `input-group`, `select`, `button-group`, `button`, and `dropdown-menu` examples.
+- Legacy `EmptyState` is represented by the shadcn `empty` component.
+- Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
+- Legacy `SearchSelect` is represented by the shadcn `command` component.
+- Legacy `MultiTagSelect` is represented by a native shadcn `command` example with checkbox items.
+- Legacy `Spinner` is represented by the shadcn `spinner` component.
+
+Rules:
+
+- Visual styling comes from `src/app.css`, `components.json`, or shared component source files under `src/lib/components/**`.
+- `/ui-showroom` should stay docs-like: no route-local component skinning, no custom variants, and no visual tuning of generated components.
+- Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
+- Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors.
+- If a durable visual need appears, add it centrally, document it here, and show it in `/ui-showroom` before any route consumes it.
+- `/ui-showroom` must not import legacy TroopToTask component wrappers such as `DataTable`, the `toolbar` family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or `Spinner`; show their shadcn replacements only.
+- The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
+
+Foundation files:
+
+- `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
+- `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
+- `src/app.css` imports Tailwind v4 and exposes native shadcn/Tailwind theme variables without mapping them to TroopToTask colors yet.
+- `src/lib/components/ui/showroom/showroomInventory.ts` records the selected component set and state coverage.
+
+Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
+
+---
+
 ## Public Marketing Shell
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.

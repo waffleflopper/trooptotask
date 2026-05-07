@@ -79,6 +79,7 @@ This is a single-context repo with `CONTEXT.md` at the root and ADRs under `docs
 These docs contain detailed props, usage examples, and patterns. Read them when building or modifying UI components or server entities.
 
 - **[Component Catalog & CSS Design System](docs/component-catalog.md)** — Shared UI component props (Modal, Badge, Spinner, EmptyState, FileUpload, DataTable, useDataTable), CSS variables, utility classes, button/form classes
+- **shadcn-svelte docs index** — When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or showroom usage.
 
 ## V1 Retrofit Governance
 

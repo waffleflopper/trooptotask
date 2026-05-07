@@ -470,6 +470,102 @@
 							</DropdownMenu.Root>
 						</WorkspaceToolbar.Group>
 					</WorkspaceToolbar.Root>
+
+					<div class="grid gap-3">
+						<p class="text-sm text-muted-foreground">
+							Constrained row with icon-only actions, disabled, and loading states.
+						</p>
+						<WorkspaceToolbar.Root ariaLabel="Constrained route toolbar controls" class="max-w-[30rem]">
+							<WorkspaceToolbar.Group label="Compact view mode">
+								<ButtonGroup.Root aria-label="Compact view mode">
+									<Button
+										size="icon"
+										variant={toolbarView === 'month' ? 'secondary' : 'outline'}
+										aria-pressed={toolbarView === 'month'}
+										aria-label="Month view"
+										onclick={() => (toolbarView = 'month')}
+									>
+										<CalendarIcon />
+									</Button>
+									<Button
+										size="icon"
+										variant={toolbarView === 'long-range' ? 'secondary' : 'outline'}
+										aria-pressed={toolbarView === 'long-range'}
+										aria-label="Long range view"
+										onclick={() => (toolbarView = 'long-range')}
+									>
+										<ClipboardList />
+									</Button>
+								</ButtonGroup.Root>
+							</WorkspaceToolbar.Group>
+
+							<WorkspaceToolbar.Group label="Constrained filters" activeCount={activeToolbarFilters}>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<Button variant="outline" size="icon" aria-label="Open constrained filters" {...props}>
+												<Filter />
+											</Button>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content class="w-[min(22rem,calc(100vw-2rem))] p-2" align="start">
+										<div class="grid gap-2">
+											{@render toolbarFilters()}
+										</div>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+							</WorkspaceToolbar.Group>
+
+							<WorkspaceToolbar.Group label="Constrained search" class="min-w-0 shrink">
+								<InputGroup.Root class="w-32">
+									<InputGroup.Addon>
+										<Search />
+									</InputGroup.Addon>
+									<InputGroup.Input
+										bind:value={toolbarSearch}
+										type="search"
+										placeholder="Search"
+										aria-label="Compact search roster"
+									/>
+								</InputGroup.Root>
+							</WorkspaceToolbar.Group>
+
+							<WorkspaceToolbar.Group label="Constrained actions" zone="actions">
+								<Button variant="default" size="icon" aria-label="Add status">
+									<CalendarIcon />
+								</Button>
+								<Button variant="outline" size="icon" aria-label="Export roster">
+									<Download />
+								</Button>
+								<Button variant="outline" size="icon" aria-label="Import roster disabled" disabled>
+									<Upload />
+								</Button>
+								<Button variant="outline" size="icon" aria-label="Syncing roster" disabled>
+									<Spinner />
+								</Button>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<Button variant="outline" size="icon" aria-label="More constrained actions" {...props}>
+												<MoreHorizontal />
+											</Button>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end">
+										<DropdownMenu.Label>More actions</DropdownMenu.Label>
+										<DropdownMenu.Item>
+											<Printer />
+											Print / PDF
+										</DropdownMenu.Item>
+										<DropdownMenu.Item>
+											<Settings />
+											Settings
+										</DropdownMenu.Item>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+							</WorkspaceToolbar.Group>
+						</WorkspaceToolbar.Root>
+					</div>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="selection-title">

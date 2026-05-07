@@ -17,7 +17,7 @@ Use it to review shadcn-svelte primitives at desktop and mobile widths before pr
 Replacement previews:
 
 - Legacy `DataTable` is represented by native shadcn `table` and `pagination` examples.
-- Legacy `toolbar` is represented by native shadcn `input-group`, `select`, `button-group`, `button`, and `dropdown-menu` examples.
+- Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
 - Legacy `SearchSelect` is represented by the shadcn `command` component.
@@ -46,6 +46,83 @@ Foundation files:
 - `src/lib/components/ui/showroom/showroomInventory.ts` records the selected component set and state coverage.
 
 Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
+
+---
+
+## `ui/workspace-toolbar`
+
+`ui/workspace-toolbar` is the shadcn-composed route toolbar target for the UI migration. It is being calibrated in `/ui-showroom` before production routes consume it. It replaces route-local toolbar shells with one shared visual contract built from shadcn-svelte primitives.
+
+```svelte
+<script lang="ts">
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as InputGroup from '$lib/components/ui/input-group';
+	import { Button } from '$lib/components/ui/button';
+</script>
+
+<WorkspaceToolbar.Root ariaLabel="Calendar controls">
+	<WorkspaceToolbar.Group label="Calendar view mode">
+		<ButtonGroup.Root aria-label="Calendar view mode">
+			<Button variant="secondary">Month</Button>
+			<Button variant="outline">Long range</Button>
+		</ButtonGroup.Root>
+	</WorkspaceToolbar.Group>
+
+	<WorkspaceToolbar.Group label="Calendar filters" activeCount={activeFilterCount}>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Button variant="outline" {...props}>Filters</Button>
+				{/snippet}
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content>Filter controls...</DropdownMenu.Content>
+		</DropdownMenu.Root>
+	</WorkspaceToolbar.Group>
+
+	<WorkspaceToolbar.Group label="Calendar search" class="min-w-0 shrink">
+		<InputGroup.Root class="w-40 sm:w-56">
+			<InputGroup.Input type="search" aria-label="Search roster" placeholder="Search..." />
+		</InputGroup.Root>
+	</WorkspaceToolbar.Group>
+
+	<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
+		<Button>Add status</Button>
+		<Button variant="outline" size="icon" aria-label="More calendar actions">...</Button>
+	</WorkspaceToolbar.Group>
+</WorkspaceToolbar.Root>
+```
+
+Public components:
+
+- `WorkspaceToolbar.Root`: the shared one-row shell. Props: `ariaLabel: string`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`, fixed row height, `flex-nowrap`, and horizontal overflow as a last resort. It does not wrap into a second toolbar row.
+- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label.
+- `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
+
+Allowed route behavior knobs:
+
+- Labels, placeholders, option data, selected values, search text, active filter counts, disabled/loading state, permissions, and action handlers.
+- Which commands stay visible versus move into a `DropdownMenu` overflow.
+- Whether a route uses text buttons or icon-only buttons at shared breakpoints.
+- Which filters are combined into one filter trigger.
+
+Rules:
+
+- Keep the toolbar as one row. Combine filters early for action-heavy or filter-heavy routes instead of letting controls create a tall two-row toolbar.
+- Use shadcn `button-group` for view toggles. Do not build route-local segmented controls for migrated toolbar surfaces.
+- Use `DropdownMenu` for command overflow. Commands can overflow; filters and search should stay as stateful controls or combine into a filter trigger.
+- Use compact search widths such as `w-40 sm:w-56` unless a route has proven room for wider search.
+- Keep disabled actions visible when their presence explains unavailable work. Loading actions should be disabled and show the shared spinner.
+- Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
+- Do not create a route-specific wrapper to alter toolbar behavior without explicit approval.
+- If a route needs behavior this API cannot express, document the design-system gap and extend the shared component/API after proving it in `/ui-showroom`.
+
+Migration guidance:
+
+- Start every migrated route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu`, and shadcn form primitives.
+- Treat the `/ui-showroom` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
+- Production route migration happens only when explicitly requested. Until then, the showroom is the development ground for this toolbar family.
 
 ---
 

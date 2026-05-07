@@ -93,6 +93,18 @@ These docs contain detailed props, usage examples, and patterns. Read them when 
 
 - **shadcn-svelte docs index** — When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or showroom usage.
 
+### UI Migration Rules
+
+`docs/plans/2026-05-06-shadcn-svelte-tailwind-v4-ui-migration-rfc.md` is the controlling contract for shadcn-svelte and Tailwind v4 UI migration work. Do not migrate production routes unless the task explicitly asks for route migration.
+
+- Shared components are visually authoritative. Route code consumes them; it does not restyle them.
+- Route-level visual overrides are forbidden unless Robert explicitly approves that specific visual change.
+- Allowed route-level variation is behavioral only: data, labels, validation, permissions, filters, columns, actions, open/closed state, and similar interaction configuration.
+- Behavioral changes must not affect other areas that consume the shared component. Stop and ask permission before wrapping a shared component for one route to change behavior.
+- Visual changes belong in tokens (`src/app.css`, `components.json`, theme variables) or shared component source files under `src/lib/components/**`.
+- If a shared component does not fit a route, report the design-system gap and propose the shared component/API extension instead of patching the route locally.
+- `/ui-showroom` is the calibration and review surface for shared component visuals, states, and variants. Prove shared UI changes there before production routes consume them.
+
 ## V1 Retrofit Governance
 
 These docs describe the current v1 codebase truth, the intended guardrails going forward, and the major drift areas. Read them before work that touches architecture, auth/authz, provider boundaries, terminology, or cross-feature seams.

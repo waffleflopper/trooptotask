@@ -26,11 +26,15 @@ Replacement previews:
 
 Rules:
 
-- Visual styling comes from `src/app.css`, `components.json`, or shared component source files under `src/lib/components/**`.
+- Shared components are visually authoritative. Production routes consume shared component appearance as-is.
+- Visual styling comes from `src/app.css`, `components.json`, theme variables, or shared component source files under `src/lib/components/**`.
 - `/ui-showroom` should stay docs-like: no route-local component skinning, no custom variants, and no visual tuning of generated components.
 - Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
-- Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors.
+- Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
+- Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.
+- Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
 - If a durable visual need appears, add it centrally, document it here, and show it in `/ui-showroom` before any route consumes it.
+- If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
 - `/ui-showroom` must not import legacy TroopToTask component wrappers such as `DataTable`, the `toolbar` family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or `Spinner`; show their shadcn replacements only.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 

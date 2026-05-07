@@ -12,7 +12,7 @@ Development route: `/ui-showroom`
 
 The showroom is the only approved preview and calibration surface for the shadcn-svelte + Tailwind v4 migration foundation. It is development-only and returns 404 outside `dev` mode.
 
-Use it to review shadcn-svelte primitives at desktop and mobile widths before production route migration work starts. The route renders docs-style examples of the selected foundation set: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+Use it to review shadcn-svelte primitives at desktop and mobile widths before production route migration work starts. The route renders docs-style examples of the selected foundation set: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
 Replacement previews:
 
@@ -21,7 +21,7 @@ Replacement previews:
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
 - Legacy `SearchSelect` is represented by the shadcn `command` component.
-- Legacy `MultiTagSelect` is represented by a native shadcn `command` example with checkbox items.
+- Legacy `MultiTagSelect` is represented by the shadcn-style `combobox` multi-select with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
 
 Rules:
@@ -547,6 +547,8 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 
 Searchable multi-select that renders selected values as removable badges inside the input area. Use this instead of native `multiple` selects when users need to pick several items from a long list.
 
+New shadcn-svelte migration work should prefer `ui/combobox` for chip-based multi-selects. `MultiTagSelect` remains documented for existing route usage until those routes migrate.
+
 ```svelte
 <MultiTagSelect
     options={mosValues.map((mos) => ({ value: mos, label: mos }))}
@@ -563,6 +565,48 @@ Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeh
 - Selected values render as mono badges with remove buttons
 - The dropdown stays open while selecting multiple options and repositions on scroll/resize
 - Prefer concise `ariaLabel` text that describes the field, such as `"Filter by MOS"` or `"Template scope groups"`
+
+---
+
+## `ui/combobox`
+
+Compound shadcn-style combobox primitives for searchable multi-selects with removable chips. The API mirrors the React shadcn combobox multiple pattern while using Svelte snippets.
+
+```svelte
+<script lang="ts">
+    import * as Combobox from '$lib/components/ui/combobox/index.js';
+
+    const frameworks = ['Next.js', 'SvelteKit', 'Nuxt.js', 'Remix', 'Astro'];
+    let selectedFrameworks = $state<string[]>(['Next.js']);
+</script>
+
+<Combobox.Root items={frameworks} multiple autoHighlight bind:value={selectedFrameworks}>
+    <Combobox.Chips>
+        <Combobox.Value>
+            {#snippet children(values)}
+                {#each values as value (value)}
+                    <Combobox.Chip value={value}>{value}</Combobox.Chip>
+                {/each}
+                <Combobox.ChipsInput placeholder="Add framework" aria-label="Add framework" />
+            {/snippet}
+        </Combobox.Value>
+    </Combobox.Chips>
+    <Combobox.Content>
+        <Combobox.Empty>No items found.</Combobox.Empty>
+        <Combobox.List>
+            {#snippet children(item)}
+                <Combobox.Item value={item}>{item}</Combobox.Item>
+            {/snippet}
+        </Combobox.List>
+    </Combobox.Content>
+</Combobox.Root>
+```
+
+Props: `Root` accepts `items: readonly string[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Chip` and `Item` require `value: string`.
+
+- Multi-select stays open while selecting, filters through the command primitive, and removes the last chip with Backspace when the input is empty.
+- `Combobox.Content` anchors to `Combobox.Chips`, so the popup width follows the chip input surface.
+- Visual changes belong in the shared combobox source and must be proven in `/ui-showroom` before route usage.
 
 ---
 

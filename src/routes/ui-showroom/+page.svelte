@@ -24,6 +24,7 @@
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import type { ChartConfig } from '$lib/components/ui/chart/index.js';
 	import * as Command from '$lib/components/ui/command/index.js';
+	import * as Combobox from '$lib/components/ui/combobox/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -58,6 +59,8 @@
 		{ value: 'action', label: 'Action required' }
 	];
 
+	const frameworks = ['Next.js', 'SvelteKit', 'Nuxt.js', 'Remix', 'Astro'];
+
 	const personnel = [
 		{ name: 'Avery Brooks', group: 'HQ', status: 'Ready', readiness: 96 },
 		{ name: 'Maya Chen', group: 'A Co', status: 'Action', readiness: 72 },
@@ -90,6 +93,7 @@
 	let requireReview = $state(true);
 	let radioValue = $state('standard');
 	let files = $state<FileList>();
+	let selectedFrameworks = $state<string[]>(['Next.js']);
 
 	const selectedStatusLabel = $derived(statuses.find((status) => status.value === selectedStatus)?.label ?? 'Status');
 </script>
@@ -319,25 +323,26 @@
 								</Command.Group>
 							</Command.List>
 						</Command.Root>
-						<Command.Root>
-							<Command.Input placeholder="Select tags..." />
-							<Command.List>
-								<Command.Group heading="Tags">
-									<Command.Item value="68w">
-										<Checkbox checked />
-										68W
-									</Command.Item>
-									<Command.Item value="11b">
-										<Checkbox checked />
-										11B
-									</Command.Item>
-									<Command.Item value="92y">
-										<Checkbox />
-										92Y
-									</Command.Item>
-								</Command.Group>
-							</Command.List>
-						</Command.Root>
+						<Combobox.Root items={frameworks} multiple autoHighlight bind:value={selectedFrameworks} label="Frameworks">
+							<Combobox.Chips>
+								<Combobox.Value>
+									{#snippet children(values)}
+										{#each values as framework (framework)}
+											<Combobox.Chip value={framework}>{framework}</Combobox.Chip>
+										{/each}
+										<Combobox.ChipsInput placeholder="Add framework" aria-label="Add framework" />
+									{/snippet}
+								</Combobox.Value>
+							</Combobox.Chips>
+							<Combobox.Content>
+								<Combobox.Empty>No items found.</Combobox.Empty>
+								<Combobox.List>
+									{#snippet children(item)}
+										<Combobox.Item value={item}>{item}</Combobox.Item>
+									{/snippet}
+								</Combobox.List>
+							</Combobox.Content>
+						</Combobox.Root>
 					</div>
 				</section>
 

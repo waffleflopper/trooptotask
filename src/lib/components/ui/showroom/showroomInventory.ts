@@ -36,6 +36,7 @@ export const showroomCoverage = [
 	'legacy-file-upload-replacement',
 	'legacy-search-select-replacement',
 	'legacy-multi-tag-select-replacement',
+	'combobox-multiple-state',
 	'legacy-spinner-replacement'
 ] as const;
 
@@ -60,6 +61,7 @@ export const selectedShowroomComponents = [
 	'dropdown-menu',
 	'tooltip',
 	'command',
+	'combobox',
 	'tabs',
 	'table',
 	'pagination',

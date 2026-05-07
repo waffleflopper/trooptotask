@@ -34,6 +34,7 @@ describe('showroom inventory', () => {
 				'sidebar',
 				'navigation-menu',
 				'command',
+				'combobox',
 				'empty',
 				'spinner',
 				'pagination',
@@ -69,6 +70,7 @@ describe('showroom inventory', () => {
 				'legacy-file-upload-replacement',
 				'legacy-search-select-replacement',
 				'legacy-multi-tag-select-replacement',
+				'combobox-multiple-state',
 				'legacy-spinner-replacement'
 			])
 		);

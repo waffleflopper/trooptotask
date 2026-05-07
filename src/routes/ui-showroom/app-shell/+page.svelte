@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Download, FileArchive, MailPlus, Save, ShieldCheck, UserPlus } from '@lucide/svelte';
+	import { FileArchive, MailPlus, ShieldCheck, UserPlus } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
@@ -80,10 +80,6 @@
 
 <main class="flex flex-1 flex-col gap-6 p-4 md:p-6">
 	<header class="grid gap-3">
-		<div class="flex flex-wrap items-center gap-2">
-			<Badge variant="outline">UI Showroom</Badge>
-			<Badge variant="secondary">Mock settings</Badge>
-		</div>
 		<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 			<div class="grid gap-1">
 				<h1 class="text-2xl font-semibold tracking-tight">Organization Settings</h1>
@@ -91,16 +87,6 @@
 					Mocked settings content inside the shadcn-svelte app shell recreation. Data is static for component
 					calibration.
 				</p>
-			</div>
-			<div class="flex flex-wrap gap-2">
-				<Button variant="outline">
-					<Download />
-					Export
-				</Button>
-				<Button>
-					<Save />
-					Save changes
-				</Button>
 			</div>
 		</div>
 	</header>
@@ -116,7 +102,7 @@
 	</section>
 
 	<Tabs.Root bind:value={activeTab} class="grid gap-4">
-		<Tabs.List class="w-full justify-start overflow-x-auto">
+		<Tabs.List class="w-full justify-start">
 			<Tabs.Trigger value="organization">Organization</Tabs.Trigger>
 			<Tabs.Trigger value="members">Members</Tabs.Trigger>
 			<Tabs.Trigger value="policies">Policies</Tabs.Trigger>

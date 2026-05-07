@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { FileArchive, MailPlus, ShieldCheck, UserPlus } from '@lucide/svelte';
+	import { Check, FileArchive, MailPlus, ShieldCheck, UserPlus, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
@@ -14,10 +15,16 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 
 	const summaryRows = [
-		{ label: 'Members', value: '38', detail: '1 owner, 4 admins, 33 members' },
-		{ label: 'Pending approvals', value: '3', detail: 'Oldest request 2 days ago' },
-		{ label: 'Archived personnel', value: '7', detail: 'Next purge May 29' },
-		{ label: 'Audit entries', value: '142', detail: 'Last 30 days' }
+		{ label: 'Members', value: '38', detail: '1 owner, 4 admins, 33 members', tab: 'members' },
+		{
+			label: 'Pending approvals',
+			value: '3',
+			detail: 'Oldest request 2 days ago',
+			tab: 'personnel-admin',
+			subtab: 'approvals'
+		},
+		{ label: 'Archived personnel', value: '7', detail: 'Next purge May 29', tab: 'personnel-admin', subtab: 'archive' },
+		{ label: 'Audit entries', value: '142', detail: 'Last 30 days', tab: 'audit' }
 	];
 
 	const members = [
@@ -51,7 +58,86 @@
 		{ name: 'Audit log', detail: 'Governance activity trail', cadence: 'Weekly' }
 	];
 
-	let activeTab = $state('organization');
+	const pendingApprovals = [
+		{
+			id: 'approval-1',
+			name: 'SPC Lena Torres',
+			requestedBy: 'SFC Jon Bell',
+			type: 'Permanent deletion',
+			age: '2 days',
+			reason: 'Duplicate personnel record after bulk import merge.'
+		},
+		{
+			id: 'approval-2',
+			name: 'SGT Marcus Reed',
+			requestedBy: '1SG Maya Chen',
+			type: 'Archive restore',
+			age: '18 hours',
+			reason: 'Returned from attachment and needs access to training history.'
+		},
+		{
+			id: 'approval-3',
+			name: 'PFC Ian Cho',
+			requestedBy: 'SSG Nora Patel',
+			type: 'Access request',
+			age: '6 hours',
+			reason: 'Training room clerk needs read access for upcoming range packet.'
+		}
+	];
+
+	const archivedPersonnel = [
+		{
+			name: 'SPC Daniel Knox',
+			archivedBy: 'CPT Avery Brooks',
+			date: 'May 5, 2026',
+			purge: 'May 29, 2026',
+			status: 'Retention hold'
+		},
+		{
+			name: 'SGT Erin Vaughn',
+			archivedBy: '1SG Maya Chen',
+			date: 'April 28, 2026',
+			purge: 'May 22, 2026',
+			status: 'Ready to purge'
+		},
+		{
+			name: 'PFC Nolan Price',
+			archivedBy: 'SFC Jon Bell',
+			date: 'April 12, 2026',
+			purge: 'May 12, 2026',
+			status: 'Restore requested'
+		}
+	];
+
+	const auditEntries = [
+		{
+			event: 'Organization settings updated',
+			actor: 'CPT Avery Brooks',
+			time: 'Today, 0914',
+			detail: 'Changed loss warning window from 120 to 180 days.'
+		},
+		{
+			event: 'Member invited',
+			actor: '1SG Maya Chen',
+			time: 'Yesterday, 1642',
+			detail: 'Invited SSG Nora Patel with training and ICTL viewer access.'
+		},
+		{
+			event: 'Personnel archive approved',
+			actor: 'CPT Avery Brooks',
+			time: 'May 5, 1430',
+			detail: 'Approved archive request for SPC Daniel Knox.'
+		},
+		{
+			event: 'Export prepared',
+			actor: 'SFC Jon Bell',
+			time: 'May 3, 1017',
+			detail: 'Generated personnel workbook export.'
+		}
+	];
+
+	let activeTab = $state('overview');
+	let personnelAdminTab = $state('approvals');
 	let accessPreset = $state('operator');
 	let inviteScope = $state('organization');
 	let retentionMonths = $state('24');
@@ -61,6 +147,9 @@
 	let requireApproval = $state(true);
 	let allowExports = $state(true);
 	let notifyOwners = $state(true);
+	let approvalDialogOpen = $state(false);
+	let approvalDialogAction = $state<'approve' | 'reject'>('approve');
+	let selectedApprovalId = $state<string | null>(null);
 
 	const accessPresetLabel = $derived(
 		accessPreset === 'admin'
@@ -72,6 +161,20 @@
 					: 'Editor'
 	);
 	const inviteScopeLabel = $derived(inviteScope === 'organization' ? 'Entire organization' : 'Assigned groups');
+	const selectedApproval = $derived(pendingApprovals.find((approval) => approval.id === selectedApprovalId));
+
+	function openApprovalDialog(id: string, action: 'approve' | 'reject') {
+		selectedApprovalId = id;
+		approvalDialogAction = action;
+		approvalDialogOpen = true;
+	}
+
+	function openSummaryTarget(row: { tab: string; subtab?: string }) {
+		activeTab = row.tab;
+		if (row.subtab) {
+			personnelAdminTab = row.subtab;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -93,23 +196,29 @@
 
 	<section class="settings-summary-grid" aria-label="Organization settings summary">
 		{#each summaryRows as row (row.label)}
-			<div class="grid gap-2 rounded-lg border bg-card p-4 text-card-foreground">
+			<button
+				type="button"
+				class="grid gap-2 rounded-lg border bg-card p-4 text-left text-card-foreground"
+				onclick={() => openSummaryTarget(row)}
+			>
 				<p class="text-sm font-medium">{row.label}</p>
 				<p class="text-2xl font-semibold tracking-tight">{row.value}</p>
 				<p class="text-sm text-muted-foreground">{row.detail}</p>
-			</div>
+			</button>
 		{/each}
 	</section>
 
 	<Tabs.Root bind:value={activeTab} class="grid gap-4">
 		<Tabs.List class="w-full justify-start">
-			<Tabs.Trigger value="organization">Organization</Tabs.Trigger>
+			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 			<Tabs.Trigger value="members">Members</Tabs.Trigger>
+			<Tabs.Trigger value="personnel-admin">Personnel Admin</Tabs.Trigger>
 			<Tabs.Trigger value="policies">Policies</Tabs.Trigger>
 			<Tabs.Trigger value="data">Data & Export</Tabs.Trigger>
+			<Tabs.Trigger value="audit">Audit</Tabs.Trigger>
 		</Tabs.List>
 
-		<Tabs.Content value="organization" class="grid gap-4">
+		<Tabs.Content value="overview" class="grid gap-4">
 			<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="profile-heading">
 				<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 					<div class="grid gap-1">
@@ -269,6 +378,115 @@
 			</section>
 		</Tabs.Content>
 
+		<Tabs.Content value="personnel-admin" class="grid gap-4">
+			<Tabs.Root bind:value={personnelAdminTab} class="grid gap-4">
+				<Tabs.List class="w-full justify-start">
+					<Tabs.Trigger value="approvals">Approvals</Tabs.Trigger>
+					<Tabs.Trigger value="archive">Archive</Tabs.Trigger>
+				</Tabs.List>
+
+				<Tabs.Content value="approvals" class="grid gap-4">
+					<section
+						class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+						aria-labelledby="approvals-heading"
+					>
+						<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+							<div class="grid gap-1">
+								<h2 id="approvals-heading" class="text-lg font-semibold tracking-tight">Approvals</h2>
+								<p class="text-sm text-muted-foreground">
+									Requests that need owner or admin review before access or retention changes take effect.
+								</p>
+							</div>
+							<Badge variant="outline">3 pending</Badge>
+						</div>
+						<Table.Root>
+							<Table.Header>
+								<Table.Row>
+									<Table.Head>Request</Table.Head>
+									<Table.Head>Requested by</Table.Head>
+									<Table.Head>Age</Table.Head>
+									<Table.Head>Reason</Table.Head>
+									<Table.Head class="text-right">Action</Table.Head>
+								</Table.Row>
+							</Table.Header>
+							<Table.Body>
+								{#each pendingApprovals as approval (approval.id)}
+									<Table.Row>
+										<Table.Cell>
+											<div class="grid gap-1">
+												<span class="font-medium">{approval.name}</span>
+												<span class="text-sm text-muted-foreground">{approval.type}</span>
+											</div>
+										</Table.Cell>
+										<Table.Cell>{approval.requestedBy}</Table.Cell>
+										<Table.Cell>{approval.age}</Table.Cell>
+										<Table.Cell>{approval.reason}</Table.Cell>
+										<Table.Cell class="text-right">
+											<div class="flex justify-end gap-2">
+												<Button size="sm" onclick={() => openApprovalDialog(approval.id, 'approve')}>
+													<Check />
+													Approve
+												</Button>
+												<Button variant="outline" size="sm" onclick={() => openApprovalDialog(approval.id, 'reject')}>
+													<X />
+													Reject
+												</Button>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								{/each}
+							</Table.Body>
+						</Table.Root>
+					</section>
+				</Tabs.Content>
+
+				<Tabs.Content value="archive" class="grid gap-4">
+					<section
+						class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+						aria-labelledby="archive-heading"
+					>
+						<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+							<div class="grid gap-1">
+								<h2 id="archive-heading" class="text-lg font-semibold tracking-tight">Archive</h2>
+								<p class="text-sm text-muted-foreground">
+									Archived personnel records waiting for restore review or retention purge.
+								</p>
+							</div>
+							<Button variant="outline">Export archive</Button>
+						</div>
+						<Table.Root>
+							<Table.Header>
+								<Table.Row>
+									<Table.Head>Personnel</Table.Head>
+									<Table.Head>Archived by</Table.Head>
+									<Table.Head>Archived</Table.Head>
+									<Table.Head>Purge date</Table.Head>
+									<Table.Head>Status</Table.Head>
+									<Table.Head class="text-right">Action</Table.Head>
+								</Table.Row>
+							</Table.Header>
+							<Table.Body>
+								{#each archivedPersonnel as archived (archived.name)}
+									<Table.Row>
+										<Table.Cell class="font-medium">{archived.name}</Table.Cell>
+										<Table.Cell>{archived.archivedBy}</Table.Cell>
+										<Table.Cell>{archived.date}</Table.Cell>
+										<Table.Cell>{archived.purge}</Table.Cell>
+										<Table.Cell>
+											<Badge variant="outline">{archived.status}</Badge>
+										</Table.Cell>
+										<Table.Cell class="text-right">
+											<Button variant="outline" size="sm">Review</Button>
+										</Table.Cell>
+									</Table.Row>
+								{/each}
+							</Table.Body>
+						</Table.Root>
+					</section>
+				</Tabs.Content>
+			</Tabs.Root>
+		</Tabs.Content>
+
 		<Tabs.Content value="policies" class="grid gap-4">
 			<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="policies-heading">
 				<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -380,7 +598,79 @@
 				</div>
 			</section>
 		</Tabs.Content>
+
+		<Tabs.Content value="audit" class="grid gap-4">
+			<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="audit-heading">
+				<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+					<div class="grid gap-1">
+						<h2 id="audit-heading" class="text-lg font-semibold tracking-tight">Audit</h2>
+						<p class="text-sm text-muted-foreground">
+							Organization-level changes and security events from the last 30 days.
+						</p>
+					</div>
+					<Button variant="outline">Export audit log</Button>
+				</div>
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Event</Table.Head>
+							<Table.Head>Actor</Table.Head>
+							<Table.Head>Time</Table.Head>
+							<Table.Head>Detail</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each auditEntries as entry (entry.event + entry.time)}
+							<Table.Row>
+								<Table.Cell class="font-medium">{entry.event}</Table.Cell>
+								<Table.Cell>{entry.actor}</Table.Cell>
+								<Table.Cell>{entry.time}</Table.Cell>
+								<Table.Cell>{entry.detail}</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</section>
+		</Tabs.Content>
 	</Tabs.Root>
+
+	<Dialog.Root bind:open={approvalDialogOpen}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>
+					{approvalDialogAction === 'approve' ? 'Approve request' : 'Reject request'}
+				</Dialog.Title>
+				<Dialog.Description>
+					{#if selectedApproval}
+						Confirm {approvalDialogAction} for {selectedApproval.name}. This mock action would record the decision in
+						the audit log.
+					{:else}
+						Confirm the selected approval action.
+					{/if}
+				</Dialog.Description>
+			</Dialog.Header>
+			{#if selectedApproval}
+				<div class="grid gap-2 rounded-md border p-3">
+					<p class="font-medium">{selectedApproval.type}</p>
+					<p class="text-sm text-muted-foreground">{selectedApproval.reason}</p>
+				</div>
+			{/if}
+			<Dialog.Footer>
+				<Dialog.Close>
+					{#snippet child({ props })}
+						<Button variant="outline" {...props}>Cancel</Button>
+					{/snippet}
+				</Dialog.Close>
+				<Dialog.Close>
+					{#snippet child({ props })}
+						<Button variant={approvalDialogAction === 'approve' ? 'default' : 'destructive'} {...props}>
+							{approvalDialogAction === 'approve' ? 'Approve' : 'Reject'}
+						</Button>
+					{/snippet}
+				</Dialog.Close>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </main>
 
 <style>

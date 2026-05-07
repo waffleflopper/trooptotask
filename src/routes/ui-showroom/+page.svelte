@@ -5,10 +5,13 @@
 		CalendarIcon,
 		ChevronDown,
 		ClipboardList,
+		Download,
+		Filter,
 		FileText,
 		Home,
 		Inbox,
 		MoreHorizontal,
+		Printer,
 		Search,
 		Settings,
 		Upload,
@@ -47,6 +50,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
 	import {
 		selectedShowroomComponents,
 		showroomCoverage,
@@ -94,8 +98,34 @@
 	let radioValue = $state('standard');
 	let files = $state<FileList>();
 	let selectedFrameworks = $state<string[]>(['Next.js']);
+	let toolbarView = $state<'month' | 'long-range'>('month');
+	let toolbarGroup = $state('all');
+	let toolbarStatus = $state('all');
+	let toolbarSearch = $state('');
+	let toolbarGapsOnly = $state(false);
 
 	const selectedStatusLabel = $derived(statuses.find((status) => status.value === selectedStatus)?.label ?? 'Status');
+	const toolbarGroupOptions = [
+		{ value: 'all', label: 'Group: All' },
+		{ value: 'hq', label: 'HQ' },
+		{ value: 'alpha', label: 'A Co' },
+		{ value: 'bravo', label: 'B Co' }
+	];
+	const toolbarStatusOptions = [
+		{ value: 'all', label: 'Status: All' },
+		{ value: 'ready', label: 'Ready' },
+		{ value: 'watch', label: 'Watch' },
+		{ value: 'action', label: 'Action required' }
+	];
+	const toolbarGroupLabel = $derived(
+		toolbarGroupOptions.find((option) => option.value === toolbarGroup)?.label ?? 'Group'
+	);
+	const toolbarStatusLabel = $derived(
+		toolbarStatusOptions.find((option) => option.value === toolbarStatus)?.label ?? 'Status'
+	);
+	const activeToolbarFilters = $derived(
+		(toolbarGroup !== 'all' ? 1 : 0) + (toolbarStatus !== 'all' ? 1 : 0) + (toolbarGapsOnly ? 1 : 0)
+	);
 </script>
 
 <svelte:head>
@@ -307,6 +337,139 @@
 							<ChevronDown />
 						</InputGroup.Button>
 					</InputGroup.Root>
+				</section>
+
+				<section class="grid gap-4" aria-labelledby="toolbar-title">
+					<h2 id="toolbar-title" class="text-xl font-semibold tracking-tight">Route toolbar</h2>
+
+					{#snippet toolbarFilters()}
+						<Select.Root type="single" bind:value={toolbarGroup}>
+							<Select.Trigger class="w-full" aria-label="Calendar group filter">
+								{toolbarGroupLabel}
+							</Select.Trigger>
+							<Select.Content>
+								{#each toolbarGroupOptions as option (option.value)}
+									<Select.Item value={option.value} label={option.label} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+
+						<Select.Root type="single" bind:value={toolbarStatus}>
+							<Select.Trigger class="w-full" aria-label="Calendar status filter">
+								{toolbarStatusLabel}
+							</Select.Trigger>
+							<Select.Content>
+								{#each toolbarStatusOptions as option (option.value)}
+									<Select.Item value={option.value} label={option.label} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+
+						<Button
+							variant={toolbarGapsOnly ? 'secondary' : 'outline'}
+							aria-pressed={toolbarGapsOnly}
+							onclick={() => (toolbarGapsOnly = !toolbarGapsOnly)}
+						>
+							Gaps only
+						</Button>
+					{/snippet}
+
+					<WorkspaceToolbar.Root ariaLabel="Showroom route toolbar controls">
+						<WorkspaceToolbar.Group label="Calendar view mode">
+							<ButtonGroup.Root aria-label="Calendar view mode">
+								<Button
+									variant={toolbarView === 'month' ? 'secondary' : 'outline'}
+									aria-pressed={toolbarView === 'month'}
+									onclick={() => (toolbarView = 'month')}
+								>
+									Month
+								</Button>
+								<Button
+									variant={toolbarView === 'long-range' ? 'secondary' : 'outline'}
+									aria-pressed={toolbarView === 'long-range'}
+									onclick={() => (toolbarView = 'long-range')}
+								>
+									Long range
+								</Button>
+							</ButtonGroup.Root>
+						</WorkspaceToolbar.Group>
+
+						<WorkspaceToolbar.Group label="Calendar filters" activeCount={activeToolbarFilters}>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger>
+									{#snippet child({ props })}
+										<Button variant="outline" {...props}>
+											<Filter />
+											Filters
+											{#if activeToolbarFilters > 0}
+												<span class="rounded-full bg-primary px-1.5 py-0.5 text-[0.625rem] text-primary-foreground">
+													{activeToolbarFilters}
+												</span>
+											{/if}
+										</Button>
+									{/snippet}
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content class="w-[min(22rem,calc(100vw-2rem))] p-2" align="start">
+									<div class="grid gap-2">
+										{@render toolbarFilters()}
+									</div>
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						</WorkspaceToolbar.Group>
+
+						<WorkspaceToolbar.Group label="Calendar search" class="min-w-0 shrink">
+							<InputGroup.Root class="w-40 sm:w-56">
+								<InputGroup.Addon>
+									<Search />
+								</InputGroup.Addon>
+								<InputGroup.Input
+									bind:value={toolbarSearch}
+									type="search"
+									placeholder="Search..."
+									aria-label="Search roster"
+								/>
+							</InputGroup.Root>
+						</WorkspaceToolbar.Group>
+
+						<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
+							<Button variant="default" class="hidden sm:inline-flex">
+								<CalendarIcon />
+								Add status
+							</Button>
+							<Button variant="default" size="icon" class="sm:hidden" aria-label="Add status">
+								<CalendarIcon />
+							</Button>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger>
+									{#snippet child({ props })}
+										<Button variant="outline" size="icon" aria-label="More calendar actions" {...props}>
+											<MoreHorizontal />
+										</Button>
+									{/snippet}
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end">
+									<DropdownMenu.Label>Calendar actions</DropdownMenu.Label>
+									<DropdownMenu.Item>
+										<Upload />
+										Import CSV
+									</DropdownMenu.Item>
+									<DropdownMenu.Item>
+										<Download />
+										Export Excel
+									</DropdownMenu.Item>
+									<DropdownMenu.Item>
+										<Printer />
+										Print / PDF
+									</DropdownMenu.Item>
+									<DropdownMenu.Separator />
+									<DropdownMenu.Item>
+										<Settings />
+										Settings
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						</WorkspaceToolbar.Group>
+					</WorkspaceToolbar.Root>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="selection-title">

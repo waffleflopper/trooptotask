@@ -71,7 +71,8 @@ export const selectedShowroomComponents = [
 	'progress',
 	'spinner',
 	'empty',
-	'separator'
+	'separator',
+	'workspace-toolbar'
 ] as const;
 
 export type ShowroomCoverage = (typeof showroomCoverage)[number];

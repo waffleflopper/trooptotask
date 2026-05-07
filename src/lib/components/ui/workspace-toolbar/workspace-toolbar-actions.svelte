@@ -2,9 +2,16 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { MoreHorizontal } from '@lucide/svelte';
+	import { getContext } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
+	import {
+		getWorkspaceToolbarDensity,
+		partitionWorkspaceToolbarActions,
+		workspaceToolbarLayoutContextKey,
+		type WorkspaceToolbarLayoutContext
+	} from './workspace-toolbar-layout.js';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarMenuItem } from './types.js';
 
 	type Props = {
@@ -14,9 +21,12 @@
 	};
 
 	let { actions, ariaLabel, overflowAriaLabel }: Props = $props();
+	const layout = getContext<WorkspaceToolbarLayoutContext | undefined>(workspaceToolbarLayoutContextKey);
+	const density = $derived(getWorkspaceToolbarDensity(layout?.width ?? Number.POSITIVE_INFINITY));
 
-	const visibleActions = $derived(actions.filter((action) => action.overflow !== 'always'));
-	const overflowActions = $derived(actions.filter((action) => action.overflow === 'always'));
+	const partitionedActions = $derived(partitionWorkspaceToolbarActions(actions, density));
+	const visibleActions = $derived(partitionedActions.visibleActions);
+	const overflowActions = $derived(partitionedActions.overflowActions);
 
 	function buttonVariant(action: WorkspaceToolbarAction): 'default' | 'outline' | 'secondary' | 'destructive' {
 		if (action.variant === 'primary') return 'default';
@@ -62,7 +72,7 @@
 							{...props}
 						>
 							<WorkspaceToolbarIcon icon={action.icon} />
-							<span>{action.label}</span>
+							<span data-workspace-toolbar-action-label>{action.label}</span>
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -99,7 +109,7 @@
 				onclick={action.onclick}
 			>
 				<WorkspaceToolbarIcon icon={action.icon} />
-				<span>{action.label}</span>
+				<span data-workspace-toolbar-action-label>{action.label}</span>
 			</Button>
 		{/if}
 	{/each}

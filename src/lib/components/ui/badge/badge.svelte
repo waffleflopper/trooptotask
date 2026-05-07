@@ -9,6 +9,13 @@
 				secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
 				destructive:
 					'bg-destructive/10 [a]:hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive dark:bg-destructive/20',
+				danger:
+					'border-danger/20 bg-danger-muted text-danger-foreground [a]:hover:bg-danger-muted/80 focus-visible:ring-danger/20 dark:focus-visible:ring-danger/40',
+				warning:
+					'border-warning/20 bg-warning-muted text-warning-foreground [a]:hover:bg-warning-muted/80 focus-visible:ring-warning/20 dark:focus-visible:ring-warning/40',
+				info: 'border-info/20 bg-info-muted text-info-foreground [a]:hover:bg-info-muted/80 focus-visible:ring-info/20 dark:focus-visible:ring-info/40',
+				success:
+					'border-success/20 bg-success-muted text-success-foreground [a]:hover:bg-success-muted/80 focus-visible:ring-success/20 dark:focus-visible:ring-success/40',
 				outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
 				ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
 				link: 'text-primary underline-offset-4 hover:underline'

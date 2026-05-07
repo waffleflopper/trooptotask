@@ -313,7 +313,26 @@ Badge guidance:
 
 - Reserve filled badges for real state or metadata labels.
 - Use `variant="outlined"` for neutral, low-emphasis labels.
-- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-error`, `--color-info`) over arbitrary decorative colors when possible.
+- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-danger`, `--color-info`) over arbitrary decorative colors when possible.
+
+## `ui/badge`
+
+Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic variants for route status instead of local badge color classes.
+
+```svelte
+<Badge variant="success">Ready</Badge>
+<Badge variant="warning">Review</Badge>
+<Badge variant="info">Info</Badge>
+<Badge variant="danger">Blocked</Badge>
+```
+
+Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'outline' | 'ghost' | 'link'`
+
+Badge guidance:
+
+- Use `success`, `warning`, `info`, and `danger` only for real status or classification.
+- Keep `destructive` for shadcn compatibility and destructive UI states. Prefer `danger` for general status labels such as blocked, overdue, or risk.
+- Do not pass route-local visual classes to recolor badges unless Robert approved that specific visual exception.
 
 ---
 

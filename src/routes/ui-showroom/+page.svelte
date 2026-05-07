@@ -14,6 +14,7 @@
 		Printer,
 		Search,
 		Settings,
+		Trash2,
 		Upload,
 		Users
 	} from '@lucide/svelte';
@@ -28,6 +29,9 @@
 	import type { ChartConfig } from '$lib/components/ui/chart/index.js';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Combobox from '$lib/components/ui/combobox/index.js';
+	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import { useDataTableSelection } from '$lib/components/ui/data-table/index.js';
+	import type { ColumnDef, DataTableRowAction } from '$lib/components/ui/data-table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -71,6 +75,46 @@
 		{ name: 'Jon Bell', group: 'B Co', status: 'Watch', readiness: 84 }
 	];
 
+	type DataTablePerson = {
+		id: string;
+		name: string;
+		group: string;
+		status: string;
+		readiness: number;
+		disabled?: boolean;
+	};
+
+	const dataTablePeople: DataTablePerson[] = [
+		{ id: '1', name: 'Avery Brooks', group: 'HQ', status: 'Ready', readiness: 96 },
+		{ id: '2', name: 'Maya Chen', group: 'A Co', status: 'Action', readiness: 72 },
+		{ id: '3', name: 'Jon Bell', group: 'B Co', status: 'Watch', readiness: 84 },
+		{ id: '4', name: 'Sam Ortiz', group: 'A Co', status: 'Ready', readiness: 91 },
+		{ id: '5', name: 'Nadia Price', group: 'B Co', status: 'Disabled', readiness: 64, disabled: true }
+	];
+
+	const dataTableColumns: ColumnDef<DataTablePerson>[] = [
+		{ key: 'name', header: 'Name', value: (row) => row.name },
+		{ key: 'group', header: 'Group', value: (row) => row.group },
+		{ key: 'status', header: 'Status', value: (row) => row.status },
+		{ key: 'readiness', header: 'Readiness', value: (row) => row.readiness, align: 'right' }
+	];
+
+	const actionColumns: ColumnDef<DataTablePerson>[] = [
+		...dataTableColumns,
+		{ key: 'actions', header: 'Actions', value: () => '', sortable: false, searchable: false, align: 'right' }
+	];
+
+	const selectionColumns: ColumnDef<DataTablePerson>[] = [
+		{ key: 'select', header: 'Select', value: () => '', sortable: false, searchable: false },
+		...dataTableColumns
+	];
+
+	const rowActions: DataTableRowAction<DataTablePerson>[] = [
+		{ label: 'Open record', onSelect: () => undefined },
+		{ label: 'Assign task', onSelect: () => undefined },
+		{ label: 'Archive', onSelect: () => undefined, destructive: true }
+	];
+
 	const chartConfig = {
 		ready: {
 			label: 'Ready',
@@ -103,6 +147,12 @@
 	let toolbarStatus = $state('all');
 	let toolbarSearch = $state('');
 	let toolbarGapsOnly = $state(false);
+	let clickedRow = $state('No row selected');
+	const tableSelection = useDataTableSelection({
+		rows: () => dataTablePeople,
+		rowKey: (row) => row.id,
+		disabledRow: (row) => row.disabled ?? false
+	});
 
 	const selectedStatusLabel = $derived(statuses.find((status) => status.value === selectedStatus)?.label ?? 'Status');
 	const toolbarGroupOptions = [
@@ -663,6 +713,187 @@
 							</Pagination.Content>
 						{/snippet}
 					</Pagination.Root>
+				</section>
+
+				<section class="grid gap-5" aria-labelledby="data-table-title">
+					<h2 id="data-table-title" class="text-xl font-semibold tracking-tight">Composable DataTable</h2>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Basic static table
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople.slice(0, 3)}
+							columns={dataTableColumns}
+							ariaLabel="Basic personnel DataTable"
+						/>
+					</div>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Sortable, searchable, paginated, row click
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople}
+							columns={dataTableColumns}
+							ariaLabel="Interactive personnel DataTable"
+							showSearch
+							searchPlaceholder="Search personnel"
+							pageSize={2}
+							striped
+							onRowClick={(row) => (clickedRow = row.name)}
+							rowActionLabel={(row) => `Open ${row.name}`}
+						/>
+						<p class="text-sm text-muted-foreground">{clickedRow}</p>
+					</div>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Toolbar controls, row actions, disabled action states
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople}
+							columns={actionColumns}
+							ariaLabel="Personnel DataTable with toolbar and row actions"
+							disabledRow={(row) => row.disabled ?? false}
+						>
+							{#snippet toolbar(table)}
+								<WorkspaceToolbar.Root ariaLabel="DataTable toolbar controls">
+									<WorkspaceToolbar.Group label="DataTable search" class="min-w-0 shrink">
+										<DataTable.Search {table} ariaLabel="Search action table" placeholder="Search rows" />
+									</WorkspaceToolbar.Group>
+									<WorkspaceToolbar.Group label="DataTable actions" zone="actions">
+										<Button variant="outline">
+											<Download />
+											Export
+										</Button>
+										<Button variant="outline" disabled>
+											<Upload />
+											Import disabled
+										</Button>
+									</WorkspaceToolbar.Group>
+								</WorkspaceToolbar.Root>
+							{/snippet}
+							{#snippet cell(row: DataTablePerson, column: ColumnDef<DataTablePerson>)}
+								{#if column.key === 'actions'}
+									<DataTable.RowActions
+										{row}
+										actions={rowActions.map((action) => ({
+											...action,
+											disabled: row.disabled || action.disabled
+										}))}
+										ariaLabel={`Actions for ${row.name}`}
+									/>
+								{:else if column.key === 'status'}
+									<Badge variant={row.disabled ? 'outline' : 'secondary'}>{row.status}</Badge>
+								{:else}
+									{String(column.value(row))}
+								{/if}
+							{/snippet}
+						</DataTable.DataTable>
+					</div>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Bulk selection
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople}
+							columns={selectionColumns}
+							ariaLabel="Personnel DataTable with bulk selection"
+							disabledRow={(row) => row.disabled ?? false}
+						>
+							{#snippet toolbar()}
+								<DataTable.BulkActions selectedCount={tableSelection.selectedCount} totalCount={dataTablePeople.length}>
+									<Button variant="outline" size="sm" disabled={tableSelection.selectedCount === 0}>
+										<Trash2 />
+										Bulk archive
+									</Button>
+								</DataTable.BulkActions>
+							{/snippet}
+							{#snippet headerCell(column: ColumnDef<DataTablePerson>)}
+								{#if column.key === 'select'}
+									<DataTable.SelectionCheckbox
+										checked={tableSelection.allPageRowsSelected}
+										indeterminate={tableSelection.somePageRowsSelected}
+										ariaLabel="Select all visible personnel"
+										onCheckedChange={(checked) => tableSelection.toggleAllPageRows(checked)}
+									/>
+								{:else}
+									{column.header}
+								{/if}
+							{/snippet}
+							{#snippet cell(row: DataTablePerson, column: ColumnDef<DataTablePerson>)}
+								{#if column.key === 'select'}
+									<DataTable.SelectionCheckbox
+										checked={tableSelection.isSelected(row, dataTablePeople.indexOf(row))}
+										disabled={row.disabled}
+										ariaLabel={`Select ${row.name}`}
+										onCheckedChange={(checked) => tableSelection.toggleRow(row, dataTablePeople.indexOf(row), checked)}
+									/>
+								{:else}
+									{String(column.value(row))}
+								{/if}
+							{/snippet}
+						</DataTable.DataTable>
+					</div>
+
+					<div class="grid gap-3 md:grid-cols-2">
+						<div class="grid gap-3">
+							<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Loading state
+							</h3>
+							<DataTable.DataTable
+								data={dataTablePeople}
+								columns={dataTableColumns}
+								ariaLabel="Loading personnel DataTable"
+								loading
+								loadingRows={3}
+							/>
+						</div>
+						<div class="grid gap-3">
+							<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Empty state
+							</h3>
+							<DataTable.DataTable
+								data={[]}
+								columns={dataTableColumns}
+								ariaLabel="Empty personnel DataTable"
+								emptyMessage="No matching personnel."
+							/>
+						</div>
+					</div>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Dense operational, grouped, sticky, constrained width
+						</h3>
+						<div class="max-w-[24rem] overflow-hidden">
+							<DataTable.DataTable
+								data={dataTablePeople}
+								columns={dataTableColumns}
+								ariaLabel="Dense grouped personnel DataTable"
+								groupBy={{ key: (row) => row.group, label: (key) => `Group ${key}` }}
+								compact
+								striped
+								stickyHeader
+								stickyFirstColumn
+								maxHeight="18rem"
+							/>
+						</div>
+					</div>
+
+					<div class="dark grid gap-3 rounded-md border border-border bg-background p-4 text-foreground">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Dark mode sample
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople.slice(0, 3)}
+							columns={dataTableColumns}
+							ariaLabel="Dark mode personnel DataTable"
+							striped
+						/>
+					</div>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="date-title">

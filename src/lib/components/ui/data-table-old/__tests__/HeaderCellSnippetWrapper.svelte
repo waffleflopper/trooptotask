@@ -1,6 +1,6 @@
 <script lang="ts">
 	import DataTable from '../DataTable.svelte';
-	import type { ColumnDef, DataTableState } from '../../data-table/useDataTable.svelte';
+	import type { ColumnDef } from '../useDataTable.svelte';
 
 	interface TestRow {
 		id: string;
@@ -13,7 +13,7 @@
 </script>
 
 <DataTable {data} {columns}>
-	{#snippet toolbar(state: DataTableState<TestRow>)}
-		<div data-testid="custom-toolbar">Total: {state.totalRows}</div>
+	{#snippet headerCell(col: ColumnDef<TestRow>)}
+		<span data-testid="custom-header">HD:{col.header}</span>
 	{/snippet}
 </DataTable>

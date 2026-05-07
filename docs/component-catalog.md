@@ -639,54 +639,89 @@ All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
 
 ---
 
-## `ui/data-table/DataTable.svelte`
+## `ui/data-table`
 
-Visual table component with sorting, search, pagination, grouping, and custom cell rendering. The refreshed table uses mono headers, restrained row rules, keyboard-reachable sort buttons, and document-style group toggles.
+Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty`, `button`, and shared toolbar primitives. It is the replacement target for legacy production DataTable surfaces, but production routes must migrate in later route-scoped slices.
+
+The DataTable API is deliberately modular. Simple tables can render only `DataTable` or `View`; richer tables can opt into search, pagination, row actions, bulk selection, loading, grouping, dense layout, and toolbar controls one piece at a time.
 
 ```svelte
-<!-- Simple usage -->
-<DataTable data={items} columns={columns} ariaLabel="Items table" />
+<script lang="ts">
+    import * as DataTable from '$lib/components/ui/data-table';
+    import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+    import type { ColumnDef } from '$lib/components/ui/data-table';
 
-<!-- With custom cell rendering -->
-<DataTable data={entries} {columns} onRowClick={(row) => edit(row)} compact striped>
+    const columns: ColumnDef<Person>[] = [
+        { key: 'name', header: 'Name', value: (row) => row.name },
+        { key: 'group', header: 'Group', value: (row) => row.group },
+        { key: 'readiness', header: 'Readiness', value: (row) => row.readiness, align: 'right' }
+    ];
+</script>
+
+<!-- Simple table: no toolbar/search/pagination cost -->
+<DataTable.DataTable data={personnel} {columns} ariaLabel="Personnel" />
+
+<!-- Full-featured table -->
+<DataTable.DataTable
+    data={personnel}
+    {columns}
+    ariaLabel="Personnel roster"
+    showSearch
+    pageSize={25}
+    onRowClick={(row) => openPerson(row)}
+    rowActionLabel={(row) => `Open ${row.name}`}
+    compact
+    stickyHeader
+>
+    {#snippet toolbar(table)}
+        <WorkspaceToolbar.Root ariaLabel="Personnel table controls">
+            <WorkspaceToolbar.Group label="Search" class="min-w-0 shrink">
+                <DataTable.Search {table} ariaLabel="Search personnel" />
+            </WorkspaceToolbar.Group>
+        </WorkspaceToolbar.Root>
+    {/snippet}
+
     {#snippet cell(row, col)}
         {#if col.key === 'status'}
-            <Badge label={row.status} color={statusColor(row)} />
+            <Badge variant="secondary">{row.status}</Badge>
         {:else}
             {String(col.value(row) ?? '')}
         {/if}
     {/snippet}
-</DataTable>
-
-<!-- With external useDataTable instance -->
-<DataTable table={myTable} ariaLabel="Custom table" />
+</DataTable.DataTable>
 ```
 
-Props: `data?: T[]`, `columns?: ColumnDef<T>[]` (required when `data` is used; omit when `table` is provided), `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+Exports:
+
+- `DataTable`: convenience shell that creates an internal `useDataTable` state when `data` and `columns` are passed.
+- `Root`: visual table frame for custom composition.
+- `View`: renders a `DataTableState<T>` through shared table primitives.
+- `Search`: shared search input wired to `DataTableState<T>`.
+- `SortableHeader`: header button wired to `toggleSort`.
+- `Pagination`: previous/next footer wired to `setPage`.
+- `SelectionCheckbox`: row/header checkbox primitive for table selection.
+- `BulkActions`: selected-count region for toolbar/bulk commands.
+- `RowActions`: shared dropdown-menu row action trigger.
+- `Empty`: empty state tuned for table surfaces.
+- `Loading`: skeleton row body.
+- `useDataTable`: headless sort/filter/pagination/grouping state.
+- `useDataTableSelection`: headless row selection and bulk-selection state.
+
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-Import: `import { DataTable } from '$lib/components/ui/data-table';`
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`
 
-Table guidance:
+`DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 
-- Use the built-in header sort buttons instead of rolling your own sortable chrome.
-- Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
-- Provide `rowKey` when rows do not have a unique `id`, or when repeated row references need stable identity.
-- Mark action/display-only columns with `sortable: false`; provide `rowActionLabel` when rows can be opened with click or keyboard.
-- Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
-
----
-
-## `ui/data-table/useDataTable`
-
-Headless composable for table logic (sorting, filtering, pagination, grouping). Use directly for matrix/custom table layouts that need DataTable logic without the visual component.
+`useDataTableSelection<T>` provides: `selectedKeys`, `selectedRows`, `selectedCount`, `isSelected()`, `toggleRow()`, `clear()`, `allPageRowsSelected`, `somePageRowsSelected`, `toggleAllPageRows()`
 
 **Reactivity note:** `data` is reactive when passed as a closure. `columns` may be passed as an array or getter, and `groupBy` may be a getter when grouping must track parent state. Initial sort and page size options are captured once at initialization. Pagination is automatically hidden when `groupBy` is active.
 
 ```typescript
-import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+import { useDataTable, useDataTableSelection } from '$lib/components/ui/data-table';
+import type { ColumnDef } from '$lib/components/ui/data-table';
 
 const columns: ColumnDef<MyRow>[] = [
     { key: 'name', header: 'Name', value: (r) => r.name, compare: (a, b) => a.name.localeCompare(b.name) },
@@ -703,9 +738,22 @@ const table = useDataTable({
 // table.rows, table.toggleSort('name'), table.setSearch('query')
 ```
 
-`ColumnDef<T>`: `key: string`, `header: string`, `value: (row: T) => unknown`, `headerAriaLabel?: string`, `searchValue?: (row: T) => string`, `compare?: (a: T, b: T) => number`, `searchable?: boolean`, `sortable?: boolean`
+Route configuration rules:
 
-`DataTableState<T>` provides: `rows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `toggleGroup()`, `expandAll()`, `collapseAll()`
+- Routes may configure data, columns, cell snippets, labels, row actions, disabled states, filters, search, pagination, grouping, row click handlers, and bulk actions.
+- Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
+- If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here, and prove it in `/ui-showroom`.
+- Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
+- Mark action/display-only columns with `sortable: false` and `searchable: false`.
+- Provide `rowActionLabel` whenever rows are clickable so keyboard and screen-reader users get a clear action name.
+- Use `compact` only for dense operational tables. Use `stickyHeader` and `maxHeight` for constrained workspaces.
+- Grouped rows are supported for simple collapsible sections. Operational matrices with sticky axes remain project-specific surfaces, not generic DataTable use.
+
+Future route migration notes:
+
+- Replace legacy DataTable imports route by route after the shared foundation is accepted in `/ui-showroom`.
+- Do not create compatibility adapters from old props. Translate each route into explicit `columns`, snippets, state, and shared DataTable pieces.
+- Delete old DataTable tests only after production routes no longer reference the old implementation and the new shared tests cover the behavior they depended on.
 
 ---
 

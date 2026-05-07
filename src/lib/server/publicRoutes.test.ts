@@ -19,6 +19,7 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/')).toBe(true);
 		expect(isPublicRoute('/auth/login')).toBe(true);
 		expect(isPublicRoute('/security')).toBe(true);
+		expect(isPublicRoute('/ui-showroom')).toBe(true);
 	});
 
 	it('keeps protected application routes private', () => {

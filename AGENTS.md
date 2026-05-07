@@ -15,17 +15,6 @@ Fight entropy. Leave the codebase better than you found it.
 
 - Military unit management SaaS: personnel tracking, calendar/availability, training records, daily assignments, onboarding workflows, unit management. Built on typescript and SvelteKit (Svelte 5 with runes)
 
-## Pi Workflow Shortcuts
-
-Project-local pi resources live under `.pi/`.
-
-- `/plan` — planning preset with read-only investigation tools
-- `/build` — implementation preset with coding + verification tools
-- `/ship` — final-pass preset for polish, verification, and explicit follow-ups
-- `/verify [all|format|lint|check|test] [--fail-fast]` — required repo verification workflow (`/verify help` for usage)
-- `/feature`, `/bugfix`, `/ui-pass`, `/ship-pass` — reusable prompt templates
-- `/skill:trooptotask-feature`, `/skill:safe-supabase-change`, `/skill:ui-consistency-pass` — force a specific repo workflow when needed
-
 ## Agent skills
 
 ### Issue tracker
@@ -39,6 +28,28 @@ Use the default five-label triage vocabulary. See `docs/agents/triage-labels.md`
 ### Domain docs
 
 This is a single-context repo with `CONTEXT.md` at the root and ADRs under `docs/architecture/adrs/`. See `docs/agents/domain.md`.
+
+### Available Svelte MCP Tools:
+
+#### 1. list-sections
+
+Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
+When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
+
+#### 2. get-documentation
+
+Retrieves full documentation content for specific sections. Accepts single or multiple sections.
+After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
+
+#### 3. svelte-autofixer
+
+Analyzes Svelte code and returns issues and suggestions.
+You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
+
+#### 4. playground-link
+
+Generates a Svelte Playground link with the provided code.
+After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
 
 ---
 
@@ -79,6 +90,8 @@ This is a single-context repo with `CONTEXT.md` at the root and ADRs under `docs
 These docs contain detailed props, usage examples, and patterns. Read them when building or modifying UI components or server entities.
 
 - **[Component Catalog & CSS Design System](docs/component-catalog.md)** — Shared UI component props (Modal, Badge, Spinner, EmptyState, FileUpload, DataTable, useDataTable), CSS variables, utility classes, button/form classes
+
+- **shadcn-svelte docs index** — When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or showroom usage.
 
 ## V1 Retrofit Governance
 

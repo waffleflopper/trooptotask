@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import DataTable from './DataTable.svelte';
 import CellSnippetWrapper from './__tests__/CellSnippetWrapper.svelte';
+import GroupHeaderActionWrapper from './__tests__/GroupHeaderActionWrapper.svelte';
 import InteractiveCellWrapper from './__tests__/InteractiveCellWrapper.svelte';
 import SelectionWrapper from './__tests__/SelectionWrapper.svelte';
 import { useDataTable } from './useDataTable.svelte';
@@ -163,6 +164,39 @@ describe('shadcn DataTable foundation', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Group A 2' }));
 		expect(screen.queryByText('Alice')).toBeNull();
 		expect(screen.getByText('Bob')).toBeTruthy();
+	});
+
+	test('toggles grouped rows from the full group header row', async () => {
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				groupBy: { key: (row: TestRow) => row.group, label: (key: string) => `Group ${key}` }
+			}
+		});
+
+		const groupRow = screen.getByLabelText('Collapse Group A');
+		await fireEvent.click(groupRow);
+		expect(screen.queryByText('Alice')).toBeNull();
+
+		await fireEvent.keyDown(groupRow, { key: 'Enter' });
+		expect(screen.getByText('Alice')).toBeTruthy();
+	});
+
+	test('does not toggle grouped rows from nested group header actions', async () => {
+		const onGroupAction = vi.fn();
+		render(GroupHeaderActionWrapper, {
+			props: {
+				data: testData,
+				columns,
+				onGroupAction
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Pin Group A' }));
+
+		expect(onGroupAction).toHaveBeenCalledWith('A');
+		expect(screen.getByText('Alice')).toBeTruthy();
 	});
 
 	test('supports selection and bulk selection primitives', async () => {

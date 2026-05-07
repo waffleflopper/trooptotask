@@ -100,6 +100,19 @@
 		event.preventDefault();
 		onRowClick(row);
 	}
+
+	function handleGroupRowClick(event: MouseEvent, groupKey: string): void {
+		if (eventStartedInInteractiveDescendant(event)) return;
+		table.toggleGroup(groupKey);
+	}
+
+	function handleGroupRowKeydown(event: KeyboardEvent, groupKey: string): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		if (eventStartedInInteractiveDescendant(event)) return;
+
+		event.preventDefault();
+		table.toggleGroup(groupKey);
+	}
 </script>
 
 <DataTableRoot density={resolvedDensity} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
@@ -141,7 +154,15 @@
 		{:else if table.groups.length > 0}
 			<Table.Body>
 				{#each table.groups as group (group.key)}
-					<Table.Row data-slot="data-table-group-row">
+					<Table.Row
+						data-slot="data-table-group-row"
+						class="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						tabindex={0}
+						aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+						aria-expanded={!group.collapsed}
+						onclick={(event) => handleGroupRowClick(event, group.key)}
+						onkeydown={(event) => handleGroupRowKeydown(event, group.key)}
+					>
 						<Table.Cell colspan={cols.length} class="bg-muted/45 p-0">
 							{#if groupHeader}
 								<div class="flex items-center gap-2 px-3 py-2">

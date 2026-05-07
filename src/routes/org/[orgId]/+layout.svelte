@@ -11,7 +11,6 @@
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
-	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
@@ -150,13 +149,9 @@
 		unreadNotificationCount={data.unreadNotificationCount ?? 0}
 		onFeedback={!demoModeStore.hasBanner ? () => (showFeedback = true) : undefined}
 		onWhatsNew={() => whatsNewStore.show()}
-	/>
-
-	<main id="main-content" class="app-content">
+	>
 		{@render children()}
-	</main>
-
-	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} capabilityMap={data.capabilityMap} />
+	</TopHeader>
 
 	{#if showFeedback}
 		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
@@ -212,21 +207,5 @@
 	.suspended-org-card .contact {
 		font-weight: 600;
 		color: var(--text-primary);
-	}
-
-	.app-content {
-		padding-top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
-		padding-left: var(--app-rail-width, 0px);
-		min-height: 100vh;
-		background:
-			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 7rem no-repeat,
-			var(--surface-page);
-	}
-
-	@media (max-width: 920px) {
-		.app-content {
-			padding-left: 0;
-			padding-bottom: calc(64px + env(safe-area-inset-bottom));
-		}
 	}
 </style>

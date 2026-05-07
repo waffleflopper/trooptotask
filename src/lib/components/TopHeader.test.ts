@@ -94,18 +94,40 @@ describe('TopHeader', () => {
 		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
 	});
 
-	it('renders help in the utility cluster', () => {
+	it('renders help in the account menu', async () => {
 		renderHeader();
 
-		expect(screen.getByRole('link', { name: 'Help' }).getAttribute('href')).toBe('/help');
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+
+		expect(screen.getByRole('menuitem', { name: 'Help' })).toBeTruthy();
 	});
 
-	it('keeps account access available outside the desktop rail', () => {
-		const { container } = renderHeader();
-		const utilityCluster = container.querySelector('.header-right');
+	it('keeps account access available in the shadcn sidebar footer', () => {
+		renderHeader();
 
-		expect(utilityCluster).not.toBeNull();
-		expect(utilityCluster?.querySelector('.mobile-account-menu [aria-label="Account menu"]')).not.toBeNull();
+		expect(screen.getByRole('button', { name: /Account menu/i })).toBeTruthy();
+	});
+
+	it('keeps organization settings in the org switcher menu', async () => {
+		renderHeader();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+
+		expect(screen.getByRole('menuitem', { name: 'Org Settings' })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: 'Manage Organizations' })).toBeNull();
+	});
+
+	it('shows manage organizations only for multi-org users', async () => {
+		renderHeader({
+			allOrgs: [
+				{ id: 'org-1', name: 'Test Org', role: 'admin' },
+				{ id: 'org-2', name: 'Second Org', role: 'member' }
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+
+		expect(screen.getByRole('menuitem', { name: 'Manage Organizations' })).toBeTruthy();
 	});
 
 	it('renders route-aware Calendar breadcrumbs for subpages', () => {
@@ -127,7 +149,7 @@ describe('TopHeader', () => {
 		const breadcrumb = screen.getByLabelText('Current section');
 		expect(within(breadcrumb).getByRole('link', { name: 'Test Org' }).getAttribute('href')).toBe('/org/org-1');
 		expect(within(breadcrumb).getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(within(breadcrumb).queryByRole('link', { name: 'Settings' })).toBeNull();
+		expect(within(breadcrumb).getByText('Settings').getAttribute('aria-current')).toBe('page');
 	});
 
 	it('uses a route-provided breadcrumb label for personnel records', () => {

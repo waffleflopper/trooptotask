@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelModal from './PersonnelModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 
-afterEach(() => {
+afterEach(async () => {
 	cleanup();
+	// bits-ui schedules dialog body-scroll cleanup with a 24ms delay.
+	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
 });
 

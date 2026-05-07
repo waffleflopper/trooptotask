@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Modal from '../Modal.svelte';
-	import Spinner from './Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
 		title: string;
@@ -35,28 +36,18 @@
 	}
 </script>
 
-<Modal {title} onClose={onCancel} width="420px" titleId="confirm-dialog-title" canClose={!confirming}>
-	<p class="confirm-message">{message}</p>
-
-	{#snippet footer()}
-		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onCancel} disabled={confirming}>{cancelLabel}</button>
-		<button
-			class="btn {variant === 'danger' ? 'btn-danger' : 'btn-amber'}"
-			onclick={handleConfirm}
-			disabled={confirming}
-		>
-			{#if confirming}<Spinner />{/if}
-			{confirmLabel}
-		</button>
-	{/snippet}
-</Modal>
-
-<style>
-	.confirm-message {
-		margin: 0;
-		color: var(--text-secondary);
-		font-family: var(--font-body);
-		line-height: 1.6;
-	}
-</style>
+<Dialog.Root open onOpenChange={(open) => !open && !confirming && onCancel()}>
+	<Dialog.Content showCloseButton={!confirming}>
+		<Dialog.Header>
+			<Dialog.Title>{title}</Dialog.Title>
+			<Dialog.Description>{message}</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={onCancel} disabled={confirming}>{cancelLabel}</Button>
+			<Button variant={variant === 'danger' ? 'destructive' : 'default'} onclick={handleConfirm} disabled={confirming}>
+				{#if confirming}<Spinner />{/if}
+				{confirmLabel}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

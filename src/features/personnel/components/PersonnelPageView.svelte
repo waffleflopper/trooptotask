@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { Input } from '$lib/components/ui/input';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
@@ -99,14 +100,19 @@
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
 
-	$effect(() => {
-		azTable.setSearch(rosterSearch);
-		groupedTable.setSearch(rosterSearch);
-	});
-
 	const handleRowClick = $derived.by(
 		() => (person: Personnel) => (ctx.canManagePersonnelRecord(person) ? ctx.handleEdit(person) : undefined)
 	);
+
+	function setRosterSearch(value: string): void {
+		rosterSearch = value;
+		azTable.setSearch(value);
+		groupedTable.setSearch(value);
+	}
+
+	function handleRosterSearchInput(event: Event): void {
+		setRosterSearch((event.currentTarget as HTMLInputElement).value);
+	}
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
@@ -117,14 +123,18 @@
 	<title>Personnel - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
+<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
 	{#if !canViewRoster}
-		<div class="no-permission">
-			<h2>Access Restricted</h2>
-			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		<div
+			class="m-6 flex min-h-80 flex-col items-center justify-center rounded-lg border bg-card p-8 text-center text-muted-foreground"
+		>
+			<h2 class="mb-2 text-2xl font-semibold tracking-tight text-foreground">Access Restricted</h2>
+			<p class="m-0 max-w-prose leading-relaxed">
+				You don't have permission to view this area. Contact your organization admin for access.
+			</p>
 		</div>
 	{:else}
-		<main class="page-content roster-content">
+		<main class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
 			<WorkspaceToolbar.Root ariaLabel="Personnel controls">
 				<WorkspaceToolbar.Group
 					label="Roster filters"
@@ -146,7 +156,8 @@
 						testId="personnel-search"
 						ariaLabel="Search by name, rank, MOS, role, or group"
 						placeholder="Search name, rank, MOS, role, or group..."
-						bind:value={rosterSearch}
+						value={rosterSearch}
+						onValueChange={setRosterSearch}
 					/>
 				</WorkspaceToolbar.Group>
 
@@ -179,29 +190,35 @@
 					onAction={canAddPersonnel ? () => ctx.handleAdd() : undefined}
 				/>
 			{:else if shouldGateGroupedRoster}
-				<div class="roster-scale-guard">
+				<div
+					class="flex items-center justify-between gap-4 rounded-lg border bg-card p-5 max-sm:flex-col max-sm:items-stretch"
+				>
 					<div>
-						<span class="scale-kicker">Grouped roster paused</span>
-						<p>
+						<span class="text-xs font-medium tracking-widest text-muted-foreground uppercase"
+							>Grouped roster paused</span
+						>
+						<p class="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
 							{groupedTable.totalRows} personnel are loaded. Search within the roster or switch to the paged A-Z view to keep
 							this page fast.
 						</p>
 					</div>
-					<div class="scale-actions">
-						<input
+					<div
+						class="flex min-w-[min(100%,300px)] flex-[0_1_420px] items-center gap-2 max-sm:flex-auto max-sm:flex-col max-sm:items-stretch"
+					>
+						<Input
 							type="search"
-							class="input scale-search"
 							aria-label="Search by name, rank, MOS, role, or group"
 							placeholder="Search roster..."
-							bind:value={rosterSearch}
+							value={rosterSearch}
+							oninput={handleRosterSearchInput}
 						/>
-						<button class="btn btn-primary btn-sm" type="button" onclick={() => (ctx.viewMode = 'alphabetical')}>
-							Use A-Z View
-						</button>
+						<Button size="sm" type="button" onclick={() => (ctx.viewMode = 'alphabetical')}>Use A-Z View</Button>
 					</div>
 				</div>
 			{:else}
-				<div class="roster-table-region">
+				<div
+					class="flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1"
+				>
 					<DataTable.DataTable
 						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 						columns={personnelColumns}
@@ -264,125 +281,3 @@
 		</main>
 	{/if}
 </div>
-
-<style>
-	.page {
-		height: 100%;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: var(--surface-page);
-	}
-
-	.page-content.roster-content {
-		display: flex;
-		min-height: 0;
-		flex-direction: column;
-		gap: var(--sp-4);
-		overflow: hidden;
-		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.roster-table-region {
-		display: flex;
-		flex: 1 1 auto;
-		min-height: 0;
-		min-width: 0;
-	}
-
-	.roster-table-region :global([data-slot='data-table']) {
-		width: 100%;
-		flex: 1 1 auto;
-		min-height: 0;
-	}
-
-	.roster-scale-guard {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-5);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.roster-scale-guard p {
-		margin: var(--sp-2) 0 0;
-		color: var(--text-secondary);
-		line-height: var(--line-height-copy);
-		max-width: 68ch;
-	}
-
-	.scale-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex: 0 1 420px;
-		min-width: min(100%, 300px);
-	}
-
-	.scale-search {
-		min-width: 0;
-	}
-
-	.scale-kicker {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.no-permission {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 320px;
-		margin: var(--sp-6);
-		padding: var(--sp-8);
-		text-align: center;
-		color: var(--text-secondary);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.no-permission h2 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.no-permission p {
-		margin: 0;
-		max-width: 44ch;
-		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 640px) {
-		.page-content.roster-content {
-			padding: var(--sp-3);
-		}
-
-		.roster-scale-guard {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.scale-actions {
-			flex-direction: column;
-			align-items: stretch;
-			flex-basis: auto;
-		}
-	}
-
-	@media (min-width: 641px) and (max-width: 1024px) {
-	}
-</style>

@@ -6,14 +6,21 @@
 	import { PERSONNEL_COLUMNS, detectHeaderRow } from '$lib/utils/columnMapping';
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
 	import BulkPersonnelMerge from './BulkPersonnelMerge.svelte';
+	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import ImportIcon from '@lucide/svelte/icons/download';
+	import MergeIcon from '@lucide/svelte/icons/git-merge';
 
 	interface GroupData {
 		group: string;
@@ -33,7 +40,6 @@
 
 	type TabType = 'import' | 'merge' | 'delete';
 	let activeTab = $state<TabType>('import');
-	let archiveSearch = $state('');
 
 	// TODO: Move bulk personnel management to its own route, mirroring calendar bulk status operations.
 
@@ -46,7 +52,7 @@
 	let fileRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
 	let importText = $state('');
-	let fileInput: HTMLInputElement | undefined = $state();
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	let textRows = $state<string[][]>([]);
 	let textError = $state('');
@@ -245,10 +251,6 @@
 		);
 	}
 
-	const filteredArchivePersonnel = $derived(
-		allPersonnel.filter((person) => matchesArchiveSearch(person, archiveSearch))
-	);
-
 	const archiveColumns: ColumnDef<Personnel>[] = [
 		{ key: 'select', header: '', value: () => '', searchable: false },
 		{ key: 'rank', header: 'Rank', value: (person) => person.rank },
@@ -274,10 +276,6 @@
 		}
 	});
 
-	$effect(() => {
-		archiveTable.setSearch(archiveSearch);
-	});
-
 	let selectedIds = new SvelteSet<string>();
 
 	function toggleSelect(id: string) {
@@ -286,56 +284,6 @@
 		} else {
 			selectedIds.add(id);
 		}
-	}
-
-	function selectAll() {
-		selectedIds.clear();
-		for (const p of allPersonnel) selectedIds.add(p.id);
-	}
-
-	function selectNone() {
-		selectedIds.clear();
-	}
-
-	function selectGroup(groupName: string) {
-		const groupPersonnel = allPersonnel.filter((p) => (p.groupName || 'Unassigned') === groupName);
-		for (const p of groupPersonnel) selectedIds.add(p.id);
-	}
-
-	function toggleVisible() {
-		const visibleIds = filteredArchivePersonnel.map((person) => person.id);
-		const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
-
-		for (const id of visibleIds) {
-			if (allVisibleSelected) {
-				selectedIds.delete(id);
-			} else {
-				selectedIds.add(id);
-			}
-		}
-	}
-
-	function toggleArchiveGroup(groupName: string) {
-		const groupPersonnel = allPersonnel.filter((person) => (person.groupName || 'Unassigned') === groupName);
-		const allGroupSelected = groupPersonnel.length > 0 && groupPersonnel.every((person) => selectedIds.has(person.id));
-
-		for (const person of groupPersonnel) {
-			if (allGroupSelected) {
-				selectedIds.delete(person.id);
-			} else {
-				selectedIds.add(person.id);
-			}
-		}
-	}
-
-	function getArchiveGroupSelectionState(groupName: string): 'all' | 'some' | 'none' {
-		const groupPersonnel = allPersonnel.filter((person) => (person.groupName || 'Unassigned') === groupName);
-		if (groupPersonnel.length === 0) return 'none';
-
-		const selectedCount = groupPersonnel.filter((person) => selectedIds.has(person.id)).length;
-		if (selectedCount === 0) return 'none';
-		if (selectedCount === groupPersonnel.length) return 'all';
-		return 'some';
 	}
 
 	let showArchiveConfirm = $state(false);
@@ -352,333 +300,242 @@
 		showArchiveConfirm = false;
 	}
 
-	// Width is wider during preview to accommodate the table
-	const modalWidth = $derived(
+	const dialogSize = $derived(
 		activeTab === 'delete' ||
 			activeTab === 'merge' ||
 			importStep === 'preview' ||
 			importStep === 'importing' ||
 			importStep === 'results'
-			? '800px'
-			: '600px'
+			? 'wide'
+			: 'default'
 	);
 </script>
 
-<Modal
-	title="Bulk Personnel Management"
-	{onClose}
-	width={modalWidth}
-	titleId="bulk-personnel-title"
-	canClose={importStep !== 'importing'}
-	showCloseButton={importStep !== 'importing'}
->
-	<div class="bulk-content">
-		<div class="tabs">
-			<button class="tab" type="button" class:active={activeTab === 'import'} onclick={() => (activeTab = 'import')}>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path
-						fill-rule="evenodd"
-						d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				Import
-			</button>
-			<button class="tab" type="button" class:active={activeTab === 'merge'} onclick={() => (activeTab = 'merge')}>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path
-						fill-rule="evenodd"
-						d="M4 4a1 1 0 011-1h4a1 1 0 010 2H6v9h3a1 1 0 110 2H5a1 1 0 01-1-1V4zm7.293 2.293a1 1 0 011.414 0L16 9.586V8a1 1 0 112 0v4a1 1 0 01-1 1h-4a1 1 0 110-2h1.586l-3-3a1 1 0 010-1.414z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				Backfill ETS/DEROS
-			</button>
-			<button class="tab" type="button" class:active={activeTab === 'delete'} onclick={() => (activeTab = 'delete')}>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-					<path
-						fill-rule="evenodd"
-						d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				Archive
-			</button>
-		</div>
+<Dialog.Root open onOpenChange={(open) => !open && importStep !== 'importing' && onClose()}>
+	<Dialog.Content size={dialogSize} showCloseButton={importStep !== 'importing'}>
+		<Dialog.Header>
+			<Dialog.Title>Bulk Personnel Management</Dialog.Title>
+		</Dialog.Header>
 
-		<div class="content-body">
-			{#if activeTab === 'import'}
-				<!-- INPUT step -->
-				{#if importStep === 'input'}
-					<div class="import-section">
-						<div class="upload-section">
-							<h4>Upload File</h4>
-							<p class="hint">Upload an Excel (.xlsx) or CSV file</p>
-							<div class="upload-row">
-								<input
-									type="file"
-									accept=".xlsx,.csv"
-									onchange={handleFileUpload}
-									bind:this={fileInput}
-									class="file-input"
-									id="fileUpload"
-								/>
-								<button class="btn btn-secondary upload-btn" type="button" onclick={() => fileInput?.click()}>
-									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-										<path
-											fill-rule="evenodd"
-											d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-									Choose File
-								</button>
-								{#if uploadedFileName}
-									<span class="file-name">{uploadedFileName}</span>
-									<button class="btn btn-secondary btn-sm" type="button" onclick={clearFile}>Clear</button>
-								{/if}
-							</div>
-							<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Duty Role, Group</p>
-						</div>
+		<Tabs.Root bind:value={activeTab}>
+			<Tabs.List>
+				<Tabs.Trigger value="import"><ImportIcon />Import</Tabs.Trigger>
+				<Tabs.Trigger value="merge"><MergeIcon />Backfill ETS/DEROS</Tabs.Trigger>
+				<Tabs.Trigger value="delete"><ArchiveIcon />Archive</Tabs.Trigger>
+			</Tabs.List>
 
-						<div class="divider"><span>or paste text</span></div>
+			<div class="max-h-[65vh] overflow-y-auto py-2">
+				<Tabs.Content value="import">
+					{#if activeTab === 'import'}
+						{#if importStep === 'input'}
+							<div class="grid gap-5">
+								<section class="grid gap-3 rounded-lg border border-dashed border-border bg-muted/25 p-4">
+									<div class="grid gap-1">
+										<h4 class="font-medium">Upload File</h4>
+										<p class="text-sm text-muted-foreground">Upload an Excel (.xlsx) or CSV file.</p>
+									</div>
+									<Input
+										id="fileUpload"
+										type="file"
+										accept=".xlsx,.csv"
+										onchange={handleFileUpload}
+										bind:ref={fileInput}
+									/>
+									{#if uploadedFileName}
+										<div class="flex items-center justify-between gap-2">
+											<span class="truncate font-mono text-xs">{uploadedFileName}</span>
+											<Button variant="outline" size="sm" type="button" onclick={clearFile}>Clear</Button>
+										</div>
+									{/if}
+									<p class="text-xs text-muted-foreground">
+										Columns: Rank, Last Name, First Name, MOS, Duty Role, Group
+									</p>
+								</section>
 
-						<div class="format-info">
-							<h4>Paste Data</h4>
-							<p>One person per line, comma-separated:</p>
-							<code>Rank, Last Name, First Name, MOS, Duty Role, Group</code>
-							<p class="hint">MOS, Duty Role, and Group are optional</p>
-						</div>
+								<div class="grid gap-3">
+									<div class="flex items-center gap-3 text-xs font-medium uppercase text-muted-foreground">
+										<span class="h-px flex-1 bg-border"></span>
+										<span>or paste text</span>
+										<span class="h-px flex-1 bg-border"></span>
+									</div>
 
-						<div class="example-box">
-							<div class="example-header">
-								<span>Example</span>
-								<button
-									class="btn btn-secondary btn-sm"
-									type="button"
-									onclick={() => {
-										importText = `SGT, Smith, John, 68W, Squad Leader, Alpha Team
+									<div class="grid gap-2 text-sm text-muted-foreground">
+										<h4 class="font-medium text-foreground">Paste Data</h4>
+										<p>One person per line, comma-separated.</p>
+										<code class="rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
+											Rank, Last Name, First Name, MOS, Duty Role, Group
+										</code>
+										<p>MOS, Duty Role, and Group are optional.</p>
+									</div>
+								</div>
+
+								<section class="grid gap-2 rounded-lg border border-border bg-card p-4">
+									<div class="flex items-center justify-between gap-2">
+										<span class="font-mono text-xs font-medium uppercase text-muted-foreground">Example</span>
+										<Button
+											variant="outline"
+											size="sm"
+											type="button"
+											onclick={() => {
+												importText = `SGT, Smith, John, 68W, Squad Leader, Alpha Team
 SPC, Johnson, Jane, 68C, Medic, Bravo Team
 CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
 SFC, Brown, Sarah, 42A, Operations NCO, Support`;
-										uploadedFileName = '';
-									}}
-								>
-									Use Example
-								</button>
-							</div>
-							<pre>SGT, Smith, John, 68W, Squad Leader, Alpha Team
+												uploadedFileName = '';
+											}}
+										>
+											Use Example
+										</Button>
+									</div>
+									<pre
+										class="whitespace-pre-wrap font-mono text-xs text-muted-foreground">SGT, Smith, John, 68W, Squad Leader, Alpha Team
 SPC, Johnson, Jane, 68C, Medic, Bravo Team
 CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
 SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
-						</div>
+								</section>
 
-						<div class="form-group">
-							<label class="label" for="importText">Personnel Data</label>
-							<textarea
-								id="importText"
-								class="input import-textarea"
-								bind:value={importText}
-								placeholder="Paste personnel data here..."
-								rows={6}
-								disabled={!!uploadedFileName}
-							></textarea>
-						</div>
-						{#if textError}
-							<p class="text-error">{textError}</p>
-						{/if}
-					</div>
-
-					<!-- PREVIEW step -->
-				{:else if importStep === 'preview'}
-					<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
-
-					<!-- IMPORTING step -->
-				{:else if importStep === 'importing'}
-					<div class="importing-state">
-						<div class="spinner"></div>
-						<p>Importing personnel records...</p>
-					</div>
-
-					<!-- RESULTS step -->
-				{:else if importStep === 'results' && importResult}
-					<div class="results-section">
-						{#if importResult.capError}
-							<div class="result-error-banner">
-								<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-									<path
-										fill-rule="evenodd"
-										d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-										clip-rule="evenodd"
+								<div class="grid gap-2">
+									<Label for="importText">Personnel Data</Label>
+									<Textarea
+										id="importText"
+										bind:value={importText}
+										placeholder="Paste personnel data here..."
+										rows={6}
+										disabled={!!uploadedFileName}
 									/>
-								</svg>
-								{importResult.capError}
-							</div>
-						{/if}
-
-						{#if importResult.insertedCount > 0}
-							<div class="result-success">
-								<svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-									<path
-										fill-rule="evenodd"
-										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-								<strong>{importResult.insertedCount}</strong> personnel imported successfully
-							</div>
-						{/if}
-
-						{#if importResult.errors.length > 0}
-							<div class="result-errors">
-								<div class="result-errors-header">
-									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-										<path
-											fill-rule="evenodd"
-											d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-									{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
 								</div>
-								<ul>
-									{#each importResult.errors as err (err.index)}
-										<li>
-											{#if err.index >= 0}Row {err.index + 1}:
-											{/if}{err.message}
-										</li>
-									{/each}
-								</ul>
+								{#if textError}
+									<p class="text-sm text-destructive">{textError}</p>
+								{/if}
+							</div>
+						{:else if importStep === 'preview'}
+							<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
+						{:else if importStep === 'importing'}
+							<div class="grid justify-items-center gap-4 py-12 text-muted-foreground">
+								<Spinner />
+								<p>Importing personnel records...</p>
+							</div>
+						{:else if importStep === 'results' && importResult}
+							<div class="grid gap-4">
+								{#if importResult.capError}
+									<div class="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+										{importResult.capError}
+									</div>
+								{/if}
+
+								{#if importResult.insertedCount > 0}
+									<div class="rounded-lg border border-primary/20 bg-primary/10 p-4">
+										<strong>{importResult.insertedCount}</strong> personnel imported successfully
+									</div>
+								{/if}
+
+								{#if importResult.errors.length > 0}
+									<div class="rounded-lg border border-border bg-muted/40 p-4">
+										<div class="mb-2 font-medium">
+											{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
+										</div>
+										<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+											{#each importResult.errors as err (err.index)}
+												<li>
+													{#if err.index >= 0}Row {err.index + 1}:
+													{/if}{err.message}
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
+
+								{#if importResult.insertedCount === 0 && importResult.errors.length === 0 && !importResult.capError}
+									<p class="py-6 text-center text-sm text-muted-foreground">No records were imported.</p>
+								{/if}
 							</div>
 						{/if}
+					{/if}
+				</Tabs.Content>
 
-						{#if importResult.insertedCount === 0 && importResult.errors.length === 0 && !importResult.capError}
-							<p class="result-empty">No records were imported.</p>
-						{/if}
-					</div>
-				{/if}
-			{:else if activeTab === 'merge'}
-				<BulkPersonnelMerge {orgId} personnel={allPersonnel} {groups} onComplete={handleDone} />
-			{:else}
-				<div class="delete-section">
-					<div class="delete-controls">
-						<div class="select-buttons">
-							<button class="btn btn-secondary btn-sm" type="button" onclick={selectAll}>Select All</button>
-							<button class="btn btn-secondary btn-sm" type="button" onclick={selectNone}>Select None</button>
-							<button class="btn btn-secondary btn-sm" type="button" onclick={toggleVisible}>
-								{filteredArchivePersonnel.length > 0 &&
-								filteredArchivePersonnel.every((person) => selectedIds.has(person.id))
-									? 'Clear shown'
-									: 'Select shown'}
-							</button>
-						</div>
-						<input
-							type="search"
-							class="input archive-search"
-							placeholder="Search by name, rank, MOS, role, or group..."
-							bind:value={archiveSearch}
-						/>
-					</div>
+				<Tabs.Content value="merge">
+					{#if activeTab === 'merge'}
+						<BulkPersonnelMerge {orgId} personnel={allPersonnel} {groups} onComplete={handleDone} />
+					{/if}
+				</Tabs.Content>
 
-					<div class="group-chips">
-						{#each personnelByGroup as grp (grp.group)}
-							{#if grp.personnel.length > 0}
-								<button class="group-chip" type="button" onclick={() => selectGroup(grp.group || 'Unassigned')}>
-									{grp.group || 'Unassigned'}
-									<span class="chip-count">{grp.personnel.length}</span>
-								</button>
+				<Tabs.Content value="delete">
+					{#if activeTab === 'delete'}
+						<div class="grid gap-4">
+							<DataTable.DataTable
+								table={archiveTable}
+								columns={archiveColumns}
+								ariaLabel="Personnel archive selection"
+								emptyMessage="No personnel match your search."
+								compact
+								maxHeight="360px"
+								onRowClick={(person) => toggleSelect(person.id)}
+							>
+								{#snippet toolbar(tbl)}
+									<div class="flex flex-wrap items-center justify-between gap-2">
+										<DataTable.Search
+											table={tbl}
+											ariaLabel="Search personnel archive table"
+											placeholder="Search by name, rank, MOS, role, or group..."
+										/>
+										<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={tbl.totalRows} />
+									</div>
+								{/snippet}
+
+								{#snippet groupHeader(group)}
+									<span class="font-medium">{group.label}</span>
+								{/snippet}
+
+								{#snippet cell(row, col)}
+									{#if col.key === 'select'}
+										<DataTable.SelectionCheckbox
+											checked={selectedIds.has(row.id)}
+											ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+											onCheckedChange={() => toggleSelect(row.id)}
+										/>
+									{:else}
+										{String(col.value(row) ?? '')}
+									{/if}
+								{/snippet}
+							</DataTable.DataTable>
+
+							{#if selectedIds.size > 0}
+								<div
+									class="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-center text-sm text-destructive"
+								>
+									<strong>{selectedIds.size}</strong> personnel selected for archival
+								</div>
 							{/if}
-						{/each}
-					</div>
-
-					<DataTable.DataTable
-						table={archiveTable}
-						columns={archiveColumns}
-						ariaLabel="Personnel archive selection"
-						emptyMessage="No personnel match your search."
-						compact
-						maxHeight="360px"
-						onRowClick={(person) => toggleSelect(person.id)}
-					>
-						{#snippet toolbar(tbl)}
-							<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={tbl.totalRows}>
-								<span class="select-hint">Use a group header or any row to select people quickly.</span>
-							</DataTable.BulkActions>
-						{/snippet}
-
-						{#snippet groupHeader(group)}
-							{@const selState = getArchiveGroupSelectionState(group.key)}
-							<DataTable.SelectionCheckbox
-								ariaLabel={`Select ${group.label} group`}
-								checked={selState === 'all'}
-								indeterminate={selState === 'some'}
-								onCheckedChange={() => toggleArchiveGroup(group.key)}
-							/>
-							<Button type="button" variant="ghost" aria-expanded={!group.collapsed} onclick={group.toggle}>
-								{group.collapsed ? 'Expand' : 'Collapse'}
-								{group.label}
-								<UiBadge variant="outline">{group.count}</UiBadge>
-							</Button>
-						{/snippet}
-
-						{#snippet cell(row, col)}
-							{#if col.key === 'select'}
-								<DataTable.SelectionCheckbox
-									checked={selectedIds.has(row.id)}
-									ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
-									onCheckedChange={() => toggleSelect(row.id)}
-								/>
-							{:else}
-								{String(col.value(row) ?? '')}
-							{/if}
-						{/snippet}
-					</DataTable.DataTable>
-
-					{#if selectedIds.size > 0}
-						<div class="delete-warning">
-							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-								<path
-									fill-rule="evenodd"
-									d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-							<strong>{selectedIds.size}</strong> personnel selected for archival
 						</div>
 					{/if}
-				</div>
-			{/if}
-		</div>
-	</div>
+				</Tabs.Content>
+			</div>
+		</Tabs.Root>
 
-	{#snippet footer()}
-		{#if activeTab === 'import'}
-			{#if importStep === 'input'}
-				<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
-				<button class="btn btn-primary" type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
-					Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
-				</button>
-			{:else if importStep === 'preview'}
-				<button class="btn btn-secondary" type="button" onclick={backToInput}>Back</button>
-				<button class="btn btn-primary" type="button" onclick={runImport} disabled={runningImport}
-					>Import Records</button
-				>
-			{:else if importStep === 'importing'}
-				<button class="btn btn-secondary" disabled>Importing...</button>
-			{:else if importStep === 'results'}
-				<button class="btn btn-primary" type="button" onclick={handleDone}>Done</button>
+		<Dialog.Footer>
+			{#if activeTab === 'import'}
+				{#if importStep === 'input'}
+					<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+					<Button type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
+						Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
+					</Button>
+				{:else if importStep === 'preview'}
+					<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
+					<Button type="button" onclick={runImport} disabled={runningImport}>Import Records</Button>
+				{:else if importStep === 'importing'}
+					<Button variant="outline" disabled>Importing...</Button>
+				{:else if importStep === 'results'}
+					<Button type="button" onclick={handleDone}>Done</Button>
+				{/if}
+			{:else if activeTab === 'delete'}
+				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+				<Button variant="destructive" type="button" onclick={handleArchive} disabled={selectedIds.size === 0}>
+					Archive {selectedIds.size} Personnel
+				</Button>
 			{/if}
-		{:else if activeTab === 'merge'}
-			<!-- Merge workflow manages its own action buttons -->
-		{:else}
-			<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
-			<button class="btn btn-warning" type="button" onclick={handleArchive} disabled={selectedIds.size === 0}>
-				Archive {selectedIds.size} Personnel
-			</button>
-		{/if}
-	{/snippet}
-</Modal>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 {#if showArchiveConfirm}
 	<ConfirmDialog
@@ -690,399 +547,3 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 		onCancel={() => (showArchiveConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.bulk-content {
-		display: flex;
-		flex-direction: column;
-		margin: calc(-1 * var(--sp-6));
-		background: var(--surface-panel);
-	}
-
-	.tabs {
-		display: flex;
-		padding: var(--sp-3) var(--sp-4);
-		gap: var(--sp-2);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.tab {
-		appearance: none;
-		flex: 1 1 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 38px;
-		padding: 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.tab:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.tab.active {
-		color: var(--amber-dark);
-		border-color: var(--amber);
-		background: var(--amber-light);
-	}
-
-	.content-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--sp-6);
-		max-height: 65vh;
-		background: var(--surface-panel);
-	}
-
-	.upload-section {
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-5);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-		border-radius: var(--radius-md);
-		border: 1px dashed color-mix(in srgb, var(--border-default) 88%, var(--ink-35) 12%);
-	}
-
-	.upload-section h4 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: clamp(1.1rem, 1rem + 0.25vw, 1.3rem);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.upload-row {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin: var(--sp-3) 0;
-	}
-
-	.file-input {
-		display: none;
-	}
-
-	.upload-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		cursor: pointer;
-	}
-
-	.file-name {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-primary);
-		padding: 6px 10px;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		max-width: 200px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.format-hint {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		margin: 0;
-	}
-
-	.divider {
-		display: flex;
-		align-items: center;
-		margin: var(--sp-5) 0;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.divider::before,
-	.divider::after {
-		content: '';
-		flex: 1;
-		height: 1px;
-		background: var(--border-default);
-	}
-
-	.divider span {
-		padding: 0 var(--sp-3);
-	}
-
-	.format-info {
-		margin-bottom: var(--sp-4);
-	}
-
-	.format-info h4 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--amber-dark);
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
-	}
-
-	.format-info p {
-		margin: var(--sp-2) 0;
-		color: var(--text-secondary);
-	}
-
-	.format-info code {
-		display: inline-block;
-		padding: 6px 10px;
-		background: var(--surface-subtle);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.04em;
-	}
-
-	.hint {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.example-box {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		margin-bottom: var(--sp-4);
-	}
-
-	.example-header {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: var(--sp-2);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		margin-bottom: var(--sp-2);
-	}
-
-	.example-box pre {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		white-space: pre-wrap;
-		line-height: 1.6;
-		color: var(--text-secondary);
-	}
-
-	.import-textarea {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		resize: vertical;
-	}
-
-	.importing-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-4);
-		padding: var(--sp-12) 0;
-		color: var(--text-secondary);
-	}
-
-	.results-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.result-success {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
-		border: 1px solid color-mix(in srgb, var(--success) 24%, transparent);
-		border-radius: var(--radius-md);
-		color: var(--success);
-		font-size: var(--text-base);
-	}
-
-	.text-error {
-		color: var(--danger);
-		font-size: var(--text-sm);
-		margin-top: var(--sp-2);
-	}
-
-	.result-error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--danger-bg) 82%, var(--surface-panel) 18%);
-		border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
-		border-radius: var(--radius-md);
-		color: var(--danger);
-		font-size: var(--text-sm);
-	}
-
-	.result-errors {
-		background: color-mix(in srgb, var(--amber-light) 76%, var(--surface-panel) 24%);
-		border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
-		border-radius: var(--radius-md);
-		padding: var(--sp-3) var(--sp-4);
-	}
-
-	.result-errors-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		font-weight: var(--font-weight-semibold);
-		color: var(--amber-dark);
-		margin-bottom: var(--sp-2);
-	}
-
-	.result-errors ul {
-		margin: 0;
-		padding-left: var(--sp-5);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.result-empty {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		text-align: center;
-		padding: var(--sp-6) 0;
-	}
-
-	.delete-controls {
-		display: flex;
-		align-items: flex-start;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
-	}
-
-	.select-buttons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.select-hint {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.archive-search {
-		flex: 1 1 280px;
-		max-width: 420px;
-	}
-
-	.group-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.group-chip {
-		appearance: none;
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-height: 30px;
-		padding: 0 10px;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.group-chip:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.chip-count {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 20px;
-		min-height: 20px;
-		padding: 2px 5px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		font-size: var(--text-xs);
-	}
-
-	.delete-warning {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-3);
-		margin-top: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--danger-bg) 82%, var(--surface-panel) 18%);
-		border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
-		border-radius: var(--radius-md);
-		color: var(--danger);
-		font-size: var(--text-sm);
-	}
-
-	@media (max-width: 640px) {
-		.bulk-content {
-			margin: calc(-1 * var(--sp-4));
-		}
-
-		.content-body {
-			padding: var(--sp-4);
-		}
-
-		.tabs {
-			padding: var(--sp-3);
-		}
-
-		.archive-search {
-			max-width: none;
-		}
-	}
-</style>

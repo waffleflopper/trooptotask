@@ -106,7 +106,7 @@ describe('BulkPersonnelManager', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Archive' }));
 
 		expect(screen.getByRole('searchbox')).toBeTruthy();
 		expect(screen.getAllByText('Leadership').length).toBeGreaterThan(0);
@@ -117,7 +117,7 @@ describe('BulkPersonnelManager', () => {
 	it('shows a dedicated merge workflow tab for ETS and PCS / DEROS backfills', async () => {
 		renderManager();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Backfill ETS/DEROS' }));
 
 		expect(screen.getByText('Bulk Update Existing Personnel')).toBeTruthy();
 		expect(screen.getByText(/Matching uses exact Rank \+ Last Name \+ First Name/i)).toBeTruthy();

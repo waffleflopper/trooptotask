@@ -14,11 +14,13 @@
 		portalProps,
 		children,
 		showCloseButton = true,
+		size = 'default',
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
 		children: Snippet;
 		showCloseButton?: boolean;
+		size?: 'default' | 'wide';
 	} = $props();
 </script>
 
@@ -29,6 +31,7 @@
 		data-slot="dialog-content"
 		class={cn(
 			'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-4 rounded-xl p-4 text-sm ring-1 duration-100 sm:max-w-sm fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none',
+			size === 'wide' && 'sm:max-w-3xl',
 			className
 		)}
 		{...restProps}

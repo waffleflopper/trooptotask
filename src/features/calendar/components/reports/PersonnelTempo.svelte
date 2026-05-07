@@ -3,10 +3,10 @@
 	import type { StatusType } from '$lib/types';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -170,8 +170,7 @@
 		return value;
 	}
 
-	// --- useDataTable for sorting ---
-	const tableColumns: ColumnDef<TempoRow>[] = [
+	const tableColumns = $derived.by<ColumnDef<TempoRow>[]>(() => [
 		{
 			key: 'rank',
 			header: 'Rank',
@@ -183,23 +182,33 @@
 			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
+		...displayColumns.map((statusType) => ({
+			key: `status:${statusType.id}`,
+			header: statusType.name,
+			value: (r: TempoRow) => r.awayByStatus.get(statusType.id) ?? 0,
+			searchable: false,
+			sortable: false,
+			align: 'center' as const
+		})),
 		{
 			key: 'totalAway',
 			header: 'Total Away',
 			value: (r) => r.totalAwayDays,
-			compare: (a, b) => a.totalAwayDays - b.totalAwayDays
+			compare: (a, b) => a.totalAwayDays - b.totalAwayDays,
+			align: 'center'
 		},
 		{
 			key: 'percentAway',
 			header: '% Away',
 			value: (r) => r.percentAway,
-			compare: (a, b) => a.percentAway - b.percentAway
+			compare: (a, b) => a.percentAway - b.percentAway,
+			align: 'center'
 		}
-	];
+	]);
 
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
-		columns: tableColumns,
+		columns: () => tableColumns,
 		initialSortKey: 'name'
 	});
 </script>
@@ -295,38 +304,29 @@
 		{#if result.rows.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact">
-				<table aria-label="Personnel tempo report">
-					<thead>
-						<tr>
-							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
-							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
-							{#each displayColumns as st (st.id)}
-								<th class="col-status">
-									<Badge label={st.name} color={st.color} textColor={st.textColor} />
-								</th>
-							{/each}
-							<th class="col-total" onclick={() => table.toggleSort('totalAway')}>Total Away</th>
-							<th class="col-percent" onclick={() => table.toggleSort('percentAway')}>% Away</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as row (row.person.id)}
-							<tr class:flagged={row.flagged}>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								{#each displayColumns as st (st.id)}
-									<td class="col-status">
-										{(row.awayByStatus.get(st.id) ?? 0) > 0 ? row.awayByStatus.get(st.id) : ''}
-									</td>
-								{/each}
-								<td class="col-total">{row.totalAwayDays > 0 ? row.totalAwayDays : ''}</td>
-								<td class="col-percent">{row.percentAway > 0 ? `${row.percentAway}%` : ''}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Personnel tempo report"
+				compact
+				emptyMessage="No data found for the selected criteria."
+			>
+				{#snippet cell(row, column)}
+					{#if column.key === 'rank'}
+						{row.person.rank}
+					{:else if column.key === 'name'}
+						{row.person.lastName}, {row.person.firstName}
+					{:else if column.key.startsWith('status:')}
+						{Number(column.value(row)) > 0 ? column.value(row) : ''}
+					{:else if column.key === 'totalAway'}
+						{row.totalAwayDays > 0 ? row.totalAwayDays : ''}
+					{:else if column.key === 'percentAway'}
+						{row.percentAway > 0 ? `${row.percentAway}%` : ''}
+					{:else}
+						{String(column.value(row) ?? '')}
+					{/if}
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
@@ -442,95 +442,6 @@
 		font-style: italic;
 	}
 
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-		text-align: center;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	tbody tr:hover {
-		background: var(--surface-page);
-	}
-
-	tbody tr.flagged {
-		background: color-mix(in srgb, var(--danger) 8%, transparent);
-	}
-
-	tbody tr.flagged:hover {
-		background: color-mix(in srgb, var(--danger) 12%, transparent);
-	}
-
-	.col-rank {
-		width: 60px;
-		font-weight: 600;
-		color: var(--amber);
-		text-align: left;
-	}
-
-	.col-name {
-		min-width: 150px;
-		text-align: left;
-	}
-
-	.col-status {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	.col-total {
-		text-align: center;
-		font-weight: 600;
-		min-width: 80px;
-	}
-
-	.col-percent {
-		text-align: center;
-		font-weight: 600;
-		min-width: 70px;
-	}
-
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
@@ -538,12 +449,6 @@
 
 		.date-row .form-group {
 			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

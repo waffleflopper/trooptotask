@@ -88,5 +88,6 @@ export type DataTableRowAction<T> = {
 export type DataTableCellSnippet<T> = Snippet<[T, ColumnDef<T>]>;
 export type DataTableHeaderSnippet<T> = Snippet<[ColumnDef<T>]>;
 export type DataTableRowSnippet<T> = Snippet<[T, ColumnDef<T>[]]>;
+export type DataTableRowDetailSnippet<T> = Snippet<[T]>;
 export type DataTableGroupHeaderSnippet = Snippet<[GroupHeaderContext]>;
 export type DataTableStateSnippet<T> = Snippet<[DataTableState<T>]>;

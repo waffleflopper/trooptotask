@@ -16,7 +16,7 @@ Use it to review shadcn-svelte primitives at desktop and mobile widths before pr
 
 Replacement previews:
 
-- Legacy `DataTable` is represented by native shadcn `table` and `pagination` examples.
+- Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation shown in this showroom.
 - Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
@@ -35,7 +35,7 @@ Rules:
 - Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
 - If a durable visual need appears, add it centrally, document it here, and show it in `/ui-showroom` before any route consumes it.
 - If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
-- `/ui-showroom` must not import legacy TroopToTask component wrappers such as `DataTable`, the `toolbar` family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or `Spinner`; show their shadcn replacements only.
+- `/ui-showroom` must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or `Spinner`; show their shadcn replacements only.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 
 Foundation files:
@@ -641,7 +641,7 @@ All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
 
 ## `ui/data-table`
 
-Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty`, `button`, and shared toolbar primitives. It is the replacement target for legacy production DataTable surfaces, but production routes must migrate in later route-scoped slices.
+Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty`, `button`, and shared toolbar primitives. It is the production DataTable system; the old DataTable implementation and its tests have been removed.
 
 The DataTable API is deliberately modular. Simple tables can render only `DataTable` or `View`; richer tables can opt into search, pagination, row actions, bulk selection, loading, grouping, dense layout, and toolbar controls one piece at a time.
 
@@ -707,9 +707,9 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
 
-Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
+Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
 `ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`
 
@@ -740,7 +740,7 @@ const table = useDataTable({
 
 Route configuration rules:
 
-- Routes may configure data, columns, cell snippets, labels, row actions, disabled states, filters, search, pagination, grouping, row click handlers, and bulk actions.
+- Routes may configure data, columns, cell snippets, labels, row actions, disabled states, expandable row details, filters, search, pagination, grouping, row click handlers, and bulk actions.
 - Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
 - If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here, and prove it in `/ui-showroom`.
 - Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
@@ -749,11 +749,11 @@ Route configuration rules:
 - Use `compact` only for dense operational tables. Use `stickyHeader` and `maxHeight` for constrained workspaces.
 - Grouped rows are supported for simple collapsible sections. Operational matrices with sticky axes remain project-specific surfaces, not generic DataTable use.
 
-Future route migration notes:
+Migration status:
 
-- Replace legacy DataTable imports route by route after the shared foundation is accepted in `/ui-showroom`.
-- Do not create compatibility adapters from old props. Translate each route into explicit `columns`, snippets, state, and shared DataTable pieces.
-- Delete old DataTable tests only after production routes no longer reference the old implementation and the new shared tests cover the behavior they depended on.
+- Production DataTable routes now use `src/lib/components/ui/data-table`.
+- The old DataTable implementation under `src/lib/components/ui/data-table-old` and its tests are removed.
+- Operational matrix surfaces with sticky axes or heat-map cells remain project-specific matrix workspaces, not generic DataTable migrations.
 
 ---
 

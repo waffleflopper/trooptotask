@@ -148,6 +148,7 @@
 	let toolbarSearch = $state('');
 	let toolbarGapsOnly = $state(false);
 	let clickedRow = $state('No row selected');
+	let expandedDataTableRow = $state('2');
 	const tableSelection = useDataTableSelection({
 		rows: () => dataTablePeople,
 		rowKey: (row) => row.id,
@@ -789,6 +790,28 @@
 								{:else}
 									{String(column.value(row))}
 								{/if}
+							{/snippet}
+						</DataTable.DataTable>
+					</div>
+
+					<div class="grid gap-3">
+						<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							Expandable detail rows
+						</h3>
+						<DataTable.DataTable
+							data={dataTablePeople}
+							columns={dataTableColumns}
+							ariaLabel="Personnel DataTable with expandable detail rows"
+							onRowClick={(row) => (expandedDataTableRow = expandedDataTableRow === row.id ? '' : row.id)}
+							rowActionLabel={(row) =>
+								`${expandedDataTableRow === row.id ? 'Collapse' : 'Expand'} detail row for ${row.name}`}
+							rowDetailVisible={(row) => expandedDataTableRow === row.id}
+						>
+							{#snippet rowDetail(row: DataTablePerson)}
+								<div class="grid gap-1 text-sm text-muted-foreground">
+									<span class="font-medium text-foreground">{row.name}</span>
+									<span>{row.group} readiness: {row.readiness}%</span>
+								</div>
 							{/snippet}
 						</DataTable.DataTable>
 					</div>

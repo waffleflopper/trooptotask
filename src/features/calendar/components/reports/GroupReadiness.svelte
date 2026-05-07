@@ -4,8 +4,8 @@
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 

@@ -4,8 +4,10 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
-	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { Badge as UiBadge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
@@ -139,12 +141,6 @@
 	function formatDateDisplay(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
 		return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
-
-	function handleGroupHeaderKeydown(event: KeyboardEvent, groupKey: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		table.toggleGroup(groupKey);
 	}
 
 	function handleReview() {
@@ -285,7 +281,7 @@
 					</div>
 
 					<div class="personnel-section">
-						<DataTable
+						<DataTable.DataTable
 							{columns}
 							{table}
 							compact
@@ -294,62 +290,40 @@
 							emptyMessage="No personnel available"
 							onRowClick={(person) => togglePerson(person.id)}
 						>
-							{#snippet toolbar(_state)}
-								<div class="selection-toolbar">
-									<div class="selection-stats">
-										<Badge label={`${selectedIds.size} selected`} variant="outlined" />
-										<Badge label={`${table.totalRows} shown`} variant="outlined" />
-									</div>
-									<div class="selection-actions">
-										<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
-										<button class="btn btn-secondary btn-sm" onclick={selectNone}>Clear</button>
-									</div>
-								</div>
+							{#snippet toolbar()}
+								<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={table.totalRows}>
+									<Button type="button" variant="outline" size="sm" onclick={selectVisible}>Select shown</Button>
+									<Button type="button" variant="outline" size="sm" onclick={selectNone}>Clear</Button>
+								</DataTable.BulkActions>
 							{/snippet}
 
 							{#snippet groupHeader(ctx)}
 								{@const selState = getGroupSelectionState(ctx.key)}
-								<div
-									class="group-header-content"
-									role="button"
-									tabindex="0"
-									onclick={() => ctx.toggle()}
-									onkeydown={(event) => handleGroupHeaderKeydown(event, ctx.key)}
-								>
-									<input
-										type="checkbox"
-										checked={selState === 'all'}
-										indeterminate={selState === 'some'}
-										onchange={() => toggleGroup(ctx.key)}
-										onclick={(e) => e.stopPropagation()}
-									/>
-									<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-										<path
-											fill-rule="evenodd"
-											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-									<span class="group-label">{ctx.label}</span>
-									<span class="group-count">({ctx.count})</span>
-								</div>
+								<DataTable.SelectionCheckbox
+									checked={selState === 'all'}
+									indeterminate={selState === 'some'}
+									ariaLabel={`Select ${ctx.label} group`}
+									onCheckedChange={() => toggleGroup(ctx.key)}
+								/>
+								<Button type="button" variant="ghost" onclick={ctx.toggle}>
+									{ctx.collapsed ? 'Expand' : 'Collapse'}
+									{ctx.label}
+									<UiBadge variant="outline">{ctx.count}</UiBadge>
+								</Button>
 							{/snippet}
 
 							{#snippet cell(row, col)}
 								{#if col.key === 'select'}
-									<input
-										type="checkbox"
+									<DataTable.SelectionCheckbox
 										checked={selectedIds.has(row.id)}
-										onchange={() => togglePerson(row.id)}
-										onclick={(e) => e.stopPropagation()}
+										ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+										onCheckedChange={() => togglePerson(row.id)}
 									/>
-								{:else if col.key === 'rank'}
-									<span class="rank-cell">{row.rank}</span>
 								{:else}
 									{String(col.value(row) ?? '')}
 								{/if}
 							{/snippet}
-						</DataTable>
+						</DataTable.DataTable>
 					</div>
 				</div>
 			</section>
@@ -385,7 +359,7 @@
 					<div class="personnel-list">
 						{#each selectedPersonnel as person (person.id)}
 							<div class="personnel-item">
-								<span class="rank-cell">{person.rank}</span>
+								<span class="person-rank">{person.rank}</span>
 								<span class="person-name">{person.lastName}, {person.firstName}</span>
 								{#if person.groupName}
 									<span class="person-group">{person.groupName}</span>
@@ -532,9 +506,7 @@
 		color: var(--text-secondary);
 	}
 
-	.summary-line,
-	.selection-stats,
-	.selection-toolbar {
+	.summary-line {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
@@ -572,52 +544,7 @@
 		overflow: visible;
 	}
 
-	.selection-toolbar {
-		justify-content: space-between;
-		padding: var(--sp-2) var(--sp-4);
-		border-bottom: 1px solid var(--divider-color);
-		background: var(--surface-panel);
-	}
-
-	.selection-actions {
-		display: flex;
-		gap: var(--sp-1);
-		flex-wrap: wrap;
-	}
-
-	.group-header-content {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		cursor: pointer;
-	}
-
-	.group-header-content input[type='checkbox'] {
-		cursor: pointer;
-		accent-color: var(--amber);
-	}
-
-	.chevron-icon {
-		width: 16px;
-		height: 16px;
-		transition: transform 0.15s ease;
-		flex-shrink: 0;
-	}
-
-	.chevron-icon.collapsed {
-		transform: rotate(-90deg);
-	}
-
-	.group-label {
-		font-weight: 600;
-	}
-
-	.group-count {
-		color: var(--text-tertiary);
-		font-weight: 400;
-	}
-
-	.rank-cell {
+	.person-rank {
 		font-weight: 600;
 		color: var(--amber);
 	}
@@ -725,10 +652,6 @@
 
 		.date-grid {
 			grid-template-columns: 1fr;
-		}
-
-		.selection-toolbar {
-			align-items: flex-start;
 		}
 
 		.confirm-heading,

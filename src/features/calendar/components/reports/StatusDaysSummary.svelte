@@ -4,10 +4,10 @@
 	import type { StatusDaysResult, StatusDayRow } from '../../utils/statusDaysReport';
 	import { computeStatusDays } from '../../utils/statusDaysReport';
 	import { exportStatusDaysCsv } from './StatusDaysSummaryExport';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -171,7 +171,7 @@
 	);
 
 	// --- useDataTable for sorting ---
-	const columns: ColumnDef<StatusDayRow>[] = [
+	const columns = $derived.by<ColumnDef<StatusDayRow>[]>(() => [
 		{
 			key: 'rank',
 			header: 'Rank',
@@ -183,17 +183,26 @@
 			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
+		...displayColumns.map((statusType) => ({
+			key: `status:${statusType.id}`,
+			header: statusType.name,
+			value: (r: StatusDayRow) => r.statusDays.get(statusType.id) ?? 0,
+			searchable: false,
+			sortable: false,
+			align: 'center' as const
+		})),
 		{
 			key: 'totalDays',
 			header: 'Total Days',
 			value: (r) => r.totalDays,
-			compare: (a, b) => a.totalDays - b.totalDays
+			compare: (a, b) => a.totalDays - b.totalDays,
+			align: 'center'
 		}
-	];
+	]);
 
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
-		columns,
+		columns: () => columns,
 		initialSortKey: 'name'
 	});
 </script>
@@ -369,36 +378,28 @@
 		{#if result.rows.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact striped">
-				<table aria-label="Status days summary">
-					<thead>
-						<tr>
-							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
-							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
-							{#each displayColumns as st (st.id)}
-								<th class="col-status">
-									<Badge label={st.name} color={st.color} textColor={st.textColor} />
-								</th>
-							{/each}
-							<th class="col-total" onclick={() => table.toggleSort('totalDays')}>Total Days</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as row (row.person.id)}
-							<tr>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								{#each displayColumns as st (st.id)}
-									<td class="col-status">
-										{(row.statusDays.get(st.id) ?? 0) > 0 ? row.statusDays.get(st.id) : ''}
-									</td>
-								{/each}
-								<td class="col-total">{row.totalDays > 0 ? row.totalDays : ''}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			<DataTable.DataTable
+				{table}
+				{columns}
+				ariaLabel="Status days summary"
+				compact
+				striped
+				emptyMessage="No data found for the selected criteria."
+			>
+				{#snippet cell(row, column)}
+					{#if column.key === 'rank'}
+						{row.person.rank}
+					{:else if column.key === 'name'}
+						{row.person.lastName}, {row.person.firstName}
+					{:else if column.key.startsWith('status:')}
+						{Number(column.value(row)) > 0 ? column.value(row) : ''}
+					{:else if column.key === 'totalDays'}
+						{row.totalDays > 0 ? row.totalDays : ''}
+					{:else}
+						{String(column.value(row) ?? '')}
+					{/if}
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
@@ -546,83 +547,6 @@
 		font-style: italic;
 	}
 
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-		text-align: center;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.striped tbody tr:nth-child(even) {
-		background: var(--surface-subtle);
-	}
-
-	tbody tr:hover {
-		background: var(--surface-page);
-	}
-
-	.col-rank {
-		width: 60px;
-		font-weight: 600;
-		color: var(--amber);
-		text-align: left;
-	}
-
-	.col-name {
-		min-width: 150px;
-		text-align: left;
-	}
-
-	.col-status {
-		min-width: 80px;
-	}
-
-	.col-total {
-		font-weight: 600;
-		min-width: 80px;
-	}
-
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
@@ -630,12 +554,6 @@
 
 		.date-row .form-group {
 			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

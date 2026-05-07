@@ -37,7 +37,7 @@
 	data-constrained={constrained || undefined}
 	style:max-height={maxHeight}
 	class={cn(
-		'overflow-hidden rounded-md border border-border bg-card text-card-foreground',
+		'w-full min-w-0 overflow-hidden rounded-md border border-border bg-card text-card-foreground',
 		'data-[constrained=true]:max-w-full',
 		'[&_[data-slot=table-container]]:max-h-[inherit] [&_[data-slot=table-container]]:overflow-auto',
 		'[&_[data-slot=table]]:text-sm',

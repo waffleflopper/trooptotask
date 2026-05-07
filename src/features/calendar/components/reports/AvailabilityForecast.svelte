@@ -3,10 +3,11 @@
 	import type { StatusType } from '$lib/types';
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -48,6 +49,10 @@
 	function toggleExpanded(date: string) {
 		if (expandedDates.has(date)) expandedDates.delete(date);
 		else expandedDates.add(date);
+	}
+
+	function toggleForecastRow(day: ForecastDay): void {
+		if (day.unavailableCount > 0) toggleExpanded(day.date);
 	}
 
 	function toggleGroup(groupId: string) {
@@ -128,19 +133,22 @@
 			key: 'unavailable',
 			header: 'Unavailable',
 			value: (r) => r.unavailableCount,
-			compare: (a, b) => a.unavailableCount - b.unavailableCount
+			compare: (a, b) => a.unavailableCount - b.unavailableCount,
+			align: 'center'
 		},
 		{
 			key: 'available',
 			header: 'Available',
 			value: (r) => r.availableCount,
-			compare: (a, b) => a.availableCount - b.availableCount
+			compare: (a, b) => a.availableCount - b.availableCount,
+			align: 'center'
 		},
 		{
 			key: 'percent',
 			header: 'Available %',
 			value: (r) => r.availablePercent,
-			compare: (a, b) => a.availablePercent - b.availablePercent
+			compare: (a, b) => a.availablePercent - b.availablePercent,
+			align: 'center'
 		}
 	];
 
@@ -208,62 +216,46 @@
 		{#if result.days.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact">
-				<table aria-label="Availability forecast">
-					<thead>
-						<tr>
-							<th class="col-date" onclick={() => table.toggleSort('date')}>Date</th>
-							<th class="col-data" onclick={() => table.toggleSort('unavailable')}>Unavailable</th>
-							<th class="col-data" onclick={() => table.toggleSort('available')}>Available</th>
-							<th class="col-data" onclick={() => table.toggleSort('percent')}>Available %</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as day (day.date)}
-							<tr
-								class="forecast-row"
-								class:expandable={day.unavailableCount > 0}
-								onclick={() => day.unavailableCount > 0 && toggleExpanded(day.date)}
-							>
-								<td class="col-date">
-									{#if day.unavailableCount > 0}
-										<span class="expand-icon">{expandedDates.has(day.date) ? '▾' : '▸'}</span>
-									{/if}
-									{formatDisplayDate(day.date)}
-								</td>
-								<td class="col-data">{day.unavailableCount}</td>
-								<td class="col-data">{day.availableCount}</td>
-								<td class="col-data">
-									<span
-										class="pct-value"
-										class:pct-green={day.availablePercent >= 80}
-										class:pct-orange={day.availablePercent >= 50 && day.availablePercent < 80}
-										class:pct-red={day.availablePercent < 50}
-									>
-										{day.availablePercent}%
-									</span>
-								</td>
-							</tr>
-							{#if expandedDates.has(day.date)}
-								<tr class="detail-row">
-									<td colspan="4">
-										<div class="detail-content">
-											{#each day.unavailablePersonnel as entry (entry.person.id)}
-												<span class="detail-person">
-													<span class="detail-name"
-														>{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span
-													>
-													<Badge label={entry.statusName} color={entry.statusColor} />
-												</span>
-											{/each}
-										</div>
-									</td>
-								</tr>
-							{/if}
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Availability forecast"
+				compact
+				striped
+				emptyMessage="No data found for the selected criteria."
+				onRowClick={toggleForecastRow}
+				rowActionLabel={(day) =>
+					day.unavailableCount > 0
+						? `${expandedDates.has(day.date) ? 'Collapse' : 'Expand'} unavailable personnel for ${formatDisplayDate(day.date)}`
+						: `Availability for ${formatDisplayDate(day.date)}`}
+				rowDetailVisible={(day) => expandedDates.has(day.date)}
+			>
+				{#snippet cell(day, column)}
+					{#if column.key === 'date'}
+						{#if day.unavailableCount > 0}
+							{expandedDates.has(day.date) ? 'Collapse' : 'Expand'} {formatDisplayDate(day.date)}
+						{:else}
+							{formatDisplayDate(day.date)}
+						{/if}
+					{:else if column.key === 'percent'}
+						{day.availablePercent}%
+					{:else}
+						{String(column.value(day) ?? '')}
+					{/if}
+				{/snippet}
+
+				{#snippet rowDetail(day)}
+					<ul>
+						{#each day.unavailablePersonnel as entry (entry.person.id)}
+							<li>
+								{entry.person.rank}
+								{entry.person.lastName}, {entry.person.firstName}
+								<Badge variant="outline">{entry.statusName}</Badge>
+							</li>
 						{/each}
-					</tbody>
-				</table>
-			</div>
+					</ul>
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
@@ -368,126 +360,6 @@
 		font-style: italic;
 	}
 
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.forecast-row:nth-child(odd) {
-		background: var(--surface-subtle);
-	}
-
-	.forecast-row:hover {
-		background: var(--surface-page);
-	}
-
-	.forecast-row.expandable {
-		cursor: pointer;
-	}
-
-	.col-date {
-		text-align: left;
-		min-width: 180px;
-		white-space: nowrap;
-	}
-
-	.col-data {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	th.col-date {
-		text-align: left;
-	}
-
-	.expand-icon {
-		display: inline-block;
-		width: 16px;
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	.pct-value {
-		font-weight: 600;
-	}
-
-	.pct-green {
-		color: var(--success);
-	}
-
-	.pct-orange {
-		color: var(--amber-dark);
-	}
-
-	.pct-red {
-		color: var(--danger);
-	}
-
-	.detail-row td {
-		padding: var(--sp-2) var(--sp-4);
-		background: var(--surface-page);
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.detail-content {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.detail-person {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-		font-size: var(--text-ui-sm);
-	}
-
-	.detail-name {
-		color: var(--text-primary);
-	}
-
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
@@ -495,12 +367,6 @@
 
 		.date-row .form-group {
 			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

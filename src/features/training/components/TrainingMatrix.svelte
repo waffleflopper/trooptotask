@@ -4,8 +4,8 @@
 	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
 	import { getCellDisplayText } from '$features/training/utils/cellDisplayText';
 	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {

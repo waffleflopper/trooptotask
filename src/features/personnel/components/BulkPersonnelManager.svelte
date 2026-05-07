@@ -7,9 +7,11 @@
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { Badge as UiBadge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
 	import BulkPersonnelMerge from './BulkPersonnelMerge.svelte';
 
@@ -590,7 +592,7 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 						{/each}
 					</div>
 
-					<DataTable
+					<DataTable.DataTable
 						table={archiveTable}
 						columns={archiveColumns}
 						ariaLabel="Personnel archive selection"
@@ -600,56 +602,38 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 						onRowClick={(person) => toggleSelect(person.id)}
 					>
 						{#snippet toolbar(tbl)}
-							<div class="archive-toolbar">
-								<div class="archive-stats">
-									<span class="archive-count">{selectedIds.size} selected</span>
-									<span class="archive-count">{tbl.totalRows} shown</span>
-								</div>
+							<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={tbl.totalRows}>
 								<span class="select-hint">Use a group header or any row to select people quickly.</span>
-							</div>
+							</DataTable.BulkActions>
 						{/snippet}
 
 						{#snippet groupHeader(group)}
 							{@const selState = getArchiveGroupSelectionState(group.key)}
-							<div class="archive-group-header">
-								<input
-									type="checkbox"
-									aria-label={`Select ${group.label} group`}
-									checked={selState === 'all'}
-									indeterminate={selState === 'some'}
-									onchange={() => toggleArchiveGroup(group.key)}
-									onclick={(event) => event.stopPropagation()}
-								/>
-								<button
-									class="archive-group-toggle"
-									type="button"
-									aria-expanded={!group.collapsed}
-									onclick={group.toggle}
-								>
-									<span class="archive-group-chevron">{group.collapsed ? '▶' : '▼'}</span>
-									<span class="archive-group-label">{group.label}</span>
-									<span class="archive-group-count">{group.count}</span>
-								</button>
-							</div>
+							<DataTable.SelectionCheckbox
+								ariaLabel={`Select ${group.label} group`}
+								checked={selState === 'all'}
+								indeterminate={selState === 'some'}
+								onCheckedChange={() => toggleArchiveGroup(group.key)}
+							/>
+							<Button type="button" variant="ghost" aria-expanded={!group.collapsed} onclick={group.toggle}>
+								{group.collapsed ? 'Expand' : 'Collapse'}
+								{group.label}
+								<UiBadge variant="outline">{group.count}</UiBadge>
+							</Button>
 						{/snippet}
 
 						{#snippet cell(row, col)}
 							{#if col.key === 'select'}
-								<input
-									type="checkbox"
+								<DataTable.SelectionCheckbox
 									checked={selectedIds.has(row.id)}
-									onchange={() => toggleSelect(row.id)}
-									onclick={(event) => event.stopPropagation()}
+									ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+									onCheckedChange={() => toggleSelect(row.id)}
 								/>
-							{:else if col.key === 'rank'}
-								<span class="item-rank">{row.rank}</span>
-							{:else if col.key === 'name'}
-								<span class="item-name">{row.lastName}, {row.firstName}</span>
-							{:else if col.key === 'role'}
-								<span class="item-role">{row.clinicRole || 'No duty role assigned'}</span>
+							{:else}
+								{String(col.value(row) ?? '')}
 							{/if}
 						{/snippet}
-					</DataTable>
+					</DataTable.DataTable>
 
 					{#if selectedIds.size > 0}
 						<div class="delete-warning">
@@ -1068,109 +1052,6 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 		border-radius: var(--radius-sm);
 		background: var(--surface-subtle);
 		font-size: var(--text-xs);
-	}
-
-	.archive-toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-		padding: var(--sp-3) var(--sp-4);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.archive-stats {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.archive-count {
-		display: inline-flex;
-		align-items: center;
-		min-height: 28px;
-		padding: 0 10px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.archive-group-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-4);
-	}
-
-	.archive-group-toggle {
-		appearance: none;
-		flex: 1;
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-height: 32px;
-		padding: 0;
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.archive-group-toggle:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-		box-shadow: var(--focus-ring);
-	}
-
-	.archive-group-chevron {
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	.archive-group-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.archive-group-count {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	.archive-group-header input[type='checkbox'] {
-		cursor: pointer;
-		accent-color: var(--danger);
-	}
-
-	.item-rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		min-width: 35px;
-	}
-
-	.item-name {
-		color: var(--text-primary);
-	}
-
-	.item-role {
-		color: var(--text-secondary);
 	}
 
 	.delete-warning {

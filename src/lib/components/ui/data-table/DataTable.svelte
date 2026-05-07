@@ -4,6 +4,7 @@
 		DataTableCellSnippet,
 		DataTableGroupHeaderSnippet,
 		DataTableHeaderSnippet,
+		DataTableRowDetailSnippet,
 		DataTableRowSnippet,
 		DataTableState,
 		DataTableStateSnippet,
@@ -42,6 +43,8 @@
 		maxHeight?: string;
 		cell?: DataTableCellSnippet<T>;
 		row?: DataTableRowSnippet<T>;
+		rowDetail?: DataTableRowDetailSnippet<T>;
+		rowDetailVisible?: (row: T) => boolean;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -75,6 +78,8 @@
 		maxHeight,
 		cell,
 		row,
+		rowDetail,
+		rowDetailVisible,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -129,6 +134,8 @@
 	{maxHeight}
 	{cell}
 	{row}
+	{rowDetail}
+	{rowDetailVisible}
 	{headerCell}
 	{groupHeader}
 	toolbar={toolbar || showSearch ? combinedToolbar : undefined}

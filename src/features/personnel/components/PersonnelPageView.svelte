@@ -2,18 +2,18 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { Toggle } from '$lib/components/ui/toggle';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
-	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel } from '$lib/types';
-	import { SvelteMap } from 'svelte/reactivity';
+	import PinIcon from '@lucide/svelte/icons/pin';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -29,8 +29,6 @@
 		{ value: 'by-group', label: 'Group' }
 	];
 
-	const awardTrackingOverrides = new SvelteMap<string, boolean>();
-	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canViewRoster = $derived(permissions?.canViewPersonnel ?? false);
 	const upcomingLossMap = $derived(ctx.upcomingLossMap);
@@ -106,44 +104,12 @@
 		groupedTable.setSearch(rosterSearch);
 	});
 
-	const handleRowClick = $derived((person: Personnel) =>
-		ctx.canManagePersonnelRecord(person) ? ctx.handleEdit(person) : undefined
+	const handleRowClick = $derived.by(
+		() => (person: Personnel) => (ctx.canManagePersonnelRecord(person) ? ctx.handleEdit(person) : undefined)
 	);
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
-	}
-
-	function isAwardTrackingAcknowledged(personId: string, lossRecord: UpcomingLossRecord): boolean {
-		return awardTrackingOverrides.has(personId)
-			? Boolean(awardTrackingOverrides.get(personId))
-			: lossRecord.awardTrackingAcknowledged;
-	}
-
-	function getAwardTrackingActionLabel(acknowledged: boolean): string {
-		return acknowledged ? 'Clear ack' : 'Ack award';
-	}
-
-	async function setAwardTrackingAcknowledged(personId: string, acknowledged: boolean) {
-		if (savingAwardTrackingByPersonId.get(personId) === true) return;
-
-		savingAwardTrackingByPersonId.set(personId, true);
-		try {
-			const response = await fetch(`/org/${ctx.orgId}/api/personnel/${personId}/award-tracking`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acknowledged })
-			});
-			if (!response.ok) {
-				throw new Error(`Failed to update award acknowledgement for ${personId}`);
-			}
-
-			awardTrackingOverrides.set(personId, acknowledged);
-		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to update award acknowledgement');
-		} finally {
-			savingAwardTrackingByPersonId.delete(personId);
-		}
 	}
 </script>
 
@@ -236,7 +202,7 @@
 				</div>
 			{:else}
 				<div class="roster-table-region">
-					<DataTable
+					<DataTable.DataTable
 						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 						columns={personnelColumns}
 						onRowClick={handleRowClick}
@@ -248,78 +214,51 @@
 					>
 						{#snippet cell(row, col)}
 							{@const lossRecord = upcomingLossMap.get(row.id)}
-							{#if col.key === 'rank'}
-								<span class="cell-rank">{row.rank}</span>
-							{:else if col.key === 'name'}
-								<span class="cell-name-group">
-									<span class="cell-name">{row.lastName}, {row.firstName}</span>
-									{#if lossRecord}
-										<span
-											class="loss-chip"
-											class:loss-chip--ets={lossRecord.triggerType === 'ETS'}
-											data-testid="loss-indicator-{row.id}"
-											title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
-												? ''
-												: 's'}">{lossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
-										>
-									{/if}
-								</span>
+							{#if col.key === 'name'}
+								{row.lastName}, {row.firstName}
+								{#if lossRecord}
+									<Badge
+										variant={lossRecord.triggerType === 'ETS' ? 'secondary' : 'outline'}
+										data-testid="loss-indicator-{row.id}"
+										title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
+											? ''
+											: 's'}"
+									>
+										{lossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}
+									</Badge>
+								{/if}
 							{:else if col.key === 'actions'}
-								<div class="row-actions">
-									{#if lossRecord && ctx.canManagePersonnelRecord(row)}
-										{@const awardTrackingAcknowledged = isAwardTrackingAcknowledged(row.id, lossRecord)}
-										<button
-											class="btn btn-sm btn-secondary"
-											type="button"
-											title={awardTrackingAcknowledged
-												? 'Remove the award acknowledgement'
-												: 'Acknowledge that the award requirement is being tracked'}
-											disabled={readOnly || savingAwardTrackingByPersonId.get(row.id) === true}
-											data-testid="award-ack-action-{row.id}"
-											onclick={(e) => {
-												e.stopPropagation();
-												void setAwardTrackingAcknowledged(row.id, !awardTrackingAcknowledged);
-											}}
-										>
-											{getAwardTrackingActionLabel(awardTrackingAcknowledged)}
-										</button>
-									{/if}
-									{#if ctx.canManagePersonnelRecord(row)}
-										<button
-											class="btn btn-sm btn-secondary"
-											type="button"
-											onclick={(e) => {
-												e.stopPropagation();
-												ctx.handleEdit(row);
-											}}
-										>
-											Edit
-										</button>
-									{/if}
-								</div>
+								{#if ctx.canManagePersonnelRecord(row)}
+									<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
+								{/if}
 							{:else}
 								{String(col.value(row) ?? '')}
 							{/if}
 						{/snippet}
 						{#snippet groupHeader(group)}
-							<div class="dt-group-header">
-								<button class="dt-group-toggle" type="button" onclick={group.toggle}>
-									<span class="dt-toggle-icon">{group.collapsed ? '▶' : '▼'}</span>
-									<span class="dt-group-label">{group.label}</span>
-									<span class="dt-group-count">{group.count}</span>
-								</button>
-								<button
-									class="dt-pin-btn"
-									type="button"
-									class:pinned={pinnedGroupsStore.list.includes(group.key)}
-									onclick={() => pinnedGroupsStore.toggle(group.key)}
-									title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
-								>
-									{pinnedGroupsStore.list.includes(group.key) ? 'Pinned' : 'Pin'}
-								</button>
-							</div>
+							<Toggle
+								size="sm"
+								class="data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-primary data-[state=on]:*:[svg]:stroke-primary"
+								pressed={pinnedGroupsStore.list.includes(group.key)}
+								onPressedChange={() => pinnedGroupsStore.toggle(group.key)}
+								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
+								aria-label={pinnedGroupsStore.list.includes(group.key) ? `Unpin ${group.label}` : `Pin ${group.label}`}
+							>
+								<PinIcon />
+							</Toggle>
+							<Button
+								type="button"
+								variant="ghost"
+								class="border-0 bg-transparent shadow-none"
+								onclick={group.toggle}
+								aria-expanded={!group.collapsed}
+								aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+							>
+								{group.label}
+								<Badge variant="outline">{group.count}</Badge>
+							</Button>
 						{/snippet}
-					</DataTable>
+					</DataTable.DataTable>
 				</div>
 			{/if}
 		</main>
@@ -349,9 +288,10 @@
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
+		min-width: 0;
 	}
 
-	.roster-table-region :global(.data-table) {
+	.roster-table-region :global([data-slot='data-table']) {
 		width: 100%;
 		flex: 1 1 auto;
 		min-height: 0;
@@ -426,147 +366,6 @@
 		line-height: var(--line-height-copy);
 	}
 
-	.cell-rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.cell-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	/* ── Loss indicator chip ─────────────────────────────────────────────────
-	   Lightweight row-level signal for personnel approaching ETS or PCS/DEROS.
-	   Mirrors the trigger-chip styling in UpcomingLossesWidget for consistency;
-	   kept intentionally small so the roster remains readable at a glance.
-	──────────────────────────────────────────────────────────────────────── */
-	.cell-name-group {
-		display: inline-flex;
-		align-items: baseline;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.row-actions {
-		display: flex;
-		justify-content: flex-end;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.loss-chip {
-		display: inline-flex;
-		align-items: center;
-		flex-shrink: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-		padding: 1px 5px;
-		border-radius: var(--radius-sm);
-		white-space: nowrap;
-		line-height: 1.4;
-		/* PCS / DEROS default: neutral tint — matches UpcomingLossesWidget */
-		background: var(--ink-06);
-		color: var(--text-secondary);
-	}
-
-	/* ETS: amber-tinted to flag impending separation */
-	.loss-chip--ets {
-		background: color-mix(in srgb, var(--amber-light) 80%, var(--surface-panel) 20%);
-		color: var(--amber-dark);
-	}
-
-	.dt-group-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		width: 100%;
-	}
-
-	.dt-group-toggle {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: 9px 0;
-		background: transparent;
-		border: none;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.dt-toggle-icon {
-		font-size: 10px;
-		width: 12px;
-		color: var(--amber-dark);
-	}
-
-	.dt-group-label {
-		color: var(--text-primary);
-	}
-
-	.dt-group-count {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 22px;
-		min-height: 22px;
-		padding: 3px 6px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-	}
-
-	.dt-pin-btn {
-		appearance: none;
-		min-height: 32px;
-		padding: 0 10px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.dt-pin-btn:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.dt-pin-btn.pinned {
-		border-color: var(--amber);
-		background: var(--amber-light);
-		color: var(--amber-dark);
-	}
-
 	@media (max-width: 640px) {
 		.page-content.roster-content {
 			padding: var(--sp-3);
@@ -581,10 +380,6 @@
 			flex-direction: column;
 			align-items: stretch;
 			flex-basis: auto;
-		}
-
-		.dt-pin-btn {
-			min-height: 44px;
 		}
 	}
 

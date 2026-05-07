@@ -12,7 +12,7 @@ import type {
 	DutyRosterTemplateAcceptedRun,
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
-import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+import type { ColumnDef } from '$lib/components/ui/data-table';
 
 export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
 

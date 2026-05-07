@@ -12,6 +12,7 @@
 		DataTableCellSnippet,
 		DataTableGroupHeaderSnippet,
 		DataTableHeaderSnippet,
+		DataTableRowDetailSnippet,
 		DataTableRowSnippet,
 		DataTableState,
 		DataTableStateSnippet
@@ -33,6 +34,8 @@
 		maxHeight?: string;
 		cell?: DataTableCellSnippet<T>;
 		row?: DataTableRowSnippet<T>;
+		rowDetail?: DataTableRowDetailSnippet<T>;
+		rowDetailVisible?: (row: T) => boolean;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -55,6 +58,8 @@
 		maxHeight,
 		cell,
 		row: rowSnippet,
+		rowDetail,
+		rowDetailVisible,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -139,13 +144,15 @@
 					<Table.Row data-slot="data-table-group-row">
 						<Table.Cell colspan={cols.length} class="bg-muted/45 p-0">
 							{#if groupHeader}
-								{@render groupHeader({
-									key: group.key,
-									label: group.label,
-									count: group.rows.length,
-									collapsed: group.collapsed,
-									toggle: () => table.toggleGroup(group.key)
-								})}
+								<div class="flex items-center gap-2 px-3 py-2">
+									{@render groupHeader({
+										key: group.key,
+										label: group.label,
+										count: group.rows.length,
+										collapsed: group.collapsed,
+										toggle: () => table.toggleGroup(group.key)
+									})}
+								</div>
 							{:else}
 								<button
 									type="button"
@@ -179,6 +186,13 @@
 										</Table.Cell>
 									{/each}
 								</Table.Row>
+								{#if rowDetail && rowDetailVisible?.(row)}
+									<Table.Row data-slot="data-table-detail-row">
+										<Table.Cell colspan={cols.length} class="bg-muted/25">
+											{@render rowDetail(row)}
+										</Table.Cell>
+									</Table.Row>
+								{/if}
 							{/if}
 						{/each}
 					{/if}
@@ -206,6 +220,13 @@
 								</Table.Cell>
 							{/each}
 						</Table.Row>
+						{#if rowDetail && rowDetailVisible?.(row)}
+							<Table.Row data-slot="data-table-detail-row">
+								<Table.Cell colspan={cols.length} class="bg-muted/25">
+									{@render rowDetail(row)}
+								</Table.Cell>
+							</Table.Row>
+						{/if}
 					{/if}
 				{/each}
 			</Table.Body>

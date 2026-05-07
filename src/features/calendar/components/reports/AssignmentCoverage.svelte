@@ -4,8 +4,9 @@
 	import type { AssignmentCoverageResult, CoverageRow } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -176,8 +177,7 @@
 		URL.revokeObjectURL(url);
 	}
 
-	// --- useDataTable for sorting ---
-	const tableColumns: ColumnDef<CoverageRow>[] = [
+	const tableColumns = $derived.by<ColumnDef<CoverageRow>[]>(() => [
 		{
 			key: 'rank',
 			header: 'Rank',
@@ -189,17 +189,34 @@
 			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
+		...displayTypes.map((assignmentType) => ({
+			key: `assignment:${assignmentType.id}`,
+			header: assignmentType.name,
+			value: (r: CoverageRow) => r.assignmentCounts.get(assignmentType.id) ?? 0,
+			searchable: false,
+			sortable: false,
+			align: 'center' as const
+		})),
 		{
 			key: 'totalAssignments',
 			header: 'Total',
 			value: (r) => r.totalAssignments,
-			compare: (a, b) => a.totalAssignments - b.totalAssignments
+			compare: (a, b) => a.totalAssignments - b.totalAssignments,
+			align: 'center'
+		},
+		{
+			key: 'vsAvg',
+			header: 'vs Avg',
+			value: (r) => Math.round((r.totalAssignments - (result?.averageTotal ?? 0)) * 10) / 10,
+			searchable: false,
+			sortable: false,
+			align: 'center'
 		}
-	];
+	]);
 
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
-		columns: tableColumns,
+		columns: () => tableColumns,
 		initialSortKey: 'name'
 	});
 </script>
@@ -285,58 +302,47 @@
 		{#if result.rows.length === 0 || displayTypes.length === 0}
 			<p class="no-data">No assignment data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact striped">
-				<table aria-label="Assignment coverage report">
-					<thead>
-						<tr>
-							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
-							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
-							{#each displayTypes as at (at.id)}
-								<th class="col-data">
-									<span class="col-header-badge" style:background={at.color}>{at.name}</span>
-								</th>
-							{/each}
-							<th class="col-data col-total" onclick={() => table.toggleSort('totalAssignments')}>Total</th>
-							<th class="col-data col-vs-avg">vs Avg</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as row (row.person.id)}
-							{@const vsAvg = Math.round((row.totalAssignments - result.averageTotal) * 10) / 10}
-							<tr>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								{#each displayTypes as at (at.id)}
-									<td class="col-data">
-										{(row.assignmentCounts.get(at.id) ?? 0) > 0 ? row.assignmentCounts.get(at.id) : ''}
-									</td>
-								{/each}
-								<td class="col-data col-total">{row.totalAssignments > 0 ? row.totalAssignments : ''}</td>
-								<td class="col-data col-vs-avg">
-									{#if vsAvg > 0}
-										<span class="vs-above">+{vsAvg}</span>
-									{:else if vsAvg < 0}
-										<span class="vs-below">{vsAvg}</span>
-									{:else}
-										<span class="vs-even">0</span>
-									{/if}
-								</td>
-							</tr>
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Assignment coverage report"
+				compact
+				striped
+				emptyMessage="No assignment data found for the selected criteria."
+			>
+				{#snippet cell(row, column)}
+					{#if column.key === 'rank'}
+						{row.person.rank}
+					{:else if column.key === 'name'}
+						{row.person.lastName}, {row.person.firstName}
+					{:else if column.key.startsWith('assignment:')}
+						{column.value(row) || ''}
+					{:else if column.key === 'totalAssignments'}
+						{row.totalAssignments > 0 ? row.totalAssignments : ''}
+					{:else if column.key === 'vsAvg'}
+						{@const vsAvg = Number(column.value(row))}
+						{#if vsAvg > 0}
+							+{vsAvg}
+						{:else if vsAvg < 0}
+							{vsAvg}
+						{:else}
+							0
+						{/if}
+					{:else}
+						{String(column.value(row) ?? '')}
+					{/if}
+				{/snippet}
+
+				{#snippet footer()}
+					<p aria-label="Assignment coverage averages">
+						Average
+						{#each displayTypes as at (at.id)}
+							<span>{at.name}: {averageByType.get(at.id) ?? 0}</span>
 						{/each}
-					</tbody>
-					<tfoot>
-						<tr class="avg-row">
-							<td class="col-rank"></td>
-							<td class="col-name avg-label">Average</td>
-							{#each displayTypes as at (at.id)}
-								<td class="col-data">{averageByType.get(at.id) ?? 0}</td>
-							{/each}
-							<td class="col-data col-total">{result.averageTotal}</td>
-							<td class="col-data col-vs-avg"></td>
-						</tr>
-					</tfoot>
-				</table>
-			</div>
+						<span>Total: {result?.averageTotal ?? 0}</span>
+					</p>
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
@@ -462,124 +468,6 @@
 		font-style: italic;
 	}
 
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-		text-align: center;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.striped tbody tr:nth-child(even) {
-		background: var(--surface-subtle);
-	}
-
-	tbody tr:hover {
-		background: var(--surface-page);
-	}
-
-	.col-rank {
-		width: 60px;
-		font-weight: 600;
-		color: var(--amber);
-		text-align: left;
-	}
-
-	.col-name {
-		min-width: 150px;
-		text-align: left;
-	}
-
-	.col-data {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	.col-total {
-		font-weight: 600;
-	}
-
-	.col-vs-avg {
-		min-width: 70px;
-	}
-
-	.col-header-badge {
-		display: inline-block;
-		padding: 2px var(--sp-2);
-		border-radius: var(--radius-pill);
-		color: white;
-		font-size: var(--text-xs);
-		font-weight: 600;
-	}
-
-	.vs-above {
-		color: var(--success);
-		font-weight: 600;
-	}
-
-	.vs-below {
-		color: var(--danger);
-		font-weight: 600;
-	}
-
-	.vs-even {
-		color: var(--text-tertiary);
-	}
-
-	.avg-row {
-		background: var(--surface-subtle);
-		border-top: 2px solid var(--border-default);
-	}
-
-	.avg-row td {
-		font-weight: 600;
-		font-style: italic;
-	}
-
-	.avg-label {
-		text-align: left;
-	}
-
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
@@ -587,12 +475,6 @@
 
 		.date-row .form-group {
 			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

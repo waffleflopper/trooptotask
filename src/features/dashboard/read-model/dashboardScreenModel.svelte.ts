@@ -122,6 +122,7 @@ export interface DashboardOutTodayRow {
 	rank: string;
 	statusName: string;
 	statusColor: string;
+	statusTextColor: string;
 	startDate: string;
 	endDate: string;
 	statusTypeId: string;
@@ -482,6 +483,7 @@ export class DashboardScreenModel {
 					rank: person.rank ?? '',
 					statusName: st.name,
 					statusColor: st.color,
+					statusTextColor: st.textColor,
 					startDate: e.startDate,
 					endDate: e.endDate,
 					statusTypeId: e.statusTypeId,

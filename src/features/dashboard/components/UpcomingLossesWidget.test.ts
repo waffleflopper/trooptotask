@@ -39,7 +39,7 @@ describe('UpcomingLossesWidget', () => {
 		expect(screen.queryByRole('list')).toBeNull();
 	});
 
-	it('renders last names directly, formatted dates, ordering, and award signals for provided loss entries', () => {
+	it('renders last names directly, formatted dates, ordering, and trigger details for provided loss entries', () => {
 		render(UpcomingLossesWidget, {
 			props: {
 				losses: [
@@ -82,24 +82,13 @@ describe('UpcomingLossesWidget', () => {
 		expect(rows[1].textContent).toContain('ETS');
 		expect(rows[1].textContent).toContain('Fmt 2026-05-01');
 		expect(rows[1].textContent).toContain('17 days');
-		expect(screen.getAllByText('AWD')).toHaveLength(2);
-	});
-
-	it('omits the award signal when awardDueSoon is false', () => {
-		render(UpcomingLossesWidget, {
-			props: {
-				losses: [makeLoss({ awardDueSoon: false })],
-				formatDate: (date) => date
-			}
-		});
-
 		expect(screen.queryByText('AWD')).toBeNull();
 	});
 
-	it('does not render a replacement tracking badge once award tracking is acknowledged', () => {
+	it('does not render award reminder badges while the award reminder system is undecided', () => {
 		render(UpcomingLossesWidget, {
 			props: {
-				losses: [makeLoss({ awardDueSoon: false, awardTrackingAcknowledged: true })],
+				losses: [makeLoss({ awardDueSoon: true, awardTrackingAcknowledged: false })],
 				formatDate: (date) => date
 			}
 		});

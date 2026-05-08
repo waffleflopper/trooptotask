@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
@@ -36,14 +36,14 @@
 	<title>{ctx.data.orgName} — Dashboard — Troop to Task</title>
 </svelte:head>
 
-<div class="dashboard-page">
+<div class="flex h-full flex-col">
 	<Tabs.Root
 		value={dashboardTabStore.activeTab}
 		onValueChange={handleTabChange}
 		class="min-h-0 flex-1 gap-0"
 		activationMode="manual"
 	>
-		<div class="dashboard-toolbar">
+		<div class="px-3 pt-3 sm:px-6 sm:pt-4">
 			<WorkspaceToolbar.Root ariaLabel="Dashboard controls">
 				<WorkspaceToolbar.Group label="Dashboard sections">
 					<Tabs.List aria-label="Dashboard views">
@@ -81,17 +81,17 @@
 			{/if}
 		</div>
 
-		<main class="dashboard-canvas page-scroll" id="main-content">
+		<main class="page-scroll flex-1 overflow-y-auto" id="main-content">
 			{#if ctx.isHydrating || dashboardTabStore.loading}
-				<div class="dashboard-skeleton" aria-busy="true" aria-live="polite" role="status">
-					<div class="skeleton-row skeleton-row--3">
-						<SkeletonBlock height="160px" />
-						<SkeletonBlock height="160px" />
-						<SkeletonBlock height="160px" />
+				<div class="flex flex-col gap-3 p-4" aria-busy="true" aria-live="polite" role="status">
+					<div class="grid gap-3 lg:grid-cols-3">
+						<Skeleton data-testid="skeleton-block" class="h-40" />
+						<Skeleton data-testid="skeleton-block" class="h-40" />
+						<Skeleton data-testid="skeleton-block" class="h-40" />
 					</div>
-					<div class="skeleton-row skeleton-row--2">
-						<SkeletonBlock height="220px" />
-						<SkeletonBlock height="220px" />
+					<div class="grid gap-3 md:grid-cols-2">
+						<Skeleton data-testid="skeleton-block" class="h-55" />
+						<Skeleton data-testid="skeleton-block" class="h-55" />
 					</div>
 				</div>
 			{:else}
@@ -114,55 +114,3 @@
 		</main>
 	</Tabs.Root>
 </div>
-
-<style>
-	.dashboard-page {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-	}
-
-	.dashboard-canvas {
-		flex: 1;
-		overflow-y: auto;
-	}
-
-	.dashboard-toolbar {
-		padding: var(--sp-4) var(--sp-6) 0;
-	}
-
-	/* Loading skeleton */
-	.dashboard-skeleton {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-	}
-
-	.skeleton-row {
-		display: grid;
-		gap: var(--sp-3);
-	}
-
-	.skeleton-row--2 {
-		grid-template-columns: 1fr 1fr;
-	}
-
-	.skeleton-row--3 {
-		grid-template-columns: 1fr 1fr 1fr;
-	}
-
-	@media (max-width: 720px) {
-		.dashboard-toolbar {
-			padding: var(--sp-3) var(--sp-3) 0;
-		}
-
-		.skeleton-row--3 {
-			grid-template-columns: 1fr;
-		}
-
-		.skeleton-row--2 {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

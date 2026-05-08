@@ -1,4 +1,9 @@
 <script lang="ts">
+	/**
+	 * @deprecated Use the compound shadcn-backed field primitives from
+	 * `$lib/components/ui/field` with `Input`, `Textarea`, `NativeSelect`,
+	 * `Select`, `Combobox`, or `MultiSelect` for new work.
+	 */
 	import type { Snippet } from 'svelte';
 
 	interface Props {

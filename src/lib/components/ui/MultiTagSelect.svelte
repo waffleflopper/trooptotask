@@ -1,4 +1,8 @@
 <script lang="ts">
+	/**
+	 * @deprecated Use the compound shadcn-backed `ui/multi-select` API for new work.
+	 * Existing production routes should migrate in their own route-scoped slices.
+	 */
 	export interface TagOption {
 		value: string;
 		label: string;

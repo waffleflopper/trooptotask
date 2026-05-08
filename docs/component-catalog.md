@@ -20,8 +20,9 @@ Replacement previews:
 - Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
-- Legacy `SearchSelect` is represented by the shadcn `command` component.
-- Legacy `MultiTagSelect` is represented by the shadcn-style `combobox` multi-select with chips.
+- Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `NativeSelect`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect`.
+- Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
+- Legacy `MultiTagSelect` is replaced by the shadcn-style `ui/multi-select` compound API with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
 
 Rules:
@@ -427,9 +428,103 @@ Stage states: `completed` (before current — filled dot, primary connector), `c
 
 ---
 
-## `ui/FormField.svelte`
+## Shared Form Controls
 
-Labeled form field with mono label treatment, error/hint states, and accessibility wiring.
+New form work should use the shadcn-svelte-backed shared control system. The durable public API is compound and explicit: routes compose labels, controls, descriptions, errors, values, disabled state, and handlers. Routes must not restyle controls locally.
+
+```svelte
+<script lang="ts">
+    import * as Field from '$lib/components/ui/field';
+    import { Input } from '$lib/components/ui/input';
+    import { Textarea } from '$lib/components/ui/textarea';
+    import { NativeSelect } from '$lib/components/ui/native-select';
+    import * as Select from '$lib/components/ui/select';
+    import { Checkbox } from '$lib/components/ui/checkbox';
+    import * as RadioGroup from '$lib/components/ui/radio-group';
+    import { Switch } from '$lib/components/ui/switch';
+
+    let title = $state('');
+    let status = $state('ready');
+</script>
+
+<Field.Root>
+    <Field.Label for="task-title">Task title <span aria-hidden="true">*</span></Field.Label>
+    <Field.Control>
+        <Input id="task-title" name="title" bind:value={title} required aria-describedby="task-title-help" />
+    </Field.Control>
+    <Field.Description id="task-title-help">Use the official task name.</Field.Description>
+</Field.Root>
+
+<Field.Root data-invalid>
+    <Field.Label for="task-notes">Notes</Field.Label>
+    <Field.Control>
+        <Textarea id="task-notes" aria-invalid="true" aria-describedby="task-notes-error" />
+    </Field.Control>
+    <Field.Error id="task-notes-error">Notes are required.</Field.Error>
+</Field.Root>
+
+<Field.Root>
+    <Field.Label for="native-status">Native status</Field.Label>
+    <Field.Control>
+        <NativeSelect id="native-status" bind:value={status}>
+            <option value="ready">Ready</option>
+            <option value="watch">Watch</option>
+        </NativeSelect>
+    </Field.Control>
+</Field.Root>
+
+<Field.Root>
+    <Field.Label id="custom-status-label">Custom status</Field.Label>
+    <Field.Control>
+        <Select.Root type="single" bind:value={status}>
+            <Select.Trigger aria-labelledby="custom-status-label">Ready</Select.Trigger>
+            <Select.Content>
+                <Select.Item value="ready" label="Ready" />
+                <Select.Item value="watch" label="Watch" />
+            </Select.Content>
+        </Select.Root>
+    </Field.Control>
+</Field.Root>
+
+<Field.Root orientation="horizontal">
+    <Checkbox id="include-archive" />
+    <Field.Label for="include-archive">Include archived records</Field.Label>
+</Field.Root>
+
+<Field.Root orientation="horizontal">
+    <Switch id="approval-required" />
+    <Field.Label for="approval-required">Approval required</Field.Label>
+</Field.Root>
+
+<RadioGroup.Root bind:value={status}>
+    <Field.Root orientation="horizontal">
+        <RadioGroup.Item id="standard" value="standard" />
+        <Field.Label for="standard">Standard</Field.Label>
+    </Field.Root>
+</RadioGroup.Root>
+```
+
+Public components:
+
+- `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox, radio, and switch rows.
+- `Field.Group`: stacked field group for related controls.
+- `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
+- `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire `for`, `id`, `aria-describedby`, and `aria-invalid` explicitly.
+- `Input`, `Textarea`, `NativeSelect`, `Select.Root/Trigger/Content/Item`, `Checkbox`, `RadioGroup.Root/Item`, and `Switch` are the shared controls.
+
+Rules:
+
+- Use `NativeSelect` for simple forms where browser-native behavior, native form submission, or mobile picker behavior is preferable.
+- Use `Select` for toolbar filters, compact menus, and short option sets where custom trigger composition is useful.
+- Use `Checkbox` for selection, inclusion, or batch choices. Use `Switch` only for immediate on/off settings.
+- Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
+- Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
+- Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
+- Toolbar-compact usage should compose the same controls inside `WorkspaceToolbar.Group`, using shared active counts rather than visual route overrides.
+
+## Deprecated `ui/FormField.svelte`
+
+`FormField.svelte` is deprecated for new work. It remains only for existing production routes until those routes migrate to the compound `ui/field` API.
 
 ```svelte
 <!-- Simple text input -->
@@ -466,9 +561,116 @@ Field guidance:
 
 ---
 
-## `ui/SearchSelect.svelte`
+## `ui/combobox`
 
-Searchable single-select with keyboard navigation and clear button. Use when `<select>` is too limiting but you still want a shared field treatment.
+Compound shadcn-style combobox primitives for searchable single-select and multi-select controls. Use this as the `SearchSelect` replacement.
+
+```svelte
+<script lang="ts">
+    import * as Combobox from '$lib/components/ui/combobox';
+
+    const people = [
+        { value: 'avery', label: 'Avery Brooks', description: 'HQ', group: 'HQ' },
+        { value: 'maya', label: 'Maya Chen', description: 'A Co', group: 'Line companies' },
+        { value: 'jon', label: 'Jon Bell', description: 'B Co', group: 'Line companies', disabled: true }
+    ];
+    let selectedPerson = $state('');
+</script>
+
+<Combobox.Root items={people} name="personId" autoHighlight bind:value={selectedPerson} label="Person">
+    <Combobox.Trigger clearable aria-label="Person">
+        {people.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'}
+    </Combobox.Trigger>
+    <Combobox.Content>
+        <Combobox.Empty>No people found.</Combobox.Empty>
+        <Combobox.List>
+            {#snippet children(value, option)}
+                <Combobox.Item {value} label={option.label} description={option.description} />
+            {/snippet}
+        </Combobox.List>
+    </Combobox.Content>
+</Combobox.Root>
+```
+
+For multi-select behavior, either use `Combobox.Root multiple` directly or prefer the `ui/multi-select` namespace below when the control is conceptually a multi-select.
+
+Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Chip` and `Item` require `value: string`; `Item` can also receive `label` and `description`.
+
+- Use for large option lists, searchable personnel/template/type lookup, clearable and non-clearable search selection, and no-results states.
+- Pass string items for simple lists. Pass object options when routes need stable ids, display labels, descriptions, group headings, or disabled options.
+- When `name` is provided, `Combobox.Root` renders hidden inputs for native form submission. Single-select renders one hidden input; multi-select renders one hidden input per selected value using the same name.
+- Use `loading` and `loadingText` for async option fetches. Keep the loading copy generic and route-owned; the visual loading state stays in the shared component.
+- `Combobox.Trigger` is the single-select trigger. `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection.
+- Large lists, async/loading option states, empty states, and keyboard paths must be proven in `/ui-showroom` before route usage.
+- Visual changes belong in shared combobox source only.
+
+## `ui/multi-select`
+
+Compound namespace for chip-based multi-selects. It composes the same shared combobox foundation but exposes the route-facing API as `MultiSelect.Root`, `MultiSelect.Trigger`, `MultiSelect.Content`, `MultiSelect.Item`, and `MultiSelect.Chip`.
+
+```svelte
+<script lang="ts">
+    import * as MultiSelect from '$lib/components/ui/multi-select';
+
+    const groups = [
+        { value: 'hq', label: 'HQ', group: 'Staff' },
+        { value: 'a-co', label: 'A Co', group: 'Line companies' },
+        { value: 'b-co', label: 'B Co', group: 'Line companies' }
+    ];
+    let selectedGroups = $state<string[]>(['hq']);
+</script>
+
+<MultiSelect.Root items={groups} multiple name="groupIds" bind:value={selectedGroups} label="Groups">
+    <MultiSelect.Trigger>
+        <MultiSelect.Value>
+            {#snippet children(values)}
+                {#each values as groupValue (groupValue)}
+                    {@const group = groups.find((option) => option.value === groupValue)}
+                    <MultiSelect.Chip value={groupValue}>{group?.label ?? groupValue}</MultiSelect.Chip>
+                {/each}
+                <MultiSelect.Input placeholder="Groups" aria-label="Groups" />
+            {/snippet}
+        </MultiSelect.Value>
+    </MultiSelect.Trigger>
+    <MultiSelect.Content>
+        <MultiSelect.Empty>No groups found.</MultiSelect.Empty>
+        <MultiSelect.List>
+            {#snippet children(value, option)}
+                <MultiSelect.Item {value} label={option.label} />
+            {/snippet}
+        </MultiSelect.List>
+    </MultiSelect.Content>
+</MultiSelect.Root>
+```
+
+Toolbar compact pattern:
+
+```svelte
+<WorkspaceToolbar.Group label="Groups" activeCount={selectedGroups.length}>
+    <MultiSelect.Root items={groups} multiple bind:value={selectedGroups} label="Groups">
+        <MultiSelect.Trigger>
+            <MultiSelect.Value>
+                {#snippet children(values)}
+                    <span>{values.length} selected</span>
+                    <MultiSelect.Input aria-label="Groups" />
+                {/snippet}
+            </MultiSelect.Value>
+        </MultiSelect.Trigger>
+        <MultiSelect.Content>...</MultiSelect.Content>
+    </MultiSelect.Root>
+</WorkspaceToolbar.Group>
+```
+
+- Use for training, Critical Tasks, duty roster, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
+- Selected values should render as removable chips in regular forms and as an active count in compact toolbars.
+- Backspace removes the last selected value when the search input is empty.
+- Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.
+- Provide `name` when selected values must participate in native form submission.
+- Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and showroom example.
+
+## Deprecated `ui/SearchSelect.svelte`
+
+`SearchSelect.svelte` is deprecated for new work. Use `ui/combobox`.
 
 ```svelte
 <SearchSelect
@@ -489,11 +691,9 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 
 ---
 
-## `ui/MultiTagSelect.svelte`
+## Deprecated `ui/MultiTagSelect.svelte`
 
-Searchable multi-select that renders selected values as removable badges inside the input area. Use this instead of native `multiple` selects when users need to pick several items from a long list.
-
-New shadcn-svelte migration work should prefer `ui/combobox` for chip-based multi-selects. `MultiTagSelect` remains documented for existing route usage until those routes migrate.
+`MultiTagSelect.svelte` is deprecated for new work. Use `ui/multi-select`.
 
 ```svelte
 <MultiTagSelect
@@ -511,48 +711,6 @@ Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeh
 - Selected values render as mono badges with remove buttons
 - The dropdown stays open while selecting multiple options and repositions on scroll/resize
 - Prefer concise `ariaLabel` text that describes the field, such as `"Filter by MOS"` or `"Template scope groups"`
-
----
-
-## `ui/combobox`
-
-Compound shadcn-style combobox primitives for searchable multi-selects with removable chips. The API mirrors the React shadcn combobox multiple pattern while using Svelte snippets.
-
-```svelte
-<script lang="ts">
-    import * as Combobox from '$lib/components/ui/combobox/index.js';
-
-    const frameworks = ['Next.js', 'SvelteKit', 'Nuxt.js', 'Remix', 'Astro'];
-    let selectedFrameworks = $state<string[]>(['Next.js']);
-</script>
-
-<Combobox.Root items={frameworks} multiple autoHighlight bind:value={selectedFrameworks}>
-    <Combobox.Chips>
-        <Combobox.Value>
-            {#snippet children(values)}
-                {#each values as value (value)}
-                    <Combobox.Chip value={value}>{value}</Combobox.Chip>
-                {/each}
-                <Combobox.ChipsInput placeholder="Add framework" aria-label="Add framework" />
-            {/snippet}
-        </Combobox.Value>
-    </Combobox.Chips>
-    <Combobox.Content>
-        <Combobox.Empty>No items found.</Combobox.Empty>
-        <Combobox.List>
-            {#snippet children(item)}
-                <Combobox.Item value={item}>{item}</Combobox.Item>
-            {/snippet}
-        </Combobox.List>
-    </Combobox.Content>
-</Combobox.Root>
-```
-
-Props: `Root` accepts `items: readonly string[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Chip` and `Item` require `value: string`.
-
-- Multi-select stays open while selecting, filters through the command primitive, and removes the last chip with Backspace when the input is empty.
-- `Combobox.Content` anchors to `Combobox.Chips`, so the popup width follows the chip input surface.
-- Visual changes belong in the shared combobox source and must be proven in `/ui-showroom` before route usage.
 
 ---
 

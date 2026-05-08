@@ -2,15 +2,37 @@ import { getContext, setContext } from 'svelte';
 
 const COMBOBOX_CONTEXT = Symbol('combobox');
 
+export interface ComboboxOption {
+	value: string;
+	label: string;
+	description?: string;
+	group?: string;
+	disabled?: boolean;
+}
+
+export type ComboboxItemInput =
+	| string
+	| {
+			value: string;
+			label?: string;
+			description?: string;
+			group?: string;
+			disabled?: boolean;
+	  };
+
 export interface ComboboxContext {
 	multiple: boolean;
 	disabled: boolean;
+	loading: boolean;
+	loadingText: string;
 	open: boolean;
-	items: readonly string[];
+	items: readonly ComboboxOption[];
 	search: string;
 	anchor: HTMLElement | null;
 	content: HTMLElement | null;
 	getSelectedValues: () => string[];
+	getSelectedLabels: () => string[];
+	getOption: (value: string) => ComboboxOption | undefined;
 	isSelected: (value: string) => boolean;
 	setSearch: (search: string) => void;
 	setAnchor: (anchor: HTMLElement | null) => void;

@@ -37,7 +37,10 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import * as MultiSelect from '$lib/components/ui/multi-select/index.js';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu/index.js';
+	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
@@ -67,6 +70,12 @@
 	];
 
 	const frameworks = ['Next.js', 'SvelteKit', 'Nuxt.js', 'Remix', 'Astro'];
+	const largePersonnelList = Array.from({ length: 80 }, (_, index) => ({
+		value: `person-${String(index + 1).padStart(2, '0')}`,
+		label: `Personnel ${String(index + 1).padStart(2, '0')}`,
+		description: index % 2 === 0 ? 'HQ' : 'Line company',
+		group: index < 20 ? 'HQ' : index < 50 ? 'A Co' : 'B Co'
+	}));
 
 	const personnel = [
 		{ name: 'Avery Brooks', group: 'HQ', status: 'Ready', readiness: 96 },
@@ -140,6 +149,8 @@
 	];
 
 	let selectedStatus = $state('ready');
+	let nativeStatus = $state('ready');
+	let selectedPerson = $state('person-12');
 	let tab = $state('account');
 	let date = $state('2026-05-06');
 	let page = $state(2);
@@ -148,6 +159,7 @@
 	let radioValue = $state('standard');
 	let files = $state<FileList>();
 	let selectedFrameworks = $state<string[]>(['Next.js']);
+	let selectedToolbarFilters = $state<string[]>(['SvelteKit', 'Astro']);
 	let toolbarView = $state<'month' | 'long-range'>('month');
 	let toolbarGroup = $state('all');
 	let toolbarStatus = $state('all');
@@ -170,6 +182,9 @@
 	});
 
 	const selectedStatusLabel = $derived(statuses.find((status) => status.value === selectedStatus)?.label ?? 'Status');
+	const selectedPersonLabel = $derived(
+		largePersonnelList.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'
+	);
 	const toolbarGroupOptions = [
 		{ value: 'all', label: 'Group: All' },
 		{ value: 'hq', label: 'HQ' },
@@ -344,17 +359,44 @@
 				<section class="grid gap-4" aria-labelledby="forms-title">
 					<h2 id="forms-title" class="text-xl font-semibold tracking-tight">Forms</h2>
 					<div class="grid gap-4 md:grid-cols-2">
+						<Field.Root>
+							<Field.Label for="showroom-title">Task title <span aria-hidden="true">*</span></Field.Label>
+							<Field.Control>
+								<Input id="showroom-title" value="Weapons qualification follow-up" required />
+							</Field.Control>
+							<Field.Description>Shown in task lists, reports, and import review.</Field.Description>
+						</Field.Root>
+						<Field.Root data-invalid>
+							<Field.Label for="showroom-invalid">Invalid</Field.Label>
+							<Field.Control>
+								<Input
+									id="showroom-invalid"
+									value="Missing date"
+									aria-invalid="true"
+									aria-describedby="showroom-invalid-error"
+								/>
+							</Field.Control>
+							<Field.Error id="showroom-invalid-error">A completion date is required.</Field.Error>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="showroom-disabled">Disabled</Field.Label>
+							<Field.Control>
+								<Input id="showroom-disabled" value="Locked after approval" disabled />
+							</Field.Control>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="showroom-readonly">Read-only</Field.Label>
+							<Field.Control>
+								<Input id="showroom-readonly" value="System managed" readonly />
+							</Field.Control>
+						</Field.Root>
 						<div class="grid gap-2">
-							<Label for="showroom-title">Task title</Label>
-							<Input id="showroom-title" value="Weapons qualification follow-up" />
-						</div>
-						<div class="grid gap-2">
-							<Label for="showroom-disabled">Disabled</Label>
-							<Input id="showroom-disabled" value="Locked after approval" disabled />
-						</div>
-						<div class="grid gap-2">
-							<Label for="showroom-invalid">Invalid</Label>
-							<Input id="showroom-invalid" value="Missing date" aria-invalid="true" />
+							<Label for="showroom-native-status">Native select</Label>
+							<NativeSelect id="showroom-native-status" bind:value={nativeStatus}>
+								{#each statuses as status (status.value)}
+									<option value={status.value}>{status.label}</option>
+								{/each}
+							</NativeSelect>
 						</div>
 						<div class="grid gap-2">
 							<Label>Status</Label>
@@ -378,27 +420,63 @@
 								{files?.length ? `${files.length} file selected` : 'No file selected'}
 							</p>
 						</div>
+						<Field.Root>
+							<Field.Label>Large-list combobox</Field.Label>
+							<Field.Control>
+								<Combobox.Root
+									items={largePersonnelList}
+									name="showroomPersonId"
+									autoHighlight
+									bind:value={selectedPerson}
+									label="Personnel lookup"
+								>
+									<Combobox.Trigger clearable aria-label="Personnel lookup">{selectedPersonLabel}</Combobox.Trigger>
+									<Combobox.Content>
+										<Combobox.Empty>No personnel found.</Combobox.Empty>
+										<Combobox.List>
+											{#snippet children(value, option)}
+												<Combobox.Item {value} label={option.label} description={option.description} />
+											{/snippet}
+										</Combobox.List>
+									</Combobox.Content>
+								</Combobox.Root>
+							</Field.Control>
+							<Field.Description>Clearable search for long option lists.</Field.Description>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label>Loading options</Field.Label>
+							<Field.Control>
+								<Combobox.Root items={[]} loading loadingText="Loading personnel..." label="Loading personnel">
+									<Combobox.Trigger aria-label="Loading personnel">Search personnel</Combobox.Trigger>
+									<Combobox.Content>
+										<Combobox.List />
+									</Combobox.Content>
+								</Combobox.Root>
+							</Field.Control>
+						</Field.Root>
 					</div>
-					<div class="flex flex-wrap gap-6">
-						<div class="flex items-center gap-2">
-							<Checkbox id="include-detached" bind:checked={includeDetached} />
-							<Label for="include-detached">Include detached personnel</Label>
-						</div>
-						<div class="flex items-center gap-2">
-							<Switch id="require-review" bind:checked={requireReview} />
-							<Label for="require-review">Require review</Label>
-						</div>
+					<div class="grid gap-4 md:grid-cols-2">
+						<Field.Group>
+							<Field.Root orientation="horizontal">
+								<Checkbox id="include-detached" bind:checked={includeDetached} />
+								<Field.Label for="include-detached">Include detached personnel</Field.Label>
+							</Field.Root>
+							<Field.Root orientation="horizontal">
+								<Switch id="require-review" bind:checked={requireReview} />
+								<Field.Label for="require-review">Require review</Field.Label>
+							</Field.Root>
+						</Field.Group>
+						<RadioGroup.Root bind:value={radioValue}>
+							<Field.Root orientation="horizontal">
+								<RadioGroup.Item value="standard" id="standard" />
+								<Field.Label for="standard">Standard</Field.Label>
+							</Field.Root>
+							<Field.Root orientation="horizontal">
+								<RadioGroup.Item value="expedited" id="expedited" />
+								<Field.Label for="expedited">Expedited</Field.Label>
+							</Field.Root>
+						</RadioGroup.Root>
 					</div>
-					<RadioGroup.Root bind:value={radioValue}>
-						<div class="flex items-center gap-2">
-							<RadioGroup.Item value="standard" id="standard" />
-							<Label for="standard">Standard</Label>
-						</div>
-						<div class="flex items-center gap-2">
-							<RadioGroup.Item value="expedited" id="expedited" />
-							<Label for="expedited">Expedited</Label>
-						</div>
-					</RadioGroup.Root>
 					<InputGroup.Root>
 						<InputGroup.Addon>
 							<Search />
@@ -408,6 +486,19 @@
 							<ChevronDown />
 						</InputGroup.Button>
 					</InputGroup.Root>
+					<div class="sr-only" aria-live="polite">
+						{selectedToolbarFilters.length} toolbar filters selected
+					</div>
+				</section>
+
+				<section class="grid gap-4" aria-labelledby="legacy-forms-title">
+					<h2 id="legacy-forms-title" class="text-xl font-semibold tracking-tight">Legacy baseline references</h2>
+					<div class="grid gap-4 md:grid-cols-2">
+						<div class="grid gap-2">
+							<Label for="showroom-title-legacy">Legacy-shaped input reference</Label>
+							<Input id="showroom-title-legacy" value="Weapons qualification follow-up" />
+						</div>
+					</div>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="toolbar-title">
@@ -486,6 +577,37 @@
 									</div>
 								</DropdownMenu.Content>
 							</DropdownMenu.Root>
+						</WorkspaceToolbar.Group>
+
+						<WorkspaceToolbar.Group label="Framework filters" activeCount={selectedToolbarFilters.length}>
+							<MultiSelect.Root
+								items={frameworks}
+								multiple
+								name="showroomFrameworkFilters"
+								bind:value={selectedToolbarFilters}
+								label="Framework filters"
+							>
+								<MultiSelect.Trigger>
+									<MultiSelect.Value>
+										{#snippet children(values)}
+											{#if values.length === 0}
+												<MultiSelect.Input placeholder="Frameworks" aria-label="Framework filters" />
+											{:else}
+												<span>{values.length} selected</span>
+												<MultiSelect.Input aria-label="Framework filters" />
+											{/if}
+										{/snippet}
+									</MultiSelect.Value>
+								</MultiSelect.Trigger>
+								<MultiSelect.Content>
+									<MultiSelect.Empty>No filters found.</MultiSelect.Empty>
+									<MultiSelect.List>
+										{#snippet children(item)}
+											<MultiSelect.Item value={item}>{item}</MultiSelect.Item>
+										{/snippet}
+									</MultiSelect.List>
+								</MultiSelect.Content>
+							</MultiSelect.Root>
 						</WorkspaceToolbar.Group>
 
 						<WorkspaceToolbar.Group label="Calendar search" class="min-w-0 shrink">
@@ -673,6 +795,33 @@
 								</Combobox.List>
 							</Combobox.Content>
 						</Combobox.Root>
+						<MultiSelect.Root
+							items={frameworks}
+							multiple
+							name="showroomTrainingFilters"
+							autoHighlight
+							bind:value={selectedFrameworks}
+							label="Training filters"
+						>
+							<MultiSelect.Trigger>
+								<MultiSelect.Value>
+									{#snippet children(values)}
+										{#each values as framework (framework)}
+											<MultiSelect.Chip value={framework}>{framework}</MultiSelect.Chip>
+										{/each}
+										<MultiSelect.Input placeholder="Select training filters" aria-label="Training filters" />
+									{/snippet}
+								</MultiSelect.Value>
+							</MultiSelect.Trigger>
+							<MultiSelect.Content>
+								<MultiSelect.Empty>No filters found.</MultiSelect.Empty>
+								<MultiSelect.List>
+									{#snippet children(item)}
+										<MultiSelect.Item value={item}>{item}</MultiSelect.Item>
+									{/snippet}
+								</MultiSelect.List>
+							</MultiSelect.Content>
+						</MultiSelect.Root>
 					</div>
 				</section>
 

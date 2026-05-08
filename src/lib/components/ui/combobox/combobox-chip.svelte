@@ -18,6 +18,7 @@
 	} = $props();
 
 	const context = getComboboxContext();
+	const removeLabel = $derived(value ? (context.getOption(value)?.label ?? value) : '');
 
 	const refAttachment: Attachment<HTMLSpanElement> = (node) => {
 		ref = node;
@@ -42,7 +43,7 @@
 			type="button"
 			data-slot="combobox-chip-remove"
 			class="hover:bg-accent-foreground/10 flex h-6 shrink-0 cursor-pointer items-center justify-center rounded-md px-1.5 text-inherit opacity-80 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring [&_svg:not([class*='size-'])]:size-3.5"
-			aria-label={`Remove ${value}`}
+			aria-label={`Remove ${removeLabel}`}
 			disabled={context.disabled}
 			onclick={(event) => {
 				event.stopPropagation();

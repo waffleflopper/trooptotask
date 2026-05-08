@@ -1,0 +1,16 @@
+export { default as Root } from './operational-matrix-root.svelte';
+export { default as Toolbar } from './operational-matrix-toolbar.svelte';
+export { default as Legend } from './operational-matrix-legend.svelte';
+export { default as Viewport } from './operational-matrix-viewport.svelte';
+export { default as Table } from './operational-matrix-table.svelte';
+export { default as Header } from './operational-matrix-header.svelte';
+export { default as Body } from './operational-matrix-body.svelte';
+export { default as Row } from './operational-matrix-row.svelte';
+export { default as RowGroup } from './operational-matrix-row-group.svelte';
+export { default as RowHeader } from './operational-matrix-row-header.svelte';
+export { default as Corner } from './operational-matrix-corner.svelte';
+export { default as ColumnHeader } from './operational-matrix-column-header.svelte';
+export { default as Cell } from './operational-matrix-cell.svelte';
+export { default as Empty } from './operational-matrix-empty.svelte';
+export { default as Loading } from './operational-matrix-loading.svelte';
+export type { OperationalMatrixLegendItem, OperationalMatrixState } from './types.js';

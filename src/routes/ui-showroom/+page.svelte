@@ -43,6 +43,11 @@
 	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
+	import type {
+		OperationalMatrixLegendItem,
+		OperationalMatrixState
+	} from '$lib/components/ui/operational-matrix/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
@@ -150,6 +155,158 @@
 		{ label: 'Thu', ready: 91, gaps: 9 }
 	];
 
+	type MatrixColumn = {
+		id: string;
+		label: string;
+		short: string;
+		description: string;
+		rotated?: boolean;
+	};
+
+	type MatrixRow = {
+		id: string;
+		name: string;
+		meta: string;
+		group: string;
+		cells: Array<{
+			columnId: string;
+			state: OperationalMatrixState;
+			label: string;
+			value: string;
+			detail: string;
+		}>;
+	};
+
+	const matrixLegend: OperationalMatrixLegendItem[] = [
+		{ state: 'complete', label: 'Complete' },
+		{ state: 'warning', label: 'Warning' },
+		{ state: 'expired', label: 'Expired' },
+		{ state: 'incomplete', label: 'Incomplete' },
+		{ state: 'assigned', label: 'Assigned' },
+		{ state: 'info', label: 'Calendar status' },
+		{ state: 'disabled', label: 'Not available' }
+	];
+
+	const criticalTaskColumns: MatrixColumn[] = [
+		{
+			id: 'ict-1',
+			label: 'Tactical movement',
+			short: 'ICT-1',
+			description: 'Critical Tasks requirement',
+			rotated: true
+		},
+		{ id: 'ict-2', label: 'Medical lane', short: 'ICT-2', description: 'Critical Tasks requirement', rotated: true },
+		{ id: 'ict-3', label: 'Comms check', short: 'ICT-3', description: 'Critical Tasks requirement', rotated: true },
+		{ id: 'ict-4', label: 'Weapons', short: 'ICT-4', description: 'Critical Tasks requirement', rotated: true }
+	];
+
+	const trainingColumns: MatrixColumn[] = [
+		{ id: 'cyber', label: 'Cyber Awareness', short: 'Cyber', description: 'Annual training' },
+		{ id: 'sharp', label: 'SHARP', short: 'SHARP', description: 'Annual training' },
+		{ id: 'cls', label: 'Combat Lifesaver', short: 'CLS', description: 'Medical training' },
+		{ id: 'range', label: 'Range Safety', short: 'RSO', description: 'Range requirement' }
+	];
+
+	const da6Columns: MatrixColumn[] = [
+		{ id: 'may-12', label: '12 May', short: '12 May', description: 'Staff Duty' },
+		{ id: 'may-13', label: '13 May', short: '13 May', description: 'Staff Duty' },
+		{ id: 'may-14', label: '14 May', short: '14 May', description: 'Staff Duty' },
+		{ id: 'may-15', label: '15 May', short: '15 May', description: 'Staff Duty' }
+	];
+
+	const matrixRows: MatrixRow[] = [
+		{
+			id: 'brooks',
+			name: 'Brooks, Avery',
+			meta: 'CPT | HQ',
+			group: 'Headquarters',
+			cells: [
+				{ columnId: 'ict-1', state: 'complete', label: 'Complete', value: 'Current', detail: 'Validated 2026-04-12.' },
+				{
+					columnId: 'ict-2',
+					state: 'warning',
+					label: 'Expiring soon',
+					value: '28 days',
+					detail: 'Renewal window is open.'
+				},
+				{
+					columnId: 'ict-3',
+					state: 'expired',
+					label: 'Expired',
+					value: 'Past due',
+					detail: 'Completion is outside the valid window.'
+				},
+				{
+					columnId: 'ict-4',
+					state: 'incomplete',
+					label: 'Incomplete',
+					value: 'Missing',
+					detail: 'No completion recorded.'
+				},
+				{
+					columnId: 'cyber',
+					state: 'complete',
+					label: 'Complete',
+					value: '2027-01-10',
+					detail: 'Annual requirement met.'
+				},
+				{ columnId: 'sharp', state: 'warning', label: 'Warning', value: '45 days', detail: 'Expires soon.' },
+				{ columnId: 'cls', state: 'incomplete', label: 'Incomplete', value: 'Missing', detail: 'No record found.' },
+				{ columnId: 'range', state: 'complete', label: 'Complete', value: '2026-11-01', detail: 'Range card current.' },
+				{ columnId: 'may-12', state: 'assigned', label: 'Assigned', value: 'X', detail: 'Assigned Staff Duty.' },
+				{ columnId: 'may-13', state: 'neutral', label: 'Queue', value: '2', detail: 'DA6 queue position.' },
+				{ columnId: 'may-14', state: 'disabled', label: 'Unavailable', value: 'A', detail: 'Authorized absence.' },
+				{ columnId: 'may-15', state: 'neutral', label: 'Queue', value: '3', detail: 'DA6 queue position.' },
+				{ columnId: 'jun-01', state: 'info', label: 'Leave', value: 'LV', detail: 'Approved leave.' },
+				{ columnId: 'jun-02', state: 'info', label: 'Leave', value: 'LV', detail: 'Approved leave.' },
+				{ columnId: 'jun-03', state: 'neutral', label: 'Available', value: 'Ready', detail: 'No status recorded.' },
+				{ columnId: 'jun-04', state: 'assigned', label: 'Duty', value: 'CQ', detail: 'Assigned CQ.' }
+			]
+		},
+		{
+			id: 'chen',
+			name: 'Chen, Maya',
+			meta: 'SGT | A Co',
+			group: 'Alpha Company',
+			cells: [
+				{ columnId: 'ict-1', state: 'warning', label: 'Warning', value: '15 days', detail: 'Renewal due soon.' },
+				{ columnId: 'ict-2', state: 'complete', label: 'Complete', value: 'Current', detail: 'Validated.' },
+				{ columnId: 'ict-3', state: 'complete', label: 'Complete', value: 'Current', detail: 'Validated.' },
+				{ columnId: 'ict-4', state: 'expired', label: 'Expired', value: 'Past due', detail: 'Completion is expired.' },
+				{
+					columnId: 'cyber',
+					state: 'expired',
+					label: 'Expired',
+					value: '2025-12-02',
+					detail: 'Annual training expired.'
+				},
+				{
+					columnId: 'sharp',
+					state: 'complete',
+					label: 'Complete',
+					value: '2026-09-18',
+					detail: 'Annual requirement met.'
+				},
+				{
+					columnId: 'cls',
+					state: 'complete',
+					label: 'Complete',
+					value: '2026-10-22',
+					detail: 'Medical training current.'
+				},
+				{ columnId: 'range', state: 'incomplete', label: 'Incomplete', value: 'Missing', detail: 'No record found.' },
+				{ columnId: 'may-12', state: 'neutral', label: 'Queue', value: '1', detail: 'DA6 queue position.' },
+				{ columnId: 'may-13', state: 'assigned', label: 'Assigned', value: 'X', detail: 'Assigned Staff Duty.' },
+				{ columnId: 'may-14', state: 'danger', label: 'Conflict', value: 'D', detail: 'Chargeable duty conflict.' },
+				{ columnId: 'may-15', state: 'neutral', label: 'Queue', value: '2', detail: 'DA6 queue position.' },
+				{ columnId: 'jun-01', state: 'neutral', label: 'Available', value: 'Ready', detail: 'No status recorded.' },
+				{ columnId: 'jun-02', state: 'info', label: 'TDY', value: 'TDY', detail: 'Temporary duty.' },
+				{ columnId: 'jun-03', state: 'info', label: 'TDY', value: 'TDY', detail: 'Temporary duty.' },
+				{ columnId: 'jun-04', state: 'warning', label: 'Review', value: 'Gap', detail: 'Coverage needs review.' }
+			]
+		}
+	];
+
 	let selectedStatus = $state('ready');
 	let nativeStatus = $state('ready');
 	let selectedPerson = $state('person-12');
@@ -230,6 +387,18 @@
 		}
 
 		return { tone: 'valid', description: 'Ready to import.' };
+	}
+
+	function matrixCell(row: MatrixRow, column: MatrixColumn) {
+		return (
+			row.cells.find((cell) => cell.columnId === column.id) ?? {
+				columnId: column.id,
+				state: 'empty' as OperationalMatrixState,
+				label: 'No data',
+				value: '',
+				detail: 'No cell data provided.'
+			}
+		);
 	}
 </script>
 
@@ -1269,6 +1438,230 @@
 							/>
 						</div>
 					</ReportWorkspace.Root>
+				</section>
+
+				<section class="grid gap-5" aria-labelledby="operational-matrix-title">
+					<div class="grid gap-2">
+						<h2 id="operational-matrix-title" class="text-xl font-semibold tracking-tight">Operational Matrix</h2>
+						<p class="max-w-3xl text-sm text-muted-foreground">
+							Shared dense grid foundation for Critical Tasks, training, and DA6 surfaces. Calendar long-range status
+							grids are intentionally left as a separate design-system gap.
+						</p>
+					</div>
+
+					<OperationalMatrix.Root ariaLabel="Showroom Critical Tasks matrix" density="compact">
+						<OperationalMatrix.Toolbar ariaLabel="Critical Tasks matrix controls">
+							<WorkspaceToolbar.Group label="Matrix examples">
+								<ButtonGroup.Root aria-label="Matrix example view">
+									<Button variant="secondary" aria-pressed="true">Critical Tasks</Button>
+									<Button variant="outline" aria-pressed="false">Training</Button>
+									<Button variant="outline" aria-pressed="false">DA6</Button>
+									<Button variant="outline" aria-pressed="false">Calendar</Button>
+								</ButtonGroup.Root>
+							</WorkspaceToolbar.Group>
+							<WorkspaceToolbar.Group label="Matrix actions" zone="actions">
+								<Button variant="outline" size="sm">Export</Button>
+								<Button variant="outline" size="sm">Print</Button>
+							</WorkspaceToolbar.Group>
+						</OperationalMatrix.Toolbar>
+						<OperationalMatrix.Legend items={matrixLegend} />
+						<OperationalMatrix.Viewport ariaLabel="Critical Tasks sticky matrix viewport">
+							<OperationalMatrix.Table ariaLabel="Critical Tasks operational matrix example">
+								<OperationalMatrix.Header>
+									<tr>
+										<OperationalMatrix.Corner label="Personnel" />
+										{#each criticalTaskColumns as column (column.id)}
+											<OperationalMatrix.ColumnHeader
+												label={column.label}
+												description={column.description}
+												compactLabel={column.short}
+												rotated={column.rotated}
+											/>
+										{/each}
+									</tr>
+								</OperationalMatrix.Header>
+								<OperationalMatrix.Body>
+									<OperationalMatrix.RowGroup
+										label="Headquarters"
+										meta="Critical Tasks readiness"
+										colspan={criticalTaskColumns.length + 1}
+									/>
+									{#each matrixRows as row (row.id)}
+										<OperationalMatrix.Row>
+											<OperationalMatrix.RowHeader label={row.name}>
+												<span class="font-medium">{row.name}</span>
+												<span class="text-xs text-muted-foreground">{row.meta}</span>
+											</OperationalMatrix.RowHeader>
+											{#each criticalTaskColumns as column (column.id)}
+												{@const cell = matrixCell(row, column)}
+												<OperationalMatrix.Cell
+													state={cell.state}
+													label={cell.label}
+													value={cell.value}
+													detail={cell.detail}
+													rowLabel={row.name}
+													columnLabel={column.label}
+													actionLabel={`Open ${row.name} ${column.label}`}
+													labelVisibility="hidden"
+													onSelect={() => undefined}
+												/>
+											{/each}
+										</OperationalMatrix.Row>
+									{/each}
+								</OperationalMatrix.Body>
+							</OperationalMatrix.Table>
+						</OperationalMatrix.Viewport>
+					</OperationalMatrix.Root>
+
+					<div class="grid gap-4 lg:grid-cols-2">
+						<OperationalMatrix.Root ariaLabel="Showroom training matrix" density="default">
+							<OperationalMatrix.Legend
+								items={[
+									{ state: 'complete', label: 'Current' },
+									{ state: 'warning', label: 'Expiring' },
+									{ state: 'expired', label: 'Expired' },
+									{ state: 'incomplete', label: 'Missing' }
+								]}
+							/>
+							<OperationalMatrix.Viewport ariaLabel="Training constrained matrix viewport" maxHeight="22rem">
+								<OperationalMatrix.Table ariaLabel="Training operational matrix example">
+									<OperationalMatrix.Header>
+										<tr>
+											<OperationalMatrix.Corner label="Soldier" />
+											{#each trainingColumns as column (column.id)}
+												<OperationalMatrix.ColumnHeader
+													label={column.label}
+													description={column.description}
+													compactLabel={column.short}
+												/>
+											{/each}
+										</tr>
+									</OperationalMatrix.Header>
+									<OperationalMatrix.Body>
+										<OperationalMatrix.RowGroup
+											label="Alpha Company"
+											meta="Training by type"
+											colspan={trainingColumns.length + 1}
+										/>
+										{#each matrixRows as row (row.id)}
+											<OperationalMatrix.Row>
+												<OperationalMatrix.RowHeader label={row.name}>
+													<span class="font-medium">{row.name}</span>
+													<span class="text-xs text-muted-foreground">{row.group}</span>
+												</OperationalMatrix.RowHeader>
+												{#each trainingColumns as column (column.id)}
+													{@const cell = matrixCell(row, column)}
+													<OperationalMatrix.Cell
+														state={cell.state}
+														label={cell.label}
+														value={cell.value}
+														detail={cell.detail}
+														rowLabel={row.name}
+														columnLabel={column.label}
+													/>
+												{/each}
+											</OperationalMatrix.Row>
+										{/each}
+									</OperationalMatrix.Body>
+								</OperationalMatrix.Table>
+							</OperationalMatrix.Viewport>
+						</OperationalMatrix.Root>
+
+						<OperationalMatrix.Root ariaLabel="Showroom DA6 matrix" density="dense" readOnly>
+							<OperationalMatrix.Legend
+								items={[
+									{ state: 'assigned', label: 'Assigned' },
+									{ state: 'neutral', label: 'DA6 count' },
+									{ state: 'disabled', label: 'Authorized absence' },
+									{ state: 'danger', label: 'Chargeable conflict' }
+								]}
+							/>
+							<OperationalMatrix.Viewport ariaLabel="DA6 matrix viewport" maxHeight="22rem">
+								<OperationalMatrix.Table ariaLabel="DA6 operational matrix example">
+									<OperationalMatrix.Header>
+										<tr>
+											<OperationalMatrix.Corner label="Roster order" />
+											{#each da6Columns as column (column.id)}
+												<OperationalMatrix.ColumnHeader
+													label={column.label}
+													description={column.description}
+													compactLabel={column.short}
+												/>
+											{/each}
+										</tr>
+									</OperationalMatrix.Header>
+									<OperationalMatrix.Body>
+										{#each matrixRows as row (row.id)}
+											<OperationalMatrix.Row>
+												<OperationalMatrix.RowHeader label={row.name}>
+													<span class="font-medium">{row.name}</span>
+													<span class="text-xs text-muted-foreground">{row.meta}</span>
+												</OperationalMatrix.RowHeader>
+												{#each da6Columns as column (column.id)}
+													{@const cell = matrixCell(row, column)}
+													<OperationalMatrix.Cell
+														state={cell.state}
+														label={cell.label}
+														value={cell.value}
+														detail={cell.detail}
+														rowLabel={row.name}
+														columnLabel={column.label}
+														readOnly
+													/>
+												{/each}
+											</OperationalMatrix.Row>
+										{/each}
+									</OperationalMatrix.Body>
+								</OperationalMatrix.Table>
+							</OperationalMatrix.Viewport>
+						</OperationalMatrix.Root>
+					</div>
+
+					<div class="grid gap-4 md:grid-cols-3">
+						<OperationalMatrix.Root ariaLabel="Loading matrix example" loading>
+							<OperationalMatrix.Loading rows={4} columns={5} label="Loading matrix rows" />
+						</OperationalMatrix.Root>
+						<OperationalMatrix.Root ariaLabel="Empty matrix example">
+							<OperationalMatrix.Viewport ariaLabel="Empty matrix viewport" maxHeight="12rem">
+								<OperationalMatrix.Table ariaLabel="Empty operational matrix">
+									<OperationalMatrix.Body>
+										<OperationalMatrix.Empty
+											title="No matching matrix rows"
+											description="The shared empty state stays inside the matrix frame."
+											colspan={5}
+										/>
+									</OperationalMatrix.Body>
+								</OperationalMatrix.Table>
+							</OperationalMatrix.Viewport>
+						</OperationalMatrix.Root>
+						<div class="dark rounded-lg border border-border bg-background p-3 text-foreground">
+							<OperationalMatrix.Root ariaLabel="Dark mode matrix example" density="dense">
+								<OperationalMatrix.Legend items={matrixLegend.slice(0, 4)} />
+								<OperationalMatrix.Viewport ariaLabel="Dark matrix viewport" maxHeight="12rem">
+									<OperationalMatrix.Table ariaLabel="Dark mode operational matrix">
+										<OperationalMatrix.Header>
+											<tr>
+												<OperationalMatrix.Corner label="Dark" />
+												<OperationalMatrix.ColumnHeader label="Ready" />
+											</tr>
+										</OperationalMatrix.Header>
+										<OperationalMatrix.Body>
+											<OperationalMatrix.Row>
+												<OperationalMatrix.RowHeader label="Dark row">Dark row</OperationalMatrix.RowHeader>
+												<OperationalMatrix.Cell
+													state="complete"
+													label="Complete"
+													value="Ready"
+													rowLabel="Dark row"
+													columnLabel="Ready"
+												/>
+											</OperationalMatrix.Row>
+										</OperationalMatrix.Body>
+									</OperationalMatrix.Table>
+								</OperationalMatrix.Viewport>
+							</OperationalMatrix.Root>
+						</div>
+					</div>
 				</section>
 
 				<section class="grid gap-5" aria-labelledby="bulk-import-workspace-title">

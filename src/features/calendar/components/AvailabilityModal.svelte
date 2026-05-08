@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as Select from '$lib/components/ui/select';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
@@ -59,19 +62,20 @@
 		existingEntries.filter((e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate)
 	);
 
+	function initialStatusId(): string {
+		return statusTypes[0]?.id ?? '';
+	}
+
+	function initialDateStr(): string {
+		return formatDate(date);
+	}
+
 	// Form state
-	let selectedStatusId = $state('');
-	let startDate = $state('');
-	let endDate = $state('');
+	let selectedStatusId = $state(initialStatusId());
+	let startDate = $state(initialDateStr());
+	let endDate = $state(initialDateStr());
 	let editingEntry = $state<AvailabilityEntry | null>(null);
 	let note = $state('');
-
-	// Reset form state when props change (e.g. modal reopened with different data)
-	$effect(() => {
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-	});
 
 	const dateDisplay = $derived(
 		date.toLocaleDateString('en-US', {
@@ -81,7 +85,7 @@
 			year: 'numeric'
 		})
 	);
-	const statusOptions = $derived(statusTypes.map((status) => ({ value: status.id, label: status.name })));
+	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 
 	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {
@@ -172,16 +176,8 @@
 		}
 	}
 
-	function getStatusName(statusId: string): string {
-		return statusTypes.find((s) => s.id === statusId)?.name ?? 'Unknown';
-	}
-
-	function getStatusColor(statusId: string): string {
-		return statusTypes.find((s) => s.id === statusId)?.color ?? '#6b7280';
-	}
-
-	function getStatusTextColor(statusId: string): string {
-		return statusTypes.find((s) => s.id === statusId)?.textColor ?? '#ffffff';
+	function getStatusType(statusId: string): StatusType | undefined {
+		return statusTypes.find((s) => s.id === statusId);
 	}
 
 	function formatEntryDates(entry: AvailabilityEntry): string {
@@ -201,21 +197,24 @@
 </script>
 
 <Modal title="Set Personnel Status" {onClose} width="520px" titleId="availability-title">
-	<div class="mb-4 flex flex-col gap-2 border-b pb-4">
-		<div class="flex flex-wrap items-center gap-2">
-			<span class="text-primary font-mono text-xs font-semibold tracking-wide uppercase">{person.rank}</span>
-			<span class="font-display text-xl font-bold tracking-wide uppercase">{person.lastName}, {person.firstName}</span>
+	<div class="mb-4 flex flex-col gap-1.5 border-b pb-4">
+		<div class="flex flex-wrap items-baseline gap-2">
+			<span class="text-muted-foreground text-sm font-medium">{person.rank}</span>
+			<span class="text-foreground text-lg font-semibold">{person.lastName}, {person.firstName}</span>
 		</div>
 		<div class="text-muted-foreground text-sm">{dateDisplay}</div>
 	</div>
 
 	{#if dutyEventsForPerson.length > 0}
 		<div class="mb-4 flex flex-col gap-2 border-b pb-4">
-			<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">On duty</h4>
+			<h4 class="text-sm font-medium">On duty</h4>
 			{#each dutyEventsForPerson as event (event.id)}
 				<div class="flex items-center gap-2">
 					{#if dutyRosterHref}
-						<a href={dutyRosterHref} class="text-sm font-medium hover:underline">{event.templateName}</a>
+						<a
+							href={resolve(dutyRosterHref as `/org/${string}/duty-rosters`)}
+							class="text-sm font-medium hover:underline">{event.templateName}</a
+						>
 					{:else}
 						<span class="text-sm font-medium">{event.templateName}</span>
 					{/if}
@@ -226,21 +225,22 @@
 
 	{#if localEntries.length > 0}
 		<div class="mb-4 border-b pb-4">
-			<h4 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">Current Status</h4>
+			<h4 class="mb-3 text-sm font-medium">Current Status</h4>
 			{#each localEntries as entry (entry.id)}
+				{@const entryStatus = getStatusType(entry.statusTypeId)}
 				<div
 					class={[
-						'mb-2 flex items-center gap-3 rounded-lg border p-3 transition-colors last:mb-0',
-						editingEntry?.id === entry.id ? 'border-ring bg-muted' : 'border-transparent bg-muted/40'
+						'mb-2 flex items-center gap-3 rounded-lg border p-2.5 transition-colors last:mb-0',
+						editingEntry?.id === entry.id ? 'border-ring bg-muted/60' : 'border-border bg-muted/30'
 					]}
 				>
-					<Badge
-						label={getStatusName(entry.statusTypeId)}
-						color={getStatusColor(entry.statusTypeId)}
-						textColor={getStatusTextColor(entry.statusTypeId)}
-					/>
+					{#if entryStatus}
+						<Badge statusType={entryStatus}>{entryStatus.name}</Badge>
+					{:else}
+						<Badge variant="outline">Unknown</Badge>
+					{/if}
 					<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-						<span class="font-mono text-xs font-semibold tracking-wide uppercase">{formatEntryDates(entry)}</span>
+						<span class="text-sm font-medium">{formatEntryDates(entry)}</span>
 						<span class="text-muted-foreground text-sm">
 							({getDayCountForEntry(entry)}
 							{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
@@ -276,61 +276,58 @@
 
 	<div class="grid gap-4 pt-1">
 		{#if editingEntry}
-			<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Edit Status</h4>
+			<h4 class="text-sm font-medium">Edit Status</h4>
 		{:else}
-			<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+			<h4 class="text-sm font-medium">
 				{localEntries.length > 0 ? 'Add Another Status' : 'Add Status'}
 			</h4>
 		{/if}
 
-		<div class="grid gap-2">
-			<label class="text-sm font-medium" for="statusType">Status Type <span class="text-destructive">*</span></label>
-			<div class="flex flex-wrap items-center gap-2 [&_.search-select]:min-w-[180px] [&_.search-select]:flex-1">
-				<SearchSelect
-					id="statusType"
-					options={statusOptions}
-					bind:value={selectedStatusId}
-					placeholder="Select status..."
-					ariaLabel="Status type"
-					clearable={false}
-				/>
-				{#if selectedStatusId}
-					{@const selectedStatus = statusTypes.find((s) => s.id === selectedStatusId)}
-					{#if selectedStatus}
-						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
-					{/if}
+		<Field.Root>
+			<Field.Label id="statusType-label">Status Type <span class="text-destructive">*</span></Field.Label>
+			<div class="flex flex-wrap items-center gap-2">
+				<Select.Root type="single" bind:value={selectedStatusId}>
+					<Select.Trigger id="statusType" aria-labelledby="statusType-label" class="min-w-[180px] flex-1">
+						{selectedStatus?.name ?? 'Select status...'}
+					</Select.Trigger>
+					<Select.Content>
+						{#each statusTypes as status (status.id)}
+							<Select.Item value={status.id} label={status.name} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				{#if selectedStatus}
+					<Badge statusType={selectedStatus}>{selectedStatus.name}</Badge>
 				{/if}
 			</div>
-		</div>
+		</Field.Root>
 
 		<div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-start">
-			<div class="grid gap-2">
-				<label class="text-sm font-medium" for="startDate">Start Date <span class="text-destructive">*</span></label>
-				<Input id="startDate" type="date" bind:value={startDate} />
-			</div>
+			<Field.Root>
+				<Field.Label for="startDate">Start Date <span class="text-destructive">*</span></Field.Label>
+				<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
+			</Field.Root>
 			<span class="text-muted-foreground hidden pt-7 sm:block">→</span>
-			<div class="grid gap-2">
-				<label class="text-sm font-medium" for="endDate">End Date <span class="text-destructive">*</span></label>
-				<Input id="endDate" type="date" bind:value={endDate} />
-			</div>
+			<Field.Root>
+				<Field.Label for="endDate">End Date <span class="text-destructive">*</span></Field.Label>
+				<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
+			</Field.Root>
 			{#if dayCount > 0}
 				<div
-					class="bg-card mt-0 flex min-w-14 flex-row items-center justify-center gap-1 rounded-lg border px-3 py-2 sm:mt-6 sm:flex-col sm:gap-0"
+					class="bg-muted/30 mt-0 flex min-w-14 flex-row items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 sm:mt-6 sm:flex-col sm:gap-0"
 				>
-					<span class="text-primary font-display text-xl leading-none font-bold">{dayCount}</span>
-					<span class="text-muted-foreground font-mono text-xs tracking-wide uppercase"
-						>{dayCount === 1 ? 'day' : 'days'}</span
-					>
+					<span class="text-foreground text-base leading-none font-semibold">{dayCount}</span>
+					<span class="text-muted-foreground text-xs">{dayCount === 1 ? 'day' : 'days'}</span>
 				</div>
 			{/if}
 		</div>
 
 		{#if dateError}
-			<div class="form-error">{dateError}</div>
+			<Field.Error>{dateError}</Field.Error>
 		{/if}
 
-		<div class="grid gap-2">
-			<label class="text-sm font-medium" for="statusNote">Note</label>
+		<Field.Root>
+			<Field.Label for="statusNote">Note</Field.Label>
 			<Input
 				id="statusNote"
 				type="text"
@@ -338,7 +335,7 @@
 				maxlength={200}
 				placeholder="Optional note (e.g., JRTC rotation)"
 			/>
-		</div>
+		</Field.Root>
 	</div>
 
 	{#snippet footer()}

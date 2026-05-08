@@ -2,19 +2,19 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
+	import UsersIcon from '@lucide/svelte/icons/users';
+	import { Badge, badgeVariants } from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input';
-	import { Toggle } from '$lib/components/ui/toggle';
 	import { useDataTable } from '$lib/components/ui/data-table';
+	import { cn } from '$lib/utils.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '$lib/types';
-	import PinIcon from '@lucide/svelte/icons/pin';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -184,11 +184,20 @@
 			</WorkspaceToolbar.Root>
 
 			{#if ctx.totalPersonnel === 0}
-				<EmptyState
-					message="No personnel on the active roster. Add one person, or use the actions menu for Bulk Import when you have a roster file."
-					actionLabel={canAddPersonnel ? 'Add Person' : undefined}
-					onAction={canAddPersonnel ? () => ctx.handleAdd() : undefined}
-				/>
+				<Empty.Root class="border-border bg-card">
+					<Empty.Header>
+						<Empty.Media variant="icon">
+							<UsersIcon aria-hidden="true" />
+						</Empty.Media>
+						<Empty.Title>No personnel on the active roster</Empty.Title>
+						<Empty.Description>Add one person, or use Import when you have a roster file.</Empty.Description>
+					</Empty.Header>
+					{#if canAddPersonnel}
+						<Empty.Content>
+							<Button disabled={readOnly} onclick={() => ctx.handleAdd()}>Add Person</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
 			{:else if shouldGateGroupedRoster}
 				<div
 					class="flex items-center justify-between gap-4 rounded-lg border bg-card p-5 max-sm:flex-col max-sm:items-stretch"
@@ -253,27 +262,46 @@
 							{/if}
 						{/snippet}
 						{#snippet groupHeader(group)}
-							<Toggle
-								size="sm"
-								class="data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-primary data-[state=on]:*:[svg]:stroke-primary"
-								pressed={pinnedGroupsStore.list.includes(group.key)}
-								onPressedChange={() => pinnedGroupsStore.toggle(group.key)}
+							<button
+								type="button"
+								class={cn(
+									buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+									'data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-primary data-[state=on]:*:[svg]:stroke-primary'
+								)}
+								data-state={pinnedGroupsStore.list.includes(group.key) ? 'on' : 'off'}
+								aria-pressed={pinnedGroupsStore.list.includes(group.key)}
+								onclick={() => pinnedGroupsStore.toggle(group.key)}
 								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
 								aria-label={pinnedGroupsStore.list.includes(group.key) ? `Unpin ${group.label}` : `Pin ${group.label}`}
 							>
-								<PinIcon />
-							</Toggle>
-							<Button
+								<svg
+									aria-hidden="true"
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M12 17v5" />
+									<path
+										d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+									/>
+								</svg>
+							</button>
+							<button
 								type="button"
-								variant="ghost"
-								class="border-0 bg-transparent shadow-none"
+								class={cn(buttonVariants({ variant: 'ghost' }), 'border-0 bg-transparent shadow-none')}
 								onclick={group.toggle}
 								aria-expanded={!group.collapsed}
 								aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
 							>
 								{group.label}
-								<Badge variant="outline">{group.count}</Badge>
-							</Button>
+								<span class={badgeVariants({ variant: 'outline' })}>{group.count}</span>
+							</button>
 						{/snippet}
 					</DataTable.DataTable>
 				</div>

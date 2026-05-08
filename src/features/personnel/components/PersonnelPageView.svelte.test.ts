@@ -240,6 +240,19 @@ describe('PersonnelPageView', () => {
 		expect(ctx.viewMode).toBe('by-group');
 	});
 
+	it('renders grouped roster pin controls without crashing', () => {
+		const ctx = {
+			...makeCtx(),
+			viewMode: 'by-group'
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: viewOnlyPermissions }
+		});
+
+		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
+	});
+
 	describe('upcoming-loss indicators', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);

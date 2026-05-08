@@ -27,7 +27,8 @@
 
 <script lang="ts">
 	import { Toggle as TogglePrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import type { Snippet } from 'svelte';
 
 	let {
 		ref = $bindable(null),
@@ -35,10 +36,12 @@
 		class: className,
 		size = 'default',
 		variant = 'default',
+		children,
 		...restProps
-	}: TogglePrimitive.RootProps & {
+	}: WithoutChildrenOrChild<TogglePrimitive.RootProps> & {
 		variant?: ToggleVariant;
 		size?: ToggleSize;
+		children?: Snippet;
 	} = $props();
 </script>
 
@@ -48,4 +51,6 @@
 	data-slot="toggle"
 	class={cn(toggleVariants({ variant, size }), className)}
 	{...restProps}
-/>
+>
+	{@render children?.()}
+</TogglePrimitive.Root>

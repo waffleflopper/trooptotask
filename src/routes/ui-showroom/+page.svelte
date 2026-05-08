@@ -48,6 +48,7 @@
 		OperationalMatrixLegendItem,
 		OperationalMatrixState
 	} from '$lib/components/ui/operational-matrix/index.js';
+	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
@@ -57,6 +58,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -334,6 +336,9 @@
 	let asyncConfirmOpen = $state(false);
 	let disabledConfirmOpen = $state(false);
 	let blockedDialogOpen = $state(false);
+	let packetListOpen = $state('active-packet');
+	let packetNotesOpen = $state(true);
+	let emptyPacketNotesOpen = $state(false);
 	let clickedRow = $state('No row selected');
 	let expandedDataTableRow = $state('2');
 	const tableSelection = useDataTableSelection({
@@ -1997,6 +2002,164 @@
 						onCancel={() => (disabledConfirmOpen = false)}
 					/>
 				{/if}
+
+				<section class="grid gap-4" aria-labelledby="onboarding-packet-list-title">
+					<div class="flex flex-col gap-1">
+						<h2 id="onboarding-packet-list-title" class="text-xl font-semibold tracking-tight">
+							Onboarding packet list
+						</h2>
+						<p class="max-w-3xl text-sm text-muted-foreground">
+							Shared composite workflow list for active, complete, inactive, note-heavy, read-only, and constrained
+							packet states.
+						</p>
+					</div>
+
+					<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+						<OnboardingPacketList.Root bind:value={packetListOpen}>
+							<OnboardingPacketList.Item value="active-packet">
+								<OnboardingPacketList.Trigger>
+									<OnboardingPacketList.Summary>
+										<OnboardingPacketList.SummaryTitle
+											title="Lee, Jordan"
+											meta={['Initial Entry', 'HQ', 'Started May 1, 2026']}
+										/>
+										{#snippet progress()}
+											<OnboardingPacketList.Progress value={2} max={5} />
+										{/snippet}
+									</OnboardingPacketList.Summary>
+								</OnboardingPacketList.Trigger>
+								<OnboardingPacketList.Content>
+									<OnboardingPacketList.Actions>
+										<Button size="sm">Mark Complete</Button>
+										<Button size="sm" variant="outline"><Spinner />Re-sync</Button>
+										<Button size="sm" variant="outline">Switch Template</Button>
+										<Button size="sm" variant="destructive">Cancel</Button>
+									</OnboardingPacketList.Actions>
+									<OnboardingPacketList.StepList>
+										<OnboardingPacketList.Step
+											label="Sponsor brief"
+											typeLabel="Checkbox"
+											tone="checkbox"
+											state="complete"
+										>
+											{#snippet status()}
+												<Checkbox checked aria-label="Mark sponsor brief incomplete" />
+											{/snippet}
+											<OnboardingPacketList.Notes bind:open={packetNotesOpen} count={2}>
+												<OnboardingPacketList.NoteInput value="" onAdd={() => undefined} />
+												<OnboardingPacketList.Note text="Sponsor assigned by S1." time="May 1" />
+												<OnboardingPacketList.Note text="Brief scheduled after formation." time="May 2" />
+											</OnboardingPacketList.Notes>
+										</OnboardingPacketList.Step>
+
+										<OnboardingPacketList.Step
+											label="Cyber Awareness"
+											typeLabel="Training"
+											tone="training"
+											state="incomplete"
+											meta="Annual training"
+										>
+											{#snippet status()}
+												<OnboardingPacketList.StatusIcon state="incomplete" label="Training incomplete" />
+												<Button href="/org/demo/training" variant="outline" size="sm">Record Training</Button>
+											{/snippet}
+										</OnboardingPacketList.Step>
+
+										<OnboardingPacketList.Step
+											label="Finance packet"
+											typeLabel="Paperwork"
+											tone="paperwork"
+											state="pending"
+										>
+											{#snippet status()}
+												<Stepper stages={['Issued', 'Submitted', 'Reviewed']} currentStage="Submitted" />
+											{/snippet}
+											<OnboardingPacketList.Notes bind:open={emptyPacketNotesOpen} count={0}>
+												<OnboardingPacketList.NoteInput value="" onAdd={() => undefined} />
+											</OnboardingPacketList.Notes>
+										</OnboardingPacketList.Step>
+
+										<OnboardingPacketList.Step
+											label="Legacy welcome form"
+											typeLabel="Removed"
+											tone="inactive"
+											state="inactive"
+											inactiveNote="Removed from template"
+										>
+											{#snippet status()}
+												<Button size="sm" variant="destructive">Remove</Button>
+											{/snippet}
+										</OnboardingPacketList.Step>
+									</OnboardingPacketList.StepList>
+								</OnboardingPacketList.Content>
+							</OnboardingPacketList.Item>
+
+							<OnboardingPacketList.Item value="complete-packet">
+								<OnboardingPacketList.Trigger>
+									<OnboardingPacketList.Summary>
+										<OnboardingPacketList.SummaryTitle title="Price, Morgan" meta={['Officer Transfer', 'A Co']} />
+										{#snippet progress()}
+											<OnboardingPacketList.Progress value={3} max={3} label="3/3 complete" />
+										{/snippet}
+										{#snippet status()}
+											<Badge variant="success">Completed</Badge>
+										{/snippet}
+									</OnboardingPacketList.Summary>
+								</OnboardingPacketList.Trigger>
+								<OnboardingPacketList.Content>
+									<OnboardingPacketList.StepList ariaLabel="Read-only packet steps">
+										<OnboardingPacketList.Step
+											label="All required steps"
+											typeLabel="Checkbox"
+											tone="checkbox"
+											state="complete"
+										>
+											{#snippet status()}
+												<OnboardingPacketList.StatusIcon state="complete" label="Complete" />
+											{/snippet}
+											<OnboardingPacketList.Notes count={1} readOnly>
+												<OnboardingPacketList.Note text="Closed by onboarding manager." time="May 4" />
+											</OnboardingPacketList.Notes>
+										</OnboardingPacketList.Step>
+									</OnboardingPacketList.StepList>
+								</OnboardingPacketList.Content>
+							</OnboardingPacketList.Item>
+						</OnboardingPacketList.Root>
+
+						<div class="max-w-[360px]">
+							<OnboardingPacketList.Root value="history-packet" ariaLabel="Constrained packet example">
+								<OnboardingPacketList.Item value="history-packet">
+									<OnboardingPacketList.Trigger>
+										<OnboardingPacketList.Summary>
+											<OnboardingPacketList.SummaryTitle title="Chen, Maya" meta={['History', 'Cancelled May 3']} />
+											{#snippet progress()}
+												<OnboardingPacketList.Progress value={1} max={4} prefixLabel="Final Progress" />
+											{/snippet}
+											{#snippet status()}
+												<Badge variant="secondary">Cancelled</Badge>
+											{/snippet}
+										</OnboardingPacketList.Summary>
+									</OnboardingPacketList.Trigger>
+									<OnboardingPacketList.Content>
+										<OnboardingPacketList.StepList ariaLabel="Constrained read-only steps">
+											<OnboardingPacketList.Step
+												label="Archived checklist"
+												typeLabel="Removed"
+												tone="inactive"
+												state="inactive"
+												inactiveNote="Previously completed"
+											>
+												{#snippet status()}
+													<OnboardingPacketList.StatusIcon state="complete" label="Previously completed" />
+												{/snippet}
+											</OnboardingPacketList.Step>
+										</OnboardingPacketList.StepList>
+									</OnboardingPacketList.Content>
+								</OnboardingPacketList.Item>
+							</OnboardingPacketList.Root>
+						</div>
+					</div>
+				</section>
 
 				<section class="grid gap-4" aria-labelledby="feedback-title">
 					<h2 id="feedback-title" class="text-xl font-semibold tracking-tight">Feedback and empty states</h2>

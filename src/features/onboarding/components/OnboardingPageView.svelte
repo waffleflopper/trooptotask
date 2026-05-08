@@ -4,6 +4,9 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -134,262 +137,164 @@
 					<EmptyState message="No active onboardings. Start one to begin tracking a new member." />
 				{/if}
 			{:else}
-				<div class="onboarding-list">
+				<OnboardingPacketList.Root
+					value={ctx.expandedOnboardingId ?? ''}
+					onValueChange={(value) => (ctx.expandedOnboardingId = value || null)}
+				>
 					{#each ctx.filteredOnboardings as onboarding (onboarding.id)}
-						{@const progress = ctx.getProgress(onboarding)}
-						{@const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}
-						{@const isExpanded = ctx.expandedOnboardingId === onboarding.id}
 						{@const groupName = ctx.getPersonGroupName(onboarding.personnelId)}
 						{@const canManageThisOnboarding = ctx.canManageOnboarding(onboarding)}
 						{@const canActOnThisOnboarding = canManageThisOnboarding && onboarding.status === 'in_progress'}
-						<div class="onboarding-card" class:expanded={isExpanded}>
-							<button
-								class="card-summary"
-								type="button"
-								onclick={() => ctx.toggleExpand(onboarding.id)}
-								aria-expanded={isExpanded}
-							>
-								<div class="card-main">
-									<span class="expand-icon">{isExpanded ? '▼' : '▶'}</span>
-									<div class="card-info">
-										<span class="person-name">{ctx.getPersonName(onboarding.personnelId)}</span>
-										<div class="card-meta">
-											<span class="template-name">{ctx.getTemplateName(onboarding.templateId)}</span>
-											{#if groupName}
-												<span class="meta-sep">·</span>
-												<span>{groupName}</span>
-											{/if}
-											<span class="meta-sep">·</span>
-											<span>Started {formatDisplayDate(onboarding.startedAt)}</span>
-										</div>
-									</div>
-								</div>
-								<div class="card-progress">
-									<div class="progress-bar">
-										<div class="progress-fill" class:progress-complete={pct === 100} style="width: {pct}%"></div>
-									</div>
-									<span class="progress-text">{progress.completed}/{progress.total} complete</span>
-								</div>
-							</button>
+						<OnboardingPacketList.Item value={onboarding.id}>
+							<OnboardingPacketList.Trigger>
+								<OnboardingPacketList.Summary>
+									<OnboardingPacketList.SummaryTitle
+										title={ctx.getPersonName(onboarding.personnelId)}
+										meta={[
+											ctx.getTemplateName(onboarding.templateId),
+											groupName,
+											`Started ${formatDisplayDate(onboarding.startedAt)}`
+										]}
+									/>
+									{#snippet progress()}
+										<OnboardingPacketList.Progress
+											value={ctx.getProgress(onboarding).completed}
+											max={ctx.getProgress(onboarding).total}
+										/>
+									{/snippet}
+								</OnboardingPacketList.Summary>
+							</OnboardingPacketList.Trigger>
 
-							{#if isExpanded}
-								<div class="card-detail">
-									{#if canActOnThisOnboarding}
-										<div class="detail-actions">
-											<button
-												class="btn btn-primary btn-sm"
-												type="button"
-												onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}
+							<OnboardingPacketList.Content>
+								{#if canActOnThisOnboarding}
+									<OnboardingPacketList.Actions>
+										<Button size="sm" onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}>Mark Complete</Button>
+										{#if onboarding.templateId === null}
+											<Button
+												size="sm"
+												variant="outline"
+												onclick={() => ctx.openAssignTemplate(onboarding.id)}
+												title="Assign a template to enable re-sync"
 											>
-												Mark Complete
-											</button>
-											{#if onboarding.templateId === null}
-												<button
-													class="btn btn-secondary btn-sm"
-													type="button"
-													onclick={() => ctx.openAssignTemplate(onboarding.id)}
-													title="Assign a template to enable re-sync"
-												>
-													Assign Template
-												</button>
-											{:else}
-												<button
-													class="btn btn-secondary btn-sm sync-btn"
-													type="button"
-													onclick={() => ctx.handleResync(onboarding.id)}
-													disabled={ctx.resyncingId === onboarding.id}
-													title="Sync with current template"
-												>
-													{#if ctx.resyncingId === onboarding.id}
-														<Spinner color="var(--text-secondary)" />
-													{:else}
-														<svg
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-															class="sync-icon"
-														>
-															<path d="M23 4v6h-6" />
-															<path d="M1 20v-6h6" />
-															<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-														</svg>
-													{/if}
-													Re-sync
-												</button>
-												{#if ctx.canManageConfig}
-													<button
-														class="btn btn-secondary btn-sm"
-														type="button"
-														onclick={() => ctx.openSwitchTemplate(onboarding.id)}
-														title="Switch to a different template"
-													>
-														Switch Template
-													</button>
-												{/if}
-											{/if}
-											<button
-												class="btn btn-danger btn-sm"
-												type="button"
-												onclick={() => (ctx.cancellingId = onboarding.id)}
+												Assign Template
+											</Button>
+										{:else}
+											<Button
+												size="sm"
+												variant="outline"
+												onclick={() => ctx.handleResync(onboarding.id)}
+												disabled={ctx.resyncingId === onboarding.id}
+												title="Sync with current template"
 											>
-												Cancel
-											</button>
-										</div>
-									{/if}
-
-									<div class="step-list">
-										{#each onboarding.steps as step (step.id)}
-											{@const isInactive = !step.active}
-											<div class="step-row" class:step-complete={step.completed} class:step-inactive={isInactive}>
-												<div class="step-main">
-													{#if isInactive}
-														<span class="step-type-indicator step-type-inactive">removed</span>
-													{:else}
-														<span class="step-type-indicator step-type-{step.stepType}"
-															>{STEP_TYPE_LABELS[step.stepType]}</span
-														>
-													{/if}
-
-													<span class="step-name">
-														{step.stepName}
-														{#if ctx.getTrainingTypeName(step)}
-															<span class="training-type-hint">({ctx.getTrainingTypeName(step)})</span>
-														{/if}
-													</span>
-
-													{#if isInactive}
-														{#if step.completed}
-															<span class="inactive-note">Previously completed</span>
-														{:else if canActOnThisOnboarding}
-															<button
-																class="btn btn-danger btn-sm"
-																type="button"
-																onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
-																disabled={ctx.removingDeprecatedStepId === step.id}
-															>
-																{#if ctx.removingDeprecatedStepId === step.id}<Spinner />{/if}
-																Remove
-															</button>
-														{:else}
-															<span class="inactive-note">Removed from template</span>
-														{/if}
-													{:else}
-														<div class="step-status">
-															{#if step.stepType === 'checkbox'}
-																{#if canActOnThisOnboarding}
-																	<button
-																		class="checkbox-toggle"
-																		class:checked={step.completed}
-																		type="button"
-																		onclick={() => ctx.handleToggleCheckbox(step)}
-																		aria-label={step.completed ? 'Mark incomplete' : 'Mark complete'}
-																	>
-																		{#if step.completed}
-																			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-																				<polyline points="20 6 9 17 4 12" />
-																			</svg>
-																		{/if}
-																	</button>
-																{:else}
-																	<span class="status-icon" class:complete={step.completed}
-																		>{step.completed ? '✓' : '—'}</span
-																	>
-																{/if}
-															{:else if step.stepType === 'training'}
-																<span
-																	class="status-icon"
-																	class:complete={step.completed}
-																	class:incomplete={!step.completed}
-																>
-																	{step.completed ? '✓' : '✗'}
-																</span>
-																{#if !step.completed}
-																	<a href={ctx.trainingPageUrl} class="training-link">Record Training</a>
-																{/if}
-															{:else if step.stepType === 'paperwork'}
-																<div class="stage-indicator">
-																	<Stepper
-																		stages={step.stages ?? []}
-																		currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
-																		onStageClick={canActOnThisOnboarding
-																			? (stage) => ctx.handleStageClick(step, stage)
-																			: undefined}
-																		disabled={!canActOnThisOnboarding}
-																	/>
-																</div>
-															{/if}
-														</div>
-													{/if}
-												</div>
-
-												{#if !isInactive}
-													<button
-														class="notes-toggle"
-														type="button"
-														onclick={() => ctx.toggleNotes(step.id)}
-														aria-label="Toggle notes"
-													>
-														<svg
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-															class="notes-icon"
-														>
-															<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-														</svg>
-														{#if step.notes.length > 0}
-															<span class="notes-count">{step.notes.length}</span>
-														{/if}
-													</button>
-
-													{#if ctx.expandedNotes.has(step.id)}
-														<div class="step-notes">
-															{#if canActOnThisOnboarding}
-																<div class="note-input-row">
-																	<input
-																		type="text"
-																		class="input note-input"
-																		placeholder="Add a note..."
-																		bind:value={ctx.noteInputs[step.id]}
-																		onkeydown={(e) => {
-																			if (e.key === 'Enter') ctx.handleAddNote(step);
-																		}}
-																	/>
-																	<button
-																		class="btn btn-primary btn-sm"
-																		type="button"
-																		onclick={() => ctx.handleAddNote(step)}
-																		disabled={!ctx.noteInputs[step.id]?.trim()}
-																	>
-																		Add
-																	</button>
-																</div>
-															{/if}
-															{#if step.notes.length === 0}
-																<p class="no-notes">No notes yet.</p>
-															{:else}
-																<div class="notes-list">
-																	{#each step.notes as note, noteIndex (`${note.timestamp}:${note.userId}:${note.text}:${noteIndex}`)}
-																		<div class="note-item">
-																			<span class="note-text">{note.text}</span>
-																			<span class="note-time">{ctx.formatTimestamp(note.timestamp)}</span>
-																		</div>
-																	{/each}
-																</div>
-															{/if}
-														</div>
-													{/if}
+												{#if ctx.resyncingId === onboarding.id}
+													<Spinner />
 												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-						</div>
+												Re-sync
+											</Button>
+											{#if ctx.canManageConfig}
+												<Button
+													size="sm"
+													variant="outline"
+													onclick={() => ctx.openSwitchTemplate(onboarding.id)}
+													title="Switch to a different template"
+												>
+													Switch Template
+												</Button>
+											{/if}
+										{/if}
+										<Button size="sm" variant="destructive" onclick={() => (ctx.cancellingId = onboarding.id)}>
+											Cancel
+										</Button>
+									</OnboardingPacketList.Actions>
+								{/if}
+
+								<OnboardingPacketList.StepList>
+									{#each onboarding.steps as step (step.id)}
+										{@const isInactive = !step.active}
+										<OnboardingPacketList.Step
+											label={step.stepName}
+											typeLabel={isInactive ? 'Removed' : STEP_TYPE_LABELS[step.stepType]}
+											tone={isInactive ? 'inactive' : step.stepType}
+											state={isInactive ? 'inactive' : step.completed ? 'complete' : 'incomplete'}
+											meta={ctx.getTrainingTypeName(step)}
+											inactiveNote={isInactive && !canActOnThisOnboarding
+												? step.completed
+													? 'Previously completed'
+													: 'Removed from template'
+												: null}
+										>
+											{#snippet status()}
+												{#if isInactive}
+													{#if step.completed}
+														<OnboardingPacketList.StatusIcon state="complete" label="Previously completed" />
+													{:else if canActOnThisOnboarding}
+														<Button
+															size="sm"
+															variant="destructive"
+															onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
+															disabled={ctx.removingDeprecatedStepId === step.id}
+														>
+															{#if ctx.removingDeprecatedStepId === step.id}<Spinner />{/if}
+															Remove
+														</Button>
+													{/if}
+												{:else if step.stepType === 'checkbox'}
+													{#if canActOnThisOnboarding}
+														<Checkbox
+															checked={step.completed}
+															onclick={() => ctx.handleToggleCheckbox(step)}
+															aria-label={step.completed ? 'Mark incomplete' : 'Mark complete'}
+														/>
+													{:else}
+														<OnboardingPacketList.StatusIcon
+															state={step.completed ? 'complete' : 'pending'}
+															label={step.completed ? 'Complete' : 'Incomplete'}
+														/>
+													{/if}
+												{:else if step.stepType === 'training'}
+													<OnboardingPacketList.StatusIcon
+														state={step.completed ? 'complete' : 'incomplete'}
+														label={step.completed ? 'Training complete' : 'Training incomplete'}
+													/>
+													{#if !step.completed}
+														<Button href={ctx.trainingPageUrl} variant="outline" size="sm">Record Training</Button>
+													{/if}
+												{:else if step.stepType === 'paperwork'}
+													<Stepper
+														stages={step.stages ?? []}
+														currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
+														onStageClick={canActOnThisOnboarding
+															? (stage) => ctx.handleStageClick(step, stage)
+															: undefined}
+														disabled={!canActOnThisOnboarding}
+													/>
+												{/if}
+											{/snippet}
+
+											{#if !isInactive}
+												<OnboardingPacketList.Notes
+													open={ctx.expandedNotes.has(step.id)}
+													onOpenChange={() => ctx.toggleNotes(step.id)}
+													count={step.notes.length}
+												>
+													{#if canActOnThisOnboarding}
+														<OnboardingPacketList.NoteInput
+															bind:value={ctx.noteInputs[step.id]}
+															onAdd={() => ctx.handleAddNote(step)}
+														/>
+													{/if}
+													{#each step.notes as note, noteIndex (`${note.timestamp}:${note.userId}:${note.text}:${noteIndex}`)}
+														<OnboardingPacketList.Note text={note.text} time={ctx.formatTimestamp(note.timestamp)} />
+													{/each}
+												</OnboardingPacketList.Notes>
+											{/if}
+										</OnboardingPacketList.Step>
+									{/each}
+								</OnboardingPacketList.StepList>
+							</OnboardingPacketList.Content>
+						</OnboardingPacketList.Item>
 					{/each}
-				</div>
+				</OnboardingPacketList.Root>
 			{/if}
 		</main>
 	{/if}
@@ -472,440 +377,13 @@
 		color: var(--text-secondary);
 	}
 
-	.onboarding-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.onboarding-card {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-		transition:
-			border-color var(--transition-fast),
-			box-shadow var(--transition-fast);
-	}
-
-	.onboarding-card:hover {
-		box-shadow: var(--shadow-sm);
-	}
-
-	.onboarding-card.expanded {
-		border-color: var(--amber-dark);
-	}
-
-	.card-summary {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		width: 100%;
-		padding: var(--sp-3) var(--sp-4);
-		background: var(--surface-panel);
-		border: none;
-		cursor: pointer;
-		text-align: left;
-		color: var(--text-primary);
-	}
-
-	.card-summary:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.card-main {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex: 1;
-		min-width: 0;
-	}
-
-	.expand-icon {
-		width: 14px;
-		font-size: 10px;
-		flex-shrink: 0;
-		color: var(--text-tertiary);
-	}
-
-	.card-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-	}
-
-	.person-name {
-		font-size: var(--text-lg);
-		font-weight: 600;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.card-meta {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 500;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.meta-sep {
-		opacity: 0.5;
-	}
-
-	.template-name {
-		color: var(--amber-dark);
-	}
-
-	.card-progress {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--sp-1);
-		flex-shrink: 0;
-		min-width: 168px;
-	}
-
-	.progress-bar {
-		width: 100%;
-		height: 6px;
-		background: var(--surface-subtle);
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
-		height: 100%;
-		border-radius: 999px;
-		background: var(--amber-dark);
-		transition: width 0.3s ease;
-	}
-
-	.progress-fill.progress-complete {
-		background: var(--success);
-	}
-
-	.progress-text {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		white-space: nowrap;
-	}
-
-	.card-detail {
-		padding: var(--sp-4);
-		border-top: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-	}
-
-	.detail-actions {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-		padding-bottom: var(--sp-3);
-		border-bottom: var(--border-rule);
-	}
-
-	.sync-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-	}
-
-	.sync-icon {
-		width: 14px;
-		height: 14px;
-		flex-shrink: 0;
-	}
-
-	.step-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.step-row {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		transition: opacity 0.15s ease;
-	}
-
-	.step-row.step-complete {
-		opacity: 0.62;
-	}
-
-	.step-row.step-inactive {
-		opacity: 0.56;
-		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
-	}
-
-	.step-main {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex: 1;
-		min-width: 0;
-	}
-
-	.step-type-indicator {
-		flex-shrink: 0;
-		padding: 3px 6px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.step-type-checkbox {
-		color: var(--text-secondary);
-		background: var(--surface-subtle);
-	}
-
-	.step-type-paperwork {
-		color: var(--amber-dark);
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-	}
-
-	.step-type-training {
-		color: var(--info);
-		background: color-mix(in srgb, var(--info-bg) 84%, var(--surface-panel) 16%);
-	}
-
-	.step-type-inactive {
-		color: var(--text-tertiary);
-		background: var(--surface-subtle);
-		font-style: italic;
-		text-transform: none;
-	}
-
-	.step-name {
-		font-size: var(--text-sm);
-		font-weight: 500;
-		line-height: 1.35;
-		color: var(--text-primary);
-	}
-
-	.training-type-hint {
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-		font-weight: 400;
-		color: var(--text-secondary);
-	}
-
-	.inactive-note {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		font-style: italic;
-	}
-
-	.step-status {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		margin-left: auto;
-		flex-shrink: 0;
-	}
-
-	.checkbox-toggle {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: white;
-		cursor: pointer;
-	}
-
-	.checkbox-toggle.checked {
-		background: var(--success);
-		border-color: var(--success);
-	}
-
-	.checkbox-toggle svg {
-		width: 14px;
-		height: 14px;
-	}
-
-	.status-icon {
-		font-size: var(--text-base);
-		font-weight: 700;
-		color: var(--text-tertiary);
-	}
-
-	.status-icon.complete {
-		color: var(--success);
-	}
-
-	.status-icon.incomplete {
-		color: var(--danger);
-	}
-
-	.training-link {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		text-decoration: underline;
-	}
-
-	.notes-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		padding: var(--sp-1);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-tertiary);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.notes-toggle:hover {
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.notes-icon {
-		width: 16px;
-		height: 16px;
-	}
-
-	.notes-count {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--amber-dark);
-	}
-
-	.step-notes {
-		width: 100%;
-		margin-top: var(--sp-2);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
-	}
-
-	.note-input-row {
-		display: flex;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
-	}
-
-	.note-input {
-		flex: 1;
-	}
-
-	.no-notes {
-		margin: 0;
-		font-size: var(--text-sm);
-		color: var(--text-tertiary);
-	}
-
-	.notes-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		max-height: 220px;
-		overflow-y: auto;
-	}
-
-	.note-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: var(--sp-2);
-		padding: var(--sp-2) 0;
-		border-bottom: var(--border-rule);
-	}
-
-	.note-item:last-child {
-		border-bottom: none;
-	}
-
-	.note-text {
-		flex: 1;
-		font-size: var(--text-sm);
-		line-height: 1.4;
-		color: var(--text-primary);
-	}
-
-	.note-time {
-		flex-shrink: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		white-space: nowrap;
-	}
-
-	@media (max-width: 820px) {
-		.card-summary {
-			flex-wrap: wrap;
-			align-items: flex-start;
-		}
-
-		.card-progress {
-			align-items: flex-start;
-			width: 100%;
-			min-width: 0;
-		}
-	}
-
 	@media (max-width: 640px) {
 		.page-content {
 			padding: var(--sp-3);
 		}
 
-		.notice-banner,
-		.card-summary,
-		.card-detail {
+		.notice-banner {
 			padding: var(--sp-3);
-		}
-
-		.card-meta {
-			flex-wrap: wrap;
-			white-space: normal;
-		}
-
-		.step-main {
-			flex-wrap: wrap;
-		}
-
-		.step-status {
-			width: 100%;
-			margin-left: 0;
-			justify-content: flex-start;
-		}
-
-		.note-input-row {
-			flex-direction: column;
 		}
 	}
 </style>

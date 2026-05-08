@@ -1287,6 +1287,78 @@ Migration status:
 
 ---
 
+## OnboardingPacketList
+
+Source: `src/lib/components/ui/onboarding-packet-list`.
+
+Use `OnboardingPacketList` for onboarding-style packet workflows where one person packet expands at a time and the expanded packet contains task rows, progress, actions, stage indicators, and independent notes disclosure. Use it instead of raw Accordion or Collapsible whenever the route is showing onboarding packet progress or task completion state.
+
+Core API:
+
+```svelte
+<script lang="ts">
+	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
+</script>
+
+<OnboardingPacketList.Root value={expandedPacketId} onValueChange={setExpandedPacket}>
+	<OnboardingPacketList.Item value={packet.id}>
+		<OnboardingPacketList.Trigger>
+			<OnboardingPacketList.Summary>
+				<OnboardingPacketList.SummaryTitle title={personName} meta={[templateName, groupName, startedLabel]} />
+				{#snippet progress()}
+					<OnboardingPacketList.Progress value={completed} max={total} />
+				{/snippet}
+			</OnboardingPacketList.Summary>
+		</OnboardingPacketList.Trigger>
+
+		<OnboardingPacketList.Content>
+			<OnboardingPacketList.Actions>...</OnboardingPacketList.Actions>
+			<OnboardingPacketList.StepList>
+				<OnboardingPacketList.Step label={stepName} typeLabel="Training" tone="training" state="incomplete">
+					{#snippet status()}...{/snippet}
+					{#snippet notes()}...{/snippet}
+				</OnboardingPacketList.Step>
+			</OnboardingPacketList.StepList>
+		</OnboardingPacketList.Content>
+	</OnboardingPacketList.Item>
+</OnboardingPacketList.Root>
+```
+
+Composition:
+
+- `Root` controls single-open packet disclosure through a shadcn/Bits accordion primitive.
+- `Notes` controls independent task-note disclosure through a shadcn/Bits collapsible primitive.
+- `Progress` wraps the shared progress primitive and renders the count label.
+- `Step` owns shared task-row layout, type badge placement, inactive/deprecated state, and status/notes regions.
+- `Actions` is the shared action toolbar region for packet-level commands.
+- `StatusIcon`, `Note`, and `NoteInput` cover common completion, note display, and note entry affordances.
+
+Accessibility guidance:
+
+- Pass a stable `value` for each packet item so trigger/content relationships remain stable.
+- Packet triggers inherit accordion keyboard behavior: tab to the trigger, then Enter/Space toggles the active packet.
+- Note toggles must have a clear `label` when the default "Toggle notes" is not enough.
+- Step controls need route-supplied accessible labels, for example "Mark sponsor brief complete".
+- Do not hide status behind color alone. Use type labels, count text, status icons, and completion labels.
+
+Route usage rules:
+
+- Routes pass data, labels, handlers, permissions, disabled/loading flags, and links.
+- Routes must not pass classes that alter packet-list visuals.
+- Do not expose raw Accordion or Collapsible primitives to onboarding routes for this workflow.
+- Keep onboarding business rules in feature context/store code. The shared component should not know when a packet can be completed, cancelled, resynced, or edited.
+
+Showroom coverage:
+
+`/ui-showroom` includes active packets, multiple packets with one open, complete/incomplete/inactive steps, checkbox/training/paperwork rows, notes open/closed, note count, empty notes, loading and disabled actions, read-only/history display, constrained layout, keyboard focus path, and dark-mode participation.
+
+Onboarding migration notes:
+
+- Active onboarding and onboarding history now consume `OnboardingPacketList`.
+- Template step editing still uses its existing modal/list markup. If that workflow needs migration, add a shared template-step editor or workflow-step authoring pattern first rather than patching the modal locally.
+
+---
+
 ## CSS Design System (`app.css`)
 
 ### Canonical Tokens

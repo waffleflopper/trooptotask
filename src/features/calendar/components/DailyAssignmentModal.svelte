@@ -122,8 +122,7 @@
 				<div class="flex flex-wrap items-center gap-2">
 					<span
 						class="inline-flex min-w-7 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-white uppercase"
-						style="background-color: {type.color}"
-						>{type.shortName}</span
+						style="background-color: {type.color}">{type.shortName}</span
 					>
 					<span class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">{type.name}</span>
 				</div>

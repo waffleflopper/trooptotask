@@ -73,12 +73,7 @@
 >
 	{#snippet addForm()}
 		<div class="flex flex-wrap items-center gap-2 [&_.input]:min-w-[150px] [&_.input]:flex-1">
-			<Input
-				type="text"
-				bind:value={newName}
-				placeholder="Full name (e.g., Staff Duty)"
-				aria-label="Full name"
-			/>
+			<Input type="text" bind:value={newName} placeholder="Full name (e.g., Staff Duty)" aria-label="Full name" />
 			<Input
 				type="text"
 				class="max-w-20 uppercase"

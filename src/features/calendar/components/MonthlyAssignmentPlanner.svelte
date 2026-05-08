@@ -209,11 +209,7 @@
 				<option value="all">All days</option>
 			</NativeSelect>
 
-			<Button
-				size="sm"
-				onclick={applyQuickFill}
-				disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}
-			>
+			<Button size="sm" onclick={applyQuickFill} disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}>
 				{isApplying ? 'Applying...' : 'Apply'}
 			</Button>
 		</div>
@@ -228,10 +224,17 @@
 					{#each assignmentTypes as type (type.id)}
 						<th class="min-w-40 px-3 py-2 text-left font-medium">
 							<div class="flex items-center justify-between gap-2">
-								<span class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase" style="background-color: {type.color}"
-									>{type.shortName}</span
+								<span
+									class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
+									style="background-color: {type.color}">{type.shortName}</span
 								>
-								<Button variant="ghost" size="icon-xs" onclick={() => clearAll(type.id)} title="Clear all {type.name}" aria-label="Clear all {type.name}">
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									onclick={() => clearAll(type.id)}
+									title="Clear all {type.name}"
+									aria-label="Clear all {type.name}"
+								>
 									<Trash2Icon />
 								</Button>
 							</div>
@@ -295,4 +298,3 @@
 		onCancel={() => (clearTypeId = null)}
 	/>
 {/if}
-

@@ -81,12 +81,7 @@
 >
 	{#snippet addForm()}
 		<div class="flex flex-wrap items-center gap-2 [&_.input]:min-w-[150px] [&_.input]:flex-1">
-			<Input
-				type="text"
-				bind:value={newName}
-				placeholder="Status name (e.g., Leave, TDY)"
-				aria-label="Status name"
-			/>
+			<Input type="text" bind:value={newName} placeholder="Status name (e.g., Leave, TDY)" aria-label="Status name" />
 			<div class="flex gap-2">
 				<label class="text-muted-foreground flex flex-col items-center gap-0.5 text-[10px] uppercase">
 					<span>Background</span>
@@ -101,7 +96,10 @@
 				<Badge label={newName} color={newColor} textColor={newTextColor} />
 			{/if}
 			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
-				<label class="text-muted-foreground inline-flex items-center gap-1 text-xs font-semibold uppercase" for="new-da6-treatment">
+				<label
+					class="text-muted-foreground inline-flex items-center gap-1 text-xs font-semibold uppercase"
+					for="new-da6-treatment"
+				>
 					<span>Duty roster treatment</span>
 					<span class="group relative inline-flex">
 						<Button variant="outline" size="icon-xs" type="button" aria-label="Duty roster treatment help">
@@ -125,7 +123,9 @@
 	{#snippet itemDisplay(status)}
 		<div class="flex flex-wrap items-center gap-2">
 			<Badge label={status.name} color={status.color} textColor={status.textColor} />
-			<span class="text-muted-foreground text-xs">{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span>
+			<span class="text-muted-foreground text-xs"
+				>{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span
+			>
 		</div>
 	{/snippet}
 
@@ -144,7 +144,9 @@
 			</div>
 			<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
 			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
-				<label class="text-muted-foreground text-xs font-semibold uppercase" for="edit-da6-treatment">Duty roster treatment</label>
+				<label class="text-muted-foreground text-xs font-semibold uppercase" for="edit-da6-treatment"
+					>Duty roster treatment</label
+				>
 				<NativeSelect id="edit-da6-treatment" bind:value={editDa6Treatment} class="w-full">
 					{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
 						<option value={option.value} disabled={option.disabled}>{option.label}</option>

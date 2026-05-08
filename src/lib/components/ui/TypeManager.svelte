@@ -105,7 +105,9 @@
 	</div>
 
 	<div class="mt-4">
-		<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">Existing {noun}s ({items.length})</h4>
+		<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+			Existing {noun}s ({items.length})
+		</h4>
 		{#if items.length === 0}
 			<EmptyState message="No {noun.toLowerCase()}s yet. Add one above to get started." />
 		{:else}

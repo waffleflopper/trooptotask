@@ -133,7 +133,9 @@
 			<Input id="endDate" type="date" bind:value={endDate} />
 		</div>
 		{#if dayCount > 0}
-			<div class="bg-card mt-0 flex min-w-12 flex-row items-center justify-center gap-1 rounded-lg border px-2 py-1 sm:mt-6 sm:flex-col sm:gap-0">
+			<div
+				class="bg-card mt-0 flex min-w-12 flex-row items-center justify-center gap-1 rounded-lg border px-2 py-1 sm:mt-6 sm:flex-col sm:gap-0"
+			>
 				<span class="text-primary text-base leading-none font-bold">{dayCount}</span>
 				<span class="text-muted-foreground text-[10px] uppercase">{dayCount === 1 ? 'day' : 'days'}</span>
 			</div>

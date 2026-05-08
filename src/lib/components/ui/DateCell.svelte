@@ -80,7 +80,7 @@
 
 <button
 	class={[
-		'date-cell relative flex min-h-[var(--cell-height)] min-w-0 cursor-pointer items-start justify-center overflow-hidden border-r border-b bg-transparent pt-0.5 transition-[background-color,box-shadow,filter] hover:shadow-[inset_0_0_0_1px_var(--primary)] focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-w-[var(--cell-width)]',
+		'date-cell relative flex h-full min-w-0 cursor-pointer items-start justify-center overflow-hidden border-r border-b bg-transparent pt-0.5 transition-[background-color,box-shadow,filter] hover:shadow-[inset_0_0_0_1px_var(--primary)] focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-w-[var(--cell-width)]',
 		isWeekend && 'bg-muted/55',
 		isHoliday && 'bg-warning-muted/50',
 		isToday && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',

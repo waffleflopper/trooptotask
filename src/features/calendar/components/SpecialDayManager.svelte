@@ -105,13 +105,21 @@
 					<span
 						class={[
 							'inline-flex rounded-md border px-2 py-0.5 text-xs font-medium',
-							day.type === 'federal-holiday' ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-muted-foreground'
+							day.type === 'federal-holiday'
+								? 'bg-secondary text-secondary-foreground'
+								: 'bg-muted text-muted-foreground'
 						]}
 					>
 						{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
 					</span>
 				</div>
-				<Button variant="destructive" size="icon-sm" onclick={() => handleRemove(day)} title="Remove" aria-label="Remove">
+				<Button
+					variant="destructive"
+					size="icon-sm"
+					onclick={() => handleRemove(day)}
+					title="Remove"
+					aria-label="Remove"
+				>
 					&times;
 				</Button>
 			</div>

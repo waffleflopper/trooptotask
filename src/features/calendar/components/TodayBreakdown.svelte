@@ -147,8 +147,12 @@
 
 <Modal title={isToday ? "Today's Breakdown" : 'Daily Breakdown'} {onClose} width="700px" titleId="breakdown-title">
 	<div class="bg-muted relative flex items-center justify-center gap-2 border-b px-6 py-2">
-		<Button variant="outline" size="icon-sm" onclick={() => shiftDate(-1)} title="Previous day" aria-label="Previous day"
-			>&lsaquo;</Button
+		<Button
+			variant="outline"
+			size="icon-sm"
+			onclick={() => shiftDate(-1)}
+			title="Previous day"
+			aria-label="Previous day">&lsaquo;</Button
 		>
 		<Button variant="ghost" onclick={() => datePickerEl?.showPicker?.()}>
 			{dateDisplay}
@@ -188,7 +192,9 @@
 					{#each assignmentInfo as info (info.type.id)}
 						<div class={['rounded-lg border p-3', info.isAssigned ? 'bg-card' : 'bg-muted/40 opacity-80']}>
 							<div class="mb-1 flex items-center gap-2">
-								<span class="bg-primary text-primary-foreground rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold uppercase">
+								<span
+									class="bg-primary text-primary-foreground rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold uppercase"
+								>
 									{info.type.shortName}
 								</span>
 								<span class="text-muted-foreground text-xs font-medium">{info.type.name}</span>
@@ -225,7 +231,9 @@
 						{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
 						{#if availableForGroup.length > 0}
 							<div class="grid gap-1">
-								<div class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">{grp.group}</div>
+								<div class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">
+									{grp.group}
+								</div>
 								<div class="flex flex-wrap gap-1.5">
 									{#each availableForGroup as { person, assignments } (person.id)}
 										<div
@@ -238,7 +246,8 @@
 											<span class="font-medium">{person.lastName}</span>
 											{#if assignments.length > 0}
 												{#each assignments as badge (badge.typeId)}
-													<span class="bg-primary text-primary-foreground rounded px-1 font-mono text-[10px] font-semibold uppercase"
+													<span
+														class="bg-primary text-primary-foreground rounded px-1 font-mono text-[10px] font-semibold uppercase"
 														>{badge.shortName}</span
 													>
 												{/each}
@@ -267,7 +276,10 @@
 				<div class="grid gap-3">
 					{#each outByStatus as { status, personnel } (status.id)}
 						<div class="overflow-hidden rounded-lg border">
-							<div class="flex items-center justify-between px-3 py-1.5 text-sm font-semibold" style="background-color: {status.color}; color: {status.textColor}">
+							<div
+								class="flex items-center justify-between px-3 py-1.5 text-sm font-semibold"
+								style="background-color: {status.color}; color: {status.textColor}"
+							>
 								{status.name}
 								<span class="rounded-full bg-black/15 px-2 py-0.5 text-xs">{personnel.length}</span>
 							</div>
@@ -290,4 +302,3 @@
 		<Button onclick={onClose}>Close</Button>
 	{/snippet}
 </Modal>
-

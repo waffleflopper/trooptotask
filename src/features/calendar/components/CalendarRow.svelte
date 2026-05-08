@@ -105,11 +105,11 @@
 </script>
 
 <div
-	class="personnel-row grid w-full min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--personnel-column-width)_repeat(var(--dates-count),minmax(var(--cell-width),1fr))]"
+	class="personnel-row grid h-full w-full min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--personnel-column-width)_repeat(var(--dates-count),minmax(var(--cell-width),1fr))]"
 >
 	<button
 		class={[
-			'personnel-info sticky left-0 z-[3] flex min-h-[var(--cell-height)] cursor-pointer items-center gap-2 border-r border-b bg-card px-2 py-1 text-left hover:bg-muted sm:px-3',
+			'personnel-info sticky left-0 z-[3] flex h-full cursor-pointer items-center gap-2 border-r border-b bg-card px-2 py-1 text-left hover:bg-muted sm:px-3',
 			!showPersonnelRoles && 'py-1'
 		]}
 		onclick={handlePersonClick}

@@ -215,6 +215,22 @@
 	const activeToolbarFilters = $derived(
 		(toolbarGroup !== 'all' ? 1 : 0) + (toolbarStatus !== 'all' ? 1 : 0) + (toolbarGapsOnly ? 1 : 0)
 	);
+
+	function showroomImportRowStatus(row: DataTablePerson): BulkImportWorkspace.BulkImportRowStatus {
+		if (row.disabled) {
+			return { tone: 'error', label: 'Missing group', description: 'Resolve validation errors before import.' };
+		}
+
+		if (row.status === 'Action') {
+			return { tone: 'warning', description: 'Import is allowed, but this row needs review.' };
+		}
+
+		if (row.status === 'Watch') {
+			return { tone: 'duplicate', description: 'Possible duplicate matched by name.' };
+		}
+
+		return { tone: 'valid', description: 'Ready to import.' };
+	}
 </script>
 
 <svelte:head>
@@ -1153,8 +1169,17 @@
 							<WorkspaceToolbar.Group label="Report export actions" zone="actions">
 								<ReportWorkspace.ExportActions>
 									<ReportWorkspace.ExportAction label="Export CSV" href="/ui-showroom/export.csv" />
-									<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
-									<ReportWorkspace.ExportAction label="Exporting" loading />
+									<ReportWorkspace.ExportAction
+										label="Export PDF"
+										state="disabled"
+										disabledReason="Select a date range first"
+									/>
+									<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing" />
+									<ReportWorkspace.ExportAction
+										label="Export packet"
+										state="error"
+										errorReason="Export service is unavailable"
+									/>
 								</ReportWorkspace.ExportActions>
 							</WorkspaceToolbar.Group>
 						</ReportWorkspace.Toolbar>
@@ -1323,6 +1348,10 @@
 							selection={importSelection}
 							rowKey={(row) => row.id}
 							disabledRow={(row) => row.disabled ?? false}
+							disabledReason={(row) =>
+								row.disabled ? 'Resolve validation errors before selecting this row.' : undefined}
+							rowStatus={showroomImportRowStatus}
+							selectedCountLabel={(selected, total) => `${selected} selected from ${total} preview rows`}
 							ariaLabel="Showroom import preview table"
 						/>
 

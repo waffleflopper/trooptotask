@@ -7,6 +7,8 @@ export { default as FileInput } from './bulk-import-file-input.svelte';
 export { default as PasteInput } from './bulk-import-paste-input.svelte';
 export { default as ValidationSummary } from './bulk-import-validation-summary.svelte';
 export { default as PreviewTable } from './bulk-import-preview-table.svelte';
+export { default as RowStatus } from './bulk-import-row-status.svelte';
 export { default as ProgressState } from './bulk-import-progress-state.svelte';
 export { default as FooterActions } from './bulk-import-footer-actions.svelte';
 export { default as ResultSummary } from './bulk-import-result-summary.svelte';
+export type { BulkImportRowStatus, BulkImportRowStatusTone } from './types.js';

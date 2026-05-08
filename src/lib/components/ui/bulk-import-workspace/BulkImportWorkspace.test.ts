@@ -37,9 +37,16 @@ describe('BulkImportWorkspace', () => {
 
 		const table = screen.getByRole('table', { name: 'Personnel import preview' });
 		expect(within(table).getByText('Avery Brooks')).toBeInTheDocument();
+		expect(within(table).getByText('Valid')).toBeInTheDocument();
+		expect(within(table).getByText('Missing group')).toBeInTheDocument();
+		expect(within(table).getByText('Group is required.')).toBeInTheDocument();
+		expect(screen.getByRole('checkbox', { name: /Select import row 2/ })).toHaveAccessibleName(
+			'Select import row 2: Resolve validation errors before selecting this row.'
+		);
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 1' }));
 		expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
+		expect(screen.getByText('1 selectable rows chosen from 2 preview rows')).toBeInTheDocument();
 
 		expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument();
 		expect(screen.getByText('Import completed with issues')).toBeInTheDocument();

@@ -1,4 +1,8 @@
-<!-- src/lib/components/ui/BulkImportTable.svelte -->
+<!--
+	@deprecated Use ui/bulk-import-workspace PreviewTable, RowStatus, ValidationSummary,
+	and ResultSummary for new or migrated import flows. This legacy helper stays
+	until existing production consumers move to BulkImportWorkspace.
+-->
 <script lang="ts">
 	import type { ColumnDef, ColumnMapping } from '$lib/utils/columnMapping';
 	import { autoMapColumns, detectHeaderRow, getMissingRequired } from '$lib/utils/columnMapping';

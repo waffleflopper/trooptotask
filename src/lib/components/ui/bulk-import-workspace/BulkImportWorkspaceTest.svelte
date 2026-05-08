@@ -7,13 +7,13 @@
 		id: string;
 		row: number;
 		name: string;
-		status: string;
+		status: 'valid' | 'warning' | 'error' | 'duplicate';
 		disabled?: boolean;
 	};
 
 	const rows: ImportRow[] = [
-		{ id: '1', row: 2, name: 'Avery Brooks', status: 'Valid' },
-		{ id: '2', row: 3, name: 'Maya Chen', status: 'Missing group', disabled: true }
+		{ id: '1', row: 2, name: 'Avery Brooks', status: 'valid' },
+		{ id: '2', row: 3, name: 'Maya Chen', status: 'error', disabled: true }
 	];
 
 	const columns = [
@@ -81,6 +81,12 @@
 		{selection}
 		rowKey={(row) => row.id}
 		disabledRow={(row) => row.disabled ?? false}
+		disabledReason={(row) => (row.disabled ? 'Resolve validation errors before selecting this row.' : undefined)}
+		rowStatus={(row) =>
+			row.status === 'valid'
+				? { tone: 'valid', description: 'Ready to import.' }
+				: { tone: 'error', label: 'Missing group', description: 'Group is required.' }}
+		selectedCountLabel={(selected, total) => `${selected} selectable rows chosen from ${total} preview rows`}
 		ariaLabel="Personnel import preview"
 	/>
 

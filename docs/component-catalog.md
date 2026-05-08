@@ -173,7 +173,7 @@ Migration guidance:
 		</WorkspaceToolbar.Group>
 		<WorkspaceToolbar.Group label="Training report exports" zone="actions">
 			<ReportWorkspace.ExportActions>
-				<ReportWorkspace.ExportAction label="Export CSV" href={exportHref} disabledReason={exportDisabledReason} />
+				<ReportWorkspace.ExportAction label="Export CSV" href={exportHref} state={exportState} disabledReason={exportDisabledReason} />
 			</ReportWorkspace.ExportActions>
 		</WorkspaceToolbar.Group>
 	</ReportWorkspace.Toolbar>
@@ -206,7 +206,7 @@ Public components:
 - `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/header snippets.
 - `State`: shared `loading`, `no-data`, and `error` report states.
 - `ExportActions`: grouped export region.
-- `ExportAction`: shared export command with loading and `disabledReason` support.
+- `ExportAction`: shared export command. Props: `label`, `state?: 'ready' | 'loading' | 'disabled' | 'error'`, `disabledReason?`, `errorReason?`, `loading?`, `loadingLabel?`, plus button props such as `href`.
 
 Shared components own:
 
@@ -220,6 +220,7 @@ Routes configure:
 Report/export state guidance:
 
 - Keep disabled export actions visible when their presence explains unavailable work. Use `disabledReason` for the user-facing reason.
+- Prefer `state` for durable export state. Use `state="ready"` for available exports, `state="loading"` while a file is being prepared, `state="disabled"` with `disabledReason` when user input is missing, and `state="error"` with `errorReason` when export infrastructure failed.
 - Use `State state="no-data"` for valid reports with no matching rows, not for permission errors.
 - Use `State state="error"` for load or refresh failures. Feature code owns retry behavior.
 - Do not move report calculations, filtering, authorization, export generation, or date semantics into shared UI.
@@ -268,6 +269,8 @@ Migration notes:
 		selection={selection}
 		rowKey={(row) => row.id}
 		disabledRow={(row) => row.hasErrors}
+		disabledReason={(row) => (row.hasErrors ? row.errorSummary : undefined)}
+		rowStatus={(row) => row.status}
 	/>
 
 	<BulkImportWorkspace.FooterActions disabledReason={submitDisabledReason}>
@@ -286,23 +289,24 @@ Public components:
 - `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
 - `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
 - `ValidationSummary`: shared error/warning/ready count summary.
-- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection.
+- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, and `selectedCountLabel`.
+- `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
 - `ResultSummary`: final `success`, `partial`, or `failed` result summary.
 
 Shared components own:
 
-- Import workspace structure, source chooser presentation, file/paste field labels and errors, preview table shell, selectable-row mechanics when `selection` is passed, validation/result state presentation, progress presentation, and responsive layout.
+- Import workspace structure, source chooser presentation, file/paste field labels and errors, preview table shell, row status presentation, selectable-row mechanics when `selection` is passed, validation/result state presentation, progress presentation, and responsive layout.
 
 Routes configure:
 
-- Source state, accepted file extensions if needed, pasted text value, examples/templates, parsed rows, validation issues, per-row status labels, duplicate/merge handling, disabled rows, selected-row persistence, submit disabled reasons, retry/back/reset handlers, and API calls.
+- Source state, accepted file extensions if needed, pasted text value, examples/templates, parsed rows, validation issues, per-row status data, duplicate/merge decisions, disabled rows, disabled-row reasons, selected-row persistence, submit disabled reasons, retry/back/reset handlers, and API calls.
 
 Import validation/result state guidance:
 
 - Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
-- Use disabled rows for preview rows that must not be selected. Explain why in the row status column.
+- Use `rowStatus` for valid/warning/error/duplicate/disabled/info presentation. Use `disabledReason` for rows that must not be selected; the preview table uses it in the selection label and can render it through the status column.
 - Use `ResultSummary status="partial"` when some rows were saved and some failed.
 - Use `ResultSummary status="failed"` when no requested rows were saved.
 - Use `ProgressState` for parsing/importing work that blocks closing or submit actions.
@@ -318,6 +322,10 @@ Migration notes:
 - Critical Tasks task import and completion import should follow because they share the same upload-preview-import-result state machine with domain-specific validation.
 - Training bulk import should follow after paste/upload source choice settles in the shared API.
 - Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
+
+Legacy note:
+
+- `src/lib/components/ui/BulkImportTable.svelte` is deprecated for new work. It remains only because existing production consumers still use its mapping/editing behavior. New and migrated import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities instead.
 
 ---
 

@@ -32,6 +32,8 @@
 			<ReportWorkspace.ExportActions>
 				<ReportWorkspace.ExportAction label="Export CSV" href="/export.csv" />
 				<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
+				<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing XLSX" />
+				<ReportWorkspace.ExportAction label="Export packet" state="error" errorReason="Export service is unavailable" />
 			</ReportWorkspace.ExportActions>
 		</WorkspaceToolbar.Group>
 	</ReportWorkspace.Toolbar>

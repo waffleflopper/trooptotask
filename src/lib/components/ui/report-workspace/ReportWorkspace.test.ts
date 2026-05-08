@@ -26,6 +26,11 @@ describe('ReportWorkspace', () => {
 		const disabledExport = screen.getByRole('button', { name: 'Export PDF: Select a date range first' });
 		expect(disabledExport).toBeDisabled();
 		expect(disabledExport).toHaveAttribute('title', 'Select a date range first');
+
+		expect(screen.getByRole('button', { name: 'Export XLSX' })).toHaveTextContent('Preparing XLSX');
+		const erroredExport = screen.getByRole('button', { name: 'Export packet: Export service is unavailable' });
+		expect(erroredExport).toBeDisabled();
+		expect(erroredExport).toHaveAttribute('title', 'Export service is unavailable');
 	});
 
 	it('renders filter, chart, table, loading, no-data, and error states', () => {
@@ -38,7 +43,7 @@ describe('ReportWorkspace', () => {
 		const table = screen.getByRole('table', { name: 'Readiness rows table' });
 		expect(within(table).getByText('Avery Brooks')).toBeInTheDocument();
 
-		expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument();
+		expect(screen.getByText('Loading report rows')).toBeInTheDocument();
 		expect(screen.getByText('No report data')).toBeInTheDocument();
 		expect(screen.getByRole('alert')).toHaveTextContent('Report failed');
 	});

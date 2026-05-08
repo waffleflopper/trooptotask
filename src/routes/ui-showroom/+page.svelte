@@ -45,6 +45,7 @@
 	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
@@ -57,6 +58,7 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace/index.js';
 	import {
 		selectedShowroomComponents,
 		showroomCoverage,
@@ -160,6 +162,8 @@
 	let files = $state<FileList>();
 	let selectedFrameworks = $state<string[]>(['Next.js']);
 	let selectedToolbarFilters = $state<string[]>(['SvelteKit', 'Astro']);
+	let importSource = $state<'upload' | 'paste' | 'manual'>('upload');
+	let pasteImportRows = $state('Last Name,First Name,Rank\nBrooks,Avery,CPT\nChen,Maya,SGT');
 	let toolbarView = $state<'month' | 'long-range'>('month');
 	let toolbarGroup = $state('all');
 	let toolbarStatus = $state('all');
@@ -176,6 +180,11 @@
 	let clickedRow = $state('No row selected');
 	let expandedDataTableRow = $state('2');
 	const tableSelection = useDataTableSelection({
+		rows: () => dataTablePeople,
+		rowKey: (row) => row.id,
+		disabledRow: (row) => row.disabled ?? false
+	});
+	const importSelection = useDataTableSelection({
 		rows: () => dataTablePeople,
 		rowKey: (row) => row.id,
 		disabledRow: (row) => row.disabled ?? false
@@ -1110,6 +1119,258 @@
 							{/each}
 						</svg>
 					</Chart.Container>
+				</section>
+
+				<section class="grid gap-5" aria-labelledby="report-workspace-title">
+					<h2 id="report-workspace-title" class="text-xl font-semibold tracking-tight">Report workspace</h2>
+
+					<ReportWorkspace.Root ariaLabel="Showroom report workspace">
+						<ReportWorkspace.Header
+							title="Calendar readiness report"
+							description="Shared report shell for filters, export actions, chart sections, table sections, and durable report states."
+							meta={[
+								{ label: 'Scope', value: 'A Co' },
+								{ label: 'Window', value: '30 days' },
+								{ label: 'Rows', value: dataTablePeople.length }
+							]}
+						/>
+
+						<ReportWorkspace.Toolbar ariaLabel="Showroom report toolbar">
+							<WorkspaceToolbar.Group label="Report filters" activeCount={activeToolbarFilters}>
+								<WorkspaceToolbar.Select
+									options={toolbarGroupOptions}
+									value={toolbarGroup}
+									ariaLabel="Report group filter"
+									onValueChange={(value) => (toolbarGroup = value)}
+								/>
+								<WorkspaceToolbar.Select
+									options={toolbarStatusOptions}
+									value={toolbarStatus}
+									ariaLabel="Report status filter"
+									onValueChange={(value) => (toolbarStatus = value)}
+								/>
+							</WorkspaceToolbar.Group>
+							<WorkspaceToolbar.Group label="Report export actions" zone="actions">
+								<ReportWorkspace.ExportActions>
+									<ReportWorkspace.ExportAction label="Export CSV" href="/ui-showroom/export.csv" />
+									<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
+									<ReportWorkspace.ExportAction label="Exporting" loading />
+								</ReportWorkspace.ExportActions>
+							</WorkspaceToolbar.Group>
+						</ReportWorkspace.Toolbar>
+
+						<ReportWorkspace.Filters
+							title="Report configuration"
+							description="Routes provide controls and handlers. The shared component owns structure."
+						>
+							<Field.Root>
+								<Field.Label for="showroom-report-group">Group</Field.Label>
+								<NativeSelect id="showroom-report-group" bind:value={nativeStatus}>
+									<option value="ready">A Co</option>
+									<option value="watch">B Co</option>
+								</NativeSelect>
+							</Field.Root>
+							<Field.Root>
+								<Field.Label for="showroom-report-search">Search</Field.Label>
+								<Input id="showroom-report-search" bind:value={toolbarSearch} placeholder="Name or MOS" />
+							</Field.Root>
+							{#snippet dateRange()}
+								<div class="flex flex-wrap items-end gap-2" role="group" aria-label="Report date range controls">
+									<DatePicker id="report-start-date" bind:value={date} />
+									<ButtonGroup.Root aria-label="Quick ranges">
+										<Button variant="outline" size="sm">7 days</Button>
+										<Button variant="outline" size="sm">30 days</Button>
+									</ButtonGroup.Root>
+								</div>
+							{/snippet}
+						</ReportWorkspace.Filters>
+
+						<ReportWorkspace.Content layout="split">
+							<ReportWorkspace.Chart
+								title="Readiness trend"
+								description="Chart shell for report visualizations."
+								ariaLabel="Showroom report readiness chart"
+								meta="Chart section"
+							>
+								<Chart.Container config={chartConfig} class="min-h-[180px] w-full">
+									<svg viewBox="0 0 480 200" role="img" aria-label="Report readiness trend bars">
+										{#each chartRows as row, index (row.label)}
+											{@const x = 60 + index * 95}
+											<rect
+												{x}
+												y={180 - row.ready * 1.5}
+												width="36"
+												height={row.ready * 1.5}
+												fill="var(--color-ready)"
+											/>
+											<text x={x + 18} y="196" text-anchor="middle" class="fill-muted-foreground text-xs"
+												>{row.label}</text
+											>
+										{/each}
+									</svg>
+								</Chart.Container>
+							</ReportWorkspace.Chart>
+							<ReportWorkspace.Table
+								title="Report rows"
+								description="DataTable-backed section for sortable report detail."
+								data={dataTablePeople}
+								columns={dataTableColumns}
+								ariaLabel="Showroom report rows"
+								showSearch
+								searchPlaceholder="Search report rows"
+								pageSize={3}
+							/>
+						</ReportWorkspace.Content>
+
+						<div class="grid gap-3 md:grid-cols-3">
+							<ReportWorkspace.State state="loading" title="Loading report" />
+							<ReportWorkspace.State
+								state="no-data"
+								title="No matching data"
+								description="Adjust filters or date range."
+							/>
+							<ReportWorkspace.State
+								state="error"
+								title="Report failed"
+								description="Refresh the report and try again."
+							/>
+						</div>
+
+						<div class="dark rounded-md border border-border bg-background p-4 text-foreground">
+							<ReportWorkspace.State
+								state="no-data"
+								title="Dark mode report state"
+								description="Shared states preserve contrast."
+							/>
+						</div>
+					</ReportWorkspace.Root>
+				</section>
+
+				<section class="grid gap-5" aria-labelledby="bulk-import-workspace-title">
+					<h2 id="bulk-import-workspace-title" class="text-xl font-semibold tracking-tight">Bulk import workspace</h2>
+
+					<BulkImportWorkspace.Root ariaLabel="Showroom bulk import workspace">
+						<BulkImportWorkspace.Header
+							step="Step 1"
+							title="Personnel bulk import"
+							description="Shared import shell for upload, paste, manual entry, preview, validation, progress, and result states."
+							meta={[
+								{ label: 'Required', value: 'Rank, first name, last name' },
+								{ label: 'Rows', value: dataTablePeople.length }
+							]}
+						/>
+
+						<BulkImportWorkspace.SourcePicker label="Showroom import source">
+							<BulkImportWorkspace.SourceOption
+								label="Upload"
+								description="Use CSV or XLSX."
+								selected={importSource === 'upload'}
+								onSelect={() => (importSource = 'upload')}
+							/>
+							<BulkImportWorkspace.SourceOption
+								label="Paste"
+								description="Paste copied rows."
+								selected={importSource === 'paste'}
+								onSelect={() => (importSource = 'paste')}
+							/>
+							<BulkImportWorkspace.SourceOption
+								label="Manual"
+								description="Add records one at a time."
+								selected={importSource === 'manual'}
+								onSelect={() => (importSource = 'manual')}
+							/>
+						</BulkImportWorkspace.SourcePicker>
+
+						<div class="grid gap-4 lg:grid-cols-2">
+							<BulkImportWorkspace.InputPanel
+								title="Upload import flow"
+								description="File input uses shared field and input primitives."
+							>
+								<BulkImportWorkspace.FileInput label="Upload personnel file" />
+								{#snippet examples()}
+									<Button variant="outline" size="sm">Download template</Button>
+								{/snippet}
+							</BulkImportWorkspace.InputPanel>
+
+							<BulkImportWorkspace.InputPanel
+								title="Paste import flow"
+								description="Paste input uses the shared textarea presentation."
+							>
+								<BulkImportWorkspace.PasteInput
+									bind:value={pasteImportRows}
+									label="Paste personnel rows"
+									description="Headers are allowed."
+								/>
+								{#snippet examples()}
+									<Button variant="outline" size="sm">Use example rows</Button>
+								{/snippet}
+							</BulkImportWorkspace.InputPanel>
+						</div>
+
+						<BulkImportWorkspace.ValidationSummary
+							title="Validation summary"
+							description="Shared UI reports counts. Feature code owns validation rules."
+							issues={[
+								{ label: 'ready rows', count: 3, tone: 'neutral' },
+								{ label: 'warnings', count: 1, tone: 'warning' },
+								{ label: 'errors', count: 1, tone: 'error' }
+							]}
+						/>
+
+						<BulkImportWorkspace.PreviewTable
+							rows={dataTablePeople}
+							columns={dataTableColumns}
+							selection={importSelection}
+							rowKey={(row) => row.id}
+							disabledRow={(row) => row.disabled ?? false}
+							ariaLabel="Showroom import preview table"
+						/>
+
+						<BulkImportWorkspace.ProgressState
+							title="Importing selected rows"
+							description="Progress state for long-running imports."
+							value={60}
+						/>
+
+						<div class="grid gap-3 md:grid-cols-3">
+							<BulkImportWorkspace.ResultSummary
+								status="success"
+								items={[
+									{ label: 'Created', value: 24 },
+									{ label: 'Failed', value: 0 }
+								]}
+							/>
+							<BulkImportWorkspace.ResultSummary
+								status="partial"
+								description="Some rows imported and some failed."
+								items={[
+									{ label: 'Created', value: 18 },
+									{ label: 'Failed', value: 4 }
+								]}
+							/>
+							<BulkImportWorkspace.ResultSummary
+								status="failed"
+								description="No rows were saved."
+								items={[{ label: 'Failed', value: 22 }]}
+							/>
+						</div>
+
+						<BulkImportWorkspace.FooterActions disabledReason="Select at least one valid row before importing.">
+							<Button variant="outline">Back</Button>
+							<Button disabled>Import checked rows</Button>
+						</BulkImportWorkspace.FooterActions>
+
+						<div class="dark rounded-md border border-border bg-background p-4 text-foreground">
+							<BulkImportWorkspace.ResultSummary
+								status="partial"
+								description="Dark mode result state."
+								items={[
+									{ label: 'Created', value: 8 },
+									{ label: 'Failed', value: 1 }
+								]}
+							/>
+						</div>
+					</BulkImportWorkspace.Root>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="overlays-title">

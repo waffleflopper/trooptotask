@@ -34,6 +34,18 @@ export const showroomCoverage = [
 	'navigation-state',
 	'date-picker-state',
 	'chart-state',
+	'report-workspace-basic-section',
+	'report-workspace-toolbar-filters',
+	'report-workspace-date-range-controls',
+	'report-workspace-chart-table',
+	'report-workspace-loading-no-data-error',
+	'report-workspace-export-enabled-disabled-loading',
+	'bulk-import-upload-flow',
+	'bulk-import-paste-flow',
+	'bulk-import-preview-valid-error-rows',
+	'bulk-import-selectable-rows',
+	'bulk-import-progress-state',
+	'bulk-import-partial-failed-success-results',
 	'forms',
 	'field-label-description-error',
 	'native-select-state',
@@ -109,7 +121,9 @@ export const selectedShowroomComponents = [
 	'spinner',
 	'empty',
 	'separator',
-	'workspace-toolbar'
+	'workspace-toolbar',
+	'report-workspace',
+	'bulk-import-workspace'
 ] as const;
 
 export type ShowroomCoverage = (typeof showroomCoverage)[number];

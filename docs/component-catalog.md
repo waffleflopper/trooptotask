@@ -150,6 +150,177 @@ Migration guidance:
 
 ---
 
+## `ui/report-workspace`
+
+`ui/report-workspace` is the shared shadcn-svelte-backed foundation for operational report pages and report sections. It standardizes report structure, toolbar placement, filter/configuration panels, chart/table sections, report states, and export actions without owning feature calculations.
+
+```svelte
+<script lang="ts">
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+</script>
+
+<ReportWorkspace.Root ariaLabel="Training report workspace">
+	<ReportWorkspace.Header
+		title="Training report"
+		description="Training completion by group and date range."
+		meta={[{ label: 'Window', value: '30 days' }]}
+	/>
+
+	<ReportWorkspace.Toolbar ariaLabel="Training report controls">
+		<WorkspaceToolbar.Group label="Training report filters" activeCount={activeFilterCount}>
+			<!-- route-owned filter controls -->
+		</WorkspaceToolbar.Group>
+		<WorkspaceToolbar.Group label="Training report exports" zone="actions">
+			<ReportWorkspace.ExportActions>
+				<ReportWorkspace.ExportAction label="Export CSV" href={exportHref} disabledReason={exportDisabledReason} />
+			</ReportWorkspace.ExportActions>
+		</WorkspaceToolbar.Group>
+	</ReportWorkspace.Toolbar>
+
+	<ReportWorkspace.Filters title="Report configuration">
+		<!-- route-owned filters -->
+		{#snippet dateRange()}
+			<!-- date range controls -->
+		{/snippet}
+	</ReportWorkspace.Filters>
+
+	<ReportWorkspace.Content layout="split">
+		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
+			<!-- feature-owned chart content -->
+		</ReportWorkspace.Chart>
+		<ReportWorkspace.Table title="Detail rows" data={rows} columns={columns} ariaLabel="Training detail rows" />
+	</ReportWorkspace.Content>
+</ReportWorkspace.Root>
+```
+
+Public components:
+
+- `Root`: report workspace shell. Props: `ariaLabel?: string`, `children?: Snippet`.
+- `Header`: report title, description, and metadata. Props: `title`, `description?`, `meta?`, `actions?`.
+- `Toolbar`: thin wrapper around `WorkspaceToolbar.Root`. Props: `ariaLabel`, `children`.
+- `Filters`: configuration panel with optional date-range and actions regions. Props: `title?`, `description?`, `dateRange?`, `actions?`.
+- `Content`: report section layout. Props: `layout?: 'stack' | 'split'`.
+- `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`.
+- `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.
+- `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/header snippets.
+- `State`: shared `loading`, `no-data`, and `error` report states.
+- `ExportActions`: grouped export region.
+- `ExportAction`: shared export command with loading and `disabledReason` support.
+
+Shared components own:
+
+- Report page/section structure, spacing, borders, responsive wrapping, state presentation, disabled export affordance, and DataTable section framing.
+- Composition with `ui/workspace-toolbar`, `ui/data-table`, shadcn `button`, `empty`, `alert`, and `spinner`.
+
+Routes configure:
+
+- Report data, filters, date-range values, chart content, table columns, export URLs, disabled reasons, loading/error booleans, permissions, and handlers.
+
+Report/export state guidance:
+
+- Keep disabled export actions visible when their presence explains unavailable work. Use `disabledReason` for the user-facing reason.
+- Use `State state="no-data"` for valid reports with no matching rows, not for permission errors.
+- Use `State state="error"` for load or refresh failures. Feature code owns retry behavior.
+- Do not move report calculations, filtering, authorization, export generation, or date semantics into shared UI.
+
+Route-level visual override ban:
+
+- Routes must not pass route-local visual classes that change report component color, radius, border, typography, density, shadow, or internal spacing.
+- If a report needs a reusable new section shape, add it to `ui/report-workspace`, show it in `/ui-showroom`, and document it here before route usage.
+
+Migration notes:
+
+- Calendar reports should migrate first because they already have multiple report subtypes and date-oriented filters.
+- Critical Tasks reports should follow because they already use the shared toolbar but still carry route-local report grids, states, and chart/table shells.
+- Training reports should follow after Calendar/Critical Tasks settle table and export state conventions.
+- Personnel report-like flows should migrate after bulk import/merge surfaces are separated from the current combined manager.
+
+---
+
+## `ui/bulk-import-workspace`
+
+`ui/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
+
+```svelte
+<script lang="ts">
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import { useDataTableSelection } from '$lib/components/ui/data-table';
+</script>
+
+<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+	<BulkImportWorkspace.Header title="Personnel import" step="Step 1" />
+
+	<BulkImportWorkspace.SourcePicker label="Import source">
+		<BulkImportWorkspace.SourceOption label="Upload" selected={source === 'upload'} onSelect={() => (source = 'upload')} />
+		<BulkImportWorkspace.SourceOption label="Paste" selected={source === 'paste'} onSelect={() => (source = 'paste')} />
+	</BulkImportWorkspace.SourcePicker>
+
+	<BulkImportWorkspace.InputPanel title="Upload rows">
+		<BulkImportWorkspace.FileInput bind:files label="Upload personnel file" error={fileError} />
+	</BulkImportWorkspace.InputPanel>
+
+	<BulkImportWorkspace.ValidationSummary issues={validationIssues} />
+
+	<BulkImportWorkspace.PreviewTable
+		rows={previewRows}
+		columns={previewColumns}
+		selection={selection}
+		rowKey={(row) => row.id}
+		disabledRow={(row) => row.hasErrors}
+	/>
+
+	<BulkImportWorkspace.FooterActions disabledReason={submitDisabledReason}>
+		<Button disabled={!!submitDisabledReason}>Import checked rows</Button>
+	</BulkImportWorkspace.FooterActions>
+</BulkImportWorkspace.Root>
+```
+
+Public components:
+
+- `Root`: import workspace shell. Props: `ariaLabel?`, `children`.
+- `Header`: title, description, step label, and metadata.
+- `SourcePicker`: accessible radio-group-style source chooser.
+- `SourceOption`: selectable upload/paste/manual choice.
+- `InputPanel`: shared section for upload, paste, manual, template, or example controls.
+- `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
+- `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
+- `ValidationSummary`: shared error/warning/ready count summary.
+- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection.
+- `ProgressState`: importing/loading state with optional progress value.
+- `FooterActions`: footer command region with disabled submit reason.
+- `ResultSummary`: final `success`, `partial`, or `failed` result summary.
+
+Shared components own:
+
+- Import workspace structure, source chooser presentation, file/paste field labels and errors, preview table shell, selectable-row mechanics when `selection` is passed, validation/result state presentation, progress presentation, and responsive layout.
+
+Routes configure:
+
+- Source state, accepted file extensions if needed, pasted text value, examples/templates, parsed rows, validation issues, per-row status labels, duplicate/merge handling, disabled rows, selected-row persistence, submit disabled reasons, retry/back/reset handlers, and API calls.
+
+Import validation/result state guidance:
+
+- Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
+- Use disabled rows for preview rows that must not be selected. Explain why in the row status column.
+- Use `ResultSummary status="partial"` when some rows were saved and some failed.
+- Use `ResultSummary status="failed"` when no requested rows were saved.
+- Use `ProgressState` for parsing/importing work that blocks closing or submit actions.
+
+Route-level visual override ban:
+
+- Routes must not restyle the import workspace, source cards, input panels, validation summary, preview table, footer, or result summary locally.
+- If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `/ui-showroom`.
+
+Migration notes:
+
+- Personnel bulk import/merge should migrate first because it already uses the new dialog and DataTable foundations but still contains route-local import source, preview, and result markup.
+- Critical Tasks task import and completion import should follow because they share the same upload-preview-import-result state machine with domain-specific validation.
+- Training bulk import should follow after paste/upload source choice settles in the shared API.
+- Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
+
+---
+
 ## Public Marketing Shell
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.

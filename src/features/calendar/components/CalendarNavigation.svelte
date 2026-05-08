@@ -1,5 +1,9 @@
 <script lang="ts">
+	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import MonthYearPicker from './MonthYearPicker.svelte';
+	import { Button } from '$lib/components/ui/button';
 
 	interface Props {
 		title: string;
@@ -52,16 +56,19 @@
 	}
 </script>
 
-<div class="navigation">
-	<div class="month-nav">
-		<button class="btn btn-secondary btn-sm" onclick={onPrev} aria-label={prevLabel}>
-			&larr; {prevLabel}
-		</button>
-		<div class="month-title-wrap">
-			<h2 class="month-title">
+<div class="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
+	<div class="flex flex-1 flex-wrap items-center gap-2 sm:gap-3">
+		<Button variant="outline" size="sm" onclick={onPrev} aria-label={prevLabel}>
+			<ChevronLeftIcon aria-hidden="true" />
+			{prevLabel}
+		</Button>
+		<div class="relative flex min-w-0 flex-1 justify-center sm:flex-none">
+			<h2
+				class="m-0 min-w-0 text-center font-display text-2xl leading-tight font-bold tracking-wider text-foreground uppercase sm:min-w-44"
+			>
 				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
 					<button
-						class="month-title-trigger"
+						class="focus-visible:ring-ring inline-flex w-full cursor-pointer items-center justify-center rounded-lg px-2 py-0.5 text-inherit transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:outline-none"
 						type="button"
 						data-testid={titleTestId}
 						aria-expanded={pickerOpen}
@@ -76,7 +83,9 @@
 				{/if}
 			</h2>
 			{#if pickerOpen && pickerYear !== undefined && pickerMonth !== undefined}
-				<div class="month-picker-popover">
+				<div
+					class="absolute top-[calc(100%+0.5rem)] left-1/2 z-50 -translate-x-1/2 max-sm:left-0 max-sm:right-0 max-sm:flex max-sm:translate-x-0 max-sm:justify-center"
+				>
 					<MonthYearPicker
 						year={pickerYear}
 						month={pickerMonth}
@@ -86,176 +95,24 @@
 				</div>
 			{/if}
 		</div>
-		<button class="btn btn-secondary btn-sm" onclick={onNext} aria-label={nextLabel}>
-			{nextLabel} &rarr;
-		</button>
+		<Button variant="outline" size="sm" onclick={onNext} aria-label={nextLabel}>
+			{nextLabel}
+			<ChevronRightIcon aria-hidden="true" />
+		</Button>
 	</div>
-	<div class="nav-actions">
+	<div class="flex flex-wrap items-center gap-2">
 		{#if onToggleViewMode}
-			<button
-				class="view-toggle"
-				class:active={viewMode === '3-month'}
+			<Button
+				variant={viewMode === '3-month' ? 'secondary' : 'outline'}
+				size="sm"
 				data-testid="calendar-view-toggle"
 				onclick={onToggleViewMode}
 				title={viewMode === 'month' ? 'Switch to 3-month view' : 'Switch to month view'}
 			>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
-					<path
-						d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-					/>
-				</svg>
+				<CalendarDaysIcon aria-hidden="true" />
 				3-Month
-			</button>
+			</Button>
 		{/if}
-		<button class="btn btn-primary btn-sm" onclick={onGoToToday}>Today</button>
+		<Button size="sm" onclick={onGoToToday}>Today</Button>
 	</div>
 </div>
-
-<style>
-	.navigation {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4) var(--sp-5);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
-	.month-nav {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-	}
-
-	.month-title-wrap {
-		position: relative;
-		display: flex;
-		justify-content: center;
-	}
-
-	.month-title {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.25rem + 0.7vw, 2rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.05em;
-		line-height: var(--line-height-tight);
-		text-transform: uppercase;
-		min-width: 180px;
-		text-align: center;
-	}
-
-	.month-title-trigger {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-1);
-		width: 100%;
-		border: none;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		border-radius: var(--radius-sm);
-		padding: 2px 6px;
-		transition:
-			background-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.month-title-trigger:hover {
-		background: var(--amber-light);
-		color: var(--amber-dark);
-	}
-
-	.month-title-trigger:focus-visible {
-		outline: 2px solid var(--amber);
-		outline-offset: 2px;
-	}
-
-	.month-picker-popover {
-		position: absolute;
-		top: calc(100% + var(--sp-2));
-		left: 50%;
-		transform: translateX(-50%);
-		z-index: var(--z-dropdown);
-	}
-
-	.nav-actions {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.view-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		min-height: 34px;
-		padding: 7px 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.view-toggle:hover {
-		border-color: var(--ink-35);
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.view-toggle.active {
-		border-color: var(--amber);
-		background: var(--amber-light);
-		color: var(--amber-dark);
-	}
-
-	@media (max-width: 640px) {
-		.navigation {
-			padding: var(--sp-4);
-		}
-
-		.month-nav {
-			width: 100%;
-			justify-content: space-between;
-			gap: var(--sp-2);
-		}
-
-		.month-title-wrap {
-			flex: 1;
-		}
-
-		.month-title {
-			font-size: clamp(1.25rem, 1rem + 1vw, 1.7rem);
-			min-width: unset;
-			flex: 1;
-		}
-
-		.month-picker-popover {
-			left: 0;
-			right: 0;
-			transform: none;
-			display: flex;
-			justify-content: center;
-		}
-
-		.nav-actions {
-			width: 100%;
-			justify-content: flex-start;
-		}
-	}
-</style>

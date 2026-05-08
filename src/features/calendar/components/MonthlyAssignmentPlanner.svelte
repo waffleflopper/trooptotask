@@ -3,6 +3,11 @@
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface GroupData {
 		group: string;
@@ -147,42 +152,28 @@
 	);
 </script>
 
-<div class="planner-shell">
-	<!-- Month Navigation -->
-	<div class="month-nav">
-		<div class="month-controls">
-			<button class="btn btn-secondary btn-sm" onclick={prevMonth} aria-label="Previous month">
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path
-						fill-rule="evenodd"
-						d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-			</button>
-			<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
+<div class="bg-card overflow-hidden rounded-lg border">
+	<div class="bg-muted/30 flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+		<div class="inline-flex flex-wrap items-center gap-2">
+			<Button variant="outline" size="icon-sm" onclick={prevMonth} aria-label="Previous month">
+				<ChevronLeftIcon />
+			</Button>
+			<Button variant="outline" size="sm" onclick={goToCurrentMonth}>Today</Button>
 		</div>
 
-		<h3>{monthName} {year}</h3>
+		<h3 class="font-display min-w-44 text-center text-xl font-bold tracking-wide uppercase">{monthName} {year}</h3>
 
-		<div class="month-controls month-controls-end">
-			<button class="btn btn-secondary btn-sm" onclick={nextMonth} aria-label="Next month">
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path
-						fill-rule="evenodd"
-						d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-			</button>
+		<div class="inline-flex justify-end">
+			<Button variant="outline" size="icon-sm" onclick={nextMonth} aria-label="Next month">
+				<ChevronRightIcon />
+			</Button>
 		</div>
 	</div>
 
-	<!-- Quick Fill Section -->
-	<div class="quick-fill">
-		<h4>Quick Fill</h4>
-		<div class="quick-fill-row">
-			<div class="quick-fill-control">
+	<div class="bg-muted/20 border-b px-5 py-4">
+		<h4 class="text-muted-foreground mb-3 font-mono text-xs font-semibold tracking-wide uppercase">Quick Fill</h4>
+		<div class="flex flex-wrap items-center gap-2">
+			<div class="min-w-48 flex-1">
 				<SearchSelect
 					options={assignmentTypeOptions}
 					bind:value={quickFillType}
@@ -212,42 +203,37 @@
 				</div>
 			{/if}
 
-			<select class="select days-select" bind:value={quickFillDays}>
+			<NativeSelect bind:value={quickFillDays} class="w-[150px]">
 				<option value="weekdays">Weekdays only</option>
 				<option value="weekends">Weekends only</option>
 				<option value="all">All days</option>
-			</select>
+			</NativeSelect>
 
-			<button
-				class="btn btn-primary btn-sm"
+			<Button
+				size="sm"
 				onclick={applyQuickFill}
 				disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}
 			>
 				{isApplying ? 'Applying...' : 'Apply'}
-			</button>
+			</Button>
 		</div>
 	</div>
 
-	<!-- Assignment Grid -->
-	<div class="grid-container">
-		<table class="assignment-grid">
+	<div class="overflow-x-auto">
+		<table class="w-full border-collapse text-sm">
 			<thead>
-				<tr>
-					<th class="date-col">Date</th>
-					<th class="day-col">Day</th>
+				<tr class="bg-muted/40 border-b">
+					<th class="w-14 px-3 py-2 text-left font-medium">Date</th>
+					<th class="w-14 px-3 py-2 text-left font-medium">Day</th>
 					{#each assignmentTypes as type (type.id)}
-						<th class="type-col">
-							<div class="type-header">
-								<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
-								<button class="clear-btn" onclick={() => clearAll(type.id)} title="Clear all {type.name}">
-									<svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-										<path
-											fill-rule="evenodd"
-											d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-								</button>
+						<th class="min-w-40 px-3 py-2 text-left font-medium">
+							<div class="flex items-center justify-between gap-2">
+								<span class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase" style="background-color: {type.color}"
+									>{type.shortName}</span
+								>
+								<Button variant="ghost" size="icon-xs" onclick={() => clearAll(type.id)} title="Clear all {type.name}" aria-label="Clear all {type.name}">
+									<Trash2Icon />
+								</Button>
 							</div>
 						</th>
 					{/each}
@@ -259,16 +245,16 @@
 					{@const weekend = isWeekend(date)}
 					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
 					{@const isToday = formatDate(new Date()) === dateStr}
-					<tr class:weekend class:today={isToday}>
-						<td class="date-col">
-							<span class="date-num">{date.getDate()}</span>
+					<tr class={['border-b last:border-b-0', weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
+						<td class="px-3 py-2">
+							<span class="font-semibold">{date.getDate()}</span>
 						</td>
-						<td class="day-col">
-							<span class="day-name">{dayName}</span>
+						<td class="px-3 py-2">
+							<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
 						</td>
 						{#each assignmentTypes as type (type.id)}
 							{@const assignment = getAssignment(date, type.id)}
-							<td class="assignment-cell">
+							<td class="px-2 py-1.5">
 								{#if type.assignTo === 'personnel'}
 									<SearchSelect
 										options={personnelOptions}
@@ -296,7 +282,7 @@
 		</table>
 	</div>
 
-	<div class="planner-footer">{dates.length} days in {monthName}</div>
+	<div class="text-muted-foreground border-t px-5 py-3 text-sm">{dates.length} days in {monthName}</div>
 </div>
 
 {#if clearTypeId}
@@ -310,309 +296,3 @@
 	/>
 {/if}
 
-<style>
-	.planner-shell {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-	}
-
-	/* Month Navigation */
-	.month-nav {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-5);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-		color: var(--text-primary);
-		border-bottom: var(--border-thin);
-	}
-
-	.month-nav h3 {
-		font-size: clamp(1.3rem, 1.1rem + 0.5vw, 1.7rem);
-		font-weight: var(--font-weight-display);
-		min-width: 180px;
-		text-align: center;
-		margin: 0;
-		font-family: var(--font-display);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-	}
-
-	.month-nav .btn-secondary {
-		background: var(--surface-panel);
-		border-color: var(--border-default);
-		color: var(--text-primary);
-	}
-
-	.month-nav .btn-secondary:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-	}
-
-	.month-controls {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.month-controls-end {
-		justify-content: flex-end;
-	}
-
-	/* Quick Fill */
-	.quick-fill {
-		padding: var(--sp-4) var(--sp-5);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border-bottom: var(--border-thin);
-	}
-
-	.quick-fill h4 {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-		margin: 0 0 var(--sp-3);
-	}
-
-	.quick-fill-row {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		flex-wrap: wrap;
-	}
-
-	.quick-fill-control {
-		flex: 1;
-		min-width: 150px;
-	}
-
-	.quick-fill-control :global(.search-select) {
-		width: 100%;
-	}
-
-	.days-select {
-		max-width: 140px;
-	}
-
-	/* Grid Container */
-	.grid-container {
-		overflow: auto;
-		padding: var(--sp-4) var(--sp-5);
-		background: var(--surface-panel);
-	}
-
-	.assignment-grid {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-	}
-
-	.assignment-grid th,
-	.assignment-grid td {
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		text-align: left;
-	}
-
-	.assignment-grid th {
-		background: color-mix(in srgb, var(--surface-subtle) 86%, var(--surface-panel) 14%);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		position: sticky;
-		top: 0;
-		z-index: 1;
-	}
-
-	.date-col {
-		width: 50px;
-		text-align: center !important;
-	}
-
-	.day-col {
-		width: 50px;
-	}
-
-	.type-col {
-		min-width: 150px;
-	}
-
-	.type-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-2);
-	}
-
-	.type-badge {
-		padding: 2px 6px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: white;
-	}
-
-	.clear-btn {
-		padding: 2px;
-		color: var(--text-tertiary);
-		border-radius: var(--radius-sm);
-		opacity: 0.6;
-		transition:
-			opacity var(--transition-fast),
-			color var(--transition-fast),
-			background-color var(--transition-fast);
-	}
-
-	.clear-btn:hover {
-		opacity: 1;
-		color: var(--danger);
-		background: var(--danger-bg);
-	}
-
-	.date-num {
-		font-family: var(--font-display);
-		font-size: 1.15rem;
-		font-weight: var(--font-weight-display);
-		color: var(--text-primary);
-	}
-
-	.day-name {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.assignment-grid tr.weekend {
-		background: var(--color-weekend);
-	}
-
-	.assignment-grid tr.weekend .day-name {
-		color: var(--amber-dark);
-	}
-
-	.assignment-grid tr.today {
-		background: var(--color-today-bg);
-	}
-
-	.assignment-grid tr.today td {
-		border-color: var(--color-today-border);
-	}
-
-	.assignment-cell {
-		padding: 2px !important;
-	}
-
-	.assignment-cell :global(.search-select) {
-		width: 100%;
-		min-width: 132px;
-	}
-
-	.assignment-cell :global(.search-select .input-wrapper) {
-		border-color: transparent;
-		background: transparent;
-		box-shadow: none;
-	}
-
-	.assignment-cell :global(.search-select .input-wrapper:hover),
-	.assignment-cell :global(.search-select .input-wrapper.open) {
-		border-color: var(--border-default);
-		background: var(--surface-panel);
-	}
-
-	.planner-footer {
-		padding: var(--sp-4) var(--sp-5);
-		border-top: var(--border-thin);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.month-nav {
-			padding: var(--sp-3) var(--sp-4);
-			justify-content: center;
-		}
-
-		.month-nav h3 {
-			font-size: 1.2rem;
-			min-width: unset;
-		}
-
-		.quick-fill {
-			padding: var(--sp-4);
-		}
-
-		.quick-fill-row {
-			flex-direction: column;
-		}
-
-		.quick-fill-control {
-			width: 100%;
-			min-width: unset;
-		}
-
-		.days-select {
-			max-width: unset;
-		}
-
-		.grid-container {
-			padding: var(--sp-3);
-		}
-
-		.assignment-grid th,
-		.assignment-grid td {
-			padding: 2px var(--sp-2);
-		}
-
-		.date-col {
-			width: 35px;
-		}
-
-		.day-col {
-			width: 35px;
-		}
-
-		.type-col {
-			min-width: 80px;
-		}
-
-		.type-header {
-			flex-direction: column;
-			gap: 2px;
-		}
-
-		.type-badge {
-			font-size: 9px;
-		}
-
-		.assignment-cell :global(.search-select) {
-			min-width: 96px;
-		}
-	}
-
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.type-col {
-			min-width: 120px;
-		}
-	}
-</style>

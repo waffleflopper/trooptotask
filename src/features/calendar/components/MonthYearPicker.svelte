@@ -1,4 +1,8 @@
 <script lang="ts">
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import { Button } from '$lib/components/ui/button';
+
 	interface Props {
 		year: number;
 		month: number;
@@ -85,19 +89,30 @@
 <svelte:window onkeydown={handleWindowKeydown} />
 <svelte:document onmousedown={handleDocumentMouseDown} />
 
-<div bind:this={pickerEl} class="month-year-picker" role="dialog" aria-label="Month and year picker">
-	<div class="year-nav">
-		<button class="year-btn" onclick={() => (displayYear -= 1)} aria-label="Previous year"> &larr; </button>
-		<span class="year-label">{displayYear}</span>
-		<button class="year-btn" onclick={() => (displayYear += 1)} aria-label="Next year"> &rarr; </button>
+<div
+	bind:this={pickerEl}
+	class="z-50 w-60 rounded-lg border bg-popover p-4 text-popover-foreground shadow-md"
+	role="dialog"
+	aria-label="Month and year picker"
+>
+	<div class="mb-2 flex items-center justify-between">
+		<Button variant="outline" size="icon-sm" onclick={() => (displayYear -= 1)} aria-label="Previous year">
+			<ChevronLeftIcon aria-hidden="true" />
+		</Button>
+		<span class="text-base font-semibold text-foreground">{displayYear}</span>
+		<Button variant="outline" size="icon-sm" onclick={() => (displayYear += 1)} aria-label="Next year">
+			<ChevronRightIcon aria-hidden="true" />
+		</Button>
 	</div>
 
-	<div class="month-grid">
+	<div class="grid grid-cols-3 gap-1">
 		{#each MONTH_LABELS as label, i (label)}
 			<button
 				bind:this={monthButtons[i]}
-				class="month-btn"
-				class:current={displayYear === year && i === month}
+				class={[
+					'focus-visible:ring-ring cursor-pointer rounded-lg border border-transparent bg-popover px-1 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:outline-none',
+					displayYear === year && i === month && 'bg-primary text-primary-foreground hover:bg-primary/90'
+				]}
 				aria-current={displayYear === year && i === month ? 'true' : undefined}
 				onkeydown={(event) => handleMonthKeydown(event, i)}
 				onclick={() => onSelect(displayYear, i)}
@@ -107,82 +122,3 @@
 		{/each}
 	</div>
 </div>
-
-<style>
-	.month-year-picker {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-md);
-		padding: var(--sp-4);
-		width: 240px;
-		z-index: var(--z-dropdown);
-	}
-
-	.year-nav {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--sp-2);
-	}
-
-	.year-label {
-		font-size: var(--text-base);
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-
-	.year-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		cursor: pointer;
-		font-size: var(--text-ui-sm);
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.year-btn:hover {
-		border-color: var(--amber);
-		background: rgba(var(--amber-rgb), var(--opacity-light));
-	}
-
-	.month-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: var(--sp-1);
-	}
-
-	.month-btn {
-		padding: var(--sp-2) var(--sp-1);
-		border: 1px solid transparent;
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		font-size: var(--text-ui-sm);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.month-btn:hover {
-		background: rgba(var(--amber-rgb), var(--opacity-light));
-		border-color: var(--amber);
-	}
-
-	.month-btn.current {
-		background: var(--amber);
-		color: var(--accent-contrast);
-		font-weight: var(--font-weight-bold);
-	}
-</style>

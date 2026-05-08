@@ -6,8 +6,11 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
 		person: Personnel;
@@ -100,39 +103,39 @@
 </script>
 
 <Modal title={isEditing ? 'Edit Status' : 'Add Status'} {onClose} width="450px" titleId="status-modal-title">
-	<div class="person-info">
-		<span class="person-rank">{person.rank}</span>
-		<span class="person-name">{person.lastName}, {person.firstName}</span>
+	<div class="bg-muted/40 mb-5 flex items-center gap-2 rounded-lg border px-3 py-2">
+		<span class="text-primary text-sm font-bold">{person.rank}</span>
+		<span class="text-sm font-semibold">{person.lastName}, {person.firstName}</span>
 	</div>
 
-	<div class="form-group">
-		<label class="label" for="statusType">Status Type <span class="required">*</span></label>
-		<select id="statusType" class="select" bind:value={selectedStatusId}>
+	<div class="mb-4 grid gap-2">
+		<label class="text-sm font-medium" for="statusType">Status Type <span class="text-destructive">*</span></label>
+		<NativeSelect id="statusType" bind:value={selectedStatusId} class="w-full">
 			{#each statusTypesStore.items as status (status.id)}
 				<option value={status.id}>{status.name}</option>
 			{/each}
-		</select>
+		</NativeSelect>
 		{#if selectedStatus}
-			<div class="status-preview">
+			<div>
 				<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
 			</div>
 		{/if}
 	</div>
 
-	<div class="dates-row">
-		<div class="form-group">
-			<label class="label" for="startDate">Start Date <span class="required">*</span></label>
-			<input id="startDate" type="date" class="input" bind:value={startDate} />
+	<div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-start">
+		<div class="grid gap-2">
+			<label class="text-sm font-medium" for="startDate">Start Date <span class="text-destructive">*</span></label>
+			<Input id="startDate" type="date" bind:value={startDate} />
 		</div>
-		<span class="date-arrow">→</span>
-		<div class="form-group">
-			<label class="label" for="endDate">End Date <span class="required">*</span></label>
-			<input id="endDate" type="date" class="input" bind:value={endDate} />
+		<span class="text-muted-foreground hidden pt-7 sm:block">→</span>
+		<div class="grid gap-2">
+			<label class="text-sm font-medium" for="endDate">End Date <span class="text-destructive">*</span></label>
+			<Input id="endDate" type="date" bind:value={endDate} />
 		</div>
 		{#if dayCount > 0}
-			<div class="day-count">
-				<span class="day-count-number">{dayCount}</span>
-				<span class="day-count-label">{dayCount === 1 ? 'day' : 'days'}</span>
+			<div class="bg-card mt-0 flex min-w-12 flex-row items-center justify-center gap-1 rounded-lg border px-2 py-1 sm:mt-6 sm:flex-col sm:gap-0">
+				<span class="text-primary text-base leading-none font-bold">{dayCount}</span>
+				<span class="text-muted-foreground text-[10px] uppercase">{dayCount === 1 ? 'day' : 'days'}</span>
 			</div>
 		{/if}
 	</div>
@@ -143,25 +146,25 @@
 
 	{#snippet footer()}
 		{#if isEditing}
-			<button class="btn btn-danger" onclick={handleDelete} disabled={isDeleting || isSubmitting}>
+			<Button variant="destructive" onclick={handleDelete} disabled={isDeleting || isSubmitting}>
 				{#if isDeleting}
 					<Spinner />
 					Deleting...
 				{:else}
 					Delete
 				{/if}
-			</button>
+			</Button>
 		{/if}
-		<div class="footer-right">
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" disabled={!isValid || isSubmitting} onclick={handleSubmit}>
+		<div class="ml-auto flex gap-2">
+			<Button variant="outline" onclick={onClose}>Cancel</Button>
+			<Button disabled={!isValid || isSubmitting} onclick={handleSubmit}>
 				{#if isSubmitting}
 					<Spinner />
 					{isEditing ? 'Saving...' : 'Adding...'}
 				{:else}
 					{isEditing ? 'Save Changes' : 'Add Status'}
 				{/if}
-			</button>
+			</Button>
 		</div>
 	{/snippet}
 </Modal>
@@ -176,85 +179,3 @@
 		onCancel={() => (showDeleteConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.person-info {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-4);
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--sp-6);
-	}
-
-	.person-rank {
-		font-weight: 700;
-		color: var(--amber);
-	}
-
-	.person-name {
-		font-weight: 600;
-	}
-
-	.status-preview {
-		margin-top: var(--sp-2);
-	}
-
-	.dates-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-4);
-	}
-
-	.dates-row .form-group {
-		flex: 1;
-		margin-bottom: 0;
-	}
-
-	.date-arrow {
-		color: var(--text-tertiary);
-		font-size: var(--text-base);
-		padding-top: var(--sp-6);
-	}
-
-	.day-count {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: var(--sp-1) var(--sp-2);
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		min-width: 50px;
-		margin-top: var(--sp-6);
-	}
-
-	.day-count-number {
-		font-size: var(--text-base);
-		font-weight: 700;
-		color: var(--amber);
-		line-height: 1;
-	}
-
-	.day-count-label {
-		font-size: 10px;
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-	}
-
-	.footer-right {
-		display: flex;
-		gap: var(--sp-2);
-		margin-left: auto;
-	}
-
-	.btn-danger {
-		background: #dc2626;
-		color: white;
-	}
-
-	.btn-danger:hover:not(:disabled) {
-		background: #b91c1c;
-	}
-</style>

@@ -47,7 +47,7 @@
 	]);
 </script>
 
-<div class="assignment-planner-page">
+<div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
 	<WorkspaceToolbar.Root ariaLabel="Assignment planner controls">
 		<WorkspaceToolbar.Group label="Assignment planner context" zone="meta">
 			<WorkspaceToolbar.Meta>Manual monthly coverage planning</WorkspaceToolbar.Meta>
@@ -58,9 +58,9 @@
 	</WorkspaceToolbar.Root>
 
 	{#if !canMutate}
-		<section class="restricted-hero">
-			<h1>Access restricted.</h1>
-			<p>Calendar operation access is required to manage monthly assignments.</p>
+		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center">
+			<h1 class="font-display mb-2 text-2xl tracking-wide uppercase">Access restricted.</h1>
+			<p class="leading-relaxed">Calendar operation access is required to manage monthly assignments.</p>
 		</section>
 	{:else}
 		<MonthlyAssignmentPlanner
@@ -74,43 +74,3 @@
 		/>
 	{/if}
 </div>
-
-<style>
-	.assignment-planner-page {
-		padding: var(--sp-4) var(--sp-6) var(--sp-6);
-		max-width: 1600px;
-		margin: 0 auto;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.restricted-hero {
-		text-align: center;
-		padding: var(--sp-8) var(--sp-6);
-		color: var(--text-secondary);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.restricted-hero h1 {
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.3rem + 0.5vw, 1.9rem);
-		margin: 0 0 var(--sp-2);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-	}
-
-	.restricted-hero p {
-		margin: 0;
-		font-family: var(--font-body);
-		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 640px) {
-		.assignment-planner-page {
-			padding: var(--sp-4);
-		}
-	}
-</style>

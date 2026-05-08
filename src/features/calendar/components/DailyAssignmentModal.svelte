@@ -4,6 +4,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import { Button } from '$lib/components/ui/button';
 
 	interface GroupData {
 		group: string;
@@ -95,19 +96,19 @@
 </script>
 
 <Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
-	<div class="date-display">{dateDisplay}</div>
+	<div class="border-b pb-4 font-display text-xl font-bold tracking-wide uppercase">{dateDisplay}</div>
 
 	{#if dutyEventsForDate.length > 0}
-		<div class="duty-events-section">
-			<h4 class="duty-events-heading">Advanced duty events</h4>
+		<div class="mt-4 flex flex-col gap-2 border-b pb-4">
+			<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Advanced duty events</h4>
 			{#each dutyEventsForDate as event (event.id)}
-				<div class="duty-event-row">
+				<div class="flex flex-col gap-0.5">
 					{#if dutyRosterHref}
-						<a href={dutyRosterHref} class="duty-event-name">{event.templateName}</a>
+						<a href={dutyRosterHref} class="text-sm font-medium hover:underline">{event.templateName}</a>
 					{:else}
-						<span class="duty-event-name">{event.templateName}</span>
+						<span class="text-sm font-medium">{event.templateName}</span>
 					{/if}
-					<span class="duty-event-meta"
+					<span class="text-muted-foreground text-xs"
 						>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
 					>
 				</div>
@@ -115,12 +116,16 @@
 		</div>
 	{/if}
 
-	<div class="assignments-list">
+	<div class="mt-4 flex flex-col gap-3">
 		{#each assignmentTypes as type (type.id)}
-			<div class="assignment-row">
-				<div class="assignment-label">
-					<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-					<span class="assignment-name">{type.name}</span>
+			<div class="bg-muted/30 flex flex-col gap-2 rounded-lg border p-3">
+				<div class="flex flex-wrap items-center gap-2">
+					<span
+						class="inline-flex min-w-7 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-white uppercase"
+						style="background-color: {type.color}"
+						>{type.shortName}</span
+					>
+					<span class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">{type.name}</span>
 				</div>
 
 				{#if type.assignTo === 'personnel'}
@@ -145,106 +150,6 @@
 	</div>
 
 	{#snippet footer()}
-		<button class="btn btn-primary" onclick={onClose}>Done</button>
+		<Button onclick={onClose}>Done</Button>
 	{/snippet}
 </Modal>
-
-<style>
-	.date-display {
-		margin-bottom: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-		font-family: var(--font-display);
-		font-size: clamp(1.35rem, 1.1rem + 0.6vw, 1.8rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.duty-events-section {
-		margin-bottom: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.duty-events-heading {
-		margin: 0 0 var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.duty-event-row {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.duty-event-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
-		color: var(--text-primary);
-		text-decoration: none;
-	}
-
-	a.duty-event-name:hover {
-		text-decoration: underline;
-	}
-
-	.duty-event-meta {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.assignments-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.assignment-row {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-3);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-	}
-
-	.assignment-label {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.assignment-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 2px 6px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: white;
-	}
-
-	.assignment-name {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-</style>

@@ -79,159 +79,49 @@
 </script>
 
 <button
-	class="date-cell"
-	class:weekend={isWeekend}
-	class:today={isToday}
-	class:holiday={isHoliday}
-	class:has-status={statusColors.length > 0}
-	class:has-assignment={assignments.length > 0 || dutyBadges.length > 0}
+	class={[
+		'date-cell relative flex min-h-[var(--cell-height)] min-w-0 cursor-pointer items-start justify-center overflow-hidden border-r border-b bg-transparent pt-0.5 transition-[background-color,box-shadow,filter] hover:shadow-[inset_0_0_0_1px_var(--primary)] focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-w-[var(--cell-width)]',
+		isWeekend && 'bg-muted/55',
+		isHoliday && 'bg-warning-muted/50',
+		isToday && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
+		statusColors.length === 0 && 'hover:bg-primary/5',
+		statusColors.length > 0 && 'has-status hover:brightness-95',
+		(assignments.length > 0 || dutyBadges.length > 0) && 'has-assignment shadow-[inset_0_0_0_1px_var(--primary)]'
+	]}
 	style:background={getBackground()}
 	title={tooltipText}
 	{onclick}
 >
 	{#if assignments.length > 0 || dutyBadges.length > 0}
-		<div class="assignment-badges">
+		<div class="flex flex-wrap justify-center gap-px">
 			{#each assignments as { type, assignment } (assignment.id)}
-				<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
+				<span
+					class="assignment-badge rounded-[2px] px-0.5 py-px font-mono text-[6px] leading-none font-semibold tracking-wider text-white uppercase sm:text-[7px]"
+					style="background-color: {type.color}"
+				>
+					{type.shortName}
+				</span>
 			{/each}
 			{#each dutyBadges as badge (badge.slotId)}
-				<span class="assignment-badge duty-badge" style="background-color: {badge.color}; color: {badge.textColor};">
+				<span
+					class="assignment-badge duty-badge rounded-[2px] px-0.5 py-px font-mono text-[6px] leading-none font-semibold tracking-wider uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] sm:text-[7px]"
+					style="background-color: {badge.color}; color: {badge.textColor};"
+				>
 					{badge.shortName}
 				</span>
 			{/each}
 		</div>
 	{/if}
 	{#if showStatusText && statusColors.length > 0}
-		<span class="status-text" style="color: {statusColors[0].textColor}"
-			>{statusColors.map((s) => s.name).join(', ')}</span
+		<span
+			class="max-w-full overflow-hidden px-0.5 font-mono text-[8px] leading-tight font-semibold tracking-wider text-ellipsis whitespace-nowrap uppercase"
+			style="color: {statusColors[0].textColor}">{statusColors.map((s) => s.name).join(', ')}</span
 		>
 	{:else if statusColors.length > 1}
-		<span class="multi-indicator">{statusColors.length}</span>
+		<span
+			class="absolute right-px bottom-px rounded-[2px] bg-foreground/80 px-0.5 font-mono text-[8px] leading-tight text-background sm:text-[9px]"
+		>
+			{statusColors.length}
+		</span>
 	{/if}
 </button>
-
-<style>
-	.date-cell {
-		appearance: none;
-		border: none;
-		background-color: transparent;
-		min-height: var(--cell-height);
-		min-width: 0;
-		overflow: hidden;
-		border-right: var(--border-thin);
-		border-bottom: var(--border-thin);
-		cursor: pointer;
-		position: relative;
-		transition:
-			background-color var(--transition-fast),
-			box-shadow var(--transition-fast),
-			filter var(--transition-fast);
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		padding-top: 2px;
-	}
-
-	.date-cell:hover {
-		box-shadow: inset 0 0 0 1px var(--amber);
-	}
-
-	.date-cell:not(.has-status):hover {
-		background-color: rgba(var(--amber-rgb), 0.06);
-	}
-
-	.date-cell.has-status:hover {
-		filter: brightness(0.96);
-	}
-
-	.weekend {
-		background-color: var(--color-weekend);
-	}
-
-	.holiday {
-		background-color: var(--color-holiday);
-	}
-
-	.today {
-		box-shadow: inset 0 0 0 1px var(--color-today-border);
-		z-index: 1;
-	}
-
-	.has-status.today {
-		box-shadow: inset 0 0 0 1px var(--color-today-border);
-	}
-
-	.has-assignment {
-		box-shadow: inset 0 0 0 1px var(--amber);
-	}
-
-	.assignment-badges {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1px;
-		justify-content: center;
-	}
-
-	.assignment-badge {
-		font-family: var(--font-mono);
-		font-size: 7px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: white;
-		padding: 1px 2px;
-		border-radius: 2px;
-		line-height: 1;
-	}
-
-	.duty-badge {
-		/* Subtle ring to distinguish advanced-duty badges from assignment-type badges
-		   while keeping them in the same row with identical dimensions. */
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-	}
-
-	.multi-indicator {
-		position: absolute;
-		bottom: 1px;
-		right: 1px;
-		font-family: var(--font-mono);
-		font-size: 9px;
-		background: rgba(14, 14, 13, 0.78);
-		color: var(--paper);
-		border-radius: 2px;
-		padding: 0 3px;
-		line-height: 1.2;
-	}
-
-	.status-text {
-		font-family: var(--font-mono);
-		font-size: 8px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 100%;
-		padding: 0 2px;
-		line-height: 1.1;
-	}
-
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.date-cell {
-			min-width: var(--cell-width);
-			min-height: var(--cell-height);
-		}
-
-		.assignment-badge {
-			font-size: 6px;
-			padding: 0 1px;
-		}
-
-		.multi-indicator {
-			font-size: 8px;
-			padding: 0 2px;
-		}
-	}
-</style>

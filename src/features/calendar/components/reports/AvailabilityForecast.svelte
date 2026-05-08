@@ -4,7 +4,9 @@
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import { Badge } from '$lib/components/ui/badge';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
@@ -159,32 +161,32 @@
 	});
 </script>
 
-<div class="report-config">
-	<div class="config-section">
-		<h3>Date Range</h3>
-		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} />
+<div class="bg-card flex flex-col gap-4 rounded-lg border p-4">
+	<div>
+		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Date Range</h3>
+		<div class="flex flex-wrap items-end gap-2">
+			<label class="grid min-w-[120px] flex-1 gap-1">
+				<span class="text-sm font-medium">Start</span>
+				<Input type="date" bind:value={startDate} />
 			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} />
+			<label class="grid min-w-[120px] flex-1 gap-1">
+				<span class="text-sm font-medium">End</span>
+				<Input type="date" bind:value={endDate} />
 			</label>
 		</div>
 	</div>
 
-	<div class="config-section">
-		<h3>Group Filter</h3>
-		<div class="checkbox-list">
+	<div>
+		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Group Filter</h3>
+		<div class="flex max-h-[200px] flex-col gap-0.5 overflow-y-auto rounded-md border p-1">
 			{#each groups as group (group.id)}
-				<label class="checkbox-item">
+				<label class="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm">
 					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
 					<span>{group.name}</span>
 				</label>
 			{/each}
 		</div>
-		<div class="personnel-count">
+		<div class="text-muted-foreground mt-1 text-sm">
 			{filteredPersonnel.length} of {personnel.length} personnel selected
 			{#if selectedGroupIds.size === 0}
 				(all)
@@ -192,29 +194,29 @@
 		</div>
 	</div>
 
-	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate}>
+	<div class="flex justify-end">
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
 {#if errorMsg}
-	<div class="report-error">{errorMsg}</div>
+	<div class="text-destructive bg-destructive/10 mt-2 rounded-md border px-3 py-2 text-sm">{errorMsg}</div>
 {/if}
 
 {#if result}
-	<div class="report-output">
-		<div class="report-toolbar">
-			<span class="report-summary">
+	<div class="mt-4">
+		<div class="mb-2 flex items-center justify-between gap-2">
+			<span class="text-muted-foreground text-sm">
 				{result.days.length} days &middot; {filteredPersonnel.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.days.length === 0}
-			<p class="no-data">No data found for the selected criteria.</p>
+			<p class="text-muted-foreground py-8 text-center text-sm italic">No data found for the selected criteria.</p>
 		{:else}
 			<DataTable.DataTable
 				{table}
@@ -259,114 +261,3 @@
 		{/if}
 	</div>
 {/if}
-
-<style>
-	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.config-section h3 {
-		font-size: var(--text-ui-sm);
-		font-weight: 600;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
-	}
-
-	.date-row {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: flex-end;
-		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
-	}
-
-	.checkbox-list {
-		max-height: 200px;
-		overflow-y: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		padding: var(--sp-1);
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.checkbox-item {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-ui-sm);
-		cursor: pointer;
-	}
-
-	.checkbox-item:hover {
-		background: var(--surface-page);
-	}
-
-	.personnel-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-		margin-top: var(--sp-1);
-	}
-
-	.config-actions {
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
-	}
-
-	.report-output {
-		margin-top: var(--sp-4);
-	}
-
-	.report-toolbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--sp-2);
-	}
-
-	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
-	}
-
-	.no-data {
-		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
-		font-style: italic;
-	}
-
-	@media (max-width: 640px) {
-		.date-row {
-			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
-		}
-	}
-</style>

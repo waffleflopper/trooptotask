@@ -4,8 +4,8 @@
 	let { data } = $props();
 </script>
 
-<div class="page">
-	<main class="page-content">
+<div class="flex h-full flex-col bg-background">
+	<main class="p-3 sm:px-6 sm:pt-4 sm:pb-6">
 		<CalendarReports
 			orgId={data.orgId}
 			personnel={data.allPersonnel ?? []}
@@ -14,16 +14,3 @@
 		/>
 	</main>
 </div>
-
-<style>
-	.page {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-page);
-	}
-
-	.page-content {
-		padding: var(--sp-4) var(--sp-6) var(--sp-6);
-	}
-</style>

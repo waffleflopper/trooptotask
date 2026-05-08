@@ -15,6 +15,10 @@
 	import { buildAvailabilityStatusIndex } from '$features/calendar/utils/calendarIndexes';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteMap } from 'svelte/reactivity';
+	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
+	import PrinterIcon from '@lucide/svelte/icons/printer';
+	import { Button } from '$lib/components/ui/button';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	/** Must match --long-range-col-width in CSS */
 	const COL_WIDTH = 24;
@@ -221,13 +225,13 @@
 				assignments
 			});
 		} catch (err) {
-			alert(err instanceof Error ? err.message : 'PDF export failed');
+			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 		}
 	}
 </script>
 
 <div
-	class="long-range-wrapper"
+	class="long-range-wrapper flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--long-range-col-width:24px] [--long-range-header-height:36px]"
 	style="
 		--long-range-group-row-height: {GROUP_ROW_HEIGHT}px;
 		--long-range-person-row-height: {PERSON_ROW_HEIGHT}px;
@@ -248,14 +252,22 @@
 		onSelectMonthYear={goToMonth}
 	/>
 
-	<div class="scroll-area" bind:this={scrollAreaEl} onscroll={handleScroll}>
-		<div class="calendar-grid">
+	<div
+		class="scroll-area flex-1 overflow-auto bg-card [scrollbar-gutter:stable]"
+		bind:this={scrollAreaEl}
+		onscroll={handleScroll}
+	>
+		<div class="flex min-w-max flex-col">
 			<!-- Header Row with Months and Days -->
-			<div class="grid-header">
-				<div class="name-cell header-cell">Personnel</div>
+			<div class="sticky top-0 z-10 flex border-b bg-muted">
+				<div
+					class="sticky left-0 z-20 flex min-h-[var(--long-range-header-height)] w-[var(--personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+				>
+					Personnel
+				</div>
 				{#each months as month (`${month.year}-${month.month}`)}
 					<div
-						class="month-header"
+						class="flex min-h-[var(--long-range-header-height)] shrink-0 items-center justify-center border-l px-0 py-2 text-center font-mono text-xs font-semibold tracking-widest text-foreground uppercase first:border-l-0"
 						style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;"
 					>
 						{month.name}
@@ -265,8 +277,8 @@
 			</div>
 
 			<!-- Day Numbers Row — clickable to jump to that month -->
-			<div class="day-row">
-				<div class="name-cell day-header-cell"></div>
+			<div class="sticky top-[var(--long-range-header-height)] z-[9] flex border-b bg-card">
+				<div class="sticky left-0 z-10 min-h-8 w-[var(--personnel-column-width)] shrink-0 border-r bg-card px-3"></div>
 				{#each months as month (`${month.year}-${month.month}`)}
 					{#each month.dates as date (formatDate(date))}
 						{@const dateKey = formatDate(date)}
@@ -274,14 +286,16 @@
 						{@const today = isToday(date)}
 						{@const special = specialDayByDate.get(dateKey)}
 						<button
-							class="day-cell"
-							class:weekend
-							class:today
-							class:holiday={special?.type === 'federal-holiday'}
+							class={[
+								'flex h-8 w-[var(--long-range-col-width)] shrink-0 cursor-pointer flex-col items-center justify-center border-l bg-card text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+								weekend && 'bg-muted/55',
+								today && 'z-[1] bg-primary/10 shadow-[inset_0_0_0_1px_var(--primary)]',
+								special?.type === 'federal-holiday' && 'bg-warning-muted/55'
+							]}
 							title={special?.name ?? `Jump to ${month.name} ${month.year}`}
 							onclick={() => onDateColumnClick?.(date)}
 						>
-							<span class="day-num">{date.getDate()}</span>
+							<span class="font-mono text-[9px] font-semibold sm:text-xs">{date.getDate()}</span>
 						</button>
 					{/each}
 				{/each}
@@ -289,27 +303,45 @@
 
 			<!-- Personnel Rows (read-only) -->
 			<div
-				class="roster-rows"
+				class="roster-rows relative min-w-max"
 				bind:this={rosterRowsEl}
 				style:height={`${rosterLayout.totalHeight}px`}
 				style:width={rosterWidth}
 			>
 				{#each visibleRosterRows as row (row.key)}
-					<div class="virtual-row" style:transform={`translateY(${row.top}px)`} style:height={`${row.height}px`}>
+					<div
+						class="virtual-row absolute top-0 left-0"
+						style:transform={`translateY(${row.top}px)`}
+						style:height={`${row.height}px`}
+					>
 						{#if row.type === 'group'}
-							<div class="group-row">
-								<div class="name-cell group-name">{row.group}</div>
+							<div class="flex h-[var(--long-range-group-row-height)] overflow-hidden bg-muted/70">
+								<div
+									class="sticky left-0 z-[2] flex h-[var(--long-range-group-row-height)] w-[var(--personnel-column-width)] shrink-0 items-center border-r bg-muted/70 px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+								>
+									{row.group}
+								</div>
 								{#each months as month (`${month.year}-${month.month}`)}
 									{#each month.dates as date (formatDate(date))}
-										<div class="group-cell"></div>
+										<div
+											class="h-[var(--long-range-group-row-height)] w-[var(--long-range-col-width)] shrink-0 border-l bg-muted/70 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7"
+										></div>
 									{/each}
 								{/each}
 							</div>
 						{:else}
-							<div class="person-row">
-								<div class="name-cell person-name">
-									<span class="rank">{row.person.rank}</span>
-									<span class="name">{row.person.lastName}</span>
+							<div
+								class="flex h-[var(--long-range-person-row-height)] overflow-hidden border-b hover:[&_.empty-status-cell]:bg-muted"
+							>
+								<div
+									class="sticky left-0 z-[2] flex h-[var(--long-range-person-row-height)] w-[var(--personnel-column-width)] shrink-0 items-center gap-1 border-r bg-card px-3 text-sm"
+								>
+									<span class="font-mono text-xs font-semibold tracking-wider text-primary uppercase"
+										>{row.person.rank}</span
+									>
+									<span class="overflow-hidden text-ellipsis whitespace-nowrap text-foreground"
+										>{row.person.lastName}</span
+									>
 								</div>
 								{#each months as month (`${month.year}-${month.month}`)}
 									{#each month.dates as date (formatDate(date))}
@@ -319,16 +351,22 @@
 										{@const today = isToday(date)}
 										{@const dutyBadges = dutyBadgesByPerson.get(row.person.id)?.get(dateKey) ?? []}
 										<div
-											class="status-cell"
-											class:weekend
-											class:today
-											class:has-status={status}
-											class:has-duty={dutyBadges.length > 0}
+											class={[
+												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+												!status && 'empty-status-cell',
+												weekend && 'bg-muted/55',
+												today && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
+												status && 'has-status border-transparent',
+												dutyBadges.length > 0 && 'has-duty'
+											]}
 											style={status ? `background-color: ${status.color}` : ''}
 											title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
 										>
 											{#if dutyBadges.length > 0}
-												<span class="duty-indicator" style="background-color: {dutyBadges[0].color}"></span>
+												<span
+													class="duty-indicator absolute right-0 bottom-0 left-0 h-0.5"
+													style="background-color: {dutyBadges[0].color}"
+												></span>
 											{/if}
 										</div>
 									{/each}
@@ -341,449 +379,30 @@
 		</div>
 	</div>
 
-	<div class="legend-bar">
-		<div class="legend">
-			<span class="legend-label">Status:</span>
+	<div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-4 py-3 sm:px-5">
+		<div class="hidden flex-wrap items-center gap-2 text-sm sm:flex">
+			<span class="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">Status:</span>
 			{#each statusTypes as status (status.id)}
-				<span class="legend-item">
-					<span class="legend-color" style="background-color: {status.color}"></span>
+				<span
+					class="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
+				>
+					<span
+						class="size-2 rounded-[2px] shadow-[inset_0_0_0_1px_rgba(14,14,13,0.08)]"
+						style="background-color: {status.color}"
+					></span>
 					{status.name}
 				</span>
 			{/each}
 		</div>
-		<div class="legend-actions">
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCSV} title="Export to Excel">
-				<svg
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					width="16"
-					height="16"
-					aria-hidden="true"
-				>
-					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-					<polyline points="14 2 14 8 20 8" />
-				</svg>
+		<div class="ml-auto flex shrink-0 items-center gap-2">
+			<Button variant="outline" size="sm" onclick={handleExportCSV} title="Export to Excel">
+				<FileSpreadsheetIcon aria-hidden="true" />
 				Excel
-			</button>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportPDF} title="Print / PDF">
-				<svg
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					width="16"
-					height="16"
-					aria-hidden="true"
-				>
-					<path d="M6 9V2h12v7" />
-					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-					<rect x="6" y="14" width="12" height="8" />
-				</svg>
+			</Button>
+			<Button variant="outline" size="sm" onclick={handleExportPDF} title="Print / PDF">
+				<PrinterIcon aria-hidden="true" />
 				PDF
-			</button>
+			</Button>
 		</div>
 	</div>
 </div>
-
-<style>
-	/* Inline layout: fills parent container */
-	.long-range-wrapper {
-		--long-range-col-width: 24px;
-		--long-range-header-height: 36px;
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-		box-shadow: var(--shadow-sm);
-	}
-
-	.scroll-area {
-		flex: 1;
-		overflow: auto;
-		scrollbar-gutter: stable;
-		background: var(--surface-panel);
-	}
-
-	.calendar-grid {
-		display: flex;
-		flex-direction: column;
-		min-width: max-content;
-	}
-
-	.grid-header,
-	.day-row,
-	.group-row,
-	.person-row {
-		display: flex;
-	}
-
-	.group-row {
-		height: var(--long-range-group-row-height);
-		overflow: hidden;
-	}
-
-	.person-row {
-		height: var(--long-range-person-row-height);
-		overflow: hidden;
-	}
-
-	.roster-rows {
-		position: relative;
-		min-width: max-content;
-	}
-
-	.virtual-row {
-		position: absolute;
-		top: 0;
-		left: 0;
-	}
-
-	.grid-header {
-		position: sticky;
-		top: 0;
-		z-index: 10;
-		background: color-mix(in srgb, var(--surface-subtle) 88%, var(--surface-panel) 12%);
-		border-bottom: var(--border-thin);
-	}
-
-	.day-row {
-		position: sticky;
-		top: var(--long-range-header-height);
-		z-index: 9;
-		background: var(--surface-panel);
-		border-bottom: var(--border-thin);
-	}
-
-	.name-cell {
-		width: var(--personnel-column-width);
-		min-width: var(--personnel-column-width);
-		max-width: var(--personnel-column-width);
-		flex-shrink: 0;
-		position: sticky;
-		left: 0;
-		z-index: 2;
-		background: var(--surface-panel);
-		border-right: var(--border-thin);
-		box-sizing: border-box;
-	}
-
-	.header-cell {
-		display: flex;
-		align-items: center;
-		min-height: var(--long-range-header-height);
-		padding: 7px 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		background: color-mix(in srgb, var(--surface-subtle) 90%, var(--surface-panel) 10%);
-		color: var(--text-secondary);
-		border-right-color: var(--border-default);
-		z-index: 11;
-	}
-
-	.month-header {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		text-align: center;
-		min-height: var(--long-range-header-height);
-		padding: 7px 0;
-		background: color-mix(in srgb, var(--surface-subtle) 90%, var(--surface-panel) 10%);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		border-left: var(--border-rule);
-		flex-shrink: 0;
-		box-sizing: border-box;
-	}
-
-	.month-header:first-of-type {
-		border-left: none;
-	}
-
-	.day-header-cell {
-		padding: 0 12px;
-		min-height: 32px;
-		background: var(--surface-panel);
-		z-index: 10;
-	}
-
-	.day-cell {
-		appearance: none;
-		border: none;
-		width: var(--long-range-col-width);
-		min-width: var(--long-range-col-width);
-		max-width: var(--long-range-col-width);
-		flex-shrink: 0;
-		height: 32px;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		font-size: var(--text-xs);
-		border-left: var(--border-rule);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition: background-color var(--transition-fast);
-	}
-
-	.day-cell:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-	}
-
-	.day-cell.weekend {
-		background: color-mix(in srgb, var(--color-weekend) 56%, var(--surface-panel) 44%);
-	}
-
-	.day-cell.today {
-		background: color-mix(in srgb, var(--amber-light) 54%, var(--surface-panel) 46%);
-		box-shadow: inset 0 0 0 1px var(--amber);
-		position: relative;
-		z-index: 1;
-	}
-
-	.day-cell.holiday {
-		background: color-mix(in srgb, var(--color-holiday) 78%, var(--surface-panel) 22%);
-	}
-
-	.day-num {
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-semibold);
-		color: currentColor;
-	}
-
-	.group-row {
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-	}
-
-	.group-name {
-		display: flex;
-		align-items: center;
-		height: var(--long-range-group-row-height);
-		min-height: var(--long-range-group-row-height);
-		padding: 0 12px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-	}
-
-	.group-cell {
-		width: 24px;
-		min-width: 24px;
-		max-width: 24px;
-		flex-shrink: 0;
-		height: var(--long-range-group-row-height);
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-		border-left: var(--border-rule);
-	}
-
-	.person-row {
-		border-bottom: var(--border-rule);
-	}
-
-	.person-row:hover .name-cell,
-	.person-row:hover .status-cell:not(.has-status) {
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-	}
-
-	.person-name {
-		display: flex;
-		align-items: center;
-		height: var(--long-range-person-row-height);
-		min-height: var(--long-range-person-row-height);
-		padding: 0 12px;
-		gap: var(--sp-1);
-		font-size: var(--text-sm);
-	}
-
-	.person-name .rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.person-name .name {
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		color: var(--text-primary);
-	}
-
-	.status-cell {
-		width: 24px;
-		min-width: 24px;
-		max-width: 24px;
-		flex-shrink: 0;
-		height: var(--long-range-person-row-height);
-		border-left: var(--border-rule);
-		background: var(--surface-panel);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: background-color var(--transition-fast);
-		position: relative;
-	}
-
-	.status-cell.weekend {
-		background: color-mix(in srgb, var(--color-weekend) 56%, var(--surface-panel) 44%);
-	}
-
-	.status-cell.today {
-		box-shadow: inset 0 0 0 1px var(--amber);
-		position: relative;
-		z-index: 1;
-	}
-
-	.status-cell.has-status {
-		border-color: transparent;
-	}
-
-	.duty-indicator {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-	}
-
-	/* Legend bar */
-	.legend-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4) var(--sp-5);
-		border-top: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-subtle) 14%);
-		flex-shrink: 0;
-	}
-
-	.legend {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		font-size: var(--text-sm);
-		flex-wrap: wrap;
-	}
-
-	.legend-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: 4px 8px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.legend-color {
-		width: 8px;
-		height: 8px;
-		border-radius: 1px;
-		box-shadow: inset 0 0 0 1px rgba(14, 14, 13, 0.08);
-	}
-
-	.legend-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-shrink: 0;
-	}
-
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.legend-bar {
-			flex-wrap: wrap;
-			padding: var(--sp-3) var(--sp-4);
-		}
-
-		.name-cell {
-			font-size: var(--text-xs);
-		}
-
-		.day-cell {
-			width: 28px;
-			min-width: 28px;
-			max-width: 28px;
-			height: 36px;
-		}
-
-		.day-num {
-			font-size: 9px;
-		}
-
-		.status-cell {
-			width: 28px;
-			min-width: 28px;
-			max-width: 28px;
-			height: 32px;
-		}
-
-		.group-cell {
-			width: 28px;
-			min-width: 28px;
-			max-width: 28px;
-		}
-
-		.month-header {
-			font-size: var(--text-xs);
-		}
-
-		.person-name .rank {
-			font-size: var(--text-xs);
-		}
-
-		.person-name .name {
-			font-size: var(--text-xs);
-		}
-
-		.legend {
-			display: none; /* Too crowded on mobile */
-		}
-
-		.legend-actions {
-			width: 100%;
-			justify-content: flex-end;
-		}
-	}
-
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.legend {
-			flex-wrap: wrap;
-			gap: var(--sp-2);
-		}
-	}
-</style>

@@ -12,6 +12,8 @@
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Button } from '$lib/components/ui/button';
 	import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -244,7 +246,7 @@
 	});
 </script>
 
-<div class="calendar">
+<div class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground">
 	<CalendarHeader
 		{year}
 		{month}
@@ -266,7 +268,7 @@
 	/>
 
 	<div
-		class="calendar-body"
+		class="calendar-body flex-1 overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
 		style="
 			--dates-count: {dates.length};
 			--calendar-group-row-height: {GROUP_ROW_HEIGHT}px;
@@ -275,23 +277,31 @@
 		bind:this={calendarBodyEl}
 		onscroll={handleScroll}
 	>
-		<div class="calendar-grid">
+		<div class="calendar-grid flex min-h-full min-w-full flex-col">
 			{#if totalPersonnel === 0}
-				<div class="empty-state">
-					<p>No personnel added yet.</p>
+				<Empty.Root class="min-h-52 border-0">
+					<Empty.Header>
+						<Empty.Title>No personnel added yet</Empty.Title>
+						<Empty.Description>Go to Personnel to add people to your roster.</Empty.Description>
+					</Empty.Header>
 					{#if personnelHref}
-						<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
-					{:else}
-						<p>Go to Personnel to add people to your roster.</p>
+						<Empty.Content>
+							<Button href={personnelHref} size="sm">Go to Personnel</Button>
+						</Empty.Content>
 					{/if}
-				</div>
+				</Empty.Root>
 			{:else}
-				<div class="calendar-rows" style:height={`${rosterLayout.totalHeight}px`}>
+				<div
+					class="calendar-rows relative min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))]"
+					style:height={`${rosterLayout.totalHeight}px`}
+				>
 					{#each visibleRosterRows as row (row.key)}
 						<div
-							class="virtual-row"
-							class:virtual-row--person={row.type === 'person'}
-							class:virtual-row--group={row.type === 'group'}
+							class={[
+								'virtual-row absolute top-0 left-0 w-full overflow-hidden',
+								row.type === 'person' && 'virtual-row--person',
+								row.type === 'group' && 'virtual-row--group'
+							]}
 							style:transform={`translateY(${row.top}px)`}
 							style:height={`${row.height}px`}
 						>
@@ -329,83 +339,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.calendar {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-		box-shadow: none;
-	}
-
-	.calendar-body {
-		flex: 1;
-		overflow: auto;
-		-webkit-overflow-scrolling: touch;
-		overscroll-behavior: contain;
-	}
-
-	.calendar-grid {
-		display: flex;
-		flex-direction: column;
-		min-width: 100%;
-		min-height: 100%;
-	}
-
-	.calendar-rows {
-		position: relative;
-		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
-	}
-
-	.virtual-row {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-	}
-
-	.virtual-row--person {
-		border-bottom: var(--border-thin);
-	}
-
-	.calendar-rows :global(.group-header) {
-		height: var(--calendar-group-row-height);
-		min-height: var(--calendar-group-row-height);
-		overflow: hidden;
-	}
-
-	.calendar-rows :global(.personnel-row) {
-		height: var(--calendar-person-row-height);
-		min-height: var(--calendar-person-row-height);
-		overflow: hidden;
-	}
-
-	.calendar-rows :global(.personnel-info),
-	.calendar-rows :global(.date-cell) {
-		height: var(--calendar-person-row-height);
-		min-height: var(--calendar-person-row-height);
-	}
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-2);
-		padding: var(--sp-12);
-		color: var(--text-secondary);
-		text-align: center;
-		min-height: 200px;
-	}
-
-	.empty-state p {
-		margin: 0;
-		max-width: 36ch;
-		font-family: var(--font-body);
-		line-height: var(--line-height-copy);
-	}
-</style>

@@ -35,7 +35,7 @@
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgId}/calendar` }]);
 </script>
 
-<div class="reports-page">
+<div class="flex flex-col gap-4">
 	<WorkspaceToolbar.Root ariaLabel="Calendar report controls">
 		<WorkspaceToolbar.Group label="Calendar report type" activeCount={selectedReport !== 'status-days' ? 1 : 0}>
 			<WorkspaceToolbar.Select
@@ -63,11 +63,3 @@
 		<GroupReadiness {orgId} {personnel} {statusTypes} {groups} />
 	{/if}
 </div>
-
-<style>
-	.reports-page {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-</style>

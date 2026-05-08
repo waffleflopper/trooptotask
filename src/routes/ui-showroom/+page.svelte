@@ -19,6 +19,7 @@
 		Users
 	} from '@lucide/svelte';
 	import * as Alert from '$lib/components/ui/alert/index.js';
+	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
@@ -30,7 +31,7 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTableSelection } from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef, DataTableRowAction } from '$lib/components/ui/data-table/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -152,6 +153,14 @@
 	let toolbarStatus = $state('all');
 	let toolbarSearch = $state('');
 	let toolbarGapsOnly = $state(false);
+	let standardDialogOpen = $state(false);
+	let editDialogOpen = $state(false);
+	let longDialogOpen = $state(false);
+	let destructiveConfirmOpen = $state(false);
+	let warningConfirmOpen = $state(false);
+	let asyncConfirmOpen = $state(false);
+	let disabledConfirmOpen = $state(false);
+	let blockedDialogOpen = $state(false);
 	let clickedRow = $state('No row selected');
 	let expandedDataTableRow = $state('2');
 	const tableSelection = useDataTableSelection({
@@ -972,28 +981,14 @@
 							</DropdownMenu.Content>
 						</DropdownMenu.Root>
 
-						<Dialog.Root>
-							<Dialog.Trigger>
-								{#snippet child({ props })}
-									<Button variant="outline" {...props}>Open dialog</Button>
-								{/snippet}
-							</Dialog.Trigger>
-							<Dialog.Content>
-								<Dialog.Header>
-									<Dialog.Title>Edit profile</Dialog.Title>
-									<Dialog.Description>Make changes to your profile here.</Dialog.Description>
-								</Dialog.Header>
-								<div class="grid gap-4 py-4">
-									<div class="grid gap-2">
-										<Label for="dialog-name">Name</Label>
-										<Input id="dialog-name" value="Avery Brooks" />
-									</div>
-								</div>
-								<Dialog.Footer>
-									<Button>Save changes</Button>
-								</Dialog.Footer>
-							</Dialog.Content>
-						</Dialog.Root>
+						<Button variant="outline" onclick={() => (standardDialogOpen = true)}>Standard dialog</Button>
+						<Button variant="outline" onclick={() => (editDialogOpen = true)}>Edit form dialog</Button>
+						<Button variant="outline" onclick={() => (longDialogOpen = true)}>Long body dialog</Button>
+						<Button variant="outline" onclick={() => (destructiveConfirmOpen = true)}>Destructive confirm</Button>
+						<Button variant="outline" onclick={() => (warningConfirmOpen = true)}>Warning confirm</Button>
+						<Button variant="outline" onclick={() => (asyncConfirmOpen = true)}>Async confirm</Button>
+						<Button variant="outline" onclick={() => (disabledConfirmOpen = true)}>Disabled confirm</Button>
+						<Button variant="outline" onclick={() => (blockedDialogOpen = true)}>Close-blocked dialog</Button>
 
 						<Sheet.Root>
 							<Sheet.Trigger>
@@ -1019,6 +1014,156 @@
 						</Tooltip.Root>
 					</div>
 				</section>
+
+				{#if standardDialogOpen}
+					<AppDialog.Root bind:open={standardDialogOpen} onClose={() => (standardDialogOpen = false)}>
+						<AppDialog.Content>
+							<AppDialog.Header>
+								<AppDialog.Title>Readiness summary</AppDialog.Title>
+								<AppDialog.Description>
+									A standard information dialog for short review and acknowledgement flows.
+								</AppDialog.Description>
+							</AppDialog.Header>
+							<AppDialog.Body>
+								<p class="text-muted-foreground">
+									This shell uses the shared title, description, scroll body, close behavior, and focus path.
+								</p>
+							</AppDialog.Body>
+							<AppDialog.Footer>
+								<Button variant="outline" onclick={() => (standardDialogOpen = false)}>Close</Button>
+							</AppDialog.Footer>
+						</AppDialog.Content>
+					</AppDialog.Root>
+				{/if}
+
+				{#if editDialogOpen}
+					<AppDialog.Root bind:open={editDialogOpen} onClose={() => (editDialogOpen = false)}>
+						<AppDialog.Content>
+							<AppDialog.Header>
+								<AppDialog.Title>Edit personnel metadata</AppDialog.Title>
+								<AppDialog.Description
+									>Form dialogs keep fields in the scrollable body and actions in the footer.</AppDialog.Description
+								>
+							</AppDialog.Header>
+							<AppDialog.Body>
+								<form id="showroom-edit-dialog" class="grid gap-4">
+									<div class="grid gap-2">
+										<Label for="dialog-name">Name</Label>
+										<Input id="dialog-name" value="Avery Brooks" />
+									</div>
+									<div class="grid gap-2">
+										<Label for="dialog-notes">Notes</Label>
+										<Textarea id="dialog-notes" rows={4} value="Command review pending." />
+									</div>
+								</form>
+							</AppDialog.Body>
+							<AppDialog.Footer>
+								<Button variant="outline" onclick={() => (editDialogOpen = false)}>Cancel</Button>
+								<Button type="submit" form="showroom-edit-dialog">Save changes</Button>
+							</AppDialog.Footer>
+						</AppDialog.Content>
+					</AppDialog.Root>
+				{/if}
+
+				{#if longDialogOpen}
+					<AppDialog.Root bind:open={longDialogOpen} onClose={() => (longDialogOpen = false)}>
+						<AppDialog.Content size="wide">
+							<AppDialog.Header>
+								<AppDialog.Title>Review import warnings</AppDialog.Title>
+								<AppDialog.Description>
+									Long dialogs keep body content scrollable while footer actions remain reachable.
+								</AppDialog.Description>
+							</AppDialog.Header>
+							<AppDialog.Body class="grid gap-3">
+								{#each Array.from({ length: 16 }) as _, index (index)}
+									<div class="rounded-lg border p-3">
+										<p class="font-medium">Row {index + 1}</p>
+										<p class="text-muted-foreground">
+											Review the incoming record, confirm the group assignment, and correct missing readiness metadata.
+										</p>
+									</div>
+								{/each}
+							</AppDialog.Body>
+							<AppDialog.Footer>
+								<Button variant="outline" onclick={() => (longDialogOpen = false)}>Back</Button>
+								<Button>Accept reviewed rows</Button>
+							</AppDialog.Footer>
+						</AppDialog.Content>
+					</AppDialog.Root>
+				{/if}
+
+				{#if blockedDialogOpen}
+					<AppDialog.Root bind:open={blockedDialogOpen} closeBlocked onClose={() => (blockedDialogOpen = false)}>
+						<AppDialog.Content closeBlocked>
+							<AppDialog.Header>
+								<AppDialog.Title>Saving organization policy</AppDialog.Title>
+								<AppDialog.Description>
+									Escape, outside click, and the close button are blocked while the operation is in flight.
+								</AppDialog.Description>
+							</AppDialog.Header>
+							<AppDialog.Body>
+								<div class="flex items-center gap-2 text-muted-foreground">
+									<Spinner />
+									<span>Saving policy changes...</span>
+								</div>
+							</AppDialog.Body>
+							<AppDialog.Footer>
+								<Button variant="outline" disabled>Cancel</Button>
+								<Button disabled><Spinner />Saving</Button>
+							</AppDialog.Footer>
+						</AppDialog.Content>
+					</AppDialog.Root>
+				{/if}
+
+				{#if destructiveConfirmOpen}
+					<ConfirmDialog
+						title="Delete training draft"
+						message="This removes the draft and cannot be undone."
+						confirmLabel="Delete draft"
+						variant="destructive"
+						onConfirm={() => {
+							destructiveConfirmOpen = false;
+						}}
+						onCancel={() => (destructiveConfirmOpen = false)}
+					/>
+				{/if}
+
+				{#if warningConfirmOpen}
+					<ConfirmDialog
+						title="Archive selected personnel"
+						message="Archived personnel leave active rosters and reports, but their records remain available."
+						confirmLabel="Archive personnel"
+						variant="warning"
+						onConfirm={() => {
+							warningConfirmOpen = false;
+						}}
+						onCancel={() => (warningConfirmOpen = false)}
+					/>
+				{/if}
+
+				{#if asyncConfirmOpen}
+					<ConfirmDialog
+						title="Apply access changes"
+						message="The confirm action is intentionally shown in a busy state."
+						confirmLabel="Applying"
+						variant="primary"
+						loading
+						onConfirm={() => undefined}
+						onCancel={() => (asyncConfirmOpen = false)}
+					/>
+				{/if}
+
+				{#if disabledConfirmOpen}
+					<ConfirmDialog
+						title="Transfer ownership"
+						message="Select a receiving owner before this confirmation can be submitted."
+						confirmLabel="Transfer ownership"
+						variant="secondary"
+						disabled
+						onConfirm={() => undefined}
+						onCancel={() => (disabledConfirmOpen = false)}
+					/>
+				{/if}
 
 				<section class="grid gap-4" aria-labelledby="feedback-title">
 					<h2 id="feedback-title" class="text-xl font-semibold tracking-tight">Feedback and empty states</h2>

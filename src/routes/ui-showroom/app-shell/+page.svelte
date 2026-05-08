@@ -3,7 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
@@ -634,43 +634,40 @@
 		</Tabs.Content>
 	</Tabs.Root>
 
-	<Dialog.Root bind:open={approvalDialogOpen}>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>
+	<AppDialog.Root bind:open={approvalDialogOpen} onClose={() => (approvalDialogOpen = false)}>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title>
 					{approvalDialogAction === 'approve' ? 'Approve request' : 'Reject request'}
-				</Dialog.Title>
-				<Dialog.Description>
+				</AppDialog.Title>
+				<AppDialog.Description>
 					{#if selectedApproval}
 						Confirm {approvalDialogAction} for {selectedApproval.name}. This mock action would record the decision in
 						the audit log.
 					{:else}
 						Confirm the selected approval action.
 					{/if}
-				</Dialog.Description>
-			</Dialog.Header>
-			{#if selectedApproval}
-				<div class="grid gap-2 rounded-md border p-3">
-					<p class="font-medium">{selectedApproval.type}</p>
-					<p class="text-sm text-muted-foreground">{selectedApproval.reason}</p>
-				</div>
-			{/if}
-			<Dialog.Footer>
-				<Dialog.Close>
-					{#snippet child({ props })}
-						<Button variant="outline" {...props}>Cancel</Button>
-					{/snippet}
-				</Dialog.Close>
-				<Dialog.Close>
-					{#snippet child({ props })}
-						<Button variant={approvalDialogAction === 'approve' ? 'default' : 'destructive'} {...props}>
-							{approvalDialogAction === 'approve' ? 'Approve' : 'Reject'}
-						</Button>
-					{/snippet}
-				</Dialog.Close>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+				</AppDialog.Description>
+			</AppDialog.Header>
+			<AppDialog.Body>
+				{#if selectedApproval}
+					<div class="grid gap-2 rounded-md border p-3">
+						<p class="font-medium">{selectedApproval.type}</p>
+						<p class="text-sm text-muted-foreground">{selectedApproval.reason}</p>
+					</div>
+				{/if}
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<Button variant="outline" onclick={() => (approvalDialogOpen = false)}>Cancel</Button>
+				<Button
+					variant={approvalDialogAction === 'approve' ? 'default' : 'destructive'}
+					onclick={() => (approvalDialogOpen = false)}
+				>
+					{approvalDialogAction === 'approve' ? 'Approve' : 'Reject'}
+				</Button>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 </main>
 
 <style>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 
 	interface Props {
 		/** Modal title displayed in header */
@@ -34,127 +34,29 @@
 		children,
 		footer
 	}: Props = $props();
-
-	let overlayEl: HTMLDivElement | undefined = $state();
-	let previouslyFocused: HTMLElement | null = null;
-
-	onMount(() => {
-		previouslyFocused = document.activeElement as HTMLElement;
-		// Focus first focusable element inside the dialog, or the overlay as fallback
-		const firstFocusable = overlayEl?.querySelector<HTMLElement>(FOCUSABLE);
-		if (firstFocusable) {
-			firstFocusable.focus();
-		} else {
-			overlayEl?.focus();
-		}
-		return () => previouslyFocused?.focus();
-	});
-
-	const FOCUSABLE =
-		'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && canClose) {
-			e.preventDefault();
-			onClose();
-			return;
-		}
-
-		if (e.key === 'Tab' && overlayEl) {
-			const focusable = Array.from(overlayEl.querySelectorAll<HTMLElement>(FOCUSABLE));
-			if (focusable.length === 0) return;
-
-			const first = focusable[0];
-			const last = focusable[focusable.length - 1];
-
-			if (e.shiftKey && document.activeElement === first) {
-				e.preventDefault();
-				last.focus();
-			} else if (!e.shiftKey && document.activeElement === last) {
-				e.preventDefault();
-				first.focus();
-			}
-		}
-	}
-
-	function handleClose() {
-		if (canClose) onClose();
-	}
 </script>
 
-<div class="modal-overlay" role="presentation" tabindex="-1" onkeydown={handleKeydown} bind:this={overlayEl}>
-	<button type="button" class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width style:max-width="95vw">
-		<div class="modal-header">
-			<h2 id={titleId}>{title}</h2>
-			{#if headerActions || (showCloseButton && canClose)}
-				<div class="header-actions">
-					{#if headerActions}
+<AppDialog.Root open closeBlocked={!canClose} {onClose}>
+	<AppDialog.Content {showCloseButton} closeBlocked={!canClose} style={`width: ${width}; max-width: 95vw;`}>
+		<AppDialog.Header class="px-4 pt-4">
+			<div class="flex items-start gap-3">
+				<AppDialog.Title id={titleId} class="min-w-0 flex-1">{title}</AppDialog.Title>
+				{#if headerActions}
+					<div class="mr-9 flex shrink-0 items-center gap-2">
 						{@render headerActions()}
-					{/if}
-					{#if showCloseButton && canClose}
-						<button type="button" class="close-btn" onclick={handleClose} aria-label="Close">
-							<span aria-hidden="true">&times;</span>
-						</button>
-					{/if}
-				</div>
-			{/if}
-		</div>
+					</div>
+				{/if}
+			</div>
+		</AppDialog.Header>
 
-		<div class="modal-body">
+		<AppDialog.Body>
 			{@render children()}
-		</div>
+		</AppDialog.Body>
 
 		{#if footer}
-			<div class="modal-footer">
+			<AppDialog.Footer>
 				{@render footer()}
-			</div>
+			</AppDialog.Footer>
 		{/if}
-	</div>
-</div>
-
-<style>
-	.header-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		margin-left: auto;
-	}
-
-	.close-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		padding: 0;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		font-size: 1.25rem;
-		line-height: 1;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.close-btn:hover {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.close-btn:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-		box-shadow: var(--focus-ring);
-	}
-
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-</style>
+	</AppDialog.Content>
+</AppDialog.Root>

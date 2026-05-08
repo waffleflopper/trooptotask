@@ -2,18 +2,16 @@
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
 	import { ALL_RANKS } from '$lib/types';
-	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
+	import { parseFile } from '$lib/utils/csvParser';
 	import { PERSONNEL_COLUMNS, detectHeaderRow } from '$lib/utils/columnMapping';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -47,49 +45,12 @@
 	type ImportState = 'input' | 'preview' | 'importing' | 'results';
 	let importStep = $state<ImportState>('input');
 
-	// rawRows is derived from either the pasted text or the file upload result.
-	// fileRows holds the async result from parseFile; importText drives the text path.
 	let fileRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
-	let importText = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let importError = $state('');
 
-	let textRows = $state<string[][]>([]);
-	let textError = $state('');
-	let textParseRequestId = 0;
-
-	$effect(() => {
-		const currentText = uploadedFileName ? '' : importText;
-		const requestId = ++textParseRequestId;
-
-		if (!currentText.trim()) {
-			textRows = [];
-			textError = '';
-			return;
-		}
-
-		// Clear stale rows immediately so the preview cannot use data from an older parse.
-		textRows = [];
-		textError = '';
-
-		let active = true;
-		parseCSVText(currentText)
-			.then((rows) => {
-				if (!active || requestId !== textParseRequestId) return;
-				textRows = rows;
-			})
-			.catch((err) => {
-				if (!active || requestId !== textParseRequestId) return;
-				textRows = [];
-				textError = err instanceof Error ? err.message : 'Failed to parse pasted text';
-			});
-
-		return () => {
-			active = false;
-		};
-	});
-
-	const rawRows = $derived(uploadedFileName ? fileRows : textRows);
+	const rawRows = $derived(fileRows);
 
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
@@ -163,19 +124,20 @@
 		if (!file) return;
 
 		uploadedFileName = file.name;
-		importText = '';
+		importError = '';
 		try {
 			fileRows = await parseFile(file);
 		} catch (err) {
 			fileRows = [];
 			uploadedFileName = '';
-			alert(`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			importError = err instanceof Error ? err.message : 'Failed to parse uploaded file';
 		}
 	}
 
 	function clearFile() {
 		uploadedFileName = '';
 		fileRows = [];
+		importError = '';
 		if (fileInput) fileInput.value = '';
 	}
 
@@ -317,216 +279,166 @@
 	);
 </script>
 
-<Dialog.Root open onOpenChange={(open) => !open && importStep !== 'importing' && onClose()}>
-	<Dialog.Content size={dialogSize} showCloseButton={importStep !== 'importing'}>
-		<Dialog.Header>
-			<Dialog.Title>Bulk Personnel Management</Dialog.Title>
-		</Dialog.Header>
+<AppDialog.Root open closeBlocked={importStep === 'importing'} {onClose}>
+	<AppDialog.Content size={dialogSize} closeBlocked={importStep === 'importing'}>
+		<AppDialog.Header>
+			<AppDialog.Title>Bulk Personnel Management</AppDialog.Title>
+		</AppDialog.Header>
 
-		<Tabs.Root bind:value={activeTab}>
-			<Tabs.List>
-				<Tabs.Trigger value="import"><ImportIcon />Import</Tabs.Trigger>
-				<Tabs.Trigger value="merge"><MergeIcon />Backfill ETS/DEROS</Tabs.Trigger>
-				<Tabs.Trigger value="delete"><ArchiveIcon />Archive</Tabs.Trigger>
-			</Tabs.List>
+		<AppDialog.Body>
+			<Tabs.Root bind:value={activeTab}>
+				<Tabs.List>
+					<Tabs.Trigger value="import"><ImportIcon />Import</Tabs.Trigger>
+					<Tabs.Trigger value="merge"><MergeIcon />Backfill ETS/DEROS</Tabs.Trigger>
+					<Tabs.Trigger value="delete"><ArchiveIcon />Archive</Tabs.Trigger>
+				</Tabs.List>
 
-			<div class="max-h-[65vh] overflow-y-auto py-2">
-				<Tabs.Content value="import">
-					{#if activeTab === 'import'}
-						{#if importStep === 'input'}
-							<div class="grid gap-5">
-								<section class="grid gap-3 rounded-lg border border-dashed border-border bg-muted/25 p-4">
-									<div class="grid gap-1">
-										<h4 class="font-medium">Upload File</h4>
-										<p class="text-sm text-muted-foreground">Upload an Excel (.xlsx) or CSV file.</p>
-									</div>
-									<Input
-										id="fileUpload"
-										type="file"
-										accept=".xlsx,.csv"
-										onchange={handleFileUpload}
-										bind:ref={fileInput}
-									/>
-									{#if uploadedFileName}
-										<div class="flex items-center justify-between gap-2">
-											<span class="truncate font-mono text-xs">{uploadedFileName}</span>
-											<Button variant="outline" size="sm" type="button" onclick={clearFile}>Clear</Button>
+				<div class="min-h-0">
+					<Tabs.Content value="import">
+						{#if activeTab === 'import'}
+							{#if importStep === 'input'}
+								<div class="grid gap-5">
+									<section class="grid gap-3 rounded-lg border border-dashed border-border bg-muted/25 p-4">
+										<div class="grid gap-1">
+											<h4 class="font-medium">Upload File</h4>
+											<p class="text-sm text-muted-foreground">Upload an Excel (.xlsx) or CSV file.</p>
+										</div>
+										<Input
+											id="fileUpload"
+											type="file"
+											accept=".xlsx,.csv"
+											onchange={handleFileUpload}
+											bind:ref={fileInput}
+										/>
+										{#if uploadedFileName}
+											<div class="flex items-center justify-between gap-2">
+												<span class="truncate font-mono text-xs">{uploadedFileName}</span>
+												<Button variant="outline" size="sm" type="button" onclick={clearFile}>Clear</Button>
+											</div>
+										{/if}
+										<p class="text-xs text-muted-foreground">
+											Columns: Rank, Last Name, First Name, MOS, Duty Role, Group
+										</p>
+									</section>
+
+									{#if importError}
+										<p class="text-sm text-destructive">{importError}</p>
+									{/if}
+								</div>
+							{:else if importStep === 'preview'}
+								<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
+							{:else if importStep === 'importing'}
+								<div class="grid justify-items-center gap-4 py-12 text-muted-foreground">
+									<Spinner />
+									<p>Importing personnel records...</p>
+								</div>
+							{:else if importStep === 'results' && importResult}
+								<div class="grid gap-4">
+									{#if importResult.capError}
+										<div class="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+											{importResult.capError}
 										</div>
 									{/if}
-									<p class="text-xs text-muted-foreground">
-										Columns: Rank, Last Name, First Name, MOS, Duty Role, Group
-									</p>
-								</section>
 
-								<div class="grid gap-3">
-									<div class="flex items-center gap-3 text-xs font-medium uppercase text-muted-foreground">
-										<span class="h-px flex-1 bg-border"></span>
-										<span>or paste text</span>
-										<span class="h-px flex-1 bg-border"></span>
-									</div>
-
-									<div class="grid gap-2 text-sm text-muted-foreground">
-										<h4 class="font-medium text-foreground">Paste Data</h4>
-										<p>One person per line, comma-separated.</p>
-										<code class="rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
-											Rank, Last Name, First Name, MOS, Duty Role, Group
-										</code>
-										<p>MOS, Duty Role, and Group are optional.</p>
-									</div>
-								</div>
-
-								<section class="grid gap-2 rounded-lg border border-border bg-card p-4">
-									<div class="flex items-center justify-between gap-2">
-										<span class="font-mono text-xs font-medium uppercase text-muted-foreground">Example</span>
-										<Button
-											variant="outline"
-											size="sm"
-											type="button"
-											onclick={() => {
-												importText = `SGT, Smith, John, 68W, Squad Leader, Alpha Team
-SPC, Johnson, Jane, 68C, Medic, Bravo Team
-CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
-SFC, Brown, Sarah, 42A, Operations NCO, Support`;
-												uploadedFileName = '';
-											}}
-										>
-											Use Example
-										</Button>
-									</div>
-									<pre
-										class="whitespace-pre-wrap font-mono text-xs text-muted-foreground">SGT, Smith, John, 68W, Squad Leader, Alpha Team
-SPC, Johnson, Jane, 68C, Medic, Bravo Team
-CPT, Williams, Robert, 11A, Platoon Leader, Headquarters
-SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
-								</section>
-
-								<div class="grid gap-2">
-									<Label for="importText">Personnel Data</Label>
-									<Textarea
-										id="importText"
-										bind:value={importText}
-										placeholder="Paste personnel data here..."
-										rows={6}
-										disabled={!!uploadedFileName}
-									/>
-								</div>
-								{#if textError}
-									<p class="text-sm text-destructive">{textError}</p>
-								{/if}
-							</div>
-						{:else if importStep === 'preview'}
-							<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
-						{:else if importStep === 'importing'}
-							<div class="grid justify-items-center gap-4 py-12 text-muted-foreground">
-								<Spinner />
-								<p>Importing personnel records...</p>
-							</div>
-						{:else if importStep === 'results' && importResult}
-							<div class="grid gap-4">
-								{#if importResult.capError}
-									<div class="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
-										{importResult.capError}
-									</div>
-								{/if}
-
-								{#if importResult.insertedCount > 0}
-									<div class="rounded-lg border border-primary/20 bg-primary/10 p-4">
-										<strong>{importResult.insertedCount}</strong> personnel imported successfully
-									</div>
-								{/if}
-
-								{#if importResult.errors.length > 0}
-									<div class="rounded-lg border border-border bg-muted/40 p-4">
-										<div class="mb-2 font-medium">
-											{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
+									{#if importResult.insertedCount > 0}
+										<div class="rounded-lg border border-primary/20 bg-primary/10 p-4">
+											<strong>{importResult.insertedCount}</strong> personnel imported successfully
 										</div>
-										<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-											{#each importResult.errors as err (err.index)}
-												<li>
-													{#if err.index >= 0}Row {err.index + 1}:
-													{/if}{err.message}
-												</li>
-											{/each}
-										</ul>
-									</div>
-								{/if}
+									{/if}
 
-								{#if importResult.insertedCount === 0 && importResult.errors.length === 0 && !importResult.capError}
-									<p class="py-6 text-center text-sm text-muted-foreground">No records were imported.</p>
+									{#if importResult.errors.length > 0}
+										<div class="rounded-lg border border-border bg-muted/40 p-4">
+											<div class="mb-2 font-medium">
+												{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
+											</div>
+											<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+												{#each importResult.errors as err (err.index)}
+													<li>
+														{#if err.index >= 0}Row {err.index + 1}:
+														{/if}{err.message}
+													</li>
+												{/each}
+											</ul>
+										</div>
+									{/if}
+
+									{#if importResult.insertedCount === 0 && importResult.errors.length === 0 && !importResult.capError}
+										<p class="py-6 text-center text-sm text-muted-foreground">No records were imported.</p>
+									{/if}
+								</div>
+							{/if}
+						{/if}
+					</Tabs.Content>
+
+					<Tabs.Content value="merge">
+						{#if activeTab === 'merge'}
+							<BulkPersonnelMerge
+								bind:this={mergeRef}
+								{orgId}
+								personnel={allPersonnel}
+								{groups}
+								onComplete={handleDone}
+								showInputActions={false}
+								bind:footerState={mergeFooterState}
+							/>
+						{/if}
+					</Tabs.Content>
+
+					<Tabs.Content value="delete">
+						{#if activeTab === 'delete'}
+							<div class="grid gap-4">
+								<DataTable.DataTable
+									table={archiveTable}
+									columns={archiveColumns}
+									ariaLabel="Personnel archive selection"
+									emptyMessage="No personnel match your search."
+									compact
+									maxHeight="360px"
+									onRowClick={(person) => toggleSelect(person.id)}
+								>
+									{#snippet toolbar(tbl)}
+										<div class="flex flex-wrap items-center justify-between gap-2">
+											<DataTable.Search
+												table={tbl}
+												ariaLabel="Search personnel archive table"
+												placeholder="Search by name, rank, MOS, role, or group..."
+											/>
+											<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={tbl.totalRows} />
+										</div>
+									{/snippet}
+
+									{#snippet groupHeader(group)}
+										<span class="font-medium">{group.label}</span>
+									{/snippet}
+
+									{#snippet cell(row, col)}
+										{#if col.key === 'select'}
+											<DataTable.SelectionCheckbox
+												checked={selectedIds.has(row.id)}
+												ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+												onCheckedChange={() => toggleSelect(row.id)}
+											/>
+										{:else}
+											{String(col.value(row) ?? '')}
+										{/if}
+									{/snippet}
+								</DataTable.DataTable>
+
+								{#if selectedIds.size > 0}
+									<div
+										class="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-center text-sm text-destructive"
+									>
+										<strong>{selectedIds.size}</strong> personnel selected for archival
+									</div>
 								{/if}
 							</div>
 						{/if}
-					{/if}
-				</Tabs.Content>
+					</Tabs.Content>
+				</div>
+			</Tabs.Root>
+		</AppDialog.Body>
 
-				<Tabs.Content value="merge">
-					{#if activeTab === 'merge'}
-						<BulkPersonnelMerge
-							bind:this={mergeRef}
-							{orgId}
-							personnel={allPersonnel}
-							{groups}
-							onComplete={handleDone}
-							showInputActions={false}
-							bind:footerState={mergeFooterState}
-						/>
-					{/if}
-				</Tabs.Content>
-
-				<Tabs.Content value="delete">
-					{#if activeTab === 'delete'}
-						<div class="grid gap-4">
-							<DataTable.DataTable
-								table={archiveTable}
-								columns={archiveColumns}
-								ariaLabel="Personnel archive selection"
-								emptyMessage="No personnel match your search."
-								compact
-								maxHeight="360px"
-								onRowClick={(person) => toggleSelect(person.id)}
-							>
-								{#snippet toolbar(tbl)}
-									<div class="flex flex-wrap items-center justify-between gap-2">
-										<DataTable.Search
-											table={tbl}
-											ariaLabel="Search personnel archive table"
-											placeholder="Search by name, rank, MOS, role, or group..."
-										/>
-										<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={tbl.totalRows} />
-									</div>
-								{/snippet}
-
-								{#snippet groupHeader(group)}
-									<span class="font-medium">{group.label}</span>
-								{/snippet}
-
-								{#snippet cell(row, col)}
-									{#if col.key === 'select'}
-										<DataTable.SelectionCheckbox
-											checked={selectedIds.has(row.id)}
-											ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
-											onCheckedChange={() => toggleSelect(row.id)}
-										/>
-									{:else}
-										{String(col.value(row) ?? '')}
-									{/if}
-								{/snippet}
-							</DataTable.DataTable>
-
-							{#if selectedIds.size > 0}
-								<div
-									class="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-center text-sm text-destructive"
-								>
-									<strong>{selectedIds.size}</strong> personnel selected for archival
-								</div>
-							{/if}
-						</div>
-					{/if}
-				</Tabs.Content>
-			</div>
-		</Tabs.Root>
-
-		<Dialog.Footer>
+		<AppDialog.Footer>
 			{#if activeTab === 'import'}
 				{#if importStep === 'input'}
 					<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
@@ -552,9 +464,9 @@ SFC, Brown, Sarah, 42A, Operations NCO, Support</pre>
 					{mergeFooterState.label}
 				</Button>
 			{/if}
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if showArchiveConfirm}
 	<ConfirmDialog

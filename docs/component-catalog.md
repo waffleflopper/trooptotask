@@ -260,61 +260,86 @@ Use `WorkspaceToolbar.Root` as the route toolbar root, `WorkspaceToolbar.Group` 
 
 Routes may pass labels, values, options, permissions, disabled state, and handlers only. Visual changes belong in `src/lib/components/ui/workspace-toolbar/**`, generated shadcn component source, theme tokens, or `/ui-showroom` calibration.
 
-## `Modal.svelte`
+## `ui/app-dialog`
 
-Base modal wrapper. Use for all modals. Default width is `480px`. The refreshed modal shell uses a structured document-style header/footer, dark close affordance, and shared focus treatment.
+Shared shadcn-svelte-backed dialog foundation for information, edit, form, and review workflows. Use this for standard dialogs that collect or show content. Use `ui/ConfirmDialog.svelte` for confirmations.
 
 ```svelte
-<Modal title="Edit Foo" {onClose} width="500px" titleId="foo-title">
-    <!-- body content -->
-    {#snippet footer()}
-        <button class="btn btn-danger" onclick={handleDelete}>Delete</button>
-        <div class="spacer"></div>
-        <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-        <button class="btn btn-primary" onclick={handleSave}>Save</button>
-    {/snippet}
-</Modal>
+<script lang="ts">
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
 
-<!-- Locked during async operation -->
-<Modal title="Processing" {onClose} canClose={!saving} showCloseButton={false}>
-    ...
-</Modal>
+	let open = $state(false);
+	let saving = $state(false);
+</script>
 
-<!-- With header actions (e.g. a status badge next to the title) -->
-<Modal title="Review" {onClose}>
-    {#snippet headerActions()}
-        <Badge label="Pending" color="var(--color-warning)" />
-    {/snippet}
-    ...
-</Modal>
+<AppDialog.Root bind:open closeBlocked={saving} onClose={() => (open = false)}>
+	<AppDialog.Content closeBlocked={saving} size="default">
+		<AppDialog.Header class="px-4 pt-4">
+			<AppDialog.Title>Edit personnel metadata</AppDialog.Title>
+			<AppDialog.Description>Update route-provided fields without route-local dialog styling.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body>
+			<!-- form fields or review content -->
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" disabled={saving} onclick={() => (open = false)}>Cancel</Button>
+			<Button type="submit" form="personnel-form" disabled={saving}>Save</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 ```
 
-**Modal footer convention**: `[Delete] [spacer] [Cancel/Close] [Primary or amber confirm]`
+Public components:
 
-Props: `title: string`, `onClose: () => void`, `width?: string` (default `'480px'`), `titleId?: string`, `canClose?: boolean` (default `true` — set to `false` during async ops to block Escape/backdrop), `showCloseButton?: boolean` (default `true`), `headerActions?: Snippet`, `children: Snippet`, `footer?: Snippet`
+- `AppDialog.Root`: controlled open state. Props: `open?: boolean` (bindable), `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
+- `AppDialog.Content`: shared shell with close button, constrained viewport, mobile-safe width, and close-blocking behavior. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `closeBlocked?: boolean`, `showCloseButton?: boolean`.
+- `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
+- `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
+- `AppDialog.Footer`: sticky action area outside the scrollable body.
+
+Allowed route behavior knobs:
+
+- Open/closed state, labels, form fields, validation, permissions, disabled/loading state, and action handlers.
+- `size` only when content volume requires it: default for normal forms, `wide` for tables/import previews, `fullscreen` for rare constrained workspaces.
+- `closeBlocked` during saves/imports/async confirms so Escape, outside click, and close buttons cannot interrupt in-flight operations.
+
+Action guidance:
+
+- Footer order is cancel/secondary before primary confirm on the right in desktop layout. Destructive side actions may appear before cancel only when the route already has that workflow requirement.
+- Use `Button` variants for action semantics. Do not pass route-local classes to retune dialog spacing, radius, color, typography, shadow, animation, footer layout, or internal parts.
+- Long dialog bodies must use `AppDialog.Body`; do not add route-local `max-height` or `overflow` wrappers to shared dialog internals.
+
+`src/lib/components/Modal.svelte` is deprecated. It is currently shadcn-backed only to keep remaining legacy call sites working while migration continues. Do not add new `Modal` usages. Migrate old call sites to `ui/app-dialog` when their route slice is explicitly in scope.
 
 ---
 
 ## `ui/ConfirmDialog.svelte`
 
-Pre-wired confirmation modal. Handles its own loading state during async `onConfirm`.
+Shared shadcn-svelte alert-dialog foundation for destructive, warning, primary, and secondary confirmations. Handles internal async loading during `onConfirm` and also supports externally controlled `loading` and `disabled` states.
 
 ```svelte
 {#if showConfirm}
-    <ConfirmDialog
-        title="Delete Item"
-        message="This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => (showConfirm = false)}
-    />
+	<ConfirmDialog
+		title="Archive Personnel"
+		message="Archived personnel leave active rosters and reports. Records are not erased."
+		confirmLabel="Archive"
+		variant="warning"
+		onConfirm={handleArchive}
+		onCancel={() => (showConfirm = false)}
+	/>
 {/if}
 ```
 
-Props: `title: string`, `message: string`, `confirmLabel?: string` (default `'Confirm'`), `cancelLabel?: string` (default `'Cancel'`), `variant?: 'danger' | 'warning'` (default `'danger'`), `onConfirm: () => void | Promise<void>`, `onCancel: () => void`
+Props: `title: string`, `message: string`, `confirmLabel?: string`, `cancelLabel?: string`, `variant?: 'destructive' | 'danger' | 'warning' | 'primary' | 'secondary'`, `disabled?: boolean`, `loading?: boolean`, `onConfirm: () => void | Promise<void>`, `onCancel: () => void`
 
-The confirm button shows a spinner and both buttons are disabled while `onConfirm` is awaited.
+Guidance:
+
+- Use `variant="destructive"` or legacy alias `variant="danger"` for delete, permanent remove, revoke, and irreversible actions.
+- Use `variant="warning"` for archive, cancel, transfer, bulk change, or workflow changes that preserve data but alter active state.
+- Use `variant="primary"` or `variant="secondary"` only for non-destructive confirmations.
+- While `onConfirm` is awaited, both actions are disabled, a spinner renders inside the confirm button, and Escape/outside-click close is blocked.
+- Routes may pass labels, state, handlers, and disabled/loading flags only. Do not pass visual classes or wrap this component to change appearance for one route.
 
 ---
 

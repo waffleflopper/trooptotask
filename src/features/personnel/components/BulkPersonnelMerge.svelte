@@ -5,11 +5,9 @@
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import { PERSONNEL_COLUMNS, detectHeaderRow } from '$lib/utils/columnMapping';
-	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
+	import { parseFile } from '$lib/utils/csvParser';
 
 	interface Props {
 		orgId: string;
@@ -84,53 +82,15 @@
 	}
 
 	let mergeStep = $state<MergeState>('input');
-	let importText = $state('');
 	let fileRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
-	let textRows = $state<string[][]>([]);
-	let textError = $state('');
-	let parseRequestId = 0;
+	let importError = $state('');
 	let mergeResult = $state<MergeResult | null>(null);
 	let isSubmitting = $state(false);
 	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
 
-	const exampleCsv = `Rank,Last Name,First Name,ETS,PCS / DEROS
-SGT,Smith,Jamie,2027-05-01,
-SSG,Jones,Pat,,2026-11-30`;
-
-	async function parsePastedText(currentText: string) {
-		const requestId = ++parseRequestId;
-
-		if (!currentText.trim()) {
-			textRows = [];
-			textError = '';
-			return;
-		}
-
-		textRows = [];
-		textError = '';
-
-		try {
-			const rows = await parseCSVText(currentText);
-			if (requestId !== parseRequestId) return;
-			textRows = rows;
-		} catch (err) {
-			if (requestId !== parseRequestId) return;
-			textRows = [];
-			textError = err instanceof Error ? err.message : 'Failed to parse pasted text';
-		}
-	}
-
-	function handleTextInput(event: Event) {
-		const value = (event.currentTarget as HTMLTextAreaElement).value;
-		importText = value;
-		if (!uploadedFileName) {
-			void parsePastedText(value);
-		}
-	}
-
-	const rawRows = $derived(uploadedFileName ? fileRows : textRows);
+	const rawRows = $derived(fileRows);
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
 	);
@@ -213,21 +173,20 @@ SSG,Jones,Pat,,2026-11-30`;
 		if (!file) return;
 
 		uploadedFileName = file.name;
-		importText = '';
-		textRows = [];
-		textError = '';
+		importError = '';
 		try {
 			fileRows = await parseFile(file);
 		} catch (err) {
 			fileRows = [];
 			uploadedFileName = '';
-			textError = err instanceof Error ? err.message : 'Failed to parse uploaded file';
+			importError = err instanceof Error ? err.message : 'Failed to parse uploaded file';
 		}
 	}
 
 	function clearFile() {
 		uploadedFileName = '';
 		fileRows = [];
+		importError = '';
 		if (fileInput) fileInput.value = '';
 	}
 
@@ -301,12 +260,6 @@ SSG,Jones,Pat,,2026-11-30`;
 			isSubmitting = false;
 		}
 	}
-
-	function useExample() {
-		importText = exampleCsv;
-		uploadedFileName = '';
-		void parsePastedText(exampleCsv);
-	}
 </script>
 
 {#if mergeStep === 'input'}
@@ -336,44 +289,8 @@ SSG,Jones,Pat,,2026-11-30`;
 			<p class="text-xs text-muted-foreground">Columns: Rank, Last Name, First Name, Group, ETS, PCS / DEROS</p>
 		</section>
 
-		<div class="flex items-center gap-3 text-xs font-medium text-muted-foreground uppercase">
-			<span class="h-px flex-1 bg-border"></span>
-			<span>or paste text</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="grid gap-2 text-sm text-muted-foreground">
-			<h4 class="font-medium text-foreground">Paste Data</h4>
-			<p>Use a header row with personnel identity columns plus the dates you want to backfill.</p>
-			<code class="rounded-md border bg-muted px-2 py-1 font-mono text-xs">
-				Rank, Last Name, First Name, Group, ETS, PCS / DEROS
-			</code>
-			<p>Group is optional unless you need it to break a duplicate match.</p>
-		</div>
-
-		<section class="grid gap-2 rounded-lg border bg-card p-4">
-			<div class="flex items-center justify-between gap-2">
-				<span class="font-mono text-xs font-medium text-muted-foreground uppercase">Example</span>
-				<Button variant="outline" size="sm" type="button" onclick={useExample}>Use Example</Button>
-			</div>
-			<pre class="whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">{exampleCsv}</pre>
-		</section>
-
-		<div class="grid gap-2">
-			<Label for="mergeImportText">Personnel Data</Label>
-			<Textarea
-				id="mergeImportText"
-				class="min-h-44 font-mono"
-				value={importText}
-				oninput={handleTextInput}
-				placeholder="Paste personnel update data here..."
-				rows={6}
-				disabled={!!uploadedFileName}
-			/>
-		</div>
-
-		{#if textError}
-			<p class="text-sm text-destructive">{textError}</p>
+		{#if importError}
+			<p class="text-sm text-destructive">{importError}</p>
 		{/if}
 
 		{#if showInputActions}

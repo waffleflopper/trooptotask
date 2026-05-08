@@ -3,9 +3,9 @@
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
@@ -125,80 +125,82 @@
 	}
 </script>
 
-<Dialog.Root open onOpenChange={(open) => !open && !isSaving && onClose()}>
-	<Dialog.Content showCloseButton={!isSaving}>
-		<Dialog.Header>
-			<Dialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</Dialog.Title>
-		</Dialog.Header>
+<AppDialog.Root open closeBlocked={isSaving} {onClose}>
+	<AppDialog.Content closeBlocked={isSaving}>
+		<AppDialog.Header class="px-4 pt-4">
+			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
+		</AppDialog.Header>
 
-		<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
-			<div class="grid gap-2">
-				<Label for="rank">Rank</Label>
-				<SearchCombobox
-					id="rank"
-					options={rankOptions}
-					bind:value={rank}
-					placeholder="Select rank..."
-					clearable={false}
-				/>
-			</div>
-
-			<div class="grid gap-4 sm:grid-cols-2">
+		<AppDialog.Body>
+			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
 				<div class="grid gap-2">
-					<Label for="lastName">Last Name</Label>
-					<Input
-						id="lastName"
-						placeholder="Smith"
-						required
-						aria-invalid={!!lastNameError}
-						aria-describedby={lastNameError ? 'lastName-error' : undefined}
-						bind:value={lastName}
+					<Label for="rank">Rank</Label>
+					<SearchCombobox
+						id="rank"
+						options={rankOptions}
+						bind:value={rank}
+						placeholder="Select rank..."
+						clearable={false}
 					/>
-					{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
 				</div>
-				<div class="grid gap-2">
-					<Label for="firstName">First Name</Label>
-					<Input
-						id="firstName"
-						placeholder="John"
-						required
-						aria-invalid={!!firstNameError}
-						aria-describedby={firstNameError ? 'firstName-error' : undefined}
-						bind:value={firstName}
-					/>
-					{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
-				</div>
-			</div>
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="grid gap-2">
-					<Label for="mos">MOS / Job Title</Label>
-					<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="lastName">Last Name</Label>
+						<Input
+							id="lastName"
+							placeholder="Smith"
+							required
+							aria-invalid={!!lastNameError}
+							aria-describedby={lastNameError ? 'lastName-error' : undefined}
+							bind:value={lastName}
+						/>
+						{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
+					</div>
+					<div class="grid gap-2">
+						<Label for="firstName">First Name</Label>
+						<Input
+							id="firstName"
+							placeholder="John"
+							required
+							aria-invalid={!!firstNameError}
+							aria-describedby={firstNameError ? 'firstName-error' : undefined}
+							bind:value={firstName}
+						/>
+						{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
+					</div>
 				</div>
-				<div class="grid gap-2">
-					<Label for="clinicRole">Duty Role</Label>
-					<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
-				</div>
-			</div>
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="grid gap-2">
-					<Label for="ets">ETS</Label>
-					<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="mos">MOS / Job Title</Label>
+						<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+					</div>
+					<div class="grid gap-2">
+						<Label for="clinicRole">Duty Role</Label>
+						<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
+					</div>
 				</div>
-				<div class="grid gap-2">
-					<Label for="deros">PCS / DEROS</Label>
-					<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
+
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="ets">ETS</Label>
+						<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+					</div>
+					<div class="grid gap-2">
+						<Label for="deros">PCS / DEROS</Label>
+						<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
+					</div>
 				</div>
-			</div>
 
-			<div class="grid gap-2">
-				<Label for="group">Group</Label>
-				<SearchCombobox id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
-			</div>
-		</form>
+				<div class="grid gap-2">
+					<Label for="group">Group</Label>
+					<SearchCombobox id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
+				</div>
+			</form>
+		</AppDialog.Body>
 
-		<Dialog.Footer>
+		<AppDialog.Footer>
 			{#if isEditing && onRemove}
 				<Button
 					type="button"
@@ -219,9 +221,9 @@
 					{isEditing ? 'Save Changes' : 'Add Personnel'}
 				{/if}
 			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if showArchiveConfirm && personnel}
 	<ConfirmDialog

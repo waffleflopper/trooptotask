@@ -18,12 +18,10 @@
 		Upload,
 		Users
 	} from '@lucide/svelte';
-	import { CalendarDate } from '@internationalized/date';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
-	import { Calendar } from '$lib/components/ui/calendar/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import type { ChartConfig } from '$lib/components/ui/chart/index.js';
@@ -40,7 +38,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu/index.js';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
+	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -92,6 +90,13 @@
 		{ id: '5', name: 'Nadia Price', group: 'B Co', status: 'Disabled', readiness: 64, disabled: true }
 	];
 
+	const sampleStatusType = {
+		id: 'leave',
+		name: 'Leave',
+		color: '#4d6b35',
+		textColor: '#f7f8f4'
+	};
+
 	const dataTableColumns: ColumnDef<DataTablePerson>[] = [
 		{ key: 'name', header: 'Name', value: (row) => row.name },
 		{ key: 'group', header: 'Group', value: (row) => row.group },
@@ -135,7 +140,7 @@
 
 	let selectedStatus = $state('ready');
 	let tab = $state('account');
-	let date = $state(new CalendarDate(2026, 5, 6));
+	let date = $state('2026-05-06');
 	let page = $state(2);
 	let includeDetached = $state(false);
 	let requireReview = $state(true);
@@ -317,6 +322,7 @@
 						<Badge variant="warning">Warning</Badge>
 						<Badge variant="info">Info</Badge>
 						<Badge variant="success">Success</Badge>
+						<Badge statusType={sampleStatusType}>Status Type</Badge>
 					</div>
 					<ButtonGroup.Root>
 						<Button variant="outline">Roster</Button>
@@ -925,19 +931,9 @@
 
 				<section class="grid gap-4" aria-labelledby="date-title">
 					<h2 id="date-title" class="text-xl font-semibold tracking-tight">Date picker</h2>
-					<Popover.Root>
-						<Popover.Trigger>
-							{#snippet child({ props })}
-								<Button variant="outline" {...props}>
-									<CalendarIcon />
-									{date.toString()}
-								</Button>
-							{/snippet}
-						</Popover.Trigger>
-						<Popover.Content class="w-auto p-0">
-							<Calendar type="single" bind:value={date} />
-						</Popover.Content>
-					</Popover.Root>
+					<div class="max-w-60">
+						<DatePicker id="showroom-date-picker" bind:value={date} />
+					</div>
 				</section>
 
 				<section class="grid gap-4" aria-labelledby="chart-title">

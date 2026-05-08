@@ -50,6 +50,28 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 
 ---
 
+## `ui/date-picker`
+
+Shared shadcn-svelte date picker composed from `button`, `popover`, and `calendar`. Use this instead of route-local `input type="date"` controls when a production form needs the showroom date picker appearance.
+
+```svelte
+<script lang="ts">
+	import { DatePicker } from '$lib/components/ui/date-picker';
+
+	let ets = $state('2027-05-01');
+</script>
+
+<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+```
+
+Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder?: string`, `disabled?: boolean`, `aria-label?: string`, `onValueChange?: (value: string) => void`
+
+- Values are stored as ISO date strings so route payloads stay data-oriented.
+- The visual contract comes from the shared component. Routes may provide field labels, placeholders, disabled state, and bound values only.
+- Calendar and popover appearance must be calibrated in `/ui-showroom` before production route usage changes.
+
+---
+
 ## `ui/workspace-toolbar`
 
 `ui/workspace-toolbar` is the shadcn-composed route toolbar target for the UI migration. It is being calibrated in `/ui-showroom` before production routes consume it. It replaces route-local toolbar shells with one shared visual contract built from shadcn-svelte primitives.
@@ -326,12 +348,20 @@ Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic varia
 <Badge variant="danger">Blocked</Badge>
 ```
 
-Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'outline' | 'ghost' | 'link'`
+Status type colors are allowed through `statusType`, not through a raw color prop:
+
+```svelte
+<Badge statusType={status}>{status.name}</Badge>
+```
+
+Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'status' | 'outline' | 'ghost' | 'link'`, `statusType?: Pick<StatusType, 'id' | 'name' | 'color' | 'textColor'>`
 
 Badge guidance:
 
 - Use `success`, `warning`, `info`, and `danger` only for real status or classification.
 - Keep `destructive` for shadcn compatibility and destructive UI states. Prefer `danger` for general status labels such as blocked, overdue, or risk.
+- Use `statusType` when the color comes from a saved calendar status type, such as dashboard availability or calendar reports.
+- Carry the status type object through the read model instead of flattening it to a route-owned color string.
 - Do not pass route-local visual classes to recolor badges unless Robert approved that specific visual exception.
 
 ---

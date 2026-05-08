@@ -4,6 +4,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -183,11 +184,11 @@
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="grid gap-2">
 					<Label for="ets">ETS</Label>
-					<Input id="ets" type="date" bind:value={ets} />
+					<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
 				</div>
 				<div class="grid gap-2">
 					<Label for="deros">PCS / DEROS</Label>
-					<Input id="deros" type="date" bind:value={deros} />
+					<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
 				</div>
 			</div>
 

@@ -66,16 +66,24 @@ describe('PersonnelModal', () => {
 
 		render(PersonnelModal, {
 			props: {
+				personnel: {
+					id: 'person-1',
+					rank: 'SPC',
+					firstName: 'Jane',
+					lastName: 'Smith',
+					mos: '',
+					clinicRole: '',
+					ets: '2027-05-01',
+					deros: '2026-11-30',
+					groupId: null,
+					groupName: ''
+				},
 				groups: [],
 				onSubmit,
 				onClose
 			}
 		});
 
-		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
-		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
-		await fireEvent.input(screen.getByLabelText('ETS'), { target: { value: '2027-05-01' } });
-		await fireEvent.input(screen.getByLabelText('PCS / DEROS'), { target: { value: '2026-11-30' } });
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 
 		await waitFor(() => {

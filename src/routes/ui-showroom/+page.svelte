@@ -313,6 +313,7 @@
 						<Button variant="secondary">Secondary</Button>
 						<Button variant="outline">Outline</Button>
 						<Button variant="destructive">Destructive</Button>
+						<Button variant="link">Link</Button>
 						<Button disabled>Disabled</Button>
 						<Button size="icon" aria-label="Upload">
 							<Upload />

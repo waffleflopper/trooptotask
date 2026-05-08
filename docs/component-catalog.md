@@ -241,23 +241,68 @@ Migration notes:
 
 ## `ui/operational-matrix`
 
-`ui/operational-matrix` is intentionally empty while the visual-first implementation is rebuilt as a headless primitive.
+`ui/operational-matrix` is a headless-first compound table primitive for dense row-by-column operational workflows. It follows `docs/plans/2026-05-08-headless-operational-matrix-spec.md`.
 
-Use `docs/plans/2026-05-08-headless-operational-matrix-spec.md` as the controlling contract for the next implementation slice.
+```svelte
+<script lang="ts">
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+</script>
 
-The new implementation must:
+<OperationalMatrix.Root rows={rows} columns={columns} rowGroups={rowGroups} selectedCell={selectedCell} onCellSelect={handleCellSelect}>
+	<OperationalMatrix.Viewport ariaLabel="Training matrix viewport">
+		<OperationalMatrix.Table ariaLabel="Training matrix">
+			<OperationalMatrix.Header>
+				<OperationalMatrix.HeaderRow>
+					<OperationalMatrix.CornerCell>Personnel</OperationalMatrix.CornerCell>
+					{#each columns as column (column.id)}
+						<OperationalMatrix.ColumnHeader {column}>{column.label}</OperationalMatrix.ColumnHeader>
+					{/each}
+				</OperationalMatrix.HeaderRow>
+			</OperationalMatrix.Header>
+			<OperationalMatrix.Body>
+				{#each rows as row (row.id)}
+					<OperationalMatrix.Row {row}>
+						<OperationalMatrix.RowHeader {row}>{row.label}</OperationalMatrix.RowHeader>
+						{#each columns as column (column.id)}
+							<OperationalMatrix.Cell {row} {column} ariaLabel={`${row.label} ${column.label} action`}>
+								<!-- wrapper-owned content -->
+							</OperationalMatrix.Cell>
+						{/each}
+					</OperationalMatrix.Row>
+				{/each}
+			</OperationalMatrix.Body>
+		</OperationalMatrix.Table>
+	</OperationalMatrix.Viewport>
+</OperationalMatrix.Root>
+```
 
-- keep the public namespace import shape: `import * as OperationalMatrix from '$lib/components/ui/operational-matrix'`
-- be headless-first, with domain meaning and final visuals supplied by wrappers
-- support monthly availability, long-range availability, training, Critical Tasks, and DA6-like matrix needs without becoming domain-specific
-- prove the API in `/ui-showroom` before any production route consumes it
-- avoid compatibility adapters for the deleted visual-first implementation
-- Duty Roster DA6 should follow once the DA6 preview/history views can map their read models into shared semantic states without moving DA6 calculation into UI.
-- Calendar long-range should not migrate to this foundation yet. It has virtualized rows, saved status-type colors, and very tight square-cell layout needs that may require a custom implementation or a separate shared API.
+Public components:
+
+- `Root`, `Viewport`, `Table`, `Header`, `HeaderRow`, `ColumnGroup`, `ColumnHeader`, `CornerCell`, `Body`, `RowGroup`, `Row`, `RowHeader`, `Cell`.
+
+Public types:
+
+- `OperationalMatrixRow`, `OperationalMatrixColumn`, `OperationalMatrixRowGroup`, `OperationalMatrixCellIdentity`, `OperationalMatrixCellSelection`, `OperationalMatrixSelectHandler`.
+
+Shared component owns:
+
+- Native table structure, compound context, row/column/group identity, selected-cell data attributes, disabled/read-only propagation, accessible cell selection payloads, and stable `data-slot` / `data-matrix-*` styling hooks.
+
+Wrappers own:
+
+- Status colors, legends, toolbars, sorting/filtering, dialogs, date math, training/task semantics, virtualization algorithms, range visuals, and final visual treatment.
+
+Rules:
+
+- Keep domain meaning out of the primitive. Do not add calendar, training, Critical Tasks, DA6, readiness, or status-type assumptions to this layer.
+- Do not restore the deleted visual-first API and do not add compatibility adapters for it.
+- Dialogs belong in wrappers/showroom examples. `Cell` emits row and column identity; it does not open dialogs itself.
+- Color-only cells must provide an accessible label through `ariaLabel`, visually hidden text, or both.
+- Production route migration is a later phase. Do not consume this primitive from production routes until a route migration slice explicitly asks for it.
 
 Showroom coverage:
 
-- `/ui-showroom` covers basic matrix, sticky row/column headers, dense states, legends, loading, empty, read-only, complete/warning/expired/incomplete examples, row grouping, cell actions, tooltip details, constrained layouts, keyboard focus, dark mode, and Critical Tasks/Training/DA6-style examples.
+- `/ui-showroom` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
 
 ## `ui/bulk-import-workspace`
 

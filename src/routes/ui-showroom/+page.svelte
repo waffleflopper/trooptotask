@@ -44,6 +44,8 @@
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
 	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list/index.js';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
+	import type { OperationalMatrixCellSelection } from '$lib/components/ui/operational-matrix/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
@@ -152,6 +154,130 @@
 		{ label: 'Thu', ready: 91, gaps: 9 }
 	];
 
+	type MatrixRow = OperationalMatrix.OperationalMatrixRow & {
+		meta: {
+			rank: string;
+			group: string;
+			role: string;
+			status: string;
+			readiness: number;
+		};
+	};
+
+	type MatrixColumn = OperationalMatrix.OperationalMatrixColumn & {
+		meta: {
+			month: 'May' | 'Jun';
+			day: string;
+			weekday: string;
+			window: string;
+			today?: boolean;
+		};
+	};
+
+	type MatrixCellStatus = 'leave' | 'school' | 'field' | 'tdy' | 'appointment' | 'sick' | 'empty';
+
+	const matrixRows: MatrixRow[] = [
+		{
+			id: 'avery',
+			label: 'Brooks, Avery',
+			meta: { rank: '1LT', group: 'HQ', role: 'Section lead', status: 'Ready', readiness: 96 }
+		},
+		{
+			id: 'chen',
+			label: 'Chen, Maya',
+			meta: { rank: 'SFC', group: 'A Co', role: 'Training NCO', status: 'Watch', readiness: 82 }
+		},
+		{
+			id: 'ortiz',
+			label: 'Ortiz, Sam',
+			meta: { rank: 'SSG', group: 'A Co', role: 'Team leader', status: 'Action', readiness: 68 }
+		},
+		{
+			id: 'bell',
+			label: 'Bell, Jon',
+			disabled: true,
+			meta: { rank: 'SGT', group: 'B Co', role: 'Supply', status: 'Read-only', readiness: 74 }
+		},
+		{
+			id: 'price',
+			label: 'Price, Morgan',
+			meta: { rank: 'SPC', group: 'B Co', role: 'Platoon sergeant', status: 'Ready', readiness: 91 }
+		}
+	];
+
+	const matrixColumns: MatrixColumn[] = [
+		{ id: 'may-01', label: '1', meta: { month: 'May', day: '1', weekday: 'Fri', window: 'Range week' } },
+		{ id: 'may-02', label: '2', meta: { month: 'May', day: '2', weekday: 'Sat', window: 'Range week' } },
+		{ id: 'may-03', label: '3', meta: { month: 'May', day: '3', weekday: 'Sun', window: 'Range week' } },
+		{ id: 'may-04', label: '4', meta: { month: 'May', day: '4', weekday: 'Mon', window: 'Range week' } },
+		{ id: 'may-05', label: '5', meta: { month: 'May', day: '5', weekday: 'Tue', window: 'Range week' } },
+		{ id: 'may-06', label: '6', meta: { month: 'May', day: '6', weekday: 'Wed', window: 'Range week' } },
+		{ id: 'may-07', label: '7', meta: { month: 'May', day: '7', weekday: 'Thu', window: 'Range week' } },
+		{ id: 'may-08', label: '8', meta: { month: 'May', day: '8', weekday: 'Fri', window: 'Range week', today: true } },
+		{ id: 'may-09', label: '9', meta: { month: 'May', day: '9', weekday: 'Sat', window: 'Range week' } },
+		{ id: 'may-10', label: '10', meta: { month: 'May', day: '10', weekday: 'Sun', window: 'Range week' } },
+		{ id: 'may-11', label: '11', meta: { month: 'May', day: '11', weekday: 'Mon', window: 'Field week' } },
+		{ id: 'may-12', label: '12', meta: { month: 'May', day: '12', weekday: 'Tue', window: 'Field week' } },
+		{ id: 'may-13', label: '13', meta: { month: 'May', day: '13', weekday: 'Wed', window: 'Field week' } },
+		{ id: 'jun-02', label: '2', meta: { month: 'Jun', day: '2', weekday: 'Tue', window: 'School' } },
+		{ id: 'jun-03', label: '3', meta: { month: 'Jun', day: '3', weekday: 'Wed', window: 'School' } },
+		{
+			id: 'jun-04',
+			label: '4',
+			readOnly: true,
+			meta: { month: 'Jun', day: '4', weekday: 'Thu', window: 'Locked window' }
+		}
+	];
+
+	const matrixRowGroups: OperationalMatrix.OperationalMatrixRowGroup[] = [
+		{ id: 'hq', label: 'Headquarters', rowIds: ['avery'] },
+		{ id: 'alpha', label: 'A Company', rowIds: ['chen', 'ortiz'] },
+		{ id: 'bravo', label: 'B Company', rowIds: ['bell', 'price'] }
+	];
+
+	const matrixColumnGroups = [
+		{ id: 'may', label: 'May 2026', columnSpan: 13 },
+		{ id: 'jun', label: 'June 2026', columnSpan: 3 }
+	];
+
+	const matrixStatusByCell: Record<string, Record<string, MatrixCellStatus>> = {
+		avery: {
+			'jun-02': 'school',
+			'jun-03': 'school',
+			'jun-04': 'school'
+		},
+		chen: {
+			'may-01': 'school',
+			'may-02': 'school',
+			'may-11': 'school',
+			'may-12': 'school',
+			'may-13': 'school'
+		},
+		ortiz: {
+			'may-03': 'leave',
+			'may-04': 'leave',
+			'may-05': 'leave',
+			'may-06': 'leave',
+			'may-07': 'leave',
+			'may-08': 'leave',
+			'may-09': 'leave',
+			'jun-03': 'sick'
+		},
+		bell: {
+			'may-04': 'tdy',
+			'may-08': 'field'
+		},
+		price: {
+			'may-08': 'school',
+			'may-09': 'school',
+			'may-10': 'school',
+			'may-11': 'school',
+			'may-12': 'school',
+			'may-13': 'school',
+			'jun-02': 'appointment'
+		}
+	};
+
 	let selectedStatus = $state('ready');
 	let nativeStatus = $state('ready');
 	let selectedPerson = $state('person-12');
@@ -179,11 +305,14 @@
 	let asyncConfirmOpen = $state(false);
 	let disabledConfirmOpen = $state(false);
 	let blockedDialogOpen = $state(false);
+	let matrixDialogOpen = $state(false);
 	let packetListOpen = $state('active-packet');
 	let packetNotesOpen = $state(true);
 	let emptyPacketNotesOpen = $state(false);
 	let clickedRow = $state('No row selected');
 	let expandedDataTableRow = $state('2');
+	let selectedMatrixCell = $state({ rowId: 'avery', columnId: 'may-27' });
+	let activeMatrixSelection = $state<OperationalMatrixCellSelection | undefined>();
 	const tableSelection = useDataTableSelection({
 		rows: () => dataTablePeople,
 		rowKey: (row) => row.id,
@@ -235,6 +364,67 @@
 		}
 
 		return { tone: 'valid', description: 'Ready to import.' };
+	}
+
+	function matrixCellStatus(row: MatrixRow, column: MatrixColumn): MatrixCellStatus {
+		return matrixStatusByCell[row.id]?.[column.id] ?? 'empty';
+	}
+
+	function matrixCellTone(status: MatrixCellStatus) {
+		if (status === 'leave') {
+			return 'bg-emerald-600 text-white';
+		}
+
+		if (status === 'school') {
+			return 'bg-sky-600 text-white';
+		}
+
+		if (status === 'field') {
+			return 'bg-amber-700 text-white';
+		}
+
+		if (status === 'tdy') {
+			return 'bg-violet-600 text-white';
+		}
+
+		if (status === 'appointment') {
+			return 'bg-orange-500 text-white';
+		}
+
+		if (status === 'sick') {
+			return 'bg-red-600 text-white';
+		}
+
+		return 'bg-transparent text-transparent';
+	}
+
+	function matrixCellText(status: MatrixCellStatus) {
+		const labels: Record<MatrixCellStatus, string> = {
+			leave: 'Leave',
+			school: 'School',
+			field: 'Field',
+			tdy: 'TDY',
+			appointment: 'Appointment',
+			sick: 'Sick',
+			empty: 'Available'
+		};
+
+		return labels[status];
+	}
+
+	function matrixCellLabel(row: MatrixRow, column: MatrixColumn) {
+		const state = row.disabled
+			? 'disabled'
+			: column.readOnly
+				? 'read only'
+				: matrixCellText(matrixCellStatus(row, column));
+		return `${row.label}, ${column.meta.month} ${column.meta.day}, ${state}`;
+	}
+
+	function handleMatrixCellSelect(selection: OperationalMatrixCellSelection) {
+		selectedMatrixCell = { rowId: selection.rowId, columnId: selection.columnId };
+		activeMatrixSelection = selection;
+		matrixDialogOpen = true;
 	}
 </script>
 
@@ -1117,6 +1307,203 @@
 						/>
 					</div>
 				</section>
+
+				<section class="grid gap-5" aria-labelledby="operational-matrix-title">
+					<div class="flex flex-col gap-1">
+						<h2 id="operational-matrix-title" class="text-xl font-semibold tracking-tight">Operational matrix</h2>
+						<p class="max-w-3xl text-sm text-muted-foreground">
+							Headless compound table primitive for dense row-by-column workflows. The example styles live in the
+							showroom wrapper; the shared primitive only provides structure, identity, selection, and data hooks.
+						</p>
+					</div>
+
+					<OperationalMatrix.Root
+						rows={matrixRows}
+						columns={matrixColumns}
+						rowGroups={matrixRowGroups}
+						selectedCell={selectedMatrixCell}
+						onCellSelect={handleMatrixCellSelect}
+						class="grid gap-3"
+					>
+						<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+							<Badge variant="outline">Grouped rows</Badge>
+							<Badge variant="outline">Sticky axes</Badge>
+							<Badge variant="outline">Dialog-trigger cells</Badge>
+							<Badge variant="outline">Color cells include accessible labels</Badge>
+						</div>
+
+						<OperationalMatrix.Viewport
+							ariaLabel="Operational matrix showroom viewport"
+							maxHeight="28rem"
+							class="rounded-md border border-border bg-card shadow-xs"
+						>
+							<OperationalMatrix.Table
+								ariaLabel="Operational matrix showroom example"
+								class="min-w-[76rem] table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:text-left [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-12 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-content]]:items-stretch [&_[data-slot=operational-matrix-cell-content]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:items-stretch [&_[data-slot=operational-matrix-cell-trigger]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset [&_[data-disabled=true]]:opacity-45 [&_[data-readonly=true]]:bg-muted/30"
+							>
+								<colgroup>
+									<col class="w-64" />
+									{#each matrixColumns as column (column.id)}
+										<col class="w-14" />
+									{/each}
+								</colgroup>
+								<OperationalMatrix.Header>
+									<OperationalMatrix.HeaderRow>
+										<OperationalMatrix.CornerCell
+											rowSpan={2}
+											sticky
+											class="sticky left-0 top-0 z-30 w-64 min-w-64 bg-muted"
+										>
+											Personnel
+										</OperationalMatrix.CornerCell>
+										{#each matrixColumnGroups as group (group.id)}
+											<OperationalMatrix.ColumnGroup
+												label={group.label}
+												columnSpan={group.columnSpan}
+												sticky
+												class="sticky top-0 z-20 h-8 bg-muted px-3 text-left"
+											/>
+										{/each}
+									</OperationalMatrix.HeaderRow>
+									<OperationalMatrix.HeaderRow>
+										{#each matrixColumns as column (column.id)}
+											<OperationalMatrix.ColumnHeader
+												{column}
+												sticky
+												class={`sticky top-8 z-20 h-14 w-14 min-w-14 bg-muted px-1 text-center ${column.meta.today ? 'bg-amber-50 shadow-[inset_0_-2px_0_var(--foreground)]' : ''}`}
+											>
+												<span class="grid gap-0.5 leading-none">
+													<span class="text-[10px] tracking-[0.14em] text-muted-foreground">{column.meta.weekday}</span>
+													<span class="font-serif text-2xl font-bold normal-case tracking-normal text-foreground">
+														{column.label}
+													</span>
+												</span>
+											</OperationalMatrix.ColumnHeader>
+										{/each}
+									</OperationalMatrix.HeaderRow>
+								</OperationalMatrix.Header>
+
+								<OperationalMatrix.Body>
+									{#each matrixRowGroups as group (group.id)}
+										<OperationalMatrix.RowGroup
+											{group}
+											columnSpan={matrixColumns.length + 1}
+											class="h-4 bg-muted/40 text-[10px] font-semibold uppercase leading-none tracking-[0.18em] text-muted-foreground [&_th]:px-2 [&_th]:py-0 [&_th]:text-center"
+										>
+											{group.label}
+										</OperationalMatrix.RowGroup>
+
+										{#each matrixRows.filter((row) => group.rowIds.includes(row.id)) as row (row.id)}
+											<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+												<OperationalMatrix.RowHeader
+													{row}
+													sticky
+													class="sticky left-0 z-10 w-64 min-w-64 border border-border bg-card px-4 py-2 text-left align-middle"
+												>
+													<span class="flex items-baseline gap-4">
+														<span class="w-8 font-mono text-sm font-semibold text-amber-700">{row.meta.rank}</span>
+														<span class="grid gap-0.5">
+															<span class="font-serif text-base font-semibold">{row.label}</span>
+															<span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+																{row.meta.role} · {row.meta.group} · {row.meta.readiness}%
+															</span>
+														</span>
+													</span>
+												</OperationalMatrix.RowHeader>
+
+												{#each matrixColumns as column (column.id)}
+													{@const status = matrixCellStatus(row, column)}
+													<OperationalMatrix.Cell
+														{row}
+														{column}
+														readOnly={column.readOnly}
+														ariaLabel={`${matrixCellLabel(row, column)}. Open matrix detail.`}
+														class={`min-w-12 bg-card ${column.meta.today ? 'bg-amber-50/50' : ''}`}
+													>
+														<span
+															class={`flex h-10 w-full items-start justify-start overflow-hidden px-1.5 py-1 font-mono text-[9px] font-bold uppercase leading-none tracking-[0.06em] ${matrixCellTone(status)}`}
+														>
+															<span class="truncate" aria-hidden="true">
+																{status === 'empty' ? '' : matrixCellText(status)}
+															</span>
+															<span class="sr-only">{matrixCellLabel(row, column)}</span>
+														</span>
+													</OperationalMatrix.Cell>
+												{/each}
+											</OperationalMatrix.Row>
+										{/each}
+									{/each}
+								</OperationalMatrix.Body>
+							</OperationalMatrix.Table>
+						</OperationalMatrix.Viewport>
+					</OperationalMatrix.Root>
+
+					<div class="flex flex-wrap gap-2 text-sm">
+						<span class="rounded-sm bg-emerald-600 px-3 py-1 text-white">Leave</span>
+						<span class="rounded-sm bg-sky-600 px-3 py-1 text-white">School</span>
+						<span class="rounded-sm bg-amber-700 px-3 py-1 text-white">Field/Training</span>
+						<span class="rounded-sm bg-violet-600 px-3 py-1 text-white">TDY</span>
+						<span class="rounded-sm bg-orange-500 px-3 py-1 text-white">Appointment</span>
+						<span class="rounded-sm bg-red-600 px-3 py-1 text-white">Sick</span>
+					</div>
+
+					<div class="grid gap-4 md:grid-cols-2">
+						<div class="grid gap-3 rounded-lg border bg-card p-4">
+							<div class="grid gap-1">
+								<h3 class="text-sm font-medium">Loading wrapper</h3>
+								<p class="text-sm text-muted-foreground">
+									Wrappers own loading state while preserving matrix layout space.
+								</p>
+							</div>
+							<div class="grid gap-2">
+								<Skeleton class="h-9 w-full" />
+								<Skeleton class="h-9 w-full" />
+								<Skeleton class="h-9 w-4/5" />
+							</div>
+						</div>
+
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Media variant="icon">
+									<ClipboardList />
+								</Empty.Media>
+								<Empty.Title>No matrix rows</Empty.Title>
+								<Empty.Description
+									>Wrapper state renders empty copy without changing the headless primitive.</Empty.Description
+								>
+							</Empty.Header>
+							<Empty.Content>
+								<Button variant="outline">Adjust filters</Button>
+							</Empty.Content>
+						</Empty.Root>
+					</div>
+				</section>
+
+				{#if matrixDialogOpen && activeMatrixSelection}
+					<AppDialog.Root bind:open={matrixDialogOpen} onClose={() => (matrixDialogOpen = false)}>
+						<AppDialog.Content>
+							<AppDialog.Header>
+								<AppDialog.Title>Matrix detail</AppDialog.Title>
+								<AppDialog.Description>
+									Dialog state is owned by the wrapper. The matrix only emitted row and column identity.
+								</AppDialog.Description>
+							</AppDialog.Header>
+							<AppDialog.Body>
+								<div class="grid gap-2 text-sm">
+									<p><span class="font-medium">Row:</span> {activeMatrixSelection.row.label}</p>
+									<p><span class="font-medium">Column:</span> {activeMatrixSelection.column.label}</p>
+									<p>
+										<span class="font-medium">Identity:</span>
+										{activeMatrixSelection.rowId}:{activeMatrixSelection.columnId}
+									</p>
+								</div>
+							</AppDialog.Body>
+							<AppDialog.Footer>
+								<Button variant="outline" onclick={() => (matrixDialogOpen = false)}>Close</Button>
+							</AppDialog.Footer>
+						</AppDialog.Content>
+					</AppDialog.Root>
+				{/if}
 
 				<section class="grid gap-4" aria-labelledby="date-title">
 					<h2 id="date-title" class="text-xl font-semibold tracking-tight">Date picker</h2>

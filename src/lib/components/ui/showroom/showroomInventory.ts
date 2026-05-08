@@ -61,6 +61,16 @@ export const showroomCoverage = [
 	'onboarding-packet-list-constrained-layout',
 	'onboarding-packet-list-keyboard-focus',
 	'onboarding-packet-list-dark-mode',
+	'operational-matrix-headless-compound-api',
+	'operational-matrix-grouped-rows',
+	'operational-matrix-sticky-header-row-header',
+	'operational-matrix-selected-cell',
+	'operational-matrix-disabled-readonly-cells',
+	'operational-matrix-dialog-trigger',
+	'operational-matrix-color-only-accessible-cells',
+	'operational-matrix-stacked-column-headers',
+	'operational-matrix-rich-row-headers',
+	'operational-matrix-loading-empty-wrappers',
 	'forms',
 	'field-label-description-error',
 	'native-select-state',
@@ -139,7 +149,8 @@ export const selectedShowroomComponents = [
 	'workspace-toolbar',
 	'report-workspace',
 	'bulk-import-workspace',
-	'onboarding-packet-list'
+	'onboarding-packet-list',
+	'operational-matrix'
 ] as const;
 
 export type ShowroomCoverage = (typeof showroomCoverage)[number];

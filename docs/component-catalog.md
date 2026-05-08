@@ -241,115 +241,17 @@ Migration notes:
 
 ## `ui/operational-matrix`
 
-`ui/operational-matrix` is the shared foundation for grid-heavy operational surfaces that need scanable sticky axes, dense cells, semantic status, legends, controlled overflow, and accessible cell labels. It is separate from `ui/data-table`; do not use DataTable when sorting/pagination behavior harms matrix scanability.
+`ui/operational-matrix` is intentionally empty while the visual-first implementation is rebuilt as a headless primitive.
 
-Primary consumers:
+Use `docs/plans/2026-05-08-headless-operational-matrix-spec.md` as the controlling contract for the next implementation slice.
 
-- Critical Tasks matrix
-- Training matrix
-- Duty Roster DA6 matrix
-- Calendar report-like matrix surfaces where cells can carry visible text. Calendar long-range status-color grids are excluded for now.
+The new implementation must:
 
-```svelte
-<script lang="ts">
-	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
-
-	const legend = [
-		{ state: 'complete', label: 'Complete' },
-		{ state: 'warning', label: 'Warning' },
-		{ state: 'expired', label: 'Expired' },
-		{ state: 'incomplete', label: 'Incomplete' }
-	];
-</script>
-
-<OperationalMatrix.Root ariaLabel="Training operational matrix">
-	<OperationalMatrix.Toolbar ariaLabel="Training matrix controls">
-		<!-- WorkspaceToolbar.Group controls go here -->
-	</OperationalMatrix.Toolbar>
-	<OperationalMatrix.Legend items={legend} />
-	<OperationalMatrix.Viewport ariaLabel="Training matrix viewport">
-		<OperationalMatrix.Table ariaLabel="Training status matrix">
-			<OperationalMatrix.Header>
-				<tr>
-					<OperationalMatrix.Corner label="Soldier" />
-					<OperationalMatrix.ColumnHeader label="Cyber Awareness" compactLabel="Cyber" />
-				</tr>
-			</OperationalMatrix.Header>
-			<OperationalMatrix.Body>
-				<OperationalMatrix.RowGroup label="Alpha Company" meta="23 personnel" colspan={2} />
-				<OperationalMatrix.Row>
-					<OperationalMatrix.RowHeader label="Brooks, Avery">Brooks, Avery</OperationalMatrix.RowHeader>
-					<OperationalMatrix.Cell
-						state="warning"
-						label="Expiring soon"
-						value="28 days"
-						detail="Renewal window is open."
-						rowLabel="Brooks, Avery"
-						columnLabel="Cyber Awareness"
-						labelVisibility="hidden"
-						onSelect={() => openTrainingRecord()}
-					/>
-				</OperationalMatrix.Row>
-			</OperationalMatrix.Body>
-		</OperationalMatrix.Table>
-	</OperationalMatrix.Viewport>
-</OperationalMatrix.Root>
-```
-
-Public components:
-
-- `Root`: matrix shell. Props: `ariaLabel`, `loading?`, `disabled?`, `readOnly?`, `density?: 'default' | 'dense' | 'compact'`.
-- `Toolbar`: optional shared control band, composed with `WorkspaceToolbar`.
-- `Legend`: semantic state legend. Props: `items`, `ariaLabel?`.
-- `Viewport`: keyboard-focusable scroll region. Props: `ariaLabel?`, `maxHeight?`.
-- `Table`, `Header`, `Body`, `Row`, `RowGroup`, `Corner`, `ColumnHeader`, `RowHeader`, `Cell`, `Empty`, `Loading`.
-
-Supported cell states: `neutral`, `complete`, `success`, `warning`, `expired`, `danger`, `incomplete`, `empty`, `disabled`, `assigned`, and `info`.
-
-`Cell` supports `labelVisibility?: 'visible' | 'hidden'`.
-
-- Use `labelVisibility="hidden"` for very dense matrices, such as Critical Tasks, where the visible cell should collapse to the status mark/value footprint.
-- The label always remains in the accessible name and detail tooltip path.
-
-Accessibility rules:
-
-- Every matrix needs a visible or accessible table label via `Table ariaLabel`.
-- Every viewport needs an accessible label so keyboard users know what scroll region has focus.
-- Every `Cell` must receive `rowLabel` and `columnLabel`; status must include a text label and icon, not color alone.
-- Use `detail` or `detailContent` for tooltip details. Do not hide critical status meaning in tooltip-only content.
-- Use native table semantics unless a future implementation proves grid semantics are more accessible for a specific workflow.
-
-Legend rules:
-
-- Legends use shared semantic states and text labels. Do not pass arbitrary route colors for cells or legend marks.
-- Domain-specific saved colors, such as calendar status-type colors, are intentionally not supported by this shared foundation yet. Long-range calendar likely needs a custom surface or a later shared API that balances shadcn-svelte styling with very tight square-cell layout.
-
-Sticky and overflow guidance:
-
-- `Corner`, `ColumnHeader`, and `RowHeader` own sticky axes.
-- `Viewport` owns horizontal and vertical overflow and remains keyboard focusable.
-- Use `density="compact"` plus `Cell labelVisibility="hidden"` for Critical Tasks-style icon-first matrices where many columns must fit horizontally. Compact cells use a narrow fixed column floor and do not stretch sparse columns to fill the card; extra space should stay empty until horizontal scrolling is needed.
-- Use `density="dense"` for DA6 and report-like scan surfaces when values still need to remain visible. Use `density="default"` only when cells need larger text values.
-
-Shared components own:
-
-- Matrix structure, sticky axes, density, visual states, scroll behavior, focus treatment, loading/empty/read-only presentation, and legends.
-
-Routes configure:
-
-- Row and column data, grouping, domain status calculation, permissions, action handlers, detail text, export/print URLs, and toolbar controls.
-
-Route usage rules:
-
-- Do not move feature business rules into `ui/operational-matrix`.
-- Do not create route-local classes to restyle matrix cells, headers, row headers, legends, density, colors, borders, radii, or overflow.
-- Do not preserve old route-specific matrix visuals through compatibility adapters.
-- If a route needs a new durable behavior, extend this shared API and prove it in `/ui-showroom` first.
-
-Migration notes:
-
-- Critical Tasks should migrate first because its current matrix already has sticky axes, grouped rows, legends, status cells, empty state, and CSV export expectations.
-- Training should follow because it shares personnel-by-requirement cells but currently still uses route-local color styles and DataTable sorting helpers for a matrix surface.
+- keep the public namespace import shape: `import * as OperationalMatrix from '$lib/components/ui/operational-matrix'`
+- be headless-first, with domain meaning and final visuals supplied by wrappers
+- support monthly availability, long-range availability, training, Critical Tasks, and DA6-like matrix needs without becoming domain-specific
+- prove the API in `/ui-showroom` before any production route consumes it
+- avoid compatibility adapters for the deleted visual-first implementation
 - Duty Roster DA6 should follow once the DA6 preview/history views can map their read models into shared semantic states without moving DA6 calculation into UI.
 - Calendar long-range should not migrate to this foundation yet. It has virtualized rows, saved status-type colors, and very tight square-cell layout needs that may require a custom implementation or a separate shared API.
 

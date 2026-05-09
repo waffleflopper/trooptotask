@@ -27,7 +27,6 @@
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
@@ -191,14 +190,6 @@
 			notes: 'Destructive and warning confirmations already have a shadcn-backed shared wrapper.'
 		},
 		{
-			id: 'subnav',
-			group: 'Navigation',
-			current: 'SubNav.svelte',
-			target: 'ui/tabs or shared RouteTabs',
-			status: 'needs-decision',
-			notes: 'The target depends on whether the surface is route navigation, local tabs, or toolbar nav.'
-		},
-		{
 			id: 'date-cell',
 			group: 'Data display',
 			current: 'DateCell.svelte',
@@ -290,8 +281,6 @@
 		{ label: '90%+', tier: 'good' },
 		{ label: 'N/A', tier: 'na' }
 	];
-
-	const unmatchedItems = mapItems.filter((item) => item.status === 'no-target' && item.id !== 'legends');
 
 	const dateCellStatusTypes = new Map<string, StatusType>([
 		[
@@ -502,7 +491,8 @@
 			<p class="eyebrow">New equivalents</p>
 			<h2 id="unmatched-heading">Project patterns now mapped to shadcn-aligned primitives</h2>
 			<p class="section-subtitle">
-				{unmatchedItems.length} repeated current patterns are intentionally blank on the shadcn-svelte side.
+				Shared primitive replacements are shown beside legacy wrappers. Open design decisions keep the shadcn side
+				blank.
 			</p>
 		</div>
 
@@ -546,7 +536,7 @@
 				</div>
 			</div>
 
-			<div class="unmatched-card">
+			<div class="unmatched-card unmatched-card--full">
 				<div class="unmatched-card__header">
 					<span class="map-group">Data display</span>
 					<h3>InlineNotes.svelte</h3>
@@ -610,7 +600,7 @@
 							</div>
 							<div class="type-manager-list">
 								{#each typeManagerItems as item (item.name)}
-									<div class="type-manager-item">
+									<div class="type-manager-item type-manager-item--target">
 										<span class="type-swatch" style:background-color={item.color}></span>
 										<div>
 											<strong>{item.name}</strong>
@@ -620,6 +610,57 @@
 									</div>
 								{/each}
 							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="unmatched-card unmatched-card--full">
+				<div class="unmatched-card__header">
+					<span class="map-group">Status</span>
+					<h3>Training and Critical Tasks legend strips</h3>
+				</div>
+				<div class="unmatched-pair">
+					<div class="pattern-preview">
+						<p class="legend-label">Current repeated structure</p>
+						<div class="legend-panel">
+							<p class="legend-label">Training matrix</p>
+							<div class="legacy-color-legend" aria-label="Training status color legend">
+								{#each trainingLegend as item (item.label)}
+									<span>
+										<i style:background-color={item.color}></i>
+										{item.label}
+									</span>
+								{/each}
+							</div>
+						</div>
+						<div class="legend-panel">
+							<p class="legend-label">Critical Tasks matrix</p>
+							<div class="legacy-mark-legend" aria-label="Critical Tasks status legend">
+								{#each criticalTaskLegend as item (item.label)}
+									<span data-tone={item.tone}>
+										<i>{item.mark}</i>
+										{item.label}
+									</span>
+								{/each}
+							</div>
+						</div>
+						<div class="legend-panel">
+							<p class="legend-label">Readiness bands</p>
+							<div class="readiness-key" aria-label="Readiness matrix tiers">
+								{#each readinessLegend as item (item.label)}
+									<span data-tier={item.tier}>
+										<i></i>
+										{item.label}
+									</span>
+								{/each}
+							</div>
+						</div>
+					</div>
+					<div class="pattern-preview">
+						<p class="legend-label">shadcn side</p>
+						<div class="missing-target-panel" aria-label="No shadcn target selected for legend strips">
+							<span>No shadcn target selected</span>
 						</div>
 					</div>
 				</div>
@@ -867,66 +908,6 @@
 					<Badge variant="warning">Warning</Badge>
 					<Badge variant="secondary">Manual</Badge>
 					<Badge variant="danger">Due</Badge>
-				</div>
-			</div>
-		</div>
-
-		<div class="comparison-row">
-			<div class="comparison-cell">
-				<h3>Current legend strips</h3>
-				<div class="legend-panel">
-					<p class="legend-label">Training matrix</p>
-					<div class="legacy-color-legend" aria-label="Training status color legend">
-						{#each trainingLegend as item (item.label)}
-							<span>
-								<i style:background-color={item.color}></i>
-								{item.label}
-							</span>
-						{/each}
-					</div>
-				</div>
-				<div class="legend-panel">
-					<p class="legend-label">Critical Tasks matrix</p>
-					<div class="legacy-mark-legend" aria-label="Critical Tasks status legend">
-						{#each criticalTaskLegend as item (item.label)}
-							<span data-tone={item.tone}>
-								<i>{item.mark}</i>
-								{item.label}
-							</span>
-						{/each}
-					</div>
-				</div>
-			</div>
-			<div class="comparison-cell">
-				<h3>Shared target direction</h3>
-				<div class="legend-panel">
-					<p class="legend-label">Badge-backed status key</p>
-					<div class="target-legend" aria-label="Target status key">
-						{#each trainingLegend as item (item.label)}
-							<Badge
-								statusType={{
-									id: item.label,
-									name: item.label,
-									color: item.color,
-									textColor: item.label === 'N/A' ? '#0e0e0d' : '#f7f8f4'
-								}}
-							>
-								{item.label}
-							</Badge>
-						{/each}
-					</div>
-				</div>
-				<Separator />
-				<div class="legend-panel">
-					<p class="legend-label">Readiness tier key</p>
-					<div class="readiness-key" aria-label="Readiness matrix tiers">
-						{#each readinessLegend as item (item.label)}
-							<span data-tier={item.tier}>
-								<i></i>
-								{item.label}
-							</span>
-						{/each}
-					</div>
 				</div>
 			</div>
 		</div>
@@ -1351,6 +1332,13 @@
 		padding: 10px;
 	}
 
+	.type-manager-item--target {
+		align-items: flex-start;
+		border-color: var(--border);
+		background: var(--card);
+		padding: 12px;
+	}
+
 	.type-manager-item > div {
 		display: grid;
 		gap: 2px;
@@ -1366,8 +1354,33 @@
 	.type-swatch {
 		width: 18px;
 		height: 18px;
+		flex: 0 0 auto;
 		border-radius: 4px;
 		border: 1px solid var(--border);
+	}
+
+	.type-manager-item--target .type-swatch {
+		width: 28px;
+		height: 28px;
+		margin-top: 1px;
+		background-clip: padding-box;
+		box-shadow: inset 0 0 0 6px var(--card);
+	}
+
+	.missing-target-panel {
+		display: grid;
+		min-height: 138px;
+		place-items: center;
+		border: 1px dashed var(--border);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--muted) 28%, transparent);
+		color: var(--muted-foreground);
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-align: center;
+		text-transform: uppercase;
 	}
 
 	.comparison-list {
@@ -1434,7 +1447,6 @@
 	}
 
 	.legacy-color-legend,
-	.target-legend,
 	.legacy-mark-legend,
 	.readiness-key {
 		display: flex;

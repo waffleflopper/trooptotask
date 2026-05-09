@@ -476,10 +476,10 @@ Page header toolbar with title, actions, breadcrumbs, and optional below-content
 <!-- Compact variant, sticky -->
 <PageToolbar title="Detail View" variant="compact" sticky />
 
-<!-- With below slot for filters/sub-nav -->
+<!-- With below slot for filters or local route controls -->
 <PageToolbar title="Calendar">
     {#snippet below()}
-        <SubNav tabs={tabs} active={currentTab} onChange={handleTab} />
+        <ToolbarFilters {filters} />
     {/snippet}
 </PageToolbar>
 
@@ -979,30 +979,6 @@ Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeh
 - Selected values render as mono badges with remove buttons
 - The dropdown stays open while selecting multiple options and repositions on scroll/resize
 - Prefer concise `ariaLabel` text that describes the field, such as `"Filter by MOS"` or `"Template scope groups"`
-
----
-
-## `ui/SubNav.svelte`
-
-Secondary tab navigation with badge counts. Styling is underline-driven and product-dense so sub-page mode switches do not drift back into pill-heavy treatment.
-
-```svelte
-<SubNav
-    tabs={[
-        { label: 'Approvals', value: 'approvals', badge: pendingCount },
-        { label: 'Archived', value: 'archived' }
-    ]}
-    active={currentTab}
-    onChange={(tab) => goto(`/org/${orgId}/settings/${tab}`)}
-/>
-```
-
-Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`
-
-Sub-nav guidance:
-
-- Use this for page-level mode switches and sibling sub-routes.
-- Badge counts are mono status counts, not decorative accents.
 
 ---
 

@@ -49,7 +49,7 @@ The app already has a meaningful shared UI layer:
 - `DataTable` and `useDataTable` for sortable/searchable/paged tables.
 - `Modal` and `ConfirmDialog` for dialog workflows.
 - `FormField`, `SearchSelect`, and `MultiTagSelect` for common forms.
-- `Badge`, `EmptyState`, `Spinner`, `Skeleton*`, `SubNav`, `Stepper`, `FileUpload`, `ToastContainer`, and shell components.
+- `Badge`, `EmptyState`, `Spinner`, `Skeleton*`, `Stepper`, `FileUpload`, `ToastContainer`, and shell components.
 
 The app also has route-local UI that should become shared before broad migration:
 
@@ -99,7 +99,7 @@ These are required for the first production-grade shadcn-svelte migration track.
 | Table | `table` | base `Table` primitives | settings archived table, calendar reports, duty roster DA6 matrix, report export previews | Define base table styling for native table surfaces that are not full `DataTable`. |
 | Data table | `data-table` | `DataTable`, `useDataTable`, `BulkImportTable` | personnel roster, rating scheme, future training reports, Critical Tasks tables, settings members/archive, import previews | Existing `DataTable` is strong but must be shadcn-backed or deliberately retained as app wrapper. Add mobile, row actions, sticky headers, dense cells, and bulk selection cases to showroom. |
 | Pagination | `pagination` | `TablePagination`, `PagedListControls` | personnel DataTable, future settings/member tables, audit logs, admin lists, report pages | Required because several current large lists will not stay route-local forever. |
-| Tabs | `tabs` | `Tabs`, `SubNav`, `RouteTabs` | settings sections, admin sections, onboarding history/templates, duty roster generate/history/settings, dashboard tabs, calendar reports | Decide tab versus toolbar nav versus side nav by surface. Avoid multiple visual tab styles. |
+| Tabs | `tabs` | `Tabs`, `RouteTabs` | settings sections, admin sections, onboarding history/templates, duty roster generate/history/settings, dashboard tabs, calendar reports | `SubNav` has been removed because no production usage remained. Decide tab versus toolbar nav versus side nav by surface. Avoid multiple visual tab styles. |
 | Breadcrumb | `breadcrumb` | app-shell breadcrumb wrapper | `TopHeader`, nested duty roster/template/report routes, admin detail pages | Current breadcrumbs are shell-local. Move to shared calibrated component. |
 | Sidebar | `sidebar` | `AppSidebar`, settings side nav, admin side nav | authenticated app rail, settings workspace nav, admin shell, future showroom navigation | Must preserve current desktop rail and mobile bottom nav behavior. Do not adopt a generic SaaS sidebar look. |
 | Navigation menu | `navigation-menu` | public nav or admin navigation where needed | public marketing nav, admin shell, possibly account/security routes | Authenticated route nav likely uses sidebar/tabs instead. Keep public/auth expression distinct. |
@@ -155,7 +155,7 @@ These wrappers should be designed in shared UI before production route migration
 | `AppDialog` / `Modal` | `dialog`, `button`, `separator`, `scroll-area` | all modal workflows | Current Modal API may remain as compatibility wrapper while internals move to shadcn dialog. |
 | `SettingsWorkspace` | `sidebar` or tabs, `field`, `table`, `badge`, `alert`, `dialog` | organization settings, possibly admin org detail | Extract member ledger, access editor, policy sections, activity rail, and danger zone into shared or feature-owned wrappers. |
 | `AccessEditor` | `select`, `radio-group`, `checkbox`, `field`, `alert` | settings members, invitations, admin/member flows | The capability/scope editor is too complex for route-local markup during migration. |
-| `RouteTabs` / `SubNav` | `tabs`, `toolbar nav`, `badge` | onboarding, duty roster, settings, admin, dashboard, calendar reports | Decide one route-level navigation treatment for dense workspaces. |
+| `RouteTabs` | `tabs`, `toolbar nav`, `badge` | onboarding, duty roster, settings, admin, dashboard, calendar reports | `SubNav` has been removed. Decide one route-level navigation treatment for dense workspaces before recreating this pattern. |
 | `Wizard` / `StepIndicator` | `button`, `progress`, `separator`, maybe `tabs` | duty roster new template, onboarding setup, import flows | Existing `Stepper` is onboarding-stage-specific. Duty roster wizard needs a shared stepper/wizard pattern. |
 | `OperationalMatrix` | `table`, `scroll-area`, `tooltip`, `badge`, `popover` | Critical Tasks matrix, training matrix, DA6 matrix, calendar long range | These are not generic DataTables. They need shared grid/matrix rules for sticky axes, cell status, legends, and mobile overflow. |
 | `ReportSection` / `ChartSection` | `chart`, `table`, `tabs`, `toolbar`, `empty`, `skeleton` | Critical Tasks reports, calendar reports, dashboard reports | Current reports mix config panels, charts, native tables, and export actions. |

@@ -19,7 +19,9 @@ The current architecture docs already prefer:
 - shared UI primitives before one-off controls
 - documented drift instead of hidden contradictions
 
-The current component catalog already defines shared primitives such as `PageToolbar`, `Modal`, `ConfirmDialog`, `Badge`, `FormField`, `SearchSelect`, `MultiTagSelect`, `SubNav`, `EmptyState`, `FileUpload`, `DataTable`, and the `Toolbar` family.
+The current component catalog already defines shared primitives such as `PageToolbar`, `Modal`, `ConfirmDialog`, `Badge`, `FormField`, `SearchSelect`, `MultiTagSelect`, `EmptyState`, `FileUpload`, `DataTable`, and the `Toolbar` family.
+
+`SubNav` was removed during the shadcn-svelte migration inventory pass because no production route or component usage remained. Future route-level navigation should be resolved through `tabs`, toolbar navigation, side navigation, or a shared `RouteTabs` treatment instead of restoring `SubNav`.
 
 The existing design-system rollout PRD establishes the product direction. This RFC narrows that direction into a concrete shadcn-svelte and Tailwind v4 migration contract.
 

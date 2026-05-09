@@ -55,7 +55,7 @@ The remaining authenticated app still mixes:
 These should become shared toolbar primitives or policy extensions when encountered in a migration slice. Do not solve them with route-local snippets that only happen to fit one page.
 
 1. `ToolbarNavGroup`
-   - For tab-like or back/related navigation currently rendered as direct anchors or `SubNav`.
+   - For tab-like or back/related navigation currently rendered as direct anchors or removed legacy sub-navigation patterns.
    - Applies to admin sections, duty roster tabs, onboarding history/templates links, and calendar spoke navigation.
    - Must not put current-section navigation into command overflow by default.
 

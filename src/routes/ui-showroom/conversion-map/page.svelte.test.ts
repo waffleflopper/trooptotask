@@ -12,7 +12,7 @@ describe('/ui-showroom/conversion-map', () => {
 		const { container } = render(Page);
 
 		expect(screen.getByRole('heading', { name: 'Primitive Conversion Map' })).toBeTruthy();
-		expect(screen.getByText('Training and Critical Tasks legend strips')).toBeTruthy();
+		expect(screen.getAllByText('Training and Critical Tasks legend strips').length).toBeGreaterThanOrEqual(2);
 		expect(screen.getByText('ui/stepper')).toBeTruthy();
 		expect(screen.getAllByText('ui/date-cell').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('ui/inline-notes').length).toBeGreaterThanOrEqual(1);
@@ -22,6 +22,7 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(screen.getAllByText('DateCell.svelte').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('No target').length).toBe(1);
 		expect(container.querySelectorAll('.blank-target').length).toBe(1);
+		expect(screen.queryByText('SubNav.svelte')).toBeNull();
 	});
 
 	it('renders the dedicated section for newly mapped project primitives', () => {
@@ -40,7 +41,10 @@ describe('/ui-showroom/conversion-map', () => {
 				name: 'TypeManager.svelte and status/type manager patterns'
 			})
 		).toBeTruthy();
-		expect(container.querySelectorAll('.missing-target-panel').length).toBe(0);
+		expect(
+			within(unmatched as HTMLElement).getByRole('heading', { name: 'Training and Critical Tasks legend strips' })
+		).toBeTruthy();
+		expect(container.querySelectorAll('.missing-target-panel').length).toBe(1);
 	});
 
 	it('shows current examples beside shadcn-backed targets', () => {
@@ -55,7 +59,7 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(
 			within(examples as HTMLElement).getByRole('heading', { name: 'shadcn-style stepper primitive' })
 		).toBeTruthy();
-		expect(within(examples as HTMLElement).getByRole('heading', { name: 'Current legend strips' })).toBeTruthy();
-		expect(within(examples as HTMLElement).getByRole('heading', { name: 'Shared target direction' })).toBeTruthy();
+		expect(within(examples as HTMLElement).queryByRole('heading', { name: 'Current legend strips' })).toBeNull();
+		expect(within(examples as HTMLElement).queryByRole('heading', { name: 'Shared target direction' })).toBeNull();
 	});
 });

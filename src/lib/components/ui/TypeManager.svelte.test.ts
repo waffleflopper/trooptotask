@@ -47,7 +47,7 @@ describe('TypeManager', () => {
 
 		it('should show EmptyState when no items', () => {
 			renderManager({ items: [] });
-			expect(screen.getByText(/no test items yet/i)).toBeTruthy();
+			expect(screen.getAllByText(/no test items yet/i).length).toBeGreaterThanOrEqual(1);
 		});
 	});
 

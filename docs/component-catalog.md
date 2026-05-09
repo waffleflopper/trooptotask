@@ -24,7 +24,7 @@ Replacement previews:
 - Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
-- Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `NativeSelect`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect`.
+- Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect`.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `MultiTagSelect` is replaced by the shadcn-style `ui/multi-select` compound API with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
@@ -716,7 +716,6 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
     import * as Field from '$lib/components/ui/field';
     import { Input } from '$lib/components/ui/input';
     import { Textarea } from '$lib/components/ui/textarea';
-    import { NativeSelect } from '$lib/components/ui/native-select';
     import * as Select from '$lib/components/ui/select';
     import { Checkbox } from '$lib/components/ui/checkbox';
     import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -743,20 +742,10 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 </Field.Root>
 
 <Field.Root>
-    <Field.Label for="native-status">Native status</Field.Label>
-    <Field.Control>
-        <NativeSelect id="native-status" bind:value={status}>
-            <option value="ready">Ready</option>
-            <option value="watch">Watch</option>
-        </NativeSelect>
-    </Field.Control>
-</Field.Root>
-
-<Field.Root>
-    <Field.Label id="custom-status-label">Custom status</Field.Label>
+    <Field.Label id="status-label">Status</Field.Label>
     <Field.Control>
         <Select.Root type="single" bind:value={status}>
-            <Select.Trigger aria-labelledby="custom-status-label">Ready</Select.Trigger>
+            <Select.Trigger aria-labelledby="status-label">Ready</Select.Trigger>
             <Select.Content>
                 <Select.Item value="ready" label="Ready" />
                 <Select.Item value="watch" label="Watch" />
@@ -789,12 +778,12 @@ Public components:
 - `Field.Group`: stacked field group for related controls.
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
 - `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire `for`, `id`, `aria-describedby`, and `aria-invalid` explicitly.
-- `Input`, `Textarea`, `NativeSelect`, `Select.Root/Trigger/Content/Item`, `Checkbox`, `RadioGroup.Root/Item`, and `Switch` are the shared controls.
+- `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox`, `RadioGroup.Root/Item`, and `Switch` are the shared controls.
 
 Rules:
 
-- Use `NativeSelect` for simple forms where browser-native behavior, native form submission, or mobile picker behavior is preferable.
-- Use `Select` for toolbar filters, compact menus, and short option sets where custom trigger composition is useful.
+- Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
+- Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
 - Use `Checkbox` for selection, inclusion, or batch choices. Use `Switch` only for immediate on/off settings.
 - Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
@@ -1017,6 +1006,34 @@ Sub-nav guidance:
 
 ---
 
+## `ui/date-cell`
+
+Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, duty markers, weekend/holiday/today treatment, and the same visual language as `/ui-showroom/calendar`.
+
+```svelte
+<script lang="ts">
+    import * as DateCell from '$lib/components/ui/date-cell';
+</script>
+
+<DateCell.Root
+    today
+    holiday
+    holidayName="Training Holiday"
+    statuses={[
+        { id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' }
+    ]}
+    markers={[
+        { id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' }
+    ]}
+/>
+```
+
+Props: `statuses?: DateCellStatus[]`, `markers?: DateCellMarker[]`, `weekend?: boolean`, `today?: boolean`, `holiday?: boolean`, `holidayName?: string`, `onboarding?: boolean`, `showStatusText?: boolean`, `density?: 'month' | 'long-range'`, plus button attributes.
+
+Compatibility: `ui/DateCell.svelte` remains available for current calendar consumers and delegates to `ui/date-cell`.
+
+---
+
 ## `ui/EmptyState.svelte`
 
 Empty list placeholder with optional action button.
@@ -1101,24 +1118,68 @@ Import type: `import type { OverflowItem } from '$lib/components/ui/OverflowMenu
 
 ## `ui/InlineNotes.svelte`
 
-Collapsible inline notes thread with add-note input. Used for per-record notes within a form or detail view.
+Compatibility wrapper for `ui/inline-notes`. Use `ui/inline-notes` for new shadcn-aligned work.
 
 ```svelte
-<InlineNotes
+<script lang="ts">
+    import * as InlineNotes from '$lib/components/ui/inline-notes';
+</script>
+
+<InlineNotes.Root
     {notes}
     resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
     onAddNote={(text) => addNote(recordId, text)}
 />
 
 <!-- Read-only -->
-<InlineNotes {notes} resolveAuthor={resolveAuthor} disabled />
+<InlineNotes.Root {notes} resolveAuthor={resolveAuthor} disabled />
 ```
 
-Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveAuthor: (userId: string) => string`, `onAddNote?: (text: string) => void`, `disabled?: boolean` (default `false`)
+Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveAuthor: (userId: string) => string`, `onAddNote?: (text: string) => void`, `disabled?: boolean` (default `false`), `open?: boolean` (bindable)
 
-- Collapsed by default; shows note count in toggle
-- Enter submits (Shift+Enter for newline)
+- Collapsed by default; shows note count in a shared badge
+- Cmd/Ctrl+Enter submits from the textarea
 - Omit `onAddNote` for read-only display
+
+---
+
+## `ui/type-manager`
+
+Compound management dialog for repeated status/type manager workflows. It composes `ui/app-dialog`, `ui/button`, `ui/empty`, and `ui/alert-dialog` while the route owns the form snippets and persistence.
+
+```svelte
+<script lang="ts">
+    import * as TypeManager from '$lib/components/ui/type-manager';
+</script>
+
+<TypeManager.Root
+    title="Status Types"
+    noun="Type"
+    items={statusTypes}
+    onAdd={addStatusType}
+    onUpdate={updateStatusType}
+    onRemove={removeStatusType}
+    onClose={closeManager}
+    getAddData={getAddData}
+    resetAddForm={resetAddForm}
+    onEditStart={startEdit}
+    getEditData={getEditData}
+>
+    {#snippet addForm()}
+        <!-- route-owned shared controls -->
+    {/snippet}
+
+    {#snippet editForm()}
+        <!-- route-owned shared controls -->
+    {/snippet}
+
+    {#snippet itemDisplay(item)}
+        <span>{item.name}</span>
+    {/snippet}
+</TypeManager.Root>
+```
+
+Compatibility: `ui/TypeManager.svelte` delegates to `ui/type-manager` so existing status/type manager consumers keep their current API.
 
 ---
 

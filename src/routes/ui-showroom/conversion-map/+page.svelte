@@ -10,6 +10,8 @@
 	import LegacySkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
+	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
 	import * as StepperPrimitive from '$lib/components/ui/stepper/index.js';
 	import type { StepperStep } from '$lib/components/ui/stepper/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -96,9 +98,9 @@
 			id: 'selects',
 			group: 'Forms',
 			current: '.select',
-			target: 'ui/native-select or ui/select',
-			status: 'needs-decision',
-			notes: 'Native select is the dense default. Custom select is for richer menu behavior.'
+			target: 'ui/select',
+			status: 'direct',
+			notes: 'Use shadcn select for consistent visuals across Windows, macOS, Linux, and browser engines.'
 		},
 		{
 			id: 'checkboxes',
@@ -200,17 +202,17 @@
 			id: 'date-cell',
 			group: 'Data display',
 			current: 'DateCell.svelte',
-			target: null,
-			status: 'no-target',
-			notes: 'No direct shadcn equivalent. Decide whether this stays project-specific.'
+			target: 'ui/date-cell',
+			status: 'direct',
+			notes: 'Project-specific primitive using the same tokenized calendar cell treatment as ui-showroom/calendar.'
 		},
 		{
 			id: 'inline-notes',
 			group: 'Data display',
 			current: 'InlineNotes.svelte',
-			target: null,
-			status: 'no-target',
-			notes: 'No direct shadcn equivalent. Likely needs a project note/annotation primitive.'
+			target: 'ui/inline-notes',
+			status: 'direct',
+			notes: 'Project note thread wrapper composed from shadcn button, badge, and textarea primitives.'
 		},
 		{
 			id: 'stepper',
@@ -224,9 +226,9 @@
 			id: 'type-manager',
 			group: 'Workflow structure',
 			current: 'TypeManager.svelte and status/type manager patterns',
-			target: null,
-			status: 'no-target',
-			notes: 'No direct shadcn equivalent. This is a repeated project workflow structure.'
+			target: 'ui/type-manager',
+			status: 'compose',
+			notes: 'Compound management dialog composed from app-dialog, button, empty, and alert-dialog primitives.'
 		},
 		{
 			id: 'file-upload',
@@ -248,9 +250,10 @@
 			id: 'help-affordances',
 			group: 'Support',
 			current: 'HelpButton.svelte and HelpPanel.svelte',
-			target: 'ui/tooltip or ui/popover',
-			status: 'needs-decision',
-			notes: 'Inline help needs a decision between tooltip, popover, or a project help wrapper.'
+			target: 'ui/popover',
+			status: 'direct',
+			notes:
+				'Help opens as an anchored popover from the toolbar trigger. The legacy HelpPanel stays as a no-op wrapper.'
 		},
 		{
 			id: 'banners',
@@ -363,6 +366,16 @@
 			eventId: 'duty-event-1',
 			slotId: 'slot-1'
 		}
+	];
+
+	const dateCellTargetStatuses = [
+		{ id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' },
+		{ id: 'training', name: 'Training', color: '#c47f00', textColor: '#0e0e0d', note: 'Range support' }
+	];
+
+	const dateCellTargetMarkers = [
+		{ id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' },
+		{ id: 'cq', name: 'Charge of Quarters', shortName: 'CQ', color: '#6f3f7d', textColor: '#ffffff' }
 	];
 
 	const inlineNotes = [
@@ -486,8 +499,8 @@
 
 	<section class="unmatched-section" aria-labelledby="unmatched-heading">
 		<div class="section-heading">
-			<p class="eyebrow">Needs equivalent</p>
-			<h2 id="unmatched-heading">Current project patterns without a shadcn target</h2>
+			<p class="eyebrow">New equivalents</p>
+			<h2 id="unmatched-heading">Project patterns now mapped to shadcn-aligned primitives</h2>
 			<p class="section-subtitle">
 				{unmatchedItems.length} repeated current patterns are intentionally blank on the shadcn-svelte side.
 			</p>
@@ -517,7 +530,19 @@
 							/>
 						</div>
 					</div>
-					<div class="missing-target-panel" aria-label="No shadcn-svelte target selected for DateCell"></div>
+					<div class="pattern-preview">
+						<p class="legend-label">ui/date-cell</p>
+						<div class="date-cell-frame" aria-label="shadcn-aligned DateCell preview">
+							<DateCellPrimitive.Root
+								today
+								holiday
+								holidayName="Training Holiday"
+								statuses={dateCellTargetStatuses}
+								markers={dateCellTargetMarkers}
+								showStatusText
+							/>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -535,7 +560,15 @@
 							onAddNote={() => undefined}
 						/>
 					</div>
-					<div class="missing-target-panel" aria-label="No shadcn-svelte target selected for InlineNotes"></div>
+					<div class="pattern-preview">
+						<p class="legend-label">ui/inline-notes</p>
+						<InlineNotesPrimitive.Root
+							notes={inlineNotes}
+							resolveAuthor={(userId) => (userId === 'user-1' ? 'Morgan Lee' : 'Casey Nguyen')}
+							onAddNote={() => undefined}
+							open
+						/>
+					</div>
 				</div>
 			</div>
 
@@ -567,10 +600,28 @@
 							</div>
 						</div>
 					</div>
-					<div
-						class="missing-target-panel"
-						aria-label="No shadcn-svelte target selected for TypeManager and status type manager patterns"
-					></div>
+					<div class="pattern-preview" aria-label="ui/type-manager target pattern preview">
+						<p class="legend-label">ui/type-manager</p>
+						<div class="type-manager-preview type-manager-preview--target">
+							<div class="type-manager-add-row">
+								<Input value="Temporary Duty" aria-label="Example target type name" />
+								<Input class="type-color-input" type="color" value="#6f3f7d" aria-label="Example target type color" />
+								<Button size="sm" type="button">Add</Button>
+							</div>
+							<div class="type-manager-list">
+								{#each typeManagerItems as item (item.name)}
+									<div class="type-manager-item">
+										<span class="type-swatch" style:background-color={item.color}></span>
+										<div>
+											<strong>{item.name}</strong>
+											<span>{item.description}</span>
+										</div>
+										<Button variant="outline" size="sm" type="button">Edit</Button>
+									</div>
+								{/each}
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1258,15 +1309,6 @@
 		padding: 18px;
 	}
 
-	.missing-target-panel {
-		min-height: 100%;
-		border-left: 1px dashed var(--border);
-		background:
-			linear-gradient(135deg, color-mix(in srgb, var(--muted) 35%, transparent) 25%, transparent 25%) 0 0 / 14px 14px,
-			linear-gradient(135deg, transparent 75%, color-mix(in srgb, var(--muted) 35%, transparent) 75%) 0 0 / 14px 14px,
-			color-mix(in srgb, var(--background) 88%, var(--muted));
-	}
-
 	.date-cell-frame {
 		width: 180px;
 		height: 72px;
@@ -1565,12 +1607,6 @@
 		.comparison-cell + .comparison-cell {
 			border-left: 0;
 			border-top: 1px solid var(--border);
-		}
-
-		.missing-target-panel {
-			min-height: 96px;
-			border-top: 1px dashed var(--border);
-			border-left: 0;
 		}
 
 		.type-manager-add-row,

@@ -292,7 +292,9 @@ Rules:
 				<OperationalMatrix.HeaderRow>
 					<OperationalMatrix.CornerCell>Personnel</OperationalMatrix.CornerCell>
 					{#each columns as column (column.id)}
-						<OperationalMatrix.ColumnHeader {column}>{column.label}</OperationalMatrix.ColumnHeader>
+						<OperationalMatrix.ColumnHeader {column} orientation={column.compact ? 'vertical' : 'horizontal'}>
+							{column.label}
+						</OperationalMatrix.ColumnHeader>
 					{/each}
 				</OperationalMatrix.HeaderRow>
 			</OperationalMatrix.Header>
@@ -324,6 +326,7 @@ Public types:
 Shared component owns:
 
 - Native table structure, compound context, row/column/group identity, selected-cell data attributes, disabled/read-only propagation, accessible cell selection payloads, and stable `data-slot` / `data-matrix-*` styling hooks.
+- Optional `ColumnHeader orientation="vertical"` support for narrow training and Critical Tasks task-code columns.
 
 Wrappers own:
 
@@ -340,6 +343,49 @@ Rules:
 Showroom coverage:
 
 - `/ui-showroom` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
+- `/ui-showroom/conversion-map` covers training-matrix parity mapping with vertical task-code headers, requirement status badges, and the note that `IctMatrix` should retire into the shared training-matrix parity path instead of preserving a separate visual system.
+
+## `ui/workflow-panel`
+
+`ui/workflow-panel` is the shared shadcn-aligned panel family for manager and workflow surfaces that repeat a list-detail, two-panel, or configuration-panel shape. Use it with `ui/alert` for onboarding, training type, and workflow manager notices.
+
+```svelte
+<script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
+	import * as WorkflowPanel from '$lib/components/ui/workflow-panel';
+</script>
+
+<Alert.Root variant="warning">
+	<Alert.Title>Review required before publishing</Alert.Title>
+	<Alert.Description>Route-owned copy inside shared alert chrome.</Alert.Description>
+</Alert.Root>
+
+<WorkflowPanel.Root aria-label="Training type manager">
+	<WorkflowPanel.Header>
+		<WorkflowPanel.Title>Training type setup</WorkflowPanel.Title>
+		<WorkflowPanel.Description>Shared list-detail shell.</WorkflowPanel.Description>
+	</WorkflowPanel.Header>
+	<WorkflowPanel.Content>
+		<WorkflowPanel.Grid>
+			<WorkflowPanel.Item selected>Annual qualification</WorkflowPanel.Item>
+			<WorkflowPanel.Item>Configuration fields</WorkflowPanel.Item>
+		</WorkflowPanel.Grid>
+	</WorkflowPanel.Content>
+</WorkflowPanel.Root>
+```
+
+Public components:
+
+- `Root`, `Header`, `Title`, `Description`, `Content`, `Grid`, `Item`.
+
+Rules:
+
+- Routes own data loading, selected item state, forms, validation, permissions, actions, and copy.
+- Shared components own panel radius, borders, spacing, selected-row treatment, notice tone, and density.
+- Use `Alert.Root` variants `default`, `info`, `success`, `warning`, or `destructive` instead of route-local warning boxes, callouts, and notice panels.
+- If a workflow needs a new repeated surface shape, add it here and prove it in `/ui-showroom/conversion-map` before production route usage.
+
+---
 
 ## `ui/bulk-import-workspace`
 

@@ -153,10 +153,15 @@ Initial expected component families:
 | Toolbars | toolbar shell, toolbar actions, toolbar filters, toolbar search, toolbar view toggle, toolbar nav/meta/metric items |
 | File and import workflows | file upload, import preview table, bulk import table |
 | Charts and reports | chart shell, report section, chart tooltip/legend conventions, readiness-band heat cells |
+| Workflow panels | workflow-panel list/detail shells, shared warning/info panels, selected item rows |
 
 Known shadcn-svelte components that should be considered during inventory include accordion, alert dialog, alert, aspect ratio, avatar, badge, breadcrumb, button group, button, calendar, card, carousel, chart, checkbox, collapsible, combobox, command, context menu, data table, date picker, dialog, drawer, dropdown menu, empty, field, formsnap, hover card, input group, input OTP, input, item, kbd, label, menubar, native select, navigation menu, pagination, popover, progress, radio group, range calendar, resizable, scroll area, select, separator, sheet, sidebar, skeleton, slider, sonner, spinner, switch, table, tabs, textarea, toggle group, toggle, tooltip, and typography.
 
 TroopToTask does not need to adopt every available upstream component. The inventory phase should choose the smallest complete set that covers real app needs.
+
+Training and Critical Tasks matrix surfaces should converge on `ui/operational-matrix` rather than preserving separate route-local visual systems. `IctMatrix` should retire into the training-matrix parity path, with `OperationalMatrix.ColumnHeader orientation="vertical"` available for narrow task-code columns.
+
+Onboarding, training type, and workflow manager panels should converge on `ui/workflow-panel` and shared `ui/alert` variants instead of route-local warning panels, notice banners, and two-panel manager chrome.
 
 Acceptance criteria:
 

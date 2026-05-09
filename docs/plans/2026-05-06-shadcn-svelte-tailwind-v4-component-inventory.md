@@ -150,14 +150,15 @@ These wrappers should be designed in shared UI before production route migration
 | `SearchSelect` / `ComboboxField` | `combobox`, `command`, `popover`, `input` | personnel rank/group, duty roster replacement, rating scheme, onboarding start/switch templates | Must handle large lists, compact mode, clearable mode, and keyboard navigation. |
 | `MultiSelectField` | `combobox`, `command`, `badge`, `popover` | duty roster filters, training reports, Critical Tasks reports, MOS/rank/role filters | Replaces `MultiTagSelect`; must support active count, removable tags, and toolbar compact mode. |
 | `StatusBadge` / `MetaBadge` / `ReadinessBand` | `badge` | training statuses, onboarding step types, duty roster review states, member roles, subscription state, Critical Tasks report readiness tiers | Create semantic variants before routes migrate. Do not pass arbitrary colors from routes unless representing domain data. Readiness report heat-cell colors and hatching belong in `ui/readiness-band`. |
-| `NoticeBanner` / `InlineAlert` | `alert`, `button` | onboarding sync/configuration, settings warnings, calendar load errors, duty roster manual review warnings, admin callouts | Replaces route-local notice, error, warning, and context boxes. |
+| `NoticeBanner` / `InlineAlert` | `alert`, `button` | onboarding sync/configuration, settings warnings, calendar load errors, duty roster manual review warnings, admin callouts | Replaces route-local notice, error, warning, and context boxes. `ui/alert` now carries shared `info`, `success`, `warning`, and `destructive` tones. |
 | `ConfirmDialog` | `alert-dialog`, `spinner`, `button` | all destructive and warning confirms | Keep async confirm behavior and danger/warning variants. |
 | `AppDialog` / `Modal` | `dialog`, `button`, `separator`, `scroll-area` | all modal workflows | Current Modal API may remain as compatibility wrapper while internals move to shadcn dialog. |
 | `SettingsWorkspace` | `sidebar` or tabs, `field`, `table`, `badge`, `alert`, `dialog` | organization settings, possibly admin org detail | Extract member ledger, access editor, policy sections, activity rail, and danger zone into shared or feature-owned wrappers. |
 | `AccessEditor` | `select`, `radio-group`, `checkbox`, `field`, `alert` | settings members, invitations, admin/member flows | The capability/scope editor is too complex for route-local markup during migration. |
 | `RouteTabs` | `tabs`, `toolbar nav`, `badge` | onboarding, duty roster, settings, admin, dashboard, calendar reports | `SubNav` has been removed. Decide one route-level navigation treatment for dense workspaces before recreating this pattern. |
 | `Wizard` / `StepIndicator` | `button`, `progress`, `separator`, maybe `tabs` | duty roster new template, onboarding setup, import flows | Existing `Stepper` is onboarding-stage-specific. Duty roster wizard needs a shared stepper/wizard pattern. |
-| `OperationalMatrix` | `table`, `scroll-area`, `tooltip`, `badge`, `popover` | Critical Tasks matrix, training matrix, DA6 matrix, calendar long range | These are not generic DataTables. They need shared grid/matrix rules for sticky axes, cell status, legends, and mobile overflow. Readiness-tier cells should compose `ui/readiness-band` instead of embedding report-local colors. |
+| `WorkflowPanel` | `alert`, `field`, `button`, `empty`, `separator` | onboarding setup/workflow panels, training type manager, task library/configuration panels | Shared list-detail and two-panel workflow chrome. Routes own behavior and form content; shared components own panel radius, borders, selected-row treatment, spacing, and alert tones. |
+| `OperationalMatrix` | `table`, `scroll-area`, `tooltip`, `badge`, `popover` | Critical Tasks matrix, training matrix, DA6 matrix, calendar long range | These are not generic DataTables. They need shared grid/matrix rules for sticky axes, cell status, legends, and mobile overflow. Readiness-tier cells should compose `ui/readiness-band` instead of embedding report-local colors. `ColumnHeader orientation="vertical"` supports narrow task-code columns, and `IctMatrix` should retire into the training-matrix parity path. |
 | `ReportSection` / `ChartSection` | `chart`, `table`, `tabs`, `toolbar`, `empty`, `skeleton` | Critical Tasks reports, calendar reports, dashboard reports | Current reports mix config panels, charts, native tables, and export actions. |
 | `DateRangeControls` | `date-picker`, `native input`, `button group` | calendar reports, duty roster generate, export filters | Must decide native date fields versus date picker before report migration. |
 | `AdminSearch` | `combobox`, `command`, `popover`, `badge` | platform admin search | Current admin search is local and dropdown-like. Good candidate for Command-backed wrapper later. |
@@ -231,6 +232,7 @@ Gaps:
 
 - Matrix cells and legends are highly custom. Treat them as project-specific, not generic shadcn DataTable.
 - Critical Tasks report readiness bands are centralized in `ui/readiness-band`; future matrix migration should compose that component inside `OperationalMatrix.Cell`.
+- `IctMatrix` should go away in favor of visual parity with the training matrix through `ui/operational-matrix`; keep support for rotated task-code headers so columns stay narrow.
 - Bulk import has repeated step/workspace UI that should become shared before migration.
 - Reports need consistent chart/table shells and export toolbar behavior.
 
@@ -263,8 +265,8 @@ Wrappers to resolve first:
 
 Gaps:
 
-- `TrainingMatrix` is custom and should be covered by a matrix showroom example.
-- `ViewEditorModal` and `TrainingTypesPage` contain reusable type-management patterns that should move behind shared wrappers.
+- `TrainingMatrix` and training report surfaces should line up with `ui/operational-matrix`, `RequirementStatusBadge`, `ui/readiness-band`, and `ui/report-workspace` rather than retaining route-local panel/background/status decisions.
+- `ViewEditorModal` and `TrainingTypesPage` contain reusable type-management and workflow-panel patterns that should move behind `ui/type-manager`, `ui/workflow-panel`, and shared `ui/alert` variants.
 - Report filters already use toolbar pieces but need shared report-page structure.
 
 ### Duty Rosters

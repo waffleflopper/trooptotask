@@ -60,7 +60,9 @@
 				<OperationalMatrix.HeaderRow>
 					<OperationalMatrix.CornerCell>Personnel</OperationalMatrix.CornerCell>
 					{#each columns as column (column.id)}
-						<OperationalMatrix.ColumnHeader {column}>{column.label}</OperationalMatrix.ColumnHeader>
+						<OperationalMatrix.ColumnHeader {column} orientation={column.id === 'alpha' ? 'vertical' : 'horizontal'}>
+							{column.label}
+						</OperationalMatrix.ColumnHeader>
 					{/each}
 				</OperationalMatrix.HeaderRow>
 			</OperationalMatrix.Header>

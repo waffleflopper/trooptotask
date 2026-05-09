@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
+	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
 	import InlineNotes from '$lib/components/ui/InlineNotes.svelte';
 	import LegacyBadge from '$lib/components/ui/Badge.svelte';
@@ -12,6 +12,8 @@
 	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
+	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix/index.js';
 	import * as StepperPrimitive from '$lib/components/ui/stepper/index.js';
 	import type { StepperStep } from '$lib/components/ui/stepper/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -40,6 +42,7 @@
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
+	import * as WorkflowPanel from '$lib/components/ui/workflow-panel/index.js';
 	import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$lib/types';
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 
@@ -229,6 +232,33 @@
 			target: 'ui/type-manager',
 			status: 'compose',
 			notes: 'Compound management dialog composed from app-dialog, button, empty, and alert-dialog primitives.'
+		},
+		{
+			id: 'training-matrix-surfaces',
+			group: 'Data display',
+			current: 'TrainingMatrix.svelte and Critical Tasks IctMatrix.svelte',
+			target: 'ui/operational-matrix plus requirement status badges',
+			status: 'compose',
+			notes:
+				'IctMatrix should retire into the training-matrix parity path. Use OperationalMatrix.ColumnHeader orientation="vertical" for narrow task-code columns.'
+		},
+		{
+			id: 'training-report-surfaces',
+			group: 'Workspace structure',
+			current: 'Training matrix/report panels and Critical Tasks matrix report surfaces',
+			target: 'ui/report-workspace plus ui/operational-matrix',
+			status: 'compose',
+			notes:
+				'Report shells, filters, export surfaces, matrix overflow, and empty/loading/error states should map to shared report workspace and matrix primitives.'
+		},
+		{
+			id: 'workflow-panels',
+			group: 'Workflow structure',
+			current: 'Onboarding, training type, and workflow manager panels',
+			target: 'ui/workflow-panel plus ui/alert',
+			status: 'compose',
+			notes:
+				'Route code owns data and actions. Shared components own two-panel manager shape, notice banners, selected rows, spacing, borders, and density.'
 		},
 		{
 			id: 'file-upload',
@@ -450,6 +480,40 @@
 		{ name: 'School', color: '#263f75', description: 'External training or course attendance.' },
 		{ name: 'Profile', color: '#8a2d25', description: 'Medical limitation or duty restriction.' }
 	];
+
+	type MatrixPreviewRow = OperationalMatrixRow & {
+		meta: {
+			role: string;
+		};
+	};
+
+	type MatrixPreviewColumn = OperationalMatrixColumn & {
+		meta: {
+			code: string;
+		};
+	};
+
+	const matrixPreviewRows: MatrixPreviewRow[] = [
+		{ id: 'morgan', label: 'Morgan Lee', meta: { role: 'Squad leader' } },
+		{ id: 'casey', label: 'Casey Nguyen', meta: { role: 'Team leader' } },
+		{ id: 'avery', label: 'Avery Brooks', meta: { role: 'Rifleman' } }
+	];
+
+	const matrixPreviewColumns: MatrixPreviewColumn[] = [
+		{ id: 'weapons', label: 'Weapons qualification', meta: { code: 'IWQ' } },
+		{ id: 'medical', label: 'Combat lifesaver', meta: { code: 'CLS' } },
+		{ id: 'driver', label: 'Driver training', meta: { code: 'DRV' } }
+	];
+
+	const matrixPreviewStatuses: Record<string, Record<string, TrainingRequirementStatus>> = {
+		morgan: { weapons: 'current', medical: 'warning-yellow', driver: 'current' },
+		casey: { weapons: 'expired', medical: 'current', driver: 'not-required' },
+		avery: { weapons: 'not-completed', medical: 'warning-orange', driver: 'exempt' }
+	};
+
+	function matrixPreviewStatus(rowId: string, columnId: string): TrainingRequirementStatus {
+		return matrixPreviewStatuses[rowId]?.[columnId] ?? 'not-completed';
+	}
 
 	let selectedMode = $state('matrix');
 	let shadcnSelectValue = $state('ready');
@@ -778,6 +842,178 @@
 								</div>
 								<ReadinessBand.Legend />
 							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="unmatched-card unmatched-card--full">
+				<div class="unmatched-card__header">
+					<span class="map-group">Data display</span>
+					<h3>Training matrix and report surfaces</h3>
+				</div>
+				<div class="unmatched-pair unmatched-pair--wide-target">
+					<div class="pattern-preview">
+						<p class="legend-label">Current route-local decisions</p>
+						<div class="legacy-matrix-preview" aria-label="Current training matrix surface decisions">
+							<div class="legacy-matrix-toolbar">
+								<span>Matrix view</span>
+								<span>Legend, sticky cells, and status colors are local.</span>
+							</div>
+							<div class="legacy-matrix-grid" aria-hidden="true">
+								<span></span>
+								<span>IWQ</span>
+								<span>CLS</span>
+								<span>DRV</span>
+								<span>Morgan Lee</span>
+								<i data-state="current"></i>
+								<i data-state="warning"></i>
+								<i data-state="current"></i>
+								<span>Casey Nguyen</span>
+								<i data-state="expired"></i>
+								<i data-state="current"></i>
+								<i data-state="na"></i>
+							</div>
+							<p>
+								Critical Tasks `IctMatrix` should go away in favor of this training-matrix parity path, with
+								matrix/report visuals owned by shared components.
+							</p>
+						</div>
+					</div>
+					<div class="pattern-preview">
+						<p class="legend-label">ui/operational-matrix target</p>
+						<div class="matrix-target-board" aria-label="Training matrix target mapping">
+							<Alert.Root variant="info">
+								<Alert.Title>IctMatrix retirement path</Alert.Title>
+								<Alert.Description>
+									Use the same matrix primitive as training, then compose requirement badges and report workspace states
+									around it.
+								</Alert.Description>
+							</Alert.Root>
+
+							<OperationalMatrix.Root rows={matrixPreviewRows} columns={matrixPreviewColumns} readOnly>
+								<OperationalMatrix.Viewport ariaLabel="Training matrix preview viewport">
+									<OperationalMatrix.Table ariaLabel="Training matrix preview">
+										<OperationalMatrix.Header>
+											<OperationalMatrix.HeaderRow>
+												<OperationalMatrix.CornerCell>Personnel</OperationalMatrix.CornerCell>
+												{#each matrixPreviewColumns as column (column.id)}
+													<OperationalMatrix.ColumnHeader {column} orientation="vertical">
+														{column.meta.code}
+													</OperationalMatrix.ColumnHeader>
+												{/each}
+											</OperationalMatrix.HeaderRow>
+										</OperationalMatrix.Header>
+										<OperationalMatrix.Body>
+											{#each matrixPreviewRows as row (row.id)}
+												<OperationalMatrix.Row {row}>
+													<OperationalMatrix.RowHeader {row}>
+														<span>{row.label}</span>
+														<span>{row.meta.role}</span>
+													</OperationalMatrix.RowHeader>
+													{#each matrixPreviewColumns as column (column.id)}
+														<OperationalMatrix.Cell
+															{row}
+															{column}
+															ariaLabel={`${row.label} ${column.label} ${matrixPreviewStatus(row.id, column.id)}`}
+														>
+															<TrainingStatusBadge status={matrixPreviewStatus(row.id, column.id)} />
+														</OperationalMatrix.Cell>
+													{/each}
+												</OperationalMatrix.Row>
+											{/each}
+										</OperationalMatrix.Body>
+									</OperationalMatrix.Table>
+								</OperationalMatrix.Viewport>
+							</OperationalMatrix.Root>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="unmatched-card unmatched-card--full">
+				<div class="unmatched-card__header">
+					<span class="map-group">Workflow structure</span>
+					<h3>Onboarding and workflow panels</h3>
+				</div>
+				<div class="unmatched-pair unmatched-pair--wide-target">
+					<div class="pattern-preview">
+						<p class="legend-label">Current repeated structure</p>
+						<div class="legacy-workflow-preview" aria-label="Current workflow panel surface decisions">
+							<div class="legacy-notice">
+								<strong>Configuration warning</strong>
+								<span>Route-local warning, spacing, icon, and tone decisions repeat across workflows.</span>
+							</div>
+							<div class="legacy-workflow-grid">
+								<div>
+									<strong>Training types</strong>
+									<span>Leave</span>
+									<span>School</span>
+									<span>Profile</span>
+								</div>
+								<div>
+									<strong>Selected type</strong>
+									<span>Form rows, helper copy, and empty states are composed locally.</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="pattern-preview">
+						<p class="legend-label">ui/workflow-panel and ui/alert</p>
+						<div class="workflow-target-board" aria-label="Workflow panel target mapping">
+							<Alert.Root variant="warning">
+								<AlertTriangle class="size-4" aria-hidden="true" />
+								<Alert.Title>Review required before publishing</Alert.Title>
+								<Alert.Description>
+									Shared alert variants own tone and spacing. The route only supplies the message and action.
+								</Alert.Description>
+							</Alert.Root>
+
+							<WorkflowPanel.Root aria-label="Training type workflow preview">
+								<WorkflowPanel.Header>
+									<WorkflowPanel.Title>Training type setup</WorkflowPanel.Title>
+									<WorkflowPanel.Description>Shared list-detail shell for manager workflows.</WorkflowPanel.Description>
+								</WorkflowPanel.Header>
+								<WorkflowPanel.Content>
+									<WorkflowPanel.Grid>
+										<div class="workflow-target-list">
+											{#each typeManagerItems as item, index (item.name)}
+												<WorkflowPanel.Item selected={index === 0}>
+													<span class="type-swatch" style:background-color={item.color}></span>
+													<div>
+														<strong>{item.name}</strong>
+														<span>{item.description}</span>
+													</div>
+												</WorkflowPanel.Item>
+											{/each}
+										</div>
+										<WorkflowPanel.Root variant="muted" aria-label="Selected training type detail">
+											<WorkflowPanel.Header>
+												<WorkflowPanel.Title>Leave</WorkflowPanel.Title>
+												<WorkflowPanel.Description
+													>Route-owned fields inside shared panel chrome.</WorkflowPanel.Description
+												>
+											</WorkflowPanel.Header>
+											<WorkflowPanel.Content>
+												<div class="workflow-target-form">
+													<Field.Root>
+														<Field.Label for="workflow-target-name">Name</Field.Label>
+														<Input id="workflow-target-name" value="Leave" />
+													</Field.Root>
+													<Field.Root>
+														<Field.Label for="workflow-target-description">Description</Field.Label>
+														<Textarea id="workflow-target-description" value="Approved absence from normal duty." />
+													</Field.Root>
+													<div class="example-inline">
+														<Button size="sm">Save</Button>
+														<Button variant="outline" size="sm">Cancel</Button>
+													</div>
+												</div>
+											</WorkflowPanel.Content>
+										</WorkflowPanel.Root>
+									</WorkflowPanel.Grid>
+								</WorkflowPanel.Content>
+							</WorkflowPanel.Root>
 						</div>
 					</div>
 				</div>
@@ -1404,6 +1640,10 @@
 		min-height: 180px;
 	}
 
+	.unmatched-pair--wide-target {
+		grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+	}
+
 	.pattern-preview {
 		min-width: 0;
 		padding: 18px;
@@ -1686,6 +1926,141 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
+	}
+
+	.legacy-matrix-preview,
+	.matrix-target-board,
+	.legacy-workflow-preview,
+	.workflow-target-board {
+		display: grid;
+		gap: 12px;
+	}
+
+	.legacy-matrix-preview,
+	.legacy-workflow-preview {
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-subtle);
+		padding: 14px;
+	}
+
+	.legacy-matrix-preview p {
+		margin: 0;
+		color: var(--text-secondary);
+		font-size: 0.86rem;
+	}
+
+	.legacy-matrix-toolbar {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+		color: var(--text-secondary);
+		font-size: 0.82rem;
+	}
+
+	.legacy-matrix-toolbar span:first-child {
+		color: var(--text-primary);
+		font-weight: 700;
+	}
+
+	.legacy-matrix-grid {
+		display: grid;
+		grid-template-columns: minmax(92px, 1fr) repeat(3, 36px);
+		overflow: hidden;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-default);
+	}
+
+	.legacy-matrix-grid > * {
+		display: grid;
+		min-height: 34px;
+		place-items: center;
+		border-right: 1px solid var(--border-default);
+		border-bottom: 1px solid var(--border-default);
+		color: var(--text-secondary);
+		font-size: 0.75rem;
+		font-style: normal;
+	}
+
+	.legacy-matrix-grid > :nth-child(4n) {
+		border-right: 0;
+	}
+
+	.legacy-matrix-grid > :nth-last-child(-n + 4) {
+		border-bottom: 0;
+	}
+
+	.legacy-matrix-grid span:nth-child(4n + 1) {
+		justify-content: start;
+		padding-inline: 8px;
+	}
+
+	.legacy-matrix-grid i[data-state='current'] {
+		background: var(--success-muted);
+	}
+
+	.legacy-matrix-grid i[data-state='warning'] {
+		background: var(--warning-muted);
+	}
+
+	.legacy-matrix-grid i[data-state='expired'] {
+		background: var(--danger-muted);
+	}
+
+	.legacy-matrix-grid i[data-state='na'] {
+		background: var(--muted);
+	}
+
+	.matrix-target-board :global([data-slot='operational-matrix']) {
+		max-width: 100%;
+	}
+
+	.matrix-target-board :global([data-slot='requirement-status-badge']) {
+		margin-inline: auto;
+	}
+
+	.legacy-workflow-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+		gap: 10px;
+	}
+
+	.legacy-workflow-grid > div {
+		display: grid;
+		gap: 8px;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-default);
+		padding: 12px;
+	}
+
+	.legacy-workflow-grid span {
+		color: var(--text-secondary);
+		font-size: 0.86rem;
+	}
+
+	.workflow-target-list,
+	.workflow-target-form {
+		display: grid;
+		gap: 10px;
+	}
+
+	.workflow-target-list :global([data-slot='workflow-panel-item']) {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+	}
+
+	.workflow-target-list :global([data-slot='workflow-panel-item'] > div) {
+		display: grid;
+		gap: 2px;
+	}
+
+	.workflow-target-list :global([data-slot='workflow-panel-item'] span:not(.type-swatch)) {
+		color: var(--muted-foreground);
+		font-size: 0.82rem;
 	}
 
 	.target-skeleton-grid {

@@ -17,6 +17,9 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(screen.getAllByText('ui/date-cell').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('ui/inline-notes').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getAllByText('ui/type-manager').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('ui/operational-matrix plus requirement status badges')).toBeTruthy();
+		expect(screen.getByText('ui/report-workspace plus ui/operational-matrix')).toBeTruthy();
+		expect(screen.getByText('ui/workflow-panel plus ui/alert')).toBeTruthy();
 		expect(screen.getByText('ui/popover')).toBeTruthy();
 		expect(screen.getByText('ui/select')).toBeTruthy();
 		expect(screen.getAllByText('DateCell.svelte').length).toBeGreaterThanOrEqual(1);
@@ -45,10 +48,20 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(
 			within(unmatched as HTMLElement).getByRole('heading', { name: 'Training and Critical Tasks legend strips' })
 		).toBeTruthy();
+		expect(
+			within(unmatched as HTMLElement).getByRole('heading', { name: 'Training matrix and report surfaces' })
+		).toBeTruthy();
+		expect(
+			within(unmatched as HTMLElement).getByRole('heading', { name: 'Onboarding and workflow panels' })
+		).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Requirement status badge target mapping')).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Readiness band target mapping')).toBeTruthy();
+		expect(within(unmatched as HTMLElement).getByLabelText('Training matrix target mapping')).toBeTruthy();
+		expect(within(unmatched as HTMLElement).getByLabelText('Workflow panel target mapping')).toBeTruthy();
 		expect(container.querySelectorAll('.requirement-status-board').length).toBe(1);
 		expect(container.querySelectorAll('[data-slot="readiness-band-cell"]').length).toBeGreaterThanOrEqual(6);
+		expect(container.querySelector('[data-orientation="vertical"]')).toBeTruthy();
+		expect(container.querySelector('[data-slot="workflow-panel"]')).toBeTruthy();
 	});
 
 	it('shows current examples beside shadcn-backed targets', () => {

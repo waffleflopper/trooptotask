@@ -17,6 +17,9 @@ describe('OperationalMatrix', () => {
 
 		expect(screen.getByRole('columnheader', { name: 'Planning windows' }).getAttribute('colspan')).toBe('2');
 		expect(screen.getByRole('columnheader', { name: 'Alpha window' })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Alpha window' }).getAttribute('data-orientation')).toBe(
+			'vertical'
+		);
 		expect(screen.getByRole('rowheader', { name: /Avery Brooks Section lead/i })).toBeTruthy();
 
 		expect(screen.getByRole('row', { name: /Headquarters/i })).toBeTruthy();

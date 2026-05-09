@@ -6,7 +6,10 @@
 		variants: {
 			variant: {
 				default: 'bg-card text-card-foreground',
-				destructive: 'text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current'
+				destructive: 'border-danger/30 bg-danger-muted/50 text-danger-foreground *:[svg]:text-current',
+				warning: 'border-warning/30 bg-warning-muted/60 text-warning-foreground *:[svg]:text-current',
+				success: 'border-success/30 bg-success-muted/60 text-success-foreground *:[svg]:text-current',
+				info: 'border-info/30 bg-info-muted/60 text-info-foreground *:[svg]:text-current'
 			}
 		},
 		defaultVariants: {

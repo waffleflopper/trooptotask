@@ -14,6 +14,10 @@ The showroom is the only approved preview and calibration surface for the shadcn
 
 Use it to review shadcn-svelte primitives at desktop and mobile widths before production route migration work starts. The route renders docs-style examples of the selected foundation set: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
+Development route: `/ui-showroom/conversion-map`
+
+Use the conversion map to compare current repeated TroopToTask building blocks against the current shadcn-svelte/shared UI target. Blank target cells mean the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before route migration relies on that pattern.
+
 Replacement previews:
 
 - Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation shown in this showroom.

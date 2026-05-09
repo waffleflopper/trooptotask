@@ -509,6 +509,9 @@
 						<span>{showroomCoverage.length} states tracked</span>
 						<span>{showroomDarkModeContract.current} theme source</span>
 					</div>
+					<div>
+						<Button href="/ui-showroom/conversion-map" variant="outline">Open conversion map</Button>
+					</div>
 				</header>
 
 				<section class="grid gap-4" aria-labelledby="navigation-title">

@@ -279,7 +279,9 @@
 												>
 													{#if canActOnThisOnboarding}
 														<OnboardingPacketList.NoteInput
-															bind:value={ctx.noteInputs[step.id]}
+															bind:value={
+																() => ctx.noteInputs[step.id] ?? '', (value) => (ctx.noteInputs[step.id] = value)
+															}
 															onAdd={() => ctx.handleAddNote(step)}
 														/>
 													{/if}

@@ -9,8 +9,8 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import OrgNavIcon from '$lib/components/OrgNavIcon.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Sidebar from '$lib/components/ui/sidebar';
@@ -702,7 +702,7 @@
 							<span class="legend-title">Status:</span>
 						{/if}
 						{#each Object.entries(statusLegend).filter(([key]) => key !== 'cqsd') as [key, config] (key)}
-							<Badge
+							<CalendarStatusBadge
 								statusType={{
 									id: key,
 									name: config.label,
@@ -711,7 +711,7 @@
 								}}
 							>
 								{config.label}
-							</Badge>
+							</CalendarStatusBadge>
 						{/each}
 					</div>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge as ShadcnBadge } from '$lib/components/ui/badge';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 
 	interface Props {
 		label: string;
@@ -12,10 +13,18 @@
 	let { label, color, textColor = 'white', bold = false, variant = 'filled' }: Props = $props();
 </script>
 
-<ShadcnBadge
-	variant={color && variant === 'filled' ? 'status' : variant === 'outlined' ? 'outline' : 'secondary'}
-	statusType={color && variant === 'filled' ? { id: label, name: label, color, textColor } : undefined}
-	class={['font-mono uppercase tracking-widest', bold && 'font-bold']}
->
-	{label}
-</ShadcnBadge>
+{#if color && variant === 'filled'}
+	<CalendarStatusBadge
+		statusType={{ id: label, name: label, color, textColor }}
+		class={['font-mono uppercase tracking-widest', bold && 'font-bold']}
+	>
+		{label}
+	</CalendarStatusBadge>
+{:else}
+	<ShadcnBadge
+		variant={variant === 'outlined' ? 'outline' : 'secondary'}
+		class={['font-mono uppercase tracking-widest', bold && 'font-bold']}
+	>
+		{label}
+	</ShadcnBadge>
+{/if}

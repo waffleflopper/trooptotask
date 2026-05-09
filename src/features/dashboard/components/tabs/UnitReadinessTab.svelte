@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Progress } from '$lib/components/ui/progress';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
@@ -35,10 +36,12 @@
 		<div class="flex flex-wrap items-center gap-1.5">
 			<Badge variant="success">{ctx.availableCount} Present</Badge>
 			{#each statusEntries as [statusId, status] (statusId)}
-				<Badge statusType={{ id: statusId, name: status.name, color: status.color, textColor: status.textColor }}>
+				<CalendarStatusBadge
+					statusType={{ id: statusId, name: status.name, color: status.color, textColor: status.textColor }}
+				>
 					{status.count}
 					{status.name}
-				</Badge>
+				</CalendarStatusBadge>
 			{/each}
 		</div>
 	</div>

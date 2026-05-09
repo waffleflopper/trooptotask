@@ -20,8 +20,9 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(screen.getByText('ui/popover')).toBeTruthy();
 		expect(screen.getByText('ui/select')).toBeTruthy();
 		expect(screen.getAllByText('DateCell.svelte').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getAllByText('No target').length).toBe(1);
-		expect(container.querySelectorAll('.blank-target').length).toBe(1);
+		expect(screen.getByText('Requirement status badge wrappers')).toBeTruthy();
+		expect(screen.queryByText('No target')).toBeNull();
+		expect(container.querySelectorAll('.blank-target').length).toBe(0);
 		expect(screen.queryByText('SubNav.svelte')).toBeNull();
 	});
 
@@ -44,7 +45,8 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(
 			within(unmatched as HTMLElement).getByRole('heading', { name: 'Training and Critical Tasks legend strips' })
 		).toBeTruthy();
-		expect(container.querySelectorAll('.missing-target-panel').length).toBe(1);
+		expect(within(unmatched as HTMLElement).getByLabelText('Requirement status badge target mapping')).toBeTruthy();
+		expect(container.querySelectorAll('.requirement-status-board').length).toBe(1);
 	});
 
 	it('shows current examples beside shadcn-backed targets', () => {

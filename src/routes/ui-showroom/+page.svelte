@@ -23,6 +23,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import type { ChartConfig } from '$lib/components/ui/chart/index.js';
@@ -157,75 +158,83 @@
 	type MatrixRow = OperationalMatrix.OperationalMatrixRow & {
 		meta: {
 			rank: string;
-			group: string;
-			role: string;
-			status: string;
-			readiness: number;
+			section: string;
+			position: string;
+			completion: number;
 		};
 	};
 
 	type MatrixColumn = OperationalMatrix.OperationalMatrixColumn & {
 		meta: {
-			month: 'May' | 'Jun';
-			day: string;
-			weekday: string;
-			window: string;
-			today?: boolean;
+			category: 'Annual' | 'Weapons' | 'Medical';
+			short: string;
+			frequency: string;
+			required?: boolean;
 		};
 	};
 
-	type MatrixCellStatus = 'leave' | 'school' | 'field' | 'tdy' | 'appointment' | 'sick' | 'empty';
+	type MatrixCellStatus = 'current' | 'due-soon' | 'expired' | 'missing' | 'waived' | 'scheduled';
 
 	const matrixRows: MatrixRow[] = [
 		{
 			id: 'avery',
 			label: 'Brooks, Avery',
-			meta: { rank: '1LT', group: 'HQ', role: 'Section lead', status: 'Ready', readiness: 96 }
+			meta: { rank: '1LT', section: 'HQ', position: 'Section lead', completion: 91 }
 		},
 		{
 			id: 'chen',
 			label: 'Chen, Maya',
-			meta: { rank: 'SFC', group: 'A Co', role: 'Training NCO', status: 'Watch', readiness: 82 }
+			meta: { rank: 'SFC', section: 'A Co', position: 'Training NCO', completion: 86 }
 		},
 		{
 			id: 'ortiz',
 			label: 'Ortiz, Sam',
-			meta: { rank: 'SSG', group: 'A Co', role: 'Team leader', status: 'Action', readiness: 68 }
+			meta: { rank: 'SSG', section: 'A Co', position: 'Team leader', completion: 64 }
 		},
 		{
 			id: 'bell',
 			label: 'Bell, Jon',
 			disabled: true,
-			meta: { rank: 'SGT', group: 'B Co', role: 'Supply', status: 'Read-only', readiness: 74 }
+			meta: { rank: 'SGT', section: 'B Co', position: 'Supply', completion: 72 }
 		},
 		{
 			id: 'price',
 			label: 'Price, Morgan',
-			meta: { rank: 'SPC', group: 'B Co', role: 'Platoon sergeant', status: 'Ready', readiness: 91 }
+			meta: { rank: 'SPC', section: 'B Co', position: 'Team member', completion: 83 }
 		}
 	];
 
 	const matrixColumns: MatrixColumn[] = [
-		{ id: 'may-01', label: '1', meta: { month: 'May', day: '1', weekday: 'Fri', window: 'Range week' } },
-		{ id: 'may-02', label: '2', meta: { month: 'May', day: '2', weekday: 'Sat', window: 'Range week' } },
-		{ id: 'may-03', label: '3', meta: { month: 'May', day: '3', weekday: 'Sun', window: 'Range week' } },
-		{ id: 'may-04', label: '4', meta: { month: 'May', day: '4', weekday: 'Mon', window: 'Range week' } },
-		{ id: 'may-05', label: '5', meta: { month: 'May', day: '5', weekday: 'Tue', window: 'Range week' } },
-		{ id: 'may-06', label: '6', meta: { month: 'May', day: '6', weekday: 'Wed', window: 'Range week' } },
-		{ id: 'may-07', label: '7', meta: { month: 'May', day: '7', weekday: 'Thu', window: 'Range week' } },
-		{ id: 'may-08', label: '8', meta: { month: 'May', day: '8', weekday: 'Fri', window: 'Range week', today: true } },
-		{ id: 'may-09', label: '9', meta: { month: 'May', day: '9', weekday: 'Sat', window: 'Range week' } },
-		{ id: 'may-10', label: '10', meta: { month: 'May', day: '10', weekday: 'Sun', window: 'Range week' } },
-		{ id: 'may-11', label: '11', meta: { month: 'May', day: '11', weekday: 'Mon', window: 'Field week' } },
-		{ id: 'may-12', label: '12', meta: { month: 'May', day: '12', weekday: 'Tue', window: 'Field week' } },
-		{ id: 'may-13', label: '13', meta: { month: 'May', day: '13', weekday: 'Wed', window: 'Field week' } },
-		{ id: 'jun-02', label: '2', meta: { month: 'Jun', day: '2', weekday: 'Tue', window: 'School' } },
-		{ id: 'jun-03', label: '3', meta: { month: 'Jun', day: '3', weekday: 'Wed', window: 'School' } },
 		{
-			id: 'jun-04',
-			label: '4',
+			id: 'cyber',
+			label: 'Cyber Awareness',
+			meta: { category: 'Annual', short: 'CYBER', frequency: 'Annual', required: true }
+		},
+		{ id: 'sharp', label: 'SHARP', meta: { category: 'Annual', short: 'SHARP', frequency: 'Annual', required: true } },
+		{
+			id: 'eo',
+			label: 'Equal Opportunity',
+			meta: { category: 'Annual', short: 'EO', frequency: 'Annual', required: true }
+		},
+		{ id: 'opsec', label: 'OPSEC', meta: { category: 'Annual', short: 'OPSEC', frequency: 'Annual', required: true } },
+		{
+			id: 'rifle-qual',
+			label: 'Rifle Qual',
+			meta: { category: 'Weapons', short: 'RIFLE', frequency: 'Annual', required: true }
+		},
+		{ id: 'pistol-qual', label: 'Pistol Qual', meta: { category: 'Weapons', short: 'PISTOL', frequency: 'Annual' } },
+		{ id: 'crew-served', label: 'Crew Served', meta: { category: 'Weapons', short: 'CREW', frequency: 'Annual' } },
+		{
+			id: 'combat-lifesaver',
+			label: 'Combat Lifesaver',
+			meta: { category: 'Medical', short: 'CLS', frequency: '24 mo', required: true }
+		},
+		{ id: 'cpr', label: 'CPR', meta: { category: 'Medical', short: 'CPR', frequency: '24 mo' } },
+		{
+			id: 'immunization',
+			label: 'Immunization Review',
 			readOnly: true,
-			meta: { month: 'Jun', day: '4', weekday: 'Thu', window: 'Locked window' }
+			meta: { category: 'Medical', short: 'MED', frequency: 'Locked', required: true }
 		}
 	];
 
@@ -236,45 +245,71 @@
 	];
 
 	const matrixColumnGroups = [
-		{ id: 'may', label: 'May 2026', columnSpan: 13 },
-		{ id: 'jun', label: 'June 2026', columnSpan: 3 }
+		{ id: 'annual', label: 'Annual requirements', columnSpan: 4 },
+		{ id: 'weapons', label: 'Weapons readiness', columnSpan: 3 },
+		{ id: 'medical', label: 'Medical readiness', columnSpan: 3 }
 	];
 
 	const matrixStatusByCell: Record<string, Record<string, MatrixCellStatus>> = {
 		avery: {
-			'jun-02': 'school',
-			'jun-03': 'school',
-			'jun-04': 'school'
+			cyber: 'current',
+			sharp: 'current',
+			eo: 'current',
+			opsec: 'current',
+			'rifle-qual': 'due-soon',
+			'pistol-qual': 'waived',
+			'crew-served': 'current',
+			'combat-lifesaver': 'current',
+			cpr: 'current',
+			immunization: 'current'
 		},
 		chen: {
-			'may-01': 'school',
-			'may-02': 'school',
-			'may-11': 'school',
-			'may-12': 'school',
-			'may-13': 'school'
+			cyber: 'current',
+			sharp: 'current',
+			eo: 'due-soon',
+			opsec: 'current',
+			'rifle-qual': 'current',
+			'pistol-qual': 'current',
+			'crew-served': 'current',
+			'combat-lifesaver': 'scheduled',
+			cpr: 'current',
+			immunization: 'current'
 		},
 		ortiz: {
-			'may-03': 'leave',
-			'may-04': 'leave',
-			'may-05': 'leave',
-			'may-06': 'leave',
-			'may-07': 'leave',
-			'may-08': 'leave',
-			'may-09': 'leave',
-			'jun-03': 'sick'
+			cyber: 'current',
+			sharp: 'expired',
+			eo: 'missing',
+			opsec: 'due-soon',
+			'rifle-qual': 'expired',
+			'pistol-qual': 'waived',
+			'crew-served': 'missing',
+			'combat-lifesaver': 'scheduled',
+			cpr: 'expired',
+			immunization: 'current'
 		},
 		bell: {
-			'may-04': 'tdy',
-			'may-08': 'field'
+			cyber: 'current',
+			sharp: 'current',
+			eo: 'current',
+			opsec: 'current',
+			'rifle-qual': 'due-soon',
+			'pistol-qual': 'waived',
+			'crew-served': 'waived',
+			'combat-lifesaver': 'missing',
+			cpr: 'current',
+			immunization: 'due-soon'
 		},
 		price: {
-			'may-08': 'school',
-			'may-09': 'school',
-			'may-10': 'school',
-			'may-11': 'school',
-			'may-12': 'school',
-			'may-13': 'school',
-			'jun-02': 'appointment'
+			cyber: 'current',
+			sharp: 'due-soon',
+			eo: 'current',
+			opsec: 'current',
+			'rifle-qual': 'current',
+			'pistol-qual': 'current',
+			'crew-served': 'scheduled',
+			'combat-lifesaver': 'current',
+			cpr: 'missing',
+			immunization: 'current'
 		}
 	};
 
@@ -311,7 +346,7 @@
 	let emptyPacketNotesOpen = $state(false);
 	let clickedRow = $state('No row selected');
 	let expandedDataTableRow = $state('2');
-	let selectedMatrixCell = $state({ rowId: 'avery', columnId: 'may-27' });
+	let selectedMatrixCell = $state({ rowId: 'ortiz', columnId: 'sharp' });
 	let activeMatrixSelection = $state<OperationalMatrixCellSelection | undefined>();
 	const tableSelection = useDataTableSelection({
 		rows: () => dataTablePeople,
@@ -367,46 +402,41 @@
 	}
 
 	function matrixCellStatus(row: MatrixRow, column: MatrixColumn): MatrixCellStatus {
-		return matrixStatusByCell[row.id]?.[column.id] ?? 'empty';
+		return matrixStatusByCell[row.id]?.[column.id] ?? 'missing';
 	}
 
 	function matrixCellTone(status: MatrixCellStatus) {
-		if (status === 'leave') {
+		if (status === 'current') {
 			return 'bg-emerald-600 text-white';
 		}
 
-		if (status === 'school') {
-			return 'bg-sky-600 text-white';
+		if (status === 'due-soon') {
+			return 'bg-amber-500 text-amber-950';
 		}
 
-		if (status === 'field') {
-			return 'bg-amber-700 text-white';
-		}
-
-		if (status === 'tdy') {
-			return 'bg-violet-600 text-white';
-		}
-
-		if (status === 'appointment') {
-			return 'bg-orange-500 text-white';
-		}
-
-		if (status === 'sick') {
+		if (status === 'expired') {
 			return 'bg-red-600 text-white';
 		}
 
-		return 'bg-transparent text-transparent';
+		if (status === 'waived') {
+			return 'bg-slate-500 text-white';
+		}
+
+		if (status === 'scheduled') {
+			return 'bg-sky-600 text-white';
+		}
+
+		return 'bg-muted text-muted-foreground';
 	}
 
 	function matrixCellText(status: MatrixCellStatus) {
 		const labels: Record<MatrixCellStatus, string> = {
-			leave: 'Leave',
-			school: 'School',
-			field: 'Field',
-			tdy: 'TDY',
-			appointment: 'Appointment',
-			sick: 'Sick',
-			empty: 'Available'
+			current: 'Current',
+			'due-soon': 'Due soon',
+			expired: 'Expired',
+			missing: 'Missing',
+			waived: 'Waived',
+			scheduled: 'Scheduled'
 		};
 
 		return labels[status];
@@ -418,7 +448,7 @@
 			: column.readOnly
 				? 'read only'
 				: matrixCellText(matrixCellStatus(row, column));
-		return `${row.label}, ${column.meta.month} ${column.meta.day}, ${state}`;
+		return `${row.label}, ${column.label}, ${state}`;
 	}
 
 	function handleMatrixCellSelect(selection: OperationalMatrixCellSelection) {
@@ -570,7 +600,7 @@
 						<Badge variant="warning">Warning</Badge>
 						<Badge variant="info">Info</Badge>
 						<Badge variant="success">Success</Badge>
-						<Badge statusType={sampleStatusType}>Status Type</Badge>
+						<CalendarStatusBadge statusType={sampleStatusType}>Status Type</CalendarStatusBadge>
 					</div>
 					<ButtonGroup.Root>
 						<Button variant="outline">Roster</Button>
@@ -1313,10 +1343,10 @@
 
 				<section class="grid gap-5" aria-labelledby="operational-matrix-title">
 					<div class="flex flex-col gap-1">
-						<h2 id="operational-matrix-title" class="text-xl font-semibold tracking-tight">Operational matrix</h2>
+						<h2 id="operational-matrix-title" class="text-xl font-semibold tracking-tight">Training matrix</h2>
 						<p class="max-w-3xl text-sm text-muted-foreground">
-							Headless compound table primitive for dense row-by-column workflows. The example styles live in the
-							showroom wrapper; the shared primitive only provides structure, identity, selection, and data hooks.
+							Training readiness built with the shared operational matrix primitive. The route owns training meaning and
+							colors; the primitive owns table structure, identity, selection, and data hooks.
 						</p>
 					</div>
 
@@ -1336,18 +1366,18 @@
 						</div>
 
 						<OperationalMatrix.Viewport
-							ariaLabel="Operational matrix showroom viewport"
+							ariaLabel="Training matrix showroom viewport"
 							maxHeight="28rem"
 							class="rounded-md border border-border bg-card shadow-xs"
 						>
 							<OperationalMatrix.Table
-								ariaLabel="Operational matrix showroom example"
-								class="min-w-[76rem] table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:text-left [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-12 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-content]]:items-stretch [&_[data-slot=operational-matrix-cell-content]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:items-stretch [&_[data-slot=operational-matrix-cell-trigger]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset [&_[data-disabled=true]]:opacity-45 [&_[data-readonly=true]]:bg-muted/30"
+								ariaLabel="Training matrix showroom example"
+								class="min-w-[72rem] table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:text-left [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:h-12 [&_[data-matrix-cell]]:w-20 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-12 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-content]]:items-stretch [&_[data-slot=operational-matrix-cell-content]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-12 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:items-stretch [&_[data-slot=operational-matrix-cell-trigger]]:justify-stretch [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset [&_[data-disabled=true]]:opacity-45 [&_[data-readonly=true]]:bg-muted/30"
 							>
 								<colgroup>
 									<col class="w-64" />
 									{#each matrixColumns as column (column.id)}
-										<col class="w-14" />
+										<col class="w-20" />
 									{/each}
 								</colgroup>
 								<OperationalMatrix.Header>
@@ -1373,13 +1403,18 @@
 											<OperationalMatrix.ColumnHeader
 												{column}
 												sticky
-												class={`sticky top-8 z-20 h-14 w-14 min-w-14 bg-muted px-1 text-center ${column.meta.today ? 'bg-amber-50 shadow-[inset_0_-2px_0_var(--foreground)]' : ''}`}
+												class="sticky top-8 z-20 h-16 w-20 min-w-20 bg-muted px-2 text-center"
 											>
 												<span class="grid gap-0.5 leading-none">
-													<span class="text-[10px] tracking-[0.14em] text-muted-foreground">{column.meta.weekday}</span>
-													<span class="font-serif text-2xl font-bold normal-case tracking-normal text-foreground">
-														{column.label}
+													<span class="text-[10px] tracking-[0.14em] text-muted-foreground">
+														{column.meta.frequency}
 													</span>
+													<span class="text-xs font-bold normal-case tracking-normal text-foreground">
+														{column.meta.short}
+													</span>
+													{#if column.meta.required}
+														<span class="text-[9px] tracking-[0.12em] text-muted-foreground">Required</span>
+													{/if}
 												</span>
 											</OperationalMatrix.ColumnHeader>
 										{/each}
@@ -1408,7 +1443,7 @@
 														<span class="grid gap-0.5">
 															<span class="font-serif text-base font-semibold">{row.label}</span>
 															<span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-																{row.meta.role} · {row.meta.group} · {row.meta.readiness}%
+																{row.meta.position} · {row.meta.section} · {row.meta.completion}%
 															</span>
 														</span>
 													</span>
@@ -1421,14 +1456,12 @@
 														{column}
 														readOnly={column.readOnly}
 														ariaLabel={`${matrixCellLabel(row, column)}. Open matrix detail.`}
-														class={`min-w-12 bg-card ${column.meta.today ? 'bg-amber-50/50' : ''}`}
+														class="min-w-20 bg-card"
 													>
 														<span
-															class={`flex h-10 w-full items-start justify-start overflow-hidden px-1.5 py-1 font-mono text-[9px] font-bold uppercase leading-none tracking-[0.06em] ${matrixCellTone(status)}`}
+															class={`flex h-12 w-full items-center justify-center overflow-hidden px-1.5 py-1 text-center font-mono text-[10px] font-bold uppercase leading-tight tracking-[0.04em] ${matrixCellTone(status)}`}
 														>
-															<span class="truncate" aria-hidden="true">
-																{status === 'empty' ? '' : matrixCellText(status)}
-															</span>
+															<span class="truncate" aria-hidden="true">{matrixCellText(status)}</span>
 															<span class="sr-only">{matrixCellLabel(row, column)}</span>
 														</span>
 													</OperationalMatrix.Cell>
@@ -1442,12 +1475,12 @@
 					</OperationalMatrix.Root>
 
 					<div class="flex flex-wrap gap-2 text-sm">
-						<span class="rounded-sm bg-emerald-600 px-3 py-1 text-white">Leave</span>
-						<span class="rounded-sm bg-sky-600 px-3 py-1 text-white">School</span>
-						<span class="rounded-sm bg-amber-700 px-3 py-1 text-white">Field/Training</span>
-						<span class="rounded-sm bg-violet-600 px-3 py-1 text-white">TDY</span>
-						<span class="rounded-sm bg-orange-500 px-3 py-1 text-white">Appointment</span>
-						<span class="rounded-sm bg-red-600 px-3 py-1 text-white">Sick</span>
+						<span class="rounded-sm bg-emerald-600 px-3 py-1 text-white">Current</span>
+						<span class="rounded-sm bg-amber-500 px-3 py-1 text-amber-950">Due soon</span>
+						<span class="rounded-sm bg-red-600 px-3 py-1 text-white">Expired</span>
+						<span class="rounded-sm bg-muted px-3 py-1 text-muted-foreground">Missing</span>
+						<span class="rounded-sm bg-slate-500 px-3 py-1 text-white">Waived</span>
+						<span class="rounded-sm bg-sky-600 px-3 py-1 text-white">Scheduled</span>
 					</div>
 
 					<div class="grid gap-4 md:grid-cols-2">

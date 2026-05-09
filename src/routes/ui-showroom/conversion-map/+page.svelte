@@ -17,6 +17,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge/index.js';
 	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -26,6 +27,12 @@
 	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import {
+		CriticalTaskStatusBadge,
+		TrainingStatusBadge,
+		type CriticalTaskRequirementStatus,
+		type TrainingRequirementStatus
+	} from '$lib/components/ui/requirement-status-badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
@@ -131,15 +138,15 @@
 			current: 'Badge.svelte, .chip, status dots',
 			target: 'ui/badge',
 			status: 'direct',
-			notes: 'Domain colors can flow through statusType. Semantic variants cover fixed states.'
+			notes: 'Base Badge should stay semantic. Calendar custom colors belong behind CalendarStatusBadge.'
 		},
 		{
 			id: 'legends',
 			group: 'Status',
 			current: 'Training and Critical Tasks legend strips',
-			target: null,
-			status: 'no-target',
-			notes: 'No shadcn equivalent is selected yet. This needs a shared legend/key decision.'
+			target: 'Requirement status badge wrappers',
+			status: 'compose',
+			notes: 'Use TrainingStatusBadge and CriticalTaskStatusBadge wrappers over shared requirement status visuals.'
 		},
 		{
 			id: 'skeletons',
@@ -281,6 +288,62 @@
 		{ label: '90%+', tier: 'good' },
 		{ label: 'N/A', tier: 'na' }
 	];
+
+	const requirementStatusLegend = [
+		{
+			label: 'Current',
+			source: 'Training current / Critical Tasks current',
+			token: 'green-500',
+			trainingStatus: 'current',
+			criticalTaskStatus: 'current'
+		},
+		{
+			label: 'Expiring Soon',
+			source: 'Training warning-yellow / Critical Tasks expiring-soon',
+			token: 'yellow-400',
+			trainingStatus: 'warning-yellow',
+			criticalTaskStatus: 'expiring-soon'
+		},
+		{
+			label: 'Expiring',
+			source: 'Training warning-orange',
+			token: 'orange-500',
+			trainingStatus: 'warning-orange'
+		},
+		{
+			label: 'Expired',
+			source: 'Training expired / Critical Tasks expired',
+			token: 'red-600',
+			trainingStatus: 'expired',
+			criticalTaskStatus: 'expired'
+		},
+		{
+			label: 'Missing',
+			source: 'Training not-completed / Critical Tasks not-recorded',
+			token: 'muted',
+			trainingStatus: 'not-completed',
+			criticalTaskStatus: 'not-recorded'
+		},
+		{
+			label: 'Not Required',
+			source: 'Training not-required / MOS not applicable',
+			token: 'diagonal hatch',
+			trainingStatus: 'not-required',
+			criticalTaskStatus: 'not-required'
+		},
+		{
+			label: 'Exempt',
+			source: 'Training exempt',
+			token: 'info',
+			trainingStatus: 'exempt'
+		}
+	] satisfies {
+		label: string;
+		source: string;
+		token: string;
+		trainingStatus?: TrainingRequirementStatus;
+		criticalTaskStatus?: CriticalTaskRequirementStatus;
+	}[];
 
 	const dateCellStatusTypes = new Map<string, StatusType>([
 		[
@@ -438,7 +501,7 @@
 			</div>
 			<div>
 				<strong>0</strong>
-				<span>Production routes changed</span>
+				<span>Route migrations</span>
 			</div>
 		</div>
 	</section>
@@ -659,8 +722,41 @@
 					</div>
 					<div class="pattern-preview">
 						<p class="legend-label">shadcn side</p>
-						<div class="missing-target-panel" aria-label="No shadcn target selected for legend strips">
-							<span>No shadcn target selected</span>
+						<div class="requirement-status-board" aria-label="Requirement status badge target mapping">
+							<div class="requirement-status-board__header">
+								<strong>Domain wrappers</strong>
+								<span>Shared requirement status visuals</span>
+							</div>
+							<div class="requirement-status-list">
+								{#each requirementStatusLegend as item (item.label)}
+									<div class="requirement-status-row">
+										<div class="requirement-status-badges">
+											{#if item.trainingStatus}
+												<TrainingStatusBadge status={item.trainingStatus} />
+											{/if}
+											{#if item.criticalTaskStatus}
+												<CriticalTaskStatusBadge status={item.criticalTaskStatus} />
+											{/if}
+										</div>
+										<div>
+											<strong>{item.token}</strong>
+											<span>{item.source}</span>
+										</div>
+									</div>
+								{/each}
+							</div>
+							<p>
+								Calendar remains separate:
+								<CalendarStatusBadge
+									statusType={{
+										id: 'calendar-status-example',
+										name: 'Training',
+										color: '#345b22',
+										textColor: '#f7f8f4'
+									}}>CalendarStatusBadge</CalendarStatusBadge
+								>
+								owns saved status colors instead of the base Badge API.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -904,7 +1000,9 @@
 			<div class="comparison-cell">
 				<h3>shadcn badge</h3>
 				<div class="example-inline">
-					<Badge statusType={{ id: 'ready', name: 'Ready', color: '#345b22', textColor: '#f7f8f4' }}>Ready</Badge>
+					<CalendarStatusBadge statusType={{ id: 'ready', name: 'Ready', color: '#345b22', textColor: '#f7f8f4' }}>
+						Ready
+					</CalendarStatusBadge>
 					<Badge variant="warning">Warning</Badge>
 					<Badge variant="secondary">Manual</Badge>
 					<Badge variant="danger">Due</Badge>
@@ -1367,22 +1465,6 @@
 		box-shadow: inset 0 0 0 6px var(--card);
 	}
 
-	.missing-target-panel {
-		display: grid;
-		min-height: 138px;
-		place-items: center;
-		border: 1px dashed var(--border);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--muted) 28%, transparent);
-		color: var(--muted-foreground);
-		font-family: var(--font-mono);
-		font-size: 0.72rem;
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-align: center;
-		text-transform: uppercase;
-	}
-
 	.comparison-list {
 		padding-bottom: 56px;
 	}
@@ -1513,6 +1595,62 @@
 	.legacy-mark-legend span[data-tone='na'] i,
 	.readiness-key span[data-tier='na'] i {
 		background: var(--background);
+	}
+
+	.requirement-status-board {
+		display: grid;
+		gap: 12px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
+		background: var(--card);
+		padding: 14px;
+	}
+
+	.requirement-status-board__header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.requirement-status-board__header strong,
+	.requirement-status-row strong {
+		font-size: 0.86rem;
+	}
+
+	.requirement-status-board__header span,
+	.requirement-status-row span,
+	.requirement-status-board p {
+		color: var(--muted-foreground);
+		font-size: 0.8rem;
+	}
+
+	.requirement-status-list {
+		display: grid;
+		gap: 8px;
+	}
+
+	.requirement-status-row {
+		display: grid;
+		grid-template-columns: minmax(130px, 0.45fr) minmax(0, 1fr);
+		align-items: center;
+		gap: 10px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		padding: 8px;
+	}
+
+	.requirement-status-row > div {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.requirement-status-badges {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.target-skeleton-grid {

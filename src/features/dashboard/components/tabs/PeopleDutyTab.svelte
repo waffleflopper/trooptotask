@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	import type { OutTodayGroupBy, UpcomingGroupBy } from '../../read-model/dashboardScreenModel.svelte';
@@ -81,7 +82,7 @@
 									<span class="shrink-0 font-mono text-xs text-muted-foreground uppercase">{person.rank}</span>
 									<span class="truncate text-sm text-foreground">{person.personName.replace(/^[A-Z0-9]+ /, '')}</span>
 								</div>
-								<Badge
+								<CalendarStatusBadge
 									statusType={{
 										id: person.statusTypeId,
 										name: person.statusName,
@@ -90,7 +91,7 @@
 									}}
 								>
 									{person.statusName}
-								</Badge>
+								</CalendarStatusBadge>
 							</div>
 						{/each}
 					{/each}

@@ -10,6 +10,8 @@
 	import LegacySkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as StepperPrimitive from '$lib/components/ui/stepper/index.js';
+	import type { StepperStep } from '$lib/components/ui/stepper/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -214,9 +216,9 @@
 			id: 'stepper',
 			group: 'Workflow structure',
 			current: 'Stepper.svelte',
-			target: null,
-			status: 'no-target',
-			notes: 'No selected shadcn equivalent. Decide whether to keep as a shared workflow primitive.'
+			target: 'ui/stepper',
+			status: 'direct',
+			notes: 'Ported as a shadcn-style compound Svelte primitive. The legacy wrapper now delegates to it.'
 		},
 		{
 			id: 'type-manager',
@@ -391,6 +393,14 @@
 	let shadcnRadio = $state('organization');
 	let switchChecked = $state(true);
 	let togglePressed = $state(true);
+	let stepperPreviewValue = $state('review');
+
+	const stepperPreviewSteps: StepperStep[] = [
+		{ value: 'draft', label: 'Draft', completed: true },
+		{ value: 'review', label: 'Review', description: 'Current approval stage' },
+		{ value: 'approve', label: 'Approve' },
+		{ value: 'publish', label: 'Publish', disabled: true }
+	];
 </script>
 
 <svelte:head>
@@ -529,24 +539,6 @@
 				</div>
 			</div>
 
-			<div class="unmatched-card">
-				<div class="unmatched-card__header">
-					<span class="map-group">Workflow structure</span>
-					<h3>Stepper.svelte</h3>
-				</div>
-				<div class="unmatched-pair">
-					<div class="pattern-preview">
-						<p class="legend-label">Current component</p>
-						<Stepper
-							stages={['Draft', 'Review', 'Approve', 'Publish']}
-							currentStage="Review"
-							onStageClick={() => undefined}
-						/>
-					</div>
-					<div class="missing-target-panel" aria-label="No shadcn-svelte target selected for Stepper"></div>
-				</div>
-			</div>
-
 			<div class="unmatched-card unmatched-card--full">
 				<div class="unmatched-card__header">
 					<span class="map-group">Workflow structure</span>
@@ -666,6 +658,31 @@
 					</ButtonGroup.Root>
 					<Toggle bind:pressed={togglePressed} variant="outline" aria-label="Show gaps only">Gaps</Toggle>
 				</div>
+			</div>
+		</div>
+
+		<div class="comparison-row">
+			<div class="comparison-cell">
+				<h3>Current stepper wrapper</h3>
+				<Stepper
+					stages={['Draft', 'Review', 'Approve', 'Publish']}
+					currentStage="Review"
+					onStageClick={() => undefined}
+				/>
+			</div>
+			<div class="comparison-cell">
+				<h3>shadcn-style stepper primitive</h3>
+				<StepperPrimitive.Root
+					steps={stepperPreviewSteps}
+					value={stepperPreviewValue}
+					onValueChange={(nextValue) => (stepperPreviewValue = nextValue)}
+				>
+					<StepperPrimitive.List>
+						{#each stepperPreviewSteps as step (step.value)}
+							<StepperPrimitive.Item value={step.value} label={step.label} description={step.description} />
+						{/each}
+					</StepperPrimitive.List>
+				</StepperPrimitive.Root>
 			</div>
 		</div>
 

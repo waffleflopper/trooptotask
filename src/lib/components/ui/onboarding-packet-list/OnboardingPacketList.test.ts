@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import OnboardingPacketListTest from './OnboardingPacketListTest.svelte';
 
@@ -54,8 +54,9 @@ describe('OnboardingPacketList', () => {
 	it('toggles independent notes and renders note count', async () => {
 		render(OnboardingPacketListTest);
 
-		expect(screen.getByText('2')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Toggle notes' }).getAttribute('aria-expanded')).toBe('false');
+		const notesTrigger = screen.getByRole('button', { name: 'Toggle notes' });
+		expect(within(notesTrigger).getByText('2')).toBeTruthy();
+		expect(notesTrigger.getAttribute('aria-expanded')).toBe('false');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Toggle notes' }));
 

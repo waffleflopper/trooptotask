@@ -1,4 +1,6 @@
 <script lang="ts">
+	import * as Stepper from '$lib/components/ui/stepper/index.js';
+
 	interface Props {
 		stages: string[];
 		currentStage: string;
@@ -8,46 +10,33 @@
 
 	let { stages, currentStage, onStageClick, disabled = false }: Props = $props();
 
-	function getStageStatus(stage: string): 'completed' | 'current' | 'upcoming' {
-		const currentIndex = stages.indexOf(currentStage);
-		const stageIndex = stages.indexOf(stage);
-		if (stageIndex < currentIndex) return 'completed';
-		if (stageIndex === currentIndex) return 'current';
-		return 'upcoming';
-	}
+	const stepperSteps = $derived(
+		stages.map((stage, index) => ({
+			value: stage,
+			label: stage,
+			completed: index < stages.indexOf(currentStage),
+			disabled
+		}))
+	);
 </script>
 
-<div class="flex w-full items-center gap-0" role="group" aria-label="Progress steps" data-slot="stepper">
-	{#each stages as stage, i (stage)}
-		{@const status = getStageStatus(stage)}
-		{#if i > 0}
-			<div
-				class="h-px min-w-2 flex-1 bg-border transition-colors"
-				class:bg-primary={status === 'completed' || status === 'current'}
-			></div>
-		{/if}
-		<button
-			type="button"
-			aria-current={status === 'current' ? 'step' : undefined}
-			data-state={status}
-			class="group flex min-w-0 flex-col items-center gap-1 rounded-md bg-transparent p-1 outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
-			disabled={disabled || !onStageClick}
-			onclick={() => onStageClick?.(stage)}
-			title={stage}
-		>
-			<span
-				class="relative flex size-4 shrink-0 rounded-full border border-input bg-background transition-colors group-data-[state=completed]:border-primary group-data-[state=completed]:bg-primary group-data-[state=current]:border-primary group-data-[state=current]:bg-primary"
-			>
-				{#if status === 'completed' || status === 'current'}
-					<span
-						class="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground"
-					></span>
-				{/if}
-			</span>
-			<span
-				class="max-w-20 truncate text-center font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground group-data-[state=current]:text-foreground group-data-[state=completed]:text-muted-foreground"
-				>{stage}</span
-			>
-		</button>
-	{/each}
-</div>
+<Stepper.Root
+	steps={stepperSteps}
+	value={currentStage}
+	onValueChange={(stage) => onStageClick?.(stage)}
+	class="gap-0"
+	data-slot="legacy-stepper"
+>
+	<Stepper.List class="gap-0 overflow-visible pb-0">
+		{#each stepperSteps as step (step.value)}
+			<Stepper.Item value={step.value} completed={step.completed} disabled={disabled || !onStageClick}>
+				<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1" title={step.value}>
+					<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+					<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium tracking-wider uppercase">
+						{step.label}
+					</Stepper.Label>
+				</Stepper.Trigger>
+			</Stepper.Item>
+		{/each}
+	</Stepper.List>
+</Stepper.Root>

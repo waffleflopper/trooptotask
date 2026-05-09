@@ -655,9 +655,40 @@ Props: `size?: number` (px, default `14`), `color?: string` (default `'white'`)
 
 ---
 
+## `ui/stepper`
+
+Shadcn-style compound primitive for workflow progress. Use this for new workflow step indicators that need explicit
+step metadata, keyboard focus movement, disabled/error/completed states, or previous/next controls.
+
+```svelte
+<script lang="ts">
+    import * as Stepper from '$lib/components/ui/stepper';
+
+    const steps = [
+        { value: 'draft', label: 'Draft', completed: true },
+        { value: 'review', label: 'Review', description: 'Current approval stage' },
+        { value: 'done', label: 'Done' }
+    ];
+</script>
+
+<Stepper.Root {steps} value="review">
+    <Stepper.List>
+        {#each steps as step (step.value)}
+            <Stepper.Item value={step.value} label={step.label} description={step.description} />
+        {/each}
+    </Stepper.List>
+</Stepper.Root>
+```
+
+Use `Stepper.Item` with `label` and `description` for the default visual. Use child content only when composing a custom
+item layout with `Stepper.Trigger`, `Stepper.Indicator`, `Stepper.Label`, and `Stepper.Description`.
+
+---
+
 ## `ui/Stepper.svelte`
 
 Linear stage indicator for multi-step workflows. Shows stages as connected dots with labels. Clickable when not disabled.
+This legacy wrapper is preserved for existing route imports and delegates to `ui/stepper`.
 
 ```svelte
 <Stepper

@@ -5,6 +5,7 @@
 		IctReadinessMatrixCell,
 		IctReadinessMatrixRow
 	} from '$features/critical-tasks/utils/ictReports';
+	import * as ReadinessBand from '$lib/components/ui/readiness-band/index.js';
 
 	interface Props {
 		matrix: IctReadinessMatrix;
@@ -13,23 +14,11 @@
 
 	const TITLE_ID = 'ict-readiness-matrix-title';
 	const DESCRIPTION_ID = 'ict-readiness-matrix-description';
-	const legendItems = [
-		{ tier: 'danger', label: '<60%' },
-		{ tier: 'warn', label: '60-69%' },
-		{ tier: 'caution', label: '70-79%' },
-		{ tier: 'okay', label: '80-89%' },
-		{ tier: 'good', label: '90%+' },
-		{ tier: 'not-applicable', label: 'Not applicable' }
-	];
 
 	let { matrix, loading = false }: Props = $props();
 
 	function pluralizeSoldier(count: number): string {
 		return count === 1 ? 'Soldier' : 'Soldiers';
-	}
-
-	function formatPercent(percent: number | null): string {
-		return percent === null ? '-' : `${percent}%`;
 	}
 
 	function readinessLabel(
@@ -114,15 +103,19 @@
 							</th>
 							{#each row.cells as cell (cell.categoryKey)}
 								<td class="heat-cell-wrap">
-									<span class="heat-cell" data-tier={cell.tier} aria-label={cellLabel(row.mos, cell)}>
-										{formatPercent(cell.readinessPercent)}
-									</span>
+									<ReadinessBand.Cell
+										tier={cell.tier}
+										percent={cell.readinessPercent}
+										aria-label={cellLabel(row.mos, cell)}
+									/>
 								</td>
 							{/each}
 							<td class="heat-cell-wrap average-cell">
-								<span class="heat-cell" data-tier={row.averageTier} aria-label={averageLabel(row)}>
-									{formatPercent(row.averageReadinessPercent)}
-								</span>
+								<ReadinessBand.Cell
+									tier={row.averageTier}
+									percent={row.averageReadinessPercent}
+									aria-label={averageLabel(row)}
+								/>
 							</td>
 						</tr>
 					{/each}
@@ -130,27 +123,14 @@
 			</table>
 		</div>
 
-		<ul class="matrix-legend" aria-label="Readiness matrix tiers">
-			{#each legendItems as item (item.tier)}
-				<li>
-					<span class="legend-swatch" data-tier={item.tier} aria-hidden="true"></span>
-					<span>{item.label}</span>
-				</li>
-			{/each}
-		</ul>
+		<div class="matrix-legend-wrap">
+			<ReadinessBand.Legend />
+		</div>
 	{/if}
 </section>
 
 <style>
 	.matrix-card {
-		--matrix-danger: #e8b9a8;
-		--matrix-warn: #eca382;
-		--matrix-caution: #f2c878;
-		--matrix-okay: #c5d89b;
-		--matrix-good: #9bc361;
-		--matrix-na-a: color-mix(in srgb, var(--surface-subtle) 86%, var(--surface-panel) 14%);
-		--matrix-na-b: color-mix(in srgb, var(--border-default) 62%, var(--surface-panel) 38%);
-
 		width: 100%;
 		display: flex;
 		flex-direction: column;
@@ -287,85 +267,10 @@
 		border-left: 1px solid color-mix(in srgb, var(--border-default) 82%, transparent);
 	}
 
-	.heat-cell {
-		display: inline-grid;
-		width: 3.625rem;
-		height: 1.75rem;
-		place-items: center;
-		border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
-		border-radius: 2px;
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: var(--font-weight-semibold);
-		font-variant-numeric: tabular-nums;
-		color: #24211d;
-	}
-
-	.heat-cell[data-tier='danger'],
-	.legend-swatch[data-tier='danger'] {
-		background: var(--matrix-danger);
-	}
-
-	.heat-cell[data-tier='warn'],
-	.legend-swatch[data-tier='warn'] {
-		background: var(--matrix-warn);
-	}
-
-	.heat-cell[data-tier='caution'],
-	.legend-swatch[data-tier='caution'] {
-		background: var(--matrix-caution);
-	}
-
-	.heat-cell[data-tier='okay'],
-	.legend-swatch[data-tier='okay'] {
-		background: var(--matrix-okay);
-	}
-
-	.heat-cell[data-tier='good'],
-	.legend-swatch[data-tier='good'] {
-		background: var(--matrix-good);
-	}
-
-	.heat-cell[data-tier='not-applicable'],
-	.legend-swatch[data-tier='not-applicable'] {
-		background: repeating-linear-gradient(
-			45deg,
-			var(--matrix-na-a),
-			var(--matrix-na-a) 3px,
-			var(--matrix-na-b) 3px,
-			var(--matrix-na-b) 6px
-		);
-		color: var(--text-secondary);
-	}
-
-	.matrix-legend {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2) var(--sp-4);
+	.matrix-legend-wrap {
 		margin: -2px 0 0;
 		padding: var(--sp-3) 0 0;
 		border-top: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
-		list-style: none;
-	}
-
-	.matrix-legend li {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.legend-swatch {
-		display: block;
-		width: 0.625rem;
-		height: 0.625rem;
-		border: 0.5px solid color-mix(in srgb, var(--text-primary) 36%, transparent);
-		border-radius: 1px;
 	}
 
 	.empty-state {
@@ -398,10 +303,6 @@
 
 		.matrix-card h2 {
 			font-size: 1.125rem;
-		}
-
-		.matrix-legend li {
-			font-size: 0.5625rem;
 		}
 	}
 </style>

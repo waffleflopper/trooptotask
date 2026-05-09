@@ -243,6 +243,39 @@ Migration notes:
 
 ---
 
+## `ui/readiness-band`
+
+`ui/readiness-band` is the shared shadcn-svelte-style visual contract for Critical Tasks report readiness tiers. It preserves the current report semantics and band colors while moving heat-cell and legend styling out of production route files.
+
+```svelte
+<script lang="ts">
+	import * as ReadinessBand from '$lib/components/ui/readiness-band';
+</script>
+
+<ReadinessBand.Cell tier="okay" percent={84} aria-label="11B weapons readiness: 84%, 21 of 25 current" />
+<ReadinessBand.Legend />
+```
+
+Public components:
+
+- `Cell`: compact report heat-cell. Props: `tier`, `percent?`, `label?`, `children?`, plus normal `span` attributes.
+- `Legend`: readiness tier legend. Props: `items?`, `ariaLabel?`, plus normal `ul` attributes.
+- `Swatch`: visual swatch used by `Legend`. Props: `tier`, plus normal `span` attributes.
+
+Public helpers:
+
+- `readinessBandLegendItems`
+- `readinessBandTierForPercent(percent)`
+- `formatReadinessBandPercent(percent)`
+
+Rules:
+
+- Keep the thresholds centralized: `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+`, and not applicable.
+- Routes may pass data, labels, and accessible names. They must not restyle readiness colors, hatching, radius, typography, or density locally.
+- `ui/operational-matrix` may host these cells during a future matrix migration, but readiness-tier meaning stays in `ui/readiness-band`, not in the matrix primitive.
+
+---
+
 ## `ui/operational-matrix`
 
 `ui/operational-matrix` is a headless-first compound table primitive for dense row-by-column operational workflows. It follows `docs/plans/2026-05-08-headless-operational-matrix-spec.md`.

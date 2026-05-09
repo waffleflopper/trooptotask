@@ -149,7 +149,7 @@ These wrappers should be designed in shared UI before production route migration
 | `FormField` / `FormSection` | `field`, `label`, `input`, `select`, `textarea`, `checkbox`, `radio-group`, `switch` | settings, training/personnel modals, duty roster wizard, admin modals, auth pages | Should bridge current simple bindable fields and future Formsnap usage. |
 | `SearchSelect` / `ComboboxField` | `combobox`, `command`, `popover`, `input` | personnel rank/group, duty roster replacement, rating scheme, onboarding start/switch templates | Must handle large lists, compact mode, clearable mode, and keyboard navigation. |
 | `MultiSelectField` | `combobox`, `command`, `badge`, `popover` | duty roster filters, training reports, Critical Tasks reports, MOS/rank/role filters | Replaces `MultiTagSelect`; must support active count, removable tags, and toolbar compact mode. |
-| `StatusBadge` / `MetaBadge` | `badge` | training statuses, onboarding step types, duty roster review states, member roles, subscription state | Create semantic variants before routes migrate. Do not pass arbitrary colors from routes unless representing domain data. |
+| `StatusBadge` / `MetaBadge` / `ReadinessBand` | `badge` | training statuses, onboarding step types, duty roster review states, member roles, subscription state, Critical Tasks report readiness tiers | Create semantic variants before routes migrate. Do not pass arbitrary colors from routes unless representing domain data. Readiness report heat-cell colors and hatching belong in `ui/readiness-band`. |
 | `NoticeBanner` / `InlineAlert` | `alert`, `button` | onboarding sync/configuration, settings warnings, calendar load errors, duty roster manual review warnings, admin callouts | Replaces route-local notice, error, warning, and context boxes. |
 | `ConfirmDialog` | `alert-dialog`, `spinner`, `button` | all destructive and warning confirms | Keep async confirm behavior and danger/warning variants. |
 | `AppDialog` / `Modal` | `dialog`, `button`, `separator`, `scroll-area` | all modal workflows | Current Modal API may remain as compatibility wrapper while internals move to shadcn dialog. |
@@ -157,7 +157,7 @@ These wrappers should be designed in shared UI before production route migration
 | `AccessEditor` | `select`, `radio-group`, `checkbox`, `field`, `alert` | settings members, invitations, admin/member flows | The capability/scope editor is too complex for route-local markup during migration. |
 | `RouteTabs` | `tabs`, `toolbar nav`, `badge` | onboarding, duty roster, settings, admin, dashboard, calendar reports | `SubNav` has been removed. Decide one route-level navigation treatment for dense workspaces before recreating this pattern. |
 | `Wizard` / `StepIndicator` | `button`, `progress`, `separator`, maybe `tabs` | duty roster new template, onboarding setup, import flows | Existing `Stepper` is onboarding-stage-specific. Duty roster wizard needs a shared stepper/wizard pattern. |
-| `OperationalMatrix` | `table`, `scroll-area`, `tooltip`, `badge`, `popover` | Critical Tasks matrix, training matrix, DA6 matrix, calendar long range | These are not generic DataTables. They need shared grid/matrix rules for sticky axes, cell status, legends, and mobile overflow. |
+| `OperationalMatrix` | `table`, `scroll-area`, `tooltip`, `badge`, `popover` | Critical Tasks matrix, training matrix, DA6 matrix, calendar long range | These are not generic DataTables. They need shared grid/matrix rules for sticky axes, cell status, legends, and mobile overflow. Readiness-tier cells should compose `ui/readiness-band` instead of embedding report-local colors. |
 | `ReportSection` / `ChartSection` | `chart`, `table`, `tabs`, `toolbar`, `empty`, `skeleton` | Critical Tasks reports, calendar reports, dashboard reports | Current reports mix config panels, charts, native tables, and export actions. |
 | `DateRangeControls` | `date-picker`, `native input`, `button group` | calendar reports, duty roster generate, export filters | Must decide native date fields versus date picker before report migration. |
 | `AdminSearch` | `combobox`, `command`, `popover`, `badge` | platform admin search | Current admin search is local and dropdown-like. Good candidate for Command-backed wrapper later. |
@@ -230,6 +230,7 @@ Wrappers to resolve first:
 Gaps:
 
 - Matrix cells and legends are highly custom. Treat them as project-specific, not generic shadcn DataTable.
+- Critical Tasks report readiness bands are centralized in `ui/readiness-band`; future matrix migration should compose that component inside `OperationalMatrix.Cell`.
 - Bulk import has repeated step/workspace UI that should become shared before migration.
 - Reports need consistent chart/table shells and export toolbar behavior.
 

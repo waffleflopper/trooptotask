@@ -152,7 +152,7 @@ Initial expected component families:
 | Data display | table, data table, badge, avatar/avatar menu, item/detail rows, description/list rows, date cell, calendar/range calendar, chart shell |
 | Toolbars | toolbar shell, toolbar actions, toolbar filters, toolbar search, toolbar view toggle, toolbar nav/meta/metric items |
 | File and import workflows | file upload, import preview table, bulk import table |
-| Charts and reports | chart shell, report section, chart tooltip/legend conventions |
+| Charts and reports | chart shell, report section, chart tooltip/legend conventions, readiness-band heat cells |
 
 Known shadcn-svelte components that should be considered during inventory include accordion, alert dialog, alert, aspect ratio, avatar, badge, breadcrumb, button group, button, calendar, card, carousel, chart, checkbox, collapsible, combobox, command, context menu, data table, date picker, dialog, drawer, dropdown menu, empty, field, formsnap, hover card, input group, input OTP, input, item, kbd, label, menubar, native select, navigation menu, pagination, popover, progress, radio group, range calendar, resizable, scroll area, select, separator, sheet, sidebar, skeleton, slider, sonner, spinner, switch, table, tabs, textarea, toggle group, toggle, tooltip, and typography.
 

@@ -27,6 +27,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import * as ReadinessBand from '$lib/components/ui/readiness-band/index.js';
 	import {
 		CriticalTaskStatusBadge,
 		TrainingStatusBadge,
@@ -144,9 +145,10 @@
 			id: 'legends',
 			group: 'Status',
 			current: 'Training and Critical Tasks legend strips',
-			target: 'Requirement status badge wrappers',
+			target: 'Requirement status badge wrappers plus ui/readiness-band',
 			status: 'compose',
-			notes: 'Use TrainingStatusBadge and CriticalTaskStatusBadge wrappers over shared requirement status visuals.'
+			notes:
+				'Use TrainingStatusBadge and CriticalTaskStatusBadge for requirement status keys. Use ui/readiness-band for report readiness tiers.'
 		},
 		{
 			id: 'skeletons',
@@ -757,6 +759,25 @@
 								>
 								owns saved status colors instead of the base Badge API.
 							</p>
+							<div class="readiness-band-board" aria-label="Readiness band target mapping">
+								<div class="requirement-status-board__header">
+									<strong>Readiness bands</strong>
+									<span>Shared report heat-cell tiers</span>
+								</div>
+								<div class="readiness-band-cells" aria-label="Readiness band cell examples">
+									<ReadinessBand.Cell tier="danger" percent={48} aria-label="Example danger readiness" />
+									<ReadinessBand.Cell tier="warn" percent={64} aria-label="Example warning readiness" />
+									<ReadinessBand.Cell tier="caution" percent={76} aria-label="Example caution readiness" />
+									<ReadinessBand.Cell tier="okay" percent={84} aria-label="Example okay readiness" />
+									<ReadinessBand.Cell tier="good" percent={96} aria-label="Example good readiness" />
+									<ReadinessBand.Cell
+										tier="not-applicable"
+										percent={null}
+										aria-label="Example not applicable readiness"
+									/>
+								</div>
+								<ReadinessBand.Legend />
+							</div>
 						</div>
 					</div>
 				</div>
@@ -1647,6 +1668,20 @@
 	}
 
 	.requirement-status-badges {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.readiness-band-board {
+		display: grid;
+		gap: 10px;
+		border-top: 1px solid var(--border);
+		padding-top: 12px;
+	}
+
+	.readiness-band-cells {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;

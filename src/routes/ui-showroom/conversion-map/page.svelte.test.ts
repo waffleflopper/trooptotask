@@ -19,6 +19,7 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(screen.getAllByText('ui/type-manager').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText('ui/operational-matrix plus requirement status badges')).toBeTruthy();
 		expect(screen.getByText('ui/report-workspace plus ui/operational-matrix')).toBeTruthy();
+		expect(screen.getByText('ui/report-chart line and bar components')).toBeTruthy();
 		expect(screen.getByText('ui/workflow-panel plus ui/alert')).toBeTruthy();
 		expect(screen.getByText('ui/popover')).toBeTruthy();
 		expect(screen.getByText('ui/select')).toBeTruthy();
@@ -52,11 +53,20 @@ describe('/ui-showroom/conversion-map', () => {
 			within(unmatched as HTMLElement).getByRole('heading', { name: 'Training matrix and report surfaces' })
 		).toBeTruthy();
 		expect(
+			within(unmatched as HTMLElement).getByRole('heading', { name: 'Critical Tasks report charts' })
+		).toBeTruthy();
+		expect(
 			within(unmatched as HTMLElement).getByRole('heading', { name: 'Onboarding and workflow panels' })
 		).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Requirement status badge target mapping')).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Readiness band target mapping')).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Training matrix target mapping')).toBeTruthy();
+		expect(within(unmatched as HTMLElement).getByLabelText('Current Critical Tasks report chart mapping')).toBeTruthy();
+		expect(within(unmatched as HTMLElement).getByLabelText('Showroom Critical Tasks readiness trend')).toBeTruthy();
+		expect(within(unmatched as HTMLElement).getByLabelText('Showroom Critical Tasks expiration cliff')).toBeTruthy();
+		expect(
+			within(unmatched as HTMLElement).getByLabelText('Showroom Critical Tasks readiness distribution')
+		).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByLabelText('Workflow panel target mapping')).toBeTruthy();
 		expect(container.querySelectorAll('.requirement-status-board').length).toBe(1);
 		expect(container.querySelectorAll('[data-slot="readiness-band-cell"]').length).toBeGreaterThanOrEqual(6);

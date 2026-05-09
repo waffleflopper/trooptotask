@@ -14,6 +14,7 @@
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
 	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix/index.js';
+	import { ReportBarChart, ReportLineChart } from '$lib/components/ui/report-chart/index.js';
 	import * as StepperPrimitive from '$lib/components/ui/stepper/index.js';
 	import type { StepperStep } from '$lib/components/ui/stepper/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -250,6 +251,15 @@
 			status: 'compose',
 			notes:
 				'Report shells, filters, export surfaces, matrix overflow, and empty/loading/error states should map to shared report workspace and matrix primitives.'
+		},
+		{
+			id: 'report-charts',
+			group: 'Data display',
+			current: 'Critical Tasks LayerChart report charts',
+			target: 'ui/report-chart line and bar components',
+			status: 'compose',
+			notes:
+				'Current reports need shadcn chart container plus LayerChart line, stacked bar, and grouped/overlap bar compositions. No area chart need is present yet.'
 		},
 		{
 			id: 'workflow-panels',
@@ -510,6 +520,24 @@
 		casey: { weapons: 'expired', medical: 'current', driver: 'not-required' },
 		avery: { weapons: 'not-completed', medical: 'warning-orange', driver: 'exempt' }
 	};
+
+	const reportChartRows = [
+		{ label: 'Jan', unit: 91, infantry: 88, maintenance: 82, expiring: 4, medical: 2 },
+		{ label: 'Feb', unit: 89, infantry: 85, maintenance: 80, expiring: 7, medical: 3 },
+		{ label: 'Mar', unit: 86, infantry: 82, maintenance: 78, expiring: 10, medical: 4 },
+		{ label: 'Apr', unit: 84, infantry: 80, maintenance: 75, expiring: 12, medical: 5 }
+	];
+
+	const reportLineSeries = [
+		{ key: 'unit', label: 'Unit', color: 'var(--chart-1)', strokeWidth: 2.5 },
+		{ key: 'infantry', label: '11B', color: 'var(--chart-2)' },
+		{ key: 'maintenance', label: '91B', color: 'var(--chart-3)' }
+	];
+
+	const reportBarSeries = [
+		{ key: 'expiring', label: 'Weapons', color: 'var(--chart-4)' },
+		{ key: 'medical', label: 'Medical', color: 'var(--chart-5)' }
+	];
 
 	function matrixPreviewStatus(rowId: string, columnId: string): TrainingRequirementStatus {
 		return matrixPreviewStatuses[rowId]?.[columnId] ?? 'not-completed';
@@ -926,6 +954,73 @@
 									</OperationalMatrix.Table>
 								</OperationalMatrix.Viewport>
 							</OperationalMatrix.Root>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="unmatched-card unmatched-card--full">
+				<div class="unmatched-card__header">
+					<span class="map-group">Data display</span>
+					<h3>Critical Tasks report charts</h3>
+				</div>
+				<div class="unmatched-pair unmatched-pair--wide-target">
+					<div class="pattern-preview">
+						<p class="legend-label">Current route-local chart decisions</p>
+						<div class="legacy-chart-preview" aria-label="Current Critical Tasks report chart mapping">
+							<div>
+								<strong>Readiness Trend</strong>
+								<span>Multi-series LayerChart line chart with report-local axis, legend, and tooltip styling.</span>
+							</div>
+							<div>
+								<strong>Expiration Cliff</strong>
+								<span>Stacked LayerChart bar chart by month and MOS.</span>
+							</div>
+							<div>
+								<strong>Readiness Distribution</strong>
+								<span>Grouped or overlapped LayerChart bar chart by readiness band and selected MOS.</span>
+							</div>
+							<p>Area charts are not represented in current report usage.</p>
+						</div>
+					</div>
+					<div class="pattern-preview">
+						<p class="legend-label">ui/report-chart target</p>
+						<div class="report-chart-target-grid">
+							<div>
+								<h4>Line chart</h4>
+								<ReportLineChart
+									data={reportChartRows}
+									series={reportLineSeries}
+									ariaLabel="Showroom Critical Tasks readiness trend"
+									yDomain={[70, 100]}
+									yTicks={[70, 80, 90, 100]}
+									heightClass="min-h-[180px]"
+								/>
+							</div>
+							<div>
+								<h4>Stacked bar chart</h4>
+								<ReportBarChart
+									data={reportChartRows}
+									series={reportBarSeries}
+									ariaLabel="Showroom Critical Tasks expiration cliff"
+									layout="stack"
+									yDomain={[0, 18]}
+									yTicks={[0, 6, 12, 18]}
+									heightClass="min-h-[180px]"
+								/>
+							</div>
+							<div>
+								<h4>Grouped or overlap bar chart</h4>
+								<ReportBarChart
+									data={reportChartRows}
+									series={reportBarSeries}
+									ariaLabel="Showroom Critical Tasks readiness distribution"
+									layout="overlap"
+									yDomain={[0, 18]}
+									yTicks={[0, 6, 12, 18]}
+									heightClass="min-h-[180px]"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -1930,6 +2025,8 @@
 
 	.legacy-matrix-preview,
 	.matrix-target-board,
+	.legacy-chart-preview,
+	.report-chart-target-grid,
 	.legacy-workflow-preview,
 	.workflow-target-board {
 		display: grid;
@@ -1937,11 +2034,51 @@
 	}
 
 	.legacy-matrix-preview,
+	.legacy-chart-preview,
 	.legacy-workflow-preview {
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		background: var(--surface-subtle);
 		padding: 14px;
+	}
+
+	.legacy-chart-preview > div {
+		display: grid;
+		gap: 4px;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-default);
+		padding: 12px;
+	}
+
+	.legacy-chart-preview strong,
+	.report-chart-target-grid h4 {
+		margin: 0;
+		color: var(--text-primary);
+		font-size: 0.9rem;
+	}
+
+	.legacy-chart-preview span,
+	.legacy-chart-preview p {
+		margin: 0;
+		color: var(--text-secondary);
+		font-size: 0.84rem;
+	}
+
+	.report-chart-target-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.report-chart-target-grid > div {
+		min-width: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
+		background: var(--card);
+		padding: 14px;
+	}
+
+	.report-chart-target-grid h4 {
+		margin-bottom: 8px;
 	}
 
 	.legacy-matrix-preview p {
@@ -2121,6 +2258,7 @@
 		.conversion-map__summary,
 		.unmatched-grid,
 		.unmatched-pair,
+		.report-chart-target-grid,
 		.comparison-row {
 			grid-template-columns: 1fr;
 		}

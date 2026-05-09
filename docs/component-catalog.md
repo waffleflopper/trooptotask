@@ -243,6 +243,34 @@ Migration notes:
 
 ---
 
+## `ui/report-chart`
+
+`ui/report-chart` is the shared shadcn-svelte chart target for operational reports. It composes the generated `ui/chart` container with LayerChart simplified charts so production report routes do not each own axis, grid, legend, and series setup.
+
+Current chart inventory:
+
+- Critical Tasks readiness trend maps to `ReportLineChart` with multiple series.
+- Critical Tasks expiration cliff maps to `ReportBarChart layout="stack"`.
+- Critical Tasks readiness distribution maps to `ReportBarChart layout="group"` or `layout="overlap"`.
+- No current report usage requires a shadcn area chart. Add an area wrapper only when a real route needs cumulative or filled-trend semantics.
+
+Public components:
+
+- `ReportLineChart`: multi-series line chart. Props: `data`, `series`, `ariaLabel`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
+- `ReportBarChart`: multi-series bar chart. Props: `data`, `series`, `ariaLabel`, `layout?: 'group' | 'stack' | 'overlap'`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
+
+Routes configure:
+
+- Data rows, series keys, labels, chart colors, domains, tick values, and surrounding report copy.
+
+Shared components own:
+
+- shadcn chart container usage, LayerChart simplified chart composition, axis baseline, grid styling, legend structure, and responsive chart frame.
+
+`/ui-showroom/conversion-map` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
+
+---
+
 ## `ui/readiness-band`
 
 `ui/readiness-band` is the shared shadcn-svelte-style visual contract for Critical Tasks report readiness tiers. It preserves the current report semantics and band colors while moving heat-cell and legend styling out of production route files.

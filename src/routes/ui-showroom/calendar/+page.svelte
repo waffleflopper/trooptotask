@@ -1,13 +1,19 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import BellIcon from '@lucide/svelte/icons/bell';
 	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import { SvelteMap } from 'svelte/reactivity';
+	import OrgNavIcon from '$lib/components/OrgNavIcon.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import { Separator } from '$lib/components/ui/separator';
+	import * as Sidebar from '$lib/components/ui/sidebar';
 	import type {
 		OperationalMatrixCellSelection,
 		OperationalMatrixColumn,
@@ -17,6 +23,14 @@
 
 	type CalendarStatus = 'leave' | 'school' | 'field' | 'tdy' | 'appointment' | 'sick' | 'cqsd' | 'sick-call';
 	type ViewMode = 'month' | 'long-range';
+	type ShellNavIcon =
+		| 'dashboard'
+		| 'calendar'
+		| 'personnel'
+		| 'rating-scheme'
+		| 'training'
+		| 'critical-tasks'
+		| 'onboarding';
 
 	interface PersonnelRow extends OperationalMatrixRow {
 		rank: string;
@@ -128,6 +142,16 @@
 			denseLabel: 'Sick call'
 		}
 	};
+
+	const shellNavItems: Array<{ id: string; label: string; icon: ShellNavIcon; active?: boolean }> = [
+		{ id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+		{ id: 'calendar', label: 'Calendar', icon: 'calendar', active: true },
+		{ id: 'personnel', label: 'Personnel', icon: 'personnel' },
+		{ id: 'evals', label: 'Evals', icon: 'rating-scheme' },
+		{ id: 'training', label: 'Training', icon: 'training' },
+		{ id: 'critical-tasks', label: 'Critical Tasks', icon: 'critical-tasks' },
+		{ id: 'onboarding', label: 'Onboarding', icon: 'onboarding' }
+	];
 
 	const personnelRows: PersonnelRow[] = [
 		row('caleb', '1LT', 'Caleb', 'Dawson', '1st Platoon'),
@@ -409,220 +433,305 @@
 	<title>Calendar Matrix Showroom</title>
 </svelte:head>
 
-<div
-	class="calendar-page min-h-dvh bg-[#f8f7f4] p-3 text-[#161513] sm:p-4"
-	data-view-mode={viewMode}
-	style="--calendar-day-width: {viewMode === 'long-range' ? '34px' : '52px'}; --calendar-row-height: {viewMode ===
-	'long-range'
-		? '32px'
-		: '50px'}; --calendar-personnel-width: {viewMode === 'long-range'
-		? '352px'
-		: '352px'}; --calendar-column-count: {columns.length};"
->
-	<section class="calendar-shell overflow-hidden rounded-md border border-[#deddd8] bg-[#fbfaf7]">
-		<div class="calendar-toolbar flex items-center gap-4 border-b border-[#deddd8] bg-[#fbfaf7] px-7 py-6">
-			<Button variant="outline" class="h-10 gap-1.5 rounded px-4 text-lg" onclick={() => moveMonth(-1)}>
-				<ChevronLeftIcon aria-hidden="true" class="size-4" />
-				{viewMode === 'long-range' ? 'Prev 3 Months' : 'Prev'}
-			</Button>
+<Sidebar.Provider class="h-svh min-h-0 bg-background font-sans">
+	<Sidebar.Root collapsible="icon">
+		<Sidebar.Header>
+			<Sidebar.Menu>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton size="lg" tooltipContent="1-23 Infantry">
+						<span
+							class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground"
+						>
+							1-23
+						</span>
+						<span class="grid flex-1 text-left text-sm leading-tight">
+							<span class="truncate font-medium">1-23 Infantry</span>
+							<span class="truncate text-xs">Admin</span>
+						</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
+			</Sidebar.Menu>
+		</Sidebar.Header>
 
-			<h1 class="min-w-0 shrink-0 px-4 font-serif text-4xl leading-none font-bold tracking-normal text-[#151412]">
-				{title}
-			</h1>
+		<Sidebar.Content>
+			<Sidebar.Group>
+				<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
+				<Sidebar.GroupContent>
+					<Sidebar.Menu>
+						{#each shellNavItems as item (item.id)}
+							<Sidebar.MenuItem>
+								<Sidebar.MenuButton isActive={item.active} tooltipContent={item.label}>
+									{#snippet child({ props })}
+										<a {...props} href={resolve('/ui-showroom/calendar')}>
+											<OrgNavIcon icon={item.icon} />
+											<span>{item.label}</span>
+										</a>
+									{/snippet}
+								</Sidebar.MenuButton>
+							</Sidebar.MenuItem>
+						{/each}
+					</Sidebar.Menu>
+				</Sidebar.GroupContent>
+			</Sidebar.Group>
+		</Sidebar.Content>
 
-			<Button variant="outline" class="h-10 gap-1.5 rounded px-4 text-lg" onclick={() => moveMonth(1)}>
-				{viewMode === 'long-range' ? 'Next 3 Months' : 'Next'}
-				<ChevronRightIcon aria-hidden="true" class="size-4" />
-			</Button>
+		<Sidebar.Footer>
+			<Sidebar.Menu>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton size="lg" tooltipContent="CPT Avery Brooks">
+						<span
+							class="flex aspect-square size-8 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+						>
+							AB
+						</span>
+						<span class="grid flex-1 text-left text-sm leading-tight">
+							<span class="truncate font-medium">CPT Avery Brooks</span>
+							<span class="truncate text-xs">avery.brooks@example.mil</span>
+						</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
+			</Sidebar.Menu>
+		</Sidebar.Footer>
+		<Sidebar.Rail />
+	</Sidebar.Root>
 
-			<div class="ml-auto flex items-center gap-3">
-				<Button variant="outline" class="h-10 rounded px-4 text-lg" onclick={toggleViewMode}>
-					<CalendarIcon aria-hidden="true" class="size-4" />
-					{viewMode === 'long-range' ? 'Month' : '3-Month'}
-				</Button>
-				<Button class="h-10 rounded bg-[#11100f] px-4 text-lg text-[#fbfaf7] hover:bg-[#292723]" onclick={goToday}>
-					Today
+	<Sidebar.Inset>
+		<header class="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+			<Sidebar.Trigger />
+			<Separator orientation="vertical" class="h-4" />
+			<div class="grid min-w-0 flex-1 leading-tight">
+				<span class="truncate text-sm font-medium">1-23 Infantry</span>
+				<span class="hidden truncate text-xs text-muted-foreground sm:block">Calendar matrix showroom</span>
+			</div>
+			<div class="ml-auto">
+				<Button variant="outline" size="icon" class="size-8" aria-label="Notifications">
+					<BellIcon aria-hidden="true" class="size-4" />
 				</Button>
 			</div>
-		</div>
-
-		<OperationalMatrix.Root
-			rows={personnelRows}
-			{columns}
-			{rowGroups}
-			{selectedCell}
-			onCellSelect={handleCellSelect}
-			class="calendar-matrix-root"
-		>
-			<OperationalMatrix.Viewport
-				ariaLabel="Scrollable operational calendar matrix"
-				class="calendar-viewport max-h-[calc(100dvh-8.5rem)] overflow-auto"
-			>
-				<OperationalMatrix.Table ariaLabel="Operational calendar matrix" class="calendar-matrix-table table-fixed">
-					<colgroup>
-						<col style="width: var(--calendar-personnel-width);" />
-						{#each columns as column (column.id)}
-							<col style="width: var(--calendar-day-width);" />
-						{/each}
-					</colgroup>
-					<OperationalMatrix.Header>
-						{#if viewMode === 'long-range'}
-							<OperationalMatrix.HeaderRow>
-								<OperationalMatrix.CornerCell class="calendar-corner calendar-corner-month">
-									Personnel
-								</OperationalMatrix.CornerCell>
-								{#each monthGroups() as group (group.key)}
-									<OperationalMatrix.ColumnGroup
-										columnSpan={group.span}
-										label={group.label}
-										class="calendar-month-band"
-									>
-										{group.label.toUpperCase()}
-									</OperationalMatrix.ColumnGroup>
-								{/each}
-							</OperationalMatrix.HeaderRow>
-						{/if}
-
-						<OperationalMatrix.HeaderRow>
-							{#if viewMode === 'month'}
-								<OperationalMatrix.CornerCell class="calendar-corner">Personnel</OperationalMatrix.CornerCell>
-							{:else}
-								<OperationalMatrix.CornerCell class="calendar-corner calendar-corner-days"
-								></OperationalMatrix.CornerCell>
-							{/if}
-
-							{#each columns as column (column.id)}
-								<OperationalMatrix.ColumnHeader
-									{column}
-									class={[
-										'calendar-date-header',
-										column.isToday && 'is-today',
-										column.isWeekend && 'is-weekend',
-										column.isHoliday && 'is-holiday'
-									]}
-								>
-									<Button
-										type="button"
-										variant="ghost"
-										class="date-header-button"
-										aria-label="Open duties for {column.monthLabel} {column.day}"
-										onclick={() => openDateDialog(column)}
-									>
-										{#if viewMode === 'month'}
-											<span class="date-weekday">{column.dayName}</span>
-										{/if}
-										<span class="date-number">{column.day}</span>
-									</Button>
-								</OperationalMatrix.ColumnHeader>
-							{/each}
-						</OperationalMatrix.HeaderRow>
-					</OperationalMatrix.Header>
-
-					<OperationalMatrix.Body>
-						{#each displayRows as displayRow (displayRow.type === 'group' ? displayRow.group.id : displayRow.row.id)}
-							{#if displayRow.type === 'group'}
-								<OperationalMatrix.RowGroup
-									group={displayRow.group}
-									columnSpan={columns.length + 1}
-									class="calendar-group-row"
-								>
-									<span class="group-toggle" aria-hidden="true">▼</span>
-									<span>{displayRow.group.label}</span>
-									<span class="group-pin">PIN</span>
-								</OperationalMatrix.RowGroup>
-							{:else}
-								<OperationalMatrix.Row row={displayRow.row} class="calendar-person-row">
-									<OperationalMatrix.RowHeader row={displayRow.row} sticky class="calendar-person-header">
-										<span class="person-rank">{displayRow.row.rank}</span>
-										<span class="person-name">
-											{viewMode === 'long-range'
-												? displayRow.row.lastName
-												: `${displayRow.row.lastName}, ${displayRow.row.firstName}`}
-										</span>
-										{#if displayRow.row.badge && viewMode === 'month'}
-											<span class="person-badge">{displayRow.row.badge}</span>
-										{/if}
-									</OperationalMatrix.RowHeader>
-									{#each columns as column (column.id)}
-										{@const status = getStatus(displayRow.row.id, column.id)}
-										{@const dutyMarker = getDutyMarker(displayRow.row.id, column.id)}
-										<OperationalMatrix.Cell
-											row={displayRow.row}
-											{column}
-											ariaLabel="{displayRow.row.label}, {column.monthLabel} {column.day}"
-											class={[
-												'calendar-status-cell',
-												column.isToday && 'is-today',
-												column.isWeekend && 'is-weekend',
-												column.isHoliday && 'is-holiday',
-												status && 'has-status',
-												dutyMarker && 'has-duty-marker'
-											]}
-										>
-											{#if status}
-												{@const config = statusLegend[status.status]}
-												<span
-													class="status-fill"
-													style="background-color: {config.color}; color: {config.textColor};"
-													title="{config.label}{status.note ? `: ${status.note}` : ''}"
-												>
-													{#if viewMode === 'month'}
-														{config.short}
-													{/if}
-												</span>
-											{:else}
-												<span class="empty-fill"></span>
-											{/if}
-
-											{#if dutyMarker}
-												{@const dutyConfig = statusLegend[dutyMarker.status]}
-												<span
-													class="duty-marker"
-													style="background-color: {dutyConfig.color}; color: {dutyConfig.textColor};"
-												>
-													{dutyMarker.dutyLabel ?? dutyConfig.short}
-												</span>
-											{/if}
-										</OperationalMatrix.Cell>
-									{/each}
-								</OperationalMatrix.Row>
-							{/if}
-						{/each}
-					</OperationalMatrix.Body>
-				</OperationalMatrix.Table>
-			</OperationalMatrix.Viewport>
-		</OperationalMatrix.Root>
+		</header>
 
 		<div
-			class="calendar-footer flex flex-wrap items-center justify-between gap-3 border-t border-[#deddd8] bg-[#fbfaf7] px-6 py-3"
+			class="calendar-page flex min-h-0 flex-1 flex-col overflow-hidden bg-background p-3 text-foreground"
+			data-view-mode={viewMode}
+			style="--calendar-day-width: {viewMode === 'long-range' ? '18px' : '28px'}; --calendar-row-height: {viewMode ===
+			'long-range'
+				? '24px'
+				: '32px'}; --calendar-personnel-width: {viewMode === 'long-range'
+				? '190px'
+				: '210px'}; --calendar-column-count: {columns.length};"
 		>
-			<div class="legend flex flex-wrap items-center gap-2">
-				{#if viewMode === 'long-range'}
-					<span class="legend-title">Status:</span>
-				{/if}
-				{#each Object.entries(statusLegend).filter(([key]) => key !== 'cqsd') as [key, config] (key)}
-					<span class={viewMode === 'long-range' ? 'legend-chip' : 'legend-pill'}>
-						<span class="legend-swatch" style="background-color: {config.color};"></span>
-						<span>{config.label}</span>
-					</span>
-				{/each}
-			</div>
+			<section
+				class="calendar-shell flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card"
+			>
+				<div class="calendar-toolbar flex shrink-0 items-center gap-3 border-b border-border bg-card px-5 py-3">
+					<Button variant="outline" size="sm" class="h-9 gap-1.5 rounded px-3" onclick={() => moveMonth(-1)}>
+						<ChevronLeftIcon aria-hidden="true" class="size-4" />
+						{viewMode === 'long-range' ? 'Prev 3 Months' : 'Prev'}
+					</Button>
 
-			{#if viewMode === 'long-range'}
-				<div class="flex items-center gap-2">
-					<Button variant="outline" size="sm" class="h-10 rounded px-4 text-base">
-						<FileSpreadsheetIcon aria-hidden="true" class="size-4" />
-						Excel
+					<h1 class="min-w-0 shrink-0 px-3 font-serif text-3xl leading-none font-bold tracking-normal text-foreground">
+						{title}
+					</h1>
+
+					<Button variant="outline" size="sm" class="h-9 gap-1.5 rounded px-3" onclick={() => moveMonth(1)}>
+						{viewMode === 'long-range' ? 'Next 3 Months' : 'Next'}
+						<ChevronRightIcon aria-hidden="true" class="size-4" />
 					</Button>
-					<Button variant="outline" size="sm" class="h-10 rounded px-4 text-base">
-						<PrinterIcon aria-hidden="true" class="size-4" />
-						PDF
-					</Button>
+
+					<div class="ml-auto flex items-center gap-2">
+						<Button variant="outline" size="sm" class="h-9 rounded px-3" onclick={toggleViewMode}>
+							<CalendarIcon aria-hidden="true" class="size-4" />
+							{viewMode === 'long-range' ? 'Month' : '3-Month'}
+						</Button>
+						<Button size="sm" class="h-9 rounded px-3" onclick={goToday}>Today</Button>
+					</div>
 				</div>
-			{/if}
+
+				<OperationalMatrix.Root
+					rows={personnelRows}
+					{columns}
+					{rowGroups}
+					{selectedCell}
+					onCellSelect={handleCellSelect}
+					class="calendar-matrix-root flex min-h-0 flex-1 flex-col"
+				>
+					<OperationalMatrix.Viewport
+						ariaLabel="Scrollable operational calendar matrix"
+						class="calendar-viewport min-h-0 flex-1 overflow-auto"
+					>
+						<OperationalMatrix.Table ariaLabel="Operational calendar matrix" class="calendar-matrix-table table-fixed">
+							<colgroup>
+								<col style="width: var(--calendar-personnel-width);" />
+								{#each columns as column (column.id)}
+									<col style="width: var(--calendar-day-width);" />
+								{/each}
+							</colgroup>
+							<OperationalMatrix.Header>
+								{#if viewMode === 'long-range'}
+									<OperationalMatrix.HeaderRow>
+										<OperationalMatrix.CornerCell class="calendar-corner calendar-corner-month">
+											Personnel
+										</OperationalMatrix.CornerCell>
+										{#each monthGroups() as group (group.key)}
+											<OperationalMatrix.ColumnGroup
+												columnSpan={group.span}
+												label={group.label}
+												class="calendar-month-band"
+											>
+												{group.label.toUpperCase()}
+											</OperationalMatrix.ColumnGroup>
+										{/each}
+									</OperationalMatrix.HeaderRow>
+								{/if}
+
+								<OperationalMatrix.HeaderRow>
+									{#if viewMode === 'month'}
+										<OperationalMatrix.CornerCell class="calendar-corner">Personnel</OperationalMatrix.CornerCell>
+									{:else}
+										<OperationalMatrix.CornerCell class="calendar-corner calendar-corner-days"
+										></OperationalMatrix.CornerCell>
+									{/if}
+
+									{#each columns as column (column.id)}
+										<OperationalMatrix.ColumnHeader
+											{column}
+											class={[
+												'calendar-date-header',
+												column.isToday && 'is-today',
+												column.isWeekend && 'is-weekend',
+												column.isHoliday && 'is-holiday'
+											]}
+										>
+											<Button
+												type="button"
+												variant="ghost"
+												class="date-header-button"
+												aria-label="Open duties for {column.monthLabel} {column.day}"
+												onclick={() => openDateDialog(column)}
+											>
+												{#if viewMode === 'month'}
+													<span class="date-weekday">{column.dayName}</span>
+												{/if}
+												<span class="date-number">{column.day}</span>
+											</Button>
+										</OperationalMatrix.ColumnHeader>
+									{/each}
+								</OperationalMatrix.HeaderRow>
+							</OperationalMatrix.Header>
+
+							<OperationalMatrix.Body>
+								{#each displayRows as displayRow (displayRow.type === 'group' ? displayRow.group.id : displayRow.row.id)}
+									{#if displayRow.type === 'group'}
+										<OperationalMatrix.RowGroup
+											group={displayRow.group}
+											columnSpan={columns.length + 1}
+											class="calendar-group-row"
+										>
+											<span class="group-toggle" aria-hidden="true">▼</span>
+											<span>{displayRow.group.label}</span>
+											<span class="group-pin">PIN</span>
+										</OperationalMatrix.RowGroup>
+									{:else}
+										<OperationalMatrix.Row row={displayRow.row} class="calendar-person-row">
+											<OperationalMatrix.RowHeader row={displayRow.row} sticky class="calendar-person-header">
+												<span class="person-rank">{displayRow.row.rank}</span>
+												<span class="person-name">
+													{viewMode === 'long-range'
+														? displayRow.row.lastName
+														: `${displayRow.row.lastName}, ${displayRow.row.firstName}`}
+												</span>
+												{#if displayRow.row.badge && viewMode === 'month'}
+													<span class="person-badge">{displayRow.row.badge}</span>
+												{/if}
+											</OperationalMatrix.RowHeader>
+											{#each columns as column (column.id)}
+												{@const status = getStatus(displayRow.row.id, column.id)}
+												{@const dutyMarker = getDutyMarker(displayRow.row.id, column.id)}
+												<OperationalMatrix.Cell
+													row={displayRow.row}
+													{column}
+													ariaLabel="{displayRow.row.label}, {column.monthLabel} {column.day}"
+													class={[
+														'calendar-status-cell',
+														column.isToday && 'is-today',
+														column.isWeekend && 'is-weekend',
+														column.isHoliday && 'is-holiday',
+														status && 'has-status',
+														dutyMarker && 'has-duty-marker'
+													]}
+												>
+													{#if status}
+														{@const config = statusLegend[status.status]}
+														<span
+															class="status-fill"
+															style="background-color: {config.color}; color: {config.textColor};"
+															title="{config.label}{status.note ? `: ${status.note}` : ''}"
+														>
+															{#if viewMode === 'month'}
+																{config.short}
+															{/if}
+														</span>
+													{:else}
+														<span class="empty-fill"></span>
+													{/if}
+
+													{#if dutyMarker}
+														{@const dutyConfig = statusLegend[dutyMarker.status]}
+														<span
+															class="duty-marker"
+															style="background-color: {dutyConfig.color}; color: {dutyConfig.textColor};"
+														>
+															{dutyMarker.dutyLabel ?? dutyConfig.short}
+														</span>
+													{/if}
+												</OperationalMatrix.Cell>
+											{/each}
+										</OperationalMatrix.Row>
+									{/if}
+								{/each}
+							</OperationalMatrix.Body>
+						</OperationalMatrix.Table>
+					</OperationalMatrix.Viewport>
+				</OperationalMatrix.Root>
+
+				<div
+					class="calendar-footer flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-5 py-2"
+				>
+					<div class="legend flex flex-wrap items-center gap-2">
+						{#if viewMode === 'long-range'}
+							<span class="legend-title">Status:</span>
+						{/if}
+						{#each Object.entries(statusLegend).filter(([key]) => key !== 'cqsd') as [key, config] (key)}
+							<Badge
+								statusType={{
+									id: key,
+									name: config.label,
+									color: config.color,
+									textColor: config.textColor
+								}}
+							>
+								{config.label}
+							</Badge>
+						{/each}
+					</div>
+
+					{#if viewMode === 'long-range'}
+						<div class="flex items-center gap-2">
+							<Button variant="outline" size="sm" class="h-9 rounded px-3">
+								<FileSpreadsheetIcon aria-hidden="true" class="size-4" />
+								Excel
+							</Button>
+							<Button variant="outline" size="sm" class="h-9 rounded px-3">
+								<PrinterIcon aria-hidden="true" class="size-4" />
+								PDF
+							</Button>
+						</div>
+					{/if}
+				</div>
+			</section>
 		</div>
-	</section>
-</div>
+	</Sidebar.Inset>
+</Sidebar.Provider>
 
 {#if cellDialog}
 	<AppDialog.Root open onClose={closeCellDialog}>
@@ -704,7 +813,7 @@
 
 <style>
 	.calendar-shell {
-		box-shadow: 0 1px 1px rgba(14, 14, 13, 0.03);
+		box-shadow: var(--shadow-sm);
 	}
 
 	:global(.calendar-matrix-root [data-slot='operational-matrix-table']) {
@@ -716,8 +825,8 @@
 
 	:global(.calendar-matrix-root [data-slot='operational-matrix-table'] th),
 	:global(.calendar-matrix-root [data-slot='operational-matrix-table'] td) {
-		border-right: 1px solid #e4e3df;
-		border-bottom: 1px solid #e4e3df;
+		border-right: 1px solid var(--border);
+		border-bottom: 1px solid var(--border);
 		padding: 0;
 	}
 
@@ -725,71 +834,71 @@
 		position: sticky;
 		top: 0;
 		z-index: 5;
-		background: #fbfaf7;
+		background: var(--card);
 	}
 
 	:global(.calendar-matrix-root .calendar-corner) {
 		left: 0;
 		z-index: 20;
-		height: 72px;
-		border-right: 1px solid #deddd8;
-		background: #f3f2ef;
-		padding: 0 22px;
+		height: 46px;
+		border-right: 1px solid var(--border);
+		background: var(--muted);
+		padding: 0 12px;
 		text-align: left;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 15px;
+		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.15em;
-		color: #5f5e59;
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		vertical-align: middle;
 	}
 
 	:global(.calendar-page[data-view-mode='long-range'] .calendar-matrix-root .calendar-corner-month) {
-		height: 52px;
+		height: 34px;
 	}
 
 	:global(.calendar-page[data-view-mode='long-range'] .calendar-matrix-root .calendar-corner-days) {
-		top: 52px;
-		height: 45px;
-		background: #fbfaf7;
+		top: 34px;
+		height: 30px;
+		background: var(--card);
 	}
 
 	:global(.calendar-matrix-root .calendar-month-band) {
-		height: 52px;
-		border-right: 1px solid #deddd8;
-		background: #fbfaf7;
+		height: 34px;
+		border-right: 1px solid var(--border);
+		background: var(--card);
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 16px;
+		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.12em;
-		color: #171615;
+		color: var(--foreground);
 		text-align: center;
 		vertical-align: middle;
 	}
 
 	:global(.calendar-page[data-view-mode='long-range'] .calendar-matrix-root .calendar-date-header) {
-		top: 52px;
-		height: 45px;
+		top: 34px;
+		height: 30px;
 	}
 
 	:global(.calendar-matrix-root .calendar-date-header) {
-		height: 72px;
-		background: #fbfaf7;
+		height: 46px;
+		background: var(--card);
 		vertical-align: middle;
 	}
 
 	:global(.calendar-matrix-root .calendar-date-header.is-weekend) {
-		background: #f0efec;
+		background: var(--muted);
 	}
 
 	:global(.calendar-matrix-root .calendar-date-header.is-holiday) {
-		background: #fbf4e4;
+		background: var(--warning-bg);
 	}
 
 	:global(.calendar-matrix-root .calendar-date-header.is-today) {
-		background: #e9e8e5;
-		box-shadow: inset 0 -3px 0 #151412;
+		background: var(--secondary);
+		box-shadow: inset 0 -3px 0 var(--foreground);
 	}
 
 	:global(.date-header-button) {
@@ -808,66 +917,66 @@
 	}
 
 	:global(.date-header-button:focus-visible) {
-		box-shadow: inset 0 0 0 2px #c47f00;
+		box-shadow: inset 0 0 0 2px var(--ring);
 	}
 
 	.date-weekday {
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 14px;
+		font-size: 9px;
 		font-weight: 700;
-		letter-spacing: 0.14em;
-		color: #5f5e59;
+		letter-spacing: 0.1em;
+		color: var(--muted-foreground);
 	}
 
 	.date-number {
 		font-family: Georgia, 'Source Serif 4', serif;
-		font-size: 27px;
+		font-size: 16px;
 		font-weight: 800;
 		line-height: 1;
-		color: #151412;
+		color: var(--foreground);
 	}
 
 	.calendar-page[data-view-mode='long-range'] .date-number {
 		font-family: Georgia, 'Source Serif 4', serif;
-		font-size: 18px;
+		font-size: 11px;
 		font-weight: 800;
 	}
 
 	:global(.calendar-group-row th) {
-		height: 20px;
-		background: #f1f0ed;
-		color: #5d5b56;
+		height: 16px;
+		background: var(--muted);
+		color: var(--muted-foreground);
 		text-align: left;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 14px;
+		font-size: 10px;
 		font-weight: 700;
 		letter-spacing: 0.13em;
 		text-transform: uppercase;
 	}
 
 	:global(.calendar-page[data-view-mode='month'] .calendar-group-row th) {
-		background: #11100f;
-		color: #ebe9e1;
+		background: var(--primary);
+		color: var(--primary-foreground);
 	}
 
 	.calendar-page[data-view-mode='month'] .group-pin {
-		border-left-color: #2a2925;
-		color: #aaa8a0;
+		border-left-color: color-mix(in oklch, var(--primary-foreground) 18%, transparent);
+		color: color-mix(in oklch, var(--primary-foreground) 68%, transparent);
 	}
 
 	.group-toggle {
 		display: inline-flex;
-		width: 34px;
+		width: 22px;
 		justify-content: center;
-		font-size: 11px;
+		font-size: 9px;
 	}
 
 	.group-pin {
 		display: inline-flex;
-		margin-left: 34px;
-		border-left: 1px solid #deddd8;
-		padding-left: 22px;
-		color: #797771;
+		margin-left: 22px;
+		border-left: 1px solid var(--border);
+		padding-left: 12px;
+		color: var(--muted-foreground);
 	}
 
 	:global(.calendar-person-row) {
@@ -879,8 +988,8 @@
 		left: 0;
 		z-index: 4;
 		height: var(--calendar-row-height);
-		border-right: 1px solid #deddd8;
-		background: #fbfaf7;
+		border-right: 1px solid var(--border);
+		background: var(--card);
 		text-align: left;
 		vertical-align: middle;
 	}
@@ -892,61 +1001,61 @@
 	.person-rank {
 		display: inline-block;
 		box-sizing: border-box;
-		width: 68px;
-		padding-left: 18px;
+		width: 42px;
+		padding-left: 8px;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 16px;
+		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.05em;
-		color: #d08100;
+		color: var(--warning);
 	}
 
 	.person-name {
 		font-family: Georgia, 'Source Serif 4', serif;
-		font-size: 19px;
+		font-size: 12px;
 		font-weight: 700;
-		color: #171615;
+		color: var(--foreground);
 		white-space: nowrap;
 	}
 
 	.calendar-page[data-view-mode='long-range'] .person-rank {
-		width: 54px;
-		padding-left: 18px;
-		font-size: 16px;
+		width: 36px;
+		padding-left: 8px;
+		font-size: 10px;
 	}
 
 	.calendar-page[data-view-mode='long-range'] .person-name {
-		font-size: 19px;
+		font-size: 11px;
 		font-weight: 500;
 	}
 
 	.person-badge {
 		margin-left: 8px;
 		border-radius: 4px;
-		background: #fbebc9;
+		background: var(--warning-bg);
 		padding: 1px 5px;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 12px;
+		font-size: 9px;
 		font-weight: 800;
 		letter-spacing: 0.08em;
-		color: #9c6400;
+		color: var(--warning);
 	}
 
 	:global(.calendar-status-cell) {
 		height: var(--calendar-row-height);
-		background: #fbfaf7;
+		background: var(--card);
 	}
 
 	:global(.calendar-status-cell.is-weekend) {
-		background: #f5f4f1;
+		background: var(--muted);
 	}
 
 	:global(.calendar-status-cell.is-holiday) {
-		background: #fbf4e4;
+		background: var(--warning-bg);
 	}
 
 	:global(.calendar-status-cell.is-today) {
-		box-shadow: inset 0 0 0 1px #151412;
+		box-shadow: inset 0 0 0 1px var(--foreground);
 	}
 
 	:global(.calendar-status-cell [data-slot='operational-matrix-cell-trigger']) {
@@ -959,7 +1068,7 @@
 	}
 
 	:global(.calendar-status-cell [data-slot='operational-matrix-cell-trigger']:focus-visible) {
-		box-shadow: inset 0 0 0 2px #c47f00;
+		box-shadow: inset 0 0 0 2px var(--ring);
 	}
 
 	.status-fill,
@@ -970,9 +1079,9 @@
 		align-items: flex-start;
 		justify-content: flex-start;
 		overflow: hidden;
-		padding: 5px 6px;
+		padding: 3px;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 10px;
+		font-size: 7px;
 		font-weight: 800;
 		letter-spacing: 0.05em;
 		line-height: 1;
@@ -996,13 +1105,13 @@
 		border-radius: 2px;
 		padding: 0 3px;
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 9px;
+		font-size: 7px;
 		font-weight: 800;
 		line-height: 1.2;
 		text-overflow: ellipsis;
 		text-transform: uppercase;
 		white-space: nowrap;
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+		box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary-foreground) 55%, transparent);
 	}
 
 	.calendar-page[data-view-mode='long-range'] .duty-marker {
@@ -1014,74 +1123,13 @@
 		font-size: 0;
 	}
 
-	.legend-pill {
-		display: inline-flex;
-		align-items: center;
-		border-radius: 4px;
-		padding: 4px 10px;
-		font-family: Georgia, 'Source Serif 4', serif;
-		font-size: 16px;
-		line-height: 1;
-		color: #fbfaf7;
-	}
-
-	.legend-pill .legend-swatch {
-		display: none;
-	}
-
-	.legend-pill:nth-child(1) {
-		background: #48bd76;
-	}
-
-	.legend-pill:nth-child(2) {
-		background: #469be0;
-	}
-
-	.legend-pill:nth-child(3) {
-		background: #a9562b;
-	}
-
-	.legend-pill:nth-child(4) {
-		background: #9b72e8;
-	}
-
-	.legend-pill:nth-child(5) {
-		background: #f28a31;
-	}
-
-	.legend-pill:nth-child(6),
-	.legend-pill:nth-child(7) {
-		background: #e62b2d;
-	}
-
 	.legend-title {
 		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 16px;
+		font-size: 12px;
 		font-weight: 800;
 		letter-spacing: 0.14em;
-		color: #5d5b56;
+		color: var(--muted-foreground);
 		text-transform: uppercase;
-	}
-
-	.legend-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		border: 1px solid #e4e3df;
-		border-radius: 8px;
-		background: #fbfaf7;
-		padding: 8px 13px;
-		font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 14px;
-		letter-spacing: 0.1em;
-		color: #5d5b56;
-		text-transform: uppercase;
-	}
-
-	.legend-swatch {
-		width: 12px;
-		height: 12px;
-		border-radius: 3px;
 	}
 
 	@media (max-width: 760px) {
@@ -1100,16 +1148,16 @@
 			width: 100%;
 			flex: none;
 			padding: 0;
-			font-size: 34px;
+			font-size: 28px;
 		}
 
 		.calendar-page {
-			--calendar-personnel-width: 224px !important;
-			--calendar-day-width: 42px !important;
+			--calendar-personnel-width: 168px !important;
+			--calendar-day-width: 24px !important;
 		}
 
 		.calendar-page[data-view-mode='long-range'] {
-			--calendar-day-width: 30px !important;
+			--calendar-day-width: 16px !important;
 		}
 	}
 </style>

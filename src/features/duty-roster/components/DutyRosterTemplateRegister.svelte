@@ -3,6 +3,7 @@
 	import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplateSetupOptions } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
+	import { Button } from '$lib/components/ui/button';
 
 	let {
 		basePath,
@@ -85,7 +86,7 @@
 <section class="template-register" aria-labelledby="template-register-heading">
 	<div class="template-register__header">
 		<h2 id="template-register-heading" class="sr-only">Duty Roster Templates</h2>
-		<a class="btn btn-primary" href={`${basePath}/new`}>New Template</a>
+		<Button href={`${basePath}/new`}>New Template</Button>
 	</div>
 
 	{#if templates.length === 0}
@@ -193,14 +194,14 @@
 					</div>
 
 					<div class="template-register-panel__actions">
-						<a class="btn btn-primary" href={`${basePath}/${selectedRow.template.slug}/generate`}>
+						<Button href={`${basePath}/${selectedRow.template.slug}/generate`}>
 							<Play size={16} aria-hidden="true" />
 							Open Generate
-						</a>
-						<a class="btn btn-secondary" href={`${basePath}/${selectedRow.template.slug}/history`}>
+						</Button>
+						<Button variant="outline" href={`${basePath}/${selectedRow.template.slug}/history`}>
 							<History size={16} aria-hidden="true" />
 							Open History
-						</a>
+						</Button>
 					</div>
 
 					<p class="template-register-panel__note">Pool rules are managed in Template Settings.</p>

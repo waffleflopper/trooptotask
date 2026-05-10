@@ -3,7 +3,10 @@
 	import type { StatusType } from '$lib/types';
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
@@ -214,29 +217,29 @@
 	<div class="config-section">
 		<h3>Date Range</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} />
-			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} />
-			</label>
+			<Field.Root>
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 		<div class="quick-range-row">
-			<button class="btn btn-sm btn-secondary" onclick={setThisWeek}>This Week</button>
-			<button class="btn btn-sm btn-secondary" onclick={setNextWeek}>Next Week</button>
-			<button class="btn btn-sm btn-secondary" onclick={setNext2Weeks}>Next 2 Weeks</button>
-			<button class="btn btn-sm btn-secondary" onclick={setThisMonth}>This Month</button>
+			<Button variant="outline" size="sm" onclick={setThisWeek}>This Week</Button>
+			<Button variant="outline" size="sm" onclick={setNextWeek}>Next Week</Button>
+			<Button variant="outline" size="sm" onclick={setNext2Weeks}>Next 2 Weeks</Button>
+			<Button variant="outline" size="sm" onclick={setThisMonth}>This Month</Button>
 		</div>
 	</div>
 
 	<div class="config-section">
 		<h3>Groups</h3>
 		<div class="group-filter-header">
-			<button class="btn btn-sm btn-secondary" onclick={toggleAllGroups}>
+			<Button variant="outline" size="sm" onclick={toggleAllGroups}>
 				{selectedGroupIds.size === groups.length ? 'Deselect All' : 'Select All'}
-			</button>
+			</Button>
 			<span class="selection-count">
 				{selectedGroupIds.size} of {groups.length} selected
 			</span>
@@ -252,14 +255,10 @@
 	</div>
 
 	<div class="config-actions">
-		<button
-			class="btn btn-primary"
-			onclick={runReport}
-			disabled={loading || !startDate || !endDate || selectedGroupIds.size === 0}
-		>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate || selectedGroupIds.size === 0}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -273,7 +272,7 @@
 			<span class="report-summary">
 				{result.groups.length} groups &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.groups.length === 0}
@@ -332,11 +331,6 @@
 		gap: var(--sp-2);
 		align-items: flex-end;
 		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
 	}
 
 	.quick-range-row {
@@ -482,10 +476,6 @@
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
 		}
 
 		.quick-range-row {

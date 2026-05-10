@@ -2,8 +2,9 @@
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -174,32 +175,46 @@
 		<h4 class="text-muted-foreground mb-3 font-mono text-xs font-semibold tracking-wide uppercase">Quick Fill</h4>
 		<div class="flex flex-wrap items-center gap-2">
 			<div class="min-w-48 flex-1">
-				<SearchSelect
-					options={assignmentTypeOptions}
+				<Combobox.Root
+					items={assignmentTypeOptions}
 					bind:value={quickFillType}
-					placeholder="Select assignment type..."
-					ariaLabel="Select assignment type"
-					clearable={false}
-				/>
+					label="Select assignment type"
+					autoHighlight
+				>
+					<Combobox.Trigger placeholder="Select assignment type..." aria-label="Select assignment type" />
+					<Combobox.Content>
+						<Combobox.Empty>No assignment types found.</Combobox.Empty>
+						<Combobox.List>
+							{#each assignmentTypeOptions as option (option.value)}
+								<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
+							{/each}
+						</Combobox.List>
+					</Combobox.Content>
+				</Combobox.Root>
 			</div>
 
 			{#if selectedType?.assignTo === 'personnel'}
 				<div class="quick-fill-control">
-					<SearchSelect
-						options={personnelOptions}
+					<SearchCombobox
 						bind:value={quickFillPerson}
-						placeholder="Select person..."
+						options={personnelOptions}
+						placeholder="Search personnel..."
 						ariaLabel="Select quick-fill person"
 					/>
 				</div>
 			{:else if selectedType?.assignTo === 'group'}
 				<div class="quick-fill-control">
-					<SearchSelect
-						options={groupOptions}
-						bind:value={quickFillGroup}
-						placeholder="Select group..."
-						ariaLabel="Select quick-fill group"
-					/>
+					<Combobox.Root items={groupOptions} bind:value={quickFillGroup} label="Select quick-fill group" autoHighlight>
+						<Combobox.Trigger clearable placeholder="Select group..." aria-label="Select quick-fill group" />
+						<Combobox.Content>
+							<Combobox.Empty>No groups found.</Combobox.Empty>
+							<Combobox.List>
+								{#each groupOptions as option (option.value)}
+									<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
+								{/each}
+							</Combobox.List>
+						</Combobox.Content>
+					</Combobox.Root>
 				</div>
 			{/if}
 
@@ -259,23 +274,36 @@
 							{@const assignment = getAssignment(date, type.id)}
 							<td class="px-2 py-1.5">
 								{#if type.assignTo === 'personnel'}
-									<SearchSelect
-										options={personnelOptions}
+									<SearchCombobox
 										value={assignment?.assigneeId ?? ''}
+										options={personnelOptions}
 										placeholder="-"
 										ariaLabel={`Select ${type.name} assignee for ${dateStr}`}
-										compact
 										onchange={(value) => handleChange(date, type.id, value)}
 									/>
 								{:else}
-									<SearchSelect
-										options={groupOptions}
+									<Combobox.Root
+										items={groupOptions}
 										value={assignment?.assigneeId ?? ''}
-										placeholder="-"
-										ariaLabel={`Select ${type.name} group for ${dateStr}`}
-										compact
-										onchange={(value) => handleChange(date, type.id, value)}
-									/>
+										label={`Select ${type.name} group for ${dateStr}`}
+										onValueChange={(value) =>
+											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+										autoHighlight
+									>
+										<Combobox.Trigger
+											clearable
+											placeholder="-"
+											aria-label={`Select ${type.name} group for ${dateStr}`}
+										/>
+										<Combobox.Content>
+											<Combobox.Empty>No groups found.</Combobox.Empty>
+											<Combobox.List>
+												{#each groupOptions as option (option.value)}
+													<Combobox.Item value={option.value}>{option.label}</Combobox.Item>
+												{/each}
+											</Combobox.List>
+										</Combobox.Content>
+									</Combobox.Root>
 								{/if}
 							</td>
 						{/each}

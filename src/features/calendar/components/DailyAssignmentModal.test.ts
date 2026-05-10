@@ -159,12 +159,12 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Set Charge of Quarters assignee' }));
-		await fireEvent.input(screen.getByRole('combobox', { name: 'Set Charge of Quarters assignee' }), {
+		await fireEvent.input(screen.getByPlaceholderText('Search assignments...'), {
 			target: { value: 'tay' }
 		});
 
 		expect(screen.queryByRole('option', { name: 'SGT Smith, Alex - Alpha' })).toBeNull();
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'CPT Taylor, Jamie - Alpha' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'CPT Taylor, Jamie - Alpha' }));
 
 		expect(onSetAssignment).toHaveBeenCalledWith('2026-04-06', 'type-1', 'person-2');
 	});

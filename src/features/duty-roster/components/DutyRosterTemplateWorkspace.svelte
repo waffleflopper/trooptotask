@@ -1,10 +1,13 @@
 <script lang="ts">
 	import './dutyRosterTemplateWorkspace.css';
 	import DutyRosterGenerateView from './DutyRosterGenerateView.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import DutyRosterHistoryView from './DutyRosterHistoryView.svelte';
 	import DutyRosterNewTemplateWorkspace from './DutyRosterNewTemplateWorkspace.svelte';
 	import DutyRosterTemplateRegister from './DutyRosterTemplateRegister.svelte';
 	import DutyRosterTemplateSettingsView from './DutyRosterTemplateSettingsView.svelte';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import {
 		buildDutyRosterWorkspaceReadModel,
 		type DutyRosterWorkspaceData
@@ -103,18 +106,28 @@
 				<p class="form-error" role="alert">{actionForm.error}</p>
 			{/if}
 
-			<nav class="view-tabs" aria-label="Duty Roster Template views">
-				{#each viewTabs as tab (tab.id)}
-					<a
-						class:active={selectedView === tab.id}
-						href={`${basePath}/${selectedTemplate.slug}/${tab.id}`}
-						aria-current={selectedView === tab.id ? 'page' : undefined}
-					>
-						<span>{tab.label}</span>
-						<small>{tab.note}</small>
-					</a>
-				{/each}
-			</nav>
+			<Tabs.Root value={selectedView} class="mb-4">
+				<Tabs.List class="h-auto w-full flex-wrap justify-start" aria-label="Duty Roster Template views">
+					{#each viewTabs as tab (tab.id)}
+						<Tabs.Trigger
+							value={tab.id}
+							class="h-auto min-w-28 px-3 py-2"
+							aria-current={selectedView === tab.id ? 'page' : undefined}
+							onclick={() =>
+								void goto(
+									resolve(
+										`${basePath}/${selectedTemplate.slug}/${tab.id}` as `/org/${string}/duty-rosters/${string}/${string}`
+									)
+								)}
+						>
+							<span class="grid gap-0.5 text-left">
+								<span>{tab.label}</span>
+								<small class="text-muted-foreground text-[0.7rem] font-normal">{tab.note}</small>
+							</span>
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
 
 			<main class="view-panel" aria-labelledby="template-view-heading">
 				{#if selectedView === 'generate'}

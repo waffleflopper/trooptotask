@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { CalendarDays, History, Play, UsersRound, Zap } from '@lucide/svelte';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import {
 		groupOptionItems,
 		optionItems,
@@ -161,15 +163,15 @@
 					<div class="identity-grid identity-grid--ledger">
 						<label>
 							<span>Template name</span>
-							<input class="input" name="name" maxlength="120" required bind:value={settingsName} />
+							<Input name="name" maxlength={120} required bind:value={settingsName} />
 						</label>
 						<label>
 							<span>Template slug</span>
-							<input class="input" name="slug" maxlength="72" required bind:value={settingsSlug} />
+							<Input name="slug" maxlength={72} required bind:value={settingsSlug} />
 						</label>
 						<label class="short-code-field">
 							<span>Short code</span>
-							<input class="input" name="shortCode" maxlength="12" bind:value={settingsShortCode} placeholder="CQ" />
+							<Input name="shortCode" maxlength={12} bind:value={settingsShortCode} placeholder="CQ" />
 						</label>
 						<div class="settings-readonly-field">
 							<span>Status</span>
@@ -266,7 +268,7 @@
 						<div class="settings-table-tools" aria-label="Individual exclusion table tools">
 							<label class="settings-table-search">
 								<span>Search pool</span>
-								<input class="input" type="search" placeholder="Name, rank, MOS, group" bind:value={exemptionQuery} />
+								<Input type="search" placeholder="Name, rank, MOS, group" bind:value={exemptionQuery} />
 							</label>
 							<label class="settings-toggle">
 								<input type="checkbox" bind:checked={showExcludedOnly} />
@@ -340,12 +342,7 @@
 						<div class="settings-table-tools" aria-label="DA6 baseline table tools">
 							<label class="settings-table-search">
 								<span>Search baseline</span>
-								<input
-									class="input"
-									type="search"
-									placeholder="Name, rank, MOS, group, count"
-									bind:value={baselineQuery}
-								/>
+								<Input type="search" placeholder="Name, rank, MOS, group, count" bind:value={baselineQuery} />
 							</label>
 							<label class="settings-toggle">
 								<input type="checkbox" bind:checked={showBaselineCountsOnly} />
@@ -379,11 +376,10 @@
 												value={settingsBaselineCounts[row.personnel.id] ?? ''}
 											/>
 										{:else}
-											<input
-												class="input"
+											<Input
 												type="number"
-												min="0"
-												step="1"
+												min={0}
+												step={1}
 												name={`baseline:${row.personnel.id}`}
 												value={settingsBaselineCounts[row.personnel.id] ?? ''}
 												aria-label={`Starting count for ${soldierLabel(row.personnel)}`}
@@ -416,14 +412,12 @@
 				<div class="settings-save-strip" aria-label="Settings save actions">
 					<span>Future runs only</span>
 					<div class="settings-actions">
-						<a
-							class="btn btn-secondary"
+						<Button
+							variant="outline"
 							href={`${settings.basePath}/${selectedTemplate.slug}/generate`}
-							aria-label="Discard from sticky bar">Discard</a
+							aria-label="Discard from sticky bar">Discard</Button
 						>
-						<button class="btn btn-primary" type="submit" aria-label="Save settings from sticky bar"
-							>Save settings</button
-						>
+						<Button type="submit" aria-label="Save settings from sticky bar">Save settings</Button>
 					</div>
 				</div>
 			</div>
@@ -482,14 +476,14 @@
 				<section class="settings-rail-card">
 					<h3><Zap size={20} aria-hidden="true" /> Quick Actions</h3>
 					<div class="settings-rail-actions">
-						<a class="btn btn-primary" href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>
+						<Button href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>
 							<Play size={16} aria-hidden="true" />
 							Open Generate
-						</a>
-						<a class="btn btn-secondary" href={`${settings.basePath}/${selectedTemplate.slug}/history`}>
+						</Button>
+						<Button variant="outline" href={`${settings.basePath}/${selectedTemplate.slug}/history`}>
 							<History size={16} aria-hidden="true" />
 							Open History
-						</a>
+						</Button>
 					</div>
 				</section>
 			</aside>

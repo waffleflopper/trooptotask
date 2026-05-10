@@ -5,7 +5,8 @@
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
@@ -165,14 +166,14 @@
 	<div>
 		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Date Range</h3>
 		<div class="flex flex-wrap items-end gap-2">
-			<label class="grid min-w-[120px] flex-1 gap-1">
-				<span class="text-sm font-medium">Start</span>
-				<Input type="date" bind:value={startDate} />
-			</label>
-			<label class="grid min-w-[120px] flex-1 gap-1">
-				<span class="text-sm font-medium">End</span>
-				<Input type="date" bind:value={endDate} />
-			</label>
+			<Field.Root class="min-w-[120px] flex-1">
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root class="min-w-[120px] flex-1">
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 	</div>
 

@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { AlertTriangle, Calendar, CheckCircle2, Info, Printer, Save, X } from '@lucide/svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
 		buildDutyRosterPreviewReviewModel,
@@ -18,6 +25,12 @@
 	let generatingPreview = $state(false);
 	let activePreviewDate = $state<string | null>(null);
 	let selectedPreviewAssignees = $state<Record<string, string>>({});
+	let startDateOverride = $state('');
+	let endDateOverride = $state('');
+
+	type Da6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
+	type Da6MatrixRow = OperationalMatrixRow & { meta: { cells: Da6MatrixCell[] } };
+	type Da6MatrixColumn = OperationalMatrixColumn & { meta: { date: string } };
 
 	const selectedTemplate = $derived(generate.selectedTemplate);
 	const actionForm = $derived(generate.actionForm);
@@ -29,9 +42,10 @@
 	const historyPath = $derived(generate.historyPath);
 	const countReadModel = $derived(generate.countReadModel);
 	const acceptedRuns = $derived(generate.acceptedRuns);
-	const todayDate = $derived(generate.todayDate);
 	const generateStartDate = $derived(generate.generateStartDate);
 	const generateEndDate = $derived(generate.generateEndDate);
+	const startDateValue = $derived(startDateOverride || generateStartDate);
+	const endDateValue = $derived(endDateOverride || generateEndDate);
 	const canGenerate = $derived(generate.canGenerate);
 	const previewReview: DutyRosterPreviewReviewModel | null = $derived(
 		preview ? buildDutyRosterPreviewReviewModel({ preview, selectedAssigneeIds: selectedPreviewAssignees }) : null
@@ -54,6 +68,21 @@
 	const previewWarningCount = $derived(previewMetrics.warningCount);
 	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
+
+	const previewMatrixColumns = $derived<Da6MatrixColumn[]>(
+		(previewReview?.matrix.columns ?? []).map((column) => ({
+			id: column.date,
+			label: dayMonthLabel(column.date),
+			meta: { date: column.date }
+		}))
+	);
+	const previewMatrixRows = $derived<Da6MatrixRow[]>(
+		(previewReview?.matrix.rows ?? []).map((row) => ({
+			id: row.personnelId,
+			label: row.soldierLabel,
+			meta: { cells: row.cells }
+		}))
+	);
 
 	function handleGenerateEnhance() {
 		generatingPreview = true;
@@ -105,6 +134,10 @@
 
 		return `${dayPart}-${monthPart}`;
 	}
+
+	function previewMatrixCell(row: Da6MatrixRow, column: Da6MatrixColumn): Da6MatrixCell | undefined {
+		return row.meta.cells.find((cell) => cell.date === column.meta.date);
+	}
 </script>
 
 <h2 id="template-view-heading" class="sr-only">Generate Duty Roster preview</h2>
@@ -131,26 +164,24 @@
 						<div class="generate-form__fields">
 							<label>
 								<span>Start date</span>
-								<input
-									class="input"
-									name="startDate"
-									type="date"
-									required
-									min={todayDate}
-									value={generateStartDate}
-									aria-describedby="generate-date-help"
+								<input type="hidden" name="startDate" value={startDateValue} />
+								<DatePicker
+									id="generate-start-date"
+									value={startDateValue}
+									placeholder="Select start date"
+									aria-label="Start date"
+									onValueChange={(value) => (startDateOverride = value)}
 								/>
 							</label>
 							<label>
 								<span>End date</span>
-								<input
-									class="input"
-									name="endDate"
-									type="date"
-									required
-									min={todayDate}
-									value={generateEndDate}
-									aria-describedby="generate-date-help"
+								<input type="hidden" name="endDate" value={endDateValue} />
+								<DatePicker
+									id="generate-end-date"
+									value={endDateValue}
+									placeholder="Select end date"
+									aria-label="End date"
+									onValueChange={(value) => (endDateOverride = value)}
 								/>
 							</label>
 						</div>
@@ -196,17 +227,17 @@
 				</section>
 
 				<div class="generation-actions" aria-label="Generation actions">
-					<button class="btn btn-secondary" type="reset" form="generate-preview-form" disabled={generatingPreview}>
+					<Button variant="outline" type="reset" form="generate-preview-form" disabled={generatingPreview}>
 						Reset
-					</button>
-					<button
-						class="btn btn-primary generate-primary-action"
+					</Button>
+					<Button
+						class="generate-primary-action"
 						type="submit"
 						form="generate-preview-form"
 						disabled={!canGenerate || generatingPreview}
 					>
 						{generatingPreview ? 'Generating...' : 'Generate Preview'}
-					</button>
+					</Button>
 				</div>
 				<p class="preview-lock-note">
 					<Info size={16} aria-hidden="true" /> Preview only. Nothing is saved until you accept.
@@ -251,12 +282,17 @@
 				<section class="generation-panel generation-panel--history" aria-labelledby="recent-history-heading">
 					<div class="recent-history-heading">
 						<h3 id="recent-history-heading">Recent History</h3>
-						<a href={historyPath}>View All</a>
+						<a href={resolve(historyPath as `/org/${string}/duty-rosters/${string}/${string}`)}>View All</a>
 					</div>
 					{#if recentAcceptedRuns.length > 0}
 						<div class="recent-history-list">
 							{#each recentAcceptedRuns as run (run.id)}
-								<a href={`${historyPath}/${run.id}`} class="recent-history-row">
+								<a
+									href={resolve(
+										`${historyPath}/${run.id}` as `/org/${string}/duty-rosters/${string}/history/${string}`
+									)}
+									class="recent-history-row"
+								>
 									<span>{dayMonthLabel(run.startDate)} to {dayMonthLabel(run.endDate)}</span>
 									<strong>{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</strong>
 									<small>{dateParts(run.acceptedAt.slice(0, 10)).label}</small>
@@ -287,41 +323,39 @@
 				<div class="preview-output-actions" aria-label="Draft preview and official run actions">
 					<div class="preview-action-group preview-action-group--draft" aria-label="Draft output">
 						<span>Draft</span>
-						<button class="btn btn-secondary" type="button" onclick={() => printDraftPreview(preview)}>
+						<Button variant="outline" type="button" onclick={() => printDraftPreview(preview)}>
 							<Printer size={16} aria-hidden="true" />
 							Print Draft
-						</button>
+						</Button>
 					</div>
 					<div class="preview-action-group preview-action-group--official" aria-label="Official run actions">
 						<span>Official Run</span>
 						<form class="accept-preview-form" method="POST" action={acceptPreviewAction}>
 							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-							<button class="btn btn-secondary" type="submit">
+							<Button variant="outline" type="submit">
 								<CheckCircle2 size={16} aria-hidden="true" />
 								Accept Run
-							</button>
-							<button class="btn btn-secondary" type="submit" name="intent" value="print">
+							</Button>
+							<Button variant="outline" type="submit" name="intent" value="print">
 								<Printer size={16} aria-hidden="true" />
 								Accept Run + Print
-							</button>
-							<button class="btn btn-amber" type="submit" formaction={applyPreviewAction}>
+							</Button>
+							<Button type="submit" formaction={applyPreviewAction}>
 								<Calendar size={16} aria-hidden="true" />
 								Accept + Apply to Calendar
-							</button>
+							</Button>
 						</form>
 					</div>
 				</div>
 			</div>
 
 			<div class="preview-toolbar">
-				<div class="view-switch admin-segmented" role="group" aria-label="Preview review mode">
-					<button type="button" class:active={previewMode === 'list'} onclick={() => (previewMode = 'list')}>
-						List View
-					</button>
-					<button type="button" class:active={previewMode === 'matrix'} onclick={() => (previewMode = 'matrix')}>
-						DA6 Matrix
-					</button>
-				</div>
+				<Tabs.Root bind:value={previewMode}>
+					<Tabs.List aria-label="Preview review mode">
+						<Tabs.Trigger value="list">List View</Tabs.Trigger>
+						<Tabs.Trigger value="matrix">DA6 Matrix</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs.Root>
 				<p>
 					<Info size={15} aria-hidden="true" /> Accept Run writes official DA6 history. Accept + Apply to Calendar also creates
 					Calendar events.
@@ -413,7 +447,7 @@
 									</div>
 									<span class="preview-review-cell" role="cell">
 										{#if row.liveWarnings.length > 0}
-											<Badge label="REVIEW" color="var(--danger-bg)" textColor="var(--danger)" />
+											<Badge variant="danger">Review</Badge>
 											<details class="preview-warning-details">
 												<summary>
 													<AlertTriangle size={15} aria-hidden="true" />
@@ -427,25 +461,26 @@
 												</ul>
 											</details>
 										{:else if row.manualSelection}
-											<Badge label="MANUAL" color="var(--amber-light)" textColor="var(--amber-dark)" />
+											<Badge variant="warning">Manual</Badge>
 											<small>Changed</small>
 										{:else if !row.finalAssignee}
-											<Badge label="REQUIRES ACTION" color="var(--danger-bg)" textColor="var(--danger)" />
+											<Badge variant="danger">Requires action</Badge>
 											<small>No selection</small>
 										{:else}
-											<Badge label="READY" color="var(--success-bg)" textColor="var(--success)" />
+											<Badge variant="success">Ready</Badge>
 											<small>No changes</small>
 										{/if}
 									</span>
 									<div class="preview-action-cell" role="cell">
-										<button
-											class="link-command"
+										<Button
+											variant="link"
+											size="sm"
 											type="button"
 											aria-label={`${row.liveWarnings.length > 0 ? 'Review warning and change assignment' : 'Change assignment'} for ${parts.weekday} ${parts.label}`}
 											onclick={() => openManualChange(row)}
 										>
 											{row.liveWarnings.length > 0 ? 'Review' : 'Change'}
-										</button>
+										</Button>
 									</div>
 								</div>
 							{/each}
@@ -464,14 +499,15 @@
 									<h3 id="manual-change-heading">Change Assignment</h3>
 									<p>{activeParts.weekday} {activeParts.label}</p>
 								</div>
-								<button
-									class="btn-icon btn-sm"
+								<Button
+									variant="ghost"
+									size="icon-sm"
 									type="button"
 									aria-label="Close change assignment"
 									onclick={() => (activePreviewDate = null)}
 								>
 									<X size={16} aria-hidden="true" />
-								</button>
+								</Button>
 							</div>
 							<div class="manual-original">
 								<span>Current Selection</span>
@@ -513,7 +549,7 @@
 								/>
 								<label>
 									<span>Select Replacement Soldier</span>
-									<SearchSelect
+									<SearchCombobox
 										options={previewReview?.selectionOptions ?? []}
 										value={selectedPreviewAssignees[activePreviewRow.date] ?? activePreviewRow.editAssigneeId}
 										ariaLabel={`Select Soldier for ${activeParts.weekday} ${activeParts.label}`}
@@ -542,20 +578,21 @@
 								{#if activePreviewRow.liveWarnings.length > 0}
 									<label>
 										<span>Reason</span>
-										<textarea class="input" name="reason" placeholder="Enter reason for this manual change..." required
-											>{activePreviewRow.manualSelection?.reason ?? ''}</textarea
-										>
+										<Textarea
+											name="reason"
+											placeholder="Enter reason for this manual change..."
+											required
+											value={activePreviewRow.manualSelection?.reason ?? ''}
+										/>
 									</label>
 								{:else}
 									<input type="hidden" name="reason" value="" />
 								{/if}
-								<button class="btn btn-amber" type="submit">
+								<Button type="submit">
 									<Save size={16} aria-hidden="true" />
 									Save Manual Change
-								</button>
-								<button class="btn btn-secondary" type="button" onclick={() => (activePreviewDate = null)}>
-									Cancel
-								</button>
+								</Button>
+								<Button variant="outline" type="button" onclick={() => (activePreviewDate = null)}>Cancel</Button>
 							</form>
 							<p class="manual-change-note">
 								<Info size={15} aria-hidden="true" /> Archived or missing personnel cannot be selected.
@@ -572,38 +609,61 @@
 				<div class="da6-preview-layout">
 					<section aria-labelledby="preview-matrix-heading">
 						<h4 id="preview-matrix-heading" class="sr-only">DA6 matrix</h4>
-						<div class="matrix-scroll">
-							<table class="da6-matrix" aria-label="DA6 preview matrix">
-								<thead>
-									<tr>
-										<th scope="col">Rank / Name</th>
-										{#each previewReview?.matrix.columns ?? [] as column (column.date)}
-											{@const columnParts = dateParts(column.date)}
-											<th scope="col">
-												<span>{columnParts.weekday}</span>
-												<small>{columnParts.label.replace(/ 20\d{2}$/, '')}</small>
-											</th>
-										{/each}
-									</tr>
-								</thead>
-								<tbody>
-									{#each previewReview?.matrix.rows ?? [] as row (row.personnelId)}
-										<tr>
-											<th scope="row">{row.soldierLabel}</th>
-											{#each row.cells as cell (cell.date)}
-												<td
-													class:assigned={cell.tone === 'assigned'}
-													class:warning={cell.tone === 'warning'}
-													class:danger={cell.tone === 'danger'}
-												>
-													{cell.display}
-												</td>
+						<OperationalMatrix.Root rows={previewMatrixRows} columns={previewMatrixColumns} readOnly>
+							<OperationalMatrix.Viewport ariaLabel="DA6 preview matrix viewport" class="rounded-lg border bg-card">
+								<OperationalMatrix.Table
+									ariaLabel="DA6 preview matrix"
+									class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
+								>
+									<OperationalMatrix.Header>
+										<OperationalMatrix.HeaderRow>
+											<OperationalMatrix.CornerCell
+												sticky
+												class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
+											>
+												Rank / Name
+											</OperationalMatrix.CornerCell>
+											{#each previewMatrixColumns as column (column.id)}
+												<OperationalMatrix.ColumnHeader
+													{column}
+													orientation="vertical"
+													sticky
+													class="sticky top-0 z-20 bg-muted"
+												/>
 											{/each}
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
+										</OperationalMatrix.HeaderRow>
+									</OperationalMatrix.Header>
+									<OperationalMatrix.Body>
+										{#each previewMatrixRows as row (row.id)}
+											<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+												<OperationalMatrix.RowHeader
+													{row}
+													sticky
+													class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left font-medium"
+												>
+													{row.label}
+												</OperationalMatrix.RowHeader>
+												{#each previewMatrixColumns as column (column.id)}
+													{@const cell = previewMatrixCell(row, column)}
+													<OperationalMatrix.Cell
+														{row}
+														{column}
+														readOnly
+														class={[
+															cell?.tone === 'assigned' && 'bg-success-muted text-success-foreground',
+															cell?.tone === 'warning' && 'bg-warning-muted text-warning-foreground',
+															cell?.tone === 'danger' && 'bg-danger-muted text-danger-foreground'
+														]}
+													>
+														<span class="font-mono text-xs font-semibold">{cell?.display ?? '-'}</span>
+													</OperationalMatrix.Cell>
+												{/each}
+											</OperationalMatrix.Row>
+										{/each}
+									</OperationalMatrix.Body>
+								</OperationalMatrix.Table>
+							</OperationalMatrix.Viewport>
+						</OperationalMatrix.Root>
 					</section>
 					<aside class="da6-side-panel" aria-label="DA6 preview details">
 						<section>
@@ -671,10 +731,10 @@
 						</section>
 						<section>
 							<h3>Print</h3>
-							<button class="link-command link-command--icon" type="button" onclick={() => printDraftPreview(preview)}>
+							<Button variant="ghost" size="sm" type="button" onclick={() => printDraftPreview(preview)}>
 								<Printer size={16} aria-hidden="true" />
 								Print DA6 draft
-							</button>
+							</Button>
 						</section>
 					</aside>
 				</div>

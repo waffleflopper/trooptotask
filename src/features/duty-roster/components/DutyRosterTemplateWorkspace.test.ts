@@ -68,22 +68,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('link', { name: 'Back to Templates' })).toBeNull();
 		expect(screen.queryByRole('navigation', { name: 'Open Duty Roster Template' })).toBeNull();
 
-		const viewTabs = screen.getByRole('navigation', { name: 'Duty Roster Template views' });
-		expect(
-			within(viewTabs)
-				.getByRole('link', { name: /Generate/ })
-				.getAttribute('href')
-		).toBe('/org/org-1/duty-rosters/cq-nco/generate');
-		expect(
-			within(viewTabs)
-				.getByRole('link', { name: /History/ })
-				.getAttribute('href')
-		).toBe('/org/org-1/duty-rosters/cq-nco/history');
-		expect(
-			within(viewTabs)
-				.getByRole('link', { name: /Settings/ })
-				.getAttribute('href')
-		).toBe('/org/org-1/duty-rosters/cq-nco/settings');
+		const viewTabs = screen.getByRole('tablist', { name: 'Duty Roster Template views' });
+		expect(within(viewTabs).getByRole('tab', { name: /Generate/ })).toBeTruthy();
+		expect(within(viewTabs).getByRole('tab', { name: /History/ })).toBeTruthy();
+		expect(within(viewTabs).getByRole('tab', { name: /Settings/ })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Accepted runs' })).toBeTruthy();
 	});
 
@@ -219,7 +207,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByText('01-JUN to 01-JUN').length).toBeGreaterThan(0);
 		expect(screen.getByText(/Accept Run writes official DA6 history/)).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
-		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
+		await fireEvent.click(
+			within(screen.getByRole('tablist', { name: 'Preview review mode' })).getByRole('tab', { name: 'DA6 Matrix' })
+		);
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(matrix).toBeTruthy();
 		expect(within(matrix).getByText('X')).toBeTruthy();
@@ -252,7 +242,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
-		expect(within(list).getByText('REVIEW')).toBeTruthy();
+		expect(within(list).getAllByText('Review').length).toBeGreaterThan(0);
 		expect(within(list).getByText(/Generated SGT\s+Able, Ann/)).toBeTruthy();
 		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
 		expect(within(list).queryByText('Commander approved outside-pool replacement.')).toBeNull();
@@ -263,7 +253,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByText('Selected Soldier is outside this template pool.').length).toBeGreaterThan(1);
 		expect(screen.getByText('Commander approved outside-pool replacement.')).toBeTruthy();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
+		await fireEvent.click(
+			within(screen.getByRole('tablist', { name: 'Preview review mode' })).getByRole('tab', { name: 'DA6 Matrix' })
+		);
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(within(matrix).queryByText('MANUAL')).toBeNull();
 	});
@@ -346,7 +338,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'Older runs' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/history?page=2'
 		);
-		expect(screen.getByText('Newer runs').getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Newer runs' }).hasAttribute('disabled')).toBe(true);
 	});
 
 	it('renders correction history and an inline correction form for accepted rows', async () => {

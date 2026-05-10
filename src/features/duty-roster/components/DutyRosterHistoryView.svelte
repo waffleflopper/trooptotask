@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import {
 		Calendar,
 		Database,
@@ -12,7 +14,13 @@
 		Wrench,
 		X
 	} from '@lucide/svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import type {
 		DutyRosterTemplate,
@@ -24,7 +32,8 @@
 	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 	import {
 		buildDutyRosterAcceptedRunReviewModel,
-		correctionKey
+		correctionKey,
+		type DutyRosterAcceptedRunReviewModel
 	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
 
 	let {
@@ -58,6 +67,10 @@
 	let historySearch = $state('');
 	let historyStateFilter = $state<'all' | 'accepted' | 'invalidated' | 'applied' | 'not-applied'>('all');
 	let selectedCorrectionKey = $state<string | null>(null);
+
+	type AcceptedDa6MatrixCell = NonNullable<DutyRosterAcceptedRunReviewModel['matrix']['rows'][number]['cells'][number]>;
+	type AcceptedDa6MatrixRow = OperationalMatrixRow & { meta: { cells: AcceptedDa6MatrixCell[] } };
+	type AcceptedDa6MatrixColumn = OperationalMatrixColumn & { meta: { date: string } };
 
 	function historyDetailHref(run: DutyRosterTemplateAcceptedRun, mode: 'roster' | 'da6'): string {
 		const detailPath = `${basePath}/${selectedTemplate.slug}/history/${run.id}`;
@@ -220,6 +233,27 @@
 	const selectedCorrectionRow = $derived(
 		detailReview?.rows.find((row) => correctionKey(row.run.id, row.date) === selectedCorrectionKey) ?? null
 	);
+	const acceptedMatrixColumns = $derived<AcceptedDa6MatrixColumn[]>(
+		(detailReview?.matrix.columns ?? []).map((column) => ({
+			id: column.date,
+			label: formatDutyDate(column.date),
+			meta: { date: column.date }
+		}))
+	);
+	const acceptedMatrixRows = $derived<AcceptedDa6MatrixRow[]>(
+		(detailReview?.matrix.rows ?? []).map((row) => ({
+			id: row.personnelId,
+			label: row.soldierLabel,
+			meta: { cells: row.cells }
+		}))
+	);
+
+	function acceptedMatrixCell(
+		row: AcceptedDa6MatrixRow,
+		column: AcceptedDa6MatrixColumn
+	): AcceptedDa6MatrixCell | undefined {
+		return row.meta.cells.find((cell) => cell.date === column.meta.date);
+	}
 </script>
 
 <h2 id="template-view-heading" class="sr-only">Accepted runs</h2>
@@ -239,7 +273,7 @@
 		<section class="run-detail-workspace" aria-label="Accepted Duty Roster record">
 			<div class="run-detail-main">
 				<header class="run-record-bar">
-					<a class="btn btn-secondary btn-sm" href={historyListHref()}>Back to history</a>
+					<Button variant="outline" size="sm" href={historyListHref()}>Back to history</Button>
 					<div class="run-record-meta" aria-label="Run status">
 						<span class={runStatusClass(historyDetailRun)}>{runStatusLabel(historyDetailRun)}</span>
 						{#if historyDetailRun.appliedAt}
@@ -255,20 +289,48 @@
 						>
 					</div>
 					<div class="run-record-actions">
-						<div class="view-switch admin-segmented" role="group" aria-label="History detail review mode">
-							<a class:active={historyMode === 'list'} href={historyDetailHref(historyDetailRun, 'roster')}>
-								<List size={15} aria-hidden="true" />
-								List
-							</a>
-							<a class:active={historyMode === 'matrix'} href={historyDetailHref(historyDetailRun, 'da6')}>
-								<Database size={15} aria-hidden="true" />
-								DA6
-							</a>
-						</div>
-						<button class="btn btn-secondary btn-sm" type="button" onclick={() => printAcceptedRun(historyDetailRun)}>
+						<Tabs.Root value={historyMode}>
+							<Tabs.List aria-label="History detail review mode">
+								<Tabs.Trigger
+									value="list"
+									onclick={() =>
+										void goto(
+											resolve(
+												historyDetailHref(
+													historyDetailRun,
+													'roster'
+												) as `/org/${string}/duty-rosters/${string}/history/${string}`
+											)
+										)}
+								>
+									<span class="inline-flex items-center gap-1">
+										<List size={15} aria-hidden="true" />
+										List
+									</span>
+								</Tabs.Trigger>
+								<Tabs.Trigger
+									value="matrix"
+									onclick={() =>
+										void goto(
+											resolve(
+												historyDetailHref(
+													historyDetailRun,
+													'da6'
+												) as `/org/${string}/duty-rosters/${string}/history/${string}?${string}`
+											)
+										)}
+								>
+									<span class="inline-flex items-center gap-1">
+										<Database size={15} aria-hidden="true" />
+										DA6
+									</span>
+								</Tabs.Trigger>
+							</Tabs.List>
+						</Tabs.Root>
+						<Button variant="outline" size="sm" type="button" onclick={() => printAcceptedRun(historyDetailRun)}>
 							<Printer size={15} aria-hidden="true" />
 							Print
-						</button>
+						</Button>
 					</div>
 				</header>
 
@@ -336,14 +398,15 @@
 								</span>
 								<span role="cell">
 									{#if tableRow.canCorrect}
-										<button
-											class="link-command link-command--icon"
+										<Button
+											variant="link"
+											size="sm"
 											type="button"
 											onclick={() => openCorrection(tableRow.run.id, tableRow.date)}
 										>
 											<Eye size={15} aria-hidden="true" />
 											Change Assignment
-										</button>
+										</Button>
 									{:else if tableRow.correctionLockedText}
 										<small>{tableRow.correctionLockedText}</small>
 									{:else}
@@ -355,34 +418,61 @@
 					</div>
 					<p class="history-count-note">Showing 1-{detailReview.rows.length} of {detailReview.rows.length} entries</p>
 				{:else}
-					<div class="matrix-scroll">
-						<table class="da6-matrix" aria-label="Accepted DA6 matrix">
-							<thead>
-								<tr>
-									<th scope="col">Soldier</th>
-									{#each detailReview.matrix.columns as column (column.date)}
-										<th scope="col">{column.date}</th>
-									{/each}
-								</tr>
-							</thead>
-							<tbody>
-								{#each detailReview.matrix.rows as row (row.personnelId)}
-									<tr>
-										<th scope="row">{row.soldierLabel}</th>
-										{#each row.cells as cell (cell.date)}
-											<td
-												class:assigned={cell.tone === 'assigned'}
-												class:warning={cell.tone === 'warning'}
-												class:danger={cell.tone === 'danger'}
-											>
-												{cell.display}
-											</td>
+					<OperationalMatrix.Root rows={acceptedMatrixRows} columns={acceptedMatrixColumns} readOnly>
+						<OperationalMatrix.Viewport ariaLabel="Accepted DA6 matrix viewport" class="rounded-lg border bg-card">
+							<OperationalMatrix.Table
+								ariaLabel="Accepted DA6 matrix"
+								class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
+							>
+								<OperationalMatrix.Header>
+									<OperationalMatrix.HeaderRow>
+										<OperationalMatrix.CornerCell
+											sticky
+											class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
+										>
+											Soldier
+										</OperationalMatrix.CornerCell>
+										{#each acceptedMatrixColumns as column (column.id)}
+											<OperationalMatrix.ColumnHeader
+												{column}
+												orientation="vertical"
+												sticky
+												class="sticky top-0 z-20 bg-muted"
+											/>
 										{/each}
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
+									</OperationalMatrix.HeaderRow>
+								</OperationalMatrix.Header>
+								<OperationalMatrix.Body>
+									{#each acceptedMatrixRows as row (row.id)}
+										<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+											<OperationalMatrix.RowHeader
+												{row}
+												sticky
+												class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left font-medium"
+											>
+												{row.label}
+											</OperationalMatrix.RowHeader>
+											{#each acceptedMatrixColumns as column (column.id)}
+												{@const cell = acceptedMatrixCell(row, column)}
+												<OperationalMatrix.Cell
+													{row}
+													{column}
+													readOnly
+													class={[
+														cell?.tone === 'assigned' && 'bg-success-muted text-success-foreground',
+														cell?.tone === 'warning' && 'bg-warning-muted text-warning-foreground',
+														cell?.tone === 'danger' && 'bg-danger-muted text-danger-foreground'
+													]}
+												>
+													<span class="font-mono text-xs font-semibold">{cell?.display ?? '-'}</span>
+												</OperationalMatrix.Cell>
+											{/each}
+										</OperationalMatrix.Row>
+									{/each}
+								</OperationalMatrix.Body>
+							</OperationalMatrix.Table>
+						</OperationalMatrix.Viewport>
+					</OperationalMatrix.Root>
 				{/if}
 			</div>
 
@@ -393,9 +483,15 @@
 							<p class="eyebrow">Record Correction</p>
 							<h3>{formatDate(selectedCorrectionRow.date)}</h3>
 						</div>
-						<button class="icon-button" type="button" aria-label="Close correction panel" onclick={closeCorrection}>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							type="button"
+							aria-label="Close correction panel"
+							onclick={closeCorrection}
+						>
 							<X size={20} aria-hidden="true" />
-						</button>
+						</Button>
 					</div>
 					<form class="record-correction-form" method="POST" action={correctAcceptedRunAction}>
 						<input type="hidden" name="runId" value={selectedCorrectionRow.run.id} />
@@ -426,13 +522,12 @@
 						{/if}
 						<label>
 							<span>Soldier Who Actually Served</span>
-							<SearchSelect
+							<SearchCombobox
 								options={selectedCorrectionRow.correctionOptions}
 								value={selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date)}
 								ariaLabel={`Actual Soldier for ${selectedCorrectionRow.date}`}
 								placeholder="Search Soldier"
 								clearable={false}
-								compact
 								onchange={(value) => {
 									selectedCorrectionAssignees = {
 										...selectedCorrectionAssignees,
@@ -446,7 +541,7 @@
 						{/if}
 						<label>
 							<span>Reason</span>
-							<input class="input" name="reason" placeholder="Reason for correction" required />
+							<Input name="reason" placeholder="Reason for correction" required />
 						</label>
 						<p class="correction-note">
 							Corrections update future counts and histories based on the Soldier who actually performed the duty.
@@ -468,12 +563,12 @@
 								{/each}
 							</div>
 						{/if}
-						<button class="btn btn-primary correction-save-button" type="submit">
+						<Button class="correction-save-button" type="submit">
 							<Save size={16} aria-hidden="true" />
 							Save
-						</button>
-						<button class="btn btn-secondary correction-save-button" type="button" onclick={closeCorrection}
-							>Cancel</button
+						</Button>
+						<Button class="correction-save-button" variant="outline" type="button" onclick={closeCorrection}
+							>Cancel</Button
 						>
 					</form>
 				{:else}
@@ -488,15 +583,16 @@
 						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
 							<form method="POST" action={applyAcceptedRunAction}>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<button class="btn btn-primary correction-save-button" type="submit">
+								<Button class="correction-save-button" type="submit">
 									<RefreshCw size={16} aria-hidden="true" />
 									{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
-								</button>
+								</Button>
 							</form>
 						{/if}
 						{#if detailReview.canInvalidate}
-							<button
-								class="btn btn-danger correction-save-button"
+							<Button
+								class="correction-save-button"
+								variant="destructive"
 								type="button"
 								aria-expanded={confirmingInvalidationRunId === historyDetailRun.id}
 								onclick={() =>
@@ -505,7 +601,7 @@
 							>
 								<Trash2 size={16} aria-hidden="true" />
 								Invalidate run
-							</button>
+							</Button>
 						{/if}
 						{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
 							<form class="invalidation-confirm" method="POST" action={invalidateAcceptedRunAction}>
@@ -515,14 +611,15 @@
 									assignments for this run will be removed. This action is only available for the latest accepted run.
 								</p>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<button class="btn btn-danger correction-save-button" type="submit">Confirm invalidation</button>
-								<button
-									class="btn btn-secondary correction-save-button"
+								<Button class="correction-save-button" variant="destructive" type="submit">Confirm invalidation</Button>
+								<Button
+									class="correction-save-button"
+									variant="outline"
 									type="button"
 									onclick={() => (confirmingInvalidationRunId = null)}
 								>
 									Keep run
-								</button>
+								</Button>
 							</form>
 						{/if}
 						{#if !detailReview.canInvalidate && detailReview.isInvalidated}
@@ -568,22 +665,22 @@
 			<div class="history-toolbar">
 				<label class="history-search">
 					<span class="sr-only">Search history</span>
-					<input class="input" type="search" placeholder="Search history..." bind:value={historySearch} />
+					<Input type="search" placeholder="Search history..." bind:value={historySearch} />
 				</label>
 				<label class="history-filter">
 					<span>State</span>
-					<select bind:value={historyStateFilter}>
+					<NativeSelect bind:value={historyStateFilter}>
 						<option value="all">All</option>
 						<option value="accepted">Accepted</option>
 						<option value="invalidated">Invalidated</option>
 						<option value="applied">Applied</option>
 						<option value="not-applied">Not applied runs</option>
-					</select>
+					</NativeSelect>
 				</label>
-				<button class="btn btn-secondary btn-sm" type="button" onclick={resetHistoryFilters}>
+				<Button variant="outline" size="sm" type="button" onclick={resetHistoryFilters}>
 					<RefreshCw size={15} aria-hidden="true" />
 					Reset filters
-				</button>
+				</Button>
 			</div>
 
 			<div class="history-ledger-table" role="table" aria-label="Duty Roster accepted runs">
@@ -619,19 +716,20 @@
 						</span>
 						<span role="cell"><span class={runStatusClass(run)}>{runStatusLabel(run)}</span></span>
 						<span class="history-actions-cell" role="cell">
-							<a
-								class="link-command link-command--icon"
+							<Button
+								variant="link"
+								size="sm"
 								href={historyDetailHref(run, 'roster')}
 								aria-label={formatDate(run.startDate) + ' to ' + formatDate(run.endDate)}
 							>
 								<Eye size={15} aria-hidden="true" />
 								Open
-							</a>
+							</Button>
 							{#if run.status === 'accepted'}
-								<button class="link-command link-command--icon" type="button" onclick={() => printAcceptedRun(run)}>
+								<Button variant="link" size="sm" type="button" onclick={() => printAcceptedRun(run)}>
 									<Printer size={15} aria-hidden="true" />
 									Print
-								</button>
+								</Button>
 							{/if}
 						</span>
 					</div>
@@ -647,14 +745,14 @@
 				</p>
 				<div class="history-pagination__actions">
 					{#if historyPage?.previousPage}
-						<a class="btn btn-secondary btn-sm" href={historyPageHref(historyPage.previousPage)}>Newer runs</a>
+						<Button variant="outline" size="sm" href={historyPageHref(historyPage.previousPage)}>Newer runs</Button>
 					{:else}
-						<span class="btn btn-secondary btn-sm disabled" aria-disabled="true">Newer runs</span>
+						<Button variant="outline" size="sm" disabled>Newer runs</Button>
 					{/if}
 					{#if historyPage?.hasMore && historyPage.nextPage}
-						<a class="btn btn-secondary btn-sm" href={historyPageHref(historyPage.nextPage)}>Older runs</a>
+						<Button variant="outline" size="sm" href={historyPageHref(historyPage.nextPage)}>Older runs</Button>
 					{:else}
-						<span class="btn btn-secondary btn-sm disabled" aria-disabled="true">Older runs</span>
+						<Button variant="outline" size="sm" disabled>Older runs</Button>
 					{/if}
 				</div>
 			</div>

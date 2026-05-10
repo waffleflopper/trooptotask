@@ -1,7 +1,10 @@
 <script lang="ts">
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
 	import { STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
 	import type { RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
@@ -341,13 +344,13 @@
 					<div class="upload-option upload-card">
 						<h4>Paste CSV data</h4>
 						<p class="text-muted">Useful for a quick import from another system or email.</p>
-						<textarea
-							class="input"
-							rows="8"
+						<Textarea
+							rows={8}
+							class="font-mono text-sm"
 							placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
 							bind:value={pasteText}
-						></textarea>
-						<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
+						/>
+						<Button size="sm" onclick={handlePaste} disabled={!pasteText.trim()}>Parse</Button>
 					</div>
 				</div>
 
@@ -426,8 +429,7 @@
 								<span class="text-muted">({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span>
 							</div>
 							<span class="resolve-arrow">→</span>
-							<select
-								class="select"
+							<NativeSelect
 								value={mapping.resolvedId ?? ''}
 								onchange={(e) => {
 									const val = (e.target as HTMLSelectElement).value;
@@ -439,11 +441,11 @@
 								{#each statusTypes as st (st.id)}
 									<option value={st.id}>{st.name}</option>
 								{/each}
-							</select>
+							</NativeSelect>
 							{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
 								{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
 								{#if resolved}
-									<Badge label={resolved.name} color={resolved.color} textColor={resolved.textColor} />
+									<CalendarStatusBadge statusType={resolved}>{resolved.name}</CalendarStatusBadge>
 								{/if}
 							{/if}
 						</div>
@@ -455,29 +457,29 @@
 
 	<div class="panel-footer">
 		{#if step === 'preview'}
-			<button
-				class="btn btn-secondary"
+			<Button
+				variant="outline"
 				onclick={() => {
 					step = 'upload';
 					rawRows = [];
-				}}>Back</button
+				}}>Back</Button
 			>
 			<div class="spacer"></div>
-			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
+			<Button onclick={handlePreviewNext}>Next</Button>
 		{:else if step === 'resolve'}
-			<button
-				class="btn btn-secondary"
+			<Button
+				variant="outline"
 				onclick={() => {
 					step = 'preview';
-				}}>Back</button
+				}}>Back</Button
 			>
 			<div class="spacer"></div>
-			<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>
+			<Button disabled={!allResolved || importing} onclick={handleImport}>
 				{#if importing}<Spinner />{/if}
 				{importing ? 'Importing...' : 'Import'}
-			</button>
+			</Button>
 		{:else if step === 'results'}
-			<button class="btn btn-primary" onclick={onComplete}>Done</button>
+			<Button onclick={onComplete}>Done</Button>
 		{/if}
 	</div>
 </div>
@@ -625,12 +627,6 @@
 
 	.upload-option p {
 		margin: 0;
-	}
-
-	.upload-option textarea {
-		resize: vertical;
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
 	}
 
 	.divider-row {

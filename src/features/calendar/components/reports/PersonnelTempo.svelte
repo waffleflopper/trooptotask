@@ -3,8 +3,13 @@
 	import type { StatusType } from '$lib/types';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
@@ -217,28 +222,24 @@
 	<div class="config-section">
 		<h3>Period</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Range</span>
-				<select
-					class="select"
-					value={periodOption}
-					onchange={(e) => handlePeriodChange(e.currentTarget.value as PeriodOption)}
-				>
+			<Field.Root>
+				<Field.Label>Range</Field.Label>
+				<NativeSelect value={periodOption} onchange={(e) => handlePeriodChange(e.currentTarget.value as PeriodOption)}>
 					<option value="90">Past 90 Days</option>
 					<option value="180">Past 180 Days</option>
 					<option value="365">Past 365 Days</option>
 					<option value="custom">Custom</option>
-				</select>
-			</label>
+				</NativeSelect>
+			</Field.Root>
 			{#if periodOption === 'custom'}
-				<label class="form-group">
-					<span class="label">Start</span>
-					<input type="date" class="input" bind:value={startDate} />
-				</label>
-				<label class="form-group">
-					<span class="label">End</span>
-					<input type="date" class="input" bind:value={endDate} />
-				</label>
+				<Field.Root>
+					<Field.Label>Start</Field.Label>
+					<DatePicker bind:value={startDate} placeholder="Select start date" />
+				</Field.Root>
+				<Field.Root>
+					<Field.Label>End</Field.Label>
+					<DatePicker bind:value={endDate} placeholder="Select end date" />
+				</Field.Root>
 			{/if}
 		</div>
 	</div>
@@ -246,9 +247,9 @@
 	<div class="config-section">
 		<h3>"Away" Status Types</h3>
 		<div class="status-filter-header">
-			<button class="btn btn-sm btn-secondary" onclick={toggleAllStatuses}>
+			<Button variant="outline" size="sm" onclick={toggleAllStatuses}>
 				{awayStatusTypeIds.size === statusTypes.length ? 'Deselect All' : 'Select All'}
-			</button>
+			</Button>
 			<span class="personnel-count">
 				{awayStatusTypeIds.size} of {statusTypes.length} selected
 			</span>
@@ -270,21 +271,17 @@
 
 	<div class="config-section">
 		<h3>Flag Threshold</h3>
-		<label class="form-group threshold-group">
-			<span class="label">Flag threshold (days)</span>
-			<input type="number" class="input threshold-input" bind:value={threshold} min={1} />
-		</label>
+		<Field.Root class="threshold-group">
+			<Field.Label>Flag threshold (days)</Field.Label>
+			<Input type="number" class="threshold-input" bind:value={threshold} min={1} />
+		</Field.Root>
 	</div>
 
 	<div class="config-actions">
-		<button
-			class="btn btn-primary"
-			onclick={runReport}
-			disabled={loading || !startDate || !endDate || awayStatusTypeIds.size === 0}
-		>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate || awayStatusTypeIds.size === 0}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -298,7 +295,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate} &middot; {result.totalDaysInPeriod} days in period
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0}
@@ -356,19 +353,6 @@
 		gap: var(--sp-2);
 		align-items: flex-end;
 		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
-	}
-
-	.threshold-group {
-		max-width: 200px;
-	}
-
-	.threshold-input {
-		width: 100px;
 	}
 
 	.status-filter-header {
@@ -445,10 +429,6 @@
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
 		}
 	}
 </style>

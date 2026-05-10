@@ -1,5 +1,7 @@
 <script lang="ts">
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { slugifyDutyRosterTemplateName } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import {
 		groupOptionItems,
@@ -144,10 +146,10 @@
 	<form class="settings-form wizard-form new-template-form" method="POST" action={createWizardAction}>
 		<nav class="wizard-stepper" aria-label="New Template steps">
 			{#each setupSteps as step, index (step.id)}
-				<button
+				<Button
+					variant={newTemplateStep === step.id ? 'secondary' : 'ghost'}
 					type="button"
-					class:active={newTemplateStep === step.id}
-					class:complete={index < selectedStepIndex}
+					class={[newTemplateStep === step.id && 'active', index < selectedStepIndex && 'complete']}
 					onclick={() => (newTemplateStep = step.id)}
 				>
 					<span class="wizard-stepper__number">{index < selectedStepIndex ? '✓' : index + 1}</span>
@@ -155,7 +157,7 @@
 						<strong>{step.label}</strong>
 						<small>{step.note}</small>
 					</span>
-				</button>
+				</Button>
 			{/each}
 		</nav>
 
@@ -170,11 +172,10 @@
 							<label>
 								<span>Template name <b aria-hidden="true">*</b></span>
 								<small>Display name for this duty roster template.</small>
-								<input
-									class="input"
+								<Input
 									aria-label="Template name"
 									name="name"
-									maxlength="120"
+									maxlength={120}
 									required
 									bind:value={newTemplateName}
 									onblur={() => {
@@ -186,11 +187,10 @@
 							<label>
 								<span>Route slug <b aria-hidden="true">*</b></span>
 								<small>URL-friendly identifier used in links and routes.</small>
-								<input
-									class="input"
+								<Input
 									aria-label="Route slug"
 									name="slug"
-									maxlength="72"
+									maxlength={72}
 									required
 									bind:value={newTemplateSlug}
 									placeholder="cq-runner"
@@ -199,11 +199,11 @@
 							<label>
 								<span>Short code</span>
 								<small>Compact label used in dense views and exports.</small>
-								<input
-									class="input short-code-input"
+								<Input
+									class="short-code-input"
 									aria-label="Short code"
 									name="shortCode"
-									maxlength="12"
+									maxlength={12}
 									bind:value={newTemplateShortCode}
 									placeholder="CQ"
 								/>
@@ -224,7 +224,7 @@
 								<h4 id="wizard-pool-heading">Pool criteria</h4>
 								<p>OR within each category. AND across categories.</p>
 							</div>
-							<button class="btn btn-secondary btn-sm" type="button" onclick={clearFilters}>Clear all</button>
+							<Button variant="outline" size="sm" type="button" onclick={clearFilters}>Clear all</Button>
 						</header>
 						<div class="criteria-grid criteria-grid--template">
 							<label class="tag-field">
@@ -329,11 +329,10 @@
 									<div class="baseline-row" role="row">
 										<span role="cell">{person.rank} {person.lastName}, {person.firstName}</span>
 										<span role="cell">
-											<input
-												class="input"
+											<Input
 												type="number"
-												min="0"
-												step="1"
+												min={0}
+												step={1}
 												name={`baseline:${person.id}`}
 												aria-label={`Starting count for ${person.rank} ${person.lastName}, ${person.firstName}`}
 												placeholder="0"
@@ -434,12 +433,7 @@
 					{:else}
 						<label class="settings-table-search">
 							<span>Search pool</span>
-							<input
-								class="input"
-								type="search"
-								placeholder="Name, rank, MOS, group"
-								bind:value={wizardExemptionQuery}
-							/>
+							<Input type="search" placeholder="Name, rank, MOS, group" bind:value={wizardExemptionQuery} />
 						</label>
 						<div class="exemption-list">
 							{#each visibleWizardExemptionRows as person (person.id)}
@@ -507,17 +501,21 @@
 						<section>
 							<div class="context-heading-row">
 								<h4>Exempted Soldiers</h4>
-								<button type="button" onclick={() => (wizardExemptPersonnelIds = [])}>Remove all</button>
+								<Button variant="link" size="sm" type="button" onclick={() => (wizardExemptPersonnelIds = [])}
+									>Remove all</Button
+								>
 							</div>
 							<div class="exempted-soldiers">
 								{#each wizardExemptPersonnel as person (person.id)}
 									<span>
 										{person.rank}
 										{person.lastName}, {person.firstName}
-										<button
+										<Button
+											variant="ghost"
+											size="icon-xs"
 											type="button"
 											aria-label={`Remove ${person.rank} ${person.lastName}, ${person.firstName}`}
-											onclick={() => removeExemption(person.id)}>×</button
+											onclick={() => removeExemption(person.id)}>×</Button
 										>
 									</span>
 								{/each}
@@ -555,22 +553,20 @@
 		{/if}
 
 		<div class="wizard-actions new-template-actions">
-			<button
-				class="btn btn-secondary"
+			<Button
+				variant="outline"
 				type="button"
 				disabled={newTemplateStep === 'general'}
 				onclick={() => (newTemplateStep = previousStep(newTemplateStep))}
 			>
 				Back
-			</button>
+			</Button>
 			<div>
-				<a class="btn btn-secondary" href={basePath}>Cancel</a>
+				<Button variant="outline" href={basePath}>Cancel</Button>
 				{#if newTemplateStep !== 'review'}
-					<button class="btn btn-primary" type="button" onclick={() => (newTemplateStep = nextStep(newTemplateStep))}>
-						Continue
-					</button>
+					<Button type="button" onclick={() => (newTemplateStep = nextStep(newTemplateStep))}>Continue</Button>
 				{:else}
-					<button class="btn btn-primary" type="submit">Save Template</button>
+					<Button type="submit">Save Template</Button>
 				{/if}
 			</div>
 		</div>

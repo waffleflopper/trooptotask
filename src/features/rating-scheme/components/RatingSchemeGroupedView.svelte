@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
-	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
+	import type { RatingDueStatus } from '../rating-scheme.types';
+	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
-	import { Badge } from '$lib/components/ui/badge';
+	import EvalBadge from './EvalBadge.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -72,16 +73,15 @@
 		return result;
 	});
 
-	function formatDueStatus(entry: RatingSchemeEntry): { label: string; color: string } {
+	function formatDueStatus(entry: RatingSchemeEntry): { status: RatingDueStatus; label: string } {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 		const days = getDaysUntilDue(entry.ratingPeriodEnd);
-		const color = RATING_STATUS_COLORS[status];
 
-		if (status === 'completed') return { label: 'Completed', color };
-		if (status === 'overdue') return { label: `Overdue (${Math.abs(days)}d)`, color };
-		if (status === 'due-30') return { label: `${days}d`, color };
-		if (status === 'due-60') return { label: `${days}d`, color };
-		return { label: 'Current', color };
+		if (status === 'completed') return { status, label: 'Completed' };
+		if (status === 'overdue') return { status, label: `Expired (${Math.abs(days)}d)` };
+		if (status === 'due-30') return { status, label: `Expiring (${days}d)` };
+		if (status === 'due-60') return { status, label: `Expires Soon (${days}d)` };
+		return { status, label: 'Current' };
 	}
 
 	function getRatedPersonLabel(id: string): string {
@@ -129,30 +129,34 @@
 									onclick={() => onEdit(entry)}
 								>
 									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<Badge variant="secondary"
-										>{entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}</Badge
-									>
+									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
 									{#if entry.workflowStatus}
-										<Badge variant="secondary">{getWorkflowLabel(entry.workflowStatus)}</Badge>
+										<EvalBadge kind="workflow" value={entry.workflowStatus}
+											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
+										>
 									{/if}
-									<span class="ml-auto text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
-										{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+									<span class="ml-auto inline-flex items-center gap-2">
+										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
+										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
+											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+										</span>
 									</span>
-									<Badge variant="outline">{due.label}</Badge>
 								</button>
 							{:else}
 								<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-sm last:border-b-0">
 									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<Badge variant="secondary"
-										>{entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}</Badge
-									>
+									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
 									{#if entry.workflowStatus}
-										<Badge variant="secondary">{getWorkflowLabel(entry.workflowStatus)}</Badge>
+										<EvalBadge kind="workflow" value={entry.workflowStatus}
+											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
+										>
 									{/if}
-									<span class="ml-auto text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
-										{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+									<span class="ml-auto inline-flex items-center gap-2">
+										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
+										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
+											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+										</span>
 									</span>
-									<Badge variant="outline">{due.label}</Badge>
 								</div>
 							{/if}
 						{/each}

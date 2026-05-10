@@ -17,19 +17,19 @@
 	export const requirementStatusVisuals: Record<RequirementStatus, RequirementStatusVisual> = {
 		current: {
 			label: 'Current',
-			class: 'bg-green-500 text-green-950'
+			class: 'border-success/20 bg-success-muted text-success-foreground'
 		},
 		'expiring-soon': {
 			label: 'Expiring Soon',
-			class: 'bg-yellow-400 text-yellow-950'
+			class: 'border-warning/20 bg-warning-muted text-warning-foreground'
 		},
 		expiring: {
 			label: 'Expiring',
-			class: 'bg-orange-500 text-orange-950'
+			class: 'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-300'
 		},
 		expired: {
 			label: 'Expired',
-			class: 'bg-red-600 text-white'
+			class: 'border-danger/20 bg-danger-muted text-danger-foreground'
 		},
 		missing: {
 			label: 'Missing',

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
+	import type { RatingDueStatus } from '../rating-scheme.types';
 	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from '$features/rating-scheme/utils/ratingScheme';
-	import { Badge } from '$lib/components/ui/badge';
 	import { DataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import EvalBadge from './EvalBadge.svelte';
 
 	interface Props {
 		entries: RatingSchemeEntry[];
@@ -33,15 +34,15 @@
 		return `Edit rating entry for ${label}`;
 	}
 
-	function formatDueStatus(entry: RatingSchemeEntry): string {
+	function formatDueStatus(entry: RatingSchemeEntry): { status: RatingDueStatus; label: string } {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 		const days = getDaysUntilDue(entry.ratingPeriodEnd);
 
-		if (status === 'completed') return 'Completed';
-		if (status === 'overdue') return `Overdue (${Math.abs(days)}d)`;
-		if (status === 'due-30') return `${days}d`;
-		if (status === 'due-60') return `${days}d`;
-		return 'Current';
+		if (status === 'completed') return { status, label: 'Completed' };
+		if (status === 'overdue') return { status, label: `Expired (${Math.abs(days)}d)` };
+		if (status === 'due-30') return { status, label: `Expiring (${days}d)` };
+		if (status === 'due-60') return { status, label: `Expires Soon (${days}d)` };
+		return { status, label: 'Current' };
 	}
 
 	function formatDate(dateStr: string): string {
@@ -96,7 +97,7 @@
 		{
 			key: 'status',
 			header: 'Status',
-			value: (e) => formatDueStatus(e)
+			value: (e) => formatDueStatus(e).label
 		}
 	];
 </script>
@@ -115,7 +116,7 @@
 >
 	{#snippet cell(row, col)}
 		{#if col.key === 'evalType'}
-			<Badge variant="secondary">{row.evalType}</Badge>
+			<EvalBadge kind="type" value={row.evalType} />
 		{:else if col.key === 'reportType'}
 			{col.value(row)}
 		{:else if col.key === 'ratedIndividual'}
@@ -130,9 +131,10 @@
 		{:else if col.key === 'thruDate'}
 			{formatDate(row.ratingPeriodEnd)}
 		{:else if col.key === 'status'}
-			<Badge variant="outline">{formatDueStatus(row)}</Badge>
+			{@const due = formatDueStatus(row)}
+			<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
 			{#if row.workflowStatus}
-				<Badge variant="secondary">{getWorkflowLabel(row.workflowStatus)}</Badge>
+				<EvalBadge kind="workflow" value={row.workflowStatus}>{getWorkflowLabel(row.workflowStatus)}</EvalBadge>
 			{/if}
 		{:else}
 			{String(col.value(row) ?? '')}

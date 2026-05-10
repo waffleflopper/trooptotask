@@ -30,6 +30,8 @@
 	panelDescription={form?.confirmEmail
 		? 'One more step remains before you can sign in.'
 		: 'Enter the invite code you received and choose a password that meets policy.'}
+	imageSrc="/auth/auth-create-account-invite.png"
+	imageAlt="A military invite packet with an envelope, map, notebook, and blank dog tag."
 	supportLabel="Joining an organization"
 	supportTitle="This page is for invited users."
 	supportDescription="If an organization invited you by email, use the invite code from that email to create your account."
@@ -116,7 +118,9 @@
 					{/snippet}
 				</AuthField>
 
-				<div class="rounded-lg border bg-muted/35 p-4">
+				<div
+					class="rounded-lg border border-border/80 bg-muted/25 p-4 shadow-[0_8px_24px_-22px_oklch(0.147_0.004_49.25/0.4),0_1px_2px_oklch(0.147_0.004_49.25/0.06)]"
+				>
 					<label class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
 						<Checkbox name="agreeTerms" required class="mt-0.5" />
 						<span>

@@ -22,6 +22,8 @@
 	description="Use the email address and password tied to your TroopToTask account."
 	panelEyebrow="Existing account"
 	panelTitle="Sign in"
+	imageSrc="/auth/auth-login-command-desk.png"
+	imageAlt="A military command-post desk with a map, notebook, compass, and rugged laptop."
 	supportLabel="Need help?"
 	supportTitle="Choose the right path."
 	supportDescription="If you do not have an account yet, create one from an invite or request beta access."

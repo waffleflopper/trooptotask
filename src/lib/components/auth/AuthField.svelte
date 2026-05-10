@@ -61,7 +61,7 @@
 </script>
 
 <Field.Root data-invalid={error ? 'true' : undefined}>
-	<Field.Label for={id} class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] uppercase">
+	<Field.Label for={id} class="text-sm font-medium">
 		{label}
 		{#if required}<span class="text-destructive" aria-hidden="true">*</span>{/if}
 	</Field.Label>

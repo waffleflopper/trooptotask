@@ -52,6 +52,8 @@
 	panelEyebrow="Beta request"
 	panelTitle={submitted ? 'Request submitted' : 'Request beta access'}
 	panelDescription={submitted ? 'Your beta request is in the queue.' : 'Tell us who you are and how to reach you.'}
+	imageSrc="/auth/auth-request-access-packet.png"
+	imageAlt="A military access packet with folders, a clipboard, and field desk materials."
 	supportLabel="What this is for"
 	supportTitle="Beta access only."
 	supportDescription="If you already have an invite code, use Create Account instead. If you already have an account, sign in."

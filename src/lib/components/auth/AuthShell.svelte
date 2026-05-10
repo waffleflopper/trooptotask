@@ -4,8 +4,8 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		eyebrow?: string;
@@ -14,6 +14,8 @@
 		panelEyebrow?: string;
 		panelTitle?: string;
 		panelDescription?: string;
+		imageSrc?: string;
+		imageAlt?: string;
 		supportLabel?: string;
 		supportTitle?: string;
 		supportDescription?: string;
@@ -31,6 +33,8 @@
 		panelEyebrow,
 		panelTitle,
 		panelDescription,
+		imageSrc,
+		imageAlt = '',
 		supportLabel = 'Account Help',
 		supportTitle = 'Use the path that fits your account.',
 		supportDescription = 'Sign in, recover access, or complete an invite from the links on this page.',
@@ -40,30 +44,32 @@
 	}: Props = $props();
 
 	const resolvedPanelTitle = $derived(panelTitle ?? title);
+	const resolvedImageSrc = $derived(imageSrc ?? null);
+	const hasImage = $derived(!!resolvedImageSrc);
 </script>
 
-<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-background text-foreground">
-	<div class="mx-auto flex min-h-screen max-w-[1240px] flex-col px-4 py-5 sm:px-6 lg:px-8">
-		<header class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
+<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 text-foreground">
+	<div class="mx-auto flex min-h-screen max-w-[1120px] flex-col px-4 py-5 sm:px-6 lg:px-8">
+		<header class="flex items-center justify-between gap-4">
 			<a
 				href={resolve('/')}
 				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
 				<span
-					class="[font-family:var(--font-display)] text-2xl leading-none font-extrabold tracking-[0.03em] uppercase sm:text-3xl"
+					class="[font-family:var(--font-display)] text-xl leading-none font-extrabold tracking-[0.03em] uppercase sm:text-2xl"
 				>
 					Troop<span class="text-primary">To</span>Task
 				</span>
-				<span class="font-mono text-[0.6875rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+				<span class="font-mono text-[0.625rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
 					Unit Readiness Platform
 				</span>
 			</a>
 
-			<div class="flex items-center gap-3 max-sm:w-full max-sm:justify-between">
-				<Button href={resolve('/')} variant="outline" class="max-sm:flex-1">Back to site</Button>
+			<div class="flex items-center gap-2">
+				<Button href={resolve('/')} variant="outline" size="sm">Back to site</Button>
 				<Button
 					variant="outline"
-					size="icon"
+					size="icon-sm"
 					type="button"
 					onclick={() => themeStore.toggle()}
 					aria-label="Toggle theme"
@@ -77,41 +83,48 @@
 			</div>
 		</header>
 
-		<main
-			class="grid flex-1 grid-cols-[minmax(0,1fr)_minmax(340px,470px)] items-center gap-10 py-10 md:py-16 lg:gap-16 max-[920px]:grid-cols-1 max-sm:py-5"
-		>
-			<section class="max-w-160 max-sm:hidden" aria-labelledby="auth-shell-intro-title">
-				<p class="mb-3 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-warning uppercase">{eyebrow}</p>
-				<h1
-					id="auth-shell-intro-title"
-					class="max-w-[10ch] [font-family:var(--font-display)] text-5xl leading-[0.95] font-extrabold tracking-[0.04em] text-balance uppercase md:text-6xl lg:text-[5.75rem]"
-				>
-					{title}
-				</h1>
-				{#if description}
-					<p class="mt-5 max-w-[34rem] text-lg leading-relaxed text-muted-foreground">{description}</p>
-				{/if}
+		<main class="flex flex-1 items-center justify-center py-8 md:py-12">
+			<section
+				class={cn(
+					'grid w-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-[0_16px_48px_-36px_oklch(0.147_0.004_49.25/0.55),0_1px_2px_oklch(0.147_0.004_49.25/0.08)]',
+					hasImage ? 'max-w-[960px] md:grid-cols-[minmax(0,0.92fr)_minmax(0,1fr)]' : 'max-w-[480px]'
+				)}
+				aria-labelledby="auth-panel-title"
+			>
+				<div class="flex flex-col px-6 py-7 sm:px-8 sm:py-9">
+					{#if panelEyebrow ?? eyebrow}
+						<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+							{panelEyebrow ?? eyebrow}
+						</p>
+					{/if}
 
-				<div class="mt-8 max-w-[32rem] border-t border-border/70 pt-5">
-					<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-						{supportLabel}
-					</p>
-					<h2
-						class="mt-3 [font-family:var(--font-display)] text-3xl leading-tight font-bold tracking-[0.05em] uppercase"
+					<h1
+						id="auth-panel-title"
+						class="mt-4 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-3xl"
 					>
-						{supportTitle}
-					</h2>
-					<p class="mt-3 text-sm leading-relaxed text-muted-foreground">{supportDescription}</p>
+						{resolvedPanelTitle}
+					</h1>
 
-					{#if supportPoints.length > 0}
-						<ul class="mt-5 grid gap-3">
-							{#each supportPoints as point, index (`${point}:${index}`)}
-								<li class="grid grid-cols-[auto_1fr] items-start gap-3 text-sm leading-relaxed text-muted-foreground">
-									<span class="mt-1.5 size-2.5 rounded-full bg-primary" aria-hidden="true"></span>
-									<span>{point}</span>
-								</li>
-							{/each}
-						</ul>
+					{#if panelDescription ?? description}
+						<p class="mt-2 text-sm leading-6 text-muted-foreground">{panelDescription ?? description}</p>
+					{/if}
+
+					<div class="mt-6 flex flex-col gap-5">
+						{@render children()}
+					</div>
+
+					{#if !hasImage && supportPoints.length > 0}
+						<div class="mt-6 rounded-lg border bg-muted/35 p-4">
+							<p class="text-sm font-medium text-foreground">{supportTitle}</p>
+							<ul class="mt-3 grid gap-2">
+								{#each supportPoints as point, index (`${point}:${index}`)}
+									<li class="grid grid-cols-[auto_1fr] items-start gap-2 text-sm leading-5 text-muted-foreground">
+										<span class="mt-2 size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+										<span>{point}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
 					{/if}
 
 					{#if aside}
@@ -120,40 +133,28 @@
 						</div>
 					{/if}
 				</div>
-			</section>
 
-			<section
-				class="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm"
-				aria-labelledby="auth-panel-title"
-			>
-				<header class="border-b bg-muted/35 px-6 py-5 max-sm:px-4">
-					{#if panelEyebrow}
-						<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-							{panelEyebrow}
-						</p>
-					{/if}
-					<h2
-						id="auth-panel-title"
-						class="mt-3 [font-family:var(--font-display)] text-3xl leading-tight font-bold tracking-[0.06em] uppercase"
-					>
-						{resolvedPanelTitle}
-					</h2>
-					{#if panelDescription}
-						<p class="mt-3 text-sm leading-relaxed text-muted-foreground">{panelDescription}</p>
-					{/if}
-				</header>
-
-				<div class="flex flex-col gap-5 px-6 py-6 max-sm:px-4">
-					{@render children()}
-				</div>
+				{#if resolvedImageSrc}
+					<div class="relative hidden min-h-[520px] overflow-hidden border-l border-border/80 bg-muted md:block">
+						<img src={resolvedImageSrc} alt={imageAlt} class="absolute inset-0 size-full object-cover" />
+						<div class="absolute inset-0 bg-gradient-to-t from-background/55 via-transparent to-transparent"></div>
+						<div
+							class="absolute right-5 bottom-5 left-5 rounded-lg border border-border/80 bg-background/88 p-4 shadow-[0_10px_30px_-24px_oklch(0.147_0.004_49.25/0.45),0_1px_2px_oklch(0.147_0.004_49.25/0.08)] backdrop-blur-sm"
+						>
+							<p class="font-mono text-[0.625rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+								{supportLabel}
+							</p>
+							<p class="mt-1 text-sm font-medium text-foreground">{supportTitle}</p>
+							<p class="mt-1 text-xs leading-5 text-muted-foreground">{supportDescription}</p>
+						</div>
+					</div>
+				{/if}
 			</section>
 		</main>
 
-		<Separator />
-		<footer
-			class="py-6 text-center font-mono text-[0.6875rem] font-medium tracking-[0.14em] text-muted-foreground uppercase sm:text-left"
-		>
-			Built for Army leaders, by Army leaders.
+		<footer class="pb-6 text-center text-sm leading-6 text-muted-foreground">
+			By continuing, you agree to our <a href={resolve('/terms')}>Terms of Use</a> and
+			<a href={resolve('/privacy')}>Privacy Policy</a>.
 		</footer>
 	</div>
 </div>

@@ -12,7 +12,7 @@
 <section
 	bind:this={ref}
 	data-slot="type-management-workspace-detail"
-	class={cn('min-h-0 overflow-y-auto pr-2 [scrollbar-gutter:stable]', mobileHidden && 'hidden lg:block', className)}
+	class={cn('min-h-0 overflow-y-auto pr-2 [scrollbar-gutter:stable]', mobileHidden && 'max-lg:hidden', className)}
 	{...restProps}
 >
 	{@render children?.()}

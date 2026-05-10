@@ -115,4 +115,12 @@ describe('onboarding templates page', () => {
 		expect(within(detail).getByRole('button', { name: 'Add Step' })).toBeTruthy();
 		expect(within(detail).getByRole('button', { name: 'Delete Template' })).toBeTruthy();
 	});
+
+	it('keeps the initial template detail in the flex layout before manual selection', () => {
+		renderTemplatesPage();
+
+		const detail = document.querySelector('[data-slot="type-management-workspace-detail"]');
+		expect(detail?.className).toContain('flex');
+		expect(detail?.className).not.toContain('lg:block');
+	});
 });

@@ -15,11 +15,13 @@
 		X
 	} from '@lucide/svelte';
 	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
+	import * as Select from '$lib/components/ui/select';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import type {
@@ -67,6 +69,14 @@
 	let historySearch = $state('');
 	let historyStateFilter = $state<'all' | 'accepted' | 'invalidated' | 'applied' | 'not-applied'>('all');
 	let selectedCorrectionKey = $state<string | null>(null);
+
+	const historyStateOptions: Array<{ value: typeof historyStateFilter; label: string }> = [
+		{ value: 'all', label: 'All' },
+		{ value: 'accepted', label: 'Accepted' },
+		{ value: 'invalidated', label: 'Invalidated' },
+		{ value: 'applied', label: 'Applied' },
+		{ value: 'not-applied', label: 'Not applied runs' }
+	];
 
 	type AcceptedDa6MatrixCell = NonNullable<DutyRosterAcceptedRunReviewModel['matrix']['rows'][number]['cells'][number]>;
 	type AcceptedDa6MatrixRow = OperationalMatrixRow & { meta: { cells: AcceptedDa6MatrixCell[] } };
@@ -174,11 +184,11 @@
 		return 'Official';
 	}
 
-	function runStatusClass(run: DutyRosterTemplateAcceptedRun): string {
-		if (run.status === 'invalidated') return 'status-chip status-chip--danger';
-		if (run.appliedAt && !run.calendarAssignmentsEdited) return 'status-chip status-chip--success';
-		if (run.appliedAt && run.calendarAssignmentsEdited) return 'status-chip status-chip--warning';
-		return 'status-chip';
+	function runStatusVariant(run: DutyRosterTemplateAcceptedRun): BadgeVariant {
+		if (run.status === 'invalidated') return 'danger';
+		if (run.appliedAt && !run.calendarAssignmentsEdited) return 'success';
+		if (run.appliedAt && run.calendarAssignmentsEdited) return 'warning';
+		return 'secondary';
 	}
 
 	function acceptedByLabel(run: DutyRosterTemplateAcceptedRun): string {
@@ -216,6 +226,9 @@
 		historyStateFilter = 'all';
 	}
 
+	const historyStateFilterLabel = $derived(
+		historyStateOptions.find((option) => option.value === historyStateFilter)?.label ?? 'All'
+	);
 	const filteredAcceptedRuns = $derived(acceptedRuns.filter(runMatchesHistoryFilter));
 	const latestRun = $derived(
 		historyPage ? (acceptedRuns.find((run) => run.id === latestHistoryRunId) ?? null) : (acceptedRuns[0] ?? null)
@@ -275,7 +288,7 @@
 				<header class="run-record-bar">
 					<Button variant="outline" size="sm" href={historyListHref()}>Back to history</Button>
 					<div class="run-record-meta" aria-label="Run status">
-						<span class={runStatusClass(historyDetailRun)}>{runStatusLabel(historyDetailRun)}</span>
+						<Badge variant={runStatusVariant(historyDetailRun)}>{runStatusLabel(historyDetailRun)}</Badge>
 						{#if historyDetailRun.appliedAt}
 							<span><Calendar size={15} aria-hidden="true" /> Applied to Calendar</span>
 						{/if}
@@ -374,7 +387,7 @@
 								</span>
 								<span role="cell">
 									{#if tableRow.correction}
-										<span class="status-chip status-chip--warning">CORRECTED</span>
+										<Badge variant="warning">Corrected</Badge>
 									{:else}
 										<span class="muted-dash">-</span>
 									{/if}
@@ -399,7 +412,7 @@
 								<span role="cell">
 									{#if tableRow.canCorrect}
 										<Button
-											variant="link"
+											variant="outline"
 											size="sm"
 											type="button"
 											onclick={() => openCorrection(tableRow.run.id, tableRow.date)}
@@ -520,8 +533,8 @@
 								</p>
 							{/if}
 						{/if}
-						<label>
-							<span>Soldier Who Actually Served</span>
+						<Field.Root>
+							<Field.Label>Soldier who actually served</Field.Label>
 							<SearchCombobox
 								options={selectedCorrectionRow.correctionOptions}
 								value={selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date)}
@@ -535,14 +548,14 @@
 									};
 								}}
 							/>
-						</label>
+						</Field.Root>
 						{#if selectedCorrectionOverrideWarning()}
 							<p class="correction-note correction-note--warning">{selectedCorrectionOverrideWarning()}</p>
 						{/if}
-						<label>
-							<span>Reason</span>
-							<Input name="reason" placeholder="Reason for correction" required />
-						</label>
+						<Field.Root>
+							<Field.Label for="duty-roster-correction-reason">Reason</Field.Label>
+							<Input id="duty-roster-correction-reason" name="reason" placeholder="Reason for correction" required />
+						</Field.Root>
 						<p class="correction-note">
 							Corrections update future counts and histories based on the Soldier who actually performed the duty.
 						</p>
@@ -563,13 +576,11 @@
 								{/each}
 							</div>
 						{/if}
-						<Button class="correction-save-button" type="submit">
+						<Button type="submit">
 							<Save size={16} aria-hidden="true" />
 							Save
 						</Button>
-						<Button class="correction-save-button" variant="outline" type="button" onclick={closeCorrection}
-							>Cancel</Button
-						>
+						<Button variant="outline" type="button" onclick={closeCorrection}>Cancel</Button>
 					</form>
 				{:else}
 					<div class="record-correction-panel__header">
@@ -583,7 +594,7 @@
 						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
 							<form method="POST" action={applyAcceptedRunAction}>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<Button class="correction-save-button" type="submit">
+								<Button type="submit">
 									<RefreshCw size={16} aria-hidden="true" />
 									{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
 								</Button>
@@ -591,7 +602,6 @@
 						{/if}
 						{#if detailReview.canInvalidate}
 							<Button
-								class="correction-save-button"
 								variant="destructive"
 								type="button"
 								aria-expanded={confirmingInvalidationRunId === historyDetailRun.id}
@@ -611,13 +621,8 @@
 									assignments for this run will be removed. This action is only available for the latest accepted run.
 								</p>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<Button class="correction-save-button" variant="destructive" type="submit">Confirm invalidation</Button>
-								<Button
-									class="correction-save-button"
-									variant="outline"
-									type="button"
-									onclick={() => (confirmingInvalidationRunId = null)}
-								>
+								<Button variant="destructive" type="submit">Confirm invalidation</Button>
+								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}>
 									Keep run
 								</Button>
 							</form>
@@ -669,13 +674,16 @@
 				</label>
 				<label class="history-filter">
 					<span>State</span>
-					<NativeSelect bind:value={historyStateFilter}>
-						<option value="all">All</option>
-						<option value="accepted">Accepted</option>
-						<option value="invalidated">Invalidated</option>
-						<option value="applied">Applied</option>
-						<option value="not-applied">Not applied runs</option>
-					</NativeSelect>
+					<Select.Root type="single" bind:value={historyStateFilter}>
+						<Select.Trigger class="w-full" aria-label="History state filter">
+							{historyStateFilterLabel}
+						</Select.Trigger>
+						<Select.Content>
+							{#each historyStateOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</label>
 				<Button variant="outline" size="sm" type="button" onclick={resetHistoryFilters}>
 					<RefreshCw size={15} aria-hidden="true" />
@@ -693,8 +701,8 @@
 				</div>
 				{#each filteredAcceptedRuns as run (run.id)}
 					<div
-						class="history-ledger-table__row"
-						class:history-ledger-table__row--latest={run.id === latestHistoryRunId}
+						class="history-ledger-table__row data-[state=selected]:bg-muted"
+						data-state={run.id === latestHistoryRunId ? 'selected' : undefined}
 						role="row"
 					>
 						<span class="run-name-cell" role="cell">
@@ -702,7 +710,7 @@
 							<small>Accepted {formatDateTime(run.acceptedAt)}</small>
 							<span class="open-record-note">Open official record</span>
 							{#if run.id === latestHistoryRunId}
-								<span class="status-chip status-chip--info">Latest</span>
+								<Badge variant="info">Latest</Badge>
 							{/if}
 						</span>
 						<span class="calendar-cell" role="cell">
@@ -714,10 +722,10 @@
 							<small>Corrections</small>
 							<span class="correction-count">{run.corrections.length}</span>
 						</span>
-						<span role="cell"><span class={runStatusClass(run)}>{runStatusLabel(run)}</span></span>
+						<span role="cell"><Badge variant={runStatusVariant(run)}>{runStatusLabel(run)}</Badge></span>
 						<span class="history-actions-cell" role="cell">
 							<Button
-								variant="link"
+								variant="outline"
 								size="sm"
 								href={historyDetailHref(run, 'roster')}
 								aria-label={formatDate(run.startDate) + ' to ' + formatDate(run.endDate)}
@@ -726,7 +734,7 @@
 								Open
 							</Button>
 							{#if run.status === 'accepted'}
-								<Button variant="link" size="sm" type="button" onclick={() => printAcceptedRun(run)}>
+								<Button variant="outline" size="sm" type="button" onclick={() => printAcceptedRun(run)}>
 									<Printer size={15} aria-hidden="true" />
 									Print
 								</Button>

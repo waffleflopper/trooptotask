@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import Check from '@lucide/svelte/icons/check';
+	import CircleQuestionMark from '@lucide/svelte/icons/circle-question-mark';
+	import Minus from '@lucide/svelte/icons/minus';
+	import OctagonX from '@lucide/svelte/icons/octagon-x';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import type {
 		CriticalTasksSettingsInput,
 		IctStatus,
@@ -82,12 +87,6 @@
 		expired: 'expired',
 		'not-recorded': 'not recorded'
 	};
-	const compactStatusLabels: Record<IctStatus, string> = {
-		current: 'Current',
-		'expiring-soon': 'Soon',
-		expired: 'Expired',
-		'not-recorded': 'Missing'
-	};
 
 	const matrixColumns = $derived<MatrixColumn[]>(
 		matrix.tasks.map((task) => ({
@@ -166,6 +165,13 @@
 		if (cell.statusInfo.expirationDate) return `Expires ${cell.statusInfo.expirationDate}`;
 		return `Completed ${cell.completion.completedAt}`;
 	}
+
+	function cellStatusClass(status: IctStatus): string {
+		if (status === 'current') return 'bg-success-muted text-success-foreground';
+		if (status === 'expiring-soon') return 'bg-warning-muted text-warning-foreground';
+		if (status === 'expired') return 'bg-danger-muted text-danger-foreground';
+		return 'bg-muted text-muted-foreground';
+	}
 </script>
 
 {#snippet rowHeader(row: MatrixRow)}
@@ -237,25 +243,31 @@
 					? cellAriaLabel(row.source.person, cell)
 					: `${row.source.person.lastName} ${column.source.taskCode}: not applicable`}
 				onSelect={() => handleCellClick(row, column)}
-				class="h-14 min-w-24 border border-border bg-card p-0"
+				class="h-10 w-12 min-w-12 border border-border bg-card p-0"
 			>
 				{#if cell?.applicable}
 					<span
-						class="flex h-14 w-full flex-col items-center justify-center gap-1 overflow-hidden px-1 text-center"
+						class={`grid h-10 w-full place-items-center overflow-hidden ${cellStatusClass(cell.statusInfo.status)}`}
 						data-status={cell.statusInfo.status}
 					>
-						<CriticalTaskStatusBadge
-							status={cell.statusInfo.status}
-							label={compactStatusLabels[cell.statusInfo.status]}
-						/>
+						{#if cell.statusInfo.status === 'current'}
+							<Check class="size-4" aria-hidden="true" />
+						{:else if cell.statusInfo.status === 'expiring-soon'}
+							<TriangleAlert class="size-4" aria-hidden="true" />
+						{:else if cell.statusInfo.status === 'expired'}
+							<OctagonX class="size-4" aria-hidden="true" />
+						{:else}
+							<CircleQuestionMark class="size-4" aria-hidden="true" />
+						{/if}
 						<span class="sr-only">
 							{completionSummary(cell)}
 						</span>
 					</span>
 				{:else}
-					<span
-						class="block h-14 w-full bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--muted-foreground)_20%,transparent)_0_1px,transparent_1px_6px)]"
-					></span>
+					<span class="grid h-10 w-full place-items-center bg-muted text-muted-foreground/70">
+						<Minus class="size-4" aria-hidden="true" />
+						<span class="sr-only">Not required</span>
+					</span>
 				{/if}
 			</OperationalMatrix.Cell>
 		{/each}
@@ -277,7 +289,7 @@
 		<OperationalMatrix.Table
 			ariaLabel="Critical Tasks readiness matrix"
 			data-testid="critical-tasks-matrix-table"
-			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-14 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-14 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
+			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[9px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
 		>
 			<OperationalMatrix.Header>
 				<OperationalMatrix.HeaderRow>
@@ -294,11 +306,17 @@
 							orientation="vertical"
 							aria-label={column.label}
 							title={column.source.title}
-							class="sticky top-0 z-20 bg-muted"
+							class="sticky top-0 z-20 h-52 w-14 min-w-14 max-w-14 bg-muted"
 						>
-							<span class="inline-flex items-center gap-1">
-								<span>{column.source.taskCode}</span>
-								<span class="text-muted-foreground">{column.source.title}</span>
+							<span class="grid w-40 gap-0.5 text-center">
+								<span class="truncate text-[9px] font-bold leading-none text-foreground">
+									{column.source.taskCode}
+								</span>
+								<span
+									class="line-clamp-2 whitespace-normal text-[8px] font-medium normal-case leading-tight tracking-normal text-muted-foreground"
+								>
+									{column.source.title}
+								</span>
 							</span>
 						</OperationalMatrix.ColumnHeader>
 					{/each}

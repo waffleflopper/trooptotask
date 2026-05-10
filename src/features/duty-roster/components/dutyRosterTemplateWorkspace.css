@@ -1463,10 +1463,8 @@
 	min-height: 3.2rem;
 }
 
-.history-ledger-table__row--latest,
 .accepted-run-grid__row--selected {
-	background: color-mix(in srgb, var(--amber-light) 34%, var(--surface-panel) 66%);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 40%, var(--ink-15) 60%);
+	background: var(--muted);
 }
 
 .run-name-cell,
@@ -3832,11 +3830,6 @@ a.history-run__header:hover {
 		border: 1px solid var(--ink-15);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
-	}
-
-	.history-ledger-table__row--latest {
-		background: color-mix(in srgb, var(--amber-light) 24%, var(--surface-panel) 76%);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 34%, var(--ink-15) 66%);
 	}
 
 	.history-ledger-table__row > span {

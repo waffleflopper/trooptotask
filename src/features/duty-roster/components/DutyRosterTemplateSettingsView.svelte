@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { CalendarDays, History, Play, UsersRound, Zap } from '@lucide/svelte';
-	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as MultiSelect from '$lib/components/ui/multi-select';
+	import { Switch } from '$lib/components/ui/switch';
 	import {
 		groupOptionItems,
 		optionItems,
@@ -120,6 +124,10 @@
 		return `${person.rank} ${person.lastName}, ${person.firstName}`;
 	}
 
+	function optionLabel(options: Array<{ value: string; label: string }>, value: string): string {
+		return options.find((option) => option.value === value)?.label ?? value;
+	}
+
 	function matchesPersonnelQuery(
 		person: { rank: string; lastName: string; firstName: string; mos?: string | null; groupName?: string | null },
 		query: string,
@@ -161,24 +169,30 @@
 						</div>
 					</div>
 					<div class="identity-grid identity-grid--ledger">
-						<label>
-							<span>Template name</span>
-							<Input name="name" maxlength={120} required bind:value={settingsName} />
-						</label>
-						<label>
-							<span>Template slug</span>
-							<Input name="slug" maxlength={72} required bind:value={settingsSlug} />
-						</label>
-						<label class="short-code-field">
-							<span>Short code</span>
-							<Input name="shortCode" maxlength={12} bind:value={settingsShortCode} placeholder="CQ" />
-						</label>
-						<div class="settings-readonly-field">
-							<span>Status</span>
-							<strong class="settings-status-badge"
-								>{selectedTemplate.status === 'active' ? 'Active' : 'Archived'}</strong
-							>
-						</div>
+						<Field.Root>
+							<Field.Label for="settings-template-name">Template name</Field.Label>
+							<Input id="settings-template-name" name="name" maxlength={120} required bind:value={settingsName} />
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="settings-template-slug">Template slug</Field.Label>
+							<Input id="settings-template-slug" name="slug" maxlength={72} required bind:value={settingsSlug} />
+						</Field.Root>
+						<Field.Root class="short-code-field">
+							<Field.Label for="settings-template-short-code">Short code</Field.Label>
+							<Input
+								id="settings-template-short-code"
+								name="shortCode"
+								maxlength={12}
+								bind:value={settingsShortCode}
+								placeholder="CQ"
+							/>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label>Status</Field.Label>
+							<Badge variant={selectedTemplate.status === 'active' ? 'success' : 'secondary'}>
+								{selectedTemplate.status === 'active' ? 'Active' : 'Archived'}
+							</Badge>
+						</Field.Root>
 					</div>
 				</section>
 
@@ -190,46 +204,110 @@
 						</div>
 					</div>
 					<div class="criteria-grid">
-						<label class="tag-field">
-							<span>Included ranks</span>
-							<MultiTagSelect
-								options={optionItems(settings.rankOptions)}
-								value={rankFilterValues}
-								ariaLabel="Rank filters"
-								placeholder="Any rank"
-								onChange={(values) => (rankFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>Included groups</span>
-							<MultiTagSelect
-								options={groupOptionItems(settings.groupOptions)}
-								value={groupFilterValues}
-								ariaLabel="Group filters"
-								placeholder="Any group"
-								onChange={(values) => (groupFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>Included MOS</span>
-							<MultiTagSelect
-								options={optionItems(settings.mosOptions)}
-								value={mosFilterValues}
-								ariaLabel="MOS filters"
-								placeholder="Any MOS"
-								onChange={(values) => (mosFilterValues = values)}
-							/>
-						</label>
-						<label class="tag-field">
-							<span>Duty roles</span>
-							<MultiTagSelect
-								options={optionItems(settings.dutyRoleOptions)}
-								value={dutyRoleFilterValues}
-								ariaLabel="Duty role filters"
-								placeholder="Any role"
-								onChange={(values) => (dutyRoleFilterValues = values)}
-							/>
-						</label>
+						<Field.Root class="tag-field">
+							<Field.Label>Included ranks</Field.Label>
+							<MultiSelect.Root
+								items={optionItems(settings.rankOptions)}
+								multiple
+								bind:value={rankFilterValues}
+								label="Rank filters"
+							>
+								<MultiSelect.Trigger>
+									<MultiSelect.Value>
+										{#snippet children(values)}
+											{#each values as value (value)}
+												<MultiSelect.Chip {value}
+													>{optionLabel(optionItems(settings.rankOptions), value)}</MultiSelect.Chip
+												>
+											{/each}
+											<MultiSelect.Input placeholder="Any rank" aria-label="Rank filters" />
+										{/snippet}
+									</MultiSelect.Value>
+								</MultiSelect.Trigger>
+								<MultiSelect.Content>
+									<MultiSelect.Empty>No ranks found.</MultiSelect.Empty>
+									<MultiSelect.List />
+								</MultiSelect.Content>
+							</MultiSelect.Root>
+						</Field.Root>
+						<Field.Root class="tag-field">
+							<Field.Label>Included groups</Field.Label>
+							<MultiSelect.Root
+								items={groupOptionItems(settings.groupOptions)}
+								multiple
+								bind:value={groupFilterValues}
+								label="Group filters"
+							>
+								<MultiSelect.Trigger>
+									<MultiSelect.Value>
+										{#snippet children(values)}
+											{#each values as value (value)}
+												<MultiSelect.Chip {value}
+													>{optionLabel(groupOptionItems(settings.groupOptions), value)}</MultiSelect.Chip
+												>
+											{/each}
+											<MultiSelect.Input placeholder="Any group" aria-label="Group filters" />
+										{/snippet}
+									</MultiSelect.Value>
+								</MultiSelect.Trigger>
+								<MultiSelect.Content>
+									<MultiSelect.Empty>No groups found.</MultiSelect.Empty>
+									<MultiSelect.List />
+								</MultiSelect.Content>
+							</MultiSelect.Root>
+						</Field.Root>
+						<Field.Root class="tag-field">
+							<Field.Label>Included MOS</Field.Label>
+							<MultiSelect.Root
+								items={optionItems(settings.mosOptions)}
+								multiple
+								bind:value={mosFilterValues}
+								label="MOS filters"
+							>
+								<MultiSelect.Trigger>
+									<MultiSelect.Value>
+										{#snippet children(values)}
+											{#each values as value (value)}
+												<MultiSelect.Chip {value}
+													>{optionLabel(optionItems(settings.mosOptions), value)}</MultiSelect.Chip
+												>
+											{/each}
+											<MultiSelect.Input placeholder="Any MOS" aria-label="MOS filters" />
+										{/snippet}
+									</MultiSelect.Value>
+								</MultiSelect.Trigger>
+								<MultiSelect.Content>
+									<MultiSelect.Empty>No MOS values found.</MultiSelect.Empty>
+									<MultiSelect.List />
+								</MultiSelect.Content>
+							</MultiSelect.Root>
+						</Field.Root>
+						<Field.Root class="tag-field">
+							<Field.Label>Duty roles</Field.Label>
+							<MultiSelect.Root
+								items={optionItems(settings.dutyRoleOptions)}
+								multiple
+								bind:value={dutyRoleFilterValues}
+								label="Duty role filters"
+							>
+								<MultiSelect.Trigger>
+									<MultiSelect.Value>
+										{#snippet children(values)}
+											{#each values as value (value)}
+												<MultiSelect.Chip {value}
+													>{optionLabel(optionItems(settings.dutyRoleOptions), value)}</MultiSelect.Chip
+												>
+											{/each}
+											<MultiSelect.Input placeholder="Any role" aria-label="Duty role filters" />
+										{/snippet}
+									</MultiSelect.Value>
+								</MultiSelect.Trigger>
+								<MultiSelect.Content>
+									<MultiSelect.Empty>No duty roles found.</MultiSelect.Empty>
+									<MultiSelect.List />
+								</MultiSelect.Content>
+							</MultiSelect.Root>
+						</Field.Root>
 					</div>
 					<p class="field-hint">Soldiers must meet all selected criteria to be eligible for this duty.</p>
 				</section>
@@ -266,14 +344,19 @@
 						<div class="admin-empty">No active Personnel Records match the current pool criteria.</div>
 					{:else}
 						<div class="settings-table-tools" aria-label="Individual exclusion table tools">
-							<label class="settings-table-search">
-								<span>Search pool</span>
-								<Input type="search" placeholder="Name, rank, MOS, group" bind:value={exemptionQuery} />
-							</label>
-							<label class="settings-toggle">
-								<input type="checkbox" bind:checked={showExcludedOnly} />
-								<span>Show excluded only</span>
-							</label>
+							<Field.Root class="settings-table-search">
+								<Field.Label for="settings-exemption-search">Search pool</Field.Label>
+								<Input
+									id="settings-exemption-search"
+									type="search"
+									placeholder="Name, rank, MOS, group"
+									bind:value={exemptionQuery}
+								/>
+							</Field.Root>
+							<Field.Root orientation="horizontal" class="settings-toggle">
+								<Switch id="settings-show-excluded-only" bind:checked={showExcludedOnly} />
+								<Field.Label for="settings-show-excluded-only">Show excluded only</Field.Label>
+							</Field.Root>
 							<p>
 								Showing {visibleExemptionRows.length} of {filteredExemptionRows.length}
 								matching Soldiers
@@ -294,21 +377,17 @@
 									<span role="cell">{person.mos || '-'}</span>
 									<span role="cell">{person.groupName || 'No Group'}</span>
 									<span role="cell">
-										<label class="row-check row-check--icon-only">
-											<span class="sr-only">Exclude {person.rank} {person.lastName}, {person.firstName}</span>
-											<input
-												type="checkbox"
-												name="exemptPersonnelIds"
-												value={person.id}
-												checked={settingsExemptPersonnelIdSet.has(person.id)}
-												onchange={(event) => {
-													const checked = event.currentTarget.checked;
-													settingsExemptPersonnelIds = checked
-														? [...settingsExemptPersonnelIds, person.id]
-														: settingsExemptPersonnelIds.filter((id) => id !== person.id);
-												}}
-											/>
-										</label>
+										<Checkbox
+											name="exemptPersonnelIds"
+											value={person.id}
+											aria-label={`Exclude ${person.rank} ${person.lastName}, ${person.firstName}`}
+											checked={settingsExemptPersonnelIdSet.has(person.id)}
+											onCheckedChange={(checked) => {
+												settingsExemptPersonnelIds = checked
+													? [...settingsExemptPersonnelIds, person.id]
+													: settingsExemptPersonnelIds.filter((id) => id !== person.id);
+											}}
+										/>
 									</span>
 								</div>
 							{/each}
@@ -340,14 +419,19 @@
 						<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
 					{:else}
 						<div class="settings-table-tools" aria-label="DA6 baseline table tools">
-							<label class="settings-table-search">
-								<span>Search baseline</span>
-								<Input type="search" placeholder="Name, rank, MOS, group, count" bind:value={baselineQuery} />
-							</label>
-							<label class="settings-toggle">
-								<input type="checkbox" bind:checked={showBaselineCountsOnly} />
-								<span>Show counted only</span>
-							</label>
+							<Field.Root class="settings-table-search">
+								<Field.Label for="settings-baseline-search">Search baseline</Field.Label>
+								<Input
+									id="settings-baseline-search"
+									type="search"
+									placeholder="Name, rank, MOS, group, count"
+									bind:value={baselineQuery}
+								/>
+							</Field.Root>
+							<Field.Root orientation="horizontal" class="settings-toggle">
+								<Switch id="settings-show-baseline-counts-only" bind:checked={showBaselineCountsOnly} />
+								<Field.Label for="settings-show-baseline-counts-only">Show counted only</Field.Label>
+							</Field.Root>
 							<p>
 								Showing {visibleBaselineRows.length} of {filteredBaselineRows.length}
 								matching Soldiers

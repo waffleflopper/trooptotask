@@ -134,19 +134,22 @@ describe('IctMatrix', () => {
 			name: /Smith 181-105-1002: expiring soon. Expiring task: expiring soon./
 		});
 		expect(expiringCell.querySelector('[data-status="expiring-soon"]')).toBeTruthy();
-		expect(expiringCell.textContent).toContain('Soon');
+		expect(expiringCell.querySelector('svg')).toBeTruthy();
+		expect(expiringCell.getAttribute('aria-label')).toContain('expiring soon');
 
 		const expiredCell = screen.getByRole('button', {
 			name: /Smith 181-105-1003: expired. Expired task: expired./
 		});
 		expect(expiredCell.querySelector('[data-status="expired"]')).toBeTruthy();
-		expect(expiredCell.textContent).toContain('Expired');
+		expect(expiredCell.querySelector('svg')).toBeTruthy();
+		expect(expiredCell.getAttribute('aria-label')).toContain('expired');
 
 		expect(screen.queryByRole('button', { name: /Smith 071-326-0501/ })).toBeNull();
 		expect(screen.getByLabelText('Smith 071-326-0501: not applicable')).toBeTruthy();
 
 		const missingCell = screen.getByRole('button', { name: /Smith 999-000-0001: not recorded/ });
 		expect(missingCell.querySelector('[data-status="not-recorded"]')).toBeTruthy();
+		expect(missingCell.querySelector('svg')).toBeTruthy();
 	});
 
 	it('wraps dense matrices in a horizontal scroll container for large personnel and task counts', () => {

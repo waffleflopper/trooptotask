@@ -357,7 +357,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByText('CORRECTED')).toBeTruthy();
+		expect(screen.getByText('Corrected')).toBeTruthy();
 		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
 		expect(screen.getByText(/performed duty for/)).toBeTruthy();
 		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();

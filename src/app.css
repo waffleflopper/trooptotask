@@ -209,7 +209,6 @@
 	--color-holiday: #f7efd9;
 	--color-today-border: var(--amber);
 	--color-today-bg: #f5ecce;
-	--color-onboarding-tint: rgba(var(--amber-rgb), var(--opacity-light));
 
 	/* Native shadcn-svelte tokens, using stock Tailwind OKLCH palette stops. */
 	--radius: 0.625rem;

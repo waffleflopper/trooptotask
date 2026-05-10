@@ -17,7 +17,8 @@ import {
 	ColorInput,
 	MobileBack,
 	Disclosure,
-	ChoiceGroup
+	ChoiceGroup,
+	GroupSelector
 } from '../type-management-workspace/index.js';
 
 export {
@@ -43,5 +44,6 @@ export {
 	ColorInput,
 	MobileBack,
 	Disclosure,
-	ChoiceGroup
+	ChoiceGroup,
+	GroupSelector
 };

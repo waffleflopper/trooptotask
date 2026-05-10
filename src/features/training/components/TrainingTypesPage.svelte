@@ -294,7 +294,7 @@
 										type="button"
 										onclick={() => moveUp(i)}
 										disabled={i === 0}
-										aria-label="Move up"
+										aria-label={`Move ${type.name} up`}
 									>
 										<ArrowUp aria-hidden="true" />
 									</Button>
@@ -304,7 +304,7 @@
 										type="button"
 										onclick={() => moveDown(i)}
 										disabled={i === orderedTypes.length - 1}
-										aria-label="Move down"
+										aria-label={`Move ${type.name} down`}
 									>
 										<ArrowDown aria-hidden="true" />
 									</Button>

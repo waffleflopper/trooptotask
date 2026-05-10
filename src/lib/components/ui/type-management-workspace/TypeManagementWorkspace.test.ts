@@ -20,6 +20,7 @@ describe('ui/type-management-workspace', () => {
 		expect(container.querySelector('[data-slot="type-management-workspace-fact"]')).toBeTruthy();
 		expect(container.querySelector('[data-slot="type-management-workspace-mobile-back"]')).toBeTruthy();
 		expect(container.querySelector('[data-slot="type-management-workspace-disclosure"]')).toBeTruthy();
-		expect(container.querySelector('[data-slot="type-management-workspace-choice-group"]')).toBeTruthy();
+		expect(container.querySelector('[data-slot="type-management-workspace-group-selector"]')).toBeTruthy();
+		expect(screen.getByText('1 selected')).toBeTruthy();
 	});
 });

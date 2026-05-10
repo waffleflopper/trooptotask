@@ -114,17 +114,18 @@
 						<TypeWorkspace.ChoiceGroup aria-label="Applicability presets">
 							<Button type="button" size="sm" variant="secondary">Everyone</Button>
 							<Button type="button" size="sm" variant="outline">Optional</Button>
-							<Button type="button" size="sm" variant="outline" disabled>Custom</Button>
+							<Button type="button" size="sm" variant="outline">Targeted</Button>
 						</TypeWorkspace.ChoiceGroup>
 						<TypeWorkspace.Disclosure
 							title="Targeting"
-							description="Shared progressive disclosure for broad chip sets and exception controls."
+							description="Shared searchable controls for broad targeting and exception sets."
 						>
-							<TypeWorkspace.ChoiceGroup aria-label="Targeting examples">
-								<Button type="button" size="sm" variant="outline">Infantry</Button>
-								<Button type="button" size="sm" variant="outline">Medical</Button>
-								<Button type="button" size="sm" variant="outline">E5</Button>
-							</TypeWorkspace.ChoiceGroup>
+							<TypeWorkspace.GroupSelector
+								title="Roles"
+								values={['Infantry', 'Medical', 'Operations', 'Supply', 'Training Room']}
+								selected={['Medical', 'Training Room']}
+								onchange={() => undefined}
+							/>
 						</TypeWorkspace.Disclosure>
 					</TypeWorkspace.Form>
 

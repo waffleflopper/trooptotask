@@ -3,7 +3,6 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as Field from '$lib/components/ui/field';
 	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 
 	interface Props {
@@ -49,9 +48,27 @@
 	const showExclusions = $derived(exclusionCount > 0);
 
 	type PresetMode = 'everyone' | 'optional' | 'custom';
-	const currentMode = $derived<PresetMode>(isOptional ? 'optional' : hasAppliesTo ? 'custom' : 'everyone');
+	let targetingIntent = $state(false);
+	const currentMode = $derived<PresetMode>(
+		isOptional ? 'optional' : hasAppliesTo || targetingIntent ? 'custom' : 'everyone'
+	);
 
 	function applyPreset(mode: PresetMode) {
+		if (mode === 'custom') {
+			targetingIntent = true;
+			onchange({
+				appliesToRoles,
+				appliesToMos,
+				appliesToRanks,
+				excludedRoles,
+				excludedMos,
+				excludedRanks,
+				isOptional: false
+			});
+			return;
+		}
+
+		targetingIntent = false;
 		const cleared: ApplicabilityFields = {
 			appliesToRoles: [],
 			appliesToMos: [],
@@ -67,11 +84,8 @@
 		onchange(cleared);
 	}
 
-	function toggleChip(field: keyof Omit<ApplicabilityFields, 'isOptional'>, value: string, currentValues: string[]) {
-		const updated = currentValues.includes(value)
-			? currentValues.filter((v) => v !== value)
-			: [...currentValues, value];
-
+	function updateSelection(field: keyof Omit<ApplicabilityFields, 'isOptional'>, updated: string[]) {
+		targetingIntent = true;
 		onchange({
 			appliesToRoles,
 			appliesToMos,
@@ -92,24 +106,14 @@
 	field: keyof Omit<ApplicabilityFields, 'isOptional'>,
 	exclude = false
 )}
-	{#if values.length > 0}
-		<Field.Root>
-			<Field.Label>{label}</Field.Label>
-			<TypeWorkspace.ChoiceGroup>
-				{#each values as value (value)}
-					<Button
-						type="button"
-						size="sm"
-						variant={selected.includes(value) ? (exclude ? 'destructive' : 'secondary') : 'outline'}
-						aria-pressed={selected.includes(value)}
-						onclick={() => toggleChip(field, value, selected)}
-					>
-						{value}
-					</Button>
-				{/each}
-			</TypeWorkspace.ChoiceGroup>
-		</Field.Root>
-	{/if}
+	<TypeWorkspace.GroupSelector
+		title={label}
+		{values}
+		{selected}
+		tone={exclude ? 'danger' : 'default'}
+		emptyMessage={`No ${label.toLowerCase()} found in current personnel records.`}
+		onchange={(updated) => updateSelection(field, updated)}
+	/>
 {/snippet}
 
 <TypeWorkspace.Form title="Applicability">
@@ -134,7 +138,14 @@
 		>
 			Optional
 		</Button>
-		<Button type="button" variant={currentMode === 'custom' ? 'secondary' : 'outline'} disabled>Custom</Button>
+		<Button
+			type="button"
+			variant={currentMode === 'custom' ? 'secondary' : 'outline'}
+			aria-pressed={currentMode === 'custom'}
+			onclick={() => applyPreset('custom')}
+		>
+			Targeted
+		</Button>
 	</ButtonGroup.Root>
 
 	{#if isOptional}
@@ -149,10 +160,10 @@
 		<TypeWorkspace.Disclosure
 			title="Targeting"
 			description="Limit this type by role, MOS, or rank only when everyone is too broad."
-			open={hasAppliesTo}
+			open={currentMode === 'custom'}
 		>
 			{#if !hasAppliesTo}
-				<Badge variant="outline">Everyone{exclusionCount > 0 ? ' minus exclusions' : ''}</Badge>
+				<Badge variant="outline">Choose at least one role, MOS, or rank.</Badge>
 			{/if}
 
 			{@render dimension('Roles', availableRoles, appliesToRoles, 'appliesToRoles')}

@@ -1370,6 +1370,7 @@ Key props:
 
 - `List` and `Detail`: `mobileHidden?: boolean` hides that pane below the large breakpoint while preserving the shared desktop split.
 - `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups.
+- `GroupSelector`: `title`, `values`, `selected`, `onchange`, optional helper copy, and `tone` for searchable grouped multi-selects used by applicability and exclusion rules.
 
 Rules:
 
@@ -1379,7 +1380,7 @@ Rules:
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
 - Use `Impact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Do not put readiness/report metrics in a type manager.
-- Use `Disclosure` and `ChoiceGroup` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
+- Use `Disclosure` and `GroupSelector` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
 - Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
 - Prove visual changes in `/ui-showroom` before production routes consume them.

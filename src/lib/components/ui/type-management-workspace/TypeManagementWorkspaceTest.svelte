@@ -35,9 +35,12 @@
 				</TypeManagementWorkspace.FormSection>
 				<TypeManagementWorkspace.Description>Shared detail copy.</TypeManagementWorkspace.Description>
 				<TypeManagementWorkspace.Disclosure title="Advanced targeting" description="Collapsed shared controls">
-					<TypeManagementWorkspace.ChoiceGroup>
-						<Button variant="outline" size="sm" type="button">Infantry</Button>
-					</TypeManagementWorkspace.ChoiceGroup>
+					<TypeManagementWorkspace.GroupSelector
+						title="Roles"
+						values={['Infantry', 'Medical']}
+						selected={['Infantry']}
+						onchange={() => undefined}
+					/>
 				</TypeManagementWorkspace.Disclosure>
 				<TypeManagementWorkspace.Choice>
 					<p>Shared choice chrome, route-owned option controls.</p>

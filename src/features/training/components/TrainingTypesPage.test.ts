@@ -105,9 +105,9 @@ describe('TrainingTypesPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
 
-		expect(screen.getAllByRole('button', { name: 'Medic' }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('button', { name: '68W' }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('button', { name: 'SGT' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'Medic' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: '68W' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('checkbox', { name: 'SGT' }).length).toBeGreaterThan(0);
 	});
 
 	it('moves type management actions into the floating page toolbar', () => {
@@ -150,7 +150,7 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByText('New Training Type')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		await fireEvent.click(screen.getByRole('button', { name: /CPR/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
 		expect(screen.getByText('Edit Training Type')).toBeTruthy();

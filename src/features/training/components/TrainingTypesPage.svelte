@@ -8,7 +8,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as WorkflowPanel from '$lib/components/ui/workflow-panel';
+	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -223,7 +223,7 @@
 	const typeActionDisabled = $derived(creating || editing);
 </script>
 
-<main class="flex h-full min-h-0 flex-col gap-3 bg-background p-2">
+<TypeWorkspace.Root aria-label="Training type management workspace">
 	<WorkspaceToolbar.Root ariaLabel="Training type controls">
 		{#if canMutate}
 			<WorkspaceToolbar.Group label="Training type actions" zone="actions">
@@ -239,8 +239,8 @@
 		{/if}
 	</WorkspaceToolbar.Root>
 
-	<WorkflowPanel.Grid class="min-h-0 flex-1 lg:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]">
-		<section class="min-h-0 overflow-y-auto">
+	<TypeWorkspace.Layout>
+		<TypeWorkspace.List>
 			{#if orderedTypes.length === 0 && !creating}
 				<Empty.Root>
 					<Empty.Header>
@@ -254,67 +254,54 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<ul class="grid gap-2" role="listbox" aria-label="Training types">
+				<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
-						<li>
-							<WorkflowPanel.Item
-								selected={selectedTypeId === type.id && !creating}
-								role="option"
-								aria-selected={selectedTypeId === type.id && !creating}
-								class="flex items-center gap-2 p-2"
-							>
-								<button
-									type="button"
-									class="flex min-w-0 flex-1 items-center gap-3 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									onclick={() => selectType(type.id)}
-									disabled={editing || creating}
-								>
-									<span class="size-3 shrink-0 rounded-sm" style:background-color={type.color}></span>
-									<span class="grid min-w-0 gap-1">
-										<span class="truncate text-sm font-semibold text-foreground">{type.name}</span>
-										<span class="truncate text-xs text-muted-foreground">{getTypeSummaryLine(type)}</span>
-									</span>
-								</button>
+						<TypeWorkspace.ListItem
+							selected={selectedTypeId === type.id && !creating}
+							color={type.color}
+							title={type.name}
+							description={getTypeSummaryLine(type)}
+							onselect={() => selectType(type.id)}
+							disabled={editing || creating}
+							role="option"
+							aria-selected={selectedTypeId === type.id && !creating}
+						>
+							{#snippet actions()}
 								{#if canMutate && !editing && !creating}
-									<div class="ml-auto flex shrink-0 items-center gap-1" role="toolbar" tabindex="-1">
-										<Button
-											variant="outline"
-											size="icon"
-											type="button"
-											onclick={() => moveUp(i)}
-											disabled={i === 0}
-											aria-label="Move up"
-										>
-											<ArrowUp aria-hidden="true" />
-										</Button>
-										<Button
-											variant="outline"
-											size="icon"
-											type="button"
-											onclick={() => moveDown(i)}
-											disabled={i === orderedTypes.length - 1}
-											aria-label="Move down"
-										>
-											<ArrowDown aria-hidden="true" />
-										</Button>
-									</div>
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										onclick={() => moveUp(i)}
+										disabled={i === 0}
+										aria-label="Move up"
+									>
+										<ArrowUp aria-hidden="true" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										onclick={() => moveDown(i)}
+										disabled={i === orderedTypes.length - 1}
+										aria-label="Move down"
+									>
+										<ArrowDown aria-hidden="true" />
+									</Button>
 								{/if}
-							</WorkflowPanel.Item>
-						</li>
+							{/snippet}
+						</TypeWorkspace.ListItem>
 					{/each}
-				</ul>
+				</TypeWorkspace.ItemList>
 			{/if}
-		</section>
+		</TypeWorkspace.List>
 
-		<section class="min-h-0 overflow-y-auto">
+		<TypeWorkspace.Detail>
 			{#if creating || editing}
-				<div class="grid gap-5 pb-8">
-					<WorkflowPanel.Header>
-						<WorkflowPanel.Title>{creating ? 'New Training Type' : 'Edit Training Type'}</WorkflowPanel.Title>
-					</WorkflowPanel.Header>
+				<TypeWorkspace.Stack>
+					<TypeWorkspace.DetailHeader title={creating ? 'New Training Type' : 'Edit Training Type'} />
 
-					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
-						<Field.Legend>Basics</Field.Legend>
+					<TypeWorkspace.Form title="Basics">
 						<Field.Root>
 							<Field.Label for="type-name">Name</Field.Label>
 							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
@@ -325,41 +312,31 @@
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for="type-color">Color</Field.Label>
-							<div class="flex items-center gap-3">
-								<Input id="type-color" type="color" bind:value={editColor} class="h-10 w-16 p-1" />
-								<span class="font-mono text-sm uppercase text-muted-foreground">{editColor}</span>
-							</div>
+							<TypeWorkspace.ColorInput id="type-color" bind:value={editColor} />
 						</Field.Root>
-					</Field.Set>
+					</TypeWorkspace.Form>
 
-					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
-						<Field.Legend>Expiration</Field.Legend>
+					<TypeWorkspace.Form title="Expiration">
 						<RadioGroup.Root bind:value={editExpirationMode}>
 							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
-								<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-									<RadioGroup.Item id="expiration-{mode}" value={mode} />
-									<Field.Label for="expiration-{mode}">{getExpirationLabel(mode)}</Field.Label>
-								</Field.Root>
+								<TypeWorkspace.Choice>
+									<Field.Root orientation="horizontal">
+										<RadioGroup.Item id="expiration-{mode}" value={mode} />
+										<Field.Label for="expiration-{mode}">{getExpirationLabel(mode)}</Field.Label>
+									</Field.Root>
+								</TypeWorkspace.Choice>
 							{/each}
 						</RadioGroup.Root>
 						{#if editExpirationMode === 'fixed'}
 							<Field.Root>
 								<Field.Label for="exp-months">Months until expiration</Field.Label>
-								<Input
-									id="exp-months"
-									type="number"
-									min="1"
-									max="120"
-									bind:value={editExpirationMonths}
-									class="max-w-28"
-								/>
+								<Input id="exp-months" type="number" min="1" max="120" bind:value={editExpirationMonths} />
 							</Field.Root>
 						{/if}
-					</Field.Set>
+					</TypeWorkspace.Form>
 
 					{#if editExpirationMode !== 'never'}
-						<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
-							<Field.Legend>Warning Thresholds</Field.Legend>
+						<TypeWorkspace.Form title="Warning Thresholds" layout="two-column">
 							<Field.Root>
 								<Field.Label for="warn-yellow">Yellow warning (days)</Field.Label>
 								<Input id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
@@ -368,7 +345,7 @@
 								<Field.Label for="warn-orange">Orange warning (days)</Field.Label>
 								<Input id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
 							</Field.Root>
-						</Field.Set>
+						</TypeWorkspace.Form>
 					{/if}
 
 					{#key selectedTypeId ?? 'new-training-type'}
@@ -387,15 +364,14 @@
 						/>
 					{/key}
 
-					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
-						<Field.Legend>Options</Field.Legend>
+					<TypeWorkspace.Form title="Options">
 						<Field.Root orientation="horizontal">
 							<Checkbox id="can-be-exempted" bind:checked={editCanBeExempted} />
 							<Field.Label for="can-be-exempted">Can be exempted</Field.Label>
 						</Field.Root>
-					</Field.Set>
+					</TypeWorkspace.Form>
 
-					<div class="flex items-center gap-3 border-t border-border pt-4">
+					<TypeWorkspace.Actions>
 						{#if !creating && selectedTypeId && canMutate}
 							<Button
 								variant="destructive"
@@ -407,75 +383,54 @@
 								Delete
 							</Button>
 						{/if}
-						<div class="flex-1"></div>
+						<TypeWorkspace.ActionSpacer />
 						<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
 						<Button size="sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
-							{#if saving}<Spinner class="size-3" />{/if}
+							{#if saving}<Spinner />{/if}
 							{creating ? 'Create' : 'Save'}
 						</Button>
-					</div>
-				</div>
+					</TypeWorkspace.Actions>
+				</TypeWorkspace.Stack>
 			{:else if selectedType}
-				<div class="grid gap-5">
-					<div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-						<div class="flex min-w-0 items-center gap-3">
-							<span class="size-4 shrink-0 rounded-sm" style:background-color={selectedType.color}></span>
-							<h3 class="truncate text-xl font-semibold text-foreground">{selectedType.name}</h3>
-						</div>
-						{#if canMutate}
-							<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
-						{/if}
-					</div>
+				<TypeWorkspace.Stack>
+					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color}>
+						{#snippet actions()}
+							{#if canMutate}
+								<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
+							{/if}
+						{/snippet}
+					</TypeWorkspace.DetailHeader>
 
 					{#if selectedType.description}
-						<p class="text-sm leading-relaxed text-muted-foreground">{selectedType.description}</p>
+						<TypeWorkspace.Description>{selectedType.description}</TypeWorkspace.Description>
 					{/if}
 
-					<dl class="grid gap-3">
-						<div class="rounded-lg border border-border bg-muted/30 p-3">
-							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-								Expiration
-							</dt>
-							<dd class="mt-1 text-sm text-foreground">{getExpirationLabel(getExpirationMode(selectedType))}</dd>
-						</div>
+					<TypeWorkspace.FactList>
+						<TypeWorkspace.Impact label="Expiration">
+							{getExpirationLabel(getExpirationMode(selectedType))}
+						</TypeWorkspace.Impact>
 
 						{#if getExpirationMode(selectedType) === 'fixed'}
-							<div class="rounded-lg border border-border bg-muted/30 p-3">
-								<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-									Duration
-								</dt>
-								<dd class="mt-1 text-sm text-foreground">{selectedType.expirationMonths} months</dd>
-							</div>
+							<TypeWorkspace.Impact label="Duration">{selectedType.expirationMonths} months</TypeWorkspace.Impact>
 						{/if}
 
 						{#if getExpirationMode(selectedType) !== 'never'}
-							<div class="rounded-lg border border-border bg-muted/30 p-3">
-								<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-									Warning Thresholds
-								</dt>
-								<dd class="mt-1 text-sm text-foreground">
-									Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
-								</dd>
-							</div>
+							<TypeWorkspace.Impact label="Warning Thresholds">
+								Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
+							</TypeWorkspace.Impact>
 						{/if}
 
-						<div class="rounded-lg border border-border bg-muted/30 p-3">
-							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-								Applies to
-							</dt>
-							<dd class="mt-1 text-sm text-foreground">{formatApplicability(selectedType)}</dd>
-						</div>
+						<TypeWorkspace.Impact label="Applies to">
+							{formatApplicability(selectedType)}
+						</TypeWorkspace.Impact>
 
-						<div class="rounded-lg border border-border bg-muted/30 p-3">
-							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-								Can be exempted
-							</dt>
-							<dd class="mt-1 text-sm text-foreground">{selectedType.canBeExempted ? 'Yes' : 'No'}</dd>
-						</div>
-					</dl>
+						<TypeWorkspace.Impact label="Can be exempted">
+							{selectedType.canBeExempted ? 'Yes' : 'No'}
+						</TypeWorkspace.Impact>
+					</TypeWorkspace.FactList>
 
 					{#if canMutate}
-						<div class="border-t border-border pt-4">
+						<TypeWorkspace.Actions>
 							<Button
 								variant="destructive"
 								size="sm"
@@ -484,9 +439,9 @@
 							>
 								Delete Type
 							</Button>
-						</div>
+						</TypeWorkspace.Actions>
 					{/if}
-				</div>
+				</TypeWorkspace.Stack>
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
@@ -495,9 +450,9 @@
 					</Empty.Header>
 				</Empty.Root>
 			{/if}
-		</section>
-	</WorkflowPanel.Grid>
-</main>
+		</TypeWorkspace.Detail>
+	</TypeWorkspace.Layout>
+</TypeWorkspace.Root>
 
 {#if confirmDelete}
 	<ConfirmDialog

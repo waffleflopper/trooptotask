@@ -39,7 +39,8 @@ describe('showroom inventory', () => {
 				'spinner',
 				'pagination',
 				'calendar',
-				'chart'
+				'chart',
+				'type-workspace'
 			])
 		);
 	});
@@ -69,6 +70,9 @@ describe('showroom inventory', () => {
 				'toolbar-search',
 				'toolbar-view-toggle',
 				'toolbar-icon-only-action',
+				'type-workspace-list-detail',
+				'type-workspace-create-edit',
+				'type-workspace-detail-facts',
 				'navigation-state',
 				'date-picker-state',
 				'chart-state',

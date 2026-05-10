@@ -1255,7 +1255,9 @@ Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveA
 
 ## `ui/type-manager`
 
-Compound management dialog for repeated status/type manager workflows. It composes `ui/app-dialog`, `ui/button`, `ui/empty`, and `ui/alert-dialog` while the route owns the form snippets and persistence.
+Compact compound management dialog for repeated status/type manager workflows. It composes `ui/app-dialog`, `ui/button`, `ui/empty`, and `ui/alert-dialog` while the route owns the form snippets and persistence.
+
+Use `ui/type-manager` for small modal CRUD lists such as status types and assignment types when inline add/edit rows are enough. Use `ui/type-workspace` when the type surface needs a persistent list-detail workspace, ordering controls, multi-section forms, impact facts, or a full-page configuration flow.
 
 ```svelte
 <script lang="ts">
@@ -1290,6 +1292,84 @@ Compound management dialog for repeated status/type manager workflows. It compos
 ```
 
 Compatibility: `ui/TypeManager.svelte` delegates to `ui/type-manager` so existing status/type manager consumers keep their current API.
+
+---
+
+## `ui/type-workspace`
+
+Shared shadcn-aligned workspace chrome for manage-type pages that need more than the compact modal helper. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, and detail facts.
+
+The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, impact rows, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
+
+```svelte
+<script lang="ts">
+	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import { Button } from '$lib/components/ui/button';
+
+	let color = $state('#8a5800');
+</script>
+
+<TypeWorkspace.Root aria-label="Training type management workspace">
+	<TypeWorkspace.Layout>
+		<TypeWorkspace.List>
+			<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
+				<TypeWorkspace.ListItem
+					title="Annual Qualification"
+					description="Expires after 12 months"
+					color="#8a5800"
+					selected
+					onselect={selectType}
+				>
+					{#snippet actions()}
+						<Button variant="outline" size="icon" type="button" aria-label="Move up">...</Button>
+					{/snippet}
+				</TypeWorkspace.ListItem>
+			</TypeWorkspace.ItemList>
+		</TypeWorkspace.List>
+
+		<TypeWorkspace.Detail>
+			<TypeWorkspace.Stack>
+				<TypeWorkspace.DetailHeader title="Annual Qualification" color="#8a5800">
+					{#snippet actions()}
+						<Button variant="outline" size="sm" type="button">Edit</Button>
+					{/snippet}
+				</TypeWorkspace.DetailHeader>
+
+				<TypeWorkspace.Form title="Basics">
+					<!-- route-owned Field/Input controls -->
+				</TypeWorkspace.Form>
+
+				<TypeWorkspace.Description>Optional detail copy.</TypeWorkspace.Description>
+				<TypeWorkspace.ColorInput bind:value={color} />
+
+				<TypeWorkspace.Choice>
+					<!-- route-owned radio/checkbox controls inside shared choice chrome -->
+				</TypeWorkspace.Choice>
+
+				<TypeWorkspace.FactList>
+					<TypeWorkspace.Impact label="Expiration">12 months</TypeWorkspace.Impact>
+				</TypeWorkspace.FactList>
+			</TypeWorkspace.Stack>
+		</TypeWorkspace.Detail>
+	</TypeWorkspace.Layout>
+</TypeWorkspace.Root>
+```
+
+Public components:
+
+- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `Form`, `FormSection`, `Choice`, `Description`, `ColorInput`, `DetailHeader`, `FactList`, `Impact`, `Fact`, `Actions`, `FooterActions`, `ActionSpacer`, `ActionsSpacer`.
+
+Rules:
+
+- Do not restyle the workspace from route code. Add shared variants here when a repeated manage-type need appears.
+- Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route.
+- Use `Form` for repeated edit/create sections instead of route-local bordered fieldset classes.
+- Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
+- Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
+- Use `Impact` for repeated management facts such as affected records, expiration policy, permission state, and applicability.
+- Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
+- Prove visual changes in `/ui-showroom` before production routes consume them.
+- `ui/type-workspace` is the target shared gap behind the current training type page. `ui/type-manager` remains the compact modal API for smaller status and assignment managers until those workflows need the full workspace.
 
 ---
 

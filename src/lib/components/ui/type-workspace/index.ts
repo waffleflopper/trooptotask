@@ -1,0 +1,41 @@
+import {
+	Detail,
+	DetailHeader,
+	Fact,
+	FactList,
+	FooterActions,
+	FormSection,
+	ItemList,
+	Layout,
+	List,
+	ListItem,
+	Root,
+	Stack,
+	Choice,
+	ActionSpacer,
+	Description,
+	ColorInput
+} from '../type-management-workspace/index.js';
+
+export {
+	Root,
+	Layout,
+	List,
+	ItemList,
+	ListItem,
+	Detail,
+	Stack,
+	FormSection,
+	FormSection as Form,
+	DetailHeader,
+	FactList,
+	Fact,
+	Fact as Impact,
+	FooterActions,
+	FooterActions as Actions,
+	Choice,
+	ActionSpacer,
+	ActionSpacer as ActionsSpacer,
+	Description,
+	ColorInput
+};

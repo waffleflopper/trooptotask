@@ -64,6 +64,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
 	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace/index.js';
+	import TypeWorkspaceShowroomExample from './TypeWorkspaceShowroomExample.svelte';
 	import {
 		selectedShowroomComponents,
 		showroomCoverage,
@@ -1013,6 +1014,8 @@
 						</WorkspaceToolbar.Root>
 					</div>
 				</section>
+
+				<TypeWorkspaceShowroomExample />
 
 				<section class="grid gap-4" aria-labelledby="selection-title">
 					<h2 id="selection-title" class="text-xl font-semibold tracking-tight">Search and multi-select</h2>

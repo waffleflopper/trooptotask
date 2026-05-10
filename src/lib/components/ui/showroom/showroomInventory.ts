@@ -71,6 +71,11 @@ export const showroomCoverage = [
 	'operational-matrix-stacked-column-headers',
 	'operational-matrix-rich-row-headers',
 	'operational-matrix-loading-empty-wrappers',
+	'type-workspace-list-detail',
+	'type-workspace-create-edit',
+	'type-workspace-detail-facts',
+	'type-workspace-disabled-actions',
+	'type-workspace-constrained-layout',
 	'forms',
 	'field-label-description-error',
 	'native-select-state',
@@ -150,7 +155,8 @@ export const selectedShowroomComponents = [
 	'report-workspace',
 	'bulk-import-workspace',
 	'onboarding-packet-list',
-	'operational-matrix'
+	'operational-matrix',
+	'type-workspace'
 ] as const;
 
 export type ShowroomCoverage = (typeof showroomCoverage)[number];

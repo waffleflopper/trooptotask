@@ -7,7 +7,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -16,6 +16,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import type {
 		OnboardingTemplate,
@@ -72,6 +73,9 @@
 	);
 
 	const trainingTypes: TrainingType[] = $derived(data.trainingTypes ?? []);
+	const stepTrainingTypeLabel = $derived(
+		trainingTypes.find((type) => type.id === stepTrainingTypeId)?.name ?? 'Select training type'
+	);
 
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
@@ -370,7 +374,7 @@
 						{@const stepCount = allSteps.filter((s) => s.templateId === template.id).length}
 						<li
 							class={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted ${
-								selectedTemplateId === template.id ? 'border-primary bg-primary/10' : 'bg-card'
+								selectedTemplateId === template.id ? 'bg-muted' : 'bg-card'
 							}`}
 							role="option"
 							aria-selected={selectedTemplateId === template.id}
@@ -448,9 +452,6 @@
 						<p class="text-xs font-semibold uppercase tracking-wider text-primary">Template Editor</p>
 						<h3 class="text-lg font-semibold tracking-tight">{selectedTemplate.name} - Steps</h3>
 					</div>
-					{#if canMutate}
-						<Button size="sm" onclick={startAddStep} disabled={addingStep}>Add Step</Button>
-					{/if}
 				</div>
 
 				{#if selectedTemplate.description}
@@ -458,22 +459,21 @@
 				{/if}
 
 				{#if selectedSteps.length === 0 && !addingStep}
-					<Empty.Root>
-						<Empty.Header>
-							<Empty.Title>No steps in this template yet.</Empty.Title>
-						</Empty.Header>
-						{#if canMutate}
-							<Empty.Content>
-								<Button variant="outline" size="sm" onclick={startAddStep}>Add Step</Button>
-							</Empty.Content>
-						{/if}
-					</Empty.Root>
+					<button
+						type="button"
+						class="flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-card/70 p-4 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+						onclick={startAddStep}
+						disabled={!canMutate}
+					>
+						<PlusIcon class="size-4" />
+						<span class="font-medium">Add first step</span>
+					</button>
 				{:else}
 					<ul class="m-0 flex list-none flex-col gap-2 p-0">
 						{#each selectedSteps as step, idx (step.id)}
 							{#if editingStepId === step.id}
 								<!-- Inline edit form -->
-								<li class="rounded-lg border border-primary bg-primary/10 p-3">
+								<li class="rounded-lg border border-primary/30 bg-card p-3 shadow-sm ring-1 ring-primary/10">
 									{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
 								</li>
 							{:else}
@@ -556,11 +556,23 @@
 								</li>
 							{/if}
 						{/each}
+						{#if canMutate && !addingStep}
+							<li>
+								<button
+									type="button"
+									class="flex min-h-20 w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-card/70 p-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+									onclick={startAddStep}
+								>
+									<PlusIcon class="size-4" />
+									Add Step
+								</button>
+							</li>
+						{/if}
 					</ul>
 				{/if}
 
 				{#if addingStep}
-					<div class="mt-3 flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+					<div class="mt-3 flex flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm ring-1 ring-border/60">
 						{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
 					</div>
 				{/if}
@@ -611,16 +623,19 @@
 		{#if stepType === 'training'}
 			<div class="flex flex-col gap-1.5">
 				<Label for="training-type-select">Training Type</Label>
-				<NativeSelect
-					id="training-type-select"
+				<Select.Root
+					type="single"
 					value={stepTrainingTypeId ?? ''}
-					onchange={(e) => (stepTrainingTypeId = (e.target as HTMLSelectElement).value || null)}
+					onValueChange={(value) => (stepTrainingTypeId = value || null)}
 				>
-					<option value="">Select training type</option>
-					{#each trainingTypes as tt (tt.id)}
-						<option value={tt.id}>{tt.name}</option>
-					{/each}
-				</NativeSelect>
+					<Select.Trigger id="training-type-select" class="w-fit min-w-48">{stepTrainingTypeLabel}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="" label="Select training type" />
+						{#each trainingTypes as tt (tt.id)}
+							<Select.Item value={tt.id} label={tt.name} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 		{/if}
 

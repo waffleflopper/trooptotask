@@ -9,7 +9,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
@@ -295,6 +295,15 @@
 	}
 
 	const activeTemplate = $derived(templates.find((t) => t.id === activeTemplateId) ?? null);
+	const activeTemplateLabel = $derived(activeTemplate?.name ?? 'Select template');
+	const newStepTypeLabel = $derived(stepTypeLabels[newStepType]);
+	const newTrainingTypeLabel = $derived(
+		trainingTypes.find((type) => type.id === newTrainingTypeId)?.name ?? 'Select training type'
+	);
+	const editStepTypeLabel = $derived(stepTypeLabels[editStepType]);
+	const editTrainingTypeLabel = $derived(
+		trainingTypes.find((type) => type.id === editTrainingTypeId)?.name ?? 'Select training type'
+	);
 
 	const canDeleteTemplate = $derived(templates.length > 1);
 </script>
@@ -331,16 +340,18 @@
 						</div>
 					</div>
 				{:else}
-					<NativeSelect
-						id="template-select"
-						class="flex-1"
-						value={activeTemplateId}
-						onchange={(e) => onboardingTemplateStore.setActiveTemplate((e.target as HTMLSelectElement).value)}
+					<Select.Root
+						type="single"
+						value={activeTemplateId ?? ''}
+						onValueChange={(value) => onboardingTemplateStore.setActiveTemplate(value)}
 					>
-						{#each templates as t (t.id)}
-							<option value={t.id}>{t.name}</option>
-						{/each}
-					</NativeSelect>
+						<Select.Trigger id="template-select" class="min-w-52 flex-1">{activeTemplateLabel}</Select.Trigger>
+						<Select.Content>
+							{#each templates as t (t.id)}
+								<Select.Item value={t.id} label={t.name} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					<Button variant="outline" size="sm" type="button" onclick={startRenameTemplate} title="Rename template">
 						Rename
 					</Button>
@@ -436,11 +447,14 @@
 			<div class="mb-2 flex gap-3 max-sm:flex-col">
 				<div class="flex flex-col gap-1.5">
 					<Label for="new-step-type">Step Type</Label>
-					<NativeSelect id="new-step-type" bind:value={newStepType}>
-						<option value="training">Training</option>
-						<option value="paperwork">Paperwork</option>
-						<option value="checkbox">Checkbox</option>
-					</NativeSelect>
+					<Select.Root type="single" bind:value={newStepType}>
+						<Select.Trigger id="new-step-type" class="min-w-40">{newStepTypeLabel}</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="training" label="Training" />
+							<Select.Item value="paperwork" label="Paperwork" />
+							<Select.Item value="checkbox" label="Checkbox" />
+						</Select.Content>
+					</Select.Root>
 				</div>
 				<div class="flex flex-1 flex-col gap-1.5">
 					<Label for="new-step-name">Name</Label>
@@ -451,16 +465,19 @@
 			{#if newStepType === 'training'}
 				<div class="mb-2 flex flex-col gap-1.5">
 					<Label for="new-training-type">Training Type</Label>
-					<NativeSelect
-						id="new-training-type"
+					<Select.Root
+						type="single"
 						value={newTrainingTypeId ?? ''}
-						onchange={(e) => (newTrainingTypeId = (e.target as HTMLSelectElement).value || null)}
+						onValueChange={(value) => (newTrainingTypeId = value || null)}
 					>
-						<option value="">Select training type</option>
-						{#each trainingTypes as tt (tt.id)}
-							<option value={tt.id}>{tt.name}</option>
-						{/each}
-					</NativeSelect>
+						<Select.Trigger id="new-training-type" class="w-fit min-w-48">{newTrainingTypeLabel}</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="" label="Select training type" />
+							{#each trainingTypes as tt (tt.id)}
+								<Select.Item value={tt.id} label={tt.name} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 			{:else if newStepType === 'paperwork'}
 				<div class="mb-2 flex flex-col gap-1.5">
@@ -503,15 +520,18 @@
 					class="flex items-center justify-between gap-2 rounded-lg border bg-card p-3 max-sm:flex-col max-sm:items-stretch"
 				>
 					{#if editingId === step.id}
-						<div class="w-full rounded-lg border bg-muted/40 p-3">
+						<div class="w-full rounded-lg border border-primary/30 bg-card p-3 shadow-sm ring-1 ring-primary/10">
 							<div class="mb-2 flex gap-3 max-sm:flex-col">
 								<div class="flex flex-col gap-1.5">
 									<Label for="edit-step-type">Step Type</Label>
-									<NativeSelect id="edit-step-type" bind:value={editStepType}>
-										<option value="training">Training</option>
-										<option value="paperwork">Paperwork</option>
-										<option value="checkbox">Checkbox</option>
-									</NativeSelect>
+									<Select.Root type="single" bind:value={editStepType}>
+										<Select.Trigger id="edit-step-type" class="min-w-40">{editStepTypeLabel}</Select.Trigger>
+										<Select.Content>
+											<Select.Item value="training" label="Training" />
+											<Select.Item value="paperwork" label="Paperwork" />
+											<Select.Item value="checkbox" label="Checkbox" />
+										</Select.Content>
+									</Select.Root>
 								</div>
 								<div class="flex flex-1 flex-col gap-1.5">
 									<Label for="edit-step-name">Name</Label>
@@ -522,16 +542,21 @@
 							{#if editStepType === 'training'}
 								<div class="mb-2 flex flex-col gap-1.5">
 									<Label for="edit-training-type">Training Type</Label>
-									<NativeSelect
-										id="edit-training-type"
+									<Select.Root
+										type="single"
 										value={editTrainingTypeId ?? ''}
-										onchange={(e) => (editTrainingTypeId = (e.target as HTMLSelectElement).value || null)}
+										onValueChange={(value) => (editTrainingTypeId = value || null)}
 									>
-										<option value="">Select training type</option>
-										{#each trainingTypes as tt (tt.id)}
-											<option value={tt.id}>{tt.name}</option>
-										{/each}
-									</NativeSelect>
+										<Select.Trigger id="edit-training-type" class="w-fit min-w-48"
+											>{editTrainingTypeLabel}</Select.Trigger
+										>
+										<Select.Content>
+											<Select.Item value="" label="Select training type" />
+											{#each trainingTypes as tt (tt.id)}
+												<Select.Item value={tt.id} label={tt.name} />
+											{/each}
+										</Select.Content>
+									</Select.Root>
 								</div>
 							{:else if editStepType === 'paperwork'}
 								<div class="mb-2 flex flex-col gap-1.5">

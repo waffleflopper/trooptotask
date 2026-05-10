@@ -11,6 +11,7 @@
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
@@ -114,14 +115,18 @@
 </script>
 
 {#if data.orgSuspended}
-	<div class="suspended-org-container">
-		<div class="suspended-org-card">
-			<h1>Organization Suspended</h1>
-			<p>
+	<div class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+		<div class="grid max-w-md gap-4 rounded-lg border bg-card p-8 text-center text-card-foreground">
+			<h1
+				class="[font-family:var(--font-display)] text-3xl leading-tight font-bold tracking-[0.04em] text-destructive uppercase"
+			>
+				Organization Suspended
+			</h1>
+			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
 				This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.
 			</p>
-			<p class="contact">support@trooptotask.com</p>
-			<a href="/dashboard?show=all" class="btn btn-secondary">Back to Dashboard</a>
+			<p class="m-0 font-medium">support@trooptotask.com</p>
+			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
 	</div>
 {:else}
@@ -174,38 +179,3 @@
 		{/await}
 	{/if}
 {/if}
-
-<style>
-	.suspended-org-container {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		background: var(--surface-page);
-		padding: var(--sp-6);
-	}
-
-	.suspended-org-card {
-		text-align: center;
-		max-width: 440px;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		padding: var(--sp-8);
-	}
-
-	.suspended-org-card h1 {
-		color: var(--danger);
-		margin-bottom: var(--sp-4);
-	}
-
-	.suspended-org-card p {
-		color: var(--text-secondary);
-		margin-bottom: var(--sp-4);
-	}
-
-	.suspended-org-card .contact {
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-</style>

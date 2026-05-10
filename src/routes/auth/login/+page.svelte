@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { form, data } = $props();
 	let loading = $state(false);
@@ -29,7 +31,7 @@
 		'Request Access is only for units that do not yet have access to TroopToTask.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if data.authLinkError}
 			<AuthNotice tone="error" message={data.authLinkError} />
 		{/if}
@@ -48,80 +50,48 @@
 					await update();
 				};
 			}}
-			class="auth-stack"
+			class="flex flex-col gap-5"
 		>
-			<FormField label="Email Address" id="email">
-				<input
-					id="email"
-					name="email"
-					type="email"
-					class="input"
-					data-testid="login-email"
-					value={form?.email ?? ''}
-					required
-					autocomplete="email"
-					placeholder="you@example.com"
-				/>
-			</FormField>
+			<AuthField
+				label="Email Address"
+				id="email"
+				name="email"
+				type="email"
+				value={form?.email ?? ''}
+				required
+				autocomplete="email"
+				placeholder="you@example.com"
+				data-testid="login-email"
+			/>
 
-			<FormField label="Password" id="password">
-				<input
-					id="password"
-					name="password"
-					type={showPassword ? 'text' : 'password'}
-					class="input"
-					data-testid="login-password"
-					required
-					autocomplete="current-password"
-					placeholder="Enter your password"
-				/>
-				<button
-					type="button"
-					class="field-action"
-					onclick={() => (showPassword = !showPassword)}
-					aria-label={showPassword ? 'Hide password' : 'Show password'}
-				>
-					{#if showPassword}
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-							><path
-								d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-							/><line x1="1" y1="1" x2="23" y2="23" /></svg
-						>
-					{:else}
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-							><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg
-						>
-					{/if}
-				</button>
-			</FormField>
+			<AuthField
+				label="Password"
+				id="password"
+				name="password"
+				type={showPassword ? 'text' : 'password'}
+				required
+				autocomplete="current-password"
+				placeholder="Enter your password"
+				data-testid="login-password"
+			>
+				{#snippet action()}
+					<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
+				{/snippet}
+			</AuthField>
 
-			<p class="auth-muted">
+			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
 				Forgot your password? <a href="/auth/forgot-password">Reset it here</a>.
 			</p>
 
-			<div class="auth-actions">
-				<button type="submit" class="btn btn-primary" data-testid="login-submit" disabled={loading}>
+			<div class="flex flex-col gap-3">
+				<Button type="submit" data-testid="login-submit" disabled={loading} class="w-full">
 					{#if loading}
 						<Spinner />
 						Signing In...
 					{:else}
 						Sign In
 					{/if}
-				</button>
+				</Button>
 			</div>
 		</form>
 
@@ -129,11 +99,15 @@
 			<AuthNotice tone="warning" message={data.demoError} />
 		{/if}
 
-		<div class="auth-divider">
-			<span>Need access?</span>
+		<div
+			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
+		>
+			<span class="h-px flex-1 bg-border"></span>
+			<span class="whitespace-nowrap">Need access?</span>
+			<span class="h-px flex-1 bg-border"></span>
 		</div>
 
-		<div class="auth-link-list">
+		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
 				Have an invite code? <a href="/auth/register">Create your account</a>.
 			</p>

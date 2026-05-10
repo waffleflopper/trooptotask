@@ -36,9 +36,7 @@ const checklistStep: OnboardingTemplateStep = {
 };
 
 function stepNames() {
-	return Array.from(document.querySelectorAll<HTMLElement>('.type-item .step-name')).map(
-		(step) => step.textContent?.trim() ?? ''
-	);
+	return screen.getAllByTestId('onboarding-template-step-name').map((step) => step.textContent?.trim() ?? '');
 }
 
 describe('OnboardingTemplateManager', () => {

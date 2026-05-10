@@ -14,9 +14,10 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as Stepper from '$lib/components/ui/stepper';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	let { data } = $props();
@@ -35,14 +36,24 @@
 		if (expandedNotes.has(stepId)) expandedNotes.delete(stepId);
 		else expandedNotes.add(stepId);
 	}
+
+	function paperworkSteps(stages: string[], currentStage: string) {
+		const currentIndex = stages.indexOf(currentStage);
+		return stages.map((stage, index) => ({
+			value: stage,
+			label: stage,
+			completed: currentIndex >= 0 && index < currentIndex,
+			disabled: true
+		}));
+	}
 </script>
 
 <svelte:head>
 	<title>Onboarding History - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
-	<main class="page-content">
+<div class="flex h-full flex-col bg-background">
+	<main class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
 		<WorkspaceToolbar.Root ariaLabel="Onboarding history controls">
 			<WorkspaceToolbar.Group label="Onboarding sections">
 				<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
@@ -50,7 +61,13 @@
 		</WorkspaceToolbar.Root>
 
 		{#if historyOnboardings.length === 0}
-			<EmptyState message="No completed or cancelled onboardings yet." />
+			<Empty.Root>
+				<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+				<Empty.Header>
+					<Empty.Title>No onboarding history</Empty.Title>
+					<Empty.Description>No completed or cancelled onboardings yet.</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
 		{:else}
 			<OnboardingPacketList.Root
 				value={expandedOnboardingId ?? ''}
@@ -113,11 +130,20 @@
 													label={step.completed ? 'Complete' : 'Incomplete'}
 												/>
 											{:else if step.stepType === 'paperwork'}
-												<Stepper
-													stages={step.stages ?? []}
-													currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
-													disabled={true}
-												/>
+												{@const stages = step.stages ?? []}
+												{@const currentStage = step.currentStage ?? stages[0] ?? ''}
+												<Stepper.Root steps={paperworkSteps(stages, currentStage)} value={currentStage}>
+													<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
+														{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
+															<Stepper.Item
+																value={stage.value}
+																label={stage.label}
+																completed={stage.completed}
+																disabled
+															/>
+														{/each}
+													</Stepper.List>
+												</Stepper.Root>
 											{/if}
 										{/snippet}
 
@@ -143,18 +169,3 @@
 		{/if}
 	</main>
 </div>
-
-<style>
-	.page {
-		display: flex;
-		height: 100%;
-		flex-direction: column;
-		background: var(--surface-page);
-	}
-
-	.page-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-</style>

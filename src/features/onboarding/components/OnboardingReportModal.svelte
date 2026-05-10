@@ -2,7 +2,12 @@
 	import type { PersonnelOnboarding, OnboardingTemplate } from '../onboarding.types';
 	import type { Personnel } from '$lib/types';
 	import Modal from '$lib/components/Modal.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
@@ -22,17 +27,16 @@
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
 	}
 
-	const stepTypeColors: Record<string, string> = {
-		training: '#3b82f6',
-		paperwork: '#c47f00',
-		checkbox: '#6b7280'
-	};
-
 	const stepTypeLabels: Record<string, string> = {
 		training: 'Training',
 		paperwork: 'Paperwork',
 		checkbox: 'Checkbox'
 	};
+	const stepTypeVariants = {
+		training: 'info',
+		paperwork: 'warning',
+		checkbox: 'secondary'
+	} as const;
 
 	interface StepReport {
 		key: string;
@@ -106,71 +110,100 @@
 		if (hasUnassigned) options.push({ value: 'none', label: 'No Template' });
 		return options;
 	});
+	const selectedTemplateLabel = $derived(
+		templateOptions.find((option) => option.value === selectedTemplateId)?.label ?? 'All Templates'
+	);
 </script>
 
 <Modal title="Onboarding Report" {onClose} width="720px" titleId="onboarding-report-title">
-	<div class="report-shell">
-		<div class="report-summary">
-			<p class="eyebrow">Readiness report</p>
-			<h3>See which onboarding steps are still holding people up.</h3>
-			<p>
+	<div class="flex flex-col gap-3">
+		<div class="rounded-lg border bg-muted/35 p-3">
+			<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+				Readiness report
+			</p>
+			<h3 class="mt-1 mb-0 text-lg leading-tight font-semibold tracking-tight">
+				See which onboarding steps are still holding people up.
+			</h3>
+			<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
 				Review the current bottlenecks across active onboarding packets and narrow the list to a specific template when
 				needed.
 			</p>
 		</div>
 
-		<div class="report-toolbar">
-			<div class="toolbar-stat">
-				<span class="toolbar-label">Active packets</span>
-				<strong>{filteredOnboardings.length}</strong>
+		<div class="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-end sm:justify-between">
+			<div class="grid gap-1">
+				<span class="font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+					Active packets
+				</span>
+				<strong class="text-2xl leading-none font-semibold tracking-tight">{filteredOnboardings.length}</strong>
 			</div>
 			{#if templateOptions.length > 1}
-				<label class="toolbar-filter">
-					<span class="label">Template</span>
-					<select class="select" bind:value={selectedTemplateId}>
-						{#each templateOptions as opt (opt.value)}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</label>
+				<div class="grid w-full gap-2 sm:max-w-64">
+					<Label for="onboarding-report-template">Template</Label>
+					<Select.Root type="single" bind:value={selectedTemplateId}>
+						<Select.Trigger id="onboarding-report-template" class="w-full">{selectedTemplateLabel}</Select.Trigger>
+						<Select.Content>
+							{#each templateOptions as opt (opt.value)}
+								<Select.Item value={opt.value} label={opt.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
 			{/if}
 		</div>
 
 		{#if report.length === 0}
-			<p class="empty-msg">No active onboardings to report on.</p>
+			<Empty.Root>
+				<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+				<Empty.Header>
+					<Empty.Title>No active onboardings</Empty.Title>
+					<Empty.Description>No active onboardings to report on.</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
 		{:else}
-			<div class="report-list">
+			<div class="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
 				{#each report as step (step.key)}
 					{@const completedCount = step.totalPeople - step.incomplete.length}
-					<div class="report-step" class:all-done={step.incomplete.length === 0}>
-						<div class="step-header">
-							<div class="step-title">
-								<Badge label={stepTypeLabels[step.stepType]} color={stepTypeColors[step.stepType]} />
-								<span class="step-name">
+					<div
+						class={step.incomplete.length === 0
+							? 'rounded-lg border bg-success-muted/50 p-3'
+							: 'rounded-lg border bg-card p-3'}
+					>
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+							<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+								<Badge variant={stepTypeVariants[step.stepType as keyof typeof stepTypeVariants] ?? 'secondary'}>
+									{stepTypeLabels[step.stepType]}
+								</Badge>
+								<span class="text-sm leading-snug font-semibold">
 									{step.stepName}
 									{#if step.trainingTypeName && step.trainingTypeName !== step.stepName}
-										<span class="training-type-hint">({step.trainingTypeName})</span>
+										<span class="font-normal text-muted-foreground">({step.trainingTypeName})</span>
 									{/if}
 								</span>
 							</div>
-							<span class="step-count" class:complete={step.incomplete.length === 0}
+							<span
+								class={step.incomplete.length === 0
+									? 'font-mono text-xs font-semibold tracking-[0.08em] text-success'
+									: 'font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground'}
 								>{completedCount}/{step.totalPeople}</span
 							>
 						</div>
 
 						{#if step.incomplete.length > 0}
-							<div class="incomplete-list">
+							<div class="mt-2 grid gap-2 border-t pt-2">
 								{#each step.incomplete as person (person.key)}
-									<div class="person-row">
-										<span class="person-name">{getPersonName(person.personnelId)}</span>
+									<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+										<span class="text-sm">{getPersonName(person.personnelId)}</span>
 										{#if person.detail}
-											<span class="person-detail">Current stage: {person.detail}</span>
+											<span class="font-mono text-xs text-muted-foreground">Current stage: {person.detail}</span>
 										{/if}
 									</div>
 								{/each}
 							</div>
 						{:else}
-							<p class="all-clear">Every active packet has cleared this step.</p>
+							<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+								Every active packet has cleared this step.
+							</p>
 						{/if}
 					</div>
 				{/each}
@@ -180,187 +213,6 @@
 
 	{#snippet footer()}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
+		<Button variant="outline" type="button" onclick={onClose}>Close</Button>
 	{/snippet}
 </Modal>
-
-<style>
-	.report-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.report-summary,
-	.report-toolbar,
-	.report-step {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.report-summary {
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
-	.eyebrow,
-	.toolbar-label {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--amber);
-	}
-
-	.report-summary h3 {
-		margin: var(--sp-1) 0 0;
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-	}
-
-	.report-summary p:last-child {
-		margin: var(--sp-2) 0 0;
-		font-size: var(--text-sm);
-		line-height: 1.55;
-		color: var(--text-secondary);
-	}
-
-	.report-toolbar {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		background: color-mix(in srgb, var(--surface-subtle) 58%, var(--surface-panel) 42%);
-	}
-
-	.toolbar-stat {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.toolbar-stat strong {
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		line-height: 0.95;
-	}
-
-	.toolbar-filter {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: min(100%, 260px);
-	}
-
-	.empty-msg,
-	.all-clear {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.empty-msg {
-		padding: var(--sp-4) 0;
-		text-align: center;
-	}
-
-	.report-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		max-height: 60vh;
-		overflow-y: auto;
-	}
-
-	.report-step.all-done {
-		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
-	}
-
-	.step-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-2);
-	}
-
-	.step-title {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.step-name {
-		font-size: var(--text-sm);
-		font-weight: 600;
-		color: var(--text-primary);
-		line-height: 1.35;
-	}
-
-	.training-type-hint {
-		font-weight: 400;
-		color: var(--text-secondary);
-	}
-
-	.step-count {
-		flex-shrink: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		color: var(--text-secondary);
-	}
-
-	.step-count.complete {
-		color: var(--success);
-	}
-
-	.incomplete-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		margin-top: var(--sp-2);
-		padding-top: var(--sp-2);
-		border-top: var(--border-rule);
-	}
-
-	.person-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-2);
-	}
-
-	.person-name {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.person-detail {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	@media (max-width: 640px) {
-		.report-toolbar,
-		.person-row,
-		.step-header,
-		.step-title {
-			flex-direction: column;
-			align-items: flex-start;
-		}
-
-		.toolbar-filter {
-			width: 100%;
-			min-width: 0;
-		}
-	}
-</style>

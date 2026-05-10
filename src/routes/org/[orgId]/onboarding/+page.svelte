@@ -69,17 +69,17 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
-		<div class="workspace-loading__header">
+	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-busy="true" aria-live="polite" role="status">
+		<div class="flex flex-wrap items-center gap-3">
 			<SkeletonLine width="124px" height="12px" />
 			<SkeletonLine width="96px" height="12px" />
 		</div>
-		<div class="workspace-loading__overview">
+		<div class="grid gap-3 min-[721px]:grid-cols-3">
 			{#each loadingSkeletonItems as item (item)}
 				<SkeletonBlock height="116px" />
 			{/each}
 		</div>
-		<div class="workspace-loading__list">
+		<div class="grid gap-3">
 			{#each loadingSkeletonItems as item (item)}
 				<SkeletonBlock height="88px" />
 			{/each}
@@ -89,35 +89,3 @@
 	<OnboardingPageView {ctx} />
 	<OnboardingModals {ctx} />
 {/if}
-
-<style>
-	.workspace-loading {
-		display: grid;
-		gap: var(--sp-4);
-		padding: var(--sp-5) var(--sp-6) var(--sp-6);
-	}
-
-	.workspace-loading__header {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		align-items: center;
-	}
-
-	.workspace-loading__overview {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.workspace-loading__list {
-		display: grid;
-		gap: var(--sp-3);
-	}
-
-	@media (max-width: 720px) {
-		.workspace-loading__overview {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

@@ -6,10 +6,15 @@
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as Stepper from '$lib/components/ui/stepper';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import CircleAlert from '@lucide/svelte/icons/circle-alert';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -67,16 +72,32 @@
 		}
 		return actions;
 	});
+
+	function paperworkSteps(stages: string[], currentStage: string) {
+		const currentIndex = stages.indexOf(currentStage);
+		return stages.map((stage, index) => ({
+			value: stage,
+			label: stage,
+			completed: currentIndex >= 0 && index < currentIndex
+		}));
+	}
 </script>
 
-<div class="page">
+<div class="flex h-full flex-col bg-background">
 	{#if !ctx.canViewOnboarding}
-		<div class="no-permission">
-			<h2>Access Restricted</h2>
-			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
-		</div>
+		<main class="flex min-h-0 flex-1 overflow-auto p-3 sm:p-6">
+			<Empty.Root>
+				<Empty.Media variant="icon"><ShieldAlert /></Empty.Media>
+				<Empty.Header>
+					<Empty.Title>Access Restricted</Empty.Title>
+					<Empty.Description>
+						You don't have permission to view this area. Contact your organization admin for access.
+					</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
+		</main>
 	{:else}
-		<main class="page-content">
+		<main class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
 			<WorkspaceToolbar.Root ariaLabel="Onboarding controls">
 				<WorkspaceToolbar.Group label="Onboarding sections">
 					<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
@@ -99,42 +120,63 @@
 			</WorkspaceToolbar.Root>
 
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
-				<div class="notice-banner notice-banner--warning">
-					<div class="notice-copy">
-						<p class="notice-label">Configuration Required</p>
-						<p>No template steps are defined, so new onboardings cannot be started until a template is built.</p>
-					</div>
+				<Alert.Root variant="warning">
+					<TriangleAlert />
+					<Alert.Title>Configuration Required</Alert.Title>
+					<Alert.Description>
+						No template steps are defined, so new onboardings cannot be started until a template is built.
+					</Alert.Description>
 					{#if ctx.canManageWorkflows}
-						<a href={ctx.templatesUrl} class="btn btn-sm btn-secondary">Manage Templates</a>
+						<Alert.Action>
+							<Button href={ctx.templatesUrl} size="sm" variant="outline">Manage Templates</Button>
+						</Alert.Action>
 					{/if}
-				</div>
+				</Alert.Root>
 			{/if}
 
 			{#if ctx.resyncError}
-				<div class="notice-banner notice-banner--danger">
-					<div class="notice-copy">
-						<p class="notice-label">Sync Problem</p>
-						<p>{ctx.resyncError}</p>
-					</div>
-					<button class="btn btn-sm btn-secondary" type="button" onclick={() => (ctx.resyncError = null)}
-						>Dismiss</button
-					>
-				</div>
+				<Alert.Root variant="destructive">
+					<CircleAlert />
+					<Alert.Title>Sync Problem</Alert.Title>
+					<Alert.Description>{ctx.resyncError}</Alert.Description>
+					<Alert.Action>
+						<Button size="sm" variant="outline" onclick={() => (ctx.resyncError = null)}>Dismiss</Button>
+					</Alert.Action>
+				</Alert.Root>
 			{/if}
 
 			{#if ctx.filteredOnboardings.length === 0}
 				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
 					{#if ctx.canManageWorkflows}
-						<EmptyState
-							message="Set up your onboarding template to get started. Define the requirements new members need to complete."
-							actionLabel="Set Up Template"
-							actionHref={ctx.templatesUrl}
-						/>
+						<Empty.Root>
+							<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+							<Empty.Header>
+								<Empty.Title>Set up onboarding</Empty.Title>
+								<Empty.Description>
+									Set up your onboarding template to get started. Define the requirements new members need to complete.
+								</Empty.Description>
+							</Empty.Header>
+							<Empty.Content>
+								<Button href={ctx.templatesUrl}>Set Up Template</Button>
+							</Empty.Content>
+						</Empty.Root>
 					{:else}
-						<EmptyState message="Onboarding has not been configured yet." />
+						<Empty.Root>
+							<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+							<Empty.Header>
+								<Empty.Title>Onboarding not configured</Empty.Title>
+								<Empty.Description>Onboarding has not been configured yet.</Empty.Description>
+							</Empty.Header>
+						</Empty.Root>
 					{/if}
 				{:else}
-					<EmptyState message="No active onboardings. Start one to begin tracking a new member." />
+					<Empty.Root>
+						<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+						<Empty.Header>
+							<Empty.Title>No active onboardings</Empty.Title>
+							<Empty.Description>No active onboardings. Start one to begin tracking a new member.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
 				{/if}
 			{:else}
 				<OnboardingPacketList.Root
@@ -234,7 +276,9 @@
 															onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
 															disabled={ctx.removingDeprecatedStepId === step.id}
 														>
-															{#if ctx.removingDeprecatedStepId === step.id}<Spinner />{/if}
+															{#if ctx.removingDeprecatedStepId === step.id}
+																<Spinner />
+															{/if}
 															Remove
 														</Button>
 													{/if}
@@ -260,14 +304,26 @@
 														<Button href={ctx.trainingPageUrl} variant="outline" size="sm">Record Training</Button>
 													{/if}
 												{:else if step.stepType === 'paperwork'}
-													<Stepper
-														stages={step.stages ?? []}
-														currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
-														onStageClick={canActOnThisOnboarding
-															? (stage) => ctx.handleStageClick(step, stage)
-															: undefined}
-														disabled={!canActOnThisOnboarding}
-													/>
+													{@const stages = step.stages ?? []}
+													{@const currentStage = step.currentStage ?? stages[0] ?? ''}
+													<Stepper.Root
+														steps={paperworkSteps(stages, currentStage)}
+														value={currentStage}
+														onValueChange={(stage) => {
+															if (canActOnThisOnboarding) ctx.handleStageClick(step, stage);
+														}}
+													>
+														<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
+															{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
+																<Stepper.Item
+																	value={stage.value}
+																	label={stage.label}
+																	completed={stage.completed}
+																	disabled={!canActOnThisOnboarding}
+																/>
+															{/each}
+														</Stepper.List>
+													</Stepper.Root>
 												{/if}
 											{/snippet}
 
@@ -301,91 +357,3 @@
 		</main>
 	{/if}
 </div>
-
-<style>
-	.page {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-page);
-	}
-
-	.no-permission {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 320px;
-		text-align: center;
-		color: var(--text-secondary);
-	}
-
-	.no-permission h2 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-	}
-
-	.page-content {
-		display: flex;
-		min-height: 0;
-		flex-direction: column;
-		gap: var(--sp-4);
-		overflow: auto;
-		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.notice-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.notice-banner {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-3);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-	}
-
-	.notice-banner--warning {
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-	}
-
-	.notice-banner--danger {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-	}
-
-	.notice-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		flex: 1;
-	}
-
-	.notice-copy p {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	@media (max-width: 640px) {
-		.page-content {
-			padding: var(--sp-3);
-		}
-
-		.notice-banner {
-			padding: var(--sp-3);
-		}
-	}
-</style>

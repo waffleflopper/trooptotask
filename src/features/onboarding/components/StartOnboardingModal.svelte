@@ -4,7 +4,13 @@
 	import type { OnboardingTemplate } from '../onboarding.types';
 	import Modal from '$lib/components/Modal.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
 		personnel: Personnel[];
@@ -33,16 +39,16 @@
 	let selectedTemplateId = $state<string>('');
 	let showAddPersonModal = $state(false);
 
-	$effect(() => {
-		if (!selectedTemplateId && templates[0]?.id) {
-			selectedTemplateId = templates[0].id;
-		}
-	});
-
 	const availablePersonnel = $derived(
 		personnel
 			.filter((p) => !existingOnboardingPersonnelIds.includes(p.id))
 			.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+	);
+	const personnelOptions = $derived(
+		availablePersonnel.map((p) => ({ value: p.id, label: `${p.rank} ${p.lastName}, ${p.firstName}` }))
+	);
+	const selectedTemplateLabel = $derived(
+		templates.find((template) => template.id === (selectedTemplateId || templates[0]?.id))?.name ?? 'Select a template'
 	);
 
 	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps);
@@ -52,7 +58,7 @@
 		if (!canSave) return;
 		const personnelId = selectedPersonnelId;
 		const date = startDate;
-		const templateId = selectedTemplateId || null;
+		const templateId = selectedTemplateId || templates[0]?.id || null;
 		onClose();
 		await onSubmit(personnelId, date, templateId);
 	}
@@ -66,62 +72,71 @@
 </script>
 
 <Modal title="Start Onboarding" {onClose} width="560px" titleId="start-onboarding-title">
-	<div class="modal-shell">
-		<div class="modal-summary">
-			<p class="eyebrow">New packet</p>
-			<h3>Open a new onboarding record.</h3>
-			<p>Choose the member, confirm the start date, and attach the template that should govern the checklist.</p>
+	<div class="flex flex-col gap-3">
+		<div class="rounded-lg border bg-muted/35 p-3">
+			<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">New packet</p>
+			<h3 class="mt-1 mb-0 text-lg leading-tight font-semibold tracking-tight">Open a new onboarding record.</h3>
+			<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+				Choose the member, confirm the start date, and attach the template that should govern the checklist.
+			</p>
 		</div>
 
-		<div class="form-section">
-			<p class="section-label">Assignment</p>
-			<div class="form-grid">
+		<div class="grid gap-3 rounded-lg border bg-card p-3">
+			<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Assignment</p>
+			<div class="grid gap-2 sm:grid-cols-2">
 				{#if showTemplateSelector}
-					<label class="field-block" for="template-select">
-						<span class="label">Template</span>
-						<select id="template-select" class="select" bind:value={selectedTemplateId}>
-							{#each templates as t (t.id)}
-								<option value={t.id}>{t.name}</option>
-							{/each}
-						</select>
-					</label>
+					<div class="grid gap-2">
+						<Label for="template-select">Template</Label>
+						<Select.Root type="single" bind:value={selectedTemplateId}>
+							<Select.Trigger id="template-select" class="w-full">{selectedTemplateLabel}</Select.Trigger>
+							<Select.Content>
+								{#each templates as t (t.id)}
+									<Select.Item value={t.id} label={t.name} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 				{/if}
 
-				<label class="field-block" for="start-date">
-					<span class="label">Start Date</span>
-					<input type="date" id="start-date" class="input" bind:value={startDate} />
-				</label>
+				<div class="grid gap-2">
+					<Label for="start-date">Start Date</Label>
+					<Input type="date" id="start-date" bind:value={startDate} />
+				</div>
 			</div>
 		</div>
 
-		<div class="form-section">
-			<div class="section-head">
-				<p class="section-label">Member</p>
-				<button class="btn btn-sm btn-secondary" type="button" onclick={() => (showAddPersonModal = true)}
-					>Add Person</button
-				>
+		<div class="grid gap-3 rounded-lg border bg-card p-3">
+			<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
+				<Button size="sm" variant="outline" type="button" onclick={() => (showAddPersonModal = true)}>
+					Add Person
+				</Button>
 			</div>
 
-			<SearchSelect
-				id="personnel-select"
-				options={availablePersonnel.map((p) => ({ value: p.id, label: `${p.rank} ${p.lastName}, ${p.firstName}` }))}
-				bind:value={selectedPersonnelId}
-				placeholder="Search for a member..."
-			/>
+			<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} autoHighlight label="Member">
+				<Combobox.Trigger id="personnel-select" placeholder="Search for a member..." />
+				<Combobox.Content>
+					<Combobox.Empty>No available members found.</Combobox.Empty>
+					<Combobox.List />
+				</Combobox.Content>
+			</Combobox.Root>
 		</div>
 
 		{#if !hasTemplateSteps}
-			<div class="warning-panel">
-				<p class="warning-label">Template Required</p>
-				<p>No onboarding steps are configured yet. Build the onboarding template before starting a packet.</p>
-			</div>
+			<Alert.Root variant="warning">
+				<TriangleAlert />
+				<Alert.Title>Template Required</Alert.Title>
+				<Alert.Description>
+					No onboarding steps are configured yet. Build the onboarding template before starting a packet.
+				</Alert.Description>
+			</Alert.Root>
 		{/if}
 	</div>
 
 	{#snippet footer()}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" type="button" disabled={!canSave} onclick={handleSave}>Start Onboarding</button>
+		<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+		<Button type="button" disabled={!canSave} onclick={handleSave}>Start Onboarding</Button>
 	{/snippet}
 </Modal>
 
@@ -133,97 +148,3 @@
 		onClose={() => (showAddPersonModal = false)}
 	/>
 {/if}
-
-<style>
-	.modal-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.modal-summary,
-	.form-section,
-	.warning-panel {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.modal-summary {
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
-	.eyebrow,
-	.section-label,
-	.warning-label {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.eyebrow {
-		color: var(--amber);
-	}
-
-	.modal-summary h3 {
-		margin: var(--sp-1) 0 0;
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-	}
-
-	.modal-summary p:last-child {
-		margin: var(--sp-2) 0 0;
-		font-size: var(--text-sm);
-		line-height: 1.55;
-		color: var(--text-secondary);
-	}
-
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.field-block {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.section-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
-	}
-
-	.warning-panel {
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-	}
-
-	.warning-label {
-		color: var(--amber-dark);
-	}
-
-	.warning-panel p:last-child {
-		margin: var(--sp-1) 0 0;
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	@media (max-width: 640px) {
-		.section-head {
-			flex-direction: column;
-			align-items: stretch;
-		}
-	}
-</style>

@@ -1,13 +1,22 @@
 <script lang="ts">
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import type {
 		OnboardingTemplate,
 		OnboardingTemplateStep,
@@ -87,10 +96,10 @@
 	});
 
 	// --- Step type config ---
-	const STEP_TYPE_COLORS: Record<OnboardingStepType, string> = {
-		checkbox: 'var(--text-secondary)',
-		paperwork: 'var(--amber-dark)',
-		training: 'var(--info)'
+	const STEP_TYPE_VARIANTS: Record<OnboardingStepType, BadgeVariant> = {
+		checkbox: 'secondary',
+		paperwork: 'warning',
+		training: 'info'
 	};
 
 	const STEP_TYPE_LABELS: Record<OnboardingStepType, string> = {
@@ -297,7 +306,7 @@
 	}
 </script>
 
-<div class="templates-page">
+<div class="flex min-h-[calc(100vh-120px)] flex-col gap-3 bg-background p-6 max-sm:p-2">
 	<WorkspaceToolbar.Root ariaLabel="Onboarding template controls">
 		<WorkspaceToolbar.Group label="Onboarding sections">
 			<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
@@ -314,54 +323,55 @@
 		{/if}
 	</WorkspaceToolbar.Root>
 
-	<div class="templates-layout">
+	<div class="grid min-h-0 grid-cols-[320px_1fr] gap-3 max-[820px]:grid-cols-1">
 		<!-- Left panel: Template list -->
-		<div class="panel template-list-panel">
-			<div class="panel-header">
-				<div class="panel-heading">
-					<p class="panel-eyebrow">Library</p>
-					<h3 class="panel-title">Templates</h3>
+		<div class="flex flex-col rounded-lg border bg-card p-3">
+			<div class="mb-3 flex items-start justify-between gap-2 border-b pb-2">
+				<div class="flex flex-col gap-1">
+					<p class="text-xs font-semibold uppercase tracking-wider text-primary">Library</p>
+					<h3 class="text-lg font-semibold tracking-tight">Templates</h3>
 				</div>
 			</div>
 
 			{#if addingTemplate}
-				<div class="add-template-form">
-					<input
-						class="input"
+				<div class="mb-2 flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+					<Input
 						type="text"
 						placeholder="Template name"
 						bind:value={newTemplateName}
 						onkeydown={(e) => e.key === 'Enter' && addTemplate()}
 					/>
-					<textarea class="input" placeholder="Description (optional)" rows="2" bind:value={newTemplateDescription}
-					></textarea>
-					<div class="form-actions">
-						<button class="btn btn-secondary btn-sm" onclick={cancelAddTemplate}>Cancel</button>
-						<button
-							class="btn btn-primary btn-sm"
-							onclick={addTemplate}
-							disabled={!newTemplateName.trim() || savingTemplate}
-						>
-							{#if savingTemplate}<Spinner size={12} />{/if}
+					<Textarea placeholder="Description (optional)" rows={2} bind:value={newTemplateDescription}></Textarea>
+					<div class="mt-1 flex justify-end gap-2">
+						<Button variant="outline" size="sm" onclick={cancelAddTemplate}>Cancel</Button>
+						<Button size="sm" onclick={addTemplate} disabled={!newTemplateName.trim() || savingTemplate}>
+							{#if savingTemplate}<Spinner class="size-3" />{/if}
 							Save
-						</button>
+						</Button>
 					</div>
 				</div>
 			{/if}
 
 			{#if templates.length === 0 && !addingTemplate}
-				<EmptyState
-					message="No templates yet. Create one to get started."
-					actionLabel={canMutate ? '+ Add Template' : undefined}
-					onAction={canMutate ? () => (addingTemplate = true) : undefined}
-				/>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No templates yet.</Empty.Title>
+						<Empty.Description>Create one to get started.</Empty.Description>
+					</Empty.Header>
+					{#if canMutate}
+						<Empty.Content>
+							<Button variant="outline" size="sm" onclick={() => (addingTemplate = true)}>Add Template</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
 			{:else}
-				<ul class="template-list" role="listbox" aria-label="Onboarding templates">
+				<ul class="m-0 flex list-none flex-col gap-2 p-0" role="listbox" aria-label="Onboarding templates">
 					{#each templates as template (template.id)}
 						{@const stepCount = allSteps.filter((s) => s.templateId === template.id).length}
 						<li
-							class="template-item"
-							class:selected={selectedTemplateId === template.id}
+							class={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted ${
+								selectedTemplateId === template.id ? 'border-primary bg-primary/10' : 'bg-card'
+							}`}
 							role="option"
 							aria-selected={selectedTemplateId === template.id}
 							onclick={() => selectTemplate(template.id)}
@@ -369,8 +379,8 @@
 							tabindex="0"
 						>
 							{#if renamingTemplateId === template.id}
-								<input
-									class="input rename-input"
+								<Input
+									class="flex-1 text-sm"
 									type="text"
 									bind:value={renameValue}
 									onblur={commitRename}
@@ -378,9 +388,9 @@
 									onclick={(e) => e.stopPropagation()}
 								/>
 							{:else}
-								<div class="template-info">
-									<span class="template-name">{template.name}</span>
-									<span class="template-meta">
+								<div class="flex min-w-0 flex-1 flex-col gap-1">
+									<span class="truncate font-medium text-foreground">{template.name}</span>
+									<span class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
 										{stepCount} step{stepCount !== 1 ? 's' : ''}
 									</span>
 								</div>
@@ -388,32 +398,25 @@
 
 							{#if canMutate && renamingTemplateId !== template.id}
 								<div
-									class="template-actions"
+									class="flex gap-0.5 opacity-100"
 									onclick={(e) => e.stopPropagation()}
 									onkeydown={(e) => e.stopPropagation()}
 									role="toolbar"
 									tabindex="-1"
 								>
-									<button
-										class="btn-ghost btn-icon"
+									<Button
+										variant="ghost"
+										size="icon-sm"
 										title="Rename"
 										onclick={() => startRename(template)}
 										aria-label="Rename template"
 									>
-										<svg
-											viewBox="0 0 14 14"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="1.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											width="14"
-											height="14"
-											aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
-										>
-									</button>
-									<button
-										class="btn-ghost btn-icon btn-icon-danger"
+										<PencilIcon />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										class="text-destructive hover:text-destructive"
 										title="Delete"
 										onclick={() =>
 											(confirmDelete = {
@@ -423,18 +426,8 @@
 											})}
 										aria-label="Delete template"
 									>
-										<svg
-											viewBox="0 0 14 14"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="1.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											width="14"
-											height="14"
-											aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
-										>
-									</button>
+										<Trash2Icon />
+									</Button>
 								</div>
 							{/if}
 						</li>
@@ -444,89 +437,88 @@
 		</div>
 
 		<!-- Right panel: Step editor -->
-		<div class="panel step-editor-panel">
+		<div class="flex flex-col rounded-lg border bg-card p-3">
 			{#if !selectedTemplate}
-				<div class="panel-placeholder">
-					<p class="placeholder-text">Select a template to manage its steps</p>
+				<div class="flex flex-1 items-center justify-center">
+					<p class="text-sm text-muted-foreground">Select a template to manage its steps</p>
 				</div>
 			{:else}
-				<div class="panel-header">
-					<div class="panel-heading">
-						<p class="panel-eyebrow">Template Editor</p>
-						<h3 class="panel-title">{selectedTemplate.name} &mdash; Steps</h3>
+				<div class="mb-3 flex items-start justify-between gap-2 border-b pb-2 max-sm:flex-col max-sm:items-stretch">
+					<div class="flex flex-col gap-1">
+						<p class="text-xs font-semibold uppercase tracking-wider text-primary">Template Editor</p>
+						<h3 class="text-lg font-semibold tracking-tight">{selectedTemplate.name} - Steps</h3>
 					</div>
 					{#if canMutate}
-						<button class="btn btn-primary btn-sm" onclick={startAddStep} disabled={addingStep}> + Add Step </button>
+						<Button size="sm" onclick={startAddStep} disabled={addingStep}>Add Step</Button>
 					{/if}
 				</div>
 
 				{#if selectedTemplate.description}
-					<p class="template-description">{selectedTemplate.description}</p>
+					<p class="mb-3 text-sm leading-6 text-muted-foreground">{selectedTemplate.description}</p>
 				{/if}
 
 				{#if selectedSteps.length === 0 && !addingStep}
-					<EmptyState
-						message="No steps in this template yet."
-						variant="simple"
-						actionLabel={canMutate ? '+ Add Step' : undefined}
-						onAction={canMutate ? startAddStep : undefined}
-					/>
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No steps in this template yet.</Empty.Title>
+						</Empty.Header>
+						{#if canMutate}
+							<Empty.Content>
+								<Button variant="outline" size="sm" onclick={startAddStep}>Add Step</Button>
+							</Empty.Content>
+						{/if}
+					</Empty.Root>
 				{:else}
-					<ul class="step-list">
+					<ul class="m-0 flex list-none flex-col gap-2 p-0">
 						{#each selectedSteps as step, idx (step.id)}
 							{#if editingStepId === step.id}
 								<!-- Inline edit form -->
-								<li class="step-item step-item-editing">
+								<li class="rounded-lg border border-primary bg-primary/10 p-3">
 									{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
 								</li>
 							{:else}
-								<li class="step-item">
-									<div class="step-header">
-										<div class="step-info">
-											<span class="step-order">{idx + 1}.</span>
-											<span class="step-name">{step.name}</span>
-											<Badge label={STEP_TYPE_LABELS[step.stepType]} color={STEP_TYPE_COLORS[step.stepType]} />
+								<li class="rounded-lg border bg-card p-3">
+									<div class="flex items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch">
+										<div class="flex min-w-0 flex-1 items-center gap-2 max-sm:flex-wrap">
+											<span class="min-w-5 font-mono text-xs font-semibold text-primary">{idx + 1}.</span>
+											<span class="truncate font-medium text-foreground">{step.name}</span>
+											<Badge variant={STEP_TYPE_VARIANTS[step.stepType]}>{STEP_TYPE_LABELS[step.stepType]}</Badge>
 										</div>
 										{#if canMutate}
-											<div class="step-actions">
-												<button
-													class="btn-ghost btn-icon"
+											<div class="flex shrink-0 gap-0.5">
+												<Button
+													variant="ghost"
+													size="icon-sm"
 													title="Move up"
 													disabled={idx === 0}
 													onclick={() => moveStep(step, 'up')}
 													aria-label="Move step up"
 												>
-													&#9650;
-												</button>
-												<button
-													class="btn-ghost btn-icon"
+													<ChevronUpIcon />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
 													title="Move down"
 													disabled={idx === selectedSteps.length - 1}
 													onclick={() => moveStep(step, 'down')}
 													aria-label="Move step down"
 												>
-													&#9660;
-												</button>
-												<button
-													class="btn-ghost btn-icon"
+													<ChevronDownIcon />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
 													title="Edit"
 													onclick={() => startEditStep(step)}
 													aria-label="Edit step"
 												>
-													<svg
-														viewBox="0 0 14 14"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.5"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														width="14"
-														height="14"
-														aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
-													>
-												</button>
-												<button
-													class="btn-ghost btn-icon btn-icon-danger"
+													<PencilIcon />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													class="text-destructive hover:text-destructive"
 													title="Delete"
 													onclick={() =>
 														(confirmDelete = {
@@ -536,38 +528,28 @@
 														})}
 													aria-label="Delete step"
 												>
-													<svg
-														viewBox="0 0 14 14"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.5"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														width="14"
-														height="14"
-														aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
-													>
-												</button>
+													<Trash2Icon />
+												</Button>
 											</div>
 										{/if}
 									</div>
 									{#if step.description}
-										<p class="step-description">{step.description}</p>
+										<p class="mt-2 ml-7 text-sm leading-5 text-muted-foreground">{step.description}</p>
 									{/if}
 									{#if step.stepType === 'paperwork' && step.stages && step.stages.length > 0}
-										<div class="step-stages-preview">
-											<span class="stages-label">Stages:</span>
+										<div class="mt-2 ml-7 flex flex-wrap items-center gap-1">
+											<span class="text-sm text-muted-foreground">Stages:</span>
 											{#each step.stages as stage, stageIdx (stageIdx)}
-												<Badge label={stage} variant="outlined" />
+												<Badge variant="outline">{stage}</Badge>
 											{/each}
 										</div>
 									{/if}
 									{#if step.stepType === 'training' && step.trainingTypeId}
 										{@const tt = trainingTypes.find((t) => t.id === step.trainingTypeId)}
 										{#if tt}
-											<div class="step-training-preview">
-												<span class="stages-label">Training:</span>
-												<Badge label={tt.name} color={tt.color} />
+											<div class="mt-2 ml-7 flex flex-wrap items-center gap-1">
+												<span class="text-sm text-muted-foreground">Training:</span>
+												<Badge variant="outline">{tt.name}</Badge>
 											</div>
 										{/if}
 									{/if}
@@ -578,7 +560,7 @@
 				{/if}
 
 				{#if addingStep}
-					<div class="add-step-form">
+					<div class="mt-3 flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
 						{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
 					</div>
 				{/if}
@@ -603,488 +585,103 @@
 
 <!-- Reusable step form snippet -->
 {#snippet stepForm(onSave: () => void | Promise<void>, onCancel: () => void, saveLabel: string)}
-	<div class="step-form">
-		<div class="form-field">
-			<label class="form-label" for="step-name">Name <span class="required">*</span></label>
-			<input class="input" id="step-name" type="text" placeholder="Step name" bind:value={stepName} />
+	<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-1.5">
+			<Label for="step-name">Name <span class="text-destructive">*</span></Label>
+			<Input id="step-name" type="text" placeholder="Step name" bind:value={stepName} />
 		</div>
 
-		<div class="form-field">
-			<label class="form-label" for="step-desc">Description</label>
-			<textarea class="input" id="step-desc" placeholder="Optional description" rows="2" bind:value={stepDescription}
-			></textarea>
+		<div class="flex flex-col gap-1.5">
+			<Label for="step-desc">Description</Label>
+			<Textarea id="step-desc" placeholder="Optional description" rows={2} bind:value={stepDescription}></Textarea>
 		</div>
 
-		<fieldset class="form-field">
-			<legend class="form-label">Type</legend>
-			<div class="type-options">
+		<fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+			<legend class="text-sm font-medium">Type</legend>
+			<div class="flex flex-wrap gap-2">
 				{#each ['checkbox', 'paperwork', 'training'] as const as typeOption (typeOption)}
-					<label class="type-option">
+					<label class="flex cursor-pointer items-center gap-1">
 						<input type="radio" name="step-type" value={typeOption} bind:group={stepType} />
-						<Badge label={STEP_TYPE_LABELS[typeOption]} color={STEP_TYPE_COLORS[typeOption]} />
+						<Badge variant={STEP_TYPE_VARIANTS[typeOption]}>{STEP_TYPE_LABELS[typeOption]}</Badge>
 					</label>
 				{/each}
 			</div>
 		</fieldset>
 
 		{#if stepType === 'training'}
-			<div class="form-field">
-				<label class="form-label" for="training-type-select">Training Type</label>
-				<select class="input" id="training-type-select" bind:value={stepTrainingTypeId}>
-					<option value={null}>-- Select training type --</option>
+			<div class="flex flex-col gap-1.5">
+				<Label for="training-type-select">Training Type</Label>
+				<NativeSelect
+					id="training-type-select"
+					value={stepTrainingTypeId ?? ''}
+					onchange={(e) => (stepTrainingTypeId = (e.target as HTMLSelectElement).value || null)}
+				>
+					<option value="">Select training type</option>
 					{#each trainingTypes as tt (tt.id)}
 						<option value={tt.id}>{tt.name}</option>
 					{/each}
-				</select>
+				</NativeSelect>
 			</div>
 		{/if}
 
 		{#if stepType === 'paperwork'}
-			<fieldset class="form-field">
-				<legend class="form-label">Stages</legend>
-				<div class="stages-editor">
+			<fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+				<legend class="text-sm font-medium">Stages</legend>
+				<div class="flex flex-col gap-1">
 					{#each stepStages as stage, i (i)}
-						<div class="stage-row">
-							<span class="stage-name">{stage}</span>
-							<div class="stage-actions">
-								<button
-									class="btn-ghost btn-icon btn-icon-sm"
+						<div class="flex items-center justify-between rounded-md border bg-card p-2">
+							<span class="text-sm text-foreground">{stage}</span>
+							<div class="flex gap-0.5">
+								<Button
+									variant="ghost"
+									size="icon-xs"
 									title="Move up"
 									disabled={i === 0}
-									onclick={() => moveStage(i, 'up')}>&#9650;</button
+									onclick={() => moveStage(i, 'up')}
 								>
-								<button
-									class="btn-ghost btn-icon btn-icon-sm"
+									<ChevronUpIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
 									title="Move down"
 									disabled={i === stepStages.length - 1}
-									onclick={() => moveStage(i, 'down')}>&#9660;</button
+									onclick={() => moveStage(i, 'down')}
 								>
-								<button
-									class="btn-ghost btn-icon btn-icon-sm btn-icon-danger"
+									<ChevronDownIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									class="text-destructive hover:text-destructive"
 									title="Remove"
-									onclick={() => removeStage(i)}>&#10005;</button
+									onclick={() => removeStage(i)}
 								>
+									<Trash2Icon />
+								</Button>
 							</div>
 						</div>
 					{/each}
-					<div class="stage-add-row">
-						<input
-							class="input"
+					<div class="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+						<Input
+							class="flex-1"
 							type="text"
 							placeholder="Add a stage"
 							bind:value={newStageName}
 							onkeydown={handleStageKeydown}
 						/>
-						<button class="btn btn-secondary btn-sm" onclick={addStage} disabled={!newStageName.trim()}> Add </button>
+						<Button variant="outline" size="sm" onclick={addStage} disabled={!newStageName.trim()}>Add</Button>
 					</div>
 				</div>
 			</fieldset>
 		{/if}
 
-		<div class="form-actions">
-			<button class="btn btn-secondary btn-sm" onclick={onCancel}>Cancel</button>
-			<button class="btn btn-primary btn-sm" onclick={onSave} disabled={!stepName.trim() || savingStep}>
-				{#if savingStep}<Spinner size={12} />{/if}
+		<div class="mt-1 flex justify-end gap-2 max-sm:flex-col">
+			<Button variant="outline" size="sm" onclick={onCancel}>Cancel</Button>
+			<Button size="sm" onclick={onSave} disabled={!stepName.trim() || savingStep}>
+				{#if savingStep}<Spinner class="size-3" />{/if}
 				{saveLabel}
-			</button>
+			</Button>
 		</div>
 	</div>
 {/snippet}
-
-<style>
-	.templates-page {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-6);
-		background: var(--surface-page);
-		min-height: calc(100vh - 120px);
-	}
-
-	.panel-eyebrow,
-	.form-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.form-label {
-		color: var(--text-tertiary);
-	}
-
-	.templates-layout {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		gap: var(--sp-3);
-		min-height: 0;
-	}
-
-	.panel {
-		display: flex;
-		flex-direction: column;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.panel-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-		padding-bottom: var(--sp-2);
-		border-bottom: var(--border-thin);
-	}
-
-	.panel-heading {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.panel-title {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.panel-eyebrow {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.panel-placeholder {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.placeholder-text {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.template-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.template-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.template-item:hover {
-		background: var(--surface-subtle);
-	}
-
-	.template-item.selected {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber-dark);
-	}
-
-	.template-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.template-name {
-		font-weight: 600;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.template-meta {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.template-actions {
-		display: flex;
-		gap: 2px;
-		opacity: 0;
-		transition: opacity var(--transition-fast);
-	}
-
-	.template-item:hover .template-actions {
-		opacity: 1;
-	}
-
-	.template-description {
-		margin: 0 0 var(--sp-3);
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.rename-input {
-		flex: 1;
-		font-size: var(--text-sm);
-	}
-
-	.add-template-form,
-	.add-step-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
-	}
-
-	.add-template-form {
-		margin-bottom: var(--sp-2);
-	}
-
-	.step-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.step-item {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.step-item-editing {
-		border-color: var(--amber-dark);
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-	}
-
-	.step-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-2);
-	}
-
-	.step-info {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.step-order {
-		min-width: 20px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		color: var(--amber-dark);
-	}
-
-	.step-name {
-		font-weight: 500;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.step-description {
-		margin: var(--sp-2) 0 0 28px;
-		font-size: var(--text-sm);
-		line-height: 1.4;
-		color: var(--text-secondary);
-	}
-
-	.step-stages-preview,
-	.step-training-preview {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		flex-wrap: wrap;
-		margin-top: var(--sp-2);
-		margin-left: 28px;
-	}
-
-	.stages-label {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.step-actions {
-		display: flex;
-		gap: 2px;
-		flex-shrink: 0;
-	}
-
-	.step-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.add-step-form {
-		margin-top: var(--sp-3);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		border: none;
-		margin: 0;
-		padding: 0;
-	}
-
-	.required {
-		color: var(--danger);
-	}
-
-	.form-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		margin-top: var(--sp-1);
-	}
-
-	.type-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.type-option {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		cursor: pointer;
-	}
-
-	.type-option input[type='radio'] {
-		accent-color: var(--amber-dark);
-	}
-
-	.stages-editor {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.stage-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-2);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-	}
-
-	.stage-name {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.stage-actions {
-		display: flex;
-		gap: 2px;
-	}
-
-	.stage-add-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.stage-add-row .input {
-		flex: 1;
-	}
-
-	.btn-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		border: none;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-tertiary);
-		cursor: pointer;
-		transition:
-			color var(--transition-fast),
-			background var(--transition-fast);
-	}
-
-	.btn-icon:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.btn-icon:disabled {
-		opacity: 0.3;
-		cursor: default;
-	}
-
-	.btn-icon-danger:hover {
-		color: var(--danger);
-	}
-
-	.btn-icon-sm {
-		width: 24px;
-		height: 24px;
-		font-size: var(--text-xs);
-	}
-
-	@media (max-width: 820px) {
-		.templates-layout {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.templates-page {
-			padding: var(--sp-2);
-		}
-
-		.panel-header,
-		.step-header,
-		.step-info,
-		.stage-add-row,
-		.form-actions {
-			flex-direction: column;
-			align-items: stretch;
-		}
-	}
-</style>

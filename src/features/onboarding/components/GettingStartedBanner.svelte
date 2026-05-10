@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { Button } from '$lib/components/ui/button';
+	import { Progress } from '$lib/components/ui/progress';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+	import Circle from '@lucide/svelte/icons/circle';
+	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
 		orgId: string;
@@ -28,16 +33,11 @@
 		onDismiss
 	}: Props = $props();
 
-	let calendarVisited = $state(false);
+	const calendarVisited = $derived(
+		browser ? localStorage.getItem(`gettingStarted_calendarVisited_${orgId}`) === 'true' : false
+	);
 	let confirmingDismiss = $state(false);
-	let hasBeenVisible = $state(false);
-
-	// Hydrate localStorage-based step
-	$effect(() => {
-		if (browser) {
-			calendarVisited = localStorage.getItem(`gettingStarted_calendarVisited_${orgId}`) === 'true';
-		}
-	});
+	let hasBeenVisible = false;
 
 	interface Step {
 		label: string;
@@ -89,287 +89,60 @@
 </script>
 
 {#if !dismissed && !allComplete}
-	<div class="getting-started">
-		<div class="getting-started-header">
-			<div class="getting-started-heading">
-				<p class="getting-started-kicker">Setup Checklist</p>
-				<h3>Stand up the workspace.</h3>
-				<p class="getting-started-subtitle">
+	<div class="mb-6 rounded-lg border bg-card p-5 text-card-foreground shadow-sm sm:p-6">
+		<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+			<div class="grid min-w-0 gap-1.5">
+				<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+					Setup Checklist
+				</p>
+				<h3 class="m-0 text-xl leading-tight font-semibold tracking-tight sm:text-2xl">Stand up the workspace.</h3>
+				<p class="m-0 max-w-3xl text-sm leading-relaxed text-muted-foreground">
 					Complete these tasks to make the dashboard, calendar, and records useful on day one.
 				</p>
 			</div>
 			{#if confirmingDismiss}
-				<div class="dismiss-confirm">
+				<div class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:justify-end">
 					<span>Hide checklist?</span>
-					<button class="btn btn-sm btn-secondary" onclick={() => (confirmingDismiss = false)}>No</button>
-					<button class="btn btn-sm btn-amber" onclick={handleDismiss}>Yes</button>
+					<Button size="sm" variant="outline" onclick={() => (confirmingDismiss = false)}>No</Button>
+					<Button size="sm" onclick={handleDismiss}>Yes</Button>
 				</div>
 			{:else}
-				<button class="dismiss-btn" onclick={handleDismiss} aria-label="Dismiss getting started checklist">
-					<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-						<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-					</svg>
-				</button>
+				<Button size="icon" variant="outline" onclick={handleDismiss} aria-label="Dismiss getting started checklist">
+					<X />
+				</Button>
 			{/if}
 		</div>
 
-		<div class="progress-section">
-			<div class="progress-summary">
-				<span class="progress-value">{completedCount}/{steps.length}</span>
-				<span class="progress-text">complete</span>
+		<div class="mb-6 grid gap-3 border-y py-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+			<div class="flex items-baseline gap-1">
+				<span class="text-2xl leading-none font-semibold tracking-tight">{completedCount}/{steps.length}</span>
+				<span class="font-mono text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">complete</span>
 			</div>
-			<div class="progress-bar" aria-hidden="true">
-				<div class="progress-fill" style="width: {progressPct}%"></div>
-			</div>
+			<Progress value={progressPct} aria-label="Setup checklist progress" />
 		</div>
 
-		<ul class="step-list" aria-label="Organization setup checklist">
+		<ul class="grid gap-2 sm:grid-cols-2" aria-label="Organization setup checklist">
 			{#each steps as step (step.label)}
-				<li class="step" class:complete={step.complete}>
-					<span class="step-icon">
+				<li class="flex min-w-0 items-center gap-2 rounded-lg border bg-muted/25 px-3 py-2 text-sm">
+					<span class="flex shrink-0 items-center text-muted-foreground">
 						{#if step.complete}
-							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-								<circle cx="9" cy="9" r="9" fill="var(--success)" />
-								<path
-									d="M5 9L8 12L13 6"
-									stroke="white"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
+							<CheckCircle2 class="size-4 text-success" />
 						{:else}
-							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-								<circle cx="9" cy="9" r="8" stroke="var(--border-default)" stroke-width="2" />
-							</svg>
+							<Circle class="size-4" />
 						{/if}
 					</span>
-					<div class="step-copy">
-						<span class="step-label">{step.label}</span>
+					<div class="min-w-0 flex-1">
+						<span
+							class={step.complete ? 'block truncate font-medium text-muted-foreground' : 'block truncate font-medium'}
+						>
+							{step.label}
+						</span>
 					</div>
 					{#if !step.complete}
-						<a href={step.link} class="step-link">Open</a>
+						<Button href={step.link} variant="link" size="sm" class="h-auto px-0">Open</Button>
 					{/if}
 				</li>
 			{/each}
 		</ul>
 	</div>
 {/if}
-
-<style>
-	.getting-started {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		padding: clamp(var(--sp-5), 2vw, var(--sp-6));
-		margin-bottom: var(--sp-6);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.getting-started-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		margin-bottom: var(--sp-6);
-	}
-
-	.getting-started-heading {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		min-width: 0;
-	}
-
-	.getting-started-kicker {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber);
-	}
-
-	.getting-started-header h3 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(1.6rem, 1.4rem + 0.8vw, 2.2rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.05em;
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.getting-started-subtitle {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		line-height: 1.55;
-		margin: 0;
-		max-width: 52rem;
-	}
-
-	.dismiss-btn {
-		background: transparent;
-		border: 1px solid var(--border-default);
-		cursor: pointer;
-		padding: var(--sp-1);
-		color: var(--text-tertiary);
-		border-radius: var(--radius-md);
-		display: flex;
-		align-items: center;
-		flex-shrink: 0;
-	}
-
-	.dismiss-btn:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.dismiss-confirm {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		justify-content: flex-end;
-	}
-
-	.progress-section {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: var(--sp-4);
-		align-items: center;
-		padding: var(--sp-4) 0;
-		border-top: var(--border-rule);
-		border-bottom: var(--border-rule);
-		margin-bottom: var(--sp-6);
-	}
-
-	.progress-summary {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-1);
-		flex-shrink: 0;
-	}
-
-	.progress-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.8rem, 1.5rem + 1vw, 2.5rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.step-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.step {
-		min-width: 0;
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: 0.8rem 0.9rem;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-		font-size: var(--text-sm);
-	}
-
-	.step.complete {
-		background: color-mix(in srgb, var(--surface-panel) 82%, var(--success-bg) 18%);
-	}
-
-	.step-icon {
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-	}
-
-	.step-copy {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
-	}
-
-	.step-label {
-		color: var(--text-primary);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.step.complete .step-label {
-		color: var(--text-secondary);
-	}
-
-	.progress-text {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.step-link {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		text-decoration: none;
-		white-space: nowrap;
-		flex-shrink: 0;
-	}
-
-	.step-link:hover {
-		color: var(--amber);
-	}
-
-	.progress-bar {
-		flex: 1;
-		height: 8px;
-		background: var(--surface-subtle);
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
-		height: 100%;
-		background: var(--amber);
-		border-radius: 999px;
-		transition: width 0.3s ease;
-	}
-
-	@media (max-width: 720px) {
-		.step-list {
-			grid-template-columns: 1fr;
-		}
-
-		.progress-section {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.getting-started-header {
-			flex-direction: column;
-		}
-
-		.dismiss-confirm {
-			justify-content: flex-start;
-		}
-	}
-</style>

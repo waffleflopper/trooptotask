@@ -55,7 +55,7 @@ describe('OnboardingReportModal', () => {
 		cleanup();
 	});
 
-	it('shows the template filter when one concrete template can be selected', () => {
+	it('shows the shared template filter when one concrete template can be selected', () => {
 		render(OnboardingReportModal, {
 			props: {
 				onboardings,
@@ -66,8 +66,8 @@ describe('OnboardingReportModal', () => {
 			}
 		});
 
-		expect(screen.getByRole('combobox', { name: 'Template' })).toBeTruthy();
-		expect(screen.getByRole('option', { name: 'All Templates' })).toBeTruthy();
-		expect(screen.getByRole('option', { name: 'Standard Inprocessing' })).toBeTruthy();
+		const templateTrigger = screen.getByRole('button', { name: 'Template' });
+		expect(templateTrigger).toBeTruthy();
+		expect(screen.getByText('Initial paperwork')).toBeTruthy();
 	});
 });

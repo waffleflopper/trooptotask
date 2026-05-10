@@ -1,8 +1,9 @@
 <script lang="ts">
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let email = $state('');
 	let name = $state('');
@@ -61,7 +62,7 @@
 		'If you already have an account or invite code, use the other auth routes instead.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if submitted}
 			<AuthNotice tone="success" title="We've got your request" centered>
 				<p>We'll review your request and email <strong>{email}</strong> if access is approved.</p>
@@ -72,8 +73,8 @@
 				</p>
 			</AuthNotice>
 
-			<div class="auth-actions">
-				<a href="/auth/login" class="btn btn-primary">Back to sign in</a>
+			<div class="flex flex-col gap-3">
+				<Button href="/auth/login" class="w-full">Back to sign in</Button>
 			</div>
 		{:else}
 			{#if errorMsg}
@@ -90,10 +91,10 @@
 				</p>
 			</AuthNotice>
 
-			<form onsubmit={handleSubmit} class="auth-stack">
-				<FormField label="Full Name" id="name" bind:value={name} required placeholder="Your full name" />
+			<form onsubmit={handleSubmit} class="flex flex-col gap-5">
+				<AuthField label="Full Name" id="name" bind:value={name} required placeholder="Your full name" />
 
-				<FormField
+				<AuthField
 					label="Email Address"
 					id="email"
 					type="email"
@@ -102,7 +103,7 @@
 					placeholder="you@example.com"
 				/>
 
-				<FormField
+				<AuthField
 					label="Unit or Reason"
 					id="reason"
 					inputElement="textarea"
@@ -112,23 +113,27 @@
 					hint="Optional."
 				/>
 
-				<div class="auth-actions">
-					<button type="submit" class="btn btn-primary" disabled={loading}>
+				<div class="flex flex-col gap-3">
+					<Button type="submit" disabled={loading} class="w-full">
 						{#if loading}
 							<Spinner />
 							Submitting...
 						{:else}
 							Submit Request
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</form>
 
-			<div class="auth-divider">
-				<span>Other paths</span>
+			<div
+				class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
+			>
+				<span class="h-px flex-1 bg-border"></span>
+				<span class="whitespace-nowrap">Other paths</span>
+				<span class="h-px flex-1 bg-border"></span>
 			</div>
 
-			<div class="auth-link-list">
+			<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 				<p>
 					Have an invite code already? <a href="/auth/register">Create your account</a>.
 				</p>

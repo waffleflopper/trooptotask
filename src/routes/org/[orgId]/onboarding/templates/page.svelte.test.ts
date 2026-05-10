@@ -107,4 +107,12 @@ describe('onboarding templates page', () => {
 		expect(screen.queryByText('Reusable onboarding packet definitions')).toBeNull();
 		expect(screen.queryByText('Template steps currently configured')).toBeNull();
 	});
+
+	it('keeps template-level step and delete actions in the detail footer', () => {
+		renderTemplatesPage();
+
+		const detail = screen.getByRole('region', { name: 'Onboarding template management workspace' });
+		expect(within(detail).getByRole('button', { name: 'Add Step' })).toBeTruthy();
+		expect(within(detail).getByRole('button', { name: 'Delete Template' })).toBeTruthy();
+	});
 });

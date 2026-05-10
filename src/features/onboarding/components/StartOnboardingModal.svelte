@@ -6,9 +6,9 @@
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
-	import * as Combobox from '$lib/components/ui/combobox';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
@@ -85,8 +85,8 @@
 			<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Assignment</p>
 			<div class="grid gap-2 sm:grid-cols-2">
 				{#if showTemplateSelector}
-					<div class="grid gap-2">
-						<Label for="template-select">Template</Label>
+					<Field.Root>
+						<Field.Label for="template-select">Template</Field.Label>
 						<Select.Root type="single" bind:value={selectedTemplateId}>
 							<Select.Trigger id="template-select" class="w-full">{selectedTemplateLabel}</Select.Trigger>
 							<Select.Content>
@@ -95,13 +95,13 @@
 								{/each}
 							</Select.Content>
 						</Select.Root>
-					</div>
+					</Field.Root>
 				{/if}
 
-				<div class="grid gap-2">
-					<Label for="start-date">Start Date</Label>
-					<Input type="date" id="start-date" bind:value={startDate} />
-				</div>
+				<Field.Root>
+					<Field.Label for="start-date">Start Date</Field.Label>
+					<DatePicker id="start-date" bind:value={startDate} placeholder="Select start date" />
+				</Field.Root>
 			</div>
 		</div>
 
@@ -113,13 +113,13 @@
 				</Button>
 			</div>
 
-			<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} autoHighlight label="Member">
-				<Combobox.Trigger id="personnel-select" placeholder="Search for a member..." />
-				<Combobox.Content>
-					<Combobox.Empty>No available members found.</Combobox.Empty>
-					<Combobox.List />
-				</Combobox.Content>
-			</Combobox.Root>
+			<SearchCombobox
+				id="personnel-select"
+				options={personnelOptions}
+				bind:value={selectedPersonnelId}
+				placeholder="Search for a member..."
+				ariaLabel="Member"
+			/>
 		</div>
 
 		{#if !hasTemplateSteps}

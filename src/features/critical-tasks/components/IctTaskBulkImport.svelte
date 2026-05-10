@@ -1,6 +1,13 @@
 <script lang="ts">
-	import BulkImportTable, { type RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import * as NativeSelect from '$lib/components/ui/native-select';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -27,7 +34,50 @@
 	let importError = $state('');
 	let importResult = $state<{ created: number; updated: number; restored: number; failed: number } | null>(null);
 	let importFailures = $state<Array<{ rowNumber: number; taskCode: string; title: string; message: string }>>([]);
-	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
+	let selectionInitialized = $state(false);
+
+	type PreviewRow = {
+		rowNumber: number;
+		values: Record<string, string>;
+		validation: RowValidation;
+	};
+
+	type RowValidation = {
+		valid: boolean;
+		cellErrors: Record<string, string>;
+		cellWarnings: Record<string, string>;
+	};
+
+	const previewRows = $derived.by<PreviewRow[]>(() => buildPreviewRows(rawRows, ICT_TASK_IMPORT_COLUMNS, importMode));
+	const validationSummary = $derived.by(() => {
+		const invalidCount = previewRows.filter((row) => !row.validation.valid).length;
+		const warningCount = previewRows.filter((row) => Object.keys(row.validation.cellWarnings).length > 0).length;
+		return { invalidCount, warningCount };
+	});
+	const previewColumns: ColumnDef<PreviewRow>[] = ICT_TASK_IMPORT_COLUMNS.map((column) => ({
+		key: column.key,
+		header: column.label,
+		value: (row) => row.values[column.key] ?? '',
+		searchValue: (row) => row.values[column.key] ?? ''
+	}));
+	const selection = DataTable.useDataTableSelection<PreviewRow>({
+		rows: () => previewRows,
+		rowKey: (row) => row.rowNumber,
+		disabledRow: (row) => !row.validation.valid
+	});
+
+	$effect(() => {
+		rawRows;
+		importMode;
+		selection.clear();
+		selectionInitialized = false;
+	});
+
+	$effect(() => {
+		if (step !== 'preview' || selectionInitialized) return;
+		selection.toggleAllPageRows(true);
+		selectionInitialized = true;
+	});
 
 	function handleImportModeChange(event: Event) {
 		importMode = (event.currentTarget as HTMLSelectElement).value as IctTaskImportMode;
@@ -45,17 +95,33 @@
 		return 'taskCode';
 	}
 
-	function buildTableValidations(
-		rows: Array<{ rowIndex: number; sourceRowNumber: number; values: Record<string, string> }>
-	): RowValidation[] {
+	function buildPreviewRows(raw: string[][], columnDefs: ImportColumnDef[], mode: IctTaskImportMode): PreviewRow[] {
+		if (raw.length === 0) return [];
+		const hasHeaders = detectHeaderRow(raw[0], columnDefs);
+		const mappings = autoMapColumns(raw[0], columnDefs, hasHeaders).filter(
+			(mapping): mapping is NonNullable<typeof mapping> => !!mapping
+		);
+		const dataRows = hasHeaders ? raw.slice(1) : raw;
+		const rows = dataRows.map((row, rowIndex) => {
+			const values: Record<string, string> = {};
+			for (const mapping of mappings) {
+				if (mapping.fieldKey && mapping.columnIndex < row.length) {
+					values[mapping.fieldKey] = (row[mapping.columnIndex] ?? '').trim();
+				}
+			}
+			return {
+				rowNumber: rowIndex + (hasHeaders ? 2 : 1),
+				values
+			};
+		});
 		const review = reviewMappedIctTaskImportRows(
 			rows.map((row) => ({
-				rowNumber: row.sourceRowNumber,
+				rowNumber: row.rowNumber,
 				values: row.values
 			})),
 			{
 				existingTasks: tasks,
-				mode: importMode,
+				mode,
 				nextSortOrder: nextSortOrder()
 			}
 		);
@@ -67,16 +133,20 @@
 		);
 
 		return rows.map((row) => {
-			const invalidRow = invalidByRow.get(row.sourceRowNumber);
+			const invalidRow = invalidByRow.get(row.rowNumber);
 			if (!invalidRow) {
-				const cellWarnings: Record<string, string> = restoreByRow.has(row.sourceRowNumber)
-					? { taskCode: restoreByRow.get(row.sourceRowNumber) ?? '' }
+				const cellWarnings: Record<string, string> = restoreByRow.has(row.rowNumber)
+					? { taskCode: restoreByRow.get(row.rowNumber) ?? '' }
 					: {};
 
 				return {
-					valid: true,
-					cellErrors: {},
-					cellWarnings
+					rowNumber: row.rowNumber,
+					values: row.values,
+					validation: {
+						valid: true,
+						cellErrors: {},
+						cellWarnings
+					}
 				};
 			}
 
@@ -86,11 +156,21 @@
 			}
 
 			return {
-				valid: false,
-				cellErrors,
-				cellWarnings: {}
+				rowNumber: row.rowNumber,
+				values: row.values,
+				validation: { valid: false, cellErrors, cellWarnings: {} }
 			};
 		});
+	}
+
+	function rowStatus(row: PreviewRow): BulkImportRowStatus {
+		if (!row.validation.valid) {
+			return { tone: 'error', label: 'Error', description: Object.values(row.validation.cellErrors).join('; ') };
+		}
+		if (Object.keys(row.validation.cellWarnings).length > 0) {
+			return { tone: 'warning', label: 'Review', description: Object.values(row.validation.cellWarnings).join('; ') };
+		}
+		return { tone: 'valid', label: 'Ready' };
 	}
 
 	async function handleFileUpload(event: Event) {
@@ -121,9 +201,8 @@
 	}
 
 	async function handleImport() {
-		if (!tableRef) return;
-		const checkedRows = tableRef.getCheckedRowEntries().map((row) => ({
-			rowNumber: row.sourceRowNumber,
+		const checkedRows = selection.selectedRows.map((row) => ({
+			rowNumber: row.rowNumber,
 			values: row.values
 		}));
 		if (checkedRows.length === 0) return;
@@ -151,250 +230,178 @@
 	}
 </script>
 
-{#if step === 'input'}
-	<div class="import-workspace">
-		<div class="import-summary">
-			<div>
-				<p class="summary-eyebrow">Step 1</p>
-				<h2>Import ICT Tasks</h2>
-				<p class="summary-copy">
-					Upload a spreadsheet, review the rows in a table, then import only the checked items.
-				</p>
-			</div>
-			<div class="summary-meta">
-				<span>Required: Task Code, Title</span>
-				<span>Optional: Description, Category, MOS, Expiration Months, Sort Order</span>
-			</div>
-		</div>
-
-		<div class="form-grid">
-			<div class="form-field">
-				<label for="ict-task-import-mode">Import behavior</label>
-				<select id="ict-task-import-mode" class="input" value={importMode} onchange={handleImportModeChange}>
-					<option value="create-only">Create new tasks only</option>
-					<option value="upsert">Create, update, or restore by task code</option>
-				</select>
-			</div>
-
-			<div class="form-field">
-				<label for="ict-task-import-file">Upload file</label>
-				<input
-					id="ict-task-import-file"
-					type="file"
-					class="input"
-					accept=".csv,.xlsx"
-					aria-label="Upload file"
-					onchange={handleFileUpload}
-				/>
-				<p class="field-hint">CSV and XLSX files are accepted.</p>
-			</div>
-		</div>
-
-		{#if importError}
-			<p class="text-error" role="alert">{importError}</p>
-		{/if}
-
-		<div class="actions">
-			<button class="btn btn-sm" type="button" onclick={onCancel}>Cancel</button>
-		</div>
-	</div>
-{:else if step === 'preview'}
-	<div class="import-workspace">
-		<div class="import-summary">
-			<div>
-				<p class="summary-eyebrow">Step 2</p>
-				<h2>Review Import</h2>
-				<p class="summary-copy">Double-click a cell to fix it. Only checked rows without errors will import.</p>
-			</div>
-			<div class="summary-meta">
-				<span>{uploadedFileName}</span>
-				<div class="summary-control">
-					<label for="ict-task-import-preview-mode">Import behavior</label>
-					<select id="ict-task-import-preview-mode" class="input" value={importMode} onchange={handleImportModeChange}>
-						<option value="create-only">Create new tasks only</option>
-						<option value="upsert">Create, update, or restore by task code</option>
-					</select>
+<BulkImportWorkspace.Root ariaLabel="ICT task import workspace">
+	{#if step === 'input'}
+		<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="flex flex-wrap justify-between gap-4 border-b pb-4">
+				<div>
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Step 1</p>
+					<h2 class="text-lg font-semibold">Import ICT Tasks</h2>
+					<p class="text-sm text-muted-foreground">
+						Upload a spreadsheet, review the rows in a table, then import only the checked items.
+					</p>
 				</div>
-				{#if importMode === 'upsert'}
-					<span>Rows tagged in amber will restore archived tasks.</span>
-				{/if}
+				<div class="flex flex-wrap items-start gap-2">
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>Required: Task Code, Title</span
+					>
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>Optional: Description, Category, MOS, Expiration Months, Sort Order</span
+					>
+				</div>
+			</div>
+
+			<div class="grid gap-4 md:grid-cols-2">
+				<Field.Root>
+					<Field.Label for="ict-task-import-mode">Import behavior</Field.Label>
+					<NativeSelect.Root id="ict-task-import-mode" value={importMode} onchange={handleImportModeChange}>
+						<NativeSelect.Option value="create-only">Create new tasks only</NativeSelect.Option>
+						<NativeSelect.Option value="upsert">Create, update, or restore by task code</NativeSelect.Option>
+					</NativeSelect.Root>
+				</Field.Root>
+
+				<Field.Root>
+					<Field.Label for="ict-task-import-file">Upload file</Field.Label>
+					<Input
+						id="ict-task-import-file"
+						type="file"
+						accept=".csv,.xlsx"
+						aria-label="Upload file"
+						onchange={handleFileUpload}
+					/>
+					<Field.Description>CSV and XLSX files are accepted.</Field.Description>
+				</Field.Root>
+			</div>
+
+			{#if importError}
+				<BulkImportWorkspace.ValidationSummary
+					issues={[{ label: 'errors', count: 1, tone: 'error' }]}
+					description={importError}
+					role="alert"
+				/>
+			{/if}
+
+			<div class="flex flex-wrap justify-end gap-2">
+				<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
 			</div>
 		</div>
-
-		<BulkImportTable
-			bind:this={tableRef}
-			{rawRows}
-			columnDefs={ICT_TASK_IMPORT_COLUMNS}
-			validateRow={() => ({ valid: true, cellErrors: {}, cellWarnings: {} })}
-			validateRows={(rows) => buildTableValidations(rows)}
-		/>
-
-		{#if importError}
-			<p class="text-error" role="alert">{importError}</p>
-		{/if}
-
-		<div class="actions">
-			<button class="btn btn-sm" type="button" onclick={handleBack}>Back</button>
-			<button class="btn btn-sm" type="button" onclick={onCancel}>Cancel</button>
-			<button class="btn btn-primary btn-sm" type="button" onclick={handleImport}>Import Checked Rows</button>
-		</div>
-	</div>
-{:else if step === 'importing'}
-	<div class="importing-state" aria-live="polite">
-		<Spinner size={20} />
-		<span>Importing ICT tasks...</span>
-	</div>
-{:else if importResult}
-	<div class="import-workspace">
-		<div class="import-summary">
-			<div>
-				<p class="summary-eyebrow">Complete</p>
-				<h2>Import Finished</h2>
+	{:else if step === 'preview'}
+		<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="flex flex-wrap justify-between gap-4 border-b pb-4">
+				<div>
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Step 2</p>
+					<h2 class="text-lg font-semibold">Review Import</h2>
+					<p class="text-sm text-muted-foreground">Only checked rows without errors will import.</p>
+				</div>
+				<div class="flex flex-wrap items-start gap-2">
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground">{uploadedFileName}</span>
+					<Field.Root class="min-w-56">
+						<Field.Label for="ict-task-import-preview-mode">Import behavior</Field.Label>
+						<NativeSelect.Root id="ict-task-import-preview-mode" value={importMode} onchange={handleImportModeChange}>
+							<NativeSelect.Option value="create-only">Create new tasks only</NativeSelect.Option>
+							<NativeSelect.Option value="upsert">Create, update, or restore by task code</NativeSelect.Option>
+						</NativeSelect.Root>
+					</Field.Root>
+					{#if importMode === 'upsert'}
+						<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+							>Rows tagged in amber will restore archived tasks.</span
+						>
+					{/if}
+				</div>
 			</div>
-			<div class="summary-meta">
-				<span>{importResult.created} created</span>
-				<span>{importResult.updated} updated</span>
-				<span>{importResult.restored} restored</span>
-				<span>{importResult.failed} failed</span>
+
+			<BulkImportWorkspace.ValidationSummary
+				issues={[
+					{ label: 'ready', count: previewRows.length - validationSummary.invalidCount, tone: 'neutral' },
+					{
+						label: 'errors',
+						count: validationSummary.invalidCount,
+						tone: validationSummary.invalidCount > 0 ? 'error' : 'neutral'
+					},
+					{
+						label: 'warnings',
+						count: validationSummary.warningCount,
+						tone: validationSummary.warningCount > 0 ? 'warning' : 'neutral'
+					}
+				]}
+				description={`${selection.selectedCount} rows selected for import.`}
+			/>
+
+			<BulkImportWorkspace.PreviewTable
+				rows={previewRows}
+				columns={previewColumns}
+				ariaLabel="ICT task import preview"
+				{selection}
+				rowKey={(row) => row.rowNumber}
+				disabledRow={(row) => !row.validation.valid}
+				{rowStatus}
+				selectedCountLabel={(selected, total) => `${selected} of ${total} rows selected`}
+			/>
+
+			{#if importError}
+				<BulkImportWorkspace.ValidationSummary
+					issues={[
+						{ label: 'ready', count: previewRows.length - validationSummary.invalidCount, tone: 'neutral' },
+						{ label: 'errors', count: validationSummary.invalidCount + 1, tone: 'error' },
+						{
+							label: 'warnings',
+							count: validationSummary.warningCount,
+							tone: validationSummary.warningCount > 0 ? 'warning' : 'neutral'
+						}
+					]}
+					description={importError}
+					role="alert"
+				/>
+			{/if}
+
+			<div class="flex flex-wrap justify-end gap-2">
+				<Button variant="outline" size="sm" type="button" onclick={handleBack}>Back</Button>
+				<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
+				<Button size="sm" type="button" onclick={handleImport} disabled={selection.selectedCount === 0}>
+					Import Checked Rows
+				</Button>
 			</div>
 		</div>
+	{:else if step === 'importing'}
+		<BulkImportWorkspace.ProgressState title="Importing ICT tasks..." description="Do not close this panel." />
+	{:else if importResult}
+		<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="flex flex-wrap justify-between gap-4 border-b pb-4">
+				<div>
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Complete</p>
+					<h2 class="text-lg font-semibold">Import Finished</h2>
+				</div>
+				<div class="flex flex-wrap items-start gap-2">
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>{importResult.created} created</span
+					>
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>{importResult.updated} updated</span
+					>
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>{importResult.restored} restored</span
+					>
+					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+						>{importResult.failed} failed</span
+					>
+				</div>
+			</div>
 
-		{#if importFailures.length > 0}
-			<ul class="failure-list">
-				{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
-					<li>
-						<strong>Row {failure.rowNumber}</strong>
-						<span>{failure.taskCode || 'No task code'} {failure.title ? `- ${failure.title}` : ''}</span>
-						<span>{failure.message}</span>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+			{#if importFailures.length > 0}
+				<ul class="flex flex-col gap-2 pl-4">
+					{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
+						<li class="flex flex-col gap-0.5">
+							<strong>Row {failure.rowNumber}</strong>
+							<span>{failure.taskCode || 'No task code'} {failure.title ? `- ${failure.title}` : ''}</span>
+							<span>{failure.message}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 
-		<div class="actions">
-			<button class="btn btn-primary btn-sm" type="button" onclick={onDone}>Done</button>
+			<div class="flex flex-wrap justify-end gap-2">
+				<Button size="sm" type="button" onclick={onDone}>Done</Button>
+			</div>
 		</div>
-	</div>
-{/if}
-
-<style>
-	.import-workspace {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-5);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.import-summary {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.import-summary h2,
-	.summary-copy,
-	.field-hint,
-	.failure-list {
-		margin: 0;
-	}
-
-	.summary-eyebrow {
-		margin: 0 0 var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: flex-start;
-	}
-
-	.summary-control {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.summary-control label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-control select {
-		min-width: 14rem;
-	}
-
-	.summary-meta span {
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		justify-content: flex-end;
-	}
-
-	.importing-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-3);
-		padding: var(--sp-8);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.failure-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding-left: var(--sp-4);
-	}
-
-	.failure-list li {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	@media (max-width: 720px) {
-		.form-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
+	{/if}
+</BulkImportWorkspace.Root>

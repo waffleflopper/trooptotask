@@ -19,12 +19,14 @@
 
 	let {
 		status,
+		label,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
 		status: CriticalTaskRequirementStatus;
+		label?: string;
 	} = $props();
 
 	const requirementStatus = $derived(criticalTaskRequirementStatusMap[status]);
 </script>
 
-<RequirementStatusBadge status={requirementStatus} {...restProps} />
+<RequirementStatusBadge status={requirementStatus} {label} {...restProps} />

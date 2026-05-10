@@ -367,7 +367,9 @@ describe('IctReportsView', () => {
 		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
 		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
 		expect(
-			within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
+			within(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).getByTestId(
+				'ict-overall-readiness-value'
+			).textContent
 		).toBe('67%');
 		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤45d' })).toBeTruthy();
@@ -375,32 +377,32 @@ describe('IctReportsView', () => {
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
-		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
+		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers - Call List' });
 		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
-		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
-		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix — MOS × Task Category' });
+		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix - MOS x Task Category' });
 		expect(
 			within(readinessMatrixSection).getByRole('table', { name: 'MOS by task category readiness matrix' })
 		).toBeTruthy();
 		expect(within(readinessMatrixSection).getByLabelText('11B Medical readiness: 67%, 67 of 100 current')).toBeTruthy();
-		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
+		expect(within(readinessTrendSection).getByRole('figure', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
 		expect(
 			Boolean(readinessMatrixSection.compareDocumentPosition(readinessTrendSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
-		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
-		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
+		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff - Next 6 Months' });
+		expect(within(expirationCliffSection).getByRole('figure', { name: '6-month expiration cliff chart' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('58% by SEP 2026')).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('- a 9-point drop from current.')).toBeTruthy();
 		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
-		expect(expirationCliffSection.parentElement?.classList.contains('report-followup-grid')).toBe(true);
+		expect(expirationCliffSection.parentElement?.classList.contains('grid')).toBe(true);
 		expect(
 			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
-		const distributionSection = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
+		const distributionSection = screen.getByRole('region', { name: 'Distribution - Individual Readiness by MOS' });
 		expect(
-			within(distributionSection).getByRole('img', { name: 'Individual readiness distribution histogram' })
+			within(distributionSection).getByRole('figure', { name: 'Individual readiness distribution histogram' })
 		).toBeTruthy();
 		expect(
 			within(distributionSection).getByRole('table', { name: 'Individual readiness distribution data' })

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as Empty from '$lib/components/ui/empty';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
@@ -240,14 +240,16 @@
 	<title>Critical Tasks - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
+<div
+	class="flex h-[calc(100dvh-var(--header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
+>
 	{#if !canViewReadiness}
-		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
-			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
-			<p>Contact your organization admin for critical tasks access.</p>
+		<section class="h-full max-w-3xl overflow-auto p-4" aria-labelledby="critical-tasks-restricted-title">
+			<h2 id="critical-tasks-restricted-title" class="text-2xl font-semibold text-foreground">Access Restricted</h2>
+			<p class="text-muted-foreground">Contact your organization admin for critical tasks access.</p>
 		</section>
 	{:else}
-		<main class="page-content">
+		<main class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
 			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls">
 				<WorkspaceToolbar.Group
 					label="Critical Tasks filters"
@@ -297,16 +299,21 @@
 			</WorkspaceToolbar.Root>
 
 			{#if loading}
-				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
+				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
 					<SkeletonGrid rows={6} columns={4} />
 				</section>
 			{:else if activeTasks.length === 0}
-				<section class="workspace-state">
-					<EmptyState message="No critical tasks yet. Add ICTL tasks to begin tracking annual proficiency." />
+				<section class="h-full overflow-auto">
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No critical tasks yet.</Empty.Title>
+							<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
 				</section>
 			{:else}
-				<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
-					<div class="matrix-panel" data-testid="critical-tasks-matrix-panel">
+				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
+					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
 						<IctMatrix
 							{orgId}
 							personnel={filteredPersonnel}
@@ -359,75 +366,3 @@
 		onDone={() => (showCompletionImportModal = false)}
 	/>
 {/if}
-
-<style>
-	.page {
-		height: calc(100dvh - var(--header-height, 56px) - var(--banner-height, 0px));
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: var(--surface-page);
-	}
-
-	.page-content {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		padding: var(--sp-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.workspace-state,
-	.page-message {
-		padding: 0;
-		height: 100%;
-		overflow: auto;
-	}
-
-	.matrix-workspace {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		flex: 1;
-		min-height: 0;
-	}
-
-	.matrix-panel {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.page-message {
-		max-width: 52rem;
-	}
-
-	.page-message h2 {
-		margin: 0 0 var(--sp-2);
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.page-message p {
-		margin: 0;
-		color: var(--text-secondary);
-	}
-
-	/* ── Responsive ─────────────────────────────────────────── */
-
-	@media (max-width: 720px) {
-		.page-content {
-			padding: var(--sp-3);
-		}
-
-		.matrix-workspace {
-			gap: var(--sp-3);
-		}
-	}
-</style>

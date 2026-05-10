@@ -78,6 +78,12 @@ vi.mock('$lib/utils/csvParser', async (importOriginal) => {
 	};
 });
 
+async function chooseCompletionDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
+}
+
 const ictTask: IctTask = {
 	id: 'task-1',
 	taskCode: '181-105-1001',
@@ -584,11 +590,11 @@ describe('critical tasks page', () => {
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-01-01' } });
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
-		await fireEvent.change(screen.getByLabelText('I am the validator'), { target: { checked: true } });
+		await fireEvent.click(screen.getByLabelText('I am the validator'));
 		await waitFor(() => {
 			expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('SFC Taylor Example');
 		});
@@ -607,7 +613,7 @@ describe('critical tasks page', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'smith',
 			ictTaskId: 'task-1',
-			completedAt: '2098-01-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Practical Exercise',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Lane validation'
@@ -707,16 +713,16 @@ describe('critical tasks page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 		const personCombo = await screen.findByRole('combobox', { name: 'Person' });
 		await fireEvent.input(personCombo, { target: { value: 'smith' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Smith, Jane - 68W' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'SGT Smith, Jane - 68W' }));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
 		const taskCombo = await screen.findByRole('combobox', { name: 'Critical Task' });
 		await fireEvent.input(taskCombo, { target: { value: 'airway' } });
 		expect(screen.getByRole('option', { name: '181-105-1002 Airway management' })).toBeTruthy();
 		await fireEvent.input(taskCombo, { target: { value: '1002' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: '181-105-1002 Airway management' }));
+		await fireEvent.click(screen.getByRole('option', { name: '181-105-1002 Airway management' }));
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-02-02' } });
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Simulation' }
 		});
@@ -739,7 +745,7 @@ describe('critical tasks page', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'smith',
 			ictTaskId: 'task-2',
-			completedAt: '2098-02-02',
+			completedAt: '2026-05-10',
 			validationMethod: 'Simulation',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Toolbar entry'

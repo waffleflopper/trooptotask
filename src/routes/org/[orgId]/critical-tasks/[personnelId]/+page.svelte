@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -15,25 +15,15 @@
 </script>
 
 {#if loading}
-	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-		<Spinner color="currentColor" />
+	<section
+		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
+		aria-busy="true"
+		aria-live="polite"
+		role="status"
+	>
+		<Spinner />
 		<p>Loading critical task record...</p>
 	</section>
 {:else}
 	<IctPersonnelDetailPage {data} />
 {/if}
-
-<style>
-	.route-loading {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: center;
-		padding: var(--sp-6);
-		color: var(--text-secondary);
-	}
-
-	.route-loading p {
-		margin: 0;
-	}
-</style>

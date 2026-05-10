@@ -119,35 +119,34 @@ describe('IctMatrix', () => {
 		expect(screen.getByText(/Alpha/)).toBeTruthy();
 		expect(screen.getByText('1 personnel (50% Readiness)')).toBeTruthy();
 		expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
-		expect(screen.getByText('Not Required for MOS')).toBeTruthy();
+		expect(screen.getByText('Not Required')).toBeTruthy();
 
 		const currentCell = screen.getByRole('button', {
 			name: /Smith 181-105-1001: current. TCCC: current. Completed 2026-04-01. Expires 2027-04-01./
 		});
-		expect(currentCell.getAttribute('data-status')).toBe('current');
+		expect(currentCell.querySelector('[data-status="current"]')).toBeTruthy();
 		currentCell.focus();
 		expect(document.activeElement).toBe(currentCell);
-		expect(screen.getByText('Completed 2026-04-01')).toBeTruthy();
 		expect(screen.getByText('Expires 2027-04-01')).toBeTruthy();
-		expect(screen.getAllByText('SFC Observer').length).toBeGreaterThan(0);
+		expect(currentCell.getAttribute('aria-label')).toContain('Validated by SFC Observer');
 
 		const expiringCell = screen.getByRole('button', {
 			name: /Smith 181-105-1002: expiring soon. Expiring task: expiring soon./
 		});
-		expect(expiringCell.getAttribute('data-status')).toBe('expiring-soon');
-		expect(expiringCell.textContent).toContain('!');
+		expect(expiringCell.querySelector('[data-status="expiring-soon"]')).toBeTruthy();
+		expect(expiringCell.textContent).toContain('Soon');
 
 		const expiredCell = screen.getByRole('button', {
 			name: /Smith 181-105-1003: expired. Expired task: expired./
 		});
-		expect(expiredCell.getAttribute('data-status')).toBe('expired');
-		expect(expiredCell.textContent).toContain('✗');
+		expect(expiredCell.querySelector('[data-status="expired"]')).toBeTruthy();
+		expect(expiredCell.textContent).toContain('Expired');
 
 		expect(screen.queryByRole('button', { name: /Smith 071-326-0501/ })).toBeNull();
 		expect(screen.getByLabelText('Smith 071-326-0501: not applicable')).toBeTruthy();
 
 		const missingCell = screen.getByRole('button', { name: /Smith 999-000-0001: not recorded/ });
-		expect(missingCell.getAttribute('data-status')).toBe('not-recorded');
+		expect(missingCell.querySelector('[data-status="not-recorded"]')).toBeTruthy();
 	});
 
 	it('wraps dense matrices in a horizontal scroll container for large personnel and task counts', () => {
@@ -170,7 +169,7 @@ describe('IctMatrix', () => {
 			})
 		);
 
-		const { container } = render(IctMatrix, {
+		render(IctMatrix, {
 			props: {
 				orgId: 'org-1',
 				personnel: densePersonnel,
@@ -193,6 +192,6 @@ describe('IctMatrix', () => {
 		expect(screen.getByRole('columnheader', { name: /181-105-0001 Task 1/ })).toBeTruthy();
 		expect(screen.getByRole('columnheader', { name: /181-105-0018 Task 18/ })).toBeTruthy();
 		expect(bodyRows).toHaveLength(densePersonnel.length + 1);
-		expect(container.querySelector('.matrix-scroll')).toBe(scrollContainer);
+		expect(scrollContainer.getAttribute('data-slot')).toBe('operational-matrix-viewport');
 	});
 });

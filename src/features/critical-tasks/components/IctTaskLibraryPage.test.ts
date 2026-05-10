@@ -137,10 +137,9 @@ describe('IctTaskLibraryPage', () => {
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
 		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
-		expect(screen.getByText('181-105-1001')).toBeTruthy();
-		expect(
-			within(screen.getByRole('list', { name: 'ICT task library' })).getByText('Casualty Care / 68W')
-		).toBeTruthy();
+		const library = screen.getByRole('list', { name: 'ICT task library' });
+		expect(within(library).getByText('181-105-1001')).toBeTruthy();
+		expect(within(library).getByText('Casualty Care / 68W')).toBeTruthy();
 		expect(screen.queryByText('181-105-9999')).toBeNull();
 	});
 

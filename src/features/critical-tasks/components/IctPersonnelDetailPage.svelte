@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SvelteDate } from 'svelte/reactivity';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -283,6 +284,19 @@
 		}
 	}
 
+	function statusVariant(status: IctStatusValue): 'success' | 'warning' | 'danger' | 'outline' {
+		switch (status) {
+			case 'current':
+				return 'success';
+			case 'expiring-soon':
+				return 'warning';
+			case 'expired':
+				return 'danger';
+			default:
+				return 'outline';
+		}
+	}
+
 	function formatRecordDate(date: string | null | undefined): string {
 		if (!date) return 'Not recorded';
 		const parsed = date.includes('T') ? new Date(date) : parseDate(date);
@@ -310,6 +324,17 @@
 		if (days < 0) return `${Math.abs(days)}d overdue`;
 		if (days === 0) return 'expires today';
 		return `in ${days}d`;
+	}
+
+	function expirationSubLabelClass(status: IctStatusValue): string {
+		switch (statusTone(status)) {
+			case 'expired':
+				return 'text-danger';
+			case 'expiring':
+				return 'text-warning';
+			default:
+				return 'text-muted-foreground';
+		}
 	}
 
 	function nextExpiringLabel(row: ActiveTaskRow | null): string {
@@ -388,7 +413,7 @@
 	<title>{personnelName} Critical Tasks Record - Troop to Task</title>
 </svelte:head>
 
-<main class="record-page">
+<main class="mx-auto flex max-w-[1480px] flex-col gap-5 p-4 text-foreground sm:p-5">
 	<WorkspaceToolbar.Root ariaLabel="Personnel critical task controls">
 		<WorkspaceToolbar.Group
 			label="Applicable task filters"
@@ -424,41 +449,77 @@
 	</WorkspaceToolbar.Root>
 
 	{#if recordContextItems.length > 0}
-		<section class="record-context" aria-label="Personnel record context">
-			{#each recordContextItems as item (item)}
-				<span>{item}</span>
+		<section
+			class="flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground"
+			aria-label="Personnel record context"
+		>
+			{#each recordContextItems as item, index (item)}
+				<span
+					>{#if index > 0}<span class="mr-2 text-muted-foreground/60">·</span>{/if}{item}</span
+				>
 			{/each}
 		</section>
 	{/if}
 
-	<section class="summary" aria-label="Individual critical tasks summary">
-		<article class="summary-card readiness-card">
-			<div class="summary-label"><span class="signal amber"></span>Individual Readiness</div>
-			<div class="summary-value amber">{summary.readinessPercent}<span>%</span></div>
-			<div class="readiness-bar" aria-hidden="true">
-				<div class="readiness-bar-fill" style={`width: ${summary.readinessPercent}%`}></div>
+	<section
+		class="grid gap-3 lg:grid-cols-[minmax(20rem,2fr)_repeat(3,minmax(12rem,1fr))]"
+		aria-label="Individual critical tasks summary"
+	>
+		<article class="rounded-lg border bg-card p-4 text-card-foreground">
+			<div
+				class="mb-2 flex items-center gap-2 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+			>
+				<span class="size-2 rounded-sm bg-warning"></span>Individual Readiness
 			</div>
-			<div class="status-breakdown">
-				<span><span class="dot current"></span>{summary.current} current</span>
-				<span><span class="dot expiring"></span>{summary.expiringSoon} soon</span>
-				<span><span class="dot expired"></span>{summary.expired} expired</span>
-				<span><span class="dot none"></span>{summary.notRecorded} none</span>
+			<div class="font-mono text-3xl font-semibold text-warning">
+				{summary.readinessPercent}<span class="text-xl">%</span>
+			</div>
+			<div class="mt-3 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+				<div class="h-full bg-warning" style={`width: ${summary.readinessPercent}%`}></div>
+			</div>
+			<div class="mt-3 flex flex-wrap gap-3 font-mono text-xs tracking-[0.04em] text-muted-foreground">
+				<span class="inline-flex items-center gap-1"
+					><span class="size-2 rounded-sm bg-success"></span>{summary.current} current</span
+				>
+				<span class="inline-flex items-center gap-1"
+					><span class="size-2 rounded-sm bg-warning"></span>{summary.expiringSoon} soon</span
+				>
+				<span class="inline-flex items-center gap-1"
+					><span class="size-2 rounded-sm bg-danger"></span>{summary.expired} expired</span
+				>
+				<span class="inline-flex items-center gap-1"
+					><span class="size-2 rounded-sm bg-muted-foreground"></span>{summary.notRecorded} none</span
+				>
 			</div>
 		</article>
-		<article class="summary-card">
-			<div class="summary-label"><span class="signal amber"></span>Expiring ≤{settings.expiringSoonWarningDays}d</div>
-			<div class="summary-value amber">{summary.expiringSoon}</div>
-			<div class="summary-sub">{nextExpiringLabel(summary.nextExpiring)}</div>
+		<article class="rounded-lg border bg-card p-4 text-card-foreground">
+			<div
+				class="mb-2 flex items-center gap-2 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+			>
+				<span class="size-2 rounded-sm bg-warning"></span>Expiring ≤{settings.expiringSoonWarningDays}d
+			</div>
+			<div class="font-mono text-3xl font-semibold text-warning">{summary.expiringSoon}</div>
+			<div class="mt-2 font-mono text-xs leading-5 text-muted-foreground">
+				{nextExpiringLabel(summary.nextExpiring)}
+			</div>
 		</article>
-		<article class="summary-card">
-			<div class="summary-label"><span class="signal red"></span>Expired / Overdue</div>
-			<div class="summary-value red">{summary.expired}</div>
-			<div class="summary-sub">{expiredSummaryLabel(summary.oldestExpired)}</div>
+		<article class="rounded-lg border bg-card p-4 text-card-foreground">
+			<div
+				class="mb-2 flex items-center gap-2 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+			>
+				<span class="size-2 rounded-sm bg-danger"></span>Expired / Overdue
+			</div>
+			<div class="font-mono text-3xl font-semibold text-danger">{summary.expired}</div>
+			<div class="mt-2 font-mono text-xs leading-5 text-muted-foreground">
+				{expiredSummaryLabel(summary.oldestExpired)}
+			</div>
 		</article>
-		<article class="summary-card">
-			<div class="summary-label">Last Validation</div>
-			<div class="summary-value compact">{formatRecordDate(summary.lastCompletion?.completedAt)}</div>
-			<div class="summary-sub">
+		<article class="rounded-lg border bg-card p-4 text-card-foreground">
+			<div class="mb-2 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+				Last Validation
+			</div>
+			<div class="pt-1 font-mono text-xl font-semibold">{formatRecordDate(summary.lastCompletion?.completedAt)}</div>
+			<div class="mt-2 font-mono text-xs leading-5 text-muted-foreground">
 				{#if summary.lastCompletion}
 					by {summary.lastCompletion.validatedBy ?? 'Validator not recorded'} · {relativeDateLabel(
 						summary.lastCompletion.completedAt
@@ -470,89 +531,133 @@
 		</article>
 	</section>
 
-	<section class="record-section" aria-labelledby="ict-detail-title">
-		<div class="section-head">
+	<section class="rounded-lg border bg-card p-4 text-card-foreground sm:p-5" aria-labelledby="ict-detail-title">
+		<div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 			<div>
-				<h2 id="ict-detail-title">Applicable Critical Tasks</h2>
-				<p>Current ICTL record for this soldier in one place.</p>
+				<h2 id="ict-detail-title" class="text-xl font-semibold">Applicable Critical Tasks</h2>
+				<p class="mt-1 text-sm text-muted-foreground">Current ICTL record for this soldier in one place.</p>
 			</div>
-			<span class="section-meta">{summary.total} tasks assigned</span>
+			<span class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground"
+				>{summary.total} tasks assigned</span
+			>
 		</div>
 
-		<div class="table-frame">
-			<table class="task-table" aria-label="Applicable Critical Tasks">
+		<div class="overflow-x-auto rounded-lg border bg-background">
+			<table class="w-full min-w-[58rem] border-collapse text-sm" aria-label="Applicable Critical Tasks">
 				<thead>
-					<tr>
-						<th>Task</th>
-						<th>Status</th>
-						<th>Completed</th>
-						<th>Expires</th>
-						<th>Method</th>
-						<th>Validator</th>
-						<th>Notes</th>
+					<tr class="border-b bg-muted/50">
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Task</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Status</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Completed</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Expires</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Method</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Validator</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Notes</th
+						>
 						{#if canRecordCompletion}
-							<th class="action-col">Action</th>
+							<th
+								class="px-3 py-2 text-right font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+								>Action</th
+							>
 						{/if}
 					</tr>
 				</thead>
 				<tbody>
 					{#if filteredActiveRows.length === 0}
 						<tr>
-							<td class="empty" colspan={canRecordCompletion ? 8 : 7}>No active critical tasks match this view.</td>
+							<td class="px-3 py-10 text-center text-muted-foreground" colspan={canRecordCompletion ? 8 : 7}
+								>No active critical tasks match this view.</td
+							>
 						</tr>
 					{:else}
 						{#each filteredActiveRows as row (row.task.id)}
-							<tr>
-								<td>
-									<span class="task-id">{row.task.taskCode}</span>
-									<span class="task-name">{row.task.title}</span>
+							<tr class="border-b last:border-b-0 hover:bg-muted/30">
+								<td class="px-3 py-3 align-middle">
+									<span class="block font-mono text-xs text-muted-foreground">{row.task.taskCode}</span>
+									<span class="block font-medium leading-5">{row.task.title}</span>
 								</td>
-								<td>
-									<span class="status-pill {statusTone(row.statusInfo.status)}">
-										{statusLabels[row.statusInfo.status]}
-									</span>
+								<td class="px-3 py-3 align-middle">
+									<Badge variant={statusVariant(row.statusInfo.status)}>{statusLabels[row.statusInfo.status]}</Badge>
 								</td>
-								<td>
-									<span class:unrecorded={!row.completion} class="date-cell">
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!row.completion ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}
+									>
 										{formatRecordDate(row.completion?.completedAt)}
 									</span>
 								</td>
-								<td>
-									<span class:unrecorded={!row.statusInfo.expirationDate} class="date-cell">
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!row.statusInfo.expirationDate
+											? 'font-mono text-xs italic text-muted-foreground'
+											: 'font-mono text-xs'}
+									>
 										{formatRecordDate(row.statusInfo.expirationDate)}
 										{#if expirationSubLabel(row)}
-											<span class="sub" data-status={statusTone(row.statusInfo.status)}>
+											<span class={`mt-0.5 block text-[0.65rem] ${expirationSubLabelClass(row.statusInfo.status)}`}>
 												{expirationSubLabel(row)}
 											</span>
 										{/if}
 									</span>
 								</td>
-								<td>
-									<span class:unrecorded={!row.completion?.validationMethod} class="method-cell">
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!row.completion?.validationMethod
+											? 'text-xs italic text-muted-foreground'
+											: 'text-xs text-muted-foreground'}
+									>
 										{row.completion?.validationMethod ?? '—'}
 									</span>
 								</td>
-								<td>
-									<span class:unrecorded={!row.completion?.validatedBy} class="validator-cell">
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!row.completion?.validatedBy
+											? 'font-mono text-xs italic text-muted-foreground'
+											: 'font-mono text-xs'}
+									>
 										{row.completion?.validatedBy ?? '—'}
 									</span>
 								</td>
-								<td>
-									<div class:empty-note={!row.completion?.notes} class="notes-cell">
+								<td class="px-3 py-3 align-middle">
+									<div
+										class={!row.completion?.notes
+											? 'max-w-72 text-xs italic text-muted-foreground'
+											: 'max-w-72 text-xs leading-5 text-muted-foreground'}
+									>
 										{row.completion?.notes ?? 'No notes'}
 									</div>
 								</td>
 								{#if canRecordCompletion}
-									<td class="action-cell">
-										<button
+									<td class="px-3 py-3 text-right align-middle">
+										<Button
 											type="button"
-											class:btn-primary={!row.completion}
-											class="btn btn-sm"
+											variant={row.completion ? 'outline' : 'default'}
+											size="sm"
 											aria-label={`${row.completion ? 'Edit' : 'Log'} completion for ${row.task.taskCode}`}
 											onclick={() => (activeEditorRow = row)}
 										>
 											{row.completion ? 'Edit' : 'Log Completion'}
-										</button>
+										</Button>
 									</td>
 								{/if}
 							</tr>
@@ -563,56 +668,94 @@
 		</div>
 	</section>
 
-	<section class="record-section historical" aria-labelledby="ict-history-title">
-		<div class="section-head">
+	<section class="rounded-lg border bg-muted/20 p-4 sm:p-5" aria-labelledby="ict-history-title">
+		<div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 			<div>
-				<h2 id="ict-history-title">Historical Completions</h2>
-				<p>Archived task records retained for audit context. Read-only.</p>
+				<h2 id="ict-history-title" class="text-xl font-semibold">Historical Completions</h2>
+				<p class="mt-1 text-sm text-muted-foreground">Archived task records retained for audit context. Read-only.</p>
 			</div>
-			<span class="section-meta">Audit archive · {archivedHistoryRows.length} records</span>
+			<span class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground"
+				>Audit archive · {archivedHistoryRows.length} records</span
+			>
 		</div>
 
-		<div class="table-frame">
-			<table class="task-table" aria-label="ICT completion history">
+		<div class="overflow-x-auto rounded-lg border bg-background">
+			<table class="w-full min-w-[52rem] border-collapse text-sm" aria-label="ICT completion history">
 				<thead>
-					<tr>
-						<th>Task</th>
-						<th>Completed</th>
-						<th>Expired</th>
-						<th>Method</th>
-						<th>Validator</th>
-						<th>Notes</th>
+					<tr class="border-b bg-muted/50">
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Task</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Completed</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Expired</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Method</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Validator</th
+						>
+						<th
+							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+							>Notes</th
+						>
 					</tr>
 				</thead>
 				<tbody>
 					{#if archivedHistoryRows.length === 0}
 						<tr>
-							<td class="empty" colspan="6">No ICT completion history recorded for this person.</td>
+							<td class="px-3 py-10 text-center text-muted-foreground" colspan="6"
+								>No ICT completion history recorded for this person.</td
+							>
 						</tr>
 					{:else}
 						{#each archivedHistoryRows as row (row.completion.id)}
-							<tr>
-								<td>
-									<span class="task-id">{row.taskCode}</span>
-									<span class="task-name">{row.taskTitle}</span>
+							<tr class="border-b last:border-b-0 hover:bg-muted/30">
+								<td class="px-3 py-3 align-middle">
+									<span class="block font-mono text-xs text-muted-foreground">{row.taskCode}</span>
+									<span class="block font-medium leading-5 text-muted-foreground">{row.taskTitle}</span>
 									{#if row.taskArchivedAt}
-										<Badge label="Archived" variant="outlined" />
+										<Badge variant="outline" class="mt-1">Archived</Badge>
 									{/if}
 								</td>
-								<td><span class="date-cell">{formatRecordDate(row.completion.completedAt)}</span></td>
-								<td>
-									<span class:unrecorded={!historyExpirationDate(row)} class="date-cell">
+								<td class="px-3 py-3 align-middle"
+									><span class="font-mono text-xs">{formatRecordDate(row.completion.completedAt)}</span></td
+								>
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!historyExpirationDate(row)
+											? 'font-mono text-xs italic text-muted-foreground'
+											: 'font-mono text-xs'}
+									>
 										{formatRecordDate(historyExpirationDate(row))}
 									</span>
 								</td>
-								<td><span class="method-cell">{row.completion.validationMethod}</span></td>
-								<td>
-									<span class:unrecorded={!row.completion.validatedBy} class="validator-cell">
+								<td class="px-3 py-3 align-middle"
+									><span class="text-xs text-muted-foreground">{row.completion.validationMethod}</span></td
+								>
+								<td class="px-3 py-3 align-middle">
+									<span
+										class={!row.completion.validatedBy
+											? 'font-mono text-xs italic text-muted-foreground'
+											: 'font-mono text-xs'}
+									>
 										{row.completion.validatedBy ?? '—'}
 									</span>
 								</td>
-								<td>
-									<div class:empty-note={!row.completion.notes} class="notes-cell">
+								<td class="px-3 py-3 align-middle">
+									<div
+										class={!row.completion.notes
+											? 'max-w-72 text-xs italic text-muted-foreground'
+											: 'max-w-72 text-xs leading-5 text-muted-foreground'}
+									>
 										{row.completion.notes ?? 'No notes'}
 									</div>
 								</td>
@@ -624,7 +767,9 @@
 		</div>
 	</section>
 
-	<footer class="record-foot">
+	<footer
+		class="flex flex-wrap justify-between gap-3 border-t py-4 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground"
+	>
 		<span>All dates in local time · Edits audited</span>
 		<span>Record reflects latest workspace sync</span>
 	</footer>
@@ -651,433 +796,3 @@
 		onClose={() => (showTaskInputModal = false)}
 	/>
 {/if}
-
-<style>
-	.record-page {
-		--record-rule: color-mix(in srgb, var(--text-primary) 12%, transparent);
-		--record-rule-strong: color-mix(in srgb, var(--text-primary) 22%, transparent);
-		--record-paper-2: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
-		--record-paper-3: color-mix(in srgb, var(--border-default) 58%, var(--surface-panel) 42%);
-		--record-green-fill: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
-		--record-amber-fill: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-		--record-red-fill: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		max-width: 1480px;
-		margin: 0 auto;
-		padding: var(--sp-5);
-		color: var(--text-primary);
-	}
-
-	.summary-label,
-	.section-meta,
-	.record-foot {
-		font-family: var(--font-mono);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.record-context {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.record-context span + span::before {
-		color: var(--text-tertiary);
-		content: '·';
-		margin-right: var(--sp-2);
-	}
-
-	.summary {
-		display: grid;
-		grid-template-columns: minmax(20rem, 2fr) repeat(3, minmax(12rem, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.summary-card {
-		padding: var(--sp-4);
-		border: 1px solid var(--record-rule);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-	}
-
-	.summary-label {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		margin-bottom: 10px;
-		color: var(--text-secondary);
-		font-size: 0.625rem;
-	}
-
-	.signal,
-	.dot {
-		display: inline-block;
-		flex: none;
-		border-radius: 1px;
-	}
-
-	.signal {
-		width: 0.5rem;
-		height: 0.5rem;
-	}
-
-	.signal.amber,
-	.dot.expiring {
-		background: var(--amber);
-	}
-
-	.signal.red,
-	.dot.expired {
-		background: var(--danger);
-	}
-
-	.dot.current {
-		background: var(--success);
-	}
-
-	.dot.none {
-		background: var(--text-tertiary);
-	}
-
-	.summary-value {
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: 2.125rem;
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.01em;
-		line-height: 1;
-	}
-
-	.summary-value span {
-		font-size: 1.375rem;
-	}
-
-	.summary-value.amber {
-		color: var(--amber);
-	}
-
-	.summary-value.red {
-		color: var(--danger);
-	}
-
-	.summary-value.compact {
-		padding-top: 6px;
-		font-size: 1.5rem;
-	}
-
-	.summary-sub {
-		margin-top: var(--sp-2);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		line-height: 1.4;
-	}
-
-	.readiness-bar {
-		height: 4px;
-		margin-top: var(--sp-3);
-		overflow: hidden;
-		border-radius: 0;
-		background: var(--record-paper-3);
-	}
-
-	.readiness-bar-fill {
-		height: 100%;
-		background: var(--amber);
-	}
-
-	.status-breakdown {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		margin-top: 10px;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.04em;
-	}
-
-	.status-breakdown span {
-		display: inline-flex;
-		gap: 5px;
-		align-items: center;
-	}
-
-	.dot {
-		width: 0.5rem;
-		height: 0.5rem;
-	}
-
-	.record-section {
-		padding: var(--sp-5);
-		border: 1px solid var(--record-rule);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-	}
-
-	.record-section.historical {
-		background: var(--record-paper-2);
-	}
-
-	.section-head {
-		display: flex;
-		gap: var(--sp-4);
-		align-items: baseline;
-		justify-content: space-between;
-		margin-bottom: var(--sp-4);
-	}
-
-	.section-head h2,
-	.section-head p {
-		margin: 0;
-	}
-
-	.section-head h2 {
-		font-family: var(--font-display);
-		font-size: 1.375rem;
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		line-height: 1;
-		text-transform: uppercase;
-	}
-
-	.section-head p {
-		margin-top: 6px;
-		color: var(--text-secondary);
-		font-style: italic;
-	}
-
-	.section-meta {
-		flex: none;
-		color: var(--text-secondary);
-		font-size: 0.625rem;
-	}
-
-	.table-frame {
-		overflow-x: auto;
-		border: 1px solid var(--record-rule);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-	}
-
-	.task-table {
-		width: 100%;
-		min-width: 58rem;
-		border-collapse: collapse;
-	}
-
-	.task-table th {
-		padding: 10px 12px;
-		border-top: 1px solid var(--record-rule-strong);
-		border-bottom: 1px solid var(--record-rule-strong);
-		background: var(--record-paper-2);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		font-weight: var(--font-weight-regular);
-		letter-spacing: 0.1em;
-		text-align: left;
-		text-transform: uppercase;
-	}
-
-	.historical .task-table th {
-		background: var(--record-paper-3);
-	}
-
-	.task-table td {
-		padding: 14px 12px;
-		border-bottom: 1px solid var(--record-rule);
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		vertical-align: middle;
-	}
-
-	.task-table tr:last-child td {
-		border-bottom: 0;
-	}
-
-	.task-table tbody tr:hover td:not(.action-cell) {
-		background: var(--record-paper-2);
-	}
-
-	.historical .task-table td {
-		color: var(--text-secondary);
-	}
-
-	.action-col,
-	.action-cell {
-		text-align: right;
-	}
-
-	.task-id {
-		display: block;
-		margin-bottom: 3px;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.02em;
-	}
-
-	.task-name {
-		display: block;
-		color: var(--text-primary);
-		font-weight: var(--font-weight-semibold);
-		line-height: 1.3;
-	}
-
-	.historical .task-name {
-		color: var(--text-secondary);
-		font-weight: var(--font-weight-regular);
-	}
-
-	.status-pill {
-		display: inline-flex;
-		gap: 6px;
-		align-items: center;
-		padding: 4px 10px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.status-pill::before {
-		display: inline-block;
-		width: 6px;
-		height: 6px;
-		border-radius: 999px;
-		content: '';
-	}
-
-	.status-pill.current {
-		background: var(--record-green-fill);
-		color: var(--success);
-	}
-
-	.status-pill.current::before {
-		background: var(--success);
-	}
-
-	.status-pill.expiring {
-		background: var(--record-amber-fill);
-		color: var(--amber-dark);
-	}
-
-	.status-pill.expiring::before {
-		background: var(--amber);
-	}
-
-	.status-pill.expired {
-		background: var(--record-red-fill);
-		color: var(--danger);
-	}
-
-	.status-pill.expired::before {
-		background: var(--danger);
-	}
-
-	.status-pill.none {
-		border: 1px solid var(--record-rule-strong);
-		background: transparent;
-		color: var(--text-secondary);
-	}
-
-	.status-pill.none::before {
-		background: var(--text-tertiary);
-	}
-
-	.date-cell,
-	.validator-cell {
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.02em;
-	}
-
-	.method-cell,
-	.notes-cell {
-		color: var(--text-secondary);
-		font-size: var(--text-xs);
-		line-height: 1.4;
-	}
-
-	.notes-cell {
-		max-width: 18rem;
-		font-family: var(--font-body);
-	}
-
-	.sub {
-		display: block;
-		margin-top: 2px;
-		color: var(--text-secondary);
-		font-size: 0.625rem;
-		letter-spacing: 0.04em;
-	}
-
-	.sub[data-status='expiring'] {
-		color: var(--amber-dark);
-	}
-
-	.sub[data-status='expired'] {
-		color: var(--danger);
-	}
-
-	.unrecorded,
-	.empty-note {
-		color: var(--text-tertiary);
-		font-family: var(--font-body);
-		font-style: italic;
-	}
-
-	.empty {
-		padding: var(--sp-6) var(--sp-4);
-		color: var(--text-secondary);
-		font-style: italic;
-		text-align: center;
-	}
-
-	.record-foot {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		justify-content: space-between;
-		padding: var(--sp-4) 0;
-		border-top: 1px solid var(--record-rule);
-		color: var(--text-tertiary);
-		font-size: 0.625rem;
-	}
-
-	@media (max-width: 820px) {
-		.record-page {
-			padding: var(--sp-4);
-		}
-
-		.section-head {
-			align-items: stretch;
-			flex-direction: column;
-		}
-
-		.summary {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (min-width: 821px) and (max-width: 1180px) {
-		.summary {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
-</style>

@@ -243,7 +243,7 @@
 	const typeActionDisabled = $derived(creating || editing);
 </script>
 
-<TypeWorkspace.Root aria-label="Training type management workspace">
+<TypeWorkspace.Root aria-label="Training type management workspace" class="overflow-hidden">
 	<WorkspaceToolbar.Root ariaLabel="Training type controls">
 		{#if canMutate}
 			<WorkspaceToolbar.Group label="Training type actions" zone="actions">
@@ -316,38 +316,41 @@
 			{/if}
 		</TypeWorkspace.List>
 
-		<TypeWorkspace.Detail mobileHidden={!mobileDetailOpen && !creating && !editing}>
+		<TypeWorkspace.Detail
+			mobileHidden={!mobileDetailOpen && !creating && !editing}
+			class={creating || editing ? 'flex flex-col overflow-hidden pr-0' : undefined}
+		>
 			{#if creating || editing || selectedType}
 				<TypeWorkspace.MobileBack onclick={closeMobileDetail}>Training types</TypeWorkspace.MobileBack>
 			{/if}
 
 			{#if creating || editing}
-				<TypeWorkspace.Stack>
+				<div class="grid min-h-0 flex-1 gap-6 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
 					<TypeWorkspace.DetailHeader title={creating ? 'New Training Type' : 'Edit Training Type'} />
 
-					<TypeWorkspace.Form title="Basics">
+					<TypeWorkspace.Form title="Basics" class="sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
 						<Field.Root>
 							<Field.Label for="type-name">Name</Field.Label>
 							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
 						</Field.Root>
 						<Field.Root>
-							<Field.Label for="type-desc">Description</Field.Label>
-							<Textarea id="type-desc" rows={2} bind:value={editDescription} placeholder="Optional description" />
-						</Field.Root>
-						<Field.Root>
 							<Field.Label for="type-color">Color</Field.Label>
 							<TypeWorkspace.ColorInput id="type-color" bind:value={editColor} />
+						</Field.Root>
+						<Field.Root class="sm:col-span-2">
+							<Field.Label for="type-desc">Description</Field.Label>
+							<Textarea id="type-desc" rows={2} bind:value={editDescription} placeholder="Optional description" />
 						</Field.Root>
 					</TypeWorkspace.Form>
 
 					<TypeWorkspace.Form title="Expiration">
-						<RadioGroup.Root bind:value={editExpirationMode}>
+						<RadioGroup.Root bind:value={editExpirationMode} class="md:grid-cols-[1fr_0.8fr_1.2fr]">
 							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
 								<TypeWorkspace.Choice>
-									<Field.Root orientation="horizontal">
-										<RadioGroup.Item id="expiration-{mode}" value={mode} />
-										<Field.Label for="expiration-{mode}">{getExpirationLabel(mode)}</Field.Label>
-									</Field.Root>
+									<label for="expiration-{mode}" class="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
+										<RadioGroup.Item id="expiration-{mode}" value={mode} aria-label={getExpirationLabel(mode)} />
+										<span>{getExpirationLabel(mode)}</span>
+									</label>
 								</TypeWorkspace.Choice>
 							{/each}
 						</RadioGroup.Root>
@@ -394,27 +397,27 @@
 							<Field.Label for="can-be-exempted">Can be exempted</Field.Label>
 						</Field.Root>
 					</TypeWorkspace.Form>
+				</div>
 
-					<TypeWorkspace.Actions>
-						{#if !creating && selectedTypeId && canMutate}
-							<Button
-								variant="destructive"
-								size="sm"
-								type="button"
-								onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
-							>
-								<Trash2 aria-hidden="true" />
-								Delete
-							</Button>
-						{/if}
-						<TypeWorkspace.ActionSpacer />
-						<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
-						<Button size="sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
-							{#if saving}<Spinner />{/if}
-							{creating ? 'Create' : 'Save'}
+				<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+					{#if !creating && selectedTypeId && canMutate}
+						<Button
+							variant="destructive"
+							size="sm"
+							type="button"
+							onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
+						>
+							<Trash2 aria-hidden="true" />
+							Delete
 						</Button>
-					</TypeWorkspace.Actions>
-				</TypeWorkspace.Stack>
+					{/if}
+					<TypeWorkspace.ActionSpacer />
+					<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
+					<Button size="sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
+						{#if saving}<Spinner />{/if}
+						{creating ? 'Create' : 'Save'}
+					</Button>
+				</TypeWorkspace.Actions>
 			{:else if selectedType}
 				<TypeWorkspace.Stack>
 					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color}>

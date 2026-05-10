@@ -80,5 +80,10 @@
 		<p>Loading training types...</p>
 	</section>
 {:else}
-	<TrainingTypesPage data={pageData} />
+	<div
+		class="overflow-hidden"
+		style="height: calc(100svh - var(--banner-height, 0px) - 3.5rem); max-height: calc(100svh - var(--banner-height, 0px) - 3.5rem);"
+	>
+		<TrainingTypesPage data={pageData} />
+	</div>
 {/if}

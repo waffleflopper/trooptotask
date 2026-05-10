@@ -10,6 +10,11 @@
 	}: WithElementRef<HTMLAttributes<HTMLDListElement>> = $props();
 </script>
 
-<dl bind:this={ref} data-slot="type-management-workspace-fact-list" class={cn('grid gap-3', className)} {...restProps}>
+<dl
+	bind:this={ref}
+	data-slot="type-management-workspace-fact-list"
+	class={cn('grid rounded-md border-y border-border', className)}
+	{...restProps}
+>
 	{@render children?.()}
 </dl>

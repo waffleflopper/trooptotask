@@ -81,7 +81,7 @@
 						{value}
 						<button
 							type="button"
-							class="ml-1 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+							class="-my-2.5 -mr-2 ml-1 inline-flex size-10 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:-my-1 sm:size-7"
 							aria-label={removeLabel(value)}
 							onclick={() => remove(value)}
 						>

@@ -13,7 +13,7 @@
 <div
 	bind:this={ref}
 	data-slot="type-management-workspace-stack"
-	class={cn('grid gap-5 pb-8', className)}
+	class={cn('grid gap-6 pb-8', className)}
 	{...restProps}
 >
 	{@render children?.()}

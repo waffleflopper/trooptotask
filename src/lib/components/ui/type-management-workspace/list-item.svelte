@@ -27,15 +27,15 @@
 	}: Props = $props();
 </script>
 
-<li data-slot="type-management-workspace-list-item-shell">
+<li data-slot="type-management-workspace-list-item-shell" class="border-b border-border/70 last:border-b-0">
 	<div
 		bind:this={ref}
 		data-slot="type-management-workspace-list-item"
 		data-selected={selected || undefined}
 		class={cn(
-			'group flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/25 p-2 text-sm',
+			'group flex min-w-0 items-center gap-2 bg-transparent p-3 text-sm',
 			'transition-colors hover:bg-muted/40',
-			selected && 'border-ring bg-muted/50 ring-1 ring-ring/20',
+			selected && 'bg-muted/50 ring-1 ring-inset ring-ring/25',
 			disabled && 'opacity-70',
 			className
 		)}

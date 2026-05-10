@@ -1376,10 +1376,10 @@ Rules:
 
 - Do not restyle the workspace from route code. Add shared variants here when a repeated manage-type need appears.
 - Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route.
-- Use `Form` for repeated edit/create sections instead of route-local bordered fieldset classes.
+- Use `Form` for repeated edit/create sections instead of route-local bordered fieldset classes; the shared layout renders them as ruled sections, not stacked cards.
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
-- Use `Impact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Do not put readiness/report metrics in a type manager.
+- Use `Impact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Facts render as scan-friendly rows, not individual cards. Do not put readiness/report metrics in a type manager.
 - Use `Disclosure` and `GroupSelector` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
 - Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.

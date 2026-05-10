@@ -16,7 +16,7 @@
 	bind:this={ref}
 	data-slot="type-management-workspace-form-section"
 	class={cn(
-		'grid gap-3 rounded-lg border border-border bg-card p-4',
+		'grid gap-3 border-t border-border pt-5 first:border-t-0 first:pt-0',
 		layout === 'two-column' && 'sm:grid-cols-2',
 		className
 	)}

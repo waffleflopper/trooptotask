@@ -10,6 +10,11 @@
 	}: WithElementRef<HTMLAttributes<HTMLUListElement>> = $props();
 </script>
 
-<ul bind:this={ref} data-slot="type-management-workspace-item-list" class={cn('grid gap-2', className)} {...restProps}>
+<ul
+	bind:this={ref}
+	data-slot="type-management-workspace-item-list"
+	class={cn('overflow-hidden rounded-md border border-border bg-card', className)}
+	{...restProps}
+>
 	{@render children?.()}
 </ul>

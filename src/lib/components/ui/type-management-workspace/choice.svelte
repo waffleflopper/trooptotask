@@ -12,7 +12,7 @@
 
 <div
 	data-slot="type-management-workspace-choice"
-	class={cn('rounded-lg border border-border bg-background p-3', className)}
+	class={cn('rounded-md border border-border/80 bg-muted/20 p-2.5', className)}
 	{...restProps}
 >
 	{@render children?.()}

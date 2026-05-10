@@ -15,7 +15,7 @@
 
 <details
 	data-slot="type-management-workspace-disclosure"
-	class={cn('group rounded-lg border border-border bg-card p-4', className)}
+	class={cn('group rounded-md border border-border bg-muted/20 p-3', className)}
 	{open}
 	{...restProps}
 >

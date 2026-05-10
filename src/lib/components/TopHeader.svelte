@@ -177,7 +177,10 @@
 </script>
 
 <Tooltip.Provider>
-	<Sidebar.Provider class="min-h-svh bg-background font-sans">
+	<Sidebar.Provider
+		class="min-h-0 overflow-hidden bg-background font-sans"
+		style="height: calc(100svh - var(--banner-height, 0px));"
+	>
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
 				<Sidebar.Menu>
@@ -447,7 +450,10 @@
 				</div>
 			</header>
 
-			<main id="main-content" class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-background">
+			<main
+				id="main-content"
+				class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background"
+			>
 				{@render children?.()}
 			</main>
 		</Sidebar.Inset>

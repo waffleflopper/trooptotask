@@ -34,6 +34,7 @@
 	import {
 		CriticalTaskStatusBadge,
 		TrainingStatusBadge,
+		TrainingStatusCell,
 		type CriticalTaskRequirementStatus,
 		type TrainingRequirementStatus
 	} from '$lib/components/ui/requirement-status-badge/index.js';
@@ -945,7 +946,11 @@
 															{column}
 															ariaLabel={`${row.label} ${column.label} ${matrixPreviewStatus(row.id, column.id)}`}
 														>
-															<TrainingStatusBadge status={matrixPreviewStatus(row.id, column.id)} />
+															<TrainingStatusCell
+																status={matrixPreviewStatus(row.id, column.id)}
+																label="2026-05-10"
+																class="h-11 rounded-none"
+															/>
 														</OperationalMatrix.Cell>
 													{/each}
 												</OperationalMatrix.Row>

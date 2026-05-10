@@ -1,6 +1,4 @@
 <script lang="ts">
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-
 	import { goto } from '$app/navigation';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -10,9 +8,10 @@
 	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
@@ -114,14 +113,18 @@
 	});
 </script>
 
-<div class="page">
+<div class="flex h-full flex-col bg-background">
 	{#if !ctx.canViewTraining}
-		<div class="no-permission">
-			<h2>Access Restricted</h2>
-			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
-		</div>
+		<Empty.Root class="m-6 min-h-80 rounded-lg border border-border bg-card p-8 text-center">
+			<Empty.Header>
+				<Empty.Title>Access Restricted</Empty.Title>
+				<Empty.Description>
+					You don't have permission to view this area. Contact your organization admin for access.
+				</Empty.Description>
+			</Empty.Header>
+		</Empty.Root>
 	{:else}
-		<main class="page-content">
+		<main class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
 			<WorkspaceToolbar.Root ariaLabel="Training controls">
 				<WorkspaceToolbar.Group label="Training filters" activeCount={activeFilterCount} data-testid="training-filters">
 					<ButtonGroup.Root aria-label="Training matrix view mode">
@@ -164,19 +167,43 @@
 			</WorkspaceToolbar.Root>
 
 			{#if loading}
-				<div class="skeleton-matrix-wrapper">
-					<SkeletonGrid rows={8} columns={6} cellWidth="100px" cellHeight="38px" />
+				<div
+					class="grid gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
+					aria-hidden="true"
+					data-testid="skeleton-grid"
+				>
+					<div class="flex gap-2">
+						{#each Array.from({ length: 6 }) as _, index (index)}
+							<Skeleton class="h-8 w-28" />
+						{/each}
+					</div>
+					{#each Array.from({ length: 8 }) as _, rowIndex (rowIndex)}
+						<div class="flex gap-2">
+							{#each Array.from({ length: 6 }) as _, colIndex (`${rowIndex}-${colIndex}`)}
+								<Skeleton class="h-9 w-28" />
+							{/each}
+						</div>
+					{/each}
 				</div>
 			{:else if trainingTypesStore.items.length === 0}
-				<EmptyState
-					message="No training types defined yet."
-					actionLabel={ctx.canManageConfig ? 'Manage Types' : undefined}
-					onAction={ctx.canManageConfig ? () => goto(`/org/${ctx.orgId}/training/types`) : undefined}
-				/>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No training types defined yet.</Empty.Title>
+					</Empty.Header>
+					{#if ctx.canManageConfig}
+						<Empty.Content>
+							<Button onclick={() => goto(`/org/${ctx.orgId}/training/types`)}>Manage Types</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
 			{:else if ctx.filteredPersonnel.length === 0}
-				<EmptyState message="No personnel found." />
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No personnel found.</Empty.Title>
+					</Empty.Header>
+				</Empty.Root>
 			{:else}
-				<div class="view-panel" data-testid="training-matrix">
+				<div class="min-h-0 flex-1 overflow-auto" data-testid="training-matrix">
 					{#if ctx.viewMode === 'alphabetical'}
 						<TrainingMatrix
 							personnel={ctx.filteredPersonnel}
@@ -212,83 +239,3 @@
 {#if showViewEditor}
 	<ViewEditorModal onClose={() => (showViewEditor = false)} readOnly={ctx.readOnly} />
 {/if}
-
-<style>
-	.page {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-page);
-	}
-
-	.no-permission {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 320px;
-		margin: var(--sp-6);
-		padding: var(--sp-8);
-		text-align: center;
-		color: var(--text-secondary);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.no-permission h2 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.no-permission p {
-		margin: 0;
-		max-width: 44ch;
-		line-height: var(--line-height-copy);
-	}
-
-	.page-content {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		padding: var(--sp-2);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.view-panel {
-		height: 100%;
-		overflow: auto;
-		padding: 0;
-	}
-
-	.skeleton-matrix-wrapper {
-		padding: var(--sp-2) var(--sp-3);
-		overflow: hidden;
-	}
-
-	@media (max-width: 640px) {
-		.view-panel,
-		.skeleton-matrix-wrapper {
-			padding-left: 0;
-			padding-right: 0;
-		}
-
-		.page-content {
-			padding: var(--sp-2);
-		}
-	}
-
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.view-panel,
-		.skeleton-matrix-wrapper {
-			padding-left: 0;
-			padding-right: 0;
-		}
-	}
-</style>

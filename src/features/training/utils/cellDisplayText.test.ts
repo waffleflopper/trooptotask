@@ -27,49 +27,49 @@ function makeTraining(overrides: Partial<PersonnelTraining> = {}): PersonnelTrai
 }
 
 describe('getCellDisplayText', () => {
-	it('returns an inline current label with compact expiration date when available', () => {
+	it('returns a compact expiration date for current status when available', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'current' }),
 			makeTraining({ completionDate: '2026-01-15' }),
 			false
 		);
-		expect(result).toBe('Current 01/2027');
+		expect(result).toBe('01/2027');
 	});
 
-	it('returns an inline current label for expiration-date-only types', () => {
+	it('returns a compact expiration date for expiration-date-only types', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'current' }),
 			makeTraining({ expirationDate: '2027-01-15', completionDate: null }),
 			true
 		);
-		expect(result).toBe('Current 01/2027');
+		expect(result).toBe('01/2027');
 	});
 
-	it('returns warning label with compact date for warning-yellow status', () => {
+	it('returns compact date only for warning-yellow status', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'warning-yellow', label: '45d left', daysUntilExpiration: 45 }),
 			makeTraining({ completionDate: '2025-12-01' }),
 			false
 		);
-		expect(result).toBe('45d left 01/2027');
+		expect(result).toBe('01/2027');
 	});
 
-	it('returns warning label with compact date for warning-orange status', () => {
+	it('returns compact date only for warning-orange status', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'warning-orange', label: '15d left', daysUntilExpiration: 15 }),
 			makeTraining({ completionDate: '2025-11-01' }),
 			false
 		);
-		expect(result).toBe('15d left 01/2027');
+		expect(result).toBe('01/2027');
 	});
 
-	it('returns expired label with compact date for expired status', () => {
+	it('returns expired label without date for expired status', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'expired', label: 'Expired 2d ago' }),
 			makeTraining({ completionDate: '2024-06-01' }),
 			false
 		);
-		expect(result).toBe('Expired 2d ago 01/2027');
+		expect(result).toBe('Expired');
 	});
 
 	it('returns "Current" for never-expires training (no date)', () => {

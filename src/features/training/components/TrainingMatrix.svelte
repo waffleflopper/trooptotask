@@ -1,12 +1,15 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
 	import { getCellDisplayText } from '$features/training/utils/cellDisplayText';
-	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
-	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { TrainingStatus } from '$features/training/training.types';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import { Input } from '$lib/components/ui/input';
+	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
 
 	interface Props {
 		personnel: Personnel[];
@@ -23,6 +26,21 @@
 		statusInfo: TrainingStatusInfo;
 		displayText: string;
 	}
+
+	type MatrixRow = OperationalMatrix.OperationalMatrixRow & {
+		meta: {
+			person: Personnel;
+			rank: string;
+			group: string;
+		};
+	};
+
+	type MatrixColumn = OperationalMatrix.OperationalMatrixColumn & {
+		meta: {
+			type: TrainingType;
+			color: string;
+		};
+	};
 
 	let {
 		personnel,
@@ -76,7 +94,7 @@
 
 	function sortIndicator(key: string): string {
 		if (table.sortKey !== key) return '';
-		return table.sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
+		return table.sortDirection === 'asc' ? ' ▲' : ' ▼';
 	}
 
 	function createTrainingKey(personnelId: string, typeId: string): string {
@@ -122,72 +140,108 @@
 		};
 	}
 
-	const totalCols = $derived(trainingTypes.length + 1);
+	const matrixColumns = $derived<MatrixColumn[]>(
+		trainingTypes.map((type) => ({
+			id: type.id,
+			label: type.name,
+			meta: {
+				type,
+				color: type.color
+			}
+		}))
+	);
 
-	const legendItems: Array<{ status: TrainingStatus; label: string; color: string }> = [
-		{ status: 'current', label: 'Current', color: TRAINING_STATUS_COLORS['current'] },
-		{ status: 'warning-yellow', label: 'Expiring Soon', color: TRAINING_STATUS_COLORS['warning-yellow'] },
-		{ status: 'warning-orange', label: 'Expiring', color: TRAINING_STATUS_COLORS['warning-orange'] },
-		{ status: 'expired', label: 'Expired', color: TRAINING_STATUS_COLORS['expired'] },
-		{ status: 'not-completed', label: 'Not Done', color: TRAINING_STATUS_COLORS['not-completed'] },
-		{ status: 'not-required', label: 'N/A', color: TRAINING_STATUS_COLORS['not-required'] },
-		{ status: 'exempt', label: 'Exempt', color: TRAINING_STATUS_COLORS['exempt'] }
+	function toMatrixRow(person: Personnel): MatrixRow {
+		return {
+			id: person.id,
+			label: `${person.lastName}, ${person.firstName}`,
+			meta: {
+				person,
+				rank: person.rank,
+				group: person.groupName || 'Unassigned'
+			}
+		};
+	}
+
+	const matrixRows = $derived<MatrixRow[]>(table.rows.map(toMatrixRow));
+	const groupedMatrixRows = $derived.by(() => {
+		if (table.groups.length === 0) return [];
+		return table.groups.map((group) => ({
+			group: {
+				id: group.key,
+				label: group.label,
+				rowIds: group.rows.map((person) => person.id),
+				collapsed: group.collapsed
+			},
+			rows: group.rows.map(toMatrixRow)
+		}));
+	});
+
+	const legendItems: Array<{ status: TrainingStatus; label: string }> = [
+		{ status: 'current', label: 'Current' },
+		{ status: 'warning-yellow', label: 'Expiring Soon' },
+		{ status: 'warning-orange', label: 'Expiring' },
+		{ status: 'expired', label: 'Expired' },
+		{ status: 'not-completed', label: 'Not Done' },
+		{ status: 'not-required', label: 'N/A' },
+		{ status: 'exempt', label: 'Exempt' }
 	];
 </script>
 
-{#snippet personRow(person: Personnel)}
-	<tr>
-		<th scope="row" class="name-cell">
+{#snippet matrixRow(row: MatrixRow)}
+	<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+		<OperationalMatrix.RowHeader
+			{row}
+			sticky
+			class="sticky left-0 z-10 w-48 min-w-32 max-w-48 border border-border bg-card px-2 py-1.5 text-left align-middle sm:min-w-48 sm:px-3"
+		>
 			{#if onPersonClick}
-				<button class="person-btn" type="button" onclick={() => onPersonClick(person)}>
-					<span class="person-rank">{person.rank}</span>
-					{person.lastName}, {person.firstName}
+				<button
+					type="button"
+					class="flex w-full items-baseline gap-2 text-left text-foreground hover:text-primary sm:gap-4"
+					onclick={() => onPersonClick?.(row.meta.person)}
+				>
+					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+						{row.meta.rank}
+					</span>
+					<span class="truncate text-sm font-medium">{row.label}</span>
 				</button>
 			{:else}
-				<span class="person-rank">{person.rank}</span>
-				{person.lastName}, {person.firstName}
+				<span class="flex items-baseline gap-2 text-foreground sm:gap-4">
+					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+						{row.meta.rank}
+					</span>
+					<span class="truncate text-sm font-medium">{row.label}</span>
+				</span>
 			{/if}
-		</th>
-		{#each trainingTypes as type (type.id)}
-			{@const cell = getCellMetadata(person, type)}
-			{#if onCellClick}
-				<td
-					class="heatmap-cell"
-					style="background-color: color-mix(in srgb, {cell.statusInfo.color} 15%, transparent)"
-					data-status={cell.statusInfo.status}
-					role="gridcell"
-				>
-					<button
-						class="heatmap-btn"
-						type="button"
-						aria-label="{person.lastName} {type.name}: {cell.statusInfo.label}"
-						onclick={() => onCellClick(person, type, cell.training)}
-					>
-						<span class="cell-status-dot" style="background-color: {cell.statusInfo.color}"></span>
-						{cell.displayText}
-					</button>
-				</td>
-			{:else}
-				<td
-					class="heatmap-cell"
-					style="background-color: color-mix(in srgb, {cell.statusInfo.color} 15%, transparent)"
-					data-status={cell.statusInfo.status}
-					aria-label="{person.lastName} {type.name}: {cell.statusInfo.label}"
-				>
-					<span class="cell-status-dot" style="background-color: {cell.statusInfo.color}"></span>
-					<span class="heatmap-text">{cell.displayText}</span>
-				</td>
-			{/if}
+		</OperationalMatrix.RowHeader>
+
+		{#each matrixColumns as column (column.id)}
+			{@const cell = getCellMetadata(row.meta.person, column.meta.type)}
+			<OperationalMatrix.Cell
+				{row}
+				{column}
+				ariaLabel={`${row.meta.person.lastName} ${column.label}: ${cell.statusInfo.label}`}
+				onSelect={onCellClick ? () => onCellClick?.(row.meta.person, column.meta.type, cell.training) : undefined}
+				class="min-w-28 bg-card sm:min-w-32"
+			>
+				<TrainingStatusCell
+					status={cell.statusInfo.status}
+					label={cell.displayText}
+					srLabel={cell.statusInfo.label}
+					class="h-10 rounded-none"
+				/>
+			</OperationalMatrix.Cell>
 		{/each}
-	</tr>
+	</OperationalMatrix.Row>
 {/snippet}
 
-<div class="matrix-wrapper">
+<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} class="grid h-full min-h-0 gap-2">
 	{#if showSearch}
-		<div class="matrix-search">
-			<input
+		<div class="max-w-sm">
+			<Input
 				type="search"
-				class="input"
+				aria-label="Search personnel"
 				placeholder="Search personnel..."
 				value={table.search}
 				oninput={(e) => table.setSearch(e.currentTarget.value)}
@@ -195,394 +249,79 @@
 		</div>
 	{/if}
 
-	<div class="matrix-legend" aria-label="Status color legend">
+	<div class="flex flex-wrap items-center gap-2" aria-label="Status legend">
 		{#each legendItems as item (item.status)}
-			<span class="legend-item">
-				<span
-					class="legend-swatch"
-					style="background-color: color-mix(in srgb, {item.color} 15%, transparent); border-color: {item.color}"
-				></span>
-				{item.label}
-			</span>
+			<TrainingStatusBadge status={item.status} label={item.label} />
 		{/each}
 	</div>
 
-	<div class="matrix-container">
-		<table class="matrix" aria-label="Training status matrix">
-			<thead>
-				<tr>
-					<th scope="col" class="name-header sortable">
-						<button class="header-btn" type="button" onclick={() => table.toggleSort('name')}>
+	<OperationalMatrix.Viewport
+		ariaLabel="Training matrix viewport"
+		class="h-full min-h-0 rounded-lg border border-border bg-card"
+	>
+		<OperationalMatrix.Table
+			ariaLabel="Training status matrix"
+			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
+		>
+			<OperationalMatrix.Header>
+				<OperationalMatrix.HeaderRow>
+					<OperationalMatrix.CornerCell
+						sticky
+						class="sticky left-0 top-0 z-30 w-32 min-w-32 bg-muted px-2 py-1.5 sm:w-48 sm:min-w-48 sm:px-3"
+					>
+						<button
+							class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground"
+							type="button"
+							onclick={() => table.toggleSort('name')}
+						>
 							Name{sortIndicator('name')}
 						</button>
-					</th>
-					{#each trainingTypes as type (type.id)}
-						<th scope="col" class="type-header sortable">
-							<button class="header-btn" type="button" onclick={() => table.toggleSort(type.id)}>
-								<span class="type-dot" style="background-color: {type.color}"></span>
-								{type.name}{sortIndicator(type.id)}
+					</OperationalMatrix.CornerCell>
+					{#each matrixColumns as column (column.id)}
+						<OperationalMatrix.ColumnHeader
+							{column}
+							sticky
+							class="sticky top-0 z-20 h-14 w-28 min-w-28 bg-muted px-1.5 text-center sm:w-32 sm:min-w-32"
+						>
+							<button
+								class="grid w-full place-items-center gap-1 text-center"
+								type="button"
+								onclick={() => table.toggleSort(column.id)}
+							>
+								<span class="size-2 rounded-sm" style:background-color={column.meta.color} aria-hidden="true"></span>
+								<span class="line-clamp-2 text-xs font-bold normal-case tracking-normal text-foreground">
+									{column.label}{sortIndicator(column.id)}
+								</span>
 							</button>
-						</th>
+						</OperationalMatrix.ColumnHeader>
 					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				{#if table.groups.length > 0}
-					{#each table.groups as group (group.key)}
-						<tr class="group-header-row" onclick={() => table.toggleGroup(group.key)}>
-							<td colspan={totalCols} class="group-header-cell">
-								<span class="group-toggle-icon">{group.collapsed ? '▶' : '▼'}</span>
-								<span class="group-label">{group.label}</span>
-								<span class="group-count">({group.rows.length})</span>
-							</td>
-						</tr>
-						{#if !group.collapsed}
-							{#each group.rows as person (person.id)}
-								{@render personRow(person)}
+				</OperationalMatrix.HeaderRow>
+			</OperationalMatrix.Header>
+
+			<OperationalMatrix.Body>
+				{#if groupedMatrixRows.length > 0}
+					{#each groupedMatrixRows as groupBlock (groupBlock.group.id)}
+						<OperationalMatrix.RowGroup
+							group={groupBlock.group}
+							columnSpan={matrixColumns.length + 1}
+							onclick={() => table.toggleGroup(groupBlock.group.id)}
+							class="h-7 cursor-pointer bg-muted/40 text-[10px] font-semibold uppercase leading-none tracking-[0.18em] text-muted-foreground [&_th]:px-2 [&_th]:py-0.5 [&_th]:text-left"
+						>
+							{groupBlock.group.collapsed ? '▶' : '▼'}
+							{groupBlock.group.label} ({groupBlock.group.rowIds.length})
+						</OperationalMatrix.RowGroup>
+						{#if !groupBlock.group.collapsed}
+							{#each groupBlock.rows as row (row.id)}
+								{@render matrixRow(row)}
 							{/each}
 						{/if}
 					{/each}
 				{:else}
-					{#each table.rows as person (person.id)}
-						{@render personRow(person)}
+					{#each matrixRows as row (row.id)}
+						{@render matrixRow(row)}
 					{/each}
 				{/if}
-			</tbody>
-		</table>
-	</div>
-</div>
-
-<style>
-	.matrix-wrapper {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.matrix-legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-	}
-
-	.legend-swatch {
-		display: inline-block;
-		width: 11px;
-		height: 11px;
-		border-radius: 2px;
-		border: 1px solid;
-		flex-shrink: 0;
-	}
-
-	.matrix-search {
-		padding: var(--sp-2) var(--sp-3);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.matrix-search input {
-		width: 100%;
-		max-width: 300px;
-	}
-
-	.matrix-container {
-		flex: 1;
-		min-height: 0;
-		overflow: auto;
-	}
-
-	.matrix {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-	}
-
-	.matrix thead {
-		position: sticky;
-		top: 0;
-		z-index: var(--z-sticky, 10);
-		background: var(--surface-subtle);
-	}
-
-	.matrix th,
-	.matrix td {
-		padding: 4px 8px;
-		border-bottom: var(--border-rule);
-		text-align: left;
-		white-space: nowrap;
-	}
-
-	.name-header,
-	.name-cell {
-		position: sticky;
-		left: 0;
-		background: var(--surface-panel);
-		z-index: 5;
-		text-align: left;
-		width: 220px;
-		min-width: 220px;
-		max-width: 240px;
-		border-right: var(--border-thin);
-		color: var(--text-primary);
-	}
-
-	.name-header {
-		z-index: calc(var(--z-sticky, 10) + 5);
-		background: var(--surface-subtle);
-	}
-
-	.sortable {
-		padding: 0;
-	}
-
-	.header-btn {
-		appearance: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-2);
-		width: 100%;
-		padding: 0;
-		border: none;
-		background: transparent;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		cursor: pointer;
-	}
-
-	.name-header .header-btn {
-		justify-content: flex-start;
-	}
-
-	.header-btn:hover {
-		color: var(--text-primary);
-	}
-
-	.type-header {
-		min-width: 164px;
-		vertical-align: bottom;
-		background: var(--surface-subtle);
-	}
-
-	.type-dot {
-		display: inline-block;
-		width: 10px;
-		height: 10px;
-		border-radius: 2px;
-		flex-shrink: 0;
-	}
-
-	.group-header-row {
-		cursor: pointer;
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-	}
-
-	.group-header-row:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 88%, var(--surface-panel) 12%);
-	}
-
-	.group-header-cell {
-		position: sticky;
-		left: 0;
-		padding: 8px 10px !important;
-		text-align: left !important;
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-semibold);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-		z-index: 4;
-	}
-
-	.group-toggle-icon {
-		font-size: 10px;
-		width: 14px;
-		display: inline-block;
-	}
-
-	.group-label {
-		margin-left: var(--sp-2);
-		color: var(--text-primary);
-	}
-
-	.group-count {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 20px;
-		min-height: 20px;
-		padding: 2px 5px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		font-size: var(--text-xs);
-		margin-left: var(--sp-2);
-	}
-
-	.person-btn {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		padding: 0;
-		background: transparent;
-		border: none;
-		text-align: left;
-		cursor: pointer;
-		color: var(--text-primary);
-		font-size: inherit;
-	}
-
-	.person-btn:hover {
-		color: var(--amber-dark);
-	}
-
-	.person-btn:hover .person-rank {
-		color: var(--amber-dark);
-	}
-
-	.person-rank {
-		display: inline-block;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		min-width: 34px;
-		margin-right: var(--sp-2);
-	}
-
-	.heatmap-cell {
-		vertical-align: middle;
-		min-width: 164px;
-		transition: background-color var(--transition-fast);
-		border-left: var(--border-rule);
-	}
-
-	.heatmap-cell:hover {
-		background-color: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%) !important;
-	}
-
-	.heatmap-btn {
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-		width: 100%;
-		height: 100%;
-		padding: 4px 2px;
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		color: var(--text-primary);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		white-space: nowrap;
-		gap: var(--sp-2);
-	}
-
-	.heatmap-text {
-		display: inline-flex;
-		align-items: center;
-		padding: 4px 2px;
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		color: var(--text-primary);
-		white-space: nowrap;
-		gap: var(--sp-2);
-	}
-
-	.cell-status-dot {
-		display: inline-block;
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: 999px;
-		flex-shrink: 0;
-	}
-
-	tr:hover .name-cell,
-	tr:hover td {
-		background-color: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	tr:hover .name-cell {
-		background-color: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	@media (max-width: 640px) {
-		.name-header,
-		.name-cell {
-			min-width: 124px;
-			max-width: 124px;
-			padding: var(--sp-2);
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-		}
-
-		.type-header {
-			min-width: 120px;
-		}
-
-		.heatmap-cell {
-			min-width: 120px;
-			min-height: 32px;
-		}
-
-		.heatmap-btn,
-		.heatmap-text {
-			font-size: 9px;
-			padding: 3px 2px;
-		}
-	}
-
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.name-header,
-		.name-cell {
-			min-width: 160px;
-		}
-
-		.type-header {
-			min-width: 144px;
-		}
-	}
-
-	:global([data-theme='dark']) .heatmap-cell[data-status='not-required'],
-	:global([data-theme='dark']) .heatmap-cell[data-status='exempt'] {
-		background-color: color-mix(in srgb, var(--text-tertiary) 10%, transparent) !important;
-	}
-
-	:global([data-theme='dark']) .heatmap-cell[data-status='expired'] {
-		background-color: color-mix(in srgb, #ef4444 20%, transparent) !important;
-	}
-
-	:global([data-theme='dark']) .heatmap-cell[data-status='warning-orange'] {
-		background-color: color-mix(in srgb, #f97316 20%, transparent) !important;
-	}
-</style>
+			</OperationalMatrix.Body>
+		</OperationalMatrix.Table>
+	</OperationalMatrix.Viewport>
+</OperationalMatrix.Root>

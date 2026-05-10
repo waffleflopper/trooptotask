@@ -1,9 +1,15 @@
 <script lang="ts">
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-
+	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import * as WorkflowPanel from '$lib/components/ui/workflow-panel';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -29,14 +35,12 @@
 	const canMutate = $derived(configureAffordance.allowed);
 	const workspaceData = $derived(data.training?.data);
 
-	// --- State ---
 	let selectedTypeId: string | null = $state(null);
 	let editing = $state(false);
 	let creating = $state(false);
 	let saving = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
 
-	// Edit form state
 	let editName = $state('');
 	let editDescription = $state('');
 	let editColor = $state('#6b7280');
@@ -53,7 +57,6 @@
 	let editCanBeExempted = $state(false);
 	let editIsOptional = $state(false);
 
-	// --- Derived ---
 	const types = $derived(trainingTypesStore.items);
 	const orderedTypes = $derived([...types].sort((a, b) => a.sortOrder - b.sortOrder));
 	const selectedType = $derived(selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null);
@@ -80,7 +83,6 @@
 		[...new Set(personnel.map((p: { rank: string }) => p.rank))].filter(Boolean).sort() as string[]
 	);
 
-	// --- Actions ---
 	function selectType(id: string) {
 		if (editing || creating) return;
 		selectedTypeId = id;
@@ -218,283 +220,283 @@
 		}
 	}
 
-	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() =>
-		canMutate
-			? [
-					{
-						id: 'new-training-type',
-						label: '+ New Type',
-						onclick: startCreate,
-						disabled: creating || editing,
-						disabledReason: creating || editing ? 'Finish the current edit first' : undefined,
-						icon: 'settings',
-						priority: 'critical',
-						variant: 'primary'
-					}
-				]
-			: []
-	);
+	const typeActionDisabled = $derived(creating || editing);
 </script>
 
-<main class="types-page">
+<main class="flex h-full min-h-0 flex-col gap-3 bg-background p-2">
 	<WorkspaceToolbar.Root ariaLabel="Training type controls">
-		<WorkspaceToolbar.Group label="Training type actions" zone="actions">
-			<WorkspaceToolbar.Actions
-				actions={toolbarActions}
-				ariaLabel="Training type actions"
-				overflowAriaLabel="More training type actions"
-			/>
-		</WorkspaceToolbar.Group>
+		{#if canMutate}
+			<WorkspaceToolbar.Group label="Training type actions" zone="actions">
+				<Button
+					type="button"
+					onclick={startCreate}
+					disabled={typeActionDisabled}
+					title={typeActionDisabled ? 'Finish the current edit first' : undefined}
+				>
+					+ New Type
+				</Button>
+			</WorkspaceToolbar.Group>
+		{/if}
 	</WorkspaceToolbar.Root>
 
-	<div class="types-layout">
-		<!-- Left panel: Type list -->
-		<div class="panel type-list-panel">
+	<WorkflowPanel.Grid class="min-h-0 flex-1 lg:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]">
+		<section class="min-h-0 overflow-y-auto">
 			{#if orderedTypes.length === 0 && !creating}
-				<EmptyState
-					message="No training types yet. Create one to get started."
-					actionLabel={canMutate ? '+ New Type' : undefined}
-					onAction={canMutate ? startCreate : undefined}
-				/>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No training types yet.</Empty.Title>
+						<Empty.Description>Create one to get started.</Empty.Description>
+					</Empty.Header>
+					{#if canMutate}
+						<Empty.Content>
+							<Button type="button" onclick={startCreate}>+ New Type</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
 			{:else}
-				<ul class="type-list" role="listbox" aria-label="Training types">
+				<ul class="grid gap-2" role="listbox" aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
-						<li
-							class="type-item"
-							class:selected={selectedTypeId === type.id && !creating}
-							role="option"
-							aria-selected={selectedTypeId === type.id && !creating}
-							onclick={() => selectType(type.id)}
-							onkeydown={(e) => e.key === 'Enter' && selectType(type.id)}
-							tabindex="0"
-						>
-							<div class="type-item-main">
-								<span class="type-color-swatch" style="background-color: {type.color}"></span>
-								<div class="type-info">
-									<span class="type-name">{type.name}</span>
-									<span class="type-summary">{getTypeSummaryLine(type)}</span>
-								</div>
-							</div>
-							{#if canMutate && !editing && !creating}
-								<div
-									class="type-reorder"
-									onclick={(e) => e.stopPropagation()}
-									onkeydown={(e) => e.stopPropagation()}
-									role="toolbar"
-									tabindex="-1"
+						<li>
+							<WorkflowPanel.Item
+								selected={selectedTypeId === type.id && !creating}
+								role="option"
+								aria-selected={selectedTypeId === type.id && !creating}
+								class="flex items-center gap-2 p-2"
+							>
+								<button
+									type="button"
+									class="flex min-w-0 flex-1 items-center gap-3 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									onclick={() => selectType(type.id)}
+									disabled={editing || creating}
 								>
-									<button
-										class="btn-move"
-										type="button"
-										onclick={() => moveUp(i)}
-										disabled={i === 0}
-										aria-label="Move up">&#9650;</button
-									>
-									<button
-										class="btn-move"
-										type="button"
-										onclick={() => moveDown(i)}
-										disabled={i === orderedTypes.length - 1}
-										aria-label="Move down">&#9660;</button
-									>
-								</div>
-							{/if}
+									<span class="size-3 shrink-0 rounded-sm" style:background-color={type.color}></span>
+									<span class="grid min-w-0 gap-1">
+										<span class="truncate text-sm font-semibold text-foreground">{type.name}</span>
+										<span class="truncate text-xs text-muted-foreground">{getTypeSummaryLine(type)}</span>
+									</span>
+								</button>
+								{#if canMutate && !editing && !creating}
+									<div class="ml-auto flex shrink-0 items-center gap-1" role="toolbar" tabindex="-1">
+										<Button
+											variant="outline"
+											size="icon"
+											type="button"
+											onclick={() => moveUp(i)}
+											disabled={i === 0}
+											aria-label="Move up"
+										>
+											<ArrowUp aria-hidden="true" />
+										</Button>
+										<Button
+											variant="outline"
+											size="icon"
+											type="button"
+											onclick={() => moveDown(i)}
+											disabled={i === orderedTypes.length - 1}
+											aria-label="Move down"
+										>
+											<ArrowDown aria-hidden="true" />
+										</Button>
+									</div>
+								{/if}
+							</WorkflowPanel.Item>
 						</li>
 					{/each}
 				</ul>
 			{/if}
-		</div>
+		</section>
 
-		<!-- Right panel: Detail / Editor -->
-		<div class="panel detail-panel">
+		<section class="min-h-0 overflow-y-auto">
 			{#if creating || editing}
-				<!-- Editor -->
-				<div class="editor">
-					<h3 class="panel-title">{creating ? 'New Training Type' : 'Edit Training Type'}</h3>
+				<div class="grid gap-5 pb-8">
+					<WorkflowPanel.Header>
+						<WorkflowPanel.Title>{creating ? 'New Training Type' : 'Edit Training Type'}</WorkflowPanel.Title>
+					</WorkflowPanel.Header>
 
-					<!-- Section 1: Basics -->
-					<fieldset class="editor-section">
-						<legend class="section-title">Basics</legend>
-						<div class="form-field">
-							<label class="form-label" for="type-name">Name</label>
-							<input class="input" id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
-						</div>
-						<div class="form-field">
-							<label class="form-label" for="type-desc">Description</label>
-							<textarea
-								class="input"
-								id="type-desc"
-								rows="2"
-								bind:value={editDescription}
-								placeholder="Optional description"
-							></textarea>
-						</div>
-						<div class="form-field">
-							<label class="form-label" for="type-color">Color</label>
-							<div class="color-picker">
-								<input id="type-color" type="color" bind:value={editColor} />
-								<span class="color-value">{editColor}</span>
+					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<Field.Legend>Basics</Field.Legend>
+						<Field.Root>
+							<Field.Label for="type-name">Name</Field.Label>
+							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="type-desc">Description</Field.Label>
+							<Textarea id="type-desc" rows={2} bind:value={editDescription} placeholder="Optional description" />
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="type-color">Color</Field.Label>
+							<div class="flex items-center gap-3">
+								<Input id="type-color" type="color" bind:value={editColor} class="h-10 w-16 p-1" />
+								<span class="font-mono text-sm uppercase text-muted-foreground">{editColor}</span>
 							</div>
-						</div>
-					</fieldset>
+						</Field.Root>
+					</Field.Set>
 
-					<!-- Section 2: Expiration -->
-					<fieldset class="editor-section">
-						<legend class="section-title">Expiration</legend>
-						<div class="radio-group">
+					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<Field.Legend>Expiration</Field.Legend>
+						<RadioGroup.Root bind:value={editExpirationMode}>
 							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
-								<label class="radio-option">
-									<input type="radio" name="expiration-mode" value={mode} bind:group={editExpirationMode} />
-									<span>{getExpirationLabel(mode)}</span>
-								</label>
+								<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+									<RadioGroup.Item id="expiration-{mode}" value={mode} />
+									<Field.Label for="expiration-{mode}">{getExpirationLabel(mode)}</Field.Label>
+								</Field.Root>
 							{/each}
-						</div>
+						</RadioGroup.Root>
 						{#if editExpirationMode === 'fixed'}
-							<div class="form-field inline-field">
-								<label class="form-label" for="exp-months">Months until expiration</label>
-								<input
-									class="input input-sm"
+							<Field.Root>
+								<Field.Label for="exp-months">Months until expiration</Field.Label>
+								<Input
 									id="exp-months"
 									type="number"
 									min="1"
 									max="120"
 									bind:value={editExpirationMonths}
+									class="max-w-28"
 								/>
-							</div>
+							</Field.Root>
 						{/if}
-					</fieldset>
+					</Field.Set>
 
-					<!-- Section 3: Warning Thresholds -->
 					{#if editExpirationMode !== 'never'}
-						<fieldset class="editor-section">
-							<legend class="section-title">Warning Thresholds</legend>
-							<div class="threshold-fields">
-								<div class="form-field inline-field">
-									<label class="form-label" for="warn-yellow">Yellow warning (days)</label>
-									<input class="input input-sm" id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
-								</div>
-								<div class="form-field inline-field">
-									<label class="form-label" for="warn-orange">Orange warning (days)</label>
-									<input class="input input-sm" id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
-								</div>
-							</div>
-						</fieldset>
+						<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
+							<Field.Legend>Warning Thresholds</Field.Legend>
+							<Field.Root>
+								<Field.Label for="warn-yellow">Yellow warning (days)</Field.Label>
+								<Input id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
+							</Field.Root>
+							<Field.Root>
+								<Field.Label for="warn-orange">Orange warning (days)</Field.Label>
+								<Input id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
+							</Field.Root>
+						</Field.Set>
 					{/if}
 
-					<!-- Section 4: Applicability -->
-					<ApplicabilityEditor
-						appliesToRoles={editAppliesToRoles}
-						appliesToMos={editAppliesToMos}
-						appliesToRanks={editAppliesToRanks}
-						excludedRoles={editExcludedRoles}
-						excludedMos={editExcludedMos}
-						excludedRanks={editExcludedRanks}
-						isOptional={editIsOptional}
-						{availableRoles}
-						{availableMos}
-						{availableRanks}
-						onchange={handleApplicabilityChange}
-					/>
+					{#key selectedTypeId ?? 'new-training-type'}
+						<ApplicabilityEditor
+							appliesToRoles={editAppliesToRoles}
+							appliesToMos={editAppliesToMos}
+							appliesToRanks={editAppliesToRanks}
+							excludedRoles={editExcludedRoles}
+							excludedMos={editExcludedMos}
+							excludedRanks={editExcludedRanks}
+							isOptional={editIsOptional}
+							{availableRoles}
+							{availableMos}
+							{availableRanks}
+							onchange={handleApplicabilityChange}
+						/>
+					{/key}
 
-					<!-- Section 5: Options -->
-					<fieldset class="editor-section">
-						<legend class="section-title">Options</legend>
-						<label class="toggle-option">
-							<input type="checkbox" bind:checked={editCanBeExempted} />
-							<span>Can be exempted</span>
-						</label>
-					</fieldset>
+					<Field.Set class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<Field.Legend>Options</Field.Legend>
+						<Field.Root orientation="horizontal">
+							<Checkbox id="can-be-exempted" bind:checked={editCanBeExempted} />
+							<Field.Label for="can-be-exempted">Can be exempted</Field.Label>
+						</Field.Root>
+					</Field.Set>
 
-					<!-- Actions -->
-					<div class="editor-actions">
+					<div class="flex items-center gap-3 border-t border-border pt-4">
 						{#if !creating && selectedTypeId && canMutate}
-							<button
-								class="btn btn-danger btn-sm"
+							<Button
+								variant="destructive"
+								size="sm"
 								type="button"
 								onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
-								>Delete</button
 							>
+								<Trash2 aria-hidden="true" />
+								Delete
+							</Button>
 						{/if}
-						<div class="spacer"></div>
-						<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
-						<button
-							class="btn btn-primary btn-sm"
-							type="button"
-							onclick={saveEdit}
-							disabled={!editName.trim() || saving}
-						>
-							{#if saving}<Spinner size={12} />{/if}
+						<div class="flex-1"></div>
+						<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
+						<Button size="sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
+							{#if saving}<Spinner class="size-3" />{/if}
 							{creating ? 'Create' : 'Save'}
-						</button>
+						</Button>
 					</div>
 				</div>
 			{:else if selectedType}
-				<!-- Read-only detail view -->
-				<div class="detail-view">
-					<div class="detail-header">
-						<div class="detail-title-row">
-							<span class="type-color-swatch large" style="background-color: {selectedType.color}"></span>
-							<h3 class="detail-name">{selectedType.name}</h3>
+				<div class="grid gap-5">
+					<div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+						<div class="flex min-w-0 items-center gap-3">
+							<span class="size-4 shrink-0 rounded-sm" style:background-color={selectedType.color}></span>
+							<h3 class="truncate text-xl font-semibold text-foreground">{selectedType.name}</h3>
 						</div>
 						{#if canMutate}
-							<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
+							<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
 						{/if}
 					</div>
 
 					{#if selectedType.description}
-						<p class="detail-description">{selectedType.description}</p>
+						<p class="text-sm leading-relaxed text-muted-foreground">{selectedType.description}</p>
 					{/if}
 
-					<dl class="detail-fields">
-						<div class="detail-field">
-							<dt>Expiration</dt>
-							<dd>{getExpirationLabel(getExpirationMode(selectedType))}</dd>
+					<dl class="grid gap-3">
+						<div class="rounded-lg border border-border bg-muted/30 p-3">
+							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Expiration
+							</dt>
+							<dd class="mt-1 text-sm text-foreground">{getExpirationLabel(getExpirationMode(selectedType))}</dd>
 						</div>
 
 						{#if getExpirationMode(selectedType) === 'fixed'}
-							<div class="detail-field">
-								<dt>Duration</dt>
-								<dd>{selectedType.expirationMonths} months</dd>
+							<div class="rounded-lg border border-border bg-muted/30 p-3">
+								<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+									Duration
+								</dt>
+								<dd class="mt-1 text-sm text-foreground">{selectedType.expirationMonths} months</dd>
 							</div>
 						{/if}
 
 						{#if getExpirationMode(selectedType) !== 'never'}
-							<div class="detail-field">
-								<dt>Warning Thresholds</dt>
-								<dd>
+							<div class="rounded-lg border border-border bg-muted/30 p-3">
+								<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+									Warning Thresholds
+								</dt>
+								<dd class="mt-1 text-sm text-foreground">
 									Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
 								</dd>
 							</div>
 						{/if}
 
-						<div class="detail-field">
-							<dt>Applies to</dt>
-							<dd>{formatApplicability(selectedType)}</dd>
+						<div class="rounded-lg border border-border bg-muted/30 p-3">
+							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Applies to
+							</dt>
+							<dd class="mt-1 text-sm text-foreground">{formatApplicability(selectedType)}</dd>
 						</div>
 
-						<div class="detail-field">
-							<dt>Can be exempted</dt>
-							<dd>{selectedType.canBeExempted ? 'Yes' : 'No'}</dd>
+						<div class="rounded-lg border border-border bg-muted/30 p-3">
+							<dt class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Can be exempted
+							</dt>
+							<dd class="mt-1 text-sm text-foreground">{selectedType.canBeExempted ? 'Yes' : 'No'}</dd>
 						</div>
 					</dl>
 
 					{#if canMutate}
-						<div class="detail-actions">
-							<button
-								class="btn btn-danger btn-sm"
+						<div class="border-t border-border pt-4">
+							<Button
+								variant="destructive"
+								size="sm"
 								type="button"
-								onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}>Delete Type</button
+								onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}
 							>
+								Delete Type
+							</Button>
 						</div>
 					{/if}
 				</div>
 			{:else}
-				<div class="panel-placeholder">
-					<p class="placeholder-text">Select a training type to view details</p>
-				</div>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>Select a training type</Empty.Title>
+						<Empty.Description>Choose a type from the list to view details.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
 			{/if}
-		</div>
-	</div>
+		</section>
+	</WorkflowPanel.Grid>
 </main>
 
 {#if confirmDelete}
@@ -509,388 +511,3 @@
 		onCancel={() => (confirmDelete = null)}
 	/>
 {/if}
-
-<style>
-	.types-page {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		min-height: 0;
-		height: 100%;
-		padding: var(--sp-2);
-	}
-
-	.types-layout {
-		display: grid;
-		grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
-		grid-template-rows: minmax(0, 1fr);
-		gap: var(--sp-5);
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.panel {
-		min-height: 0;
-		overflow-y: auto;
-		padding: var(--sp-5);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.type-list-panel {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.panel-title {
-		font-family: var(--font-display);
-		font-size: clamp(1.3rem, 1.1rem + 0.4vw, 1.55rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		margin: 0;
-	}
-
-	.type-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.type-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.type-item:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-	}
-
-	.type-item.selected {
-		border-color: color-mix(in srgb, var(--amber) 32%, var(--border-default));
-		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
-	}
-
-	.type-item-main {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.type-color-swatch {
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: 2px;
-		flex-shrink: 0;
-	}
-
-	.type-color-swatch.large {
-		width: 0.875rem;
-		height: 0.875rem;
-	}
-
-	.type-info {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		gap: var(--sp-1);
-	}
-
-	.type-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		color: var(--text-primary);
-	}
-
-	.type-summary {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.type-reorder {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-		margin-left: var(--sp-2);
-	}
-
-	.btn-move {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.5rem;
-		height: 1.5rem;
-		padding: 0;
-		background: none;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		color: var(--text-secondary);
-		cursor: pointer;
-		font-size: 10px;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.btn-move:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border-color: var(--border-strong);
-		color: var(--text-primary);
-	}
-
-	.btn-move:disabled {
-		opacity: 0.25;
-		cursor: default;
-	}
-
-	.panel-placeholder {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-	}
-
-	.placeholder-text {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-	}
-
-	.detail-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-	}
-
-	.detail-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.detail-title-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-
-	.detail-name {
-		font-family: var(--font-display);
-		font-size: clamp(1.4rem, 1.2rem + 0.4vw, 1.7rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		margin: 0;
-	}
-
-	.detail-description {
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		margin: 0;
-	}
-
-	.detail-fields {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		margin: 0;
-	}
-
-	.detail-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-	}
-
-	.detail-field dt {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-	}
-
-	.detail-field dd {
-		font-size: var(--text-sm);
-		margin: 0;
-		color: var(--text-primary);
-	}
-
-	.detail-actions {
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.editor {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		padding-bottom: var(--sp-8);
-	}
-
-	.editor-section {
-		padding: var(--sp-4);
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-	}
-
-	.section-title {
-		padding: 0 0 var(--sp-3);
-		margin: 0 0 var(--sp-1);
-		border-bottom: var(--border-thin);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.form-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.color-picker {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-
-	.color-picker input[type='color'] {
-		width: 2.5rem;
-		height: 2.5rem;
-		padding: 2px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		background: var(--surface-panel);
-	}
-
-	.color-value {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.radio-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.radio-option {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		font-size: var(--text-sm);
-		cursor: pointer;
-	}
-
-	.inline-field {
-		flex-direction: row;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-
-	.input-sm {
-		width: 5.5rem;
-	}
-
-	.threshold-fields {
-		display: flex;
-		gap: var(--sp-5);
-	}
-
-	.toggle-option {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		font-size: var(--text-sm);
-		cursor: pointer;
-	}
-
-	.editor-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	@media (max-width: 768px) {
-		.types-layout {
-			grid-template-columns: 1fr;
-			grid-template-rows: auto;
-			height: auto;
-			overflow: visible;
-		}
-
-		.type-list-panel {
-			max-height: 300px;
-		}
-
-		.threshold-fields {
-			flex-direction: column;
-			gap: var(--sp-3);
-		}
-
-		.panel {
-			padding: var(--sp-4);
-		}
-	}
-</style>

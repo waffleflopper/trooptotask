@@ -167,7 +167,8 @@ describe('training reports page', () => {
 			}
 		});
 
-		expect(await screen.findByText('No training types configured. Create training types first.')).toBeTruthy();
+		expect(await screen.findByText('No training types configured.')).toBeTruthy();
+		expect(screen.getByText('Create training types first.')).toBeTruthy();
 		expect(screen.queryByText('Loading training reports...')).toBeNull();
 	});
 

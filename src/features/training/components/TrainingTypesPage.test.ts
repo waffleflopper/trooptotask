@@ -131,4 +131,29 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
 		expect(screen.queryByText('1 configured')).toBeNull();
 	});
+
+	it('opens the create and edit forms from the page actions', async () => {
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType])
+						}
+					},
+					personnel
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		expect(screen.getByText('New Training Type')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(screen.getByRole('button', { name: /CPR/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		expect(screen.getByText('Edit Training Type')).toBeTruthy();
+		expect(screen.getByDisplayValue('CPR')).toBeTruthy();
+	});
 });

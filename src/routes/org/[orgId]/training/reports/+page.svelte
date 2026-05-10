@@ -5,7 +5,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
 	import {
@@ -86,25 +86,15 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-		<Spinner color="currentColor" />
+	<section
+		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
+		aria-busy="true"
+		aria-live="polite"
+		role="status"
+	>
+		<Spinner class="size-4" />
 		<p>Loading training reports...</p>
 	</section>
 {:else}
 	<TrainingReportsPage data={pageData} />
 {/if}
-
-<style>
-	.route-loading {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: center;
-		padding: var(--sp-6);
-		color: var(--text-secondary);
-	}
-
-	.route-loading p {
-		margin: 0;
-	}
-</style>

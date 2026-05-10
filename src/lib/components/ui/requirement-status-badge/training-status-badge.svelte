@@ -28,12 +28,14 @@
 
 	let {
 		status,
+		label,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
 		status: TrainingRequirementStatus;
+		label?: string;
 	} = $props();
 
 	const requirementStatus = $derived(trainingRequirementStatusMap[status]);
 </script>
 
-<RequirementStatusBadge status={requirementStatus} {...restProps} />
+<RequirementStatusBadge status={requirementStatus} {label} {...restProps} />

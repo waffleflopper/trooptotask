@@ -271,6 +271,33 @@ Shared components own:
 
 ---
 
+## `ui/requirement-status-badge`
+
+`ui/requirement-status-badge` owns shared requirement status visuals for Training and Critical Tasks. Badges are for legends, summaries, and compact status chips. Training matrix and report cells should use `TrainingStatusCell` so the status color belongs to the cell background and the visible text can stay focused on the associated date or compact value.
+
+```svelte
+<script lang="ts">
+	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+</script>
+
+<TrainingStatusBadge status="current" label="Current" />
+<TrainingStatusCell status="warning-yellow" label="2026-05-10" srLabel="Expiring Soon" />
+```
+
+Public components:
+
+- `TrainingStatusBadge`: badge/chip for Training status legends and summaries.
+- `TrainingStatusCell`: compact status-colored Training cell. Props: `status`, `label`, `srLabel?`, plus normal `span` attributes.
+- `CriticalTaskStatusBadge`: badge/chip for Critical Tasks status legends and summaries.
+
+Rules:
+
+- Routes may pass status keys, visible labels, and screen-reader labels.
+- Routes must not restyle Training status colors, cell typography, radius, density, or ring treatment locally.
+- Use `TrainingStatusCell` inside `ui/operational-matrix` and Training report tables when the cell background carries the status.
+
+---
+
 ## `ui/readiness-band`
 
 `ui/readiness-band` is the shared shadcn-svelte-style visual contract for Critical Tasks report readiness tiers. It preserves the current report semantics and band colors while moving heat-cell and legend styling out of production route files.

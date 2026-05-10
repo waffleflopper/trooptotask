@@ -14,7 +14,10 @@ import {
 	Choice,
 	ActionSpacer,
 	Description,
-	ColorInput
+	ColorInput,
+	MobileBack,
+	Disclosure,
+	ChoiceGroup
 } from '../type-management-workspace/index.js';
 
 export {
@@ -37,5 +40,8 @@ export {
 	ActionSpacer,
 	ActionSpacer as ActionsSpacer,
 	Description,
-	ColorInput
+	ColorInput,
+	MobileBack,
+	Disclosure,
+	ChoiceGroup
 };

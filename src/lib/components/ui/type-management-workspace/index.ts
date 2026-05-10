@@ -14,6 +14,9 @@ import Choice from './choice.svelte';
 import ActionSpacer from './action-spacer.svelte';
 import Description from './description.svelte';
 import ColorInput from './color-input.svelte';
+import MobileBack from './mobile-back.svelte';
+import Disclosure from './disclosure.svelte';
+import ChoiceGroup from './choice-group.svelte';
 
 export {
 	Root,
@@ -31,5 +34,8 @@ export {
 	Choice,
 	ActionSpacer,
 	Description,
-	ColorInput
+	ColorInput,
+	MobileBack,
+	Disclosure,
+	ChoiceGroup
 };

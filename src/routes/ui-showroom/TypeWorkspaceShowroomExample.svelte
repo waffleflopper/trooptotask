@@ -80,12 +80,18 @@
 			</TypeWorkspace.List>
 
 			<TypeWorkspace.Detail aria-label="Selected type details">
+				<TypeWorkspace.MobileBack onclick={() => undefined}>Type list</TypeWorkspace.MobileBack>
 				<TypeWorkspace.Stack>
 					<TypeWorkspace.DetailHeader title={selectedTypeWorkspaceItem.name} color={selectedTypeWorkspaceItem.color}>
 						{#snippet actions()}
 							<Button variant="outline" size="sm" type="button">Edit</Button>
 						{/snippet}
 					</TypeWorkspace.DetailHeader>
+
+					<TypeWorkspace.Description>
+						Showroom baseline for the shared manage-type workspace. Routes provide data and behavior; this chrome owns
+						the visual pattern.
+					</TypeWorkspace.Description>
 
 					<TypeWorkspace.Form title="Basics">
 						<Field.Root>
@@ -101,6 +107,27 @@
 						</Field.Root>
 					</TypeWorkspace.Form>
 
+					<TypeWorkspace.Form title="Applicability">
+						<TypeWorkspace.Description
+							>Use presets first, then reveal targeting for exceptions.</TypeWorkspace.Description
+						>
+						<TypeWorkspace.ChoiceGroup aria-label="Applicability presets">
+							<Button type="button" size="sm" variant="secondary">Everyone</Button>
+							<Button type="button" size="sm" variant="outline">Optional</Button>
+							<Button type="button" size="sm" variant="outline" disabled>Custom</Button>
+						</TypeWorkspace.ChoiceGroup>
+						<TypeWorkspace.Disclosure
+							title="Targeting"
+							description="Shared progressive disclosure for broad chip sets and exception controls."
+						>
+							<TypeWorkspace.ChoiceGroup aria-label="Targeting examples">
+								<Button type="button" size="sm" variant="outline">Infantry</Button>
+								<Button type="button" size="sm" variant="outline">Medical</Button>
+								<Button type="button" size="sm" variant="outline">E5</Button>
+							</TypeWorkspace.ChoiceGroup>
+						</TypeWorkspace.Disclosure>
+					</TypeWorkspace.Form>
+
 					<TypeWorkspace.Form title="Expiration" layout="two-column">
 						<Field.Root>
 							<Field.Label for="type-workspace-duration">Months until expiration</Field.Label>
@@ -114,7 +141,7 @@
 
 					<TypeWorkspace.FactList>
 						<TypeWorkspace.Impact label="Applies to">All assigned personnel</TypeWorkspace.Impact>
-						<TypeWorkspace.Impact label="Training impact">12 records currently due or overdue</TypeWorkspace.Impact>
+						<TypeWorkspace.Impact label="Expiration policy">Expires after 12 months</TypeWorkspace.Impact>
 						<TypeWorkspace.Impact label="Permission state">Edit allowed for training managers</TypeWorkspace.Impact>
 					</TypeWorkspace.FactList>
 

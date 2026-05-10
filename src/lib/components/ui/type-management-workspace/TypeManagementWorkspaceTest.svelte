@@ -23,6 +23,7 @@
 			</TypeManagementWorkspace.ItemList>
 		</TypeManagementWorkspace.List>
 		<TypeManagementWorkspace.Detail>
+			<TypeManagementWorkspace.MobileBack onclick={() => undefined}>Types</TypeManagementWorkspace.MobileBack>
 			<TypeManagementWorkspace.Stack>
 				<TypeManagementWorkspace.DetailHeader title="Annual Qualification" color="#8a5800">
 					{#snippet actions()}
@@ -32,6 +33,12 @@
 				<TypeManagementWorkspace.FormSection title="Basics">
 					<p>Shared section chrome, route-owned controls.</p>
 				</TypeManagementWorkspace.FormSection>
+				<TypeManagementWorkspace.Description>Shared detail copy.</TypeManagementWorkspace.Description>
+				<TypeManagementWorkspace.Disclosure title="Advanced targeting" description="Collapsed shared controls">
+					<TypeManagementWorkspace.ChoiceGroup>
+						<Button variant="outline" size="sm" type="button">Infantry</Button>
+					</TypeManagementWorkspace.ChoiceGroup>
+				</TypeManagementWorkspace.Disclosure>
 				<TypeManagementWorkspace.Choice>
 					<p>Shared choice chrome, route-owned option controls.</p>
 				</TypeManagementWorkspace.Choice>

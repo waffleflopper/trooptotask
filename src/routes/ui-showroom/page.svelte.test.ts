@@ -16,6 +16,8 @@ describe('/ui-showroom', () => {
 		expect(container.querySelector('[data-slot="type-management-workspace"]')).toBeTruthy();
 		expect(container.querySelector('[data-slot="type-management-workspace-list-item"]')).toBeTruthy();
 		expect(container.querySelector('[data-slot="type-management-workspace-form-section"]')).toBeTruthy();
+		expect(container.querySelector('[data-slot="type-management-workspace-disclosure"]')).toBeTruthy();
+		expect(container.querySelector('[data-slot="type-management-workspace-choice-group"]')).toBeTruthy();
 		expect(container.querySelector('[data-slot="type-management-workspace-footer-actions"]')).toBeTruthy();
 	});
 });

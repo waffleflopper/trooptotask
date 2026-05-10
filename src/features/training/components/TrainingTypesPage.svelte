@@ -39,6 +39,7 @@
 	let editing = $state(false);
 	let creating = $state(false);
 	let saving = $state(false);
+	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
 
 	let editName = $state('');
@@ -59,7 +60,11 @@
 
 	const types = $derived(trainingTypesStore.items);
 	const orderedTypes = $derived([...types].sort((a, b) => a.sortOrder - b.sortOrder));
-	const selectedType = $derived(selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null);
+	const selectedType = $derived(
+		creating
+			? null
+			: (selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null) || orderedTypes[0] || null
+	);
 
 	const personnel = $derived(
 		personnelStore.orgId === org.orgId
@@ -86,10 +91,13 @@
 	function selectType(id: string) {
 		if (editing || creating) return;
 		selectedTypeId = id;
+		mobileDetailOpen = true;
 	}
 
 	function startEdit() {
 		if (!selectedType || !canMutate) return;
+		mobileDetailOpen = true;
+		selectedTypeId = selectedType.id;
 		editName = selectedType.name;
 		editDescription = selectedType.description ?? '';
 		editColor = selectedType.color;
@@ -109,13 +117,16 @@
 	}
 
 	function cancelEdit() {
+		const wasCreating = creating;
 		editing = false;
 		creating = false;
 		saving = false;
+		if (wasCreating) mobileDetailOpen = false;
 	}
 
 	function startCreate() {
 		if (!canMutate) return;
+		mobileDetailOpen = true;
 		selectedTypeId = null;
 		editName = '';
 		editDescription = '';
@@ -169,6 +180,7 @@
 				} as Omit<TrainingType, 'id'>);
 				if (newType) selectedTypeId = newType.id;
 				creating = false;
+				mobileDetailOpen = true;
 			} else if (selectedTypeId) {
 				await trainingTypesStore.update(selectedTypeId, payload);
 			}
@@ -181,6 +193,7 @@
 	async function deleteType(id: string) {
 		await trainingTypesStore.remove(id);
 		if (selectedTypeId === id) selectedTypeId = null;
+		mobileDetailOpen = false;
 		confirmDelete = null;
 	}
 
@@ -220,6 +233,13 @@
 		}
 	}
 
+	function closeMobileDetail() {
+		if (creating || editing) {
+			cancelEdit();
+		}
+		mobileDetailOpen = false;
+	}
+
 	const typeActionDisabled = $derived(creating || editing);
 </script>
 
@@ -240,7 +260,7 @@
 	</WorkspaceToolbar.Root>
 
 	<TypeWorkspace.Layout>
-		<TypeWorkspace.List>
+		<TypeWorkspace.List mobileHidden={mobileDetailOpen || creating || editing}>
 			{#if orderedTypes.length === 0 && !creating}
 				<Empty.Root>
 					<Empty.Header>
@@ -257,14 +277,14 @@
 				<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
 						<TypeWorkspace.ListItem
-							selected={selectedTypeId === type.id && !creating}
+							selected={selectedType?.id === type.id && !creating}
 							color={type.color}
 							title={type.name}
 							description={getTypeSummaryLine(type)}
 							onselect={() => selectType(type.id)}
 							disabled={editing || creating}
 							role="option"
-							aria-selected={selectedTypeId === type.id && !creating}
+							aria-selected={selectedType?.id === type.id && !creating}
 						>
 							{#snippet actions()}
 								{#if canMutate && !editing && !creating}
@@ -296,7 +316,11 @@
 			{/if}
 		</TypeWorkspace.List>
 
-		<TypeWorkspace.Detail>
+		<TypeWorkspace.Detail mobileHidden={!mobileDetailOpen && !creating && !editing}>
+			{#if creating || editing || selectedType}
+				<TypeWorkspace.MobileBack onclick={closeMobileDetail}>Training types</TypeWorkspace.MobileBack>
+			{/if}
+
 			{#if creating || editing}
 				<TypeWorkspace.Stack>
 					<TypeWorkspace.DetailHeader title={creating ? 'New Training Type' : 'Edit Training Type'} />
@@ -401,9 +425,9 @@
 						{/snippet}
 					</TypeWorkspace.DetailHeader>
 
-					{#if selectedType.description}
-						<TypeWorkspace.Description>{selectedType.description}</TypeWorkspace.Description>
-					{/if}
+					<TypeWorkspace.Description>
+						{selectedType.description ?? 'No description has been added for this training type.'}
+					</TypeWorkspace.Description>
 
 					<TypeWorkspace.FactList>
 						<TypeWorkspace.Impact label="Expiration">
@@ -424,8 +448,18 @@
 							{formatApplicability(selectedType)}
 						</TypeWorkspace.Impact>
 
+						<TypeWorkspace.Impact label="Optional">
+							{selectedType.isOptional
+								? 'Yes. People without records are not treated as missing this type.'
+								: 'No. Matching personnel are expected to have this training.'}
+						</TypeWorkspace.Impact>
+
 						<TypeWorkspace.Impact label="Can be exempted">
 							{selectedType.canBeExempted ? 'Yes' : 'No'}
+						</TypeWorkspace.Impact>
+
+						<TypeWorkspace.Impact label="List order">
+							{orderedTypes.findIndex((type) => type.id === selectedType.id) + 1} of {orderedTypes.length}
 						</TypeWorkspace.Impact>
 					</TypeWorkspace.FactList>
 

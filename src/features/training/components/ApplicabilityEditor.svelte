@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Field from '$lib/components/ui/field';
+	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 
 	interface Props {
 		appliesToRoles: string[];
@@ -45,8 +46,7 @@
 
 	const hasAppliesTo = $derived(appliesToRoles.length > 0 || appliesToMos.length > 0 || appliesToRanks.length > 0);
 	const exclusionCount = $derived(excludedRoles.length + excludedMos.length + excludedRanks.length);
-	let exclusionsExpandedOverride = $state<boolean | null>(null);
-	const showExclusions = $derived(exclusionsExpandedOverride ?? exclusionCount > 0);
+	const showExclusions = $derived(exclusionCount > 0);
 
 	type PresetMode = 'everyone' | 'optional' | 'custom';
 	const currentMode = $derived<PresetMode>(isOptional ? 'optional' : hasAppliesTo ? 'custom' : 'everyone');
@@ -95,7 +95,7 @@
 	{#if values.length > 0}
 		<Field.Root>
 			<Field.Label>{label}</Field.Label>
-			<div class="flex flex-wrap gap-2">
+			<TypeWorkspace.ChoiceGroup>
 				{#each values as value (value)}
 					<Button
 						type="button"
@@ -107,34 +107,35 @@
 						{value}
 					</Button>
 				{/each}
-			</div>
+			</TypeWorkspace.ChoiceGroup>
 		</Field.Root>
 	{/if}
 {/snippet}
 
-<section class="grid gap-4 rounded-lg border border-border bg-card p-4">
-	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-		<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Applicability</h3>
-		<ButtonGroup.Root aria-label="Applicability preset">
-			<Button
-				type="button"
-				variant={currentMode === 'everyone' ? 'secondary' : 'outline'}
-				aria-pressed={currentMode === 'everyone'}
-				onclick={() => applyPreset('everyone')}
-			>
-				Everyone
-			</Button>
-			<Button
-				type="button"
-				variant={currentMode === 'optional' ? 'secondary' : 'outline'}
-				aria-pressed={currentMode === 'optional'}
-				onclick={() => applyPreset('optional')}
-			>
-				Optional
-			</Button>
-			<Button type="button" variant={currentMode === 'custom' ? 'secondary' : 'outline'} disabled>Custom</Button>
-		</ButtonGroup.Root>
-	</div>
+<TypeWorkspace.Form title="Applicability">
+	<TypeWorkspace.Description>
+		Start with the broad policy, then open targeting only when this type applies to a subset.
+	</TypeWorkspace.Description>
+
+	<ButtonGroup.Root aria-label="Applicability preset">
+		<Button
+			type="button"
+			variant={currentMode === 'everyone' ? 'secondary' : 'outline'}
+			aria-pressed={currentMode === 'everyone'}
+			onclick={() => applyPreset('everyone')}
+		>
+			Everyone
+		</Button>
+		<Button
+			type="button"
+			variant={currentMode === 'optional' ? 'secondary' : 'outline'}
+			aria-pressed={currentMode === 'optional'}
+			onclick={() => applyPreset('optional')}
+		>
+			Optional
+		</Button>
+		<Button type="button" variant={currentMode === 'custom' ? 'secondary' : 'outline'} disabled>Custom</Button>
+	</ButtonGroup.Root>
 
 	{#if isOptional}
 		<Alert.Root variant="info">
@@ -145,40 +146,28 @@
 	{/if}
 
 	{#if !isOptional}
-		<div class="grid gap-4">
-			<div class="grid gap-3">
-				<div class="flex items-center gap-2">
-					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-						Applies to
-					</span>
-					{#if !hasAppliesTo}
-						<Badge variant="outline">
-							Everyone{exclusionCount > 0 ? ' minus exclusions' : ''}
-						</Badge>
-					{/if}
-				</div>
+		<TypeWorkspace.Disclosure
+			title="Targeting"
+			description="Limit this type by role, MOS, or rank only when everyone is too broad."
+			open={hasAppliesTo}
+		>
+			{#if !hasAppliesTo}
+				<Badge variant="outline">Everyone{exclusionCount > 0 ? ' minus exclusions' : ''}</Badge>
+			{/if}
 
-				{@render dimension('Roles', availableRoles, appliesToRoles, 'appliesToRoles')}
-				{@render dimension('MOS', availableMos, appliesToMos, 'appliesToMos')}
-				{@render dimension('Ranks', availableRanks, appliesToRanks, 'appliesToRanks')}
-			</div>
+			{@render dimension('Roles', availableRoles, appliesToRoles, 'appliesToRoles')}
+			{@render dimension('MOS', availableMos, appliesToMos, 'appliesToMos')}
+			{@render dimension('Ranks', availableRanks, appliesToRanks, 'appliesToRanks')}
+		</TypeWorkspace.Disclosure>
 
-			<div class="border-t border-border pt-4">
-				<Button variant="outline" type="button" onclick={() => (exclusionsExpandedOverride = !showExclusions)}>
-					{showExclusions ? 'Hide exclusions' : 'Exclude specific roles, MOS, or ranks'}
-					{#if !showExclusions && exclusionCount > 0}
-						<Badge variant="destructive">{exclusionCount} excluded</Badge>
-					{/if}
-				</Button>
-
-				{#if showExclusions}
-					<div class="mt-3 grid gap-3">
-						{@render dimension('Excluded roles', availableRoles, excludedRoles, 'excludedRoles', true)}
-						{@render dimension('Excluded MOS', availableMos, excludedMos, 'excludedMos', true)}
-						{@render dimension('Excluded ranks', availableRanks, excludedRanks, 'excludedRanks', true)}
-					</div>
-				{/if}
-			</div>
-		</div>
+		<TypeWorkspace.Disclosure
+			title="Exclusions"
+			description="Remove specific groups from an otherwise broad requirement."
+			open={showExclusions}
+		>
+			{@render dimension('Excluded roles', availableRoles, excludedRoles, 'excludedRoles', true)}
+			{@render dimension('Excluded MOS', availableMos, excludedMos, 'excludedMos', true)}
+			{@render dimension('Excluded ranks', availableRanks, excludedRanks, 'excludedRanks', true)}
+		</TypeWorkspace.Disclosure>
 	{/if}
-</section>
+</TypeWorkspace.Form>

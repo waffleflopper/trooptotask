@@ -105,9 +105,9 @@ describe('TrainingTypesPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
 
-		expect(screen.getByRole('button', { name: 'Medic' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: '68W' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'SGT' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Medic' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('button', { name: '68W' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('button', { name: 'SGT' }).length).toBeGreaterThan(0);
 	});
 
 	it('moves type management actions into the floating page toolbar', () => {

@@ -2,18 +2,17 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 
-	let {
-		ref = $bindable(null),
-		class: className,
-		children,
-		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLElement>> = $props();
+	interface Props extends WithElementRef<HTMLAttributes<HTMLElement>> {
+		mobileHidden?: boolean;
+	}
+
+	let { ref = $bindable(null), class: className, mobileHidden = false, children, ...restProps }: Props = $props();
 </script>
 
 <section
 	bind:this={ref}
 	data-slot="type-management-workspace-detail"
-	class={cn('min-h-0 overflow-y-auto', className)}
+	class={cn('min-h-0 overflow-y-auto', mobileHidden && 'hidden lg:block', className)}
 	{...restProps}
 >
 	{@render children?.()}

@@ -1297,9 +1297,9 @@ Compatibility: `ui/TypeManager.svelte` delegates to `ui/type-manager` so existin
 
 ## `ui/type-workspace`
 
-Shared shadcn-aligned workspace chrome for manage-type pages that need more than the compact modal helper. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, and detail facts.
+Shared shadcn-aligned workspace chrome for manage-type pages that need more than the compact modal helper. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
 
-The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, impact rows, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
+The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, configuration facts, progressive disclosure, mobile back affordance, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
 
 ```svelte
 <script lang="ts">
@@ -1311,7 +1311,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 
 <TypeWorkspace.Root aria-label="Training type management workspace">
 	<TypeWorkspace.Layout>
-		<TypeWorkspace.List>
+		<TypeWorkspace.List mobileHidden={mobileDetailOpen}>
 			<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
 				<TypeWorkspace.ListItem
 					title="Annual Qualification"
@@ -1327,7 +1327,8 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 			</TypeWorkspace.ItemList>
 		</TypeWorkspace.List>
 
-		<TypeWorkspace.Detail>
+		<TypeWorkspace.Detail mobileHidden={!mobileDetailOpen}>
+			<TypeWorkspace.MobileBack onclick={showList}>Training types</TypeWorkspace.MobileBack>
 			<TypeWorkspace.Stack>
 				<TypeWorkspace.DetailHeader title="Annual Qualification" color="#8a5800">
 					{#snippet actions()}
@@ -1346,6 +1347,12 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 					<!-- route-owned radio/checkbox controls inside shared choice chrome -->
 				</TypeWorkspace.Choice>
 
+				<TypeWorkspace.Disclosure title="Targeting" description="Reveal detailed applicability controls only when needed.">
+					<TypeWorkspace.ChoiceGroup>
+						<!-- route-owned chip/button controls -->
+					</TypeWorkspace.ChoiceGroup>
+				</TypeWorkspace.Disclosure>
+
 				<TypeWorkspace.FactList>
 					<TypeWorkspace.Impact label="Expiration">12 months</TypeWorkspace.Impact>
 				</TypeWorkspace.FactList>
@@ -1357,7 +1364,12 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 
 Public components:
 
-- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `Form`, `FormSection`, `Choice`, `Description`, `ColorInput`, `DetailHeader`, `FactList`, `Impact`, `Fact`, `Actions`, `FooterActions`, `ActionSpacer`, `ActionsSpacer`.
+- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `Form`, `FormSection`, `Choice`, `ChoiceGroup`, `Disclosure`, `Description`, `ColorInput`, `MobileBack`, `DetailHeader`, `FactList`, `Impact`, `Fact`, `Actions`, `FooterActions`, `ActionSpacer`, `ActionsSpacer`.
+
+Key props:
+
+- `List` and `Detail`: `mobileHidden?: boolean` hides that pane below the large breakpoint while preserving the shared desktop split.
+- `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups.
 
 Rules:
 
@@ -1366,7 +1378,9 @@ Rules:
 - Use `Form` for repeated edit/create sections instead of route-local bordered fieldset classes.
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
-- Use `Impact` for repeated management facts such as affected records, expiration policy, permission state, and applicability.
+- Use `Impact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Do not put readiness/report metrics in a type manager.
+- Use `Disclosure` and `ChoiceGroup` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
+- Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
 - Prove visual changes in `/ui-showroom` before production routes consume them.
 - `ui/type-workspace` is the target shared gap behind the current training type page. `ui/type-manager` remains the compact modal API for smaller status and assignment managers until those workflows need the full workspace.

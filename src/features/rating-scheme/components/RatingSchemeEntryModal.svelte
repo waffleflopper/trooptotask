@@ -8,10 +8,18 @@
 		calculateThruDate,
 		getExtendedAnnualWarning
 	} from '$features/rating-scheme/utils/ratingScheme';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
+	import * as Select from '$lib/components/ui/select';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
-
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface Props {
 		entry: RatingSchemeEntry | null;
@@ -26,10 +34,8 @@
 	const sortedPersonnel = $derived(
 		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 	);
-
 	const personnelOptions = $derived(sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) })));
 
-	// Form state
 	let ratedPersonId = $state('');
 	let evalType = $state<'OER' | 'NCOER' | 'WOER'>('NCOER');
 	let reportType = $state<ReportType | ''>('');
@@ -57,7 +63,6 @@
 	let saveAttempted = $state(false);
 	let isSaving = $state(false);
 
-	// Reset form state when entry changes (e.g. modal reopened with different data)
 	$effect(() => {
 		ratedPersonId = entry?.ratedPersonId ?? '';
 		evalType = entry?.evalType ?? 'NCOER';
@@ -88,26 +93,29 @@
 	});
 
 	const reportTypeOptions = $derived(getReportTypesForEvalType(evalType));
+	const evalTypeLabel = $derived(
+		evalType === 'OER' ? 'OER (Officer)' : evalType === 'WOER' ? 'WOER (Warrant Officer)' : 'NCOER (NCO)'
+	);
+	const reportTypeLabel = $derived(
+		reportType
+			? (reportTypeOptions.find((option) => option.value === reportType)?.label ?? reportType)
+			: 'Select report type...'
+	);
+	const statusLabel = $derived(
+		status === 'completed' ? 'Completed' : status === 'change-of-rater' ? 'Change of Rater' : 'Active'
+	);
 
-	// Reset report type if eval type changes and current selection is invalid
 	$effect(() => {
-		if (reportType) {
-			const valid = reportTypeOptions.some((o) => o.value === reportType);
-			if (!valid) reportType = '';
-		}
+		if (reportType && !reportTypeOptions.some((o) => o.value === reportType)) reportType = '';
 	});
 
-	// Auto-suggest eval type when rated person changes
 	$effect(() => {
 		if (!entry && ratedPersonId) {
 			const person = personnel.find((p) => p.id === ratedPersonId);
-			if (person) {
-				evalType = getEvalTypeForRank(person.rank);
-			}
+			if (person) evalType = getEvalTypeForRank(person.rank);
 		}
 	});
 
-	// Auto-fill thru date for Annual reports (new entries only)
 	let autoFilledEnd = $state(false);
 	$effect(() => {
 		if (!entry && reportType === 'AN' && ratingPeriodStart && (!ratingPeriodEnd || autoFilledEnd)) {
@@ -117,17 +125,12 @@
 				autoFilledEnd = true;
 			}
 		}
-		if (reportType !== 'AN') {
-			autoFilledEnd = false;
-		}
+		if (reportType !== 'AN') autoFilledEnd = false;
 	});
 
-	// Extended Annual warning
 	const eaWarning = $derived(
 		getExtendedAnnualWarning(reportType || null, evalType, ratingPeriodStart, ratingPeriodEnd)
 	);
-
-	// Filter workflow steps: hide IR/reviewer if those roles aren't populated
 	const filteredWorkflowOptions = $derived.by(() => {
 		const hasIR = showIntermediate && (intermediateRaterPersonId || intermediateRaterName.trim());
 		const hasReviewer = showReviewer && (reviewerPersonId || reviewerName.trim());
@@ -137,7 +140,11 @@
 			return true;
 		});
 	});
-
+	const workflowStatusLabel = $derived(
+		workflowStatus
+			? (filteredWorkflowOptions.find((option) => option.value === workflowStatus)?.label ?? workflowStatus)
+			: 'Select workflow step...'
+	);
 	const missingRequiredLabels = $derived.by(() => {
 		const missing: string[] = [];
 		if (!ratedPersonId) missing.push('rated individual');
@@ -147,7 +154,6 @@
 		if (!ratingPeriodEnd) missing.push('thru date');
 		return missing;
 	});
-
 	const canSave = $derived(missingRequiredLabels.length === 0);
 
 	function getSaveErrorMessage(error: unknown): string {
@@ -192,8 +198,7 @@
 	async function handleDelete() {
 		const deleteHandler = onDelete;
 		if (!entry || typeof deleteHandler !== 'function') return;
-		const id = entry.id;
-		await deleteHandler(id);
+		await deleteHandler(entry.id);
 		onClose();
 	}
 
@@ -202,461 +207,280 @@
 	}
 </script>
 
-<Modal
-	title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'}
-	{onClose}
-	width="550px"
-	titleId="rating-entry-title"
-	canClose={!isSaving}
->
-	{#if saveAttempted && missingRequiredLabels.length > 0}
-		<div class="form-alert" role="alert">
-			<span>Complete required fields</span>
-			<p>Missing: {missingRequiredLabels.join(', ')}.</p>
-		</div>
-	{/if}
-
-	<div class="form-group">
-		<label class="label" for="rated-individual">Rated Individual</label>
-		<SearchSelect
-			id="rated-individual"
-			options={personnelOptions}
-			bind:value={ratedPersonId}
-			placeholder="Search personnel..."
-			disabled={!!entry}
-		/>
-	</div>
-
-	<div class="form-row">
-		<div class="form-group">
-			<label class="label" for="eval-type">Evaluation Type</label>
-			<select id="eval-type" class="select" bind:value={evalType}>
-				<option value="OER">OER (Officer)</option>
-				<option value="NCOER">NCOER (NCO)</option>
-				<option value="WOER">WOER (Warrant Officer)</option>
-			</select>
-		</div>
-		<div class="form-group">
-			<label class="label" for="report-type">Report Type</label>
-			<select id="report-type" class="select" bind:value={reportType}>
-				<option value="">Select report type...</option>
-				{#each reportTypeOptions as opt (opt.value)}
-					<option value={opt.value}>{opt.value} — {opt.label}</option>
-				{/each}
-			</select>
-		</div>
-	</div>
-
-	<fieldset class="rater-section">
-		<legend class="section-legend">Rater <span class="required">*</span></legend>
-		<div class="mode-toggle">
-			<button
-				class="toggle-btn"
-				type="button"
-				class:active={raterMode === 'internal'}
-				onclick={() => (raterMode = 'internal')}>From Org</button
+<AppDialog.Root open closeBlocked={isSaving} {onClose}>
+	<AppDialog.Content size="wide" closeBlocked={isSaving} class="h-[calc(100dvh-2rem)]">
+		<AppDialog.Header>
+			<AppDialog.Title>{entry ? 'Edit Rating Entry' : 'Add Rating Entry'}</AppDialog.Title>
+			<AppDialog.Description
+				>Maintain evaluator relationships, period dates, and workflow tracking.</AppDialog.Description
 			>
-			<button
-				class="toggle-btn"
-				type="button"
-				class:active={raterMode === 'external'}
-				onclick={() => (raterMode = 'external')}>External</button
-			>
-		</div>
-		{#if raterMode === 'internal'}
-			<SearchSelect
-				options={personnelOptions}
-				bind:value={raterPersonId}
-				placeholder="Search rater..."
-				ariaLabel="Rater from organization"
-			/>
-		{:else}
-			<input
-				class="input"
-				type="text"
-				bind:value={raterName}
-				placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)"
-			/>
-		{/if}
-	</fieldset>
+		</AppDialog.Header>
 
-	<fieldset class="rater-section">
-		<legend class="section-legend">Senior Rater <span class="required">*</span></legend>
-		<div class="mode-toggle">
-			<button
-				class="toggle-btn"
-				type="button"
-				class:active={srMode === 'internal'}
-				onclick={() => (srMode = 'internal')}>From Org</button
-			>
-			<button
-				class="toggle-btn"
-				type="button"
-				class:active={srMode === 'external'}
-				onclick={() => (srMode = 'external')}>External</button
-			>
-		</div>
-		{#if srMode === 'internal'}
-			<SearchSelect
-				options={personnelOptions}
-				bind:value={seniorRaterPersonId}
-				placeholder="Search senior rater..."
-				ariaLabel="Senior rater from organization"
-			/>
-		{:else}
-			<input
-				class="input"
-				type="text"
-				bind:value={seniorRaterName}
-				placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
-			/>
-		{/if}
-	</fieldset>
+		<AppDialog.Body class="grid min-h-0 gap-4 overflow-y-auto">
+			{#if saveAttempted && missingRequiredLabels.length > 0}
+				<Alert.Root variant="warning">
+					<Alert.Title>Complete required fields</Alert.Title>
+					<Alert.Description>Missing: {missingRequiredLabels.join(', ')}.</Alert.Description>
+				</Alert.Root>
+			{/if}
 
-	{#if !showIntermediate}
-		<button class="btn-link" type="button" onclick={() => (showIntermediate = true)}>+ Add Intermediate Rater</button>
-	{:else}
-		<fieldset class="rater-section">
-			<legend class="section-legend">
-				Intermediate Rater
-				<button
-					class="btn-remove-section"
-					type="button"
-					onclick={() => {
-						showIntermediate = false;
-						intermediateRaterPersonId = '';
-						intermediateRaterName = '';
-					}}>Remove</button
-				>
-			</legend>
-			<div class="mode-toggle">
-				<button
-					class="toggle-btn"
-					type="button"
-					class:active={irMode === 'internal'}
-					onclick={() => (irMode = 'internal')}>From Org</button
-				>
-				<button
-					class="toggle-btn"
-					type="button"
-					class:active={irMode === 'external'}
-					onclick={() => (irMode = 'external')}>External</button
-				>
-			</div>
-			{#if irMode === 'internal'}
-				<SearchSelect
+			<Field.Root>
+				<Field.Label for="rated-individual">Rated Individual</Field.Label>
+				<SearchCombobox
+					id="rated-individual"
 					options={personnelOptions}
-					bind:value={intermediateRaterPersonId}
-					placeholder="Search intermediate rater..."
-					ariaLabel="Intermediate rater from organization"
+					bind:value={ratedPersonId}
+					disabled={!!entry}
+					placeholder="Search personnel..."
+					ariaLabel="Rated individual"
 				/>
-			{:else}
-				<input class="input" type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
-			{/if}
-		</fieldset>
-	{/if}
+			</Field.Root>
 
-	{#if !showReviewer}
-		<button class="btn-link" type="button" onclick={() => (showReviewer = true)}>+ Add Reviewer</button>
-	{:else}
-		<fieldset class="rater-section">
-			<legend class="section-legend">
-				Reviewer
-				<button
-					class="btn-remove-section"
-					type="button"
-					onclick={() => {
-						showReviewer = false;
-						reviewerPersonId = '';
-						reviewerName = '';
-					}}>Remove</button
-				>
-			</legend>
-			<div class="mode-toggle">
-				<button
-					class="toggle-btn"
-					type="button"
-					class:active={rvMode === 'internal'}
-					onclick={() => (rvMode = 'internal')}>From Org</button
-				>
-				<button
-					class="toggle-btn"
-					type="button"
-					class:active={rvMode === 'external'}
-					onclick={() => (rvMode = 'external')}>External</button
-				>
+			<div class="grid gap-4 sm:grid-cols-2">
+				<Field.Root>
+					<Field.Label for="eval-type">Evaluation Type</Field.Label>
+					<Select.Root type="single" bind:value={evalType}>
+						<Select.Trigger id="eval-type" class="w-full">{evalTypeLabel}</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="OER" label="OER (Officer)" />
+							<Select.Item value="NCOER" label="NCOER (NCO)" />
+							<Select.Item value="WOER" label="WOER (Warrant Officer)" />
+						</Select.Content>
+					</Select.Root>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="report-type">Report Type</Field.Label>
+					<Select.Root type="single" bind:value={reportType}>
+						<Select.Trigger id="report-type" class="w-full">{reportTypeLabel}</Select.Trigger>
+						<Select.Content>
+							{#each reportTypeOptions as opt (opt.value)}
+								<Select.Item value={opt.value} label={`${opt.value} - ${opt.label}`} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</Field.Root>
 			</div>
-			{#if rvMode === 'internal'}
-				<SearchSelect
-					options={personnelOptions}
-					bind:value={reviewerPersonId}
-					placeholder="Search reviewer..."
-					ariaLabel="Reviewer from organization"
-				/>
+
+			<Field.Set class="rounded-lg border bg-muted/20 p-4">
+				<Field.Legend>Rater *</Field.Legend>
+				<ButtonGroup.Root aria-label="Rater source">
+					<Button
+						variant={raterMode === 'internal' ? 'secondary' : 'outline'}
+						aria-pressed={raterMode === 'internal'}
+						onclick={() => (raterMode = 'internal')}>From Org</Button
+					>
+					<Button
+						variant={raterMode === 'external' ? 'secondary' : 'outline'}
+						aria-pressed={raterMode === 'external'}
+						onclick={() => (raterMode = 'external')}>External</Button
+					>
+				</ButtonGroup.Root>
+				{#if raterMode === 'internal'}
+					<SearchCombobox
+						options={personnelOptions}
+						bind:value={raterPersonId}
+						placeholder="Search rater..."
+						ariaLabel="Rater from organization"
+					/>
+				{:else}
+					<Input type="text" bind:value={raterName} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
+				{/if}
+			</Field.Set>
+
+			<Field.Set class="rounded-lg border bg-muted/20 p-4">
+				<Field.Legend>Senior Rater *</Field.Legend>
+				<ButtonGroup.Root aria-label="Senior rater source">
+					<Button
+						variant={srMode === 'internal' ? 'secondary' : 'outline'}
+						aria-pressed={srMode === 'internal'}
+						onclick={() => (srMode = 'internal')}>From Org</Button
+					>
+					<Button
+						variant={srMode === 'external' ? 'secondary' : 'outline'}
+						aria-pressed={srMode === 'external'}
+						onclick={() => (srMode = 'external')}>External</Button
+					>
+				</ButtonGroup.Root>
+				{#if srMode === 'internal'}
+					<SearchCombobox
+						options={personnelOptions}
+						bind:value={seniorRaterPersonId}
+						placeholder="Search senior rater..."
+						ariaLabel="Senior rater from organization"
+					/>
+				{:else}
+					<Input
+						type="text"
+						bind:value={seniorRaterName}
+						placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
+					/>
+				{/if}
+			</Field.Set>
+
+			{#if !showIntermediate}
+				<Button variant="ghost" class="w-fit" onclick={() => (showIntermediate = true)}>Add Intermediate Rater</Button>
 			{:else}
-				<input class="input" type="text" bind:value={reviewerName} placeholder="Rank, Name, Position" />
+				<Field.Set class="rounded-lg border bg-muted/20 p-4">
+					<div class="flex items-center justify-between gap-2">
+						<Field.Legend>Intermediate Rater</Field.Legend>
+						<Button
+							variant="destructive"
+							size="sm"
+							onclick={() => {
+								showIntermediate = false;
+								intermediateRaterPersonId = '';
+								intermediateRaterName = '';
+							}}>Remove</Button
+						>
+					</div>
+					<ButtonGroup.Root aria-label="Intermediate rater source">
+						<Button
+							variant={irMode === 'internal' ? 'secondary' : 'outline'}
+							aria-pressed={irMode === 'internal'}
+							onclick={() => (irMode = 'internal')}>From Org</Button
+						>
+						<Button
+							variant={irMode === 'external' ? 'secondary' : 'outline'}
+							aria-pressed={irMode === 'external'}
+							onclick={() => (irMode = 'external')}>External</Button
+						>
+					</ButtonGroup.Root>
+					{#if irMode === 'internal'}
+						<SearchCombobox
+							options={personnelOptions}
+							bind:value={intermediateRaterPersonId}
+							placeholder="Search intermediate rater..."
+							ariaLabel="Intermediate rater from organization"
+						/>
+					{:else}
+						<Input type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
+					{/if}
+				</Field.Set>
 			{/if}
-		</fieldset>
-	{/if}
 
-	<div class="form-row">
-		<div class="form-group">
-			<label class="label" for="period-start">Rating Period Start</label>
-			<input id="period-start" type="date" class="input" bind:value={ratingPeriodStart} />
-		</div>
-		<div class="form-group">
-			<label class="label" for="period-end">Thru Date (Due)</label>
-			<input id="period-end" type="date" class="input" bind:value={ratingPeriodEnd} />
-		</div>
-	</div>
+			{#if !showReviewer}
+				<Button variant="ghost" class="w-fit" onclick={() => (showReviewer = true)}>Add Reviewer</Button>
+			{:else}
+				<Field.Set class="rounded-lg border bg-muted/20 p-4">
+					<div class="flex items-center justify-between gap-2">
+						<Field.Legend>Reviewer</Field.Legend>
+						<Button
+							variant="destructive"
+							size="sm"
+							onclick={() => {
+								showReviewer = false;
+								reviewerPersonId = '';
+								reviewerName = '';
+							}}>Remove</Button
+						>
+					</div>
+					<ButtonGroup.Root aria-label="Reviewer source">
+						<Button
+							variant={rvMode === 'internal' ? 'secondary' : 'outline'}
+							aria-pressed={rvMode === 'internal'}
+							onclick={() => (rvMode = 'internal')}>From Org</Button
+						>
+						<Button
+							variant={rvMode === 'external' ? 'secondary' : 'outline'}
+							aria-pressed={rvMode === 'external'}
+							onclick={() => (rvMode = 'external')}>External</Button
+						>
+					</ButtonGroup.Root>
+					{#if rvMode === 'internal'}
+						<SearchCombobox
+							options={personnelOptions}
+							bind:value={reviewerPersonId}
+							placeholder="Search reviewer..."
+							ariaLabel="Reviewer from organization"
+						/>
+					{:else}
+						<Input type="text" bind:value={reviewerName} placeholder="Rank, Name, Position" />
+					{/if}
+				</Field.Set>
+			{/if}
 
-	{#if eaWarning}
-		<div class="warning-banner">{eaWarning}</div>
-	{/if}
-
-	<div class="form-group">
-		<label class="label" for="entry-status">Status</label>
-		<select id="entry-status" class="select" bind:value={status}>
-			<option value="active">Active</option>
-			<option value="completed">Completed</option>
-			<option value="change-of-rater">Change of Rater</option>
-		</select>
-	</div>
-
-	{#if !showWorkflow}
-		<button class="btn-link" type="button" onclick={() => (showWorkflow = true)}>+ Track Workflow</button>
-	{:else}
-		<div class="form-group workflow-group">
-			<div class="workflow-header">
-				<label class="label" for="workflow-status">Workflow Status</label>
-				<button
-					class="btn-remove-section"
-					type="button"
-					onclick={() => {
-						showWorkflow = false;
-						workflowStatus = '';
-					}}>Remove</button
-				>
+			<div class="grid gap-4 sm:grid-cols-2">
+				<Field.Root>
+					<Field.Label for="period-start">Rating Period Start</Field.Label>
+					<DatePicker id="period-start" bind:value={ratingPeriodStart} placeholder="Select start date" />
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="period-end">Thru Date (Due)</Field.Label>
+					<DatePicker id="period-end" bind:value={ratingPeriodEnd} placeholder="Select thru date" />
+				</Field.Root>
 			</div>
-			<select id="workflow-status" class="select" bind:value={workflowStatus}>
-				<option value="">Select workflow step...</option>
-				{#each filteredWorkflowOptions as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
-		</div>
-	{/if}
 
-	<div class="form-group">
-		<label class="label" for="entry-notes">Notes</label>
-		<textarea id="entry-notes" class="input" rows="2" bind:value={notes} placeholder="Optional notes..."></textarea>
-	</div>
-
-	{#snippet footer()}
-		{#if entry && onDelete}
-			{#if showDeleteConfirm}
-				<span class="delete-confirm-text">Delete this entry?</span>
-				<button class="btn btn-danger btn-sm" type="button" onclick={handleDelete}>Yes, Delete</button>
-				<button class="btn btn-secondary btn-sm" type="button" onclick={() => (showDeleteConfirm = false)}>No</button>
-			{:else}
-				<button class="btn btn-danger" type="button" onclick={() => (showDeleteConfirm = true)}>Delete</button>
+			{#if eaWarning}
+				<Alert.Root variant="warning">
+					<Alert.Description>{eaWarning}</Alert.Description>
+				</Alert.Root>
 			{/if}
-		{/if}
-		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose} disabled={isSaving}>Cancel</button>
-		<button class="btn btn-primary" type="button" disabled={isSaving} onclick={handleSave}>
-			{isSaving ? 'Saving...' : 'Save'}
-		</button>
-	{/snippet}
-</Modal>
 
-<style>
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--field-stack-gap);
-		margin-bottom: var(--sp-4);
-	}
+			<Field.Root>
+				<Field.Label for="entry-status">Status</Field.Label>
+				<Select.Root type="single" bind:value={status}>
+					<Select.Trigger id="entry-status" class="w-full">{statusLabel}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="active" label="Active" />
+						<Select.Item value="completed" label="Completed" />
+						<Select.Item value="change-of-rater" label="Change of Rater" />
+					</Select.Content>
+				</Select.Root>
+			</Field.Root>
 
-	.form-alert {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--border-default) 68%);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
-		color: var(--amber-dark);
-	}
+			{#if !showWorkflow}
+				<Button variant="ghost" class="w-fit" onclick={() => (showWorkflow = true)}>Track Workflow</Button>
+			{:else}
+				<Field.Set class="rounded-lg border bg-muted/20 p-4">
+					<div class="flex items-center justify-between gap-2">
+						<Field.Legend>Workflow Status</Field.Legend>
+						<Button
+							variant="destructive"
+							size="sm"
+							onclick={() => {
+								showWorkflow = false;
+								workflowStatus = '';
+							}}>Remove</Button
+						>
+					</div>
+					<Select.Root type="single" bind:value={workflowStatus}>
+						<Select.Trigger id="workflow-status" class="w-full">{workflowStatusLabel}</Select.Trigger>
+						<Select.Content>
+							{#each filteredWorkflowOptions as opt (opt.value)}
+								<Select.Item value={opt.value} label={opt.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</Field.Set>
+			{/if}
 
-	.form-alert span {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
+			<Field.Root>
+				<Field.Label for="entry-notes">Notes</Field.Label>
+				<Textarea id="entry-notes" rows={2} bind:value={notes} placeholder="Optional notes..." />
+			</Field.Root>
+		</AppDialog.Body>
 
-	.form-alert p {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.45;
-	}
+		<AppDialog.Footer>
+			{#if entry && onDelete}
+				<Button variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
+			{/if}
+			<Button variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
+			<Button disabled={isSaving} onclick={handleSave}>{isSaving ? 'Saving...' : 'Save'}</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
-	.label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--field-label);
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--sp-4);
-		margin-bottom: var(--sp-4);
-	}
-
-	.rater-section {
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		margin-bottom: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-	}
-
-	.section-legend {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.required {
-		color: var(--danger);
-	}
-
-	.mode-toggle {
-		display: flex;
-		gap: 0;
-		margin-bottom: var(--sp-3);
-	}
-
-	.toggle-btn {
-		appearance: none;
-		flex: 1;
-		min-height: 32px;
-		padding: 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		border: var(--border-thin);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.toggle-btn:first-child {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-
-	.toggle-btn:last-child {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-		border-left: none;
-	}
-
-	.toggle-btn.active {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber);
-		color: var(--amber-dark);
-	}
-
-	.btn-link {
-		appearance: none;
-		background: none;
-		border: none;
-		color: var(--amber-dark);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		cursor: pointer;
-		padding: 0;
-		margin-bottom: var(--sp-4);
-	}
-
-	.btn-link:hover {
-		text-decoration: underline;
-	}
-
-	.btn-remove-section {
-		appearance: none;
-		background: none;
-		border: none;
-		color: var(--danger);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		cursor: pointer;
-		margin-left: auto;
-	}
-
-	.btn-remove-section:hover {
-		text-decoration: underline;
-	}
-
-	.delete-confirm-text {
-		font-size: var(--text-sm);
-		color: var(--danger);
-	}
-
-	.warning-banner {
-		background: color-mix(in srgb, var(--amber-light) 76%, var(--surface-panel) 24%);
-		border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
-		border-radius: var(--radius-md);
-		padding: var(--sp-3) var(--sp-4);
-		font-size: var(--text-sm);
-		color: var(--amber-dark);
-		margin-bottom: var(--sp-4);
-	}
-
-	.workflow-group {
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-	}
-
-	.workflow-header {
-		display: flex;
-		align-items: center;
-		margin-bottom: var(--sp-3);
-	}
-
-	.workflow-header .label {
-		margin-bottom: 0;
-	}
-
-	@media (max-width: 640px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
+<AlertDialog.Root open={showDeleteConfirm} onOpenChange={(open) => (showDeleteConfirm = open)}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Delete this entry?</AlertDialog.Title>
+			<AlertDialog.Description>
+				This removes the rating scheme entry. Continue only if this evaluation record should no longer be tracked.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<Button variant="outline" onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
+			<Button variant="destructive" onclick={handleDelete}>Delete Entry</Button>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

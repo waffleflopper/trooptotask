@@ -1,5 +1,4 @@
 <script lang="ts">
-	import './dutyRosterTemplateWorkspace.css';
 	import DutyRosterGenerateView from './DutyRosterGenerateView.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -68,7 +67,7 @@
 	<title>Duty Rosters - Troop to Task</title>
 </svelte:head>
 
-<section class="duty-roster-workspace" aria-labelledby="duty-roster-title">
+<section class="flex min-h-[calc(100dvh-4rem)] w-full flex-col text-foreground" aria-labelledby="duty-roster-title">
 	{#if selectedTemplate && !isNewTemplate}
 		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} {selectedView}</h1>
 	{:else if isNewTemplate}
@@ -78,35 +77,39 @@
 	{/if}
 
 	{#if isNewTemplate}
-		<DutyRosterNewTemplateWorkspace
-			{basePath}
-			{createWizardAction}
-			{actionForm}
-			{rankOptions}
-			{groupOptions}
-			{mosOptions}
-			{dutyRoleOptions}
-			setupPersonnel={workspace.setupPersonnel}
-			bind:newTemplateStep
-			bind:newTemplateName
-			bind:newTemplateSlug
-			bind:newTemplateShortCode
-			bind:rankFilterValues
-			bind:groupFilterValues
-			bind:mosFilterValues
-			bind:dutyRoleFilterValues
-			bind:wizardExemptPersonnelIds
-			bind:wizardBaselineCounts
-		/>
+		<div class="p-5">
+			<DutyRosterNewTemplateWorkspace
+				{basePath}
+				{createWizardAction}
+				{actionForm}
+				{rankOptions}
+				{groupOptions}
+				{mosOptions}
+				{dutyRoleOptions}
+				setupPersonnel={workspace.setupPersonnel}
+				bind:newTemplateStep
+				bind:newTemplateName
+				bind:newTemplateSlug
+				bind:newTemplateShortCode
+				bind:rankFilterValues
+				bind:groupFilterValues
+				bind:mosFilterValues
+				bind:dutyRoleFilterValues
+				bind:wizardExemptPersonnelIds
+				bind:wizardBaselineCounts
+			/>
+		</div>
 	{:else if !selectedTemplate}
 		<DutyRosterTemplateRegister {basePath} templates={data.templates} setupOptions={data.setupOptions ?? null} />
 	{:else}
-		<div class="template-detail-workspace">
+		<div class="grid min-w-0 gap-5 p-5">
 			{#if actionForm?.error}
-				<p class="form-error" role="alert">{actionForm.error}</p>
+				<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+					{actionForm.error}
+				</p>
 			{/if}
 
-			<Tabs.Root value={selectedView} class="mb-4">
+			<Tabs.Root value={selectedView} class="mb-1">
 				<Tabs.List class="h-auto w-full flex-wrap justify-start" aria-label="Duty Roster Template views">
 					{#each viewTabs as tab (tab.id)}
 						<Tabs.Trigger
@@ -122,14 +125,14 @@
 						>
 							<span class="grid gap-0.5 text-left">
 								<span>{tab.label}</span>
-								<small class="text-muted-foreground text-[0.7rem] font-normal">{tab.note}</small>
+								<small class="text-[0.7rem] font-normal text-muted-foreground">{tab.note}</small>
 							</span>
 						</Tabs.Trigger>
 					{/each}
 				</Tabs.List>
 			</Tabs.Root>
 
-			<main class="view-panel" aria-labelledby="template-view-heading">
+			<main class="grid min-w-0 gap-4" aria-labelledby="template-view-heading">
 				{#if selectedView === 'generate'}
 					{#if generateWorkspace}
 						<DutyRosterGenerateView generate={generateWorkspace} />

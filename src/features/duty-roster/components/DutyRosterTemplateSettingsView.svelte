@@ -152,23 +152,21 @@
 
 <h2 id="template-view-heading" class="sr-only">Duty Roster Template settings</h2>
 {#if actionForm?.settingsError}
-	<p class="form-error settings-error" role="alert">{actionForm.settingsError}</p>
+	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{actionForm.settingsError}</p>
 {/if}
 
 {#if templateSettings}
-	<form class="settings-form settings-form--ledger" method="POST" action={settingsAction}>
+	<form class="grid gap-0" method="POST" action={settingsAction}>
 		<input type="hidden" name="templateId" value={selectedTemplate.id} />
 
-		<div class="settings-ledger-shell">
-			<div class="settings-ledger-main">
-				<section class="settings-section settings-section--general" aria-labelledby="template-identity-heading">
-					<div class="settings-section-heading">
-						<span class="settings-step">01</span>
-						<div>
-							<h4 id="template-identity-heading">Template Identity</h4>
-						</div>
+		<div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+			<div class="grid content-start gap-6 p-1">
+				<section class="grid gap-4" aria-labelledby="template-identity-heading">
+					<div class="flex items-center gap-3">
+						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">01</span>
+						<h4 id="template-identity-heading" class="text-sm font-semibold text-foreground">Template Identity</h4>
 					</div>
-					<div class="identity-grid identity-grid--ledger">
+					<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 						<Field.Root>
 							<Field.Label for="settings-template-name">Template name</Field.Label>
 							<Input id="settings-template-name" name="name" maxlength={120} required bind:value={settingsName} />
@@ -177,7 +175,7 @@
 							<Field.Label for="settings-template-slug">Template slug</Field.Label>
 							<Input id="settings-template-slug" name="slug" maxlength={72} required bind:value={settingsSlug} />
 						</Field.Root>
-						<Field.Root class="short-code-field">
+						<Field.Root>
 							<Field.Label for="settings-template-short-code">Short code</Field.Label>
 							<Input
 								id="settings-template-short-code"
@@ -189,22 +187,20 @@
 						</Field.Root>
 						<Field.Root>
 							<Field.Label>Status</Field.Label>
-							<Badge variant={selectedTemplate.status === 'active' ? 'success' : 'secondary'}>
+							<Badge variant={selectedTemplate.status === 'active' ? 'success' : 'secondary'} class="w-fit">
 								{selectedTemplate.status === 'active' ? 'Active' : 'Archived'}
 							</Badge>
 						</Field.Root>
 					</div>
 				</section>
 
-				<section class="settings-section" aria-labelledby="pool-criteria-heading">
-					<div class="settings-section-heading">
-						<span class="settings-step">02</span>
-						<div>
-							<h4 id="pool-criteria-heading">Eligibility Rules</h4>
-						</div>
+				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="pool-criteria-heading">
+					<div class="flex items-center gap-3">
+						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">02</span>
+						<h4 id="pool-criteria-heading" class="text-sm font-semibold text-foreground">Eligibility Rules</h4>
 					</div>
-					<div class="criteria-grid">
-						<Field.Root class="tag-field">
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root>
 							<Field.Label>Included ranks</Field.Label>
 							<MultiSelect.Root
 								items={optionItems(settings.rankOptions)}
@@ -230,7 +226,7 @@
 								</MultiSelect.Content>
 							</MultiSelect.Root>
 						</Field.Root>
-						<Field.Root class="tag-field">
+						<Field.Root>
 							<Field.Label>Included groups</Field.Label>
 							<MultiSelect.Root
 								items={groupOptionItems(settings.groupOptions)}
@@ -256,7 +252,7 @@
 								</MultiSelect.Content>
 							</MultiSelect.Root>
 						</Field.Root>
-						<Field.Root class="tag-field">
+						<Field.Root>
 							<Field.Label>Included MOS</Field.Label>
 							<MultiSelect.Root
 								items={optionItems(settings.mosOptions)}
@@ -282,7 +278,7 @@
 								</MultiSelect.Content>
 							</MultiSelect.Root>
 						</Field.Root>
-						<Field.Root class="tag-field">
+						<Field.Root>
 							<Field.Label>Duty roles</Field.Label>
 							<MultiSelect.Root
 								items={optionItems(settings.dutyRoleOptions)}
@@ -309,7 +305,7 @@
 							</MultiSelect.Root>
 						</Field.Root>
 					</div>
-					<p class="field-hint">Soldiers must meet all selected criteria to be eligible for this duty.</p>
+					<p class="text-xs text-muted-foreground">Soldiers must meet all selected criteria to be eligible for this duty.</p>
 				</section>
 				{#each rankFilterValues as value (value)}
 					<input type="hidden" name="rankValues" {value} />
@@ -324,27 +320,29 @@
 					<input type="hidden" name="dutyRoleValues" {value} />
 				{/each}
 
-				<p class="settings-impact-note settings-impact-note--top">
+				<p class="rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
 					Future runs only. Accepted runs and historical assignments will not be changed.
 				</p>
 
-				<section class="settings-section settings-section--table" aria-labelledby="pool-preview-heading">
-					<div class="settings-section-heading settings-section-heading--split">
-						<span class="settings-step">03</span>
-						<div>
-							<h4 id="pool-preview-heading">Individual Exclusions</h4>
+				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="pool-preview-heading">
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex items-center gap-3">
+							<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">03</span>
+							<h4 id="pool-preview-heading" class="text-sm font-semibold text-foreground">Individual Exclusions</h4>
 						</div>
-						<div class="settings-section-stat">
-							<strong>{settingsExemptPersonnelIds.length}</strong>
-							<span>Excluded</span>
+						<div class="flex items-center gap-2 font-mono text-xs">
+							<strong class="text-foreground">{settingsExemptPersonnelIds.length}</strong>
+							<span class="text-muted-foreground">Excluded</span>
 						</div>
 					</div>
-					<p class="field-hint">These Soldiers will be excluded from eligibility for this duty.</p>
+					<p class="text-xs text-muted-foreground">These Soldiers will be excluded from eligibility for this duty.</p>
 					{#if templateSettings.resolvedPool.length === 0}
-						<div class="admin-empty">No active Personnel Records match the current pool criteria.</div>
+						<div class="grid place-items-center gap-2 px-5 py-8 text-center text-sm text-muted-foreground">
+							No active Personnel Records match the current pool criteria.
+						</div>
 					{:else}
-						<div class="settings-table-tools" aria-label="Individual exclusion table tools">
-							<Field.Root class="settings-table-search">
+						<div class="flex flex-wrap items-end gap-3" aria-label="Individual exclusion table tools">
+							<Field.Root class="w-56">
 								<Field.Label for="settings-exemption-search">Search pool</Field.Label>
 								<Input
 									id="settings-exemption-search"
@@ -353,47 +351,49 @@
 									bind:value={exemptionQuery}
 								/>
 							</Field.Root>
-							<Field.Root orientation="horizontal" class="settings-toggle">
+							<Field.Root orientation="horizontal" class="flex items-center gap-2">
 								<Switch id="settings-show-excluded-only" bind:checked={showExcludedOnly} />
 								<Field.Label for="settings-show-excluded-only">Show excluded only</Field.Label>
 							</Field.Root>
-							<p>
+							<p class="text-xs text-muted-foreground">
 								Showing {visibleExemptionRows.length} of {filteredExemptionRows.length}
 								matching Soldiers
 							</p>
 						</div>
-						<div class="pool-table admin-table-shell" role="table" aria-label="Resolved Duty Roster pool">
-							<div class="pool-row pool-head" role="row">
-								<span role="columnheader">Rank</span>
-								<span role="columnheader">Name</span>
-								<span role="columnheader">MOS</span>
-								<span role="columnheader">Group</span>
-								<span role="columnheader">Exempt</span>
-							</div>
-							{#each visibleExemptionRows as person (person.id)}
-								<div class="pool-row" role="row">
-									<span role="cell">{person.rank}</span>
-									<span role="cell">{person.lastName}, {person.firstName}</span>
-									<span role="cell">{person.mos || '-'}</span>
-									<span role="cell">{person.groupName || 'No Group'}</span>
-									<span role="cell">
-										<Checkbox
-											name="exemptPersonnelIds"
-											value={person.id}
-											aria-label={`Exclude ${person.rank} ${person.lastName}, ${person.firstName}`}
-											checked={settingsExemptPersonnelIdSet.has(person.id)}
-											onCheckedChange={(checked) => {
-												settingsExemptPersonnelIds = checked
-													? [...settingsExemptPersonnelIds, person.id]
-													: settingsExemptPersonnelIds.filter((id) => id !== person.id);
-											}}
-										/>
-									</span>
+						<div class="overflow-x-auto rounded-md border border-border">
+							<div class="min-w-[40rem]" role="table" aria-label="Resolved Duty Roster pool">
+								<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground" role="row">
+									<span class="px-3 py-2" role="columnheader">Rank</span>
+									<span class="px-3 py-2" role="columnheader">Name</span>
+									<span class="px-3 py-2" role="columnheader">MOS</span>
+									<span class="px-3 py-2" role="columnheader">Group</span>
+									<span class="px-3 py-2" role="columnheader">Exempt</span>
 								</div>
-							{/each}
-							{#if visibleExemptionRows.length === 0}
-								<div class="settings-table-empty">No Soldiers match the current table view.</div>
-							{/if}
+								{#each visibleExemptionRows as person (person.id)}
+									<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border text-sm last:border-b-0" role="row">
+										<span class="px-3 py-2 font-mono text-xs" role="cell">{person.rank}</span>
+										<span class="px-3 py-2" role="cell">{person.lastName}, {person.firstName}</span>
+										<span class="px-3 py-2 font-mono text-xs" role="cell">{person.mos || '-'}</span>
+										<span class="px-3 py-2 text-muted-foreground" role="cell">{person.groupName || 'No Group'}</span>
+										<span class="px-3 py-2" role="cell">
+											<Checkbox
+												name="exemptPersonnelIds"
+												value={person.id}
+												aria-label={`Exclude ${person.rank} ${person.lastName}, ${person.firstName}`}
+												checked={settingsExemptPersonnelIdSet.has(person.id)}
+												onCheckedChange={(checked) => {
+													settingsExemptPersonnelIds = checked
+														? [...settingsExemptPersonnelIds, person.id]
+														: settingsExemptPersonnelIds.filter((id) => id !== person.id);
+												}}
+											/>
+										</span>
+									</div>
+								{/each}
+								{#if visibleExemptionRows.length === 0}
+									<div class="px-4 py-6 text-center text-sm text-muted-foreground">No Soldiers match the current table view.</div>
+								{/if}
+							</div>
 						</div>
 						{#each hiddenExemptPersonnelIds as personnelId (personnelId)}
 							<input type="hidden" name="exemptPersonnelIds" value={personnelId} />
@@ -401,25 +401,25 @@
 					{/if}
 				</section>
 
-				<section class="settings-section settings-section--table" aria-labelledby="baseline-heading">
-					<div class="settings-section-heading">
-						<span class="settings-step">04</span>
-						<div>
-							<h4 id="baseline-heading">DA6 Continuity</h4>
-						</div>
+				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="baseline-heading">
+					<div class="flex items-center gap-3">
+						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">04</span>
+						<h4 id="baseline-heading" class="text-sm font-semibold text-foreground">DA6 Continuity</h4>
 					</div>
-					<p class="field-hint">Adjust starting duty counts for these Soldiers for the next run.</p>
+					<p class="text-xs text-muted-foreground">Adjust starting duty counts for these Soldiers for the next run.</p>
 					{#if baselineLocked}
-						<p class="admin-alert admin-alert--warning">
+						<p class="rounded-md border border-warning/50 bg-warning-muted px-4 py-3 text-sm text-warning-foreground">
 							Manual DA6 Baseline is locked. This template already has accepted history, so future previews use the
 							accepted runs for DA6 continuity.
 						</p>
 					{/if}
 					{#if templateSettings.baselineRows.length === 0}
-						<div class="admin-empty">No baseline rows are available until the non-exempt pool has members.</div>
+						<div class="grid place-items-center gap-2 px-5 py-8 text-center text-sm text-muted-foreground">
+							No baseline rows are available until the non-exempt pool has members.
+						</div>
 					{:else}
-						<div class="settings-table-tools" aria-label="DA6 baseline table tools">
-							<Field.Root class="settings-table-search">
+						<div class="flex flex-wrap items-end gap-3" aria-label="DA6 baseline table tools">
+							<Field.Root class="w-56">
 								<Field.Label for="settings-baseline-search">Search baseline</Field.Label>
 								<Input
 									id="settings-baseline-search"
@@ -428,60 +428,63 @@
 									bind:value={baselineQuery}
 								/>
 							</Field.Root>
-							<Field.Root orientation="horizontal" class="settings-toggle">
+							<Field.Root orientation="horizontal" class="flex items-center gap-2">
 								<Switch id="settings-show-baseline-counts-only" bind:checked={showBaselineCountsOnly} />
 								<Field.Label for="settings-show-baseline-counts-only">Show counted only</Field.Label>
 							</Field.Root>
-							<p>
+							<p class="text-xs text-muted-foreground">
 								Showing {visibleBaselineRows.length} of {filteredBaselineRows.length}
 								matching Soldiers
 							</p>
 						</div>
-						<div class="baseline-list admin-table-shell" role="table" aria-label="Manual DA6 baseline">
-							<div class="baseline-row baseline-head" role="row">
-								<span role="columnheader">Rank</span>
-								<span role="columnheader">Name</span>
-								<span role="columnheader">MOS</span>
-								<span role="columnheader">Group</span>
-								<span role="columnheader">Count</span>
-							</div>
-							{#each visibleBaselineRows as row (row.personnel.id)}
-								<div class="baseline-row" role="row">
-									<span role="cell">{row.personnel.rank}</span>
-									<span role="cell">{row.personnel.lastName}, {row.personnel.firstName}</span>
-									<span role="cell">{row.personnel.mos || '-'}</span>
-									<span role="cell">{row.personnel.groupName || 'No Group'}</span>
-									<span role="cell">
-										{#if baselineLocked}
-											<span class="baseline-count-value">{settingsBaselineCounts[row.personnel.id] || '0'}</span>
-											<input
-												type="hidden"
-												name={`baseline:${row.personnel.id}`}
-												value={settingsBaselineCounts[row.personnel.id] ?? ''}
-											/>
-										{:else}
-											<Input
-												type="number"
-												min={0}
-												step={1}
-												name={`baseline:${row.personnel.id}`}
-												value={settingsBaselineCounts[row.personnel.id] ?? ''}
-												aria-label={`Starting count for ${soldierLabel(row.personnel)}`}
-												placeholder="Count"
-												oninput={(event) => {
-													settingsBaselineCounts = {
-														...settingsBaselineCounts,
-														[row.personnel.id]: event.currentTarget.value
-													};
-												}}
-											/>
-										{/if}
-									</span>
+						<div class="overflow-x-auto rounded-md border border-border">
+							<div class="min-w-[40rem]" role="table" aria-label="Manual DA6 baseline">
+								<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground" role="row">
+									<span class="px-3 py-2" role="columnheader">Rank</span>
+									<span class="px-3 py-2" role="columnheader">Name</span>
+									<span class="px-3 py-2" role="columnheader">MOS</span>
+									<span class="px-3 py-2" role="columnheader">Group</span>
+									<span class="px-3 py-2" role="columnheader">Count</span>
 								</div>
-							{/each}
-							{#if visibleBaselineRows.length === 0}
-								<div class="settings-table-empty">No baseline rows match the current table view.</div>
-							{/if}
+								{#each visibleBaselineRows as row (row.personnel.id)}
+									<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border text-sm last:border-b-0" role="row">
+										<span class="px-3 py-2 font-mono text-xs" role="cell">{row.personnel.rank}</span>
+										<span class="px-3 py-2" role="cell">{row.personnel.lastName}, {row.personnel.firstName}</span>
+										<span class="px-3 py-2 font-mono text-xs" role="cell">{row.personnel.mos || '-'}</span>
+										<span class="px-3 py-2 text-muted-foreground" role="cell">{row.personnel.groupName || 'No Group'}</span>
+										<span class="px-3 py-2" role="cell">
+											{#if baselineLocked}
+												<span class="font-mono text-xs font-semibold text-foreground">{settingsBaselineCounts[row.personnel.id] || '0'}</span>
+												<input
+													type="hidden"
+													name={`baseline:${row.personnel.id}`}
+													value={settingsBaselineCounts[row.personnel.id] ?? ''}
+												/>
+											{:else}
+												<Input
+													type="number"
+													min={0}
+													step={1}
+													name={`baseline:${row.personnel.id}`}
+													value={settingsBaselineCounts[row.personnel.id] ?? ''}
+													aria-label={`Starting count for ${soldierLabel(row.personnel)}`}
+													placeholder="0"
+													class="h-8 w-16"
+													oninput={(event) => {
+														settingsBaselineCounts = {
+															...settingsBaselineCounts,
+															[row.personnel.id]: event.currentTarget.value
+														};
+													}}
+												/>
+											{/if}
+										</span>
+									</div>
+								{/each}
+								{#if visibleBaselineRows.length === 0}
+									<div class="px-4 py-6 text-center text-sm text-muted-foreground">No baseline rows match the current table view.</div>
+								{/if}
+							</div>
 						</div>
 						{#each hiddenBaselineRows as row (row.personnel.id)}
 							<input
@@ -493,9 +496,9 @@
 					{/if}
 				</section>
 
-				<div class="settings-save-strip" aria-label="Settings save actions">
-					<span>Future runs only</span>
-					<div class="settings-actions">
+				<div class="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-border bg-background px-4 py-3" aria-label="Settings save actions">
+					<span class="text-xs text-muted-foreground">Future runs only</span>
+					<div class="flex items-center gap-2">
 						<Button
 							variant="outline"
 							href={`${settings.basePath}/${selectedTemplate.slug}/generate`}
@@ -506,60 +509,60 @@
 				</div>
 			</div>
 
-			<aside class="settings-ledger-rail" aria-label="Template summary">
-				<section class="settings-rail-card">
-					<h3><UsersRound size={20} aria-hidden="true" /> Template Summary</h3>
-					<dl>
-						<div>
-							<dt>Pool</dt>
-							<dd>{selectedTemplate.shortCode ?? selectedTemplate.name}</dd>
+			<aside class="grid content-start gap-5 border-l border-border bg-muted/20 p-5" aria-label="Template summary">
+				<section class="grid gap-3 rounded-md border border-border bg-card p-4">
+					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><UsersRound size={18} aria-hidden="true" /> Template Summary</h3>
+					<dl class="grid gap-2">
+						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+							<dt class="text-xs text-muted-foreground">Pool</dt>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">{selectedTemplate.shortCode ?? selectedTemplate.name}</dd>
 						</div>
-						<div>
-							<dt>Total Soldiers</dt>
-							<dd>{templateSettings.personnel.length}</dd>
+						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+							<dt class="text-xs text-muted-foreground">Total Soldiers</dt>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">{templateSettings.personnel.length}</dd>
 						</div>
-						<div>
-							<dt>Eligible</dt>
-							<dd>{eligibleCount}</dd>
+						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+							<dt class="text-xs text-muted-foreground">Eligible</dt>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">{eligibleCount}</dd>
 						</div>
-						<div>
-							<dt>Excluded</dt>
-							<dd>{settingsExemptPersonnelIds.length}</dd>
+						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+							<dt class="text-xs text-muted-foreground">Excluded</dt>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">{settingsExemptPersonnelIds.length}</dd>
 						</div>
-						<div>
-							<dt>Last Updated</dt>
-							<dd>{formatDateTime(selectedTemplate.updatedAt)}</dd>
+						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+							<dt class="text-xs text-muted-foreground">Last Updated</dt>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDateTime(selectedTemplate.updatedAt)}</dd>
 						</div>
 					</dl>
 				</section>
 
 				{#if latestAcceptedRun}
-					<section class="settings-rail-card">
-						<h3><CalendarDays size={20} aria-hidden="true" /> Latest Accepted Run</h3>
-						<dl>
-							<div>
-								<dt>Date Range</dt>
-								<dd>{formatDate(latestAcceptedRun.startDate)} to {formatDate(latestAcceptedRun.endDate)}</dd>
+					<section class="grid gap-3 rounded-md border border-border bg-card p-4">
+						<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><CalendarDays size={18} aria-hidden="true" /> Latest Accepted Run</h3>
+						<dl class="grid gap-2">
+							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+								<dt class="text-xs text-muted-foreground">Date Range</dt>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDate(latestAcceptedRun.startDate)} to {formatDate(latestAcceptedRun.endDate)}</dd>
 							</div>
-							<div>
-								<dt>Applied On</dt>
-								<dd>{formatDateTime(latestAcceptedRun.appliedAt)}</dd>
+							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+								<dt class="text-xs text-muted-foreground">Applied On</dt>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDateTime(latestAcceptedRun.appliedAt)}</dd>
 							</div>
-							<div>
-								<dt>Accepted By</dt>
-								<dd>{latestAcceptedRun.acceptedByDisplayName ?? '-'}</dd>
+							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+								<dt class="text-xs text-muted-foreground">Accepted By</dt>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">{latestAcceptedRun.acceptedByDisplayName ?? '-'}</dd>
 							</div>
-							<div>
-								<dt>Run ID</dt>
-								<dd>{latestAcceptedRun.id}</dd>
+							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+								<dt class="text-xs text-muted-foreground">Run ID</dt>
+								<dd class="text-right font-mono text-xs font-bold text-foreground" style="overflow-wrap: anywhere;">{latestAcceptedRun.id}</dd>
 							</div>
 						</dl>
 					</section>
 				{/if}
 
-				<section class="settings-rail-card">
-					<h3><Zap size={20} aria-hidden="true" /> Quick Actions</h3>
-					<div class="settings-rail-actions">
+				<section class="grid gap-3 rounded-md border border-border bg-card p-4">
+					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><Zap size={18} aria-hidden="true" /> Quick Actions</h3>
+					<div class="grid gap-2">
 						<Button href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>
 							<Play size={16} aria-hidden="true" />
 							Open Generate
@@ -574,5 +577,7 @@
 		</div>
 	</form>
 {:else}
-	<div class="admin-empty">Loading template settings...</div>
+	<div class="grid place-items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
+		Loading template settings...
+	</div>
 {/if}

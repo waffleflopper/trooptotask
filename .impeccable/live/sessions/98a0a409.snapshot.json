@@ -1,25 +1,25 @@
 {
-  "id": "98a0a409",
-  "phase": "agent_error",
-  "pageUrl": "/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/duty-rosters/cq-runner/generate",
-  "sourceFile": null,
-  "expectedVariants": 3,
-  "arrivedVariants": 0,
-  "visibleVariant": 0,
-  "paramValues": {},
-  "pendingEventSeq": null,
-  "pendingEvent": null,
-  "deliveryLease": null,
-  "checkpointRevision": 1,
-  "activeOwner": "55c2c830",
-  "sourceMarkers": {},
-  "fallbackMode": null,
-  "annotationArtifacts": [],
-  "diagnostics": [
-    {
-      "error": "agent_error",
-      "message": "Element is a full Svelte component with reactive logic - making direct source edits instead"
-    }
-  ],
-  "updatedAt": "2026-05-11T05:23:36.241Z"
+	"id": "98a0a409",
+	"phase": "agent_error",
+	"pageUrl": "/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/duty-rosters/cq-runner/generate",
+	"sourceFile": null,
+	"expectedVariants": 3,
+	"arrivedVariants": 0,
+	"visibleVariant": 0,
+	"paramValues": {},
+	"pendingEventSeq": null,
+	"pendingEvent": null,
+	"deliveryLease": null,
+	"checkpointRevision": 1,
+	"activeOwner": "55c2c830",
+	"sourceMarkers": {},
+	"fallbackMode": null,
+	"annotationArtifacts": [],
+	"diagnostics": [
+		{
+			"error": "agent_error",
+			"message": "Element is a full Svelte component with reactive logic - making direct source edits instead"
+		}
+	],
+	"updatedAt": "2026-05-11T05:23:36.241Z"
 }

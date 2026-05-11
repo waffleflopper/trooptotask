@@ -152,7 +152,9 @@
 
 <h2 id="template-view-heading" class="sr-only">Duty Roster Template settings</h2>
 {#if actionForm?.settingsError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{actionForm.settingsError}</p>
+	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+		{actionForm.settingsError}
+	</p>
 {/if}
 
 {#if templateSettings}
@@ -163,7 +165,10 @@
 			<div class="grid content-start gap-6 p-1">
 				<section class="grid gap-4" aria-labelledby="template-identity-heading">
 					<div class="flex items-center gap-3">
-						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">01</span>
+						<span
+							class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary"
+							>01</span
+						>
 						<h4 id="template-identity-heading" class="text-sm font-semibold text-foreground">Template Identity</h4>
 					</div>
 					<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -196,7 +201,10 @@
 
 				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="pool-criteria-heading">
 					<div class="flex items-center gap-3">
-						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">02</span>
+						<span
+							class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary"
+							>02</span
+						>
 						<h4 id="pool-criteria-heading" class="text-sm font-semibold text-foreground">Eligibility Rules</h4>
 					</div>
 					<div class="grid gap-4 sm:grid-cols-2">
@@ -305,7 +313,9 @@
 							</MultiSelect.Root>
 						</Field.Root>
 					</div>
-					<p class="text-xs text-muted-foreground">Soldiers must meet all selected criteria to be eligible for this duty.</p>
+					<p class="text-xs text-muted-foreground">
+						Soldiers must meet all selected criteria to be eligible for this duty.
+					</p>
 				</section>
 				{#each rankFilterValues as value (value)}
 					<input type="hidden" name="rankValues" {value} />
@@ -327,7 +337,10 @@
 				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="pool-preview-heading">
 					<div class="flex items-center justify-between gap-3">
 						<div class="flex items-center gap-3">
-							<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">03</span>
+							<span
+								class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary"
+								>03</span
+							>
 							<h4 id="pool-preview-heading" class="text-sm font-semibold text-foreground">Individual Exclusions</h4>
 						</div>
 						<div class="flex items-center gap-2 font-mono text-xs">
@@ -362,7 +375,10 @@
 						</div>
 						<div class="overflow-x-auto rounded-md border border-border">
 							<div class="min-w-[40rem]" role="table" aria-label="Resolved Duty Roster pool">
-								<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground" role="row">
+								<div
+									class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground"
+									role="row"
+								>
 									<span class="px-3 py-2" role="columnheader">Rank</span>
 									<span class="px-3 py-2" role="columnheader">Name</span>
 									<span class="px-3 py-2" role="columnheader">MOS</span>
@@ -370,7 +386,10 @@
 									<span class="px-3 py-2" role="columnheader">Exempt</span>
 								</div>
 								{#each visibleExemptionRows as person (person.id)}
-									<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border text-sm last:border-b-0" role="row">
+									<div
+										class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_4rem] items-center border-b border-border text-sm last:border-b-0"
+										role="row"
+									>
 										<span class="px-3 py-2 font-mono text-xs" role="cell">{person.rank}</span>
 										<span class="px-3 py-2" role="cell">{person.lastName}, {person.firstName}</span>
 										<span class="px-3 py-2 font-mono text-xs" role="cell">{person.mos || '-'}</span>
@@ -391,7 +410,9 @@
 									</div>
 								{/each}
 								{#if visibleExemptionRows.length === 0}
-									<div class="px-4 py-6 text-center text-sm text-muted-foreground">No Soldiers match the current table view.</div>
+									<div class="px-4 py-6 text-center text-sm text-muted-foreground">
+										No Soldiers match the current table view.
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -403,7 +424,10 @@
 
 				<section class="grid gap-4 border-t border-border pt-6" aria-labelledby="baseline-heading">
 					<div class="flex items-center gap-3">
-						<span class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">04</span>
+						<span
+							class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary"
+							>04</span
+						>
 						<h4 id="baseline-heading" class="text-sm font-semibold text-foreground">DA6 Continuity</h4>
 					</div>
 					<p class="text-xs text-muted-foreground">Adjust starting duty counts for these Soldiers for the next run.</p>
@@ -439,7 +463,10 @@
 						</div>
 						<div class="overflow-x-auto rounded-md border border-border">
 							<div class="min-w-[40rem]" role="table" aria-label="Manual DA6 baseline">
-								<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground" role="row">
+								<div
+									class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground"
+									role="row"
+								>
 									<span class="px-3 py-2" role="columnheader">Rank</span>
 									<span class="px-3 py-2" role="columnheader">Name</span>
 									<span class="px-3 py-2" role="columnheader">MOS</span>
@@ -447,14 +474,21 @@
 									<span class="px-3 py-2" role="columnheader">Count</span>
 								</div>
 								{#each visibleBaselineRows as row (row.personnel.id)}
-									<div class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border text-sm last:border-b-0" role="row">
+									<div
+										class="grid grid-cols-[5rem_minmax(10rem,1fr)_5rem_minmax(8rem,1fr)_6rem] items-center border-b border-border text-sm last:border-b-0"
+										role="row"
+									>
 										<span class="px-3 py-2 font-mono text-xs" role="cell">{row.personnel.rank}</span>
 										<span class="px-3 py-2" role="cell">{row.personnel.lastName}, {row.personnel.firstName}</span>
 										<span class="px-3 py-2 font-mono text-xs" role="cell">{row.personnel.mos || '-'}</span>
-										<span class="px-3 py-2 text-muted-foreground" role="cell">{row.personnel.groupName || 'No Group'}</span>
+										<span class="px-3 py-2 text-muted-foreground" role="cell"
+											>{row.personnel.groupName || 'No Group'}</span
+										>
 										<span class="px-3 py-2" role="cell">
 											{#if baselineLocked}
-												<span class="font-mono text-xs font-semibold text-foreground">{settingsBaselineCounts[row.personnel.id] || '0'}</span>
+												<span class="font-mono text-xs font-semibold text-foreground"
+													>{settingsBaselineCounts[row.personnel.id] || '0'}</span
+												>
 												<input
 													type="hidden"
 													name={`baseline:${row.personnel.id}`}
@@ -482,7 +516,9 @@
 									</div>
 								{/each}
 								{#if visibleBaselineRows.length === 0}
-									<div class="px-4 py-6 text-center text-sm text-muted-foreground">No baseline rows match the current table view.</div>
+									<div class="px-4 py-6 text-center text-sm text-muted-foreground">
+										No baseline rows match the current table view.
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -496,7 +532,10 @@
 					{/if}
 				</section>
 
-				<div class="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-border bg-background px-4 py-3" aria-label="Settings save actions">
+				<div
+					class="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-border bg-background px-4 py-3"
+					aria-label="Settings save actions"
+				>
 					<span class="text-xs text-muted-foreground">Future runs only</span>
 					<div class="flex items-center gap-2">
 						<Button
@@ -511,15 +550,21 @@
 
 			<aside class="grid content-start gap-5 border-l border-border bg-muted/20 p-5" aria-label="Template summary">
 				<section class="grid gap-3 rounded-md border border-border bg-card p-4">
-					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><UsersRound size={18} aria-hidden="true" /> Template Summary</h3>
+					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground">
+						<UsersRound size={18} aria-hidden="true" /> Template Summary
+					</h3>
 					<dl class="grid gap-2">
 						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 							<dt class="text-xs text-muted-foreground">Pool</dt>
-							<dd class="text-right font-mono text-xs font-bold text-foreground">{selectedTemplate.shortCode ?? selectedTemplate.name}</dd>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">
+								{selectedTemplate.shortCode ?? selectedTemplate.name}
+							</dd>
 						</div>
 						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 							<dt class="text-xs text-muted-foreground">Total Soldiers</dt>
-							<dd class="text-right font-mono text-xs font-bold text-foreground">{templateSettings.personnel.length}</dd>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">
+								{templateSettings.personnel.length}
+							</dd>
 						</div>
 						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 							<dt class="text-xs text-muted-foreground">Eligible</dt>
@@ -527,41 +572,57 @@
 						</div>
 						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 							<dt class="text-xs text-muted-foreground">Excluded</dt>
-							<dd class="text-right font-mono text-xs font-bold text-foreground">{settingsExemptPersonnelIds.length}</dd>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">
+								{settingsExemptPersonnelIds.length}
+							</dd>
 						</div>
 						<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 							<dt class="text-xs text-muted-foreground">Last Updated</dt>
-							<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDateTime(selectedTemplate.updatedAt)}</dd>
+							<dd class="text-right font-mono text-xs font-bold text-foreground">
+								{formatDateTime(selectedTemplate.updatedAt)}
+							</dd>
 						</div>
 					</dl>
 				</section>
 
 				{#if latestAcceptedRun}
 					<section class="grid gap-3 rounded-md border border-border bg-card p-4">
-						<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><CalendarDays size={18} aria-hidden="true" /> Latest Accepted Run</h3>
+						<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground">
+							<CalendarDays size={18} aria-hidden="true" /> Latest Accepted Run
+						</h3>
 						<dl class="grid gap-2">
 							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 								<dt class="text-xs text-muted-foreground">Date Range</dt>
-								<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDate(latestAcceptedRun.startDate)} to {formatDate(latestAcceptedRun.endDate)}</dd>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">
+									{formatDate(latestAcceptedRun.startDate)} to {formatDate(latestAcceptedRun.endDate)}
+								</dd>
 							</div>
 							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 								<dt class="text-xs text-muted-foreground">Applied On</dt>
-								<dd class="text-right font-mono text-xs font-bold text-foreground">{formatDateTime(latestAcceptedRun.appliedAt)}</dd>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">
+									{formatDateTime(latestAcceptedRun.appliedAt)}
+								</dd>
 							</div>
 							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 								<dt class="text-xs text-muted-foreground">Accepted By</dt>
-								<dd class="text-right font-mono text-xs font-bold text-foreground">{latestAcceptedRun.acceptedByDisplayName ?? '-'}</dd>
+								<dd class="text-right font-mono text-xs font-bold text-foreground">
+									{latestAcceptedRun.acceptedByDisplayName ?? '-'}
+								</dd>
 							</div>
 							<div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
 								<dt class="text-xs text-muted-foreground">Run ID</dt>
-								<dd class="text-right font-mono text-xs font-bold text-foreground" style="overflow-wrap: anywhere;">{latestAcceptedRun.id}</dd>
+								<dd class="text-right font-mono text-xs font-bold text-foreground" style="overflow-wrap: anywhere;">
+									{latestAcceptedRun.id}
+								</dd>
 							</div>
 						</dl>
 					</section>
 				{/if}
 
 				<section class="grid gap-3 rounded-md border border-border bg-card p-4">
-					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><Zap size={18} aria-hidden="true" /> Quick Actions</h3>
+					<h3 class="flex items-center gap-2 text-sm font-semibold text-foreground">
+						<Zap size={18} aria-hidden="true" /> Quick Actions
+					</h3>
 					<div class="grid gap-2">
 						<Button href={`${settings.basePath}/${selectedTemplate.slug}/generate`}>
 							<Play size={16} aria-hidden="true" />

@@ -125,9 +125,7 @@
 		}))
 	);
 
-	const baselineMatrixColumns: OperationalMatrix.OperationalMatrixColumn[] = [
-		{ id: 'count', label: 'Starting Count' }
-	];
+	const baselineMatrixColumns: OperationalMatrix.OperationalMatrixColumn[] = [{ id: 'count', label: 'Starting Count' }];
 
 	function clearFilters() {
 		rankFilterValues = [];
@@ -178,17 +176,16 @@
 	<h2 id="new-template-heading" class="sr-only">New Duty Roster Template</h2>
 
 	{#if actionForm?.settingsError}
-		<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+		<p
+			class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+			role="alert"
+		>
 			{actionForm.settingsError}
 		</p>
 	{/if}
 
 	<form class="grid gap-6" method="POST" action={createWizardAction}>
-		<Stepper.Root
-			steps={stepperSteps}
-			value={newTemplateStep}
-			onValueChange={handleStepChange}
-		>
+		<Stepper.Root steps={stepperSteps} value={newTemplateStep} onValueChange={handleStepChange}>
 			<Stepper.List aria-label="New Template steps" class="border-b border-border pb-4">
 				{#each stepperSteps as step (step.value)}
 					<Stepper.Item value={step.value} />
@@ -201,9 +198,7 @@
 					<Stepper.Content value="general" class="border-0 bg-transparent p-0 shadow-none">
 						<div class="grid gap-6">
 							<header>
-								<h3 class="font-display text-xl font-bold uppercase tracking-wide text-foreground">
-									Template basics
-								</h3>
+								<h3 class="font-display text-xl font-bold uppercase tracking-wide text-foreground">Template basics</h3>
 							</header>
 							<div class="grid gap-5 sm:grid-cols-2">
 								<div class="grid gap-2">
@@ -252,7 +247,9 @@
 									/>
 								</div>
 							</div>
-							<div class="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/25 px-4 py-3">
+							<div
+								class="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/25 px-4 py-3"
+							>
 								<div>
 									<h4 class="text-sm font-medium text-foreground">Route preview</h4>
 									<p class="text-sm text-muted-foreground">This is how users will access this template.</p>
@@ -272,9 +269,7 @@
 										<h3 class="font-display text-xl font-bold uppercase tracking-wide text-foreground">
 											Pool criteria
 										</h3>
-										<p class="mt-1 text-sm text-muted-foreground">
-											OR within each category. AND across categories.
-										</p>
+										<p class="mt-1 text-sm text-muted-foreground">OR within each category. AND across categories.</p>
 									</div>
 									<Button variant="outline" size="sm" type="button" onclick={clearFilters}>Clear all</Button>
 								</header>
@@ -357,11 +352,17 @@
 								</p>
 							</header>
 							{#if wizardBaselineRows.length === 0}
-								<div class="rounded-md border border-border bg-muted/25 px-4 py-8 text-center text-sm text-muted-foreground">
+								<div
+									class="rounded-md border border-border bg-muted/25 px-4 py-8 text-center text-sm text-muted-foreground"
+								>
 									No baseline rows are available until the non-exempt pool has members.
 								</div>
 							{:else}
-								<OperationalMatrix.Root rows={baselineMatrixRows} columns={baselineMatrixColumns} class="grid min-h-0 gap-2">
+								<OperationalMatrix.Root
+									rows={baselineMatrixRows}
+									columns={baselineMatrixColumns}
+									class="grid min-h-0 gap-2"
+								>
 									<OperationalMatrix.Viewport
 										ariaLabel="DA6 baseline matrix"
 										class="max-h-[28rem] rounded-md border border-border bg-card"
@@ -425,9 +426,7 @@
 					<Stepper.Content value="review" class="border-0 bg-transparent p-0 shadow-none">
 						<div class="grid gap-5">
 							<header>
-								<h3 class="font-display text-xl font-bold uppercase tracking-wide text-foreground">
-									Review
-								</h3>
+								<h3 class="font-display text-xl font-bold uppercase tracking-wide text-foreground">Review</h3>
 								<p class="mt-1 text-sm text-muted-foreground">
 									Create this duty roster template with the current identity, pool, exemptions, and baseline counts.
 								</p>
@@ -448,7 +447,8 @@
 								<div class="flex items-center justify-between bg-card px-4 py-3">
 									<dt class="text-sm text-muted-foreground">Pool</dt>
 									<dd class="font-mono text-sm font-medium text-foreground">
-										{wizardResolvedPool.length} {wizardResolvedPool.length === 1 ? 'Soldier' : 'Soldiers'}
+										{wizardResolvedPool.length}
+										{wizardResolvedPool.length === 1 ? 'Soldier' : 'Soldiers'}
 									</dd>
 								</div>
 								<div class="flex items-center justify-between bg-card px-4 py-3">
@@ -471,7 +471,10 @@
 				</div>
 
 				<!-- Side panel -->
-				<aside class="grid content-start gap-5 rounded-md border border-border bg-muted/15 p-5" aria-label="Step guidance">
+				<aside
+					class="grid content-start gap-5 rounded-md border border-border bg-muted/15 p-5"
+					aria-label="Step guidance"
+				>
 					{#if newTemplateStep === 'general'}
 						<section class="grid gap-2">
 							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">
@@ -483,9 +486,7 @@
 							</p>
 						</section>
 						<section class="grid gap-2 border-t border-border pt-4">
-							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">
-								URL + slug rules
-							</h4>
+							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">URL + slug rules</h4>
 							<ul class="grid gap-1 pl-4 text-sm leading-relaxed text-muted-foreground">
 								<li>Use lowercase letters, numbers, and hyphens.</li>
 								<li>Start and end with a letter or number.</li>
@@ -574,9 +575,7 @@
 						</section>
 					{:else if newTemplateStep === 'baseline'}
 						<section class="grid gap-2">
-							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">
-								Baseline rules
-							</h4>
+							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">Baseline rules</h4>
 							<p class="text-sm leading-relaxed text-muted-foreground">
 								Manual DA6 baseline counts are setup data for the first generated run. People exempted from the pool are
 								not included here.
@@ -594,9 +593,7 @@
 						</section>
 					{:else}
 						<section class="grid gap-2">
-							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">
-								Ready to create
-							</h4>
+							<h4 class="font-display text-base font-bold uppercase tracking-wide text-foreground">Ready to create</h4>
 							<p class="text-sm leading-relaxed text-muted-foreground">
 								You can review and change these details from Template Settings after creation.
 							</p>
@@ -613,7 +610,9 @@
 								</div>
 								<div class="grid gap-1">
 									{#each wizardExemptPersonnel as person (person.id)}
-										<span class="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm text-foreground hover:bg-muted/30">
+										<span
+											class="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm text-foreground hover:bg-muted/30"
+										>
 											<span>{person.rank} {person.lastName}, {person.firstName}</span>
 											<Button
 												variant="ghost"
@@ -656,7 +655,7 @@
 				<input type="hidden" name="shortCode" value={newTemplateShortCode} />
 			{/if}
 			{#if newTemplateStep !== 'baseline'}
-				{#each Object.entries(wizardBaselineCounts).filter(([, value]) => value.trim()) as [personnelId, value] (personnelId)}
+				{#each Object.entries(wizardBaselineCounts).filter( ([, value]) => value.trim() ) as [personnelId, value] (personnelId)}
 					<input type="hidden" name={`baseline:${personnelId}`} {value} />
 				{/each}
 			{/if}

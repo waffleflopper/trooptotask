@@ -127,7 +127,9 @@
 									</button>
 								</td>
 								<td class="px-4 py-2.5" role="cell">
-									<span class="text-sm text-foreground">{row.poolCount === null ? 'Not loaded' : `${row.poolCount} personnel`}</span>
+									<span class="text-sm text-foreground"
+										>{row.poolCount === null ? 'Not loaded' : `${row.poolCount} personnel`}</span
+									>
 									<span class="block text-xs text-muted-foreground">{describePool(row.template)}</span>
 								</td>
 								<td class="px-4 py-2.5 text-xs text-muted-foreground" role="cell">
@@ -156,7 +158,10 @@
 			</div>
 
 			{#if selectedRow}
-				<aside class="grid content-start gap-4 border-l border-border bg-muted/20 p-4" aria-label={`${selectedRow.template.name} template details`}>
+				<aside
+					class="grid content-start gap-4 border-l border-border bg-muted/20 p-4"
+					aria-label={`${selectedRow.template.name} template details`}
+				>
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<h3 class="text-sm font-semibold text-foreground">{selectedRow.template.name}</h3>
@@ -167,7 +172,9 @@
 
 					<div class="grid gap-2 border-t border-border pt-3">
 						<span class="text-xs font-medium text-muted-foreground">Template Slug</span>
-						<p class="text-xs font-medium text-foreground" style="overflow-wrap: anywhere;">{selectedRow.template.slug}</p>
+						<p class="text-xs font-medium text-foreground" style="overflow-wrap: anywhere;">
+							{selectedRow.template.slug}
+						</p>
 					</div>
 
 					<div class="grid gap-2 border-t border-border pt-3">
@@ -178,7 +185,9 @@
 						<dl class="grid gap-1.5">
 							<div class="flex items-baseline justify-between gap-3">
 								<dt class="text-xs text-muted-foreground">Pool</dt>
-								<dd class="text-xs font-medium text-foreground">{selectedRow.poolCount === null ? 'Not loaded' : selectedRow.poolCount}</dd>
+								<dd class="text-xs font-medium text-foreground">
+									{selectedRow.poolCount === null ? 'Not loaded' : selectedRow.poolCount}
+								</dd>
 							</div>
 							{#if selectedRow.resolvedPoolCount !== null}
 								<div class="flex items-baseline justify-between gap-3">

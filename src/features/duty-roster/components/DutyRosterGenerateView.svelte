@@ -153,7 +153,10 @@
 		<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.28fr)_minmax(20rem,0.96fr)]">
 			<div class="grid content-start gap-4">
 				<section class="rounded-md border border-border bg-card p-5" aria-labelledby="generation-setup-heading">
-					<h3 id="generation-setup-heading" class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground">
+					<h3
+						id="generation-setup-heading"
+						class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground"
+					>
 						Generation Setup
 					</h3>
 					<p class="mt-2 text-[0.95rem] leading-relaxed text-muted-foreground">
@@ -168,7 +171,9 @@
 					>
 						<input type="hidden" name="templateId" value={selectedTemplate.id} />
 						<div class="grid gap-4 sm:grid-cols-2">
-							<label class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							<label
+								class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+							>
 								<span>Start date</span>
 								<input type="hidden" name="startDate" value={startDateValue} />
 								<DatePicker
@@ -179,7 +184,9 @@
 									onValueChange={(value) => (startDateOverride = value)}
 								/>
 							</label>
-							<label class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							<label
+								class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+							>
 								<span>End date</span>
 								<input type="hidden" name="endDate" value={endDateValue} />
 								<DatePicker
@@ -194,7 +201,10 @@
 						<p class="text-sm text-muted-foreground">
 							Start date must be today or later, and the end date must be on or after the start date.
 						</p>
-						<div class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-md border border-dashed border-border px-4 py-3 text-sm leading-relaxed text-muted-foreground" role="note">
+						<div
+							class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-md border border-dashed border-border px-4 py-3 text-sm leading-relaxed text-muted-foreground"
+							role="note"
+						>
 							<Info size={20} class="text-info-foreground" aria-hidden="true" />
 							<span>
 								Generate builds a preview roster using current pools, rules, and settings. No history is written until
@@ -205,27 +215,45 @@
 				</section>
 
 				<section class="rounded-md border border-border bg-card p-5" aria-labelledby="pool-snapshot-heading">
-					<h3 id="pool-snapshot-heading" class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground">
-						Pool Snapshot <span class="font-mono text-xs font-semibold normal-case tracking-[0.08em] text-muted-foreground">(as of now)</span>
+					<h3
+						id="pool-snapshot-heading"
+						class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground"
+					>
+						Pool Snapshot <span
+							class="font-mono text-xs font-semibold normal-case tracking-[0.08em] text-muted-foreground"
+							>(as of now)</span
+						>
 					</h3>
 					<div class="mt-4 grid gap-3 sm:grid-cols-2">
 						<div class="grid gap-1">
-							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Pool Size</span>
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+								>Pool Size</span
+							>
 							<strong class="text-lg font-bold text-foreground">{countReadModel?.rows.length ?? 0}</strong>
 							<small class="text-sm text-muted-foreground">Soldiers</small>
 						</div>
 						<div class="grid gap-1">
-							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Current Count Source</span>
-							<strong class="text-lg font-bold text-foreground">{countReadModel?.sourceLabel ?? 'DA6 roster order'}</strong>
-							<small class="text-sm text-muted-foreground">{countReadModel?.sourceDescription ?? 'Preview uses the current roster order.'}</small>
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+								>Current Count Source</span
+							>
+							<strong class="text-lg font-bold text-foreground"
+								>{countReadModel?.sourceLabel ?? 'DA6 roster order'}</strong
+							>
+							<small class="text-sm text-muted-foreground"
+								>{countReadModel?.sourceDescription ?? 'Preview uses the current roster order.'}</small
+							>
 						</div>
 						<div class="grid gap-1">
-							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Accepted Runs</span>
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+								>Accepted Runs</span
+							>
 							<strong class="text-lg font-bold text-foreground">{countReadModel?.acceptedRunCount ?? 0}</strong>
 							<small class="text-sm text-muted-foreground">Available to this count model</small>
 						</div>
 						<div class="grid gap-1">
-							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Corrections</span>
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+								>Corrections</span
+							>
 							<strong class="text-lg font-bold text-foreground">{countReadModel?.countingCorrectionCount ?? 0}</strong>
 							<small class="text-sm text-muted-foreground">Counting toward future DA6</small>
 						</div>
@@ -236,11 +264,7 @@
 					<Button variant="outline" type="reset" form="generate-preview-form" disabled={generatingPreview}>
 						Reset
 					</Button>
-					<Button
-						type="submit"
-						form="generate-preview-form"
-						disabled={!canGenerate || generatingPreview}
-					>
+					<Button type="submit" form="generate-preview-form" disabled={!canGenerate || generatingPreview}>
 						{generatingPreview ? 'Generating...' : 'Generate Preview'}
 					</Button>
 				</div>
@@ -250,13 +274,21 @@
 			</div>
 
 			<div class="grid content-start gap-4">
-				<section class="grid gap-4 rounded-md border border-border bg-card p-5" aria-labelledby="generation-rules-heading">
-					<h3 id="generation-rules-heading" class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground">
+				<section
+					class="grid gap-4 rounded-md border border-border bg-card p-5"
+					aria-labelledby="generation-rules-heading"
+				>
+					<h3
+						id="generation-rules-heading"
+						class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground"
+					>
 						Rules at a Glance
 					</h3>
 					<div class="grid gap-4">
 						<div class="border-t border-border pt-4 first:border-t-0 first:pt-0">
-							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">DA6 Selection</h4>
+							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">
+								DA6 Selection
+							</h4>
 							<ul class="grid gap-1 pl-5 text-[0.95rem] leading-relaxed text-muted-foreground">
 								<li>Soldiers are selected from {selectedTemplate.shortCode ?? selectedTemplate.name} pool.</li>
 								<li>Lowest DA6 value is chosen first.</li>
@@ -265,32 +297,49 @@
 							</ul>
 						</div>
 						<div class="border-t border-border pt-4">
-							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">A / D Treatment</h4>
+							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">
+								A / D Treatment
+							</h4>
 							<dl class="grid gap-2">
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">A</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">Authorized absence. Removed from consideration.</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										Authorized absence. Removed from consideration.
+									</dd>
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">D</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">Other duty. Counted as a run for DA6 purposes.</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										Other duty. Counted as a run for DA6 purposes.
+									</dd>
 								</div>
 							</dl>
 						</div>
 						<div class="border-t border-border pt-4">
-							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">On Accept</h4>
-							<p class="text-[0.95rem] leading-relaxed text-muted-foreground">Updates history, DA6 values, and assignment counts.</p>
+							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">
+								On Accept
+							</h4>
+							<p class="text-[0.95rem] leading-relaxed text-muted-foreground">
+								Updates history, DA6 values, and assignment counts.
+							</p>
 						</div>
 						<div class="border-t border-border pt-4">
-							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">On Apply to Calendar</h4>
-							<p class="text-[0.95rem] leading-relaxed text-muted-foreground">Creates Calendar events for the roster date range after accepting the preview.</p>
+							<h4 class="mb-2 font-mono text-[0.78rem] font-bold uppercase tracking-[0.1em] text-foreground">
+								On Apply to Calendar
+							</h4>
+							<p class="text-[0.95rem] leading-relaxed text-muted-foreground">
+								Creates Calendar events for the roster date range after accepting the preview.
+							</p>
 						</div>
 					</div>
 				</section>
 
 				<section class="rounded-md border border-border bg-card p-5" aria-labelledby="recent-history-heading">
 					<div class="flex items-center justify-between gap-3">
-						<h3 id="recent-history-heading" class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground">
+						<h3
+							id="recent-history-heading"
+							class="font-display text-[1.35rem] font-extrabold uppercase leading-none tracking-[0.04em] text-foreground"
+						>
 							Recent History
 						</h3>
 						<a
@@ -304,11 +353,15 @@
 						<div class="mt-3 grid gap-1">
 							{#each recentAcceptedRuns as run (run.id)}
 								<a
-									href={resolve(`${historyPath}/${run.id}` as `/org/${string}/duty-rosters/${string}/history/${string}`)}
+									href={resolve(
+										`${historyPath}/${run.id}` as `/org/${string}/duty-rosters/${string}/history/${string}`
+									)}
 									class="flex items-center justify-between gap-3 rounded px-3 py-2 text-sm text-foreground no-underline hover:bg-muted/40"
 								>
 									<span>{dayMonthLabel(run.startDate)} to {dayMonthLabel(run.endDate)}</span>
-									<strong class="font-mono text-xs uppercase">{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</strong>
+									<strong class="font-mono text-xs uppercase"
+										>{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</strong
+									>
 									<small class="text-muted-foreground">{dateParts(run.acceptedAt.slice(0, 10)).label}</small>
 								</a>
 							{/each}
@@ -328,20 +381,28 @@
 			{/if}
 
 			<div class="flex flex-wrap items-center justify-between gap-4" aria-label="Generated preview summary">
-				<p class="flex flex-wrap items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-					Preview <span class="text-foreground">{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</span>
+				<p
+					class="flex flex-wrap items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+				>
+					Preview <span class="text-foreground"
+						>{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</span
+					>
 					<span>{preview.rosterRows.length} duty dates</span>
 				</p>
 				<div class="flex flex-wrap items-center gap-3" aria-label="Draft preview and official run actions">
 					<div class="flex items-center gap-2">
-						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Draft</span>
+						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Draft</span
+						>
 						<Button variant="outline" size="sm" type="button" onclick={() => printDraftPreview(preview)}>
 							<Printer size={16} aria-hidden="true" />
 							Print Draft
 						</Button>
 					</div>
 					<div class="flex items-center gap-2">
-						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Official</span>
+						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Official</span
+						>
 						<form class="flex items-center gap-2" method="POST" action={acceptPreviewAction}>
 							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 							<Button variant="outline" size="sm" type="submit">
@@ -373,14 +434,22 @@
 				</p>
 			</div>
 
-			<section class="grid gap-3 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto]" aria-labelledby="preview-readiness-heading">
+			<section
+				class="grid gap-3 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto]"
+				aria-labelledby="preview-readiness-heading"
+			>
 				<div
 					class="rounded-md px-4 py-3"
 					class:bg-success-muted={previewIsCommitReady}
 					class:bg-warning-muted={!previewIsCommitReady}
 				>
-					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Commit Readiness</span>
-					<h3 id="preview-readiness-heading" class="mt-1 font-display text-base font-bold uppercase tracking-wide text-foreground">
+					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+						>Commit Readiness</span
+					>
+					<h3
+						id="preview-readiness-heading"
+						class="mt-1 font-display text-base font-bold uppercase tracking-wide text-foreground"
+					>
 						{previewIsCommitReady ? 'Ready to accept' : 'Review before accepting'}
 					</h3>
 					<p class="mt-1 text-sm text-muted-foreground">
@@ -393,36 +462,53 @@
 				</div>
 				<div class="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Run summary">
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Run Window</span>
-						<strong class="text-sm font-bold text-foreground">{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</strong>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Run Window</span
+						>
+						<strong class="text-sm font-bold text-foreground"
+							>{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</strong
+						>
 					</div>
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Duty Dates</span>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Duty Dates</span
+						>
 						<strong class="text-sm font-bold text-foreground">{preview.rosterRows.length}</strong>
 					</div>
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Automatic</span>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Automatic</span
+						>
 						<strong class="text-sm font-bold text-foreground">{previewAssignedCount}</strong>
 					</div>
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Manual</span>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Manual</span
+						>
 						<strong class="text-sm font-bold text-foreground">{previewManualCount}</strong>
 					</div>
 				</div>
 				<div class="grid grid-cols-2 gap-4" aria-label="Unresolved review counts">
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Requires Action</span>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Requires Action</span
+						>
 						<strong class="text-sm font-bold text-foreground">{previewRequiresActionCount}</strong>
 					</div>
 					<div class="grid gap-0.5 text-center">
-						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Warnings</span>
+						<span class="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+							>Warnings</span
+						>
 						<strong class="text-sm font-bold text-foreground">{previewWarningCount}</strong>
 					</div>
 				</div>
 			</section>
 
 			{#if actionForm?.manualError}
-				<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+				<p
+					class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					role="alert"
+				>
 					{actionForm.manualError}
 				</p>
 			{/if}
@@ -431,8 +517,15 @@
 				<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
 					<section aria-labelledby="preview-list-heading">
 						<h4 id="preview-list-heading" class="sr-only">Preview list</h4>
-						<div class="overflow-hidden rounded-md border border-border" role="table" aria-label="Generated Duty Roster preview">
-							<div class="grid grid-cols-[8rem_minmax(0,1fr)_10rem_6rem] border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground" role="row">
+						<div
+							class="overflow-hidden rounded-md border border-border"
+							role="table"
+							aria-label="Generated Duty Roster preview"
+						>
+							<div
+								class="grid grid-cols-[8rem_minmax(0,1fr)_10rem_6rem] border-b border-border bg-muted/50 font-mono text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground"
+								role="row"
+							>
 								<span class="px-3 py-2.5" role="columnheader">Date</span>
 								<span class="px-3 py-2.5" role="columnheader">Assignment</span>
 								<span class="px-3 py-2.5" role="columnheader">Review</span>
@@ -454,7 +547,8 @@
 									<div class="flex flex-col justify-center px-3 py-2" role="cell">
 										{#if row.finalAssignee}
 											<strong class="text-sm font-medium text-foreground">
-												{row.finalAssignee.rank} {row.finalAssignee.lastName}, {row.finalAssignee.firstName}
+												{row.finalAssignee.rank}
+												{row.finalAssignee.lastName}, {row.finalAssignee.firstName}
 											</strong>
 										{:else}
 											<span class="text-sm text-muted-foreground">{row.unfilledReason}</span>
@@ -470,11 +564,17 @@
 										{#if row.liveWarnings.length > 0}
 											<Badge variant="danger">Review</Badge>
 											<details class="text-xs">
-												<summary class="flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground">
+												<summary
+													class="flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground"
+												>
 													<AlertTriangle size={15} aria-hidden="true" />
-													{row.liveWarnings.length} {row.liveWarnings.length === 1 ? 'warning' : 'warnings'}
+													{row.liveWarnings.length}
+													{row.liveWarnings.length === 1 ? 'warning' : 'warnings'}
 												</summary>
-												<ul class="mt-1 grid gap-0.5 pl-4 text-muted-foreground" aria-label={`Warnings for ${parts.weekday} ${parts.label}`}>
+												<ul
+													class="mt-1 grid gap-0.5 pl-4 text-muted-foreground"
+													aria-label={`Warnings for ${parts.weekday} ${parts.label}`}
+												>
 													{#each row.liveWarnings as warning (warning)}
 														<li>{warning}</li>
 													{/each}
@@ -517,7 +617,12 @@
 							{@const activeParts = dateParts(activePreviewRow.date)}
 							<div class="flex items-start justify-between gap-3">
 								<div>
-									<h3 id="manual-change-heading" class="font-display text-base font-bold uppercase tracking-wide text-foreground">Change Assignment</h3>
+									<h3
+										id="manual-change-heading"
+										class="font-display text-base font-bold uppercase tracking-wide text-foreground"
+									>
+										Change Assignment
+									</h3>
 									<p class="mt-1 text-sm text-muted-foreground">{activeParts.weekday} {activeParts.label}</p>
 								</div>
 								<Button
@@ -532,7 +637,9 @@
 								</Button>
 							</div>
 							<div class="grid gap-1 border-t border-border pt-3">
-								<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Current Selection</span>
+								<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+									>Current Selection</span
+								>
 								<strong class="text-sm text-foreground">
 									{#if activePreviewRow.finalAssignee}
 										{activePreviewRow.finalAssignee.rank}
@@ -543,7 +650,9 @@
 								</strong>
 							</div>
 							<div class="grid gap-1">
-								<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Generated Selection</span>
+								<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+									>Generated Selection</span
+								>
 								<strong class="text-sm text-foreground">
 									{#if activePreviewRow.generatedAssignee}
 										{activePreviewRow.generatedAssignee.rank}
@@ -555,7 +664,9 @@
 							</div>
 							{#if activePreviewRow.manualSelection?.reason}
 								<div class="grid gap-1">
-									<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Saved Reason</span>
+									<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+										>Saved Reason</span
+									>
 									<p class="text-sm text-muted-foreground">{activePreviewRow.manualSelection.reason}</p>
 								</div>
 							{/if}
@@ -569,7 +680,9 @@
 									name="assigneeId"
 									value={selectedPreviewAssignees[activePreviewRow.date] ?? activePreviewRow.editAssigneeId}
 								/>
-								<label class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								<label
+									class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+								>
 									<span>Select Replacement Soldier</span>
 									<SearchCombobox
 										options={previewReview?.selectionOptions ?? []}
@@ -582,15 +695,23 @@
 										}}
 									/>
 								</label>
-								<div class="grid gap-2 rounded-md bg-muted/30 px-3 py-2" role="region" aria-live="polite" aria-labelledby="warning-summary-heading">
-									<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Warning Summary</span>
+								<div
+									class="grid gap-2 rounded-md bg-muted/30 px-3 py-2"
+									role="region"
+									aria-live="polite"
+									aria-labelledby="warning-summary-heading"
+								>
+									<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+										>Warning Summary</span
+									>
 									{#if activePreviewRow.liveWarnings.length > 0}
 										<p id="warning-summary-heading" class="text-sm text-muted-foreground">
 											Review these warnings before saving a manual change.
 										</p>
 										{#each activePreviewRow.liveWarnings as warning (warning)}
 											<p class="flex items-center gap-1.5 text-sm text-warning-foreground">
-												<AlertTriangle size={15} aria-hidden="true" /> {warning}
+												<AlertTriangle size={15} aria-hidden="true" />
+												{warning}
 											</p>
 										{/each}
 									{:else}
@@ -600,7 +721,9 @@
 									{/if}
 								</div>
 								{#if activePreviewRow.liveWarnings.length > 0}
-									<label class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+									<label
+										class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+									>
 										<span>Reason</span>
 										<Textarea
 											name="reason"
@@ -622,8 +745,15 @@
 								<Info size={15} aria-hidden="true" /> Archived or missing personnel cannot be selected.
 							</p>
 						{:else}
-							<h3 id="manual-change-heading" class="font-display text-base font-bold uppercase tracking-wide text-foreground">Change Assignment</h3>
-							<p class="text-sm text-muted-foreground">Select Review or Change on a preview row to review replacements.</p>
+							<h3
+								id="manual-change-heading"
+								class="font-display text-base font-bold uppercase tracking-wide text-foreground"
+							>
+								Change Assignment
+							</h3>
+							<p class="text-sm text-muted-foreground">
+								Select Review or Change on a preview row to review replacements.
+							</p>
 						{/if}
 					</aside>
 				</div>
@@ -634,25 +764,40 @@
 					<section aria-labelledby="preview-matrix-heading">
 						<h4 id="preview-matrix-heading" class="sr-only">DA6 matrix</h4>
 						<OperationalMatrix.Root rows={previewMatrixRows} columns={previewMatrixColumns} readOnly>
-							<OperationalMatrix.Viewport ariaLabel="DA6 preview matrix viewport" class="rounded-lg border border-border bg-card">
+							<OperationalMatrix.Viewport
+								ariaLabel="DA6 preview matrix viewport"
+								class="rounded-lg border border-border bg-card"
+							>
 								<OperationalMatrix.Table
 									ariaLabel="DA6 preview matrix"
 									class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
 								>
 									<OperationalMatrix.Header>
 										<OperationalMatrix.HeaderRow>
-											<OperationalMatrix.CornerCell sticky class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left">
+											<OperationalMatrix.CornerCell
+												sticky
+												class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
+											>
 												Rank / Name
 											</OperationalMatrix.CornerCell>
 											{#each previewMatrixColumns as column (column.id)}
-												<OperationalMatrix.ColumnHeader {column} orientation="vertical" sticky class="sticky top-0 z-20 bg-muted" />
+												<OperationalMatrix.ColumnHeader
+													{column}
+													orientation="vertical"
+													sticky
+													class="sticky top-0 z-20 bg-muted"
+												/>
 											{/each}
 										</OperationalMatrix.HeaderRow>
 									</OperationalMatrix.Header>
 									<OperationalMatrix.Body>
 										{#each previewMatrixRows as row (row.id)}
 											<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
-												<OperationalMatrix.RowHeader {row} sticky class="sticky left-0 z-10 min-w-40 border border-border bg-card px-3 py-2 text-left font-medium">
+												<OperationalMatrix.RowHeader
+													{row}
+													sticky
+													class="sticky left-0 z-10 min-w-40 border border-border bg-card px-3 py-2 text-left font-medium"
+												>
 													{row.label}
 												</OperationalMatrix.RowHeader>
 												{#each previewMatrixColumns as column (column.id)}
@@ -677,7 +822,10 @@
 							</OperationalMatrix.Viewport>
 						</OperationalMatrix.Root>
 					</section>
-					<aside class="grid content-start gap-5 rounded-md border border-border bg-muted/15 p-4" aria-label="DA6 preview details">
+					<aside
+						class="grid content-start gap-5 rounded-md border border-border bg-muted/15 p-4"
+						aria-label="DA6 preview details"
+					>
 						<section class="grid gap-3">
 							<h3 class="font-display text-base font-bold uppercase tracking-wide text-foreground">DA6 Legend</h3>
 							<dl class="grid gap-2">
@@ -702,22 +850,30 @@
 									<dd class="text-[0.92rem] leading-snug text-muted-foreground">Unavailable</dd>
 								</div>
 							</dl>
-							<p class="text-sm text-muted-foreground">Highlighted cells flag assigned duty, authorized absence, and chargeable duty conflicts.</p>
+							<p class="text-sm text-muted-foreground">
+								Highlighted cells flag assigned duty, authorized absence, and chargeable duty conflicts.
+							</p>
 						</section>
 						<section class="grid gap-3 border-t border-border pt-4">
 							<h3 class="font-display text-base font-bold uppercase tracking-wide text-foreground">Run Summary</h3>
 							<dl class="grid gap-2">
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Template</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">{selectedTemplate.shortCode ?? selectedTemplate.name}</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										{selectedTemplate.shortCode ?? selectedTemplate.name}
+									</dd>
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Pool</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">{countReadModel?.sourceLabel ?? 'DA6 roster order'}</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										{countReadModel?.sourceLabel ?? 'DA6 roster order'}
+									</dd>
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Dates</dt>
-									<dd class="text-[0.92rem] leading-snug text-muted-foreground">{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}</dd>
+									<dd class="text-[0.92rem] leading-snug text-muted-foreground">
+										{dayMonthLabel(generateStartDate)} to {dayMonthLabel(generateEndDate)}
+									</dd>
 								</div>
 								<div class="grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-baseline gap-3">
 									<dt class="font-mono text-[0.75rem] font-bold uppercase text-foreground">Rosters</dt>
@@ -739,7 +895,10 @@
 						</section>
 						<section class="grid gap-2 border-t border-border pt-4">
 							<h3 class="font-display text-base font-bold uppercase tracking-wide text-foreground">Warnings</h3>
-							<p class="flex items-center gap-2 text-sm text-foreground"><AlertTriangle size={16} aria-hidden="true" /> {previewWarningCount}</p>
+							<p class="flex items-center gap-2 text-sm text-foreground">
+								<AlertTriangle size={16} aria-hidden="true" />
+								{previewWarningCount}
+							</p>
 						</section>
 						<section class="border-t border-border pt-4">
 							<Button variant="ghost" size="sm" type="button" onclick={() => printDraftPreview(preview)}>

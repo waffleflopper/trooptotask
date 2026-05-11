@@ -1,7 +1,7 @@
 /**
  * Theme store — light/dark mode preference.
  *
- * Initialized from `localStorage` on construction; falls back to `prefers-color-scheme`.
+ * Starts with the server-rendered default, then reads `localStorage` on mount.
  * Applies the theme to `document.documentElement[data-theme]` so CSS variables respond.
  * Call `themeStore.init()` in the root layout's `onMount` to sync the DOM after hydration.
  *
@@ -11,17 +11,6 @@ import { browser } from '$app/environment';
 
 class ThemeStore {
 	#theme = $state<'light' | 'dark'>('light');
-
-	constructor() {
-		if (browser) {
-			const stored = localStorage.getItem('theme');
-			if (stored === 'dark' || stored === 'light') {
-				this.#theme = stored;
-			} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-				this.#theme = 'dark';
-			}
-		}
-	}
 
 	get current() {
 		return this.#theme;

@@ -271,13 +271,19 @@
 
 <h2 id="template-view-heading" class="sr-only">Accepted runs</h2>
 {#if actionForm?.applyError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{actionForm.applyError}</p>
+	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+		{actionForm.applyError}
+	</p>
 {/if}
 {#if actionForm?.invalidateError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{actionForm.invalidateError}</p>
+	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+		{actionForm.invalidateError}
+	</p>
 {/if}
 {#if actionForm?.correctionError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{actionForm.correctionError}</p>
+	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+		{actionForm.correctionError}
+	</p>
 {/if}
 {#if acceptedRuns.length === 0}
 	<div class="grid place-items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
@@ -286,7 +292,10 @@
 	</div>
 {:else if historyDetailRun}
 	{#if detailReview}
-		<section class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]" aria-label="Accepted Duty Roster record">
+		<section
+			class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]"
+			aria-label="Accepted Duty Roster record"
+		>
 			<div class="grid min-w-0 content-start gap-4">
 				<header class="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
 					<Button variant="outline" size="sm" href={historyListHref()}>Back to history</Button>
@@ -383,14 +392,20 @@
 									>
 										<td class="whitespace-nowrap px-3 py-2 text-xs font-medium">{formatDutyDate(tableRow.date)}</td>
 										<td class="px-3 py-2">
-											<span class="text-sm font-medium text-foreground">{soldierName(tableRow.finalRow.finalDisplay)}</span>
-											<span class="block text-xs text-muted-foreground">{soldierGroup(tableRow.finalRow.finalDisplay)}</span>
+											<span class="text-sm font-medium text-foreground"
+												>{soldierName(tableRow.finalRow.finalDisplay)}</span
+											>
+											<span class="block text-xs text-muted-foreground"
+												>{soldierGroup(tableRow.finalRow.finalDisplay)}</span
+											>
 										</td>
 										<td class="px-3 py-2">
 											<span class="text-sm font-medium text-foreground">{soldierName(actualDisplay)}</span>
 											<span class="block text-xs text-muted-foreground">{soldierGroup(actualDisplay)}</span>
 											{#if tableRow.correctionSummary}
-												<span class="block text-xs text-muted-foreground">Actual: {tableRow.correctionSummary.replacementName}</span>
+												<span class="block text-xs text-muted-foreground"
+													>Actual: {tableRow.correctionSummary.replacementName}</span
+												>
 											{/if}
 										</td>
 										<td class="px-3 py-2">
@@ -404,12 +419,19 @@
 											{tableRow.correctionSummary?.reason ?? tableRow.reasonText ?? '-'}
 										</td>
 										<td class="px-3 py-2">
-											<span class="block text-xs font-medium">{historyDetailRun.appliedAt ? 'Calendar' : 'History'}</span>
+											<span class="block text-xs font-medium"
+												>{historyDetailRun.appliedAt ? 'Calendar' : 'History'}</span
+											>
 											<span class="block text-xs text-muted-foreground">{detailReview.calendarStepLabel}</span>
 										</td>
 										<td class="px-3 py-2">
 											{#if tableRow.canCorrect}
-												<Button variant="outline" size="sm" type="button" onclick={() => openCorrection(tableRow.run.id, tableRow.date)}>
+												<Button
+													variant="outline"
+													size="sm"
+													type="button"
+													onclick={() => openCorrection(tableRow.run.id, tableRow.date)}
+												>
 													<Eye size={14} aria-hidden="true" />
 													Change
 												</Button>
@@ -424,7 +446,9 @@
 							</tbody>
 						</table>
 					</div>
-					<p class="px-3 text-xs text-muted-foreground">Showing 1-{detailReview.rows.length} of {detailReview.rows.length} entries</p>
+					<p class="px-3 text-xs text-muted-foreground">
+						Showing 1-{detailReview.rows.length} of {detailReview.rows.length} entries
+					</p>
 				{:else}
 					<OperationalMatrix.Root rows={acceptedMatrixRows} columns={acceptedMatrixColumns} readOnly>
 						<OperationalMatrix.Viewport ariaLabel="Accepted DA6 matrix viewport" class="rounded-lg border bg-card">
@@ -434,18 +458,30 @@
 							>
 								<OperationalMatrix.Header>
 									<OperationalMatrix.HeaderRow>
-										<OperationalMatrix.CornerCell sticky class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left">
+										<OperationalMatrix.CornerCell
+											sticky
+											class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
+										>
 											Soldier
 										</OperationalMatrix.CornerCell>
 										{#each acceptedMatrixColumns as column (column.id)}
-											<OperationalMatrix.ColumnHeader {column} orientation="vertical" sticky class="sticky top-0 z-20 bg-muted" />
+											<OperationalMatrix.ColumnHeader
+												{column}
+												orientation="vertical"
+												sticky
+												class="sticky top-0 z-20 bg-muted"
+											/>
 										{/each}
 									</OperationalMatrix.HeaderRow>
 								</OperationalMatrix.Header>
 								<OperationalMatrix.Body>
 									{#each acceptedMatrixRows as row (row.id)}
 										<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
-											<OperationalMatrix.RowHeader {row} sticky class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left font-medium">
+											<OperationalMatrix.RowHeader
+												{row}
+												sticky
+												class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left font-medium"
+											>
 												{row.label}
 											</OperationalMatrix.RowHeader>
 											{#each acceptedMatrixColumns as column (column.id)}
@@ -472,26 +508,43 @@
 				{/if}
 			</div>
 
-			<aside class="grid content-start gap-4 border-l border-border bg-muted/20 p-4" aria-label="Run correction controls">
+			<aside
+				class="grid content-start gap-4 border-l border-border bg-muted/20 p-4"
+				aria-label="Run correction controls"
+			>
 				{#if selectedCorrectionRow}
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<p class="text-xs font-medium text-muted-foreground">Record Correction</p>
 							<h3 class="text-sm font-semibold text-foreground">{formatDate(selectedCorrectionRow.date)}</h3>
 						</div>
-						<Button variant="ghost" size="icon-sm" type="button" aria-label="Close correction panel" onclick={closeCorrection}>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							type="button"
+							aria-label="Close correction panel"
+							onclick={closeCorrection}
+						>
 							<X size={18} aria-hidden="true" />
 						</Button>
 					</div>
 					<form class="grid gap-3" method="POST" action={correctAcceptedRunAction}>
 						<input type="hidden" name="runId" value={selectedCorrectionRow.run.id} />
 						<input type="hidden" name="runRowDate" value={selectedCorrectionRow.date} />
-						<input type="hidden" name="replacementAssigneeId" value={selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date)} />
+						<input
+							type="hidden"
+							name="replacementAssigneeId"
+							value={selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date)}
+						/>
 						<div class="grid gap-1">
 							<span class="text-xs text-muted-foreground">Originally Assigned</span>
 							<div class="rounded-md border border-border bg-muted/30 px-3 py-2">
-								<span class="text-sm font-medium text-foreground">{soldierName(selectedCorrectionRow.finalRow.finalDisplay)}</span>
-								<span class="block text-xs text-muted-foreground">{soldierGroup(selectedCorrectionRow.finalRow.finalDisplay)}</span>
+								<span class="text-sm font-medium text-foreground"
+									>{soldierName(selectedCorrectionRow.finalRow.finalDisplay)}</span
+								>
+								<span class="block text-xs text-muted-foreground"
+									>{soldierGroup(selectedCorrectionRow.finalRow.finalDisplay)}</span
+								>
 							</div>
 						</div>
 						{#if selectedCorrectionRow.correctionSummary}
@@ -501,7 +554,9 @@
 								{selectedCorrectionRow.correctionSummary.countText}
 							</p>
 							{#if selectedCorrectionRow.correctionSummary.overrideText}
-								<p class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground">
+								<p
+									class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground"
+								>
 									{selectedCorrectionRow.correctionSummary.overrideText}
 								</p>
 							{/if}
@@ -523,7 +578,9 @@
 							/>
 						</Field.Root>
 						{#if selectedCorrectionOverrideWarning()}
-							<p class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground">{selectedCorrectionOverrideWarning()}</p>
+							<p class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground">
+								{selectedCorrectionOverrideWarning()}
+							</p>
 						{/if}
 						<Field.Root>
 							<Field.Label for="duty-roster-correction-reason">Reason</Field.Label>
@@ -538,7 +595,9 @@
 								{#each historyDetailRun.corrections as correction (correction.id)}
 									<div class="grid gap-0.5 rounded-md border border-border bg-card px-3 py-2">
 										<span class="text-xs font-medium text-foreground">{formatDateTime(correction.correctedAt)}</span>
-										<span class="text-xs text-muted-foreground">{soldierName(correction.originalDisplay)} to {soldierName(correction.replacementDisplay)}</span>
+										<span class="text-xs text-muted-foreground"
+											>{soldierName(correction.originalDisplay)} to {soldierName(correction.replacementDisplay)}</span
+										>
 										<span class="text-xs text-muted-foreground">{correction.reason}</span>
 										{#if correction.poolOverride}
 											<span class="text-xs text-muted-foreground">Outside normal pool. Saved as an override.</span>
@@ -559,7 +618,9 @@
 						<h3 class="text-sm font-semibold text-foreground">Official record</h3>
 					</div>
 					<div class="grid gap-3">
-						<p class="text-xs text-muted-foreground">Use Change Assignment on a roster row to record who actually served.</p>
+						<p class="text-xs text-muted-foreground">
+							Use Change Assignment on a roster row to record who actually served.
+						</p>
 						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
 							<form method="POST" action={applyAcceptedRunAction}>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
@@ -574,14 +635,20 @@
 								variant="destructive"
 								type="button"
 								aria-expanded={confirmingInvalidationRunId === historyDetailRun.id}
-								onclick={() => (confirmingInvalidationRunId = confirmingInvalidationRunId === historyDetailRun.id ? null : historyDetailRun.id)}
+								onclick={() =>
+									(confirmingInvalidationRunId =
+										confirmingInvalidationRunId === historyDetailRun.id ? null : historyDetailRun.id)}
 							>
 								<Trash2 size={16} aria-hidden="true" />
 								Invalidate run
 							</Button>
 						{/if}
 						{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
-							<form class="grid gap-3 rounded-md border border-destructive/50 bg-destructive/5 p-3" method="POST" action={invalidateAcceptedRunAction}>
+							<form
+								class="grid gap-3 rounded-md border border-destructive/50 bg-destructive/5 p-3"
+								method="POST"
+								action={invalidateAcceptedRunAction}
+							>
 								<h4 class="text-xs font-semibold text-destructive">Remove this official run from Calendar</h4>
 								<p class="text-xs text-muted-foreground">
 									Run {historyDetailRun.startDate} to {historyDetailRun.endDate} will be marked invalidated. Linked Calendar
@@ -589,7 +656,9 @@
 								</p>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
 								<Button variant="destructive" type="submit">Confirm invalidation</Button>
-								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}>Keep run</Button>
+								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}
+									>Keep run</Button
+								>
 							</form>
 						{/if}
 						{#if !detailReview.canInvalidate && detailReview.isInvalidated}
@@ -605,13 +674,16 @@
 {:else}
 	<section class="grid gap-4" aria-label="Accepted Duty Roster history">
 		<p class="text-sm text-muted-foreground">
-			Accepted runs are immutable history snapshots of the roster as it was generated. Official exports are produced from accepted history.
+			Accepted runs are immutable history snapshots of the roster as it was generated. Official exports are produced
+			from accepted history.
 		</p>
 		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Duty Roster history summary">
 			<div class="grid gap-1 rounded-md border border-border bg-card p-3">
 				<Calendar size={18} class="text-muted-foreground" aria-hidden="true" />
 				<span class="text-xs text-muted-foreground">Latest accepted</span>
-				<strong class="text-xs font-semibold text-foreground">{latestRun ? formatDateTime(latestRun.acceptedAt) : '-'}</strong>
+				<strong class="text-xs font-semibold text-foreground"
+					>{latestRun ? formatDateTime(latestRun.acceptedAt) : '-'}</strong
+				>
 			</div>
 			<div class="grid gap-1 rounded-md border border-border bg-card p-3">
 				<Database size={18} class="text-muted-foreground" aria-hidden="true" />
@@ -668,29 +740,34 @@
 					</thead>
 					<tbody>
 						{#each filteredAcceptedRuns as run (run.id)}
-							<tr
-								class={[
-									'border-b border-border transition-colors',
-									run.id === latestHistoryRunId && 'bg-muted/30'
-								]}
-							>
+							<tr class={['border-b border-border transition-colors', run.id === latestHistoryRunId && 'bg-muted/30']}>
 								<td class="px-4 py-2.5">
-									<span class="block text-sm font-medium text-foreground">{formatDate(run.startDate)} to {formatDate(run.endDate)}</span>
+									<span class="block text-sm font-medium text-foreground"
+										>{formatDate(run.startDate)} to {formatDate(run.endDate)}</span
+									>
 									<span class="block text-xs text-muted-foreground">Accepted {formatDateTime(run.acceptedAt)}</span>
 									{#if run.id === latestHistoryRunId}
 										<Badge variant="info" class="mt-1 w-fit">Latest</Badge>
 									{/if}
 								</td>
 								<td class="px-4 py-2.5">
-									<span class="block text-xs font-medium text-foreground">{run.appliedAt ? 'Calendar' : 'History'}</span>
+									<span class="block text-xs font-medium text-foreground">{run.appliedAt ? 'Calendar' : 'History'}</span
+									>
 									<span class="block text-xs text-muted-foreground">{calendarStateLabel(run)}</span>
-									<span class="block text-xs text-muted-foreground" title={acceptedByLabel(run)}>By {acceptedByLabel(run)}</span>
+									<span class="block text-xs text-muted-foreground" title={acceptedByLabel(run)}
+										>By {acceptedByLabel(run)}</span
+									>
 								</td>
 								<td class="px-4 py-2.5 text-center text-sm font-medium text-foreground">{run.corrections.length}</td>
 								<td class="px-4 py-2.5"><Badge variant={runStatusVariant(run)}>{runStatusLabel(run)}</Badge></td>
 								<td class="px-4 py-2.5">
 									<div class="flex items-center gap-1">
-										<Button variant="outline" size="sm" href={historyDetailHref(run, 'roster')} aria-label={formatDate(run.startDate) + ' to ' + formatDate(run.endDate)}>
+										<Button
+											variant="outline"
+											size="sm"
+											href={historyDetailHref(run, 'roster')}
+											aria-label={formatDate(run.startDate) + ' to ' + formatDate(run.endDate)}
+										>
 											<Eye size={14} aria-hidden="true" />
 											Open
 										</Button>
@@ -707,7 +784,10 @@
 					</tbody>
 				</table>
 			</div>
-			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3" aria-label="History pagination">
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3"
+				aria-label="History pagination"
+			>
 				<p class="text-xs text-muted-foreground">
 					{#if historyPage}
 						Page {historyPage.page}. Showing {filteredAcceptedRuns.length} of {acceptedRuns.length} loaded runs.

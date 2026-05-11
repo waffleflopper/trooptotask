@@ -97,6 +97,28 @@ Supports:
 - The components compose existing shadcn-svelte primitives instead of duplicating button, badge, tab, table, or form visuals.
 - Route code can vary behavior, labels, actions, and data, but not visual styling.
 
+## Implementation Progress
+
+- Added `src/lib/components/ui/page-shell` as the shared primitive family for this step.
+- Added `PageShell.Root` for authenticated route content scrolling, padding, density, and width.
+- Added `PageShell.Header` for route-local title, subtitle, back/meta/action/overflow snippets, and compact wrapping.
+- Added `PageShell.Tabs` for route-level tabs with URL-backed links or local value-backed tab changes, optional badges, active state, disabled state, and horizontal overflow.
+- Added `PageShell.FactGrid`, `PageShell.FactRow`, and `PageShell.Metric` for dense operational facts and metric groups.
+- Added `PageShell.FactRow layout="stack"` for multi-column metadata grids where inline label/value rows would compress labels or long values.
+- Added `PageShell.SummaryRail` and `PageShell.RailSection` for right-side operational summary rails.
+- Added `PageShell.StickyActionBar` for dirty-state and grouped action bars.
+- Updated `/ui-showroom/duty-roster` to consume the shared primitives for the page shell, header, route tabs, fact rows, metrics, summary rails, and settings sticky action bar.
+- Tightened the duty-roster history examples with `min-w-0` containment and local table overflow so wide history/detail tables do not slide under right-side rails.
+- Converted the history filter row to a wrapping control layout so action buttons remain visible beside the summary rail across intermediate breakpoints.
+- Documented the `ui/page-shell` public API and usage rules in `docs/component-catalog.md`.
+
+### Notes
+
+- `PageHeader` from the original plan is implemented as `PageShell.Header` to keep route shell primitives together as a compound shared family.
+- `RouteTabs` is implemented as `PageShell.Tabs`; it supports both `href` items for URL-backed navigation and `value` items for showroom/local tab state. Production routes should prefer URL-backed items where route state is represented by the URL.
+- `SummaryRail` responsive conversion to a mobile `Sheet` remains a future behavior extension. The current shared primitive provides the stable rail surface and stacks naturally in responsive grid layouts.
+- No production `/org/[orgId]/duty-rosters` route was migrated in this step.
+
 ## Verification
 
 - Add or update focused component tests where practical.

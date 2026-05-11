@@ -55,6 +55,84 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 
 ---
 
+## `ui/page-shell`
+
+`ui/page-shell` is the shared authenticated-page shell primitive family for route workspaces. It standardizes page padding, route body overflow, page headers, route tabs, dense fact displays, right summary rails, and bottom sticky action bars without owning route-specific business rules.
+
+```svelte
+<script lang="ts">
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+
+	let tab = $state('generate');
+	const tabs = [
+		{ label: 'Generate', value: 'generate' },
+		{ label: 'History', value: 'history', badge: 48 },
+		{ label: 'Settings', value: 'settings' }
+	];
+</script>
+
+<PageShell.Root>
+	<PageShell.Header title="Staff Duty NCO" subtitle="Configure this duty roster template.">
+		{#snippet meta()}
+			<Badge variant="success">Active</Badge>
+		{/snippet}
+		{#snippet actions()}
+			<Button>Generate Roster</Button>
+			<Button variant="outline">View History</Button>
+		{/snippet}
+	</PageShell.Header>
+
+	<PageShell.Tabs items={tabs} value={tab} onValueChange={(value) => (tab = value)} />
+
+	<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+		<div class="rounded-lg border bg-card p-4 text-card-foreground">
+			<PageShell.FactGrid layout="three">
+				<PageShell.Metric label="Pool Size" value="22" />
+				<PageShell.Metric label="Assigned" value="6" />
+				<PageShell.Metric label="Remaining" value="16" />
+			</PageShell.FactGrid>
+		</div>
+
+		<PageShell.SummaryRail title="Template Summary">
+			<PageShell.FactRow label="Total Eligible" value="22" />
+			<PageShell.FactRow label="Exemptions" value="4" />
+		</PageShell.SummaryRail>
+	</section>
+
+	<PageShell.StickyActionBar title="Unsaved changes" description="Review changes before saving.">
+		{#snippet primary()}
+			<Button variant="outline">Discard</Button>
+			<Button>Save Changes</Button>
+		{/snippet}
+	</PageShell.StickyActionBar>
+</PageShell.Root>
+```
+
+Public components:
+
+- `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
+- `Header`: page header. Props: `title`, `subtitle?`, snippets `back`, `meta`, `actions`, and `overflow`.
+- `Tabs`: route-level navigation. Props: `items?`, `label?`, `value?`, `onValueChange?`, `children?`. Items support `label`, `href`, `value`, `active`, `badge`, `badgeVariant`, and `disabled`.
+- `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
+- `FactRow`: label/value row. Props: `label`, `value?`, `tone?`, `layout?: 'inline' | 'stack'`, `icon?`, `badge?`, `badgeVariant?`, `children?`. Use `layout="stack"` inside multi-column fact grids so labels and long values do not compress.
+- `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
+- `SummaryRail`: right-side rail container. Props: `title`, `children?`.
+- `RailSection`: optional titled/divided section inside a rail. Props: `title?`, `divided?`, `children?`.
+- `StickyActionBar`: bottom sticky action surface. Props: `title?`, `description?`, snippets `context`, `secondary`, and `primary`.
+
+Rules:
+
+- Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
+- Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
+- Use `Tabs` for route-level Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
+- Use `SummaryRail`, `FactGrid`, `FactRow`, and `Metric` for dense operational summaries instead of route-local summary wrappers.
+- Use `StickyActionBar` for dirty-state and grouped draft/official action surfaces.
+- Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
+
+---
+
 ## `ui/date-picker`
 
 Shared shadcn-svelte date picker composed from `button`, `popover`, and `calendar`. Use this instead of route-local `input type="date"` controls when a production form needs the showroom date picker appearance.

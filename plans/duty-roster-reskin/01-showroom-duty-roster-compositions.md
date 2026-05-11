@@ -87,6 +87,9 @@ Do not solve gaps by styling the showroom locally in a way production routes can
 
 - Added `/ui-showroom/duty-roster` with a showroom-local app shell frame.
 - Added static composition examples for the template register, new template pool wizard, generate setup, preview review list, DA6 matrix, history list, history detail, and settings ledger.
+- Updated the DA6 matrix example to follow production DA6 semantics: `X` marks assigned duty, numeric cells show visible DA6 count positions, `A` marks authorized absence without advancing counts, and `D` / `U` mark chargeable unavailable states that advance counts.
+- Kept DA6 matrix date headers horizontal and centered with weekday/date labels, for example `Tue` over `2-Jun`.
+- Constrained the showroom route inside the sidebar provider/inset so the breadcrumb/header bar remains outside the page scroller and the page background stays consistent during scroll.
 - Added showroom-local helpers for repeated composition scaffolding: fact rows, metrics, summary rails, exemption pills, section wrappers, and multi-select field examples.
 - Added a focused showroom test covering the main route examples, tab switching, manual change sheet, correction sheet, and DA6 matrix rendering.
 - Production duty-roster routes remain untouched by this step.

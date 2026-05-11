@@ -91,7 +91,6 @@
 		sequenceKind: 'weekday' | 'weekend-holiday';
 		chargeSequenceStart: number;
 		chargeableCount: number;
-		specialLabel?: string;
 	};
 
 	type MatrixCellTone = 'default' | 'assigned' | 'warning' | 'danger';
@@ -309,8 +308,8 @@
 		{
 			id: 'jun-01',
 			label: 'Jun 1',
-			weekday: 'MON',
-			date: 'Jun 1',
+			weekday: 'Mon',
+			date: '1-Jun',
 			sequenceKind: 'weekday',
 			chargeSequenceStart: 1,
 			chargeableCount: 5
@@ -318,8 +317,8 @@
 		{
 			id: 'jun-02',
 			label: 'Jun 2',
-			weekday: 'TUE',
-			date: 'Jun 2',
+			weekday: 'Tue',
+			date: '2-Jun',
 			sequenceKind: 'weekday',
 			chargeSequenceStart: 2,
 			chargeableCount: 4
@@ -327,8 +326,8 @@
 		{
 			id: 'jun-03',
 			label: 'Jun 3',
-			weekday: 'WED',
-			date: 'Jun 3',
+			weekday: 'Wed',
+			date: '3-Jun',
 			sequenceKind: 'weekday',
 			chargeSequenceStart: 3,
 			chargeableCount: 4
@@ -336,8 +335,8 @@
 		{
 			id: 'jun-04',
 			label: 'Jun 4',
-			weekday: 'THU',
-			date: 'Jun 4',
+			weekday: 'Thu',
+			date: '4-Jun',
 			sequenceKind: 'weekday',
 			chargeSequenceStart: 4,
 			chargeableCount: 5
@@ -345,8 +344,8 @@
 		{
 			id: 'jun-05',
 			label: 'Jun 5',
-			weekday: 'FRI',
-			date: 'Jun 5',
+			weekday: 'Fri',
+			date: '5-Jun',
 			sequenceKind: 'weekday',
 			chargeSequenceStart: 5,
 			chargeableCount: 5
@@ -354,22 +353,20 @@
 		{
 			id: 'jun-06',
 			label: 'Jun 6',
-			weekday: 'SAT',
-			date: 'Jun 6',
+			weekday: 'Sat',
+			date: '6-Jun',
 			sequenceKind: 'weekend-holiday',
 			chargeSequenceStart: 1,
-			chargeableCount: 5,
-			specialLabel: 'Weekend'
+			chargeableCount: 5
 		},
 		{
 			id: 'jun-07',
 			label: 'Jun 7',
-			weekday: 'SUN',
-			date: 'Jun 7',
+			weekday: 'Sun',
+			date: '7-Jun',
 			sequenceKind: 'weekend-holiday',
 			chargeSequenceStart: 2,
-			chargeableCount: 4,
-			specialLabel: 'Weekend'
+			chargeableCount: 4
 		}
 	];
 
@@ -551,782 +548,787 @@
 </svelte:head>
 
 <Tooltip.Provider>
-	<main class="flex flex-1 flex-col gap-6 p-4 md:p-6">
-		<header class="grid gap-4">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-				<div class="grid gap-2">
-					<div class="flex flex-wrap items-center gap-2">
-						<h1 class="text-2xl font-semibold tracking-tight">Duty Roster Composition Showroom</h1>
-						<Badge variant="info">Static UI examples</Badge>
+	<div class="min-h-0 flex-1 overflow-y-auto bg-background p-4 md:p-6">
+		<div class="grid gap-6">
+			<header class="grid gap-4">
+				<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+					<div class="grid gap-2">
+						<div class="flex flex-wrap items-center gap-2">
+							<h1 class="text-2xl font-semibold tracking-tight">Duty Roster Composition Showroom</h1>
+							<Badge variant="info">Static UI examples</Badge>
+						</div>
+						<p class="max-w-3xl text-sm text-muted-foreground">
+							Shared shadcn-svelte composition examples for the duty-roster reskin. These examples intentionally avoid
+							touching the production duty-roster route.
+						</p>
 					</div>
-					<p class="max-w-3xl text-sm text-muted-foreground">
-						Shared shadcn-svelte composition examples for the duty-roster reskin. These examples intentionally avoid
-						touching the production duty-roster route.
-					</p>
-				</div>
-				<div class="flex flex-wrap gap-2">
-					<Button variant="outline" href="/plans/duty-roster-reskin/01-showroom-duty-roster-compositions.md">
-						<FileTextIcon />
-						View Plan
-					</Button>
-					<Button>
-						<Plus />
-						New Template
-					</Button>
-				</div>
-			</div>
-
-			<Alert.Root variant="info">
-				<Info />
-				<Alert.Title>Showroom boundary</Alert.Title>
-				<Alert.Description>
-					This route proves shared component composition before production migration. Any missing reusable pattern
-					should be recorded as a design-system gap.
-				</Alert.Description>
-			</Alert.Root>
-		</header>
-
-		<Tabs.Root bind:value={routeTab} class="grid gap-4">
-			<Tabs.List variant="line" class="w-full justify-start">
-				<Tabs.Trigger value="generate">Generate</Tabs.Trigger>
-				<Tabs.Trigger value="history">History</Tabs.Trigger>
-				<Tabs.Trigger value="settings">Settings</Tabs.Trigger>
-			</Tabs.List>
-			<p class="sr-only">Current route tab: {routeTabLabel}</p>
-
-			<Tabs.Content value="generate" class="grid gap-6">
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="register-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-							<div class="grid gap-1">
-								<h2 id="register-heading" class="text-xl font-semibold tracking-tight">Template register</h2>
-								<p class="text-sm text-muted-foreground">
-									Selectable rows, quick actions, pagination, and summary rail.
-								</p>
-							</div>
-							<Button size="sm">
-								<Plus />
-								New Template
-							</Button>
-						</div>
-						<DataTable.DataTable
-							data={templates}
-							columns={templateColumns}
-							ariaLabel="Duty roster template register showroom"
-							pageSize={5}
-							density="dense"
-							stickyHeader
-							onRowClick={(row) => (activeTemplateId = row.id)}
-							rowActionLabel={(row) => `Select ${row.name}`}
-							cell={templateCell}
-						/>
+					<div class="flex flex-wrap gap-2">
+						<Button variant="outline" href="/plans/duty-roster-reskin/01-showroom-duty-roster-compositions.md">
+							<FileTextIcon />
+							View Plan
+						</Button>
+						<Button>
+							<Plus />
+							New Template
+						</Button>
 					</div>
+				</div>
 
-					<aside
-						class="grid content-start gap-4 rounded-lg border bg-card p-4 text-card-foreground"
-						aria-label="Selected template summary"
-					>
-						<div class="flex items-start justify-between gap-3">
-							<div class="grid gap-1">
-								<h3 class="text-lg font-semibold">{selectedTemplate.name}</h3>
-								<p class="font-mono text-xs text-muted-foreground">{selectedTemplate.slug}</p>
+				<Alert.Root variant="info">
+					<Info />
+					<Alert.Title>Showroom boundary</Alert.Title>
+					<Alert.Description>
+						This route proves shared component composition before production migration. Any missing reusable pattern
+						should be recorded as a design-system gap.
+					</Alert.Description>
+				</Alert.Root>
+			</header>
+
+			<Tabs.Root bind:value={routeTab} class="grid gap-4">
+				<Tabs.List variant="line" class="w-full justify-start">
+					<Tabs.Trigger value="generate">Generate</Tabs.Trigger>
+					<Tabs.Trigger value="history">History</Tabs.Trigger>
+					<Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+				</Tabs.List>
+				<p class="sr-only">Current route tab: {routeTabLabel}</p>
+
+				<Tabs.Content value="generate" class="grid gap-6">
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="register-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+							<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+								<div class="grid gap-1">
+									<h2 id="register-heading" class="text-xl font-semibold tracking-tight">Template register</h2>
+									<p class="text-sm text-muted-foreground">
+										Selectable rows, quick actions, pagination, and summary rail.
+									</p>
+								</div>
+								<Button size="sm">
+									<Plus />
+									New Template
+								</Button>
 							</div>
-							<Badge variant={statusVariant(selectedTemplate.status)}>{statusLabel(selectedTemplate.status)}</Badge>
+							<DataTable.DataTable
+								data={templates}
+								columns={templateColumns}
+								ariaLabel="Duty roster template register showroom"
+								pageSize={5}
+								density="dense"
+								stickyHeader
+								onRowClick={(row) => (activeTemplateId = row.id)}
+								rowActionLabel={(row) => `Select ${row.name}`}
+								cell={templateCell}
+							/>
 						</div>
-						<Separator />
-						<div class="grid gap-3">
-							<FactRow label="Total Eligible" value={String(selectedTemplate.poolSize)} />
-							<FactRow label="Assigned Next 14 Days" value="6" />
-							<FactRow label="Remaining Available" value={String(selectedTemplate.poolSize - 6)} />
-							<FactRow label="Exemptions" value={String(selectedTemplate.exemptions)} />
-						</div>
-						<Separator />
-						<div class="grid gap-2">
-							<Button>
-								<Play />
-								Generate Roster
-							</Button>
-							<Button variant="outline">
-								<Clock3 />
-								View History
-							</Button>
-							<Button variant="outline">
-								<Settings />
-								Edit Settings
-							</Button>
-						</div>
-						<Alert.Root variant="info">
-							<CalendarDays />
-							<Alert.Title>Create a one-duty template</Alert.Title>
-							<Alert.Description>Use one template per duty position so counts stay separate.</Alert.Description>
-						</Alert.Root>
-					</aside>
-				</section>
 
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="wizard-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<h2 id="wizard-heading" class="text-xl font-semibold tracking-tight">New template wizard, pool step</h2>
-						<Stepper.Root steps={stepperSteps} value={wizardStep} onValueChange={(value) => (wizardStep = value)}>
-							<Stepper.List aria-label="New Duty Roster Template steps" class="border-b pb-4">
-								{#each stepperSteps as step (step.value)}
-									<Stepper.Item value={step.value} />
-								{/each}
-							</Stepper.List>
-							<Stepper.Content value="pool" forceMount>
-								<div class="grid gap-4">
-									<section class="grid gap-3 rounded-lg border p-4">
-										<h3 class="text-base font-semibold">Template Identity</h3>
-										<div class="grid gap-3 md:grid-cols-3">
-											<FactRow label="Template Name" value="Staff Duty NCO" />
-											<FactRow label="URL Slug" value="staff-duty-nco" />
-											<FactRow label="Short Code" value="SDNCO" />
-										</div>
-									</section>
-									<section class="grid gap-4 rounded-lg border p-4">
-										<div class="grid gap-1">
-											<h3 class="text-base font-semibold">Build the Eligible Pool</h3>
-											<p class="text-sm text-muted-foreground">OR within a category. AND across categories.</p>
-										</div>
-										<div class="grid gap-3 lg:grid-cols-4">
-											<MultiSelectField label="Rank" items={rankItems} bind:value={selectedRanks} />
-											<MultiSelectField label="Group" items={groupItems} bind:value={selectedGroups} />
-											<MultiSelectField label="MOS" items={mosItems} bind:value={selectedMos} />
-											<MultiSelectField label="Duty Role" items={roleItems} bind:value={selectedDutyRoles} />
-										</div>
-										<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-											<div class="overflow-hidden rounded-lg border">
-												<Table.Table>
-													<Table.Header>
-														<Table.Row>
-															<Table.Head>Soldier</Table.Head>
-															<Table.Head>Rank</Table.Head>
-															<Table.Head>MOS</Table.Head>
-															<Table.Head>Group</Table.Head>
-															<Table.Head>Duty Role</Table.Head>
-															<Table.Head>Eligible</Table.Head>
-														</Table.Row>
-													</Table.Header>
-													<Table.Body>
-														{#each poolRows as row (row.name)}
+						<aside
+							class="grid content-start gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+							aria-label="Selected template summary"
+						>
+							<div class="flex items-start justify-between gap-3">
+								<div class="grid gap-1">
+									<h3 class="text-lg font-semibold">{selectedTemplate.name}</h3>
+									<p class="font-mono text-xs text-muted-foreground">{selectedTemplate.slug}</p>
+								</div>
+								<Badge variant={statusVariant(selectedTemplate.status)}>{statusLabel(selectedTemplate.status)}</Badge>
+							</div>
+							<Separator />
+							<div class="grid gap-3">
+								<FactRow label="Total Eligible" value={String(selectedTemplate.poolSize)} />
+								<FactRow label="Assigned Next 14 Days" value="6" />
+								<FactRow label="Remaining Available" value={String(selectedTemplate.poolSize - 6)} />
+								<FactRow label="Exemptions" value={String(selectedTemplate.exemptions)} />
+							</div>
+							<Separator />
+							<div class="grid gap-2">
+								<Button>
+									<Play />
+									Generate Roster
+								</Button>
+								<Button variant="outline">
+									<Clock3 />
+									View History
+								</Button>
+								<Button variant="outline">
+									<Settings />
+									Edit Settings
+								</Button>
+							</div>
+							<Alert.Root variant="info">
+								<CalendarDays />
+								<Alert.Title>Create a one-duty template</Alert.Title>
+								<Alert.Description>Use one template per duty position so counts stay separate.</Alert.Description>
+							</Alert.Root>
+						</aside>
+					</section>
+
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="wizard-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+							<h2 id="wizard-heading" class="text-xl font-semibold tracking-tight">New template wizard, pool step</h2>
+							<Stepper.Root steps={stepperSteps} value={wizardStep} onValueChange={(value) => (wizardStep = value)}>
+								<Stepper.List aria-label="New Duty Roster Template steps" class="border-b pb-4">
+									{#each stepperSteps as step (step.value)}
+										<Stepper.Item value={step.value} />
+									{/each}
+								</Stepper.List>
+								<Stepper.Content value="pool" forceMount>
+									<div class="grid gap-4">
+										<section class="grid gap-3 rounded-lg border p-4">
+											<h3 class="text-base font-semibold">Template Identity</h3>
+											<div class="grid gap-3 md:grid-cols-3">
+												<FactRow label="Template Name" value="Staff Duty NCO" />
+												<FactRow label="URL Slug" value="staff-duty-nco" />
+												<FactRow label="Short Code" value="SDNCO" />
+											</div>
+										</section>
+										<section class="grid gap-4 rounded-lg border p-4">
+											<div class="grid gap-1">
+												<h3 class="text-base font-semibold">Build the Eligible Pool</h3>
+												<p class="text-sm text-muted-foreground">OR within a category. AND across categories.</p>
+											</div>
+											<div class="grid gap-3 lg:grid-cols-4">
+												<MultiSelectField label="Rank" items={rankItems} bind:value={selectedRanks} />
+												<MultiSelectField label="Group" items={groupItems} bind:value={selectedGroups} />
+												<MultiSelectField label="MOS" items={mosItems} bind:value={selectedMos} />
+												<MultiSelectField label="Duty Role" items={roleItems} bind:value={selectedDutyRoles} />
+											</div>
+											<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+												<div class="overflow-hidden rounded-lg border">
+													<Table.Table>
+														<Table.Header>
 															<Table.Row>
-																<Table.Cell>{row.name}</Table.Cell>
-																<Table.Cell>{row.rank}</Table.Cell>
-																<Table.Cell>{row.mos}</Table.Cell>
-																<Table.Cell>{row.group}</Table.Cell>
-																<Table.Cell>{row.role}</Table.Cell>
-																<Table.Cell><Badge variant="success">Yes</Badge></Table.Cell>
+																<Table.Head>Soldier</Table.Head>
+																<Table.Head>Rank</Table.Head>
+																<Table.Head>MOS</Table.Head>
+																<Table.Head>Group</Table.Head>
+																<Table.Head>Duty Role</Table.Head>
+																<Table.Head>Eligible</Table.Head>
 															</Table.Row>
-														{/each}
-													</Table.Body>
-												</Table.Table>
-											</div>
-											<div class="grid content-start gap-3 rounded-lg border p-4">
-												<h4 class="font-semibold">Exemptions (2)</h4>
-												<p class="text-sm text-muted-foreground">Select from the resolved pool only.</p>
-												<div class="grid gap-2">
-													<ExemptionPill name="SSG Michael Johnson" detail="11C, Team Leader" />
-													<ExemptionPill name="SFC Daniel Martinez" detail="11B, NCO" />
+														</Table.Header>
+														<Table.Body>
+															{#each poolRows as row (row.name)}
+																<Table.Row>
+																	<Table.Cell>{row.name}</Table.Cell>
+																	<Table.Cell>{row.rank}</Table.Cell>
+																	<Table.Cell>{row.mos}</Table.Cell>
+																	<Table.Cell>{row.group}</Table.Cell>
+																	<Table.Cell>{row.role}</Table.Cell>
+																	<Table.Cell><Badge variant="success">Yes</Badge></Table.Cell>
+																</Table.Row>
+															{/each}
+														</Table.Body>
+													</Table.Table>
 												</div>
-												<Combobox.Root items={soldiers} value="">
-													<Combobox.Trigger placeholder="Select an exemption..." />
-													<Combobox.Content>
-														<Combobox.List />
-													</Combobox.Content>
-												</Combobox.Root>
+												<div class="grid content-start gap-3 rounded-lg border p-4">
+													<h4 class="font-semibold">Exemptions (2)</h4>
+													<p class="text-sm text-muted-foreground">Select from the resolved pool only.</p>
+													<div class="grid gap-2">
+														<ExemptionPill name="SSG Michael Johnson" detail="11C, Team Leader" />
+														<ExemptionPill name="SFC Daniel Martinez" detail="11B, NCO" />
+													</div>
+													<Combobox.Root items={soldiers} value="">
+														<Combobox.Trigger placeholder="Select an exemption..." />
+														<Combobox.Content>
+															<Combobox.List />
+														</Combobox.Content>
+													</Combobox.Root>
+												</div>
 											</div>
-										</div>
-										<Alert.Root variant="warning">
-											<AlertTriangle />
-											<Alert.Title>No eligible pool</Alert.Title>
+											<Alert.Root variant="warning">
+												<AlertTriangle />
+												<Alert.Title>No eligible pool</Alert.Title>
+												<Alert.Description>
+													Adjust filters above. When no Soldiers match the selected criteria, the pool will be empty.
+												</Alert.Description>
+											</Alert.Root>
+										</section>
+									</div>
+								</Stepper.Content>
+							</Stepper.Root>
+						</div>
+
+						<SummaryRail title="Pool Summary">
+							<FactRow label="Pool Count" value="8" />
+							<FactRow label="Exemptions Count" value="2" />
+							<Separator />
+							<h4 class="font-semibold">Matching Rules Summary</h4>
+							<BadgeRow label="Rank (OR)" values={['SGT', 'SSG', 'SFC']} />
+							<BadgeRow label="Group (OR)" values={['Enlisted']} />
+							<BadgeRow label="MOS (OR)" values={['11B', '11C', '68W']} />
+							<BadgeRow label="Duty Role (OR)" values={['NCO', 'Team Leader']} />
+							<Alert.Root variant="info">
+								<Info />
+								<Alert.Description>Exemptions can only be selected from the resolved pool.</Alert.Description>
+							</Alert.Root>
+						</SummaryRail>
+					</section>
+
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="generate-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+							<h2 id="generate-heading" class="text-xl font-semibold tracking-tight">
+								Generate setup and preview review
+							</h2>
+							<div class="grid gap-4 rounded-lg border p-4">
+								<div class="grid gap-1">
+									<h3 class="text-base font-semibold">Generate Draft Preview</h3>
+									<p class="text-sm text-muted-foreground">
+										Select a date range to build a draft preview of this template.
+									</p>
+								</div>
+								<div class="grid gap-3 md:grid-cols-2">
+									<Field.Root>
+										<Field.Label>Start Date</Field.Label>
+										<DatePicker
+											value={startDate}
+											onValueChange={(value) => (startDate = value)}
+											aria-label="Start Date"
+										/>
+										<Field.Description>Start date must be today or later.</Field.Description>
+									</Field.Root>
+									<Field.Root>
+										<Field.Label>End Date</Field.Label>
+										<DatePicker value={endDate} onValueChange={(value) => (endDate = value)} aria-label="End Date" />
+										<Field.Description>End date must be on or after start date.</Field.Description>
+									</Field.Root>
+								</div>
+								<FactRow label="Date Range (14 days)" value="Tue, May 20, 2026 - Mon, Jun 2, 2026" />
+							</div>
+
+							<div class="grid gap-4 rounded-lg border p-4">
+								<h3 class="text-base font-semibold">Pool Snapshot</h3>
+								<div class="grid gap-3 md:grid-cols-5">
+									<Metric label="Eligible Pool" value="22" />
+									<Metric label="Exemptions" value="4" />
+									<Metric label="Accepted Runs" value="48" />
+									<Metric label="Corrections" value="3" />
+									<Metric label="Baseline Source" value="Current Roster" />
+								</div>
+							</div>
+
+							<div class="grid gap-4 rounded-lg border p-4">
+								<div class="flex items-center justify-between gap-3">
+									<h3 class="text-base font-semibold">Draft Commit Readiness</h3>
+									<Badge variant="warning">Review needed</Badge>
+								</div>
+								<div class="grid gap-3 md:grid-cols-5">
+									<Metric label="Duty Dates" value="14" detail="May 12 - May 25" />
+									<Metric label="Automatic" value="10" detail="71%" />
+									<Metric label="Manual" value="2" detail="14%" />
+									<Metric label="Unresolved" value="1" detail="7%" tone="warning" />
+									<Metric label="Warnings" value="1" detail="Requires review" tone="warning" />
+								</div>
+							</div>
+
+							<Tabs.Root bind:value={previewMode}>
+								<Tabs.List>
+									<Tabs.Trigger value="list">List View</Tabs.Trigger>
+									<Tabs.Trigger value="matrix">DA6 Matrix</Tabs.Trigger>
+								</Tabs.List>
+								<Tabs.Content value="list" class="grid gap-4">
+									<div class="overflow-hidden rounded-lg border">
+										<Table.Table>
+											<Table.Header>
+												<Table.Row>
+													<Table.Head>Date</Table.Head>
+													<Table.Head>Original Generated Selection</Table.Head>
+													<Table.Head>Current Final Selection</Table.Head>
+													<Table.Head>Warnings</Table.Head>
+													<Table.Head>Status</Table.Head>
+													<Table.Head>Action</Table.Head>
+												</Table.Row>
+											</Table.Header>
+											<Table.Body>
+												{#each previewRows as row (row.date)}
+													<Table.Row>
+														<Table.Cell>
+															<span class="block font-medium">{row.date}</span>
+															<span class="text-xs text-muted-foreground">{row.weekday}</span>
+														</Table.Cell>
+														<Table.Cell>{row.generated}</Table.Cell>
+														<Table.Cell>{row.final}</Table.Cell>
+														<Table.Cell>{row.warnings}</Table.Cell>
+														<Table.Cell>
+															<Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+														</Table.Cell>
+														<Table.Cell>
+															<Sheet.Root>
+																<Sheet.Trigger>
+																	{#snippet child({ props })}
+																		<Button variant="outline" size="sm" {...props}>{row.action}</Button>
+																	{/snippet}
+																</Sheet.Trigger>
+																{@render ManualChangeSheet()}
+															</Sheet.Root>
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Table>
+									</div>
+									{@render ActionBar()}
+								</Tabs.Content>
+								<Tabs.Content value="matrix" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+									{@render Da6Matrix()}
+									<SummaryRail title="Print Options">
+										<FactRow label="Layout" value="DA Form 6 (Landscape)" />
+										<FactRow label="Include Signatures" value="Yes" />
+										<FactRow label="Include Legend" value="Yes" />
+										<Button variant="outline">
+											<Settings />
+											Edit Print Options
+										</Button>
+										<Separator />
+										<h4 class="font-semibold">Official Actions</h4>
+										<Button>
+											<Printer />
+											Print Draft
+										</Button>
+										<Button variant="outline">Accept</Button>
+										<Button variant="outline">Accept + Print</Button>
+										<Button variant="outline">
+											<CalendarDays />
+											Accept + Apply to Calendar
+										</Button>
+										<Alert.Root variant="info">
+											<Info />
 											<Alert.Description>
-												Adjust filters above. When no Soldiers match the selected criteria, the pool will be empty.
+												You are printing the draft matrix. Official history is written only upon acceptance.
 											</Alert.Description>
 										</Alert.Root>
-									</section>
-								</div>
-							</Stepper.Content>
-						</Stepper.Root>
-					</div>
+									</SummaryRail>
+								</Tabs.Content>
+							</Tabs.Root>
+						</div>
 
-					<SummaryRail title="Pool Summary">
-						<FactRow label="Pool Count" value="8" />
-						<FactRow label="Exemptions Count" value="2" />
-						<Separator />
-						<h4 class="font-semibold">Matching Rules Summary</h4>
-						<BadgeRow label="Rank (OR)" values={['SGT', 'SSG', 'SFC']} />
-						<BadgeRow label="Group (OR)" values={['Enlisted']} />
-						<BadgeRow label="MOS (OR)" values={['11B', '11C', '68W']} />
-						<BadgeRow label="Duty Role (OR)" values={['NCO', 'Team Leader']} />
-						<Alert.Root variant="info">
-							<Info />
-							<Alert.Description>Exemptions can only be selected from the resolved pool.</Alert.Description>
-						</Alert.Root>
-					</SummaryRail>
-				</section>
+						<SummaryRail title="Generate Summary">
+							<FactRow label="Date Range" value="May 20, 2026 - Jun 2, 2026" />
+							<FactRow label="Total Days" value="14" />
+							<FactRow label="Estimated Duty Days" value="28" />
+							<FactRow label="Projected Fills" value="28 / 28" />
+							<FactRow label="Warnings" value="2" tone="warning" />
+							<Button>
+								<Play />
+								Generate Preview
+							</Button>
+							<Alert.Root variant="warning">
+								<AlertTriangle />
+								<Alert.Title>Warnings (2)</Alert.Title>
+								<Alert.Description
+									>2 upcoming unavailability periods overlap. 1 Soldier has high duty day count.</Alert.Description
+								>
+							</Alert.Root>
+							<Alert.Root variant="destructive">
+								<CircleAlert />
+								<Alert.Title>Errors (1)</Alert.Title>
+								<Alert.Description>Date range is too far in the past.</Alert.Description>
+							</Alert.Root>
+							<div class="grid gap-2">
+								<Skeleton class="h-4 w-3/4" />
+								<Skeleton class="h-4 w-1/2" />
+								<Skeleton class="h-8 w-full" />
+							</div>
+						</SummaryRail>
+					</section>
+				</Tabs.Content>
 
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="generate-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<h2 id="generate-heading" class="text-xl font-semibold tracking-tight">
-							Generate setup and preview review
-						</h2>
-						<div class="grid gap-4 rounded-lg border p-4">
+				<Tabs.Content value="history" class="grid gap-6">
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]" aria-labelledby="history-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
 							<div class="grid gap-1">
-								<h3 class="text-base font-semibold">Generate Draft Preview</h3>
-								<p class="text-sm text-muted-foreground">
-									Select a date range to build a draft preview of this template.
-								</p>
+								<h2 id="history-heading" class="text-xl font-semibold tracking-tight">Staff Duty NCO, History</h2>
+								<p class="text-sm text-muted-foreground">Accepted run history for this duty roster template.</p>
 							</div>
-							<div class="grid gap-3 md:grid-cols-2">
-								<Field.Root>
-									<Field.Label>Start Date</Field.Label>
-									<DatePicker
-										value={startDate}
-										onValueChange={(value) => (startDate = value)}
-										aria-label="Start Date"
-									/>
-									<Field.Description>Start date must be today or later.</Field.Description>
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>End Date</Field.Label>
-									<DatePicker value={endDate} onValueChange={(value) => (endDate = value)} aria-label="End Date" />
-									<Field.Description>End date must be on or after start date.</Field.Description>
-								</Field.Root>
+							<div class="grid gap-3 rounded-lg border p-4 md:grid-cols-6">
+								<FactRow label="Template" value="Staff Duty NCO" />
+								<FactRow label="Slug" value="staff-duty-nco" />
+								<FactRow label="Status" value="Active" />
+								<FactRow label="Accepted Runs" value="48" />
+								<FactRow label="Correction Count" value="3" />
+								<FactRow label="Latest Run" value="May 12 - May 25, 2026" />
 							</div>
-							<FactRow label="Date Range (14 days)" value="Tue, May 20, 2026 - Mon, Jun 2, 2026" />
-						</div>
-
-						<div class="grid gap-4 rounded-lg border p-4">
-							<h3 class="text-base font-semibold">Pool Snapshot</h3>
-							<div class="grid gap-3 md:grid-cols-5">
-								<Metric label="Eligible Pool" value="22" />
-								<Metric label="Exemptions" value="4" />
-								<Metric label="Accepted Runs" value="48" />
-								<Metric label="Corrections" value="3" />
-								<Metric label="Baseline Source" value="Current Roster" />
-							</div>
-						</div>
-
-						<div class="grid gap-4 rounded-lg border p-4">
-							<div class="flex items-center justify-between gap-3">
-								<h3 class="text-base font-semibold">Draft Commit Readiness</h3>
-								<Badge variant="warning">Review needed</Badge>
-							</div>
-							<div class="grid gap-3 md:grid-cols-5">
-								<Metric label="Duty Dates" value="14" detail="May 12 - May 25" />
-								<Metric label="Automatic" value="10" detail="71%" />
-								<Metric label="Manual" value="2" detail="14%" />
-								<Metric label="Unresolved" value="1" detail="7%" tone="warning" />
-								<Metric label="Warnings" value="1" detail="Requires review" tone="warning" />
-							</div>
-						</div>
-
-						<Tabs.Root bind:value={previewMode}>
-							<Tabs.List>
-								<Tabs.Trigger value="list">List View</Tabs.Trigger>
-								<Tabs.Trigger value="matrix">DA6 Matrix</Tabs.Trigger>
-							</Tabs.List>
-							<Tabs.Content value="list" class="grid gap-4">
-								<div class="overflow-hidden rounded-lg border">
-									<Table.Table>
-										<Table.Header>
-											<Table.Row>
-												<Table.Head>Date</Table.Head>
-												<Table.Head>Original Generated Selection</Table.Head>
-												<Table.Head>Current Final Selection</Table.Head>
-												<Table.Head>Warnings</Table.Head>
-												<Table.Head>Status</Table.Head>
-												<Table.Head>Action</Table.Head>
-											</Table.Row>
-										</Table.Header>
-										<Table.Body>
-											{#each previewRows as row (row.date)}
-												<Table.Row>
-													<Table.Cell>
-														<span class="block font-medium">{row.date}</span>
-														<span class="text-xs text-muted-foreground">{row.weekday}</span>
-													</Table.Cell>
-													<Table.Cell>{row.generated}</Table.Cell>
-													<Table.Cell>{row.final}</Table.Cell>
-													<Table.Cell>{row.warnings}</Table.Cell>
-													<Table.Cell>
-														<Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
-													</Table.Cell>
-													<Table.Cell>
-														<Sheet.Root>
-															<Sheet.Trigger>
-																{#snippet child({ props })}
-																	<Button variant="outline" size="sm" {...props}>{row.action}</Button>
-																{/snippet}
-															</Sheet.Trigger>
-															{@render ManualChangeSheet()}
-														</Sheet.Root>
-													</Table.Cell>
-												</Table.Row>
-											{/each}
-										</Table.Body>
-									</Table.Table>
-								</div>
-								{@render ActionBar()}
-							</Tabs.Content>
-							<Tabs.Content value="matrix" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-								{@render Da6Matrix()}
-								<SummaryRail title="Print Options">
-									<FactRow label="Layout" value="DA Form 6 (Landscape)" />
-									<FactRow label="Include Signatures" value="Yes" />
-									<FactRow label="Include Legend" value="Yes" />
-									<Button variant="outline">
-										<Settings />
-										Edit Print Options
-									</Button>
-									<Separator />
-									<h4 class="font-semibold">Official Actions</h4>
-									<Button>
-										<Printer />
-										Print Draft
-									</Button>
-									<Button variant="outline">Accept</Button>
-									<Button variant="outline">Accept + Print</Button>
+							<div class="grid gap-3 rounded-lg border p-4">
+								<div class="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_12rem_12rem_12rem_auto_auto]">
+									<div class="relative">
+										<Search class="absolute left-2 top-2 size-4 text-muted-foreground" />
+										<Input class="pl-8" placeholder="Search date range or accepted by..." />
+									</div>
+									<Select.Root type="single" value="all">
+										<Select.Trigger>All states</Select.Trigger>
+										<Select.Content>
+											<Select.Item value="all" label="All states" />
+											<Select.Item value="official" label="Official" />
+											<Select.Item value="invalidated" label="Invalidated" />
+										</Select.Content>
+									</Select.Root>
+									<Select.Root type="single" value="all-calendar">
+										<Select.Trigger>Calendar: All</Select.Trigger>
+										<Select.Content>
+											<Select.Item value="all-calendar" label="Calendar: All" />
+											<Select.Item value="published" label="Published" />
+											<Select.Item value="needs-sync" label="Needs Sync" />
+										</Select.Content>
+									</Select.Root>
 									<Button variant="outline">
 										<CalendarDays />
-										Accept + Apply to Calendar
+										Any date
 									</Button>
-									<Alert.Root variant="info">
-										<Info />
-										<Alert.Description>
-											You are printing the draft matrix. Official history is written only upon acceptance.
-										</Alert.Description>
-									</Alert.Root>
-								</SummaryRail>
-							</Tabs.Content>
-						</Tabs.Root>
-					</div>
-
-					<SummaryRail title="Generate Summary">
-						<FactRow label="Date Range" value="May 20, 2026 - Jun 2, 2026" />
-						<FactRow label="Total Days" value="14" />
-						<FactRow label="Estimated Duty Days" value="28" />
-						<FactRow label="Projected Fills" value="28 / 28" />
-						<FactRow label="Warnings" value="2" tone="warning" />
-						<Button>
-							<Play />
-							Generate Preview
-						</Button>
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Title>Warnings (2)</Alert.Title>
-							<Alert.Description
-								>2 upcoming unavailability periods overlap. 1 Soldier has high duty day count.</Alert.Description
-							>
-						</Alert.Root>
-						<Alert.Root variant="destructive">
-							<CircleAlert />
-							<Alert.Title>Errors (1)</Alert.Title>
-							<Alert.Description>Date range is too far in the past.</Alert.Description>
-						</Alert.Root>
-						<div class="grid gap-2">
-							<Skeleton class="h-4 w-3/4" />
-							<Skeleton class="h-4 w-1/2" />
-							<Skeleton class="h-8 w-full" />
-						</div>
-					</SummaryRail>
-				</section>
-			</Tabs.Content>
-
-			<Tabs.Content value="history" class="grid gap-6">
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]" aria-labelledby="history-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<div class="grid gap-1">
-							<h2 id="history-heading" class="text-xl font-semibold tracking-tight">Staff Duty NCO, History</h2>
-							<p class="text-sm text-muted-foreground">Accepted run history for this duty roster template.</p>
-						</div>
-						<div class="grid gap-3 rounded-lg border p-4 md:grid-cols-6">
-							<FactRow label="Template" value="Staff Duty NCO" />
-							<FactRow label="Slug" value="staff-duty-nco" />
-							<FactRow label="Status" value="Active" />
-							<FactRow label="Accepted Runs" value="48" />
-							<FactRow label="Correction Count" value="3" />
-							<FactRow label="Latest Run" value="May 12 - May 25, 2026" />
-						</div>
-						<div class="grid gap-3 rounded-lg border p-4">
-							<div class="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_12rem_12rem_12rem_auto_auto]">
-								<div class="relative">
-									<Search class="absolute left-2 top-2 size-4 text-muted-foreground" />
-									<Input class="pl-8" placeholder="Search date range or accepted by..." />
+									<Button variant="outline">Reset</Button>
+									<Button>
+										<Filter />
+										Filter
+									</Button>
 								</div>
-								<Select.Root type="single" value="all">
-									<Select.Trigger>All states</Select.Trigger>
-									<Select.Content>
-										<Select.Item value="all" label="All states" />
-										<Select.Item value="official" label="Official" />
-										<Select.Item value="invalidated" label="Invalidated" />
-									</Select.Content>
-								</Select.Root>
-								<Select.Root type="single" value="all-calendar">
-									<Select.Trigger>Calendar: All</Select.Trigger>
-									<Select.Content>
-										<Select.Item value="all-calendar" label="Calendar: All" />
-										<Select.Item value="published" label="Published" />
-										<Select.Item value="needs-sync" label="Needs Sync" />
-									</Select.Content>
-								</Select.Root>
+							</div>
+							<DataTable.DataTable
+								data={historyRuns}
+								columns={historyColumns}
+								ariaLabel="Duty roster history showroom"
+								pageSize={4}
+								density="dense"
+								stickyHeader
+								cell={historyCell}
+							/>
+							<Empty.Root class="rounded-lg border">
+								<Empty.Media>
+									<Clock3 />
+								</Empty.Media>
+								<Empty.Header>
+									<Empty.Title>No history yet?</Empty.Title>
+									<Empty.Description>
+										Once you accept a roster, it will appear here. Each accepted run is preserved for audit and
+										reporting.
+									</Empty.Description>
+								</Empty.Header>
+								<Empty.Content>
+									<Button variant="outline">Go to Generate</Button>
+								</Empty.Content>
+							</Empty.Root>
+						</div>
+
+						<SummaryRail title="About Accepted Runs">
+							<p class="text-sm text-muted-foreground">
+								Each accepted run is an immutable snapshot of a duty roster. Use this history to review, print, or open
+								a previously accepted roster.
+							</p>
+							<Separator />
+							<h4 class="font-semibold">State Legend</h4>
+							<BadgeRow label="Official" values={['Accepted and marked official']} />
+							<BadgeRow label="Applied" values={['Applied to calendar']} />
+							<BadgeRow label="Needs Sync" values={['Applied but calendar out of sync']} />
+							<BadgeRow label="Invalidated" values={['Run has been invalidated']} />
+						</SummaryRail>
+					</section>
+
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="history-detail-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+							<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+								<div class="grid gap-1">
+									<h2 id="history-detail-heading" class="text-xl font-semibold tracking-tight">History Detail</h2>
+									<p class="text-sm text-muted-foreground">
+										Immutable history snapshot of an accepted duty roster run.
+									</p>
+								</div>
 								<Button variant="outline">
-									<CalendarDays />
-									Any date
-								</Button>
-								<Button variant="outline">Reset</Button>
-								<Button>
-									<Filter />
-									Filter
+									<Printer />
+									Print
 								</Button>
 							</div>
-						</div>
-						<DataTable.DataTable
-							data={historyRuns}
-							columns={historyColumns}
-							ariaLabel="Duty roster history showroom"
-							pageSize={4}
-							density="dense"
-							stickyHeader
-							cell={historyCell}
-						/>
-						<Empty.Root class="rounded-lg border">
-							<Empty.Media>
-								<Clock3 />
-							</Empty.Media>
-							<Empty.Header>
-								<Empty.Title>No history yet?</Empty.Title>
-								<Empty.Description>
-									Once you accept a roster, it will appear here. Each accepted run is preserved for audit and reporting.
-								</Empty.Description>
-							</Empty.Header>
-							<Empty.Content>
-								<Button variant="outline">Go to Generate</Button>
-							</Empty.Content>
-						</Empty.Root>
-					</div>
-
-					<SummaryRail title="About Accepted Runs">
-						<p class="text-sm text-muted-foreground">
-							Each accepted run is an immutable snapshot of a duty roster. Use this history to review, print, or open a
-							previously accepted roster.
-						</p>
-						<Separator />
-						<h4 class="font-semibold">State Legend</h4>
-						<BadgeRow label="Official" values={['Accepted and marked official']} />
-						<BadgeRow label="Applied" values={['Applied to calendar']} />
-						<BadgeRow label="Needs Sync" values={['Applied but calendar out of sync']} />
-						<BadgeRow label="Invalidated" values={['Run has been invalidated']} />
-					</SummaryRail>
-				</section>
-
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="history-detail-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-							<div class="grid gap-1">
-								<h2 id="history-detail-heading" class="text-xl font-semibold tracking-tight">History Detail</h2>
-								<p class="text-sm text-muted-foreground">Immutable history snapshot of an accepted duty roster run.</p>
+							<div class="grid gap-3 rounded-lg border p-4 md:grid-cols-4">
+								<FactRow label="Run" value="Staff Duty NCO" />
+								<FactRow label="Date Range" value="May 12 - May 25, 2026" />
+								<FactRow label="Accepted" value="May 12, 2026 09:15" />
+								<FactRow label="Accepted By" value="SFC James Miller" />
+								<FactRow label="State" value="Official" />
+								<FactRow label="Calendar State" value="Applied" />
+								<FactRow label="Latest" value="Yes" />
 							</div>
-							<Button variant="outline">
-								<Printer />
-								Print
-							</Button>
-						</div>
-						<div class="grid gap-3 rounded-lg border p-4 md:grid-cols-4">
-							<FactRow label="Run" value="Staff Duty NCO" />
-							<FactRow label="Date Range" value="May 12 - May 25, 2026" />
-							<FactRow label="Accepted" value="May 12, 2026 09:15" />
-							<FactRow label="Accepted By" value="SFC James Miller" />
-							<FactRow label="State" value="Official" />
-							<FactRow label="Calendar State" value="Applied" />
-							<FactRow label="Latest" value="Yes" />
-						</div>
-						<Alert.Root>
-							<Info />
-							<Alert.Title>This is official history.</Alert.Title>
-							<Alert.Description>
-								This roster run has been accepted and saved as official history. Corrections can be submitted to update
-								records and future counts.
-							</Alert.Description>
-						</Alert.Root>
-						<Tabs.Root value="list">
-							<Tabs.List>
-								<Tabs.Trigger value="list">List Mode</Tabs.Trigger>
-								<Tabs.Trigger value="matrix">DA6 Matrix</Tabs.Trigger>
-							</Tabs.List>
-							<Tabs.Content value="list">
-								<div class="overflow-hidden rounded-lg border">
-									<Table.Table>
-										<Table.Header>
-											<Table.Row>
-												<Table.Head>Date</Table.Head>
-												<Table.Head>Accepted Soldier</Table.Head>
-												<Table.Head>Actual Served Soldier</Table.Head>
-												<Table.Head>Correction State</Table.Head>
-												<Table.Head>Reason</Table.Head>
-												<Table.Head>Calendar State</Table.Head>
-												<Table.Head>Audit Action</Table.Head>
-											</Table.Row>
-										</Table.Header>
-										<Table.Body>
-											{#each previewRows.slice(0, 4) as row (row.date)}
+							<Alert.Root>
+								<Info />
+								<Alert.Title>This is official history.</Alert.Title>
+								<Alert.Description>
+									This roster run has been accepted and saved as official history. Corrections can be submitted to
+									update records and future counts.
+								</Alert.Description>
+							</Alert.Root>
+							<Tabs.Root value="list">
+								<Tabs.List>
+									<Tabs.Trigger value="list">List Mode</Tabs.Trigger>
+									<Tabs.Trigger value="matrix">DA6 Matrix</Tabs.Trigger>
+								</Tabs.List>
+								<Tabs.Content value="list">
+									<div class="overflow-hidden rounded-lg border">
+										<Table.Table>
+											<Table.Header>
 												<Table.Row>
-													<Table.Cell>{row.date}</Table.Cell>
-													<Table.Cell>{row.generated}</Table.Cell>
-													<Table.Cell>{row.status === 'review' ? 'SGT Alex Johnson' : row.final}</Table.Cell>
-													<Table.Cell>
-														<Badge variant={row.status === 'review' ? 'warning' : 'success'}>
-															{row.status === 'review' ? 'Correction Pending' : 'Accepted'}
-														</Badge>
-													</Table.Cell>
-													<Table.Cell>{row.status === 'review' ? 'Unexpected absence' : '-'}</Table.Cell>
-													<Table.Cell><Badge variant="success">Applied</Badge></Table.Cell>
-													<Table.Cell>
-														<Sheet.Root>
-															<Sheet.Trigger>
-																{#snippet child({ props })}
-																	<Button
-																		variant="outline"
-																		size="icon-sm"
-																		aria-label={`Open correction for ${row.date}`}
-																		{...props}
-																	>
-																		<Wrench />
-																	</Button>
-																{/snippet}
-															</Sheet.Trigger>
-															{@render CorrectionSheet()}
-														</Sheet.Root>
-													</Table.Cell>
+													<Table.Head>Date</Table.Head>
+													<Table.Head>Accepted Soldier</Table.Head>
+													<Table.Head>Actual Served Soldier</Table.Head>
+													<Table.Head>Correction State</Table.Head>
+													<Table.Head>Reason</Table.Head>
+													<Table.Head>Calendar State</Table.Head>
+													<Table.Head>Audit Action</Table.Head>
 												</Table.Row>
-											{/each}
-										</Table.Body>
-									</Table.Table>
-								</div>
-							</Tabs.Content>
-						</Tabs.Root>
-					</div>
-					{@render AuditRail()}
-				</section>
-			</Tabs.Content>
-
-			<Tabs.Content value="settings" class="grid gap-6">
-				<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="settings-heading">
-					<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
-						<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-							<div class="grid gap-1">
-								<div class="flex flex-wrap items-center gap-2">
-									<h2 id="settings-heading" class="text-xl font-semibold tracking-tight">Staff Duty NCO</h2>
-									<Badge variant="success">Active</Badge>
-								</div>
-								<p class="text-sm text-muted-foreground">
-									Configure rules and defaults for this template. Changes apply to future runs only.
-								</p>
-							</div>
-							<div class="flex gap-2">
-								<Button variant="outline">
-									View Template
-									<ExternalLink />
-								</Button>
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										{#snippet child({ props })}
-											<Button variant="outline" size="icon" aria-label="Open template actions" {...props}>
-												<MoreHorizontal />
-											</Button>
-										{/snippet}
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end">
-										<DropdownMenu.Item>Duplicate</DropdownMenu.Item>
-										<DropdownMenu.Item variant="destructive">Archive</DropdownMenu.Item>
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-							</div>
-						</div>
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Title>Settings affect future runs only.</Alert.Title>
-							<Alert.Description
-								>Changes you make here will be used when you generate the next roster.</Alert.Description
-							>
-						</Alert.Root>
-						<SettingsSection number="1" title="Identity">
-							<div class="grid gap-3 md:grid-cols-4">
-								<Field.Root>
-									<Field.Label>Template Name</Field.Label>
-									<Input value="Staff Duty NCO" />
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>Slug</Field.Label>
-									<Input value="staff-duty-nco" />
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>Short Code</Field.Label>
-									<Input value="SDNCO" />
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>State</Field.Label>
-									<div class="flex gap-2">
-										<Button size="sm">Active</Button>
-										<Button size="sm" variant="outline">Archived</Button>
+											</Table.Header>
+											<Table.Body>
+												{#each previewRows.slice(0, 4) as row (row.date)}
+													<Table.Row>
+														<Table.Cell>{row.date}</Table.Cell>
+														<Table.Cell>{row.generated}</Table.Cell>
+														<Table.Cell>{row.status === 'review' ? 'SGT Alex Johnson' : row.final}</Table.Cell>
+														<Table.Cell>
+															<Badge variant={row.status === 'review' ? 'warning' : 'success'}>
+																{row.status === 'review' ? 'Correction Pending' : 'Accepted'}
+															</Badge>
+														</Table.Cell>
+														<Table.Cell>{row.status === 'review' ? 'Unexpected absence' : '-'}</Table.Cell>
+														<Table.Cell><Badge variant="success">Applied</Badge></Table.Cell>
+														<Table.Cell>
+															<Sheet.Root>
+																<Sheet.Trigger>
+																	{#snippet child({ props })}
+																		<Button
+																			variant="outline"
+																			size="icon-sm"
+																			aria-label={`Open correction for ${row.date}`}
+																			{...props}
+																		>
+																			<Wrench />
+																		</Button>
+																	{/snippet}
+																</Sheet.Trigger>
+																{@render CorrectionSheet()}
+															</Sheet.Root>
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Table>
 									</div>
-								</Field.Root>
-							</div>
-						</SettingsSection>
-						<SettingsSection number="2" title="Eligibility Rules">
-							<div class="grid gap-3 md:grid-cols-4">
-								<MultiSelectField label="Rank" items={rankItems} bind:value={selectedRanks} />
-								<MultiSelectField label="Group" items={groupItems} bind:value={selectedGroups} />
-								<MultiSelectField label="MOS" items={mosItems} bind:value={selectedMos} />
-								<MultiSelectField label="Duty Role" items={roleItems} bind:value={selectedDutyRoles} />
-							</div>
-							<Button variant="outline" class="justify-between">
-								Additional Rules
-								<span class="text-muted-foreground">2 rules configured</span>
-							</Button>
-						</SettingsSection>
-						<SettingsSection number="3" title="Individual Exclusions (3)">
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<div class="relative">
-									<Search class="absolute left-2 top-2 size-4 text-muted-foreground" />
-									<Input class="w-64 pl-8" placeholder="Search by name or rank..." />
+								</Tabs.Content>
+							</Tabs.Root>
+						</div>
+						{@render AuditRail()}
+					</section>
+				</Tabs.Content>
+
+				<Tabs.Content value="settings" class="grid gap-6">
+					<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]" aria-labelledby="settings-heading">
+						<div class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+							<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+								<div class="grid gap-1">
+									<div class="flex flex-wrap items-center gap-2">
+										<h2 id="settings-heading" class="text-xl font-semibold tracking-tight">Staff Duty NCO</h2>
+										<Badge variant="success">Active</Badge>
+									</div>
+									<p class="text-sm text-muted-foreground">
+										Configure rules and defaults for this template. Changes apply to future runs only.
+									</p>
 								</div>
 								<div class="flex gap-2">
 									<Button variant="outline">
-										<Plus />
-										Add Individual
+										View Template
+										<ExternalLink />
 									</Button>
-									<Button variant="outline" disabled>
-										<Trash2 />
-										Remove
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button variant="outline" size="icon" aria-label="Open template actions" {...props}>
+													<MoreHorizontal />
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content align="end">
+											<DropdownMenu.Item>Duplicate</DropdownMenu.Item>
+											<DropdownMenu.Item variant="destructive">Archive</DropdownMenu.Item>
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+								</div>
+							</div>
+							<Alert.Root variant="warning">
+								<AlertTriangle />
+								<Alert.Title>Settings affect future runs only.</Alert.Title>
+								<Alert.Description
+									>Changes you make here will be used when you generate the next roster.</Alert.Description
+								>
+							</Alert.Root>
+							<SettingsSection number="1" title="Identity">
+								<div class="grid gap-3 md:grid-cols-4">
+									<Field.Root>
+										<Field.Label>Template Name</Field.Label>
+										<Input value="Staff Duty NCO" />
+									</Field.Root>
+									<Field.Root>
+										<Field.Label>Slug</Field.Label>
+										<Input value="staff-duty-nco" />
+									</Field.Root>
+									<Field.Root>
+										<Field.Label>Short Code</Field.Label>
+										<Input value="SDNCO" />
+									</Field.Root>
+									<Field.Root>
+										<Field.Label>State</Field.Label>
+										<div class="flex gap-2">
+											<Button size="sm">Active</Button>
+											<Button size="sm" variant="outline">Archived</Button>
+										</div>
+									</Field.Root>
+								</div>
+							</SettingsSection>
+							<SettingsSection number="2" title="Eligibility Rules">
+								<div class="grid gap-3 md:grid-cols-4">
+									<MultiSelectField label="Rank" items={rankItems} bind:value={selectedRanks} />
+									<MultiSelectField label="Group" items={groupItems} bind:value={selectedGroups} />
+									<MultiSelectField label="MOS" items={mosItems} bind:value={selectedMos} />
+									<MultiSelectField label="Duty Role" items={roleItems} bind:value={selectedDutyRoles} />
+								</div>
+								<Button variant="outline" class="justify-between">
+									Additional Rules
+									<span class="text-muted-foreground">2 rules configured</span>
+								</Button>
+							</SettingsSection>
+							<SettingsSection number="3" title="Individual Exclusions (3)">
+								<div class="flex flex-wrap items-center justify-between gap-2">
+									<div class="relative">
+										<Search class="absolute left-2 top-2 size-4 text-muted-foreground" />
+										<Input class="w-64 pl-8" placeholder="Search by name or rank..." />
+									</div>
+									<div class="flex gap-2">
+										<Button variant="outline">
+											<Plus />
+											Add Individual
+										</Button>
+										<Button variant="outline" disabled>
+											<Trash2 />
+											Remove
+										</Button>
+									</div>
+								</div>
+								<div class="overflow-hidden rounded-lg border">
+									<Table.Table>
+										<Table.Header>
+											<Table.Row>
+												<Table.Head><Checkbox aria-label="Select all exclusions" /></Table.Head>
+												<Table.Head>Name</Table.Head>
+												<Table.Head>Rank</Table.Head>
+												<Table.Head>MOS</Table.Head>
+												<Table.Head>Unit</Table.Head>
+												<Table.Head>Reason</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each ['Sgt. Jacob Miller', 'SSG Marcus Reed', 'SFC Daniel Kim'] as person, index (person)}
+												<Table.Row>
+													<Table.Cell><Checkbox aria-label={`Select ${person}`} /></Table.Cell>
+													<Table.Cell>{person}</Table.Cell>
+													<Table.Cell>{index === 0 ? 'SGT' : index === 1 ? 'SSG' : 'SFC'}</Table.Cell>
+													<Table.Cell>{index === 1 ? '11C' : '11B'}</Table.Cell>
+													<Table.Cell
+														>{index === 2
+															? 'HQ Co, 1-22 IN'
+															: index === 1
+																? 'Bravo Co, 1-22 IN'
+																: 'Alpha Co, 1-22 IN'}</Table.Cell
+													>
+													<Table.Cell
+														>{index === 0
+															? 'Medical profile'
+															: index === 1
+																? 'Permanent staff'
+																: 'School attendance'}</Table.Cell
+													>
+												</Table.Row>
+											{/each}
+										</Table.Body>
+									</Table.Table>
+								</div>
+							</SettingsSection>
+							<SettingsSection number="4" title="DA6 Continuity / Baseline">
+								<Alert.Root>
+									<LockKeyhole />
+									<Alert.Title>Baseline is locked once accepted history exists.</Alert.Title>
+									<Alert.Description
+										>To adjust baseline counts, accepted history would need a separate governance workflow.</Alert.Description
+									>
+									<Alert.Action>
+										<Button variant="outline" size="sm">View History</Button>
+									</Alert.Action>
+								</Alert.Root>
+								<div class="overflow-hidden rounded-lg border">
+									<Table.Table>
+										<Table.Header>
+											<Table.Row>
+												<Table.Head>Rank</Table.Head>
+												<Table.Head>Baseline Count</Table.Head>
+												<Table.Head>Last Updated</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											<Table.Row>
+												<Table.Cell>SGT</Table.Cell>
+												<Table.Cell>8</Table.Cell>
+												<Table.Cell>May 12, 2026 08:41</Table.Cell>
+											</Table.Row>
+											<Table.Row>
+												<Table.Cell>SSG</Table.Cell>
+												<Table.Cell>7</Table.Cell>
+												<Table.Cell>May 12, 2026 08:41</Table.Cell>
+											</Table.Row>
+											<Table.Row>
+												<Table.Cell>SFC</Table.Cell>
+												<Table.Cell>7</Table.Cell>
+												<Table.Cell>May 12, 2026 08:41</Table.Cell>
+											</Table.Row>
+										</Table.Body>
+									</Table.Table>
+								</div>
+							</SettingsSection>
+							<div
+								class="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-3 border-t bg-background p-4 md:flex-row md:items-center md:justify-between"
+							>
+								<div class="grid gap-1">
+									<strong class="text-sm">Unsaved changes</strong>
+									<span class="text-sm text-muted-foreground">You have unsaved changes to your settings.</span>
+								</div>
+								<div class="flex gap-2">
+									<Button variant="outline">Discard Changes</Button>
+									<Button>
+										<Save />
+										Save Changes
 									</Button>
 								</div>
 							</div>
-							<div class="overflow-hidden rounded-lg border">
-								<Table.Table>
-									<Table.Header>
-										<Table.Row>
-											<Table.Head><Checkbox aria-label="Select all exclusions" /></Table.Head>
-											<Table.Head>Name</Table.Head>
-											<Table.Head>Rank</Table.Head>
-											<Table.Head>MOS</Table.Head>
-											<Table.Head>Unit</Table.Head>
-											<Table.Head>Reason</Table.Head>
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										{#each ['Sgt. Jacob Miller', 'SSG Marcus Reed', 'SFC Daniel Kim'] as person, index (person)}
-											<Table.Row>
-												<Table.Cell><Checkbox aria-label={`Select ${person}`} /></Table.Cell>
-												<Table.Cell>{person}</Table.Cell>
-												<Table.Cell>{index === 0 ? 'SGT' : index === 1 ? 'SSG' : 'SFC'}</Table.Cell>
-												<Table.Cell>{index === 1 ? '11C' : '11B'}</Table.Cell>
-												<Table.Cell
-													>{index === 2
-														? 'HQ Co, 1-22 IN'
-														: index === 1
-															? 'Bravo Co, 1-22 IN'
-															: 'Alpha Co, 1-22 IN'}</Table.Cell
-												>
-												<Table.Cell
-													>{index === 0
-														? 'Medical profile'
-														: index === 1
-															? 'Permanent staff'
-															: 'School attendance'}</Table.Cell
-												>
-											</Table.Row>
-										{/each}
-									</Table.Body>
-								</Table.Table>
-							</div>
-						</SettingsSection>
-						<SettingsSection number="4" title="DA6 Continuity / Baseline">
-							<Alert.Root>
-								<LockKeyhole />
-								<Alert.Title>Baseline is locked once accepted history exists.</Alert.Title>
+						</div>
+
+						<SummaryRail title="Template Summary">
+							<h4 class="font-semibold">Pool & Exemptions</h4>
+							<FactRow label="Total Eligible" value="22" />
+							<FactRow label="Exemptions" value="6" />
+							<FactRow label="Effective Pool" value="16" />
+							<Separator />
+							<h4 class="font-semibold">History Status</h4>
+							<FactRow label="Accepted History" value="Exists" />
+							<FactRow label="Latest Accepted Range" value="May 12 - May 25, 2026" />
+							<Separator />
+							<h4 class="font-semibold">Rule Summary</h4>
+							<FactRow label="Rank" value="SGT, SSG, SFC" />
+							<FactRow label="Group" value="Enlisted" />
+							<FactRow label="MOS" value="11B, 11C, 11Z, +2" />
+							<FactRow label="Duty Roles" value="NCO, Team Leader, Squad Leader" />
+							<FactRow label="Baseline Status" value="Locked" />
+							<Alert.Root variant="warning">
+								<AlertTriangle />
 								<Alert.Description
-									>To adjust baseline counts, accepted history would need a separate governance workflow.</Alert.Description
+									>Archiving this template will prevent future rosters from being generated.</Alert.Description
 								>
 								<Alert.Action>
-									<Button variant="outline" size="sm">View History</Button>
+									<Button variant="outline" size="sm">Archive Template</Button>
 								</Alert.Action>
 							</Alert.Root>
-							<div class="overflow-hidden rounded-lg border">
-								<Table.Table>
-									<Table.Header>
-										<Table.Row>
-											<Table.Head>Rank</Table.Head>
-											<Table.Head>Baseline Count</Table.Head>
-											<Table.Head>Last Updated</Table.Head>
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										<Table.Row>
-											<Table.Cell>SGT</Table.Cell>
-											<Table.Cell>8</Table.Cell>
-											<Table.Cell>May 12, 2026 08:41</Table.Cell>
-										</Table.Row>
-										<Table.Row>
-											<Table.Cell>SSG</Table.Cell>
-											<Table.Cell>7</Table.Cell>
-											<Table.Cell>May 12, 2026 08:41</Table.Cell>
-										</Table.Row>
-										<Table.Row>
-											<Table.Cell>SFC</Table.Cell>
-											<Table.Cell>7</Table.Cell>
-											<Table.Cell>May 12, 2026 08:41</Table.Cell>
-										</Table.Row>
-									</Table.Body>
-								</Table.Table>
-							</div>
-						</SettingsSection>
-						<div
-							class="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-3 border-t bg-background p-4 md:flex-row md:items-center md:justify-between"
-						>
-							<div class="grid gap-1">
-								<strong class="text-sm">Unsaved changes</strong>
-								<span class="text-sm text-muted-foreground">You have unsaved changes to your settings.</span>
-							</div>
-							<div class="flex gap-2">
-								<Button variant="outline">Discard Changes</Button>
-								<Button>
-									<Save />
-									Save Changes
-								</Button>
-							</div>
-						</div>
-					</div>
-
-					<SummaryRail title="Template Summary">
-						<h4 class="font-semibold">Pool & Exemptions</h4>
-						<FactRow label="Total Eligible" value="22" />
-						<FactRow label="Exemptions" value="6" />
-						<FactRow label="Effective Pool" value="16" />
-						<Separator />
-						<h4 class="font-semibold">History Status</h4>
-						<FactRow label="Accepted History" value="Exists" />
-						<FactRow label="Latest Accepted Range" value="May 12 - May 25, 2026" />
-						<Separator />
-						<h4 class="font-semibold">Rule Summary</h4>
-						<FactRow label="Rank" value="SGT, SSG, SFC" />
-						<FactRow label="Group" value="Enlisted" />
-						<FactRow label="MOS" value="11B, 11C, 11Z, +2" />
-						<FactRow label="Duty Roles" value="NCO, Team Leader, Squad Leader" />
-						<FactRow label="Baseline Status" value="Locked" />
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Description
-								>Archiving this template will prevent future rosters from being generated.</Alert.Description
-							>
-							<Alert.Action>
-								<Button variant="outline" size="sm">Archive Template</Button>
-							</Alert.Action>
-						</Alert.Root>
-					</SummaryRail>
-				</section>
-			</Tabs.Content>
-		</Tabs.Root>
-	</main>
+						</SummaryRail>
+					</section>
+				</Tabs.Content>
+			</Tabs.Root>
+		</div>
+	</div>
 </Tooltip.Provider>
 
 {#snippet templateCell(row: TemplateRow, column: ColumnDef<TemplateRow>)}
@@ -1446,20 +1448,10 @@
 								Rank / Name
 							</OperationalMatrix.CornerCell>
 							{#each matrixColumns as column (column.id)}
-								<OperationalMatrix.ColumnHeader
-									{column}
-									orientation="vertical"
-									sticky
-									class="sticky top-0 z-20 bg-muted"
-								>
-									<span class="grid min-w-10 place-items-center gap-0.5 text-center text-[0.65rem] leading-tight">
+								<OperationalMatrix.ColumnHeader {column} sticky class="sticky top-0 z-20 bg-muted">
+									<span class="grid min-w-12 place-items-center gap-0.5 text-center text-xs leading-tight">
 										<span class="font-semibold">{column.weekday}</span>
 										<span class="font-normal text-muted-foreground">{column.date}</span>
-										{#if column.specialLabel}
-											<span class="rounded-sm bg-muted px-1 text-[0.55rem] text-muted-foreground">
-												{column.specialLabel}
-											</span>
-										{/if}
 									</span>
 								</OperationalMatrix.ColumnHeader>
 							{/each}

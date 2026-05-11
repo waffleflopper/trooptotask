@@ -51,7 +51,7 @@
 	};
 </script>
 
-<Sidebar.Provider class="min-h-svh bg-background font-sans">
+<Sidebar.Provider class="h-svh min-h-0 overflow-hidden bg-background font-sans">
 	<Sidebar.Root collapsible="icon">
 		<Sidebar.Header>
 			<Sidebar.Menu>
@@ -182,8 +182,8 @@
 		<Sidebar.Rail />
 	</Sidebar.Root>
 
-	<Sidebar.Inset>
-		<header class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+	<Sidebar.Inset class="h-svh min-h-0 overflow-hidden bg-background">
+		<header class="z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
 			<Sidebar.Trigger />
 			<Separator orientation="vertical" class="h-4" />
 			<div class="grid min-w-0 flex-1 leading-tight">

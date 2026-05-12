@@ -33,7 +33,7 @@
 		yDomain,
 		yTicks,
 		layout = 'group',
-		heightClass = 'min-h-[220px]',
+		heightClass = 'h-[220px]',
 		class: className
 	}: Props = $props();
 
@@ -69,7 +69,7 @@
 	}
 </script>
 
-<Chart.Container {config} class={cn(heightClass, 'w-full', className)}>
+<Chart.Container {config} class={cn('aspect-auto w-full', heightClass, className)}>
 	<BarChart
 		{data}
 		x="label"

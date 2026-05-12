@@ -352,7 +352,7 @@ describe('IctReportsView', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders KPI cards and updates the shared report context when filters change', async () => {
+	it('renders the analysis console and updates the shared report context when filters change', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
@@ -364,16 +364,16 @@ describe('IctReportsView', () => {
 		});
 
 		expect(screen.getByRole('toolbar', { name: 'Critical task report controls' })).toBeTruthy();
-		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
-		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
-		expect(
-			within(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).getByTestId(
-				'ict-overall-readiness-value'
-			).textContent
-		).toBe('67%');
-		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
-		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤45d' })).toBeTruthy();
-		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
+		const analysisConsole = screen.getByRole('region', { name: 'Critical task analysis console' });
+		expect(within(analysisConsole).queryByRole('heading', { name: 'Critical task analysis console' })).toBeNull();
+		const reportScope = within(analysisConsole).getByLabelText('Critical task report scope');
+		expect(within(reportScope).getByText('Population')).toBeTruthy();
+		expect(within(reportScope).getByText('2')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Readiness summary')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Current filtered population')).toBeTruthy();
+		expect(within(analysisConsole).getAllByText('67%').length).toBeGreaterThan(0);
+		expect(within(analysisConsole).getByText('Immediate risk')).toBeTruthy();
+		expect(within(analysisConsole).getAllByText('Jones, Alex').length).toBeGreaterThan(0);
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
@@ -395,11 +395,12 @@ describe('IctReportsView', () => {
 		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('58% by SEP 2026')).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('- a 9-point drop from current.')).toBeTruthy();
-		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
+		expect(expirationCliffSection.parentElement).toBe(readinessTrendSection.parentElement);
 		expect(expirationCliffSection.parentElement?.classList.contains('grid')).toBe(true);
 		expect(
-			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+			Boolean(readinessTrendSection.compareDocumentPosition(expirationCliffSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
+		expect(atRiskSection.parentElement).toBe(belowThresholdSection.parentElement);
 		const distributionSection = screen.getByRole('region', { name: 'Distribution - Individual Readiness by MOS' });
 		expect(
 			within(distributionSection).getByRole('figure', { name: 'Individual readiness distribution histogram' })
@@ -408,9 +409,13 @@ describe('IctReportsView', () => {
 			within(distributionSection).getByRole('table', { name: 'Individual readiness distribution data' })
 		).toBeTruthy();
 		expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
+		expect(within(analysisConsole).getByText('Distribution readout')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Default MOS')).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 		expect(screen.queryByText('Action KPIs')).toBeNull();
+		expect(screen.queryByText('Baseline report stack')).toBeNull();
+		expect(screen.queryByText('Commander brief')).toBeNull();
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
@@ -447,5 +452,6 @@ describe('IctReportsView', () => {
 		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
 		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
+		expect(screen.queryByRole('region', { name: 'Critical task analysis console' })).toBeNull();
 	});
 });

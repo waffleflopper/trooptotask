@@ -9,6 +9,7 @@
 		distribution: IctReadinessDistribution;
 		selectedPageMos?: string[];
 		loading?: boolean;
+		heightClass?: string;
 	}
 
 	interface DistributionChartDatum {
@@ -16,7 +17,7 @@
 		[key: string]: number | string;
 	}
 
-	let { distribution, selectedPageMos = [], loading = false }: Props = $props();
+	let { distribution, selectedPageMos = [], loading = false, heightClass = 'h-[260px]' }: Props = $props();
 	let selectedMos = $state<string | null>(null);
 
 	const overlayMode = $derived(selectedPageMos.length >= 2);
@@ -121,7 +122,7 @@
 			yDomain={[0, yMax]}
 			{yTicks}
 			layout={overlayMode ? 'overlap' : 'group'}
-			heightClass="min-h-[260px]"
+			{heightClass}
 		/>
 
 		<div class="sr-only">

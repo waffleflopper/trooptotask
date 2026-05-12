@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { scalePoint } from 'd3-scale';
 	import { LineChart } from 'layerchart';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import type { ChartConfig } from '$lib/components/ui/chart/index.js';
@@ -26,7 +27,7 @@
 		class?: string;
 	}
 
-	let { data, series, ariaLabel, yDomain, yTicks, heightClass = 'min-h-[220px]', class: className }: Props = $props();
+	let { data, series, ariaLabel, yDomain, yTicks, heightClass = 'h-[220px]', class: className }: Props = $props();
 
 	const config = $derived.by<ChartConfig>(() =>
 		Object.fromEntries(
@@ -52,16 +53,19 @@
 			}
 		}))
 	);
+	const xDomain = $derived(data.map((item) => item.label));
 
 	function formatPercent(value: unknown): string {
 		return `${Math.round(Number(value))}%`;
 	}
 </script>
 
-<Chart.Container {config} class={cn(heightClass, 'w-full', className)}>
+<Chart.Container {config} class={cn('aspect-auto w-full', heightClass, className)}>
 	<LineChart
 		{data}
 		x="label"
+		{xDomain}
+		xScale={scalePoint()}
 		{yDomain}
 		yNice={!yDomain}
 		series={chartSeries}

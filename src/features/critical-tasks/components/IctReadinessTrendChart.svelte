@@ -7,6 +7,7 @@
 	interface Props {
 		trend: IctReadinessTrend;
 		loading?: boolean;
+		heightClass?: string;
 	}
 
 	interface TrendDatum {
@@ -15,7 +16,7 @@
 		[key: string]: number | string;
 	}
 
-	let { trend, loading = false }: Props = $props();
+	let { trend, loading = false, heightClass = 'h-[260px]' }: Props = $props();
 
 	const hasTrendData = $derived(
 		trend.months.some(
@@ -92,7 +93,7 @@
 			ariaLabel="12-month readiness trend chart"
 			{yDomain}
 			{yTicks}
-			heightClass="min-h-[260px]"
+			{heightClass}
 		/>
 		{#if usesFullScale}
 			<p class="mt-3 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">

@@ -8,6 +8,7 @@
 		cliff: IctExpirationCliff;
 		currentReadinessPercent?: number | null;
 		loading?: boolean;
+		heightClass?: string;
 	}
 
 	interface CliffChartDatum {
@@ -17,19 +18,14 @@
 	}
 
 	const EXPIRATION_SERIES_COLORS = [
-		'#ba7517',
-		'#993c1d',
-		'#534ab7',
-		'#5f5e5a',
-		'#1d9e75',
-		'#c18713',
-		'#9d3d22',
-		'#5b50b8',
-		'#6f6d68',
-		'#269b73'
+		'var(--chart-1)',
+		'var(--chart-2)',
+		'var(--chart-3)',
+		'var(--chart-4)',
+		'var(--chart-5)'
 	];
 
-	let { cliff, currentReadinessPercent = null, loading = false }: Props = $props();
+	let { cliff, currentReadinessPercent = null, loading = false, heightClass = 'h-[260px]' }: Props = $props();
 
 	const hasExpirations = $derived(cliff.months.some((month) => month.totalExpiringCount > 0));
 	const projectionChangeText = $derived(
@@ -97,7 +93,7 @@
 			yDomain={[0, yMax]}
 			{yTicks}
 			layout="stack"
-			heightClass="min-h-[260px]"
+			{heightClass}
 		/>
 
 		<div

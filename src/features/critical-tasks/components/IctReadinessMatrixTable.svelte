@@ -12,11 +12,12 @@
 	interface Props {
 		matrix: IctReadinessMatrix;
 		loading?: boolean;
+		compact?: boolean;
 	}
 
 	const DESCRIPTION_ID = 'ict-readiness-matrix-description';
 
-	let { matrix, loading = false }: Props = $props();
+	let { matrix, loading = false, compact = false }: Props = $props();
 	type MatrixRow = OperationalMatrixRow & { source: IctReadinessMatrixRow };
 	type MatrixColumn = OperationalMatrixColumn & {
 		source: { kind: 'category'; key: string; label: string } | { kind: 'average'; key: 'average'; label: 'Avg' };
@@ -47,6 +48,10 @@
 
 	function pluralizeSoldier(count: number): string {
 		return count === 1 ? 'Soldier' : 'Soldiers';
+	}
+
+	function soldierCountLabel(count: number): string {
+		return `${count} ${pluralizeSoldier(count)}`;
 	}
 
 	function readinessLabel(
@@ -87,6 +92,7 @@
 	title="Readiness Matrix - MOS x Task Category"
 	meta={loading ? 'Updating' : 'Cell = % trained and current'}
 	aria-busy={loading ? 'true' : 'false'}
+	class={compact ? 'overflow-hidden' : undefined}
 >
 	<p id={DESCRIPTION_ID} class="sr-only">
 		MOS rows and task category columns, with each cell showing the percent trained and current.
@@ -107,13 +113,26 @@
 		/>
 	{:else}
 		<OperationalMatrix.Root {rows} {columns}>
-			<OperationalMatrix.Viewport ariaLabel="MOS by task category readiness matrix viewport">
-				<OperationalMatrix.Table ariaLabel="MOS by task category readiness matrix" aria-describedby={DESCRIPTION_ID}>
+			<OperationalMatrix.Viewport
+				ariaLabel="MOS by task category readiness matrix viewport"
+				class={compact ? 'max-h-[32rem]' : undefined}
+			>
+				<OperationalMatrix.Table
+					ariaLabel="MOS by task category readiness matrix"
+					aria-describedby={DESCRIPTION_ID}
+					class={compact ? 'min-w-[52rem] table-fixed' : undefined}
+				>
 					<OperationalMatrix.Header>
 						<OperationalMatrix.HeaderRow>
-							<OperationalMatrix.CornerCell>MOS</OperationalMatrix.CornerCell>
+							<OperationalMatrix.CornerCell class={compact ? 'w-32 px-2 py-2 text-left text-xs' : undefined}>
+								MOS
+							</OperationalMatrix.CornerCell>
 							{#each columns as column (column.id)}
-								<OperationalMatrix.ColumnHeader {column} orientation="vertical">
+								<OperationalMatrix.ColumnHeader
+									{column}
+									orientation={compact ? 'horizontal' : 'vertical'}
+									class={compact ? 'px-1 py-2 text-center text-[0.625rem] leading-tight' : undefined}
+								>
 									{column.label}
 								</OperationalMatrix.ColumnHeader>
 							{/each}
@@ -123,9 +142,14 @@
 					<OperationalMatrix.Body>
 						{#each rows as row (row.id)}
 							<OperationalMatrix.Row {row}>
-								<OperationalMatrix.RowHeader {row}>
-									<span>{row.source.mos}</span>
-									<span>{row.source.personnelCount} {pluralizeSoldier(row.source.personnelCount)}</span>
+								<OperationalMatrix.RowHeader
+									{row}
+									class={compact ? 'w-32 px-2 py-1 text-left align-middle' : undefined}
+								>
+									<span class={compact ? 'text-sm font-medium' : undefined}>{row.source.mos}</span>
+									<span class={compact ? 'text-xs text-muted-foreground' : undefined}>
+										{soldierCountLabel(row.source.personnelCount)}
+									</span>
 								</OperationalMatrix.RowHeader>
 
 								{#each columns as column (column.id)}
@@ -135,6 +159,7 @@
 										{column}
 										readOnly
 										ariaLabel={cell ? cellLabel(row.source.mos, cell) : averageLabel(row.source)}
+										class={compact ? 'p-0.5' : undefined}
 									>
 										{#if cell}
 											<ReadinessBand.Cell tier={cell.tier} percent={cell.readinessPercent} />

@@ -3,8 +3,12 @@
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { AssignmentCoverageResult, CoverageRow } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -225,10 +229,9 @@
 	<div class="config-section">
 		<h3>Date Range</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Year</span>
-				<select
-					class="select"
+			<Field.Root>
+				<Field.Label>Year</Field.Label>
+				<NativeSelect
 					value={selectedYear ?? ''}
 					onchange={(e) => {
 						const val = e.currentTarget.value;
@@ -239,24 +242,24 @@
 					{#each yearOptions as year (year)}
 						<option value={year}>{year}</option>
 					{/each}
-				</select>
-			</label>
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
-			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
-			</label>
+				</NativeSelect>
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} onValueChange={handleDateChange} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} onValueChange={handleDateChange} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 	</div>
 
 	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate}>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -269,9 +272,9 @@
 		<div class="type-filter">
 			<div class="type-filter-header">
 				<h3>Assignment Types</h3>
-				<button class="btn btn-sm btn-secondary" onclick={toggleAllTypes}>
+				<Button variant="outline" size="sm" onclick={toggleAllTypes}>
 					{selectedTypeIds.size === personnelAssignmentTypes.length ? 'Deselect All' : 'Select All'}
-				</button>
+				</Button>
 				<span class="filter-count">
 					{selectedTypeIds.size} of {personnelAssignmentTypes.length} selected
 				</span>
@@ -296,7 +299,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0 || displayTypes.length === 0}
@@ -372,11 +375,6 @@
 		gap: var(--sp-2);
 		align-items: flex-end;
 		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
 	}
 
 	.config-actions {
@@ -471,10 +469,6 @@
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
 		}
 	}
 </style>

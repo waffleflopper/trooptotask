@@ -1,6 +1,6 @@
 ---
 name: 'TroopToTask'
-description: 'Operational unit-management UI with field-document discipline and task-first density.'
+description: 'Operational shadcn-svelte product UI with field-document discipline, task-first density, and shared-component visual authority.'
 colors:
   ink-command: '#0e0e0d'
   ink-secondary: '#4a4a47'
@@ -23,6 +23,17 @@ colors:
   chrome-text: '#f0efe9'
   chrome-muted: '#b0afa8'
   chrome-rule: '#2a2825'
+shadcn:
+  style: 'nova'
+  baseColor: 'stone'
+  css: 'src/app.css'
+  uiPath: 'src/lib/components/ui'
+  showroom: '/ui-showroom'
+  appShellShowroom: '/ui-showroom/app-shell'
+  conversionMap: '/ui-showroom/conversion-map'
+  themeSource: 'documentElement[data-theme]'
+  transitionDarkModeSupport: 'data-theme and .dark'
+  tokenLayer: 'Tailwind v4 @theme inline variables mapped from CSS custom properties'
 typography:
   display:
     fontFamily: 'Barlow Condensed, sans-serif'
@@ -113,9 +124,11 @@ components:
 
 **Creative North Star: "The Field Ledger"**
 
-TroopToTask should feel like a field ledger translated into a modern product surface: disciplined, legible, and built for repeated operational use. The interface earns trust through alignment, rules, restrained contrast, clear labels, and fast recognition. It should feel closer to accountable paperwork and technical manuals than a generic SaaS dashboard.
+TroopToTask should feel like shadcn-svelte translated through a field ledger: disciplined, legible, and built for repeated operational use. The interface earns trust through alignment, rules, restrained contrast, clear labels, fast recognition, and component behavior users can predict. It should feel closer to accountable paperwork and technical manuals than a generic SaaS dashboard.
 
 This is a product register system. Design serves the work. Authenticated surfaces should prioritize dense but ordered information, predictable controls, fast filtering, and brief-ready comprehension. Marketing gestures, ornamental hero treatments, gratuitous motion, and decorative panels are out of place inside the app.
+
+The current UI direction is a shadcn-svelte and Tailwind v4 migration, not a route-by-route redesign. The approved visual baseline is the shared component system demonstrated in `/ui-showroom` and `/ui-showroom/app-shell`. Future design work should start from those primitives, their compound project wrappers, and the shared tokens in `src/app.css`.
 
 The visual system rejects generic SaaS marketing, shiny startup dashboards, soft productivity-app tropes, "AI slop," fake command-center theatrics, decorative gradients, glassmorphism, excessive roundness, heavy glow, purple-gradient AI aesthetics, novelty motion, card soup, stock military cliches, and trend-chasing visuals.
 
@@ -126,10 +139,11 @@ The visual system rejects generic SaaS marketing, shiny startup dashboards, soft
 - Condensed display type for command hierarchy, serif body copy for readable content, mono labels for metadata.
 - Hairline dividers, tight radii, minimal shadows, and strong alignment.
 - Dense controls that stay predictable under pressure.
+- shadcn-svelte primitives calibrated centrally through Tailwind v4 tokens, not visually restyled at route usage sites.
 
 ## 2. Colors
 
-The palette is restrained: warm paper, disciplined ink, one operational amber accent, and muted semantic colors for status.
+The palette is restrained: warm paper, disciplined ink, one operational amber accent, and muted semantic colors for status. New shared UI work should use the shadcn/Tailwind token names exposed from `src/app.css`, especially `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border`, `ring`, `primary`, `secondary`, `accent`, `destructive`, and `sidebar-*`. TroopToTask's named paper, ink, amber, chrome, and semantic tokens remain the product meaning behind those shadcn names.
 
 ### Primary
 
@@ -161,6 +175,8 @@ The palette is restrained: warm paper, disciplined ink, one operational amber ac
 
 **The Semantic Color Carries Meaning Rule.** Success, danger, and info colors appear only when they communicate state or classification. They are not decorative palette fillers.
 
+**The Token Mapping Rule.** Product color decisions belong in `src/app.css`, Tailwind v4 `@theme inline` variables, and shared component source. Do not solve a route color mismatch with a local Tailwind override on a shared component.
+
 ## 3. Typography
 
 **Display Font:** Barlow Condensed with sans-serif fallback.
@@ -183,6 +199,8 @@ The palette is restrained: warm paper, disciplined ink, one operational amber ac
 
 **The Display Font Does Not Operate Controls Rule.** Barlow Condensed can command hierarchy, but it should not make dense controls, form fields, or data labels harder to scan.
 
+**The shadcn Text Scale Rule.** shadcn primitives should keep compact, readable control text. Use Barlow Condensed for command hierarchy and selected headings only when it does not degrade form, menu, table, toolbar, or combobox scanability.
+
 ## 4. Elevation
 
 TroopToTask is flat by default and layered by structure. Depth comes primarily from borders, tonal contrast, sticky bars, rail chrome, and table grids. Shadows exist, but they are quiet and stateful: small for raised controls, medium on hover, large for modals and overlays.
@@ -199,28 +217,70 @@ TroopToTask is flat by default and layered by structure. Depth comes primarily f
 
 **The Border Before Shadow Rule.** Reach for a 1px rule, tonal background, or alignment before adding shadow.
 
+**The Shared Layer Owns Depth Rule.** Radius, border, shadow, ring, and hover depth for buttons, fields, cards, dialogs, menus, popovers, sheets, tables, and toolbars must be calibrated in shared UI and proven in the showroom before production routes consume them.
+
 ## 5. Components
+
+TroopToTask now treats shadcn-svelte primitives and shadcn-derived compound components as the primary UI foundation. Generated shadcn code is project-owned once installed, but visual changes still happen centrally in `src/lib/components/ui/**`, `src/lib/components/**`, `src/app.css`, `components.json`, and `/ui-showroom`.
+
+Production routes may configure behavior, data, labels, permissions, validation, columns, filters, sorting, loading, disabled state, and action handlers. They must not visually retune calibrated shared components through route-local classes, arbitrary Tailwind values, internal selectors, local CSS, or route-specific wrapper styling unless Robert explicitly approves the exception.
+
+Use `/ui-showroom/conversion-map` before replacing legacy components. If a shared component cannot express a real route need, report a design-system gap and extend the shared component/API with showroom coverage instead of patching the route locally.
+
+### shadcn Foundation
+
+- **Primitive source:** shadcn-svelte components under `src/lib/components/ui/**`, configured through `components.json`.
+- **Current style:** `nova` with `stone` base color, as recorded by the implementation-time shadcn-svelte CLI.
+- **Token layer:** Tailwind v4 via `@import "tailwindcss"` and `@theme inline` in `src/app.css`.
+- **Dark mode:** `documentElement[data-theme]` remains the app source of truth; `.dark` is also supported during the migration for shadcn compatibility.
+- **Review surface:** `/ui-showroom` and `/ui-showroom/app-shell` are the approved places to calibrate and review shared component appearance.
 
 ### Buttons
 
-Buttons are compact command controls with condensed uppercase text, tight radii, and quick state feedback.
+Buttons are compact command controls built from the shared shadcn button primitive.
 
-- **Shape:** Structured corners (4px radius), 40px default minimum height, 34px compact height, and 48px large height.
-- **Primary:** Dark chrome fill with chrome text for decisive actions.
-- **Amber:** Operational amber fill with dark ink text for selected or high-signal actions, not routine decoration.
-- **Secondary:** Transparent fill, hairline border, secondary ink text, and subtle surface hover.
-- **Hover / Focus:** Hover lifts by 1px and deepens shadow. Focus uses the amber outline and focus ring.
+- **Shape:** Tight structured corners, compact heights, stable icon sizing, and no layout shift between states.
+- **Primary:** Decisive actions use the shared primary variant, mapped to the calibrated token baseline.
+- **Secondary / Outline / Ghost:** Supporting actions use shared variants only. Do not create route-local button skins.
+- **Amber / Warning:** Operational amber is for selected, current, warning, or high-signal actions, not routine decoration.
+- **Hover / Focus:** Hover, active, focus-visible, loading, and disabled states come from the shared component. Route code only provides state.
+
+### Forms And Fields
+
+Forms should use shadcn-backed `field`, `label`, `input`, `input-group`, `textarea`, `native-select`, `select`, `checkbox`, `radio-group`, `switch`, `combobox`, and `multi-select` primitives or project wrappers derived from them.
+
+- **Inputs:** Quiet bordered controls with readable text, compact density, visible focus rings, and stable height.
+- **Labels:** Short, precise, and close to the field. Mono labels are appropriate for structural metadata and dense operational forms.
+- **Errors / Hints:** Preserve accessible associations and color-independent meaning.
+- **Combobox / Multi-select:** Use shared compound APIs for searchable personnel, group, task, and filter selection. Do not keep route-local search-select skins.
+
+### Toolbars
+
+Toolbars are first-class operational controls, not loose rows of buttons.
+
+- Use `ui/workspace-toolbar`, shadcn button groups, dropdown menus, select/combobox controls, input groups, and shared overflow behavior.
+- Keep toolbars compact and predictable. Prefer grouped filters and command overflow over two-row toolbar sprawl.
+- Routes may choose which commands are visible, disabled, loading, or moved into overflow. Routes may not change toolbar spacing, radius, borders, shadows, color, density, or typography.
+
+### Tables, Data Tables, And Operational Matrices
+
+Data-heavy surfaces should use shadcn table primitives, the shared `ui/data-table` foundation, or project-specific matrix wrappers. These surfaces are central to the product, not afterthoughts.
+
+- **DataTable:** Use the shadcn-backed shared table system for sortable, searchable, paged, selectable, and action-heavy lists.
+- **OperationalMatrix:** Training, Critical Tasks, DA6, and long-range calendar grids are not generic DataTables. Use `ui/operational-matrix` or a feature wrapper around it when the surface needs sticky axes, narrow rotated headers, legends, and status cells.
+- **Reports / Charts:** Use shared report and chart wrappers that follow shadcn chart conventions and the showroom conversion map.
+- **Density:** Fixed dimensions, sticky headers where useful, visible focus, accessible row actions, and color-independent status labels are required.
 
 ### Chips
 
-Chips are mono, uppercase, compact, and status-oriented.
+Badges and chips are mono, compact, and status-oriented.
 
 - **Style:** Pill shape, 4px by 12px padding, mono label, and semantic background wash.
 - **State:** Use filled semantic chips for real state or classification. Use outlined or neutral chips for low-emphasis metadata.
 
 ### Cards / Containers
 
-Containers should feel like bounded work surfaces, not decorative cards.
+Containers should feel like bounded work surfaces, not decorative cards. Use shadcn `card` sparingly and preferably through project wrappers such as page shell, report workspace, workflow panel, summary rail, or data-table shells.
 
 - **Corner Style:** Small structured radii (2px to 6px).
 - **Background:** Paper panel over paper page, sometimes mixed with subtle rule tone for toolbar bands.
@@ -238,25 +298,58 @@ Inputs are quiet, bordered, and readable.
 
 ### Navigation
 
-The authenticated shell uses a dark left rail on desktop and a bottom tab bar on mobile. Navigation labels are mono, icon-led, compact, and active states use operational amber. Breadcrumbs in the top bar should read as structural location, not page marketing.
+The authenticated shell uses the calibrated app-shell/sidebar treatment on desktop and a compact mobile navigation treatment. Navigation labels are icon-led, compact, and active states use operational amber or the calibrated sidebar primary token. Breadcrumbs in the top bar should read as structural location, not page marketing. Use shared sidebar, breadcrumb, tabs, sheet, dropdown, tooltip, and app-shell wrappers instead of route-local navigation treatments.
 
 ### Tables And Calendars
 
-Data-heavy surfaces should use fixed dimensions, hairline grid rules, sticky headers where useful, and small mono metadata. Status color should be backed by text, abbreviation, or label. Calendar and roster surfaces are work canvases, not framed cards inside cards.
+Data-heavy surfaces should use fixed dimensions, hairline grid rules, sticky headers where useful, and small metadata. Status color should be backed by text, abbreviation, icon, or label. Calendar and roster surfaces are work canvases, not framed cards inside cards. The main operational calendar remains app-specific; shadcn calendar/date-picker primitives are for picker and range-selection workflows unless a separate product decision changes that.
+
+### Dialogs, Sheets, Popovers, And Menus
+
+Overlays should use shadcn `dialog`, `alert-dialog`, `sheet`, `popover`, `dropdown-menu`, `command`, and `tooltip` primitives or shared wrappers around them.
+
+- Preserve async close-blocking, destructive confirmation, disabled action, and loading behavior.
+- Mobile-heavy filtering and long-form workflows should use shared sheet/drawer patterns once calibrated.
+- Do not use a modal as the default answer when inline workflow, sheet, or progressive disclosure fits better.
+
+### Empty, Alert, Toast, Loading, And Progress States
+
+Feedback states should come from shared shadcn-backed primitives: `empty`, `alert`, `sonner`/toast provider, `skeleton`, `spinner`, and `progress`.
+
+- Empty states should be direct and action-oriented, without marketing copy.
+- Alerts are semantic and compact. Avoid route-local warning boxes, notice banners, and context panels once a shared primitive exists.
+- Loading states should preserve layout and prevent text or controls from jumping.
+
+### Showroom And Migration Governance
+
+- `/ui-showroom` is the only approved calibration surface for shared visual appearance.
+- `/ui-showroom/app-shell` is the app-shell visual baseline.
+- `/ui-showroom/conversion-map` records legacy-to-shadcn replacement decisions.
+- Production route migration should start with a gap scan. If required primitives are missing, stop and create or extend shared UI before migrating the route.
+- Do not bridge old components with compatibility adapters unless a slice explicitly approves that tradeoff. Prefer clean replacement, then delete obsolete local CSS and legacy component paths.
 
 ## 6. Do's and Don'ts
 
 ### Do:
 
+- **Do** start new product UI from calibrated shadcn-svelte primitives and project-owned compound components.
+- **Do** use `/ui-showroom`, `/ui-showroom/app-shell`, and `/ui-showroom/conversion-map` as the visual review and migration baseline.
 - **Do** use warm paper surfaces, dark ink, hairline rules, and tight radii as the default visual grammar.
 - **Do** keep operational amber rare and meaningful: focus, active nav, selected state, current day, and action emphasis.
 - **Do** use mono labels for metadata, filters, breadcrumbs, table headers, badges, and operational markers.
 - **Do** make dense product controls predictable, keyboard-accessible, and visually stable across breakpoints.
 - **Do** use grids, dividers, alignment, and grouping to communicate operational order.
+- **Do** put durable visual variants in shared UI with showroom coverage and component-catalog documentation.
+- **Do** let routes configure behavior and content while shared components own appearance.
 - **Do** preserve WCAG AA contrast and never depend on color alone for status.
 
 ### Don't:
 
+- **Don't** visually retune shared components from production routes without explicit owner permission.
+- **Don't** use arbitrary Tailwind values, internal selectors, or route-local wrapper classes to change shared component spacing, radius, border, shadow, typography, color, animation, or density.
+- **Don't** keep legacy wrappers such as old toolbar, search-select, multi-tag-select, empty-state, file-upload, or spinner patterns when a calibrated shadcn replacement exists.
+- **Don't** treat generic shadcn defaults as automatically sufficient. Calibrate them in the showroom for TroopToTask first.
+- **Don't** create compatibility adapters between old and new component systems unless a slice explicitly authorizes that compromise.
 - **Don't** create generic SaaS marketing surfaces inside authenticated workflows.
 - **Don't** use shiny startup dashboards, soft productivity-app tropes, "AI slop," or fake command-center theatrics.
 - **Don't** use decorative gradients, glassmorphism, excessive roundness, heavy glow, or purple-gradient AI aesthetics.

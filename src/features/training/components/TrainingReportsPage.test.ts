@@ -102,7 +102,8 @@ function makeServerReport(
 				notCompleted: 1
 			},
 			worstTypes: [],
-			groupComparison: []
+			groupComparison: [],
+			typeBreakdown: []
 		},
 		detail: {
 			rows: [
@@ -168,7 +169,8 @@ describe('TrainingReportsPage', () => {
 			}
 		});
 
-		expect(screen.getByText('Overall Readiness (2 personnel)')).toBeTruthy();
+		expect(screen.getByText('Training Readiness')).toBeTruthy();
+		expect(screen.getByText(/across 2 personnel/)).toBeTruthy();
 	});
 
 	it('renders only the server-provided report page instead of rebuilding every store row', () => {
@@ -186,7 +188,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [
@@ -238,7 +241,8 @@ describe('TrainingReportsPage', () => {
 						notCompleted: 1
 					},
 					worstTypes: [],
-					groupComparison: []
+					groupComparison: [],
+					typeBreakdown: []
 				},
 				detail: {
 					rows: [
@@ -285,7 +289,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [
@@ -375,7 +380,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [

@@ -4,7 +4,7 @@
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -197,157 +197,163 @@
 	}
 </script>
 
-<Modal title="Set Personnel Status" {onClose} width="520px" titleId="availability-title">
-	<div class="mb-4 flex flex-col gap-1.5 border-b pb-4">
-		<div class="flex flex-wrap items-baseline gap-2">
-			<span class="text-muted-foreground text-sm font-medium">{person.rank}</span>
-			<span class="text-foreground text-lg font-semibold">{person.lastName}, {person.firstName}</span>
-		</div>
-		<div class="text-muted-foreground text-sm">{dateDisplay}</div>
-	</div>
+<AppDialog.Root open {onClose}>
+	<AppDialog.Content>
+		<AppDialog.Header>
+			<AppDialog.Title id="availability-title">Set Personnel Status</AppDialog.Title>
+			<AppDialog.Description>
+				{person.rank}
+				{person.lastName}, {person.firstName} · {dateDisplay}
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-	{#if dutyEventsForPerson.length > 0}
-		<div class="mb-4 flex flex-col gap-2 border-b pb-4">
-			<h4 class="text-sm font-medium">On duty</h4>
-			{#each dutyEventsForPerson as event (event.id)}
-				<div class="flex items-center gap-2">
-					{#if dutyRosterHref}
-						<a
-							href={resolve(dutyRosterHref as `/org/${string}/duty-rosters`)}
-							class="text-sm font-medium hover:underline">{event.templateName}</a
-						>
-					{:else}
-						<span class="text-sm font-medium">{event.templateName}</span>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
-
-	{#if localEntries.length > 0}
-		<div class="mb-4 border-b pb-4">
-			<h4 class="mb-3 text-sm font-medium">Current Status</h4>
-			{#each localEntries as entry (entry.id)}
-				{@const entryStatus = getStatusType(entry.statusTypeId)}
-				<div
-					class={[
-						'mb-2 flex items-center gap-3 rounded-lg border p-2.5 transition-colors last:mb-0',
-						editingEntry?.id === entry.id ? 'border-ring bg-muted/60' : 'border-border bg-muted/30'
-					]}
-				>
-					{#if entryStatus}
-						<CalendarStatusBadge statusType={entryStatus}>{entryStatus.name}</CalendarStatusBadge>
-					{:else}
-						<Badge variant="outline">Unknown</Badge>
-					{/if}
-					<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-						<span class="text-sm font-medium">{formatEntryDates(entry)}</span>
-						<span class="text-muted-foreground text-sm">
-							({getDayCountForEntry(entry)}
-							{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
-						</span>
-						{#if entry.note}
-							<span class="text-muted-foreground max-w-[180px] truncate text-sm" title={entry.note}>{entry.note}</span>
-						{/if}
-					</div>
-					{#if !entry.id.startsWith('temp-')}
-						<Button
-							variant="outline"
-							size="icon-sm"
-							onclick={() => startEdit(entry)}
-							title="Edit"
-							aria-label="Edit status"
-						>
-							<PencilIcon />
-						</Button>
-						<Button
-							variant="destructive"
-							size="icon-sm"
-							onclick={() => handleRemove(entry.id)}
-							title="Remove"
-							aria-label="Remove status"
-						>
-							<Trash2Icon />
-						</Button>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
-
-	<div class="grid gap-4 pt-1">
-		{#if editingEntry}
-			<h4 class="text-sm font-medium">Edit Status</h4>
-		{:else}
-			<h4 class="text-sm font-medium">
-				{localEntries.length > 0 ? 'Add Another Status' : 'Add Status'}
-			</h4>
-		{/if}
-
-		<Field.Root>
-			<Field.Label id="statusType-label">Status Type <span class="text-destructive">*</span></Field.Label>
-			<div class="flex flex-wrap items-center gap-2">
-				<Select.Root type="single" bind:value={selectedStatusId}>
-					<Select.Trigger id="statusType" aria-labelledby="statusType-label" class="min-w-[180px] flex-1">
-						{selectedStatus?.name ?? 'Select status...'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each statusTypes as status (status.id)}
-							<Select.Item value={status.id} label={status.name} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				{#if selectedStatus}
-					<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
-				{/if}
-			</div>
-		</Field.Root>
-
-		<div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-start">
-			<Field.Root>
-				<Field.Label for="startDate">Start Date <span class="text-destructive">*</span></Field.Label>
-				<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
-			</Field.Root>
-			<span class="text-muted-foreground hidden pt-7 sm:block">→</span>
-			<Field.Root>
-				<Field.Label for="endDate">End Date <span class="text-destructive">*</span></Field.Label>
-				<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
-			</Field.Root>
-			{#if dayCount > 0}
-				<div
-					class="bg-muted/30 mt-0 flex min-w-14 flex-row items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 sm:mt-6 sm:flex-col sm:gap-0"
-				>
-					<span class="text-foreground text-base leading-none font-semibold">{dayCount}</span>
-					<span class="text-muted-foreground text-xs">{dayCount === 1 ? 'day' : 'days'}</span>
+		<AppDialog.Body class="space-y-4">
+			{#if dutyEventsForPerson.length > 0}
+				<div class="flex flex-col gap-2 border-b pb-4">
+					<h4 class="text-sm font-medium">On duty</h4>
+					{#each dutyEventsForPerson as event (event.id)}
+						<div class="flex items-center gap-2">
+							{#if dutyRosterHref}
+								<a
+									href={resolve(dutyRosterHref as `/org/${string}/duty-rosters`)}
+									class="text-sm font-medium hover:underline">{event.templateName}</a
+								>
+							{:else}
+								<span class="text-sm font-medium">{event.templateName}</span>
+							{/if}
+						</div>
+					{/each}
 				</div>
 			{/if}
-		</div>
 
-		{#if dateError}
-			<Field.Error>{dateError}</Field.Error>
-		{/if}
+			{#if localEntries.length > 0}
+				<div class="border-b pb-4">
+					<h4 class="mb-3 text-sm font-medium">Current Status</h4>
+					{#each localEntries as entry (entry.id)}
+						{@const entryStatus = getStatusType(entry.statusTypeId)}
+						<div
+							class={[
+								'mb-2 flex items-center gap-3 rounded-lg border p-2.5 transition-colors last:mb-0',
+								editingEntry?.id === entry.id ? 'border-ring bg-muted/60' : 'border-border bg-muted/30'
+							]}
+						>
+							{#if entryStatus}
+								<CalendarStatusBadge statusType={entryStatus}>{entryStatus.name}</CalendarStatusBadge>
+							{:else}
+								<Badge variant="outline">Unknown</Badge>
+							{/if}
+							<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+								<span class="text-sm font-medium">{formatEntryDates(entry)}</span>
+								<span class="text-muted-foreground text-sm">
+									({getDayCountForEntry(entry)}
+									{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
+								</span>
+								{#if entry.note}
+									<span class="text-muted-foreground max-w-[180px] truncate text-sm" title={entry.note}
+										>{entry.note}</span
+									>
+								{/if}
+							</div>
+							{#if !entry.id.startsWith('temp-')}
+								<Button
+									variant="outline"
+									size="icon-sm"
+									onclick={() => startEdit(entry)}
+									title="Edit"
+									aria-label="Edit status"
+								>
+									<PencilIcon />
+								</Button>
+								<Button
+									variant="destructive"
+									size="icon-sm"
+									onclick={() => handleRemove(entry.id)}
+									title="Remove"
+									aria-label="Remove status"
+								>
+									<Trash2Icon />
+								</Button>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 
-		<Field.Root>
-			<Field.Label for="statusNote">Note</Field.Label>
-			<Input
-				id="statusNote"
-				type="text"
-				bind:value={note}
-				maxlength={200}
-				placeholder="Optional note (e.g., JRTC rotation)"
-			/>
-		</Field.Root>
-	</div>
+			<div class="grid gap-4 pt-1">
+				{#if editingEntry}
+					<h4 class="text-sm font-medium">Edit Status</h4>
+				{:else}
+					<h4 class="text-sm font-medium">
+						{localEntries.length > 0 ? 'Add Another Status' : 'Add Status'}
+					</h4>
+				{/if}
 
-	{#snippet footer()}
-		<Button variant="outline" onclick={editingEntry ? cancelEdit : onClose}>
-			{editingEntry ? 'Cancel Edit' : 'Cancel'}
-		</Button>
-		<Button onclick={handleSubmit} disabled={!selectedStatusId || !!dateError}>
-			{editingEntry ? 'Update Status' : 'Add Status'}
-		</Button>
-	{/snippet}
-</Modal>
+				<Field.Root>
+					<Field.Label id="statusType-label">Status Type <span class="text-destructive">*</span></Field.Label>
+					<div class="flex flex-wrap items-center gap-2">
+						<Select.Root type="single" bind:value={selectedStatusId}>
+							<Select.Trigger id="statusType" aria-labelledby="statusType-label" class="min-w-[180px] flex-1">
+								{selectedStatus?.name ?? 'Select status...'}
+							</Select.Trigger>
+							<Select.Content>
+								{#each statusTypes as status (status.id)}
+									<Select.Item value={status.id} label={status.name} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						{#if selectedStatus}
+							<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
+						{/if}
+					</div>
+				</Field.Root>
+
+				<div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-start">
+					<Field.Root>
+						<Field.Label for="startDate">Start Date <span class="text-destructive">*</span></Field.Label>
+						<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
+					</Field.Root>
+					<span class="text-muted-foreground hidden pt-7 sm:block">→</span>
+					<Field.Root>
+						<Field.Label for="endDate">End Date <span class="text-destructive">*</span></Field.Label>
+						<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
+					</Field.Root>
+					{#if dayCount > 0}
+						<div
+							class="bg-muted/30 mt-0 flex min-w-14 flex-row items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 sm:mt-6 sm:flex-col sm:gap-0"
+						>
+							<span class="text-foreground text-base leading-none font-semibold">{dayCount}</span>
+							<span class="text-muted-foreground text-xs">{dayCount === 1 ? 'day' : 'days'}</span>
+						</div>
+					{/if}
+				</div>
+
+				{#if dateError}
+					<Field.Error>{dateError}</Field.Error>
+				{/if}
+
+				<Field.Root>
+					<Field.Label for="statusNote">Note</Field.Label>
+					<Input
+						id="statusNote"
+						type="text"
+						bind:value={note}
+						maxlength={200}
+						placeholder="Optional note (e.g., JRTC rotation)"
+					/>
+				</Field.Root>
+			</div>
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={editingEntry ? cancelEdit : onClose}>
+				{editingEntry ? 'Cancel Edit' : 'Cancel'}
+			</Button>
+			<Button onclick={handleSubmit} disabled={!selectedStatusId || !!dateError}>
+				{editingEntry ? 'Update Status' : 'Add Status'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if removeEntryId}
 	<ConfirmDialog

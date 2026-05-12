@@ -4,8 +4,13 @@
 	import type { StatusDaysResult, StatusDayRow } from '../../utils/statusDaysReport';
 	import { computeStatusDays } from '../../utils/statusDaysReport';
 	import { exportStatusDaysCsv } from './StatusDaysSummaryExport';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
@@ -211,10 +216,9 @@
 	<div class="config-section">
 		<h3>Date Range</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Year</span>
-				<select
-					class="select"
+			<Field.Root>
+				<Field.Label>Year</Field.Label>
+				<NativeSelect
 					value={selectedYear ?? ''}
 					onchange={(e) => {
 						const val = e.currentTarget.value;
@@ -225,25 +229,25 @@
 					{#each yearOptions as year (year)}
 						<option value={year}>{year}</option>
 					{/each}
-				</select>
-			</label>
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
-			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
-			</label>
+				</NativeSelect>
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} onValueChange={handleDateChange} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} onValueChange={handleDateChange} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 	</div>
 
 	<div class="config-section">
 		<h3>Personnel</h3>
 		<div class="filter-mode-row">
-			<label class="form-group">
-				<span class="label">Filter by</span>
-				<select class="select" bind:value={filterMode}>
+			<Field.Root>
+				<Field.Label>Filter by</Field.Label>
+				<NativeSelect bind:value={filterMode}>
 					<option value="all">All Personnel</option>
 					<option value="name">By Name</option>
 					<option value="group">By Group</option>
@@ -253,13 +257,13 @@
 					{#if uniqueRoles.length > 0}
 						<option value="role">By Duty Role</option>
 					{/if}
-				</select>
-			</label>
+				</NativeSelect>
+			</Field.Root>
 		</div>
 
 		{#if filterMode === 'name'}
 			<div class="filter-panel">
-				<input type="text" class="input" placeholder="Search by name..." bind:value={nameSearch} />
+				<Input type="text" placeholder="Search by name..." bind:value={nameSearch} />
 				<div class="checkbox-list">
 					{#each nameFilteredPersonnel as person (person.id)}
 						<label class="checkbox-item">
@@ -328,9 +332,9 @@
 	<div class="config-section">
 		<h3>Status Types</h3>
 		<div class="status-filter-header">
-			<button class="btn btn-sm btn-secondary" onclick={toggleAllStatuses}>
+			<Button variant="outline" size="sm" onclick={toggleAllStatuses}>
 				{selectedStatusTypeIds.size === statusTypes.length ? 'Deselect All' : 'Select All'}
-			</button>
+			</Button>
 			<span class="personnel-count">
 				{selectedStatusTypeIds.size} of {statusTypes.length} selected
 			</span>
@@ -351,14 +355,10 @@
 	</div>
 
 	<div class="config-actions">
-		<button
-			class="btn btn-primary"
-			onclick={runReport}
-			disabled={loading || !startDate || !endDate || selectedStatusTypeIds.size === 0}
-		>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate || selectedStatusTypeIds.size === 0}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -372,7 +372,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0}
@@ -431,17 +431,8 @@
 		flex-wrap: wrap;
 	}
 
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
-	}
-
 	.filter-mode-row {
 		margin-bottom: var(--sp-2);
-	}
-
-	.filter-mode-row .form-group {
-		max-width: 200px;
 	}
 
 	.filter-panel {
@@ -550,10 +541,6 @@
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
 		}
 	}
 </style>

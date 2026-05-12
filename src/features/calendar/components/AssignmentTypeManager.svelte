@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { AssignmentType } from '$lib/types';
-	import TypeManager from '$lib/components/ui/TypeManager.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { TypeManager } from '$lib/components/ui/type-manager';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 
@@ -93,7 +93,17 @@
 				<input type="color" bind:value={newColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 			</label>
 			{#if newName.trim() && newShortName.trim()}
-				<Badge label={newShortName.toUpperCase() || '?'} color={newColor} bold={true} />
+				<CalendarStatusBadge
+					statusType={{
+						id: 'new-assignment-type',
+						name: newShortName.toUpperCase() || '?',
+						color: newColor,
+						textColor: '#ffffff'
+					}}
+					class="font-mono font-bold tracking-widest uppercase"
+				>
+					{newShortName.toUpperCase() || '?'}
+				</CalendarStatusBadge>
 			{/if}
 		</div>
 		<p class="text-muted-foreground mt-2 text-xs leading-relaxed">
@@ -103,7 +113,12 @@
 	{/snippet}
 
 	{#snippet itemDisplay(type)}
-		<Badge label={type.shortName} color={type.color} bold={true} />
+		<CalendarStatusBadge
+			statusType={{ id: type.id, name: type.shortName, color: type.color, textColor: '#ffffff' }}
+			class="font-mono font-bold tracking-widest uppercase"
+		>
+			{type.shortName}
+		</CalendarStatusBadge>
 		<div class="ml-2 flex min-w-0 flex-col">
 			<span class="truncate text-sm font-medium">{type.name}</span>
 			<span class="text-muted-foreground text-xs">
@@ -133,7 +148,17 @@
 				<span>Color</span>
 				<input type="color" bind:value={editColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 			</label>
-			<Badge label={editShortName.toUpperCase() || '?'} color={editColor} bold={true} />
+			<CalendarStatusBadge
+				statusType={{
+					id: 'edit-assignment-type',
+					name: editShortName.toUpperCase() || '?',
+					color: editColor,
+					textColor: '#ffffff'
+				}}
+				class="font-mono font-bold tracking-widest uppercase"
+			>
+				{editShortName.toUpperCase() || '?'}
+			</CalendarStatusBadge>
 		</div>
 	{/snippet}
 </TypeManager>

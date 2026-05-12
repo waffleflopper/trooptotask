@@ -75,7 +75,7 @@ describe('IctReportKpiStrip', () => {
 		const expiring = within(strip).getByRole('article', { name: 'Tasks Expiring ≤60d' });
 		const threshold = within(strip).getByRole('article', { name: 'Tasks Below Threshold' });
 
-		expect(overall.querySelector('.kpi-value')?.textContent).toBe('75%');
+		expect(within(overall).getByTestId('ict-overall-readiness-value').textContent).toBe('75%');
 		expect(within(overall).getByText('▲ 25% vs 30 days ago')).toBeTruthy();
 		expect(within(soldiers).getByText('Soldiers Below 65%')).toBeTruthy();
 		expect(within(soldiers).getByText('1')).toBeTruthy();

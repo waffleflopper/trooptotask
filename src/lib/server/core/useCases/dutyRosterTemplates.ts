@@ -5,6 +5,7 @@ import type {
 	DutyRosterTemplate,
 	DutyRosterTemplateAcceptPreviewInput,
 	DutyRosterTemplateAcceptedRun,
+	DutyRosterTemplateArchiveInput,
 	DutyRosterTemplateConfiguredCreateInput,
 	DutyRosterTemplateCorrectionInput,
 	DutyRosterTemplateCountReadModel,
@@ -26,6 +27,7 @@ import {
 	acceptDutyRosterTemplatePreviewLifecycle,
 	applyAcceptedDutyRosterTemplateRunLifecycle,
 	applyDutyRosterTemplatePreviewManualSelectionLifecycle,
+	archiveDutyRosterTemplateLifecycle,
 	createConfiguredDutyRosterTemplateLifecycle,
 	createDutyRosterTemplateLifecycle,
 	findDutyRosterTemplateBySlugLifecycle,
@@ -133,6 +135,14 @@ export async function updateDutyRosterTemplateSettings(
 ): Promise<DutyRosterTemplate> {
 	await requireTemplateManagement(ctx);
 	return updateDutyRosterTemplateSettingsLifecycle(ctx, input);
+}
+
+export async function archiveDutyRosterTemplate(
+	ctx: WritePorts,
+	input: DutyRosterTemplateArchiveInput
+): Promise<DutyRosterTemplate> {
+	await requireTemplateManagement(ctx);
+	return archiveDutyRosterTemplateLifecycle(ctx, input);
 }
 
 export async function generateDutyRosterTemplatePreview(

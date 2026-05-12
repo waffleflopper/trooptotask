@@ -176,6 +176,12 @@ function createDeferredResponse() {
 	return { promise, resolve, reject };
 }
 
+async function chooseCompletionDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
+}
+
 describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
 		mockOrgContext.permissions.canEditCriticalTasks = true;
@@ -414,9 +420,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-02-01' }
-		});
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
@@ -438,7 +442,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'p-1',
 			ictTaskId: 'task-secondary',
-			completedAt: '2098-02-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Practical Exercise',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Lane validation'
@@ -453,7 +457,7 @@ describe('IctPersonnelDetailPage', () => {
 				id: 'completion-secondary',
 				personnelId: 'p-1',
 				ictTaskId: 'task-secondary',
-				completedAt: '2098-02-01',
+				completedAt: '2026-05-10',
 				validationMethod: 'Practical Exercise',
 				validatedBy: 'SFC Taylor Example',
 				notes: 'Lane validation',
@@ -509,11 +513,9 @@ describe('IctPersonnelDetailPage', () => {
 			target: { value: 'airway' }
 		});
 		taskList = screen.getByRole('listbox');
-		await fireEvent.mouseDown(within(taskList).getByText('181-105-1003 Airway management'));
+		await fireEvent.click(within(taskList).getByText('181-105-1003 Airway management'));
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-03-01' }
-		});
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Demonstration' }
 		});
@@ -528,7 +530,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'p-1',
 			ictTaskId: 'task-secondary',
-			completedAt: '2098-03-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Demonstration',
 			validatedBy: null,
 			notes: null
@@ -539,7 +541,7 @@ describe('IctPersonnelDetailPage', () => {
 				id: 'completion-secondary',
 				personnelId: 'p-1',
 				ictTaskId: 'task-secondary',
-				completedAt: '2098-03-01',
+				completedAt: '2026-05-10',
 				validationMethod: 'Demonstration',
 				validatedBy: null,
 				notes: null,

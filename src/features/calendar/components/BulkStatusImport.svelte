@@ -1,11 +1,19 @@
 <script lang="ts">
-	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
-	import { STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
-	import type { RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
+	import { autoMapColumns, detectHeaderRow, STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
 	import type { Personnel, StatusType } from '$lib/types';
+	import { tick } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -27,9 +35,6 @@
 	let pasteText = $state('');
 	let parseError = $state('');
 
-	// Preview state
-	let tableRef: ReturnType<typeof BulkImportTable> | undefined = $state();
-
 	// Resolve state
 	type StatusMapping = { csvName: string; count: number; resolvedId: string | null };
 	let unmatchedStatuses = $state<StatusMapping[]>([]);
@@ -38,6 +43,36 @@
 	// Import state
 	let importing = $state(false);
 	let importResult = $state<{ inserted: number; errors: { row: number; message: string }[] } | null>(null);
+
+	type RowValidation = {
+		valid: boolean;
+		cellErrors: Record<string, string>;
+		cellWarnings: Record<string, string>;
+	};
+
+	type PreviewRow = {
+		rowNumber: number;
+		values: Record<string, string>;
+		validation: RowValidation;
+	};
+
+	const previewRows = $derived.by<PreviewRow[]>(() => buildPreviewRows(rawRows));
+	const previewColumns: ColumnDef<PreviewRow>[] = STATUS_IMPORT_COLUMNS.map((column) => ({
+		key: column.key,
+		header: column.label,
+		value: (row) => row.values[column.key] ?? '',
+		searchValue: (row) => row.values[column.key] ?? ''
+	}));
+	const validationSummary = $derived.by(() => {
+		const invalidCount = previewRows.filter((row) => !row.validation.valid).length;
+		const warningCount = previewRows.filter((row) => Object.keys(row.validation.cellWarnings).length > 0).length;
+		return { invalidCount, warningCount };
+	});
+	const selection = DataTable.useDataTableSelection<PreviewRow>({
+		rows: () => previewRows,
+		rowKey: (row) => row.rowNumber,
+		disabledRow: (row) => !row.validation.valid
+	});
 
 	// Personnel lookup map: "lastname|firstname" -> Personnel[]
 	const personnelMap = $derived.by(() => {
@@ -62,20 +97,64 @@
 
 	const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
 
+	function buildPreviewRows(raw: string[][]): PreviewRow[] {
+		if (raw.length === 0) return [];
+
+		const hasHeaders = detectHeaderRow(raw[0], STATUS_IMPORT_COLUMNS);
+		const mappings = autoMapColumns(raw[0], STATUS_IMPORT_COLUMNS, hasHeaders).filter(
+			(mapping): mapping is NonNullable<typeof mapping> => !!mapping
+		);
+		const dataRows = hasHeaders ? raw.slice(1) : raw;
+
+		return dataRows.map((row, rowIndex) => {
+			const values: Record<string, string> = {};
+			for (const mapping of mappings) {
+				if (mapping.fieldKey && mapping.columnIndex < row.length) {
+					values[mapping.fieldKey] = (row[mapping.columnIndex] ?? '').trim();
+				}
+			}
+
+			const validation = validateRow(values);
+			return {
+				rowNumber: rowIndex + (hasHeaders ? 2 : 1),
+				values,
+				validation
+			};
+		});
+	}
+
+	function rowStatus(row: PreviewRow): BulkImportRowStatus {
+		if (!row.validation.valid) {
+			return { tone: 'error', label: 'Error', description: Object.values(row.validation.cellErrors).join('; ') };
+		}
+		if (Object.keys(row.validation.cellWarnings).length > 0) {
+			return { tone: 'warning', label: 'Review', description: Object.values(row.validation.cellWarnings).join('; ') };
+		}
+		return { tone: 'valid', label: 'Ready' };
+	}
+
+	async function showPreview(rows: string[][]) {
+		rawRows = rows;
+		selection.clear();
+		step = 'preview';
+		await tick();
+		selection.toggleAllPageRows(true);
+	}
+
 	async function handleFileUpload(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
 		parseError = '';
 		try {
-			rawRows = await parseFile(file);
+			const parsedRows = await parseFile(file);
 
-			if (rawRows.length < 2) {
+			if (parsedRows.length < 2) {
 				parseError = 'File appears to be empty or has no data rows.';
 				rawRows = [];
 				return;
 			}
-			step = 'preview';
+			await showPreview(parsedRows);
 		} catch (err) {
 			parseError = err instanceof Error ? err.message : 'Failed to parse file.';
 		}
@@ -85,14 +164,14 @@
 		if (!pasteText.trim()) return;
 		parseError = '';
 		try {
-			rawRows = await parseCSVText(pasteText);
+			const parsedRows = await parseCSVText(pasteText);
 
-			if (rawRows.length < 2) {
+			if (parsedRows.length < 2) {
 				parseError = 'No data rows found in pasted text.';
 				rawRows = [];
 				return;
 			}
-			step = 'preview';
+			await showPreview(parsedRows);
 		} catch (err) {
 			parseError = err instanceof Error ? err.message : 'Failed to parse text.';
 		}
@@ -158,8 +237,7 @@
 	}
 
 	function handlePreviewNext() {
-		if (!tableRef) return;
-		const checkedRows = tableRef.getCheckedRows();
+		const checkedRows = selection.selectedRows.map((row) => row.values);
 		if (checkedRows.length === 0) return;
 		savedCheckedRows = checkedRows;
 
@@ -295,104 +373,152 @@
 	}
 </script>
 
-<div class="bulk-import-panel">
+<BulkImportWorkspace.Root ariaLabel="Calendar status import workspace">
 	{#if step === 'upload'}
-		<div class="import-workspace">
-			<section class="import-summary-card">
-				<div class="pane-heading">
-					<span class="pane-eyebrow">Step 1</span>
-					<h2 class="pane-title">Bring in status rows</h2>
-					<p class="pane-copy">
+		<div class="grid gap-5 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
+			<section class="rounded-lg border bg-card p-5 text-card-foreground">
+				<div class="flex flex-col gap-2">
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Step 1</p>
+					<h2 class="text-lg font-semibold">Bring in status rows</h2>
+					<p class="text-sm text-muted-foreground">
 						Upload a CSV or Excel file, or paste raw CSV text. You will review and validate the rows before anything
 						imports.
 					</p>
 				</div>
 
-				<div class="summary-list">
-					<div class="summary-item">
-						<span class="summary-label">Required fields</span>
-						<span class="summary-value">Last name, first name, start date, end date, status</span>
+				<div class="mt-5 flex flex-col gap-3">
+					<div class="border-t pt-3 first:border-t-0 first:pt-0">
+						<span class="block font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+							>Required fields</span
+						>
+						<span class="text-sm">Last name, first name, start date, end date, status</span>
 					</div>
-					<div class="summary-item">
-						<span class="summary-label">Optional fields</span>
-						<span class="summary-value">Rank for name conflicts, plus note if you want one carried in</span>
+					<div class="border-t pt-3 first:border-t-0 first:pt-0">
+						<span class="block font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+							>Optional fields</span
+						>
+						<span class="text-sm">Rank for name conflicts, plus note if you want one carried in</span>
 					</div>
-					<div class="summary-item">
-						<span class="summary-label">Supported files</span>
-						<span class="summary-value">`.csv` and `.xlsx`</span>
+					<div class="border-t pt-3 first:border-t-0 first:pt-0">
+						<span class="block font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+							>Supported files</span
+						>
+						<span class="text-sm">.csv and .xlsx</span>
 					</div>
 				</div>
 			</section>
 
-			<section class="import-main-card">
-				<div class="upload-grid">
-					<div class="upload-option upload-card">
-						<h4>Upload a file</h4>
-						<p class="text-muted">Best when you already have a spreadsheet ready to go.</p>
-						<input type="file" accept=".csv,.xlsx" onchange={handleFileUpload} />
+			<section class="rounded-lg border bg-card p-5 text-card-foreground">
+				<div class="flex flex-col gap-4">
+					<div class="flex flex-col gap-2 rounded-md border bg-muted/40 p-4">
+						<Field.Root>
+							<Field.Label for="calendar-status-import-file">Upload a file</Field.Label>
+							<Field.Description>Best when you already have a spreadsheet ready to go.</Field.Description>
+							<Input id="calendar-status-import-file" type="file" accept=".csv,.xlsx" onchange={handleFileUpload} />
+						</Field.Root>
 					</div>
 
-					<div class="divider-row">
-						<div class="divider-line"></div>
-						<span class="divider-text text-muted">or</span>
-						<div class="divider-line"></div>
+					<div class="flex items-center gap-3">
+						<div class="h-px flex-1 bg-border"></div>
+						<span class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">or</span>
+						<div class="h-px flex-1 bg-border"></div>
 					</div>
 
-					<div class="upload-option upload-card">
-						<h4>Paste CSV data</h4>
-						<p class="text-muted">Useful for a quick import from another system or email.</p>
-						<textarea
-							class="input"
-							rows="8"
-							placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
-							bind:value={pasteText}
-						></textarea>
-						<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
+					<div class="flex flex-col gap-3 rounded-md border bg-muted/40 p-4">
+						<Field.Root>
+							<Field.Label for="calendar-status-import-paste">Paste CSV data</Field.Label>
+							<Field.Description>Useful for a quick import from another system or email.</Field.Description>
+							<Textarea
+								id="calendar-status-import-paste"
+								rows={8}
+								class="font-mono text-sm"
+								placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
+								bind:value={pasteText}
+							/>
+						</Field.Root>
+						<div class="flex justify-end">
+							<Button size="sm" onclick={handlePaste} disabled={!pasteText.trim()}>Parse</Button>
+						</div>
 					</div>
 				</div>
 
 				{#if parseError}
-					<p class="import-error" role="alert">{parseError}</p>
+					<BulkImportWorkspace.ValidationSummary
+						issues={[{ label: 'errors', count: 1, tone: 'error' }]}
+						description={parseError}
+						role="alert"
+					/>
 				{/if}
 			</section>
 		</div>
 	{/if}
 
 	{#if step === 'preview'}
-		<section class="stage-card">
-			<div class="pane-heading stage-heading">
-				<span class="pane-eyebrow">Step 2</span>
-				<h2 class="pane-title">Review parsed rows</h2>
-				<p class="pane-copy">
-					Check the rows that should be imported, then continue to status matching if anything needs resolution.
-				</p>
+		<section class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="flex flex-wrap justify-between gap-4 border-b pb-4">
+				<div>
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Step 2</p>
+					<h2 class="text-lg font-semibold">Review parsed rows</h2>
+					<p class="text-sm text-muted-foreground">
+						Check the rows that should be imported, then continue to status matching if anything needs resolution.
+					</p>
+				</div>
 			</div>
-			<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={STATUS_IMPORT_COLUMNS} {validateRow} />
+
+			<BulkImportWorkspace.ValidationSummary
+				issues={[
+					{ label: 'ready', count: previewRows.length - validationSummary.invalidCount, tone: 'neutral' },
+					{
+						label: 'errors',
+						count: validationSummary.invalidCount,
+						tone: validationSummary.invalidCount > 0 ? 'error' : 'neutral'
+					},
+					{
+						label: 'warnings',
+						count: validationSummary.warningCount,
+						tone: validationSummary.warningCount > 0 ? 'warning' : 'neutral'
+					}
+				]}
+				description={`${selection.selectedCount} rows selected for import.`}
+			/>
+
+			<BulkImportWorkspace.PreviewTable
+				rows={previewRows}
+				columns={previewColumns}
+				ariaLabel="Calendar status import preview"
+				{selection}
+				rowKey={(row) => row.rowNumber}
+				disabledRow={(row) => !row.validation.valid}
+				{rowStatus}
+				selectedCountLabel={(selected, total) => `${selected} of ${total} rows selected`}
+			/>
 		</section>
 	{/if}
 
 	{#if step === 'results'}
-		<section class="stage-card">
-			<div class="pane-heading stage-heading">
-				<span class="pane-eyebrow">Results</span>
-				<h2 class="pane-title">Import complete</h2>
-				<p class="pane-copy">Review what was imported and any rows that still need attention.</p>
+		<section class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="border-b pb-4">
+				<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Results</p>
+				<h2 class="text-lg font-semibold">Import complete</h2>
+				<p class="text-sm text-muted-foreground">Review what was imported and any rows that still need attention.</p>
 			</div>
-			<div class="results-section">
+			<div class="flex flex-col gap-4">
 				{#if importResult}
 					{#if importResult.inserted > 0}
-						<div class="results-success">
+						<div
+							class="rounded-md border border-green-600/30 bg-green-600/10 p-4 text-sm text-green-700 dark:text-green-300"
+						>
 							<strong>{importResult.inserted}</strong> status {importResult.inserted === 1 ? 'entry' : 'entries'} imported
 							successfully.
 						</div>
 					{/if}
 
 					{#if importResult.errors.length > 0}
-						<div class="results-errors">
-							<h4>Errors</h4>
+						<div class="flex flex-col gap-2">
+							<h4 class="font-semibold text-destructive">Errors</h4>
 							{#each importResult.errors as error, idx (idx)}
-								<div class="results-error-row">
-									{#if error.row > 0}<span class="text-muted">Row {error.row}:</span>{/if}
+								<div class="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
+									{#if error.row > 0}<span class="text-muted-foreground">Row {error.row}:</span>{/if}
 									<span>{error.message}</span>
 								</div>
 							{/each}
@@ -400,7 +526,7 @@
 					{/if}
 
 					{#if importResult.inserted === 0 && importResult.errors.length === 0}
-						<p class="text-muted">No records were imported.</p>
+						<p class="text-sm text-muted-foreground">No records were imported.</p>
 					{/if}
 				{/if}
 			</div>
@@ -408,362 +534,73 @@
 	{/if}
 
 	{#if step === 'resolve'}
-		<section class="stage-card">
-			<div class="pane-heading stage-heading">
-				<span class="pane-eyebrow">Step 3</span>
-				<h2 class="pane-title">Resolve unmatched statuses</h2>
-				<p class="pane-copy">
+		<section class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+			<div class="border-b pb-4">
+				<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Step 3</p>
+				<h2 class="text-lg font-semibold">Resolve unmatched statuses</h2>
+				<p class="text-sm text-muted-foreground">
 					The following status names do not match a status type in this organization. Map each one or choose skip to
 					leave those rows out.
 				</p>
 			</div>
-			<div class="resolve-section">
-				<div class="resolve-list">
-					{#each unmatchedStatuses as mapping, i (mapping.csvName)}
-						<div class="resolve-row">
-							<div class="resolve-info">
-								<span class="resolve-name">"{mapping.csvName}"</span>
-								<span class="text-muted">({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span>
-							</div>
-							<span class="resolve-arrow">→</span>
-							<select
-								class="select"
-								value={mapping.resolvedId ?? ''}
-								onchange={(e) => {
-									const val = (e.target as HTMLSelectElement).value;
-									unmatchedStatuses[i].resolvedId = val || null;
-								}}
+			<div class="flex flex-col gap-3">
+				{#each unmatchedStatuses as mapping, i (mapping.csvName)}
+					<div class="flex flex-col gap-3 rounded-md border bg-muted/40 p-3 sm:flex-row sm:items-center">
+						<div class="min-w-48">
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">"{mapping.csvName}"</span>
+							<span class="ml-2 text-sm text-muted-foreground"
+								>({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span
 							>
-								<option value="">— Select —</option>
-								<option value="__skip__">Skip (don't import)</option>
-								{#each statusTypes as st (st.id)}
-									<option value={st.id}>{st.name}</option>
-								{/each}
-							</select>
-							{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
-								{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
-								{#if resolved}
-									<Badge label={resolved.name} color={resolved.color} textColor={resolved.textColor} />
-								{/if}
-							{/if}
 						</div>
-					{/each}
-				</div>
+						<span class="hidden text-muted-foreground sm:inline">-&gt;</span>
+						<NativeSelect
+							value={mapping.resolvedId ?? ''}
+							onchange={(e) => {
+								const val = (e.target as HTMLSelectElement).value;
+								unmatchedStatuses[i].resolvedId = val || null;
+							}}
+						>
+							<option value="">Select</option>
+							<option value="__skip__">Skip, do not import</option>
+							{#each statusTypes as st (st.id)}
+								<option value={st.id}>{st.name}</option>
+							{/each}
+						</NativeSelect>
+						{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
+							{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
+							{#if resolved}
+								<CalendarStatusBadge statusType={resolved}>{resolved.name}</CalendarStatusBadge>
+							{/if}
+						{/if}
+					</div>
+				{/each}
 			</div>
 		</section>
 	{/if}
 
-	<div class="panel-footer">
+	<div class="flex flex-wrap justify-end gap-2 border-t bg-card p-4">
 		{#if step === 'preview'}
-			<button
-				class="btn btn-secondary"
+			<Button
+				variant="outline"
 				onclick={() => {
 					step = 'upload';
 					rawRows = [];
-				}}>Back</button
+				}}>Back</Button
 			>
-			<div class="spacer"></div>
-			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
+			<Button onclick={handlePreviewNext} disabled={selection.selectedCount === 0}>Next</Button>
 		{:else if step === 'resolve'}
-			<button
-				class="btn btn-secondary"
+			<Button
+				variant="outline"
 				onclick={() => {
 					step = 'preview';
-				}}>Back</button
+				}}>Back</Button
 			>
-			<div class="spacer"></div>
-			<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>
+			<Button disabled={!allResolved || importing} onclick={handleImport}>
 				{#if importing}<Spinner />{/if}
 				{importing ? 'Importing...' : 'Import'}
-			</button>
+			</Button>
 		{:else if step === 'results'}
-			<button class="btn btn-primary" onclick={onComplete}>Done</button>
+			<Button onclick={onComplete}>Done</Button>
 		{/if}
 	</div>
-</div>
-
-<style>
-	.bulk-import-panel {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.panel-footer {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		padding: var(--sp-4) var(--sp-5);
-		border-top: var(--border-thin);
-		background: var(--surface-panel);
-	}
-
-	.import-workspace {
-		display: grid;
-		grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-		gap: var(--sp-5);
-		align-items: start;
-	}
-
-	.import-summary-card,
-	.import-main-card,
-	.stage-card {
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.import-summary-card,
-	.import-main-card {
-		padding: var(--sp-5);
-	}
-
-	.stage-heading {
-		padding: var(--sp-5);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-	}
-
-	.pane-heading {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.pane-eyebrow {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.pane-title {
-		font-family: var(--font-display);
-		font-size: clamp(1.35rem, 1.1rem + 0.7vw, 1.9rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		line-height: var(--line-height-tight);
-		text-transform: uppercase;
-	}
-
-	.pane-copy {
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		line-height: var(--line-height-copy);
-	}
-
-	.summary-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		margin-top: var(--sp-5);
-	}
-
-	.summary-item {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		padding: var(--sp-3) 0;
-		border-top: var(--border-thin);
-	}
-
-	.summary-item:first-child {
-		padding-top: 0;
-		border-top: none;
-	}
-
-	.summary-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--text-secondary);
-	}
-
-	.summary-value {
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.upload-grid {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.spacer {
-		flex: 1;
-	}
-
-	.upload-option {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.upload-card {
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.upload-option h4 {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.upload-option p {
-		margin: 0;
-	}
-
-	.upload-option textarea {
-		resize: vertical;
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-	}
-
-	.divider-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-
-	.divider-line {
-		flex: 1;
-		height: 1px;
-		background: var(--border-default);
-	}
-
-	.divider-text {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.import-error {
-		margin-top: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		color: var(--danger);
-		background: var(--danger-bg);
-		border-radius: var(--radius-sm);
-	}
-
-	.resolve-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-5);
-	}
-
-	.resolve-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.resolve-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-	}
-
-	.resolve-info {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-2);
-		min-width: 200px;
-	}
-
-	.resolve-name {
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-semibold);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.resolve-arrow {
-		color: var(--text-tertiary);
-	}
-
-	.results-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-5);
-	}
-
-	.results-success {
-		padding: var(--sp-4);
-		background: var(--success-bg);
-		border-radius: var(--radius-sm);
-		color: var(--success);
-	}
-
-	.results-errors {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.results-errors h4 {
-		margin: 0;
-		color: var(--danger);
-	}
-
-	.results-error-row {
-		display: flex;
-		gap: var(--sp-2);
-		font-size: var(--text-sm);
-		padding: var(--sp-2) var(--sp-3);
-		background: var(--danger-bg);
-		border-radius: var(--radius-sm);
-	}
-
-	@media (max-width: 960px) {
-		.import-workspace {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.import-summary-card,
-		.import-main-card,
-		.stage-heading,
-		.resolve-section,
-		.results-section,
-		.panel-footer {
-			padding-left: var(--sp-4);
-			padding-right: var(--sp-4);
-		}
-
-		.resolve-row {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.resolve-info {
-			min-width: 0;
-		}
-
-		.resolve-arrow {
-			display: none;
-		}
-	}
-</style>
+</BulkImportWorkspace.Root>

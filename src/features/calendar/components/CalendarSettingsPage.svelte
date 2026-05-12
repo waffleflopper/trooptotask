@@ -1,9 +1,13 @@
 <script lang="ts">
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import { Input } from '$lib/components/ui/input';
 	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
 	import Trash2Icon from '$lib/components/ui/icons/Trash2Icon.svelte';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -274,7 +278,7 @@
 				<p class="hero-description">
 					You can view the calendar, but only organization admins and full editors can manage calendar settings.
 				</p>
-				<a href="/org/{org.orgId}/calendar" class="btn btn-sm hero-action">View calendar</a>
+				<Button href={`/org/${org.orgId}/calendar`} size="sm">View calendar</Button>
 			</div>
 		</section>
 	{:else}
@@ -290,8 +294,7 @@
 				</div>
 
 				<div class="add-form add-form-priority">
-					<input
-						class="input"
+					<Input
 						type="text"
 						bind:value={newStatusName}
 						placeholder="Status name (e.g., Leave, TDY)"
@@ -306,7 +309,16 @@
 						<input type="color" bind:value={newStatusTextColor} disabled={!canMutate} />
 					</label>
 					{#if newStatusName.trim()}
-						<Badge label={newStatusName} color={newStatusColor} textColor={newStatusTextColor} />
+						<CalendarStatusBadge
+							statusType={{
+								id: 'new-status',
+								name: newStatusName,
+								color: newStatusColor,
+								textColor: newStatusTextColor
+							}}
+						>
+							{newStatusName}
+						</CalendarStatusBadge>
 					{/if}
 					<div class="treatment-field">
 						<div class="treatment-label-row">
@@ -318,9 +330,8 @@
 								<span class="help-tooltip" role="tooltip">{DA6_AVAILABILITY_HELP}</span>
 							</span>
 						</div>
-						<select
+						<NativeSelect
 							id="new-status-da6-treatment"
-							class="select"
 							value={newStatusDa6Treatment}
 							onchange={handleNewDa6TreatmentChange}
 							disabled={!canMutate}
@@ -328,11 +339,9 @@
 							{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
 								<option value={option.value} disabled={option.disabled}>{option.label}</option>
 							{/each}
-						</select>
+						</NativeSelect>
 					</div>
-					<button class="btn btn-primary btn-sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>
-						+ Add
-					</button>
+					<Button size="sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>+ Add</Button>
 				</div>
 
 				{#if statusTypesMissingDa6Treatment.length > 0}
@@ -375,13 +384,7 @@
 						<div class="item-row status-item-row" in:fly={rowIn} out:fly={rowOut}>
 							{#if editingStatus?.id === status.id}
 								<div class="inline-edit">
-									<input
-										class="input"
-										type="text"
-										bind:value={editStatusName}
-										placeholder="Status name"
-										aria-label="Status name"
-									/>
+									<Input type="text" bind:value={editStatusName} placeholder="Status name" aria-label="Status name" />
 									<label class="color-picker">
 										<span>Background</span>
 										<input type="color" bind:value={editStatusColor} />
@@ -390,12 +393,20 @@
 										<span>Text</span>
 										<input type="color" bind:value={editStatusTextColor} />
 									</label>
-									<Badge label={editStatusName || 'Preview'} color={editStatusColor} textColor={editStatusTextColor} />
+									<CalendarStatusBadge
+										statusType={{
+											id: 'edit-status',
+											name: editStatusName || 'Preview',
+											color: editStatusColor,
+											textColor: editStatusTextColor
+										}}
+									>
+										{editStatusName || 'Preview'}
+									</CalendarStatusBadge>
 									<div class="treatment-field">
 										<label class="treatment-label" for="edit-status-da6-treatment">Duty roster treatment</label>
-										<select
+										<NativeSelect
 											id="edit-status-da6-treatment"
-											class="select"
 											value={editStatusDa6Treatment}
 											onchange={handleEditDa6TreatmentChange}
 											disabled={!canMutate}
@@ -403,42 +414,40 @@
 											{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
 												<option value={option.value} disabled={option.disabled}>{option.label}</option>
 											{/each}
-										</select>
+										</NativeSelect>
 									</div>
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={saveEditStatus}
-										disabled={!canMutate || !editStatusName.trim()}>Save</button
+									<Button size="sm" onclick={saveEditStatus} disabled={!canMutate || !editStatusName.trim()}
+										>Save</Button
 									>
-									<button class="btn btn-sm" onclick={cancelEditStatus}>Cancel</button>
+									<Button variant="outline" size="sm" onclick={cancelEditStatus}>Cancel</Button>
 								</div>
 							{:else}
 								<div class="status-display">
-									<Badge label={status.name} color={status.color} textColor={status.textColor} />
+									<CalendarStatusBadge statusType={status}>{status.name}</CalendarStatusBadge>
 									<span class="treatment-summary">
 										{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}
 									</span>
 								</div>
 								<div class="item-actions">
 									{#if canMutate}
-										<button
-											class="item-icon-button"
-											type="button"
+										<Button
+											variant="outline"
+											size="icon-sm"
 											title="Edit status type"
 											aria-label="Edit status type"
 											onclick={() => startEditStatus(status)}
 										>
 											<PencilIcon size={16} strokeWidth={2} />
-										</button>
-										<button
-											class="item-icon-button item-icon-button-danger"
-											type="button"
+										</Button>
+										<Button
+											variant="destructive"
+											size="icon-sm"
 											title="Delete status type"
 											aria-label="Delete status type"
 											onclick={() => (confirmDeleteStatus = status)}
 										>
 											<Trash2Icon size={16} strokeWidth={2} />
-										</button>
+										</Button>
 									{/if}
 								</div>
 							{/if}
@@ -460,36 +469,45 @@
 				</div>
 
 				<div class="add-form add-form-priority">
-					<input
-						class="input"
+					<Input
 						type="text"
 						bind:value={newAssignName}
 						placeholder="Full name (e.g., Staff Duty)"
 						disabled={!canMutate}
 					/>
-					<input
-						class="input short-input"
+					<Input
+						class="max-w-20 uppercase"
 						type="text"
 						bind:value={newAssignShortName}
 						placeholder="Short (e.g., SD)"
-						maxlength="5"
+						maxlength={5}
 						disabled={!canMutate}
 					/>
-					<select class="select" bind:value={newAssignTo} disabled={!canMutate}>
+					<NativeSelect bind:value={newAssignTo} disabled={!canMutate}>
 						<option value="personnel">Assign to Person</option>
 						<option value="group">Assign to Group</option>
-					</select>
+					</NativeSelect>
 					<label class="color-picker">
 						<span>Color</span>
 						<input type="color" bind:value={newAssignColor} disabled={!canMutate} />
 					</label>
 					{#if newAssignShortName.trim()}
-						<Badge label={newAssignShortName.trim().toUpperCase()} color={newAssignColor} bold={true} />
+						<CalendarStatusBadge
+							statusType={{
+								id: 'new-assignment',
+								name: newAssignShortName.trim().toUpperCase(),
+								color: newAssignColor,
+								textColor: '#ffffff'
+							}}
+							class="font-mono font-bold tracking-widest uppercase"
+						>
+							{newAssignShortName.trim().toUpperCase()}
+						</CalendarStatusBadge>
 					{/if}
-					<button
-						class="btn btn-primary btn-sm"
+					<Button
+						size="sm"
 						onclick={addAssignType}
-						disabled={!canMutate || !newAssignName.trim() || !newAssignShortName.trim()}>+ Add</button
+						disabled={!canMutate || !newAssignName.trim() || !newAssignShortName.trim()}>+ Add</Button
 					>
 				</div>
 
@@ -507,36 +525,45 @@
 						<div class="item-row" in:fly={rowIn} out:fly={rowOut}>
 							{#if editingAssign?.id === type.id}
 								<div class="inline-edit">
-									<input
-										class="input"
+									<Input
 										type="text"
 										bind:value={editAssignName}
 										placeholder="Full name"
 										aria-label="Assignment full name"
 									/>
-									<input
-										class="input short-input"
+									<Input
+										class="max-w-20 uppercase"
 										type="text"
 										bind:value={editAssignShortName}
 										placeholder="Short"
-										maxlength="5"
+										maxlength={5}
 										aria-label="Assignment short name"
 									/>
-									<select class="select" bind:value={editAssignTo} aria-label="Assign to">
+									<NativeSelect bind:value={editAssignTo} aria-label="Assign to">
 										<option value="personnel">Person</option>
 										<option value="group">Group</option>
-									</select>
+									</NativeSelect>
 									<label class="color-picker">
 										<span>Color</span>
 										<input type="color" bind:value={editAssignColor} />
 									</label>
-									<Badge label={editAssignShortName.trim().toUpperCase() || '?'} color={editAssignColor} bold={true} />
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={saveEditAssign}
-										disabled={!canMutate || !editAssignName.trim() || !editAssignShortName.trim()}>Save</button
+									<CalendarStatusBadge
+										statusType={{
+											id: 'edit-assignment',
+											name: editAssignShortName.trim().toUpperCase() || '?',
+											color: editAssignColor,
+											textColor: '#ffffff'
+										}}
+										class="font-mono font-bold tracking-widest uppercase"
 									>
-									<button class="btn btn-sm" onclick={cancelEditAssign}>Cancel</button>
+										{editAssignShortName.trim().toUpperCase() || '?'}
+									</CalendarStatusBadge>
+									<Button
+										size="sm"
+										onclick={saveEditAssign}
+										disabled={!canMutate || !editAssignName.trim() || !editAssignShortName.trim()}>Save</Button
+									>
+									<Button variant="outline" size="sm" onclick={cancelEditAssign}>Cancel</Button>
 								</div>
 							{:else}
 								<label class="header-radio">
@@ -551,29 +578,34 @@
 									/>
 									<span class="radio-label-text">Date header</span>
 								</label>
-								<Badge label={type.shortName} color={type.color} bold={true} />
+								<CalendarStatusBadge
+									statusType={{ id: type.id, name: type.shortName, color: type.color, textColor: '#ffffff' }}
+									class="font-mono font-bold tracking-widest uppercase"
+								>
+									{type.shortName}
+								</CalendarStatusBadge>
 								<span class="item-name">{type.name}</span>
 								<span class="item-meta">{type.assignTo === 'personnel' ? 'Person' : 'Group'}</span>
 								<div class="item-actions">
 									{#if canMutate}
-										<button
-											class="item-icon-button"
-											type="button"
+										<Button
+											variant="outline"
+											size="icon-sm"
 											title="Edit assignment type"
 											aria-label="Edit assignment type"
 											onclick={() => startEditAssign(type)}
 										>
 											<PencilIcon size={16} strokeWidth={2} />
-										</button>
-										<button
-											class="item-icon-button item-icon-button-danger"
-											type="button"
+										</Button>
+										<Button
+											variant="destructive"
+											size="icon-sm"
 											title="Delete assignment type"
 											aria-label="Delete assignment type"
 											onclick={() => (confirmDeleteAssign = type)}
 										>
 											<Trash2Icon size={16} strokeWidth={2} />
-										</button>
+										</Button>
 									{/if}
 								</div>
 							{/if}
@@ -596,40 +628,34 @@
 
 				<div class="filter-bar">
 					<label class="label" for="filter-year">Year:</label>
-					<select id="filter-year" class="select year-select" bind:value={filterYear}>
+					<NativeSelect id="filter-year" class="w-25" bind:value={filterYear}>
 						{#each yearOptions as year (year)}
 							<option value={year}>{year}</option>
 						{/each}
-					</select>
+					</NativeSelect>
 					<span class="count">{filteredDays.length} days</span>
 					<div class="reset-block">
-						<button class="btn btn-secondary btn-sm" onclick={() => (showResetConfirm = true)} disabled={!canMutate}>
+						<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)} disabled={!canMutate}>
 							Reset Federal Holidays
-						</button>
+						</Button>
 						<span class="reset-note">Preserves your custom closures</span>
 					</div>
 				</div>
 
 				<div class="add-form add-form-priority">
-					<input type="date" class="input date-input" bind:value={newSpecialDate} disabled={!canMutate} />
-					<input
-						class="input flexible-input"
+					<DatePicker bind:value={newSpecialDate} disabled={!canMutate} class="w-40" placeholder="Select date" />
+					<Input
+						class="flex-1"
 						type="text"
 						bind:value={newSpecialName}
 						placeholder="Name (e.g., Training Day)"
 						disabled={!canMutate}
 					/>
-					<select class="select type-select" bind:value={newSpecialType} disabled={!canMutate}>
+					<NativeSelect class="w-38" bind:value={newSpecialType} disabled={!canMutate}>
 						<option value="org-closure">Closure</option>
 						<option value="federal-holiday">Federal Holiday</option>
-					</select>
-					<button
-						class="btn btn-primary btn-sm"
-						onclick={addSpecialDay}
-						disabled={!canMutate || !newSpecialName.trim()}
-					>
-						+ Add
-					</button>
+					</NativeSelect>
+					<Button size="sm" onclick={addSpecialDay} disabled={!canMutate || !newSpecialName.trim()}>+ Add</Button>
 				</div>
 
 				<div class="item-list">
@@ -638,23 +664,21 @@
 							{#if editingSpecialDay?.id === day.id}
 								<div class="inline-edit">
 									<span class="day-date">{formatDisplayDate(day.date)}</span>
-									<input
-										class="input flexible-input"
+									<Input
+										class="flex-1"
 										type="text"
 										bind:value={editSpecialName}
 										placeholder="Name"
 										aria-label="Special day name"
 									/>
-									<select class="select type-select" bind:value={editSpecialType} aria-label="Type">
+									<NativeSelect class="w-38" bind:value={editSpecialType} aria-label="Type">
 										<option value="org-closure">Closure</option>
 										<option value="federal-holiday">Federal Holiday</option>
-									</select>
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={saveEditSpecialDay}
-										disabled={!canMutate || !editSpecialName.trim()}>Save</button
+									</NativeSelect>
+									<Button size="sm" onclick={saveEditSpecialDay} disabled={!canMutate || !editSpecialName.trim()}
+										>Save</Button
 									>
-									<button class="btn btn-sm" onclick={cancelEditSpecialDay}>Cancel</button>
+									<Button variant="outline" size="sm" onclick={cancelEditSpecialDay}>Cancel</Button>
 								</div>
 							{:else}
 								<span class="day-date">{formatDisplayDate(day.date)}</span>
@@ -664,24 +688,24 @@
 								</span>
 								<div class="item-actions">
 									{#if canMutate}
-										<button
-											class="item-icon-button"
-											type="button"
+										<Button
+											variant="outline"
+											size="icon-sm"
 											title="Edit special day"
 											aria-label="Edit special day"
 											onclick={() => startEditSpecialDay(day)}
 										>
 											<PencilIcon size={16} strokeWidth={2} />
-										</button>
-										<button
-											class="item-icon-button item-icon-button-danger"
-											type="button"
+										</Button>
+										<Button
+											variant="destructive"
+											size="icon-sm"
 											title="Delete special day"
 											aria-label="Delete special day"
 											onclick={() => (confirmDeleteSpecial = day)}
 										>
 											<Trash2Icon size={16} strokeWidth={2} />
-										</button>
+										</Button>
 									{/if}
 								</div>
 							{/if}
@@ -800,11 +824,6 @@
 		color: var(--text-secondary);
 	}
 
-	.hero-action {
-		margin-top: var(--sp-4);
-		display: inline-flex;
-	}
-
 	.settings-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -891,11 +910,6 @@
 		gap: var(--sp-3);
 		flex-wrap: wrap;
 		width: 100%;
-	}
-
-	.inline-edit .input {
-		flex: 1;
-		min-width: 120px;
 	}
 
 	.status-display {
@@ -1106,47 +1120,6 @@
 		margin-left: auto;
 	}
 
-	.item-icon-button {
-		appearance: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-		position: relative;
-		flex-shrink: 0;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	/* Expand hit area to 44px without inflating the visual button size */
-	.item-icon-button::before {
-		content: '';
-		position: absolute;
-		inset: -8px;
-	}
-
-	.item-icon-button:hover:not(:disabled) {
-		background: var(--surface-subtle);
-		border-color: var(--ink-35);
-		color: var(--text-primary);
-	}
-
-	.item-icon-button-danger {
-		color: var(--danger);
-	}
-
-	.item-icon-button-danger:hover:not(:disabled) {
-		color: var(--danger);
-	}
-
 	.add-form {
 		display: flex;
 		align-items: center;
@@ -1160,17 +1133,6 @@
 
 	.add-form-priority {
 		order: 0;
-	}
-
-	.add-form .input {
-		flex: 1;
-		min-width: 140px;
-	}
-
-	.short-input {
-		flex: 0 0 80px !important;
-		min-width: 80px !important;
-		text-transform: uppercase;
 	}
 
 	.color-picker {
@@ -1299,10 +1261,6 @@
 		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
 	}
 
-	.year-select {
-		width: 100px;
-	}
-
 	.reset-block {
 		display: flex;
 		flex-direction: column;
@@ -1318,18 +1276,6 @@
 		text-transform: uppercase;
 		color: var(--text-tertiary);
 		white-space: nowrap;
-	}
-
-	.date-input {
-		width: 160px;
-	}
-
-	.flexible-input {
-		flex: 1;
-	}
-
-	.type-select {
-		width: 150px;
 	}
 
 	@media (max-width: 960px) {
@@ -1365,18 +1311,6 @@
 			margin-left: 0;
 			align-items: flex-start;
 			width: 100%;
-		}
-
-		.reset-block .btn {
-			width: 100%;
-		}
-
-		.year-select,
-		.date-input,
-		.type-select,
-		.short-input {
-			width: 100%;
-			flex-basis: 100% !important;
 		}
 
 		.day-date {

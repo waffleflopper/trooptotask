@@ -7,7 +7,7 @@ import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQu
 
 const throwRenderErrorMock = vi.fn();
 
-vi.mock('$features/onboarding/components/OnboardingPageView.svelte', () => ({
+vi.mock('$features/onboarding/components/OnboardingKanbanView.svelte', () => ({
 	default: VisibleStub
 }));
 

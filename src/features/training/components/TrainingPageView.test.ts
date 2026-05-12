@@ -159,4 +159,16 @@ describe('TrainingPageView', () => {
 		expect(screen.getByTestId('skeleton-grid')).toBeTruthy();
 		expect(screen.queryByText('No personnel found.')).toBeNull();
 	});
+
+	it('links manage views to the training views workspace', () => {
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group') as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const manageViews = screen.getByRole('link', { name: /Manage Views/i });
+		expect(manageViews.getAttribute('href')).toBe('/org/org-1/training/views');
+	});
 });

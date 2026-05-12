@@ -2,12 +2,15 @@
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
@@ -217,41 +220,37 @@
 					</div>
 
 					<div class="config-grid">
-						<div class="form-group">
-							<label class="label" for="removeStatusType">Status Type</label>
-							<select id="removeStatusType" class="select" bind:value={selectedStatusId}>
+						<Field.Root>
+							<Field.Label for="removeStatusType">Status Type</Field.Label>
+							<NativeSelect id="removeStatusType" bind:value={selectedStatusId}>
 								{#each statusTypes as status (status.id)}
 									<option value={status.id}>{status.name}</option>
 								{/each}
-							</select>
+							</NativeSelect>
 							{#if selectedStatus}
 								<div class="field-support">
-									<Badge
-										label={selectedStatus.name}
-										color={selectedStatus.color}
-										textColor={selectedStatus.textColor}
-									/>
+									<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 									<span class="field-hint">Selected status</span>
 								</div>
 							{/if}
-						</div>
+						</Field.Root>
 
 						<div class="date-grid">
-							<div class="form-group">
-								<label class="label" for="removeStartDate">Start Date</label>
-								<input id="removeStartDate" type="date" class="input" bind:value={startDate} />
-							</div>
+							<Field.Root>
+								<Field.Label for="removeStartDate">Start Date</Field.Label>
+								<DatePicker id="removeStartDate" bind:value={startDate} placeholder="Select start date" />
+							</Field.Root>
 
-							<div class="form-group">
-								<label class="label" for="removeEndDate">End Date</label>
-								<input id="removeEndDate" type="date" class="input" bind:value={endDate} />
+							<Field.Root>
+								<Field.Label for="removeEndDate">End Date</Field.Label>
+								<DatePicker id="removeEndDate" bind:value={endDate} placeholder="Select end date" />
 								{#if dayCount > 0}
 									<div class="field-support">
 										<span class="day-count-number">{dayCount}</span>
 										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
 									</div>
 								{/if}
-							</div>
+							</Field.Root>
 						</div>
 
 						{#if dateError}
@@ -263,7 +262,7 @@
 						<h3 class="summary-heading">Removal summary</h3>
 						{#if selectedIds.size > 0 && selectedStatus && !dateError}
 							<div class="summary-line">
-								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+								<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 								<span class="summary-copy">
 									<strong>{selectedIds.size}</strong>
 									{selectedIds.size === 1 ? 'person' : 'people'}
@@ -287,9 +286,9 @@
 						{/if}
 					</div>
 
-					<button class="btn btn-danger btn-lg apply-button" disabled={!isValid} onclick={handleFindMatching}>
+					<Button variant="destructive" class="apply-button" disabled={!isValid} onclick={handleFindMatching}>
 						Review Matching Entries
-					</button>
+					</Button>
 				</section>
 			</aside>
 
@@ -363,15 +362,14 @@
 
 				<div class="confirm-criteria">
 					{#if selectedStatus}
-						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 					{/if}
-					<Badge label={`${selectedIds.size} selected`} variant="outlined" />
-					<Badge
-						label={startDate === endDate
+					<UiBadge variant="outline">{selectedIds.size} selected</UiBadge>
+					<UiBadge variant="outline">
+						{startDate === endDate
 							? formatDateDisplay(startDate)
 							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
-						variant="outlined"
-					/>
+					</UiBadge>
 				</div>
 
 				<div class="confirm-content">
@@ -425,17 +423,17 @@
 				</div>
 
 				<div class="confirm-footer">
-					<button class="btn btn-secondary" onclick={handleBack}>Back</button>
+					<Button variant="outline" onclick={handleBack}>Back</Button>
 					<div class="spacer"></div>
 					{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
-						<button class="btn btn-danger" disabled={isSubmitting} onclick={handleConfirmRemoval}>
+						<Button variant="destructive" disabled={isSubmitting} onclick={handleConfirmRemoval}>
 							{#if isSubmitting}
 								<Spinner />
 								Removing...
 							{:else}
 								Confirm Removal
 							{/if}
-						</button>
+						</Button>
 					{/if}
 				</div>
 			</section>
@@ -530,10 +528,6 @@
 		gap: var(--sp-4);
 	}
 
-	.config-grid .form-group {
-		margin-bottom: 0;
-	}
-
 	.date-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -599,10 +593,6 @@
 
 	.summary-copy.error {
 		color: var(--danger);
-	}
-
-	.apply-button {
-		width: 100%;
 	}
 
 	.personnel-section {

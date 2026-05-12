@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { StatusType } from '$lib/types';
-	import TypeManager from '$lib/components/ui/TypeManager.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { TypeManager } from '$lib/components/ui/type-manager';
 	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import {
@@ -93,7 +93,9 @@
 				</label>
 			</div>
 			{#if newName.trim()}
-				<Badge label={newName} color={newColor} textColor={newTextColor} />
+				<CalendarStatusBadge statusType={{ id: 'new-status', name: newName, color: newColor, textColor: newTextColor }}>
+					{newName}
+				</CalendarStatusBadge>
 			{/if}
 			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
 				<label
@@ -122,7 +124,7 @@
 
 	{#snippet itemDisplay(status)}
 		<div class="flex flex-wrap items-center gap-2">
-			<Badge label={status.name} color={status.color} textColor={status.textColor} />
+			<CalendarStatusBadge statusType={status}>{status.name}</CalendarStatusBadge>
 			<span class="text-muted-foreground text-xs"
 				>{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span
 			>
@@ -142,7 +144,11 @@
 					<input type="color" bind:value={editTextColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 				</label>
 			</div>
-			<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
+			<CalendarStatusBadge
+				statusType={{ id: 'edit-status', name: editName || 'Preview', color: editColor, textColor: editTextColor }}
+			>
+				{editName || 'Preview'}
+			</CalendarStatusBadge>
 			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
 				<label class="text-muted-foreground text-xs font-semibold uppercase" for="edit-da6-treatment"
 					>Duty roster treatment</label

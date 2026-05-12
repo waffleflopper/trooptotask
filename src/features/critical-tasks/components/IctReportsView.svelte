@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Group } from '$lib/stores/groups.svelte';
@@ -150,7 +150,7 @@
 	});
 </script>
 
-<div class="reports-page-shell">
+<div class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
 	<WorkspaceToolbar.Root ariaLabel="Critical task report controls">
 		<WorkspaceToolbar.Group
 			label="Critical task report filters"
@@ -201,19 +201,26 @@
 	</WorkspaceToolbar.Root>
 
 	{#if dashboardError}
-		<p class="report-error" role="alert">{dashboardError}</p>
+		<ReportWorkspace.State
+			state="error"
+			title="Unable to update critical task reports"
+			description={dashboardError}
+			role="alert"
+		/>
 	{/if}
 
 	{#if loading}
-		<section class="report-state" aria-busy="true" aria-live="polite" role="status">
-			Loading critical task reports...
-		</section>
+		<ReportWorkspace.State state="loading" title="Loading critical task reports..." />
 	{:else if !hasActiveTasks}
-		<EmptyState message="No active critical tasks configured." />
+		<ReportWorkspace.State
+			state="no-data"
+			title="No active critical tasks configured."
+			description="Add active critical tasks before running readiness reports."
+		/>
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
 		<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} />
-		<div class="report-visual-grid">
+		<div class="grid items-start gap-4 xl:grid-cols-2">
 			<IctReadinessTrendChart trend={dashboard.readinessTrend} loading={dashboardLoading} />
 			<IctTasksBelowThresholdTable
 				rows={dashboard.tasksBelowThreshold.rows}
@@ -221,7 +228,7 @@
 				loading={dashboardLoading}
 			/>
 		</div>
-		<div class="report-followup-grid">
+		<div class="grid items-start gap-4 xl:grid-cols-2">
 			<IctExpirationCliffChart
 				cliff={dashboard.expirationCliff}
 				currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
@@ -240,62 +247,3 @@
 		/>
 	{/if}
 </div>
-
-<style>
-	.reports-page-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		padding: var(--sp-4);
-	}
-
-	.report-visual-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: var(--sp-4);
-		align-items: start;
-	}
-
-	.report-followup-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: var(--sp-4);
-		align-items: start;
-	}
-
-	.report-state {
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-	}
-
-	.report-error {
-		margin: 0;
-		color: var(--danger);
-	}
-
-	.report-state {
-		background: var(--surface-panel);
-		min-height: 8.5rem;
-		display: grid;
-		place-items: center;
-		padding: var(--sp-4);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	@media (max-width: 1024px) {
-		.report-visual-grid,
-		.report-followup-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.reports-page-shell {
-			padding: var(--sp-2);
-		}
-	}
-</style>

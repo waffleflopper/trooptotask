@@ -5,7 +5,6 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
-	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Empty from '$lib/components/ui/empty';
@@ -36,7 +35,6 @@
 			trainingViewsStore.loading ||
 			personnelTrainingsStore.loading
 	);
-	let showViewEditor = $state(false);
 
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
@@ -72,7 +70,7 @@
 				{
 					id: 'manage-views',
 					label: 'Manage Views',
-					onclick: () => (showViewEditor = true),
+					href: `/org/${ctx.orgId}/training/views`,
 					icon: 'settings',
 					disabled: ctx.readOnly,
 					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
@@ -235,7 +233,3 @@
 		</main>
 	{/if}
 </div>
-
-{#if showViewEditor}
-	<ViewEditorModal onClose={() => (showViewEditor = false)} readOnly={ctx.readOnly} />
-{/if}

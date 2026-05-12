@@ -56,6 +56,12 @@ function renderModal(
 	});
 }
 
+async function chooseDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
+}
+
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -81,9 +87,7 @@ describe('IctCompletionModal', () => {
 
 		renderModal({ onSave, onClose });
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-01-01' }
-		});
+		await chooseDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
@@ -102,7 +106,7 @@ describe('IctCompletionModal', () => {
 				{
 					personnelId: 'person-1',
 					ictTaskId: 'task-1',
-					completedAt: '2098-01-01',
+					completedAt: '2026-05-10',
 					validationMethod: 'Practical Exercise',
 					validatedBy: 'SFC Taylor Example',
 					notes: 'Lane validation'
@@ -132,7 +136,9 @@ describe('IctCompletionModal', () => {
 		renderModal({ existingCompletion, onSave, onClose, currentUserDisplayName: 'SFC Taylor Example' });
 
 		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
-		expect((screen.getByLabelText(/Completion Date/i) as HTMLInputElement).value).toBe('2097-03-10');
+		await waitFor(() => {
+			expect(screen.getByText('Mar 10, 2097')).toBeTruthy();
+		});
 		expect((screen.getByLabelText(/Validation Method/i) as HTMLSelectElement).value).toBe('Lecture');
 		expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('MSG Jordan Example');
 		expect(screen.getByText('2098-03-10')).toBeTruthy();

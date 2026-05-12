@@ -95,6 +95,10 @@ export interface DutyRosterTemplateSettingsInput {
 	manualBaselineCounts: Record<string, number | null | undefined>;
 }
 
+export interface DutyRosterTemplateArchiveInput {
+	templateId: string;
+}
+
 export interface DutyRosterTemplateGenerateInput {
 	templateId: string;
 	startDate: string;

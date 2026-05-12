@@ -2,12 +2,16 @@
 	import type { Personnel, StatusType } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
@@ -180,72 +184,60 @@
 					</div>
 
 					<div class="config-grid">
-						<div class="form-group">
-							<label class="label" for="statusType">Status Type</label>
-							<select id="statusType" class="select" bind:value={selectedStatusId}>
+						<Field.Root>
+							<Field.Label for="statusType">Status Type</Field.Label>
+							<NativeSelect id="statusType" bind:value={selectedStatusId}>
 								{#each statusTypes as status (status.id)}
 									<option value={status.id}>{status.name}</option>
 								{/each}
-							</select>
+							</NativeSelect>
 							{#if selectedStatus}
 								<div class="field-support">
-									<Badge
-										label={selectedStatus.name}
-										color={selectedStatus.color}
-										textColor={selectedStatus.textColor}
-									/>
+									<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 									<span class="field-hint">Selected status</span>
 								</div>
 							{/if}
-						</div>
+						</Field.Root>
 
 						<div class="date-grid">
-							<div class="form-group">
-								<label class="label" for="startDate">Start Date</label>
-								<input id="startDate" type="date" class="input" bind:value={startDate} />
-							</div>
+							<Field.Root>
+								<Field.Label for="startDate">Start Date</Field.Label>
+								<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
+							</Field.Root>
 
-							<div class="form-group">
-								<label class="label" for="endDate">End Date</label>
-								<input
-									id="endDate"
-									type="date"
-									class="input"
-									bind:value={endDate}
-									aria-describedby={dateError ? 'date-error' : undefined}
-									aria-invalid={dateError ? true : undefined}
-								/>
+							<Field.Root>
+								<Field.Label for="endDate">End Date</Field.Label>
+								<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
 								{#if dayCount > 0}
 									<div class="field-support">
 										<span class="day-count-number">{dayCount}</span>
 										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
 									</div>
 								{/if}
-							</div>
+							</Field.Root>
 						</div>
 
 						{#if dateError}
 							<div id="date-error" class="date-error" role="alert">{dateError}</div>
 						{/if}
 
-						<div class="form-group">
-							<label class="label" for="bulkNote">Note</label>
-							<input
+						<Field.Root>
+							<Field.Label for="bulkNote">Note</Field.Label>
+							<Input
 								id="bulkNote"
 								type="text"
-								class="input"
 								bind:value={note}
 								maxlength={200}
 								placeholder="Optional note (e.g., JRTC rotation)"
 							/>
-						</div>
+						</Field.Root>
 					</div>
 
 					<div class="summary-card" aria-live="polite">
 						<h3 class="summary-heading">Ready to apply</h3>
 						{#if selectedIds.size > 0 && selectedStatus && !dateError}
 							<div class="summary-line">
-								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+								<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 								<span class="summary-copy">
 									<strong>{selectedIds.size}</strong>
 									{selectedIds.size === 1 ? 'person' : 'people'}
@@ -266,9 +258,7 @@
 						{/if}
 					</div>
 
-					<button class="btn btn-primary btn-lg apply-button" disabled={!isValid} onclick={handleReview}>
-						Review & Confirm
-					</button>
+					<Button class="apply-button" disabled={!isValid} onclick={handleReview}>Review & Confirm</Button>
 				</section>
 			</aside>
 
@@ -341,17 +331,16 @@
 
 				<div class="confirm-criteria">
 					{#if selectedStatus}
-						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 					{/if}
-					<Badge label={`${selectedIds.size} ${selectedIds.size === 1 ? 'person' : 'people'}`} variant="outlined" />
-					<Badge
-						label={startDate === endDate
+					<UiBadge variant="outline">{selectedIds.size} {selectedIds.size === 1 ? 'person' : 'people'}</UiBadge>
+					<UiBadge variant="outline">
+						{startDate === endDate
 							? formatDateDisplay(startDate)
 							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
-						variant="outlined"
-					/>
+					</UiBadge>
 					{#if note.trim()}
-						<Badge label={`Note: ${note.trim()}`} variant="outlined" />
+						<UiBadge variant="outline">Note: {note.trim()}</UiBadge>
 					{/if}
 				</div>
 
@@ -370,16 +359,16 @@
 				</div>
 
 				<div class="confirm-footer">
-					<button class="btn btn-secondary" onclick={handleBack} disabled={isSubmitting}>Back</button>
+					<Button variant="outline" onclick={handleBack} disabled={isSubmitting}>Back</Button>
 					<div class="spacer"></div>
-					<button class="btn btn-primary" disabled={isSubmitting} onclick={handleSubmit}>
+					<Button disabled={isSubmitting} onclick={handleSubmit}>
 						{#if isSubmitting}
 							<Spinner />
 							Applying...
 						{:else}
 							Confirm Apply
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</section>
 		</div>
@@ -465,10 +454,6 @@
 		gap: var(--sp-4);
 	}
 
-	.config-grid .form-group {
-		margin-bottom: 0;
-	}
-
 	.date-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -528,10 +513,6 @@
 
 	.summary-copy.error {
 		color: var(--danger);
-	}
-
-	.apply-button {
-		width: 100%;
 	}
 
 	.personnel-section {

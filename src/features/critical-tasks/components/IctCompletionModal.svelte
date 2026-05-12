@@ -1,7 +1,13 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import * as NativeSelect from '$lib/components/ui/native-select';
+	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		ICT_VALIDATION_METHODS,
@@ -227,195 +233,132 @@
 	}
 </script>
 
-<Modal title={modalTitle} {onClose} canClose={!isSaving} width="520px" titleId="ict-completion-title">
-	{#if selectorMode}
-		{#if selectedPerson && !showPersonnelSelect}
-			<div class="completion-subject">
-				<span class="subject-rank">{selectedPerson.rank}</span>
-				<span class="subject-name">{selectedPerson.lastName}, {selectedPerson.firstName}</span>
-				<span class="subject-task">{selectedPerson.mos || 'No MOS'}</span>
+<AppDialog.Root open onClose={() => !isSaving && onClose()}>
+	<AppDialog.Content class="sm:max-w-xl">
+		<AppDialog.Header>
+			<AppDialog.Title id="ict-completion-title">{modalTitle}</AppDialog.Title>
+		</AppDialog.Header>
+
+		<AppDialog.Body class="space-y-4">
+			{#if selectorMode}
+				{#if selectedPerson && !showPersonnelSelect}
+					<div class="rounded-lg border bg-muted/30 p-3">
+						<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+							{selectedPerson.rank}
+						</p>
+						<p class="text-sm font-semibold text-foreground">{selectedPerson.lastName}, {selectedPerson.firstName}</p>
+						<p class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+							{selectedPerson.mos || 'No MOS'}
+						</p>
+					</div>
+				{/if}
+
+				<div class="grid gap-3">
+					{#if showPersonnelSelect}
+						<Field.Root>
+							<Field.Label for="ict-person-select">Person</Field.Label>
+							<SearchCombobox
+								id="ict-person-select"
+								options={personnelSelectOptions}
+								bind:value={selectedPersonnelId}
+								placeholder="Search personnel..."
+								ariaLabel="Person"
+								clearable={false}
+							/>
+							{#if personError}
+								<Field.Error>{personError}</Field.Error>
+							{/if}
+						</Field.Root>
+					{/if}
+
+					{#if showTaskSelect}
+						<Field.Root>
+							<Field.Label for="ict-task-select">Critical Task</Field.Label>
+							<SearchCombobox
+								id="ict-task-select"
+								options={taskSelectOptions}
+								bind:value={selectedTaskId}
+								placeholder="Search task or title..."
+								ariaLabel="Critical Task"
+								clearable={false}
+							/>
+							<Field.Description>{selectionHint}</Field.Description>
+							{#if taskError}
+								<Field.Error>{taskError}</Field.Error>
+							{/if}
+						</Field.Root>
+					{/if}
+				</div>
+			{:else if selectedPerson && selectedTask}
+				<div class="rounded-lg border bg-muted/30 p-3">
+					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+						{selectedPerson.rank}
+					</p>
+					<p class="text-sm font-semibold text-foreground">{selectedPerson.lastName}, {selectedPerson.firstName}</p>
+					<p class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+						{selectedTask.taskCode}
+						{selectedTask.title}
+					</p>
+				</div>
+			{/if}
+
+			<div class="grid gap-3 sm:grid-cols-2">
+				<Field.Root>
+					<Field.Label for="ict-completion-date">Completion Date</Field.Label>
+					<DatePicker id="ict-completion-date" bind:value={completionDate} aria-label="Completion Date" />
+					{#if completionDateError}
+						<Field.Error>{completionDateError}</Field.Error>
+					{/if}
+				</Field.Root>
+
+				<Field.Root>
+					<Field.Label for="ict-validation-method">Validation Method</Field.Label>
+					<NativeSelect.Root id="ict-validation-method" bind:value={validationMethod} aria-label="Validation Method">
+						{#each methodOptions as option (option.value)}
+							<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+						{/each}
+					</NativeSelect.Root>
+					{#if validationMethodError}
+						<Field.Error>{validationMethodError}</Field.Error>
+					{/if}
+				</Field.Root>
 			</div>
-		{/if}
 
-		<div class="selector-grid">
-			{#if showPersonnelSelect}
-				<FormField label="Person" id="ict-person-select" required error={personError}>
-					<SearchSelect
-						id="ict-person-select"
-						options={personnelSelectOptions}
-						bind:value={selectedPersonnelId}
-						placeholder="Search personnel..."
-						ariaLabel="Person"
-						clearable={false}
-					/>
-				</FormField>
+			{#if currentUserDisplayName}
+				<Field.Label class="flex-row items-center">
+					<Checkbox bind:checked={useCurrentValidator} onchange={handleValidatorToggle} />
+					<span>I am the validator</span>
+				</Field.Label>
 			{/if}
 
-			{#if showTaskSelect}
-				<FormField label="Critical Task" id="ict-task-select" required error={taskError} hint={selectionHint}>
-					<SearchSelect
-						id="ict-task-select"
-						options={taskSelectOptions}
-						bind:value={selectedTaskId}
-						placeholder="Search task or title..."
-						ariaLabel="Critical Task"
-						clearable={false}
-					/>
-				</FormField>
-			{/if}
-		</div>
-	{:else if selectedPerson && selectedTask}
-		<div class="completion-subject">
-			<span class="subject-rank">{selectedPerson.rank}</span>
-			<span class="subject-name">{selectedPerson.lastName}, {selectedPerson.firstName}</span>
-			<span class="subject-task">{selectedTask.taskCode} {selectedTask.title}</span>
-		</div>
-	{/if}
+			<Field.Root>
+				<Field.Label for="ict-validated-by">Validated By</Field.Label>
+				<Input id="ict-validated-by" bind:value={validatedBy} />
+				<Field.Description>Optional rank and name of the validator</Field.Description>
+			</Field.Root>
 
-	<div class="completion-grid">
-		<FormField
-			label="Completion Date"
-			id="ict-completion-date"
-			type="date"
-			required
-			error={completionDateError}
-			bind:value={completionDate}
-		/>
+			<div class="rounded-lg border bg-muted/30 p-3" aria-label="Calculated expiration date">
+				<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Expiration Date</p>
+				<p class="text-sm text-foreground">
+					{#if !selectedTask}
+						Select a critical task to calculate expiration
+					{:else}
+						{previewExpirationDate ?? 'Set completion date to calculate expiration'}
+					{/if}
+				</p>
+			</div>
 
-		<FormField
-			label="Validation Method"
-			id="ict-validation-method"
-			inputElement="select"
-			required
-			error={validationMethodError}
-			options={methodOptions}
-			bind:value={validationMethod}
-		/>
-	</div>
+			<Field.Root>
+				<Field.Label for="ict-notes">Notes (optional)</Field.Label>
+				<Textarea id="ict-notes" rows={3} bind:value={notes} />
+			</Field.Root>
+		</AppDialog.Body>
 
-	{#if currentUserDisplayName}
-		<label class="validator-toggle">
-			<input type="checkbox" bind:checked={useCurrentValidator} onchange={handleValidatorToggle} />
-			<span>I am the validator</span>
-		</label>
-	{/if}
-
-	<FormField
-		label="Validated By"
-		id="ict-validated-by"
-		hint="Optional rank and name of the validator"
-		bind:value={validatedBy}
-	/>
-
-	<div class="expiration-preview" aria-label="Calculated expiration date">
-		<span class="preview-label">Expiration Date</span>
-		<span class="preview-value">
-			{#if !selectedTask}
-				Select a critical task to calculate expiration
-			{:else}
-				{previewExpirationDate ?? 'Set completion date to calculate expiration'}
-			{/if}
-		</span>
-	</div>
-
-	<FormField label="Notes (optional)" id="ict-notes" inputElement="textarea" rows={3} bind:value={notes} />
-
-	{#snippet footer()}
-		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose} disabled={isSaving}>Cancel</button>
-		<button
-			class="btn btn-primary"
-			type="button"
-			data-testid="ict-completion-save"
-			onclick={handleSave}
-			disabled={isSaving}
-		>
-			{isSaving ? 'Saving...' : 'Save'}
-		</button>
-	{/snippet}
-</Modal>
-
-<style>
-	.completion-subject {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 58%, var(--surface-panel) 42%);
-	}
-
-	.selector-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
-	}
-
-	.subject-rank,
-	.subject-task,
-	.preview-label,
-	.validator-toggle {
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.subject-name {
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.completion-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-3);
-	}
-
-	.validator-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-		cursor: pointer;
-	}
-
-	.validator-toggle input {
-		width: 1rem;
-		height: 1rem;
-	}
-
-	.expiration-preview {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		margin: var(--sp-3) 0;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.preview-value {
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.spacer {
-		flex: 1;
-	}
-
-	@media (max-width: 640px) {
-		.completion-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
+		<AppDialog.Footer>
+			<Button variant="outline" type="button" onclick={onClose} disabled={isSaving}>Cancel</Button>
+			<Button type="button" data-testid="ict-completion-save" onclick={handleSave} disabled={isSaving}>
+				{isSaving ? 'Saving...' : 'Save'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

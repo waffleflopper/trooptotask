@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
+	archiveDutyRosterTemplate,
 	createDutyRosterTemplate,
 	listDutyRosterTemplates,
 	loadDutyRosterTemplateSetupOptions
@@ -52,5 +53,21 @@ export const actions: Actions = {
 		}
 
 		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${slug}/generate`);
+	},
+	archiveTemplate: async (event) => {
+		const formData = await event.request.formData();
+		const templateId = String(formData.get('templateId') ?? '');
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await archiveDutyRosterTemplate(ctx, { templateId });
+		} catch (error) {
+			return dutyRosterActionError(error, {
+				key: 'error',
+				fallback: 'Failed to archive Duty Roster Template.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters`);
 	}
 };

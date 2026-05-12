@@ -1,9 +1,12 @@
 <script lang="ts">
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -142,6 +145,10 @@
 	$effect(() => {
 		if (selectedTaskId && !visibleTasks.some((task) => task.id === selectedTaskId)) {
 			selectedTaskId = null;
+		}
+
+		if (!creating && !selectedTaskId && filteredTasks[0]) {
+			selectedTaskId = filteredTasks[0].id;
 		}
 	});
 
@@ -334,12 +341,12 @@
 </svelte:head>
 
 {#if !canViewLibrary}
-	<section class="page-message" aria-labelledby="library-restricted-title">
-		<h2 id="library-restricted-title">Access Restricted</h2>
-		<p>Critical Tasks configure access is required to manage ICT task definitions.</p>
+	<section class="p-6" aria-labelledby="library-restricted-title">
+		<h2 id="library-restricted-title" class="text-2xl font-semibold text-foreground">Access Restricted</h2>
+		<p class="text-muted-foreground">Critical Tasks configure access is required to manage ICT task definitions.</p>
 	</section>
 {:else}
-	<div class="library-page-shell">
+	<div class="flex flex-col gap-4 p-4">
 		<WorkspaceToolbar.Root ariaLabel="ICT task library controls">
 			<WorkspaceToolbar.Group
 				label="ICT task library filters"
@@ -380,68 +387,96 @@
 		</WorkspaceToolbar.Root>
 
 		{#if loading}
-			<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-				<Spinner color="currentColor" />
+			<section
+				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
+				aria-busy="true"
+				aria-live="polite"
+				role="status"
+			>
+				<Spinner />
 				<p>Loading ICT task library...</p>
 			</section>
 		{:else if importingTasks}
-			<section class="import-route-workspace" aria-label="ICT task import workspace">
+			<section>
 				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
 			</section>
 		{:else}
-			<div class="library-layout">
-				<section class="panel task-list-panel" aria-labelledby="task-library-title">
-					<div class="panel-header">
-						<div class="panel-header-copy">
-							<h3 id="task-library-title" class="panel-title">
-								{taskStatusFilter === 'active' ? 'Active Tasks' : 'Archived Tasks'}
-							</h3>
-						</div>
+			<div class="grid gap-5 lg:grid-cols-[minmax(290px,360px)_minmax(0,1fr)]">
+				<section
+					class="flex min-h-0 flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground"
+					aria-labelledby="task-library-title"
+				>
+					<div class="flex items-center justify-between gap-3 border-b pb-4">
+						<h3 id="task-library-title" class="text-lg font-semibold">
+							{taskStatusFilter === 'active' ? 'Active Tasks' : 'Archived Tasks'}
+						</h3>
 					</div>
 
 					{#if visibleTasks.length === 0 && !creating}
-						<EmptyState
-							message={taskStatusFilter === 'active'
-								? 'No active ICT tasks. Add task definitions to begin tracking ICTL readiness.'
-								: 'No archived ICT tasks. Restore a task after archiving when you need it back in the active library.'}
-							actionLabel={canManage ? 'New Task' : undefined}
-							onAction={canManage ? startCreate : undefined}
-						/>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>
+									{taskStatusFilter === 'active' ? 'No active ICT tasks.' : 'No archived ICT tasks.'}
+								</Empty.Title>
+								<Empty.Description>
+									{taskStatusFilter === 'active'
+										? 'Add task definitions to begin tracking ICTL readiness.'
+										: 'Restore a task after archiving when you need it back in the active library.'}
+								</Empty.Description>
+							</Empty.Header>
+							{#if canManage}
+								<Empty.Content>
+									<Button type="button" onclick={startCreate}>New Task</Button>
+								</Empty.Content>
+							{/if}
+						</Empty.Root>
 					{:else if visibleTasks.length > 0 && filteredTasks.length === 0}
-						<EmptyState
-							message="No ICT tasks match the current filters."
-							actionLabel="Clear filters"
-							onAction={clearTaskFilters}
-						/>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>No ICT tasks match the current filters.</Empty.Title>
+							</Empty.Header>
+							<Empty.Content>
+								<Button variant="outline" type="button" onclick={clearTaskFilters}>Clear filters</Button>
+							</Empty.Content>
+						</Empty.Root>
 					{:else}
-						<ul class="task-list" aria-label="ICT task library">
+						<ul class="grid gap-2" aria-label="ICT task library">
 							{#each filteredTasks as task, index (task.id)}
-								<li class="task-item" class:selected={selectedTaskId === task.id && !creating}>
+								<li
+									class={[
+										'flex items-stretch gap-2 rounded-lg border bg-background',
+										selectedTaskId === task.id && !creating && 'border-primary bg-primary/5'
+									]}
+								>
 									<button
-										class="task-select"
+										class="grid min-w-0 flex-1 gap-1 p-3 text-left"
 										type="button"
 										aria-pressed={selectedTaskId === task.id && !creating}
 										onclick={() => selectTask(task.id)}
 									>
-										<span class="task-code">{task.taskCode}</span>
-										<span class="task-title">{task.title}</span>
-										<span class="task-meta">{formatTaskListMeta(task)}</span>
+										<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+											>{task.taskCode}</span
+										>
+										<span class="truncate text-sm font-medium text-foreground">{task.title}</span>
+										<span class="truncate text-xs text-muted-foreground">{formatTaskListMeta(task)}</span>
 									</button>
 									{#if canReorderTasks}
-										<div class="task-reorder" aria-label="Reorder {task.taskCode}">
-											<button
-												class="btn-move"
+										<div class="flex flex-col justify-center gap-1 p-2" aria-label="Reorder {task.taskCode}">
+											<Button
+												variant="ghost"
+												size="icon-sm"
 												type="button"
 												onclick={() => moveTask(index, -1)}
 												disabled={index === 0}
-												aria-label="Move {task.taskCode} up">▲</button
+												aria-label="Move {task.taskCode} up">▲</Button
 											>
-											<button
-												class="btn-move"
+											<Button
+												variant="ghost"
+												size="icon-sm"
 												type="button"
 												onclick={() => moveTask(index, 1)}
 												disabled={index === activeTasks.length - 1}
-												aria-label="Move {task.taskCode} down">▼</button
+												aria-label="Move {task.taskCode} down">▼</Button
 											>
 										</div>
 									{/if}
@@ -451,61 +486,62 @@
 					{/if}
 				</section>
 
-				<section class="panel detail-panel" aria-label="ICT task details">
+				<section
+					class="flex min-h-0 flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground"
+					aria-label="ICT task details"
+				>
 					{#if creating || editing}
-						<form class="editor" onsubmit={saveTask}>
-							<h3 class="panel-title">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
+						<form class="flex flex-col gap-4" onsubmit={saveTask}>
+							<h3 class="text-lg font-semibold">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
 
-							<div class="form-grid">
-								<div class="form-field">
-									<label class="form-label" for="ict-task-code">Task code</label>
-									<input class="input" id="ict-task-code" type="text" bind:value={formTaskCode} required />
-								</div>
+							<div class="grid gap-4 md:grid-cols-2">
+								<Field.Root>
+									<Field.Label for="ict-task-code">Task code</Field.Label>
+									<Input id="ict-task-code" type="text" bind:value={formTaskCode} required />
+								</Field.Root>
 
-								<div class="form-field">
-									<label class="form-label" for="ict-task-title">Title</label>
-									<input class="input" id="ict-task-title" type="text" bind:value={formTitle} required />
-								</div>
+								<Field.Root>
+									<Field.Label for="ict-task-title">Title</Field.Label>
+									<Input id="ict-task-title" type="text" bind:value={formTitle} required />
+								</Field.Root>
 
-								<div class="form-field full">
-									<label class="form-label" for="ict-task-description">Description</label>
-									<textarea
-										class="input"
+								<Field.Root class="md:col-span-2">
+									<Field.Label for="ict-task-description">Description</Field.Label>
+									<Textarea
 										id="ict-task-description"
-										rows="3"
+										rows={3}
 										bind:value={formDescription}
 										placeholder="Optional task context"
-									></textarea>
-								</div>
+									/>
+								</Field.Root>
 
-								<div class="form-field full">
-									<label class="form-label" for="ict-task-category">Category</label>
-									<input
-										class="input"
+								<Field.Root class="md:col-span-2">
+									<Field.Label for="ict-task-category">Category</Field.Label>
+									<Input
 										id="ict-task-category"
 										type="text"
 										bind:value={formCategory}
 										placeholder="Optional local task category"
 									/>
-									<p class="field-hint">Free text for your unit terminology, such as Casualty Care or Crew Drills.</p>
-								</div>
+									<Field.Description
+										>Free text for your unit terminology, such as Casualty Care or Crew Drills.</Field.Description
+									>
+								</Field.Root>
 
-								<div class="form-field full">
-									<label class="form-label" for="ict-task-mos">MOS applicability</label>
-									<input
-										class="input"
+								<Field.Root class="md:col-span-2">
+									<Field.Label for="ict-task-mos">MOS applicability</Field.Label>
+									<Input
 										id="ict-task-mos"
 										type="text"
 										bind:value={formMos}
 										placeholder="68W, 18D. Leave blank for all MOSs."
 									/>
-									<p class="field-hint">Leave blank for all MOSs.</p>
-								</div>
+									<Field.Description>Leave blank for all MOSs.</Field.Description>
+								</Field.Root>
 
-								<div class="form-field">
-									<label class="form-label" for="ict-task-expiration">Expiration override</label>
-									<input
-										class="input"
+								<Field.Root>
+									<Field.Label for="ict-task-expiration">Expiration override</Field.Label>
+									<Input
 										id="ict-task-expiration"
 										type="number"
 										min="1"
@@ -513,72 +549,69 @@
 										oninput={handleExpirationInput}
 										placeholder="Org default"
 									/>
-								</div>
+								</Field.Root>
 
-								<div class="form-field">
-									<label class="form-label" for="ict-task-sort">Sort order</label>
-									<input
-										class="input"
+								<Field.Root>
+									<Field.Label for="ict-task-sort">Sort order</Field.Label>
+									<Input
 										id="ict-task-sort"
 										type="number"
 										min="0"
 										value={formSortOrder}
 										oninput={handleSortOrderInput}
 									/>
-								</div>
+								</Field.Root>
 							</div>
 
-							<div class="editor-actions">
-								<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
-								<button
-									class="btn btn-primary btn-sm"
-									type="submit"
-									disabled={!formTaskCode.trim() || !formTitle.trim() || saving}
-								>
-									{#if saving}<Spinner size={12} />{/if}
+							<div class="flex flex-wrap justify-end gap-2">
+								<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
+								<Button size="sm" type="submit" disabled={!formTaskCode.trim() || !formTitle.trim() || saving}>
+									{#if saving}<Spinner />{/if}
 									{creating ? 'Create Task' : 'Save Changes'}
-								</button>
+								</Button>
 							</div>
 						</form>
 					{:else if selectedTask}
-						<div class="detail-view">
-							<div class="detail-header">
+						<div class="flex flex-col gap-4">
+							<div class="flex items-start justify-between gap-3">
 								<div>
-									<span class="task-code">{selectedTask.taskCode}</span>
-									<h3 class="detail-title">{selectedTask.title}</h3>
+									<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+										>{selectedTask.taskCode}</span
+									>
+									<h3 class="text-lg font-semibold text-foreground">{selectedTask.title}</h3>
 								</div>
 								{#if canManage && !selectedTask.archivedAt}
-									<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
+									<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
 								{/if}
 							</div>
 
 							{#if selectedTask.description}
-								<p class="detail-description">{selectedTask.description}</p>
+								<p class="text-sm text-muted-foreground">{selectedTask.description}</p>
 							{/if}
 
-							<dl class="detail-fields">
-								<div>
+							<dl class="grid gap-3 md:grid-cols-2">
+								<div class="rounded-lg border bg-muted/30 p-3">
 									<dt>Category</dt>
 									<dd>{selectedTask.category ?? 'Not set'}</dd>
 								</div>
-								<div>
+								<div class="rounded-lg border bg-muted/30 p-3">
 									<dt>MOS applicability</dt>
 									<dd>{formatMosApplicability(selectedTask.mos)}</dd>
 								</div>
-								<div>
+								<div class="rounded-lg border bg-muted/30 p-3">
 									<dt>Expiration override</dt>
 									<dd>{selectedTask.expirationMonths ? `${selectedTask.expirationMonths} months` : 'Org default'}</dd>
 								</div>
-								<div>
+								<div class="rounded-lg border bg-muted/30 p-3">
 									<dt>Sort order</dt>
 									<dd>{selectedTask.sortOrder}</dd>
 								</div>
-								<div>
+								<div class="rounded-lg border bg-muted/30 p-3">
 									<dt>Completion history</dt>
 									<dd>{completionCount(selectedTask.id)} records</dd>
 								</div>
 								{#if selectedTask.archivedAt}
-									<div>
+									<div class="rounded-lg border bg-muted/30 p-3">
 										<dt>Archived</dt>
 										<dd>{formatArchivedAt(selectedTask.archivedAt)}</dd>
 									</div>
@@ -586,27 +619,30 @@
 							</dl>
 
 							{#if canManage}
-								<div class="detail-actions">
+								<div class="flex flex-wrap gap-2">
 									{#if selectedTask.archivedAt}
-										<button class="btn btn-sm" type="button" onclick={() => restoreTask(selectedTask.id)}>
+										<Button variant="outline" size="sm" type="button" onclick={() => restoreTask(selectedTask.id)}>
 											Restore Task
-										</button>
+										</Button>
 									{:else}
-										<button
-											class="btn btn-warning btn-sm"
+										<Button
+											variant="destructive"
+											size="sm"
 											type="button"
 											onclick={() => (confirmArchive = selectedTask)}
 										>
 											Archive Task
-										</button>
+										</Button>
 									{/if}
 								</div>
 							{/if}
 						</div>
 					{:else}
-						<div class="panel-placeholder">
-							<p>Select an ICT task to view details.</p>
-						</div>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>Select an ICT task to view details.</Empty.Title>
+							</Empty.Header>
+						</Empty.Root>
 					{/if}
 				</section>
 			</div>
@@ -624,250 +660,3 @@
 		onCancel={() => (confirmArchive = null)}
 	/>
 {/if}
-
-<style>
-	.page-message,
-	.route-loading {
-		padding: var(--sp-6);
-	}
-
-	.route-loading {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: center;
-		color: var(--text-secondary);
-	}
-
-	.library-page-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-	}
-
-	.import-route-workspace {
-		padding: 0;
-	}
-
-	.library-layout {
-		display: grid;
-		grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
-		gap: var(--sp-5);
-		padding: 0;
-	}
-
-	.panel {
-		min-height: 0;
-		padding: var(--sp-5);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.task-list-panel,
-	.detail-panel,
-	.editor,
-	.detail-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.panel-header,
-	.detail-header,
-	.editor-actions {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-	}
-
-	.panel-header {
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.panel-header-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.panel-title,
-	.detail-title {
-		margin: 0;
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.panel-title {
-		font-size: var(--text-xl);
-	}
-
-	.detail-title {
-		margin-top: var(--sp-1);
-		font-size: var(--text-2xl);
-	}
-
-	.field-hint,
-	.detail-description,
-	.panel-placeholder p,
-	.page-message p,
-	.route-loading p {
-		margin: 0;
-		color: var(--text-secondary);
-	}
-
-	.field-hint {
-		font-size: var(--text-xs);
-	}
-
-	.task-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: 0;
-		margin: 0;
-		list-style: none;
-	}
-
-	.task-item {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: var(--sp-2);
-		align-items: stretch;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-	}
-
-	.task-item.selected {
-		border-color: color-mix(in srgb, var(--amber) 35%, var(--border-default));
-		background: color-mix(in srgb, var(--amber-light) 70%, var(--surface-panel) 30%);
-	}
-
-	.task-select {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-		padding: var(--sp-3);
-		border: 0;
-		background: transparent;
-		color: inherit;
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.task-code {
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-	}
-
-	.task-title {
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.task-meta {
-		color: var(--text-secondary);
-		font-size: var(--text-xs);
-	}
-
-	.task-reorder {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-		padding: var(--sp-2);
-	}
-
-	.btn-move {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.5rem;
-		height: 1.5rem;
-		padding: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		font-size: 10px;
-		cursor: pointer;
-	}
-
-	.btn-move:disabled {
-		opacity: 0.25;
-		cursor: default;
-	}
-
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.form-field.full {
-		grid-column: 1 / -1;
-	}
-
-	.detail-fields {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-3);
-		margin: 0;
-	}
-
-	.detail-fields > div {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-	}
-
-	.detail-fields dt {
-		margin-bottom: var(--sp-1);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.detail-fields dd {
-		margin: 0;
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-	}
-
-	.detail-actions {
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	@media (max-width: 820px) {
-		.library-layout {
-			grid-template-columns: 1fr;
-		}
-
-		.form-grid,
-		.detail-fields {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

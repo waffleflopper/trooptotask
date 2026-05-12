@@ -169,7 +169,7 @@ describe('AssignmentPlannerPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'MOD - Manager on Duty' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'MOD - Manager on Duty' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill person' }));
 
 		const optionTexts = screen.getAllByRole('option').map((o) => o.textContent?.trim());

@@ -1,0 +1,20 @@
+{
+	"id": "57aeb2e3",
+	"phase": "completed",
+	"pageUrl": "/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/duty-rosters",
+	"sourceFile": "src/features/duty-roster/components/DutyRosterTemplateRegister.svelte",
+	"expectedVariants": 2,
+	"arrivedVariants": 2,
+	"visibleVariant": 1,
+	"paramValues": {},
+	"pendingEventSeq": null,
+	"pendingEvent": null,
+	"deliveryLease": null,
+	"checkpointRevision": 18,
+	"activeOwner": "69e4935b",
+	"sourceMarkers": {},
+	"fallbackMode": null,
+	"annotationArtifacts": [],
+	"diagnostics": [],
+	"updatedAt": "2026-05-11T05:19:44.063Z"
+}

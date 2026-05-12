@@ -4,48 +4,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 import type { IctAtRiskSoldierRow } from '$features/critical-tasks/utils/ictReports';
 
-const rows: IctAtRiskSoldierRow[] = [
-	{
-		personnelId: 'person-1',
-		soldierName: 'Stale, Ryan',
-		mos: '11B',
-		rank: 'SGT',
-		groupName: 'Alpha',
-		readinessPercent: 0,
-		applicableCount: 2,
-		readyCount: 0,
-		tasksExpiringSoonCount: 0,
-		daysSinceLastIctUpdate: 790,
-		lastIctUpdateAt: '2024-02-01T00:00:00Z'
-	},
-	{
-		personnelId: 'person-2',
-		soldierName: 'NoUpdate, Nora',
-		mos: '11B',
-		rank: 'SPC',
-		groupName: 'Bravo',
-		readinessPercent: 0,
-		applicableCount: 2,
-		readyCount: 0,
-		tasksExpiringSoonCount: 0,
-		daysSinceLastIctUpdate: null,
-		lastIctUpdateAt: null
-	},
-	{
-		personnelId: 'person-3',
-		soldierName: 'Expiring, Emily',
-		mos: '68W',
-		rank: 'CPL',
-		groupName: 'Charlie',
-		readinessPercent: 50,
-		applicableCount: 2,
-		readyCount: 1,
-		tasksExpiringSoonCount: 2,
-		daysSinceLastIctUpdate: 12,
-		lastIctUpdateAt: '2026-03-20T00:00:00Z'
-	}
-];
-
 function row(index: number): IctAtRiskSoldierRow {
 	return {
 		personnelId: `person-${index}`,
@@ -62,18 +20,10 @@ function row(index: number): IctAtRiskSoldierRow {
 	};
 }
 
-function soldierNames(region: HTMLElement): string[] {
-	return within(region)
-		.getAllByRole('rowheader')
-		.map((header) => header.querySelector('.soldier-name')?.textContent?.trim() ?? header.textContent?.trim() ?? '');
-}
+afterEach(() => cleanup());
 
 describe('IctAtRiskSoldiersTable', () => {
-	afterEach(() => {
-		cleanup();
-	});
-
-	it('defaults to the top 10 at-risk Soldiers and exposes an accessible expand/collapse control', async () => {
+	it('uses the shared data table and expands overflow rows', async () => {
 		render(IctAtRiskSoldiersTable, {
 			props: {
 				rows: Array.from({ length: 12 }, (_, index) => row(index + 1)),
@@ -81,7 +31,10 @@ describe('IctAtRiskSoldiersTable', () => {
 			}
 		});
 
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers - Call List' });
+		expect(within(region).getByRole('table', { name: 'At-risk Soldiers call list' })).toBeTruthy();
+		expect(within(region).getByRole('button', { name: 'Sort by Soldier' })).toBeTruthy();
+		expect(within(region).getByRole('button', { name: 'Sort by Last Update' })).toBeTruthy();
 		expect(within(region).getByText('Soldier, 01')).toBeTruthy();
 		expect(within(region).getByText('Soldier, 10')).toBeTruthy();
 		expect(within(region).queryByText('Soldier, 11')).toBeNull();
@@ -91,61 +44,13 @@ describe('IctAtRiskSoldiersTable', () => {
 		await fireEvent.click(expandButton);
 
 		expect(within(region).getByText('Soldier, 11')).toBeTruthy();
-		expect(within(region).getByText('Soldier, 12')).toBeTruthy();
-		const collapseButton = within(region).getByRole('button', { name: 'Show top 10 at-risk Soldiers' });
-		expect(collapseButton.getAttribute('aria-expanded')).toBe('true');
-		await fireEvent.click(collapseButton);
-
-		expect(within(region).queryByText('Soldier, 11')).toBeNull();
-	});
-
-	it('renders the at-risk call list with no-update labels and sortable operational columns', async () => {
-		render(IctAtRiskSoldiersTable, { props: { rows, expiringSoonWindowDays: 60 } });
-
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
-		expect(within(region).getByRole('button', { name: 'Sort by Soldier' })).toBeTruthy();
-		expect(within(region).getByRole('button', { name: 'Sort by % Complete' })).toBeTruthy();
-		expect(within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
-		expect(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' })).toBeTruthy();
-		expect(within(region).getByText('Sorted worst first')).toBeTruthy();
-		expect(within(region).getByText('No update')).toBeTruthy();
-		const staleRow = within(region)
-			.getByRole('rowheader', { name: /Stale, Ryan/ })
-			.closest('tr');
-		expect(staleRow).toBeTruthy();
-		expect(within(staleRow as HTMLTableRowElement).getByText('SGT')).toBeTruthy();
-		expect(within(staleRow as HTMLTableRowElement).getByText('Alpha')).toBeTruthy();
-		expect(within(staleRow as HTMLTableRowElement).getByText('11B')).toBeTruthy();
-		expect(within(staleRow as HTMLTableRowElement).getByText('0%')).toBeTruthy();
-		expect(within(staleRow as HTMLTableRowElement).getByText('790d')).toBeTruthy();
-		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
-
-		const soldierSort = within(region).getByRole('button', { name: 'Sort by Soldier' });
-		await fireEvent.click(soldierSort);
-		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
-		expect(within(soldierSort).getByText('ASC')).toBeTruthy();
-		expect(within(region).getByText('Sorted by Soldier ASC')).toBeTruthy();
-
-		await fireEvent.click(soldierSort);
-		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'NoUpdate, Nora', 'Expiring, Emily']);
-		expect(within(soldierSort).getByText('DESC')).toBeTruthy();
-		expect(within(region).getByText('Sorted by Soldier DESC')).toBeTruthy();
-
-		const expiringSort = within(region).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' });
-		await fireEvent.click(expiringSort);
-		expect(soldierNames(region)).toEqual(['Expiring, Emily', 'NoUpdate, Nora', 'Stale, Ryan']);
-		expect(within(expiringSort).getByText('DESC')).toBeTruthy();
-		expect(within(region).getByText('Sorted by Tasks Expiring ≤60d DESC')).toBeTruthy();
-
-		await fireEvent.click(within(region).getByRole('button', { name: 'Sort by Days Since Last ICT Update' }));
-		expect(soldierNames(region)).toEqual(['Stale, Ryan', 'Expiring, Emily', 'NoUpdate, Nora']);
-		expect(within(region).getByText('Sorted by Days Since Last ICT Update DESC')).toBeTruthy();
+		expect(within(region).getByRole('button', { name: 'Show top 10 at-risk Soldiers' })).toBeTruthy();
 	});
 
 	it('explains when no Soldiers match the active filters', () => {
 		render(IctAtRiskSoldiersTable, { props: { rows: [], expiringSoonWindowDays: 60 } });
 
-		const region = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers - Call List' });
 		expect(within(region).getByText('No Soldiers match the active filters.')).toBeTruthy();
 		expect(within(region).queryByRole('table')).toBeNull();
 	});

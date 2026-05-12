@@ -1,8 +1,7 @@
 <script lang="ts">
 	import {
-		AlertTriangle,
+		Archive,
 		CalendarDays,
-		CircleAlert,
 		Clock3,
 		ExternalLink,
 		Filter,
@@ -15,38 +14,42 @@
 		Save,
 		Search,
 		Settings,
-		Trash2,
 		Wrench
 	} from '@lucide/svelte';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import * as Alert from '$lib/components/ui/alert/index.js';
-	import { Badge, type BadgeVariant } from '$lib/components/ui/badge/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as Combobox from '$lib/components/ui/combobox/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
-	import { DatePicker } from '$lib/components/ui/date-picker/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
-	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import * as Stepper from '$lib/components/ui/stepper/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import BadgeRow from './BadgeRow.svelte';
 	import ExemptionPill from './ExemptionPill.svelte';
 	import * as PageShell from '$lib/components/ui/page-shell/index.js';
 	import MultiSelectField from './MultiSelectField.svelte';
 	import SettingsSection from './SettingsSection.svelte';
+	import * as DutyRoster from '$features/duty-roster/components/shared/index.js';
+	import type {
+		AuditTimelineEvent,
+		DA6MatrixCell,
+		DA6MatrixColumn,
+		DA6MatrixFooterRow,
+		DA6MatrixMetadataItem,
+		DA6MatrixRow
+	} from '$features/duty-roster/components/shared/index.js';
 
 	type TemplateRow = {
 		id: string;
@@ -79,35 +82,12 @@
 		action: 'View' | 'Edit' | 'Resolve';
 	};
 
-	type MatrixRow = OperationalMatrixRow & {
-		group: string;
-	};
-
-	type MatrixColumn = OperationalMatrixColumn & {
-		weekday: string;
-		date: string;
-		sequenceKind: 'weekday' | 'weekend-holiday';
-		chargeSequenceStart: number;
-		chargeableCount: number;
-	};
-
-	type MatrixCellTone = 'default' | 'assigned' | 'warning' | 'danger';
 	type MatrixCellCode =
 		| 'assigned'
 		| 'available-not-selected'
 		| 'authorized-absence'
 		| 'blocked-by-duty'
 		| 'misconduct-unavailable';
-	type MatrixCell = {
-		display: string;
-		tone: MatrixCellTone;
-		code: MatrixCellCode;
-		assigned: boolean;
-		chargeable: boolean;
-		sequenceNumber: number | null;
-		queuePosition: number | null;
-		reason: string | null;
-	};
 
 	let activeTemplateId = $state('staff-duty-nco');
 	let routeTab = $state('generate');
@@ -122,6 +102,7 @@
 	let correctionReason = $state('');
 	let startDate = $state('2026-05-20');
 	let endDate = $state('2026-06-02');
+	let archiveTemplateName = $state<string | null>(null);
 
 	const templates: TemplateRow[] = [
 		{
@@ -294,81 +275,67 @@
 		{ name: 'SFC John Davis', rank: 'SFC', mos: '11B', group: 'Enlisted', role: 'NCO' }
 	];
 
-	const matrixRows: MatrixRow[] = [
-		{ id: 'able', label: 'SGT Able', group: 'Alpha' },
-		{ id: 'baker', label: 'SGT Baker', group: 'Bravo' },
-		{ id: 'cross', label: 'SPC Cross', group: 'Charlie' },
-		{ id: 'davis', label: 'SSG Davis', group: 'Alpha' },
-		{ id: 'evans', label: 'PFC Evans', group: 'Bravo' }
+	const matrixRows: DA6MatrixRow[] = [
+		{ id: 'able', label: 'SGT Able', subtitle: 'Alpha' },
+		{ id: 'baker', label: 'SGT Baker', subtitle: 'Bravo' },
+		{ id: 'cross', label: 'SPC Cross', subtitle: 'Charlie' },
+		{ id: 'davis', label: 'SSG Davis', subtitle: 'Alpha' },
+		{ id: 'evans', label: 'PFC Evans', subtitle: 'Bravo' }
 	];
 
-	const matrixColumns: MatrixColumn[] = [
+	const matrixColumns: DA6MatrixColumn[] = [
 		{
 			id: 'jun-01',
 			label: 'Jun 1',
 			weekday: 'Mon',
 			date: '1-Jun',
-			sequenceKind: 'weekday',
-			chargeSequenceStart: 1,
-			chargeableCount: 5
+			sequenceKind: 'weekday'
 		},
 		{
 			id: 'jun-02',
 			label: 'Jun 2',
 			weekday: 'Tue',
 			date: '2-Jun',
-			sequenceKind: 'weekday',
-			chargeSequenceStart: 2,
-			chargeableCount: 4
+			sequenceKind: 'weekday'
 		},
 		{
 			id: 'jun-03',
 			label: 'Jun 3',
 			weekday: 'Wed',
 			date: '3-Jun',
-			sequenceKind: 'weekday',
-			chargeSequenceStart: 3,
-			chargeableCount: 4
+			sequenceKind: 'weekday'
 		},
 		{
 			id: 'jun-04',
 			label: 'Jun 4',
 			weekday: 'Thu',
 			date: '4-Jun',
-			sequenceKind: 'weekday',
-			chargeSequenceStart: 4,
-			chargeableCount: 5
+			sequenceKind: 'weekday'
 		},
 		{
 			id: 'jun-05',
 			label: 'Jun 5',
 			weekday: 'Fri',
 			date: '5-Jun',
-			sequenceKind: 'weekday',
-			chargeSequenceStart: 5,
-			chargeableCount: 5
+			sequenceKind: 'weekday'
 		},
 		{
 			id: 'jun-06',
 			label: 'Jun 6',
 			weekday: 'Sat',
 			date: '6-Jun',
-			sequenceKind: 'weekend-holiday',
-			chargeSequenceStart: 1,
-			chargeableCount: 5
+			sequenceKind: 'weekend-holiday'
 		},
 		{
 			id: 'jun-07',
 			label: 'Jun 7',
 			weekday: 'Sun',
 			date: '7-Jun',
-			sequenceKind: 'weekend-holiday',
-			chargeSequenceStart: 2,
-			chargeableCount: 4
+			sequenceKind: 'weekend-holiday'
 		}
 	];
 
-	const matrixCells: Record<string, Record<string, MatrixCell>> = {
+	const matrixCells: Record<string, Record<string, DA6MatrixCell>> = {
 		able: {
 			'jun-01': da6Cell('X', 'assigned', 'assigned', 20, 1, null),
 			'jun-02': da6Cell('A', 'warning', 'authorized-absence', 21, null, 'Authorized absence: Leave'),
@@ -431,10 +398,34 @@
 	];
 
 	const rankItems = [
+		{ value: 'GEN', label: 'GEN' },
+		{ value: 'LTG', label: 'LTG' },
+		{ value: 'MG', label: 'MG' },
+		{ value: 'BG', label: 'BG' },
+		{ value: 'COL', label: 'COL' },
+		{ value: 'LTC', label: 'LTC' },
+		{ value: 'MAJ', label: 'MAJ' },
+		{ value: 'CPT', label: 'CPT' },
+		{ value: '1LT', label: '1LT' },
+		{ value: '2LT', label: '2LT' },
+		{ value: 'CW5', label: 'CW5' },
+		{ value: 'CW4', label: 'CW4' },
+		{ value: 'CW3', label: 'CW3' },
+		{ value: 'CW2', label: 'CW2' },
+		{ value: 'WO1', label: 'WO1' },
+		{ value: 'CSM', label: 'CSM' },
+		{ value: 'SGM', label: 'SGM' },
+		{ value: '1SG', label: '1SG' },
+		{ value: 'MSG', label: 'MSG' },
 		{ value: 'SGT', label: 'SGT' },
 		{ value: 'SSG', label: 'SSG' },
 		{ value: 'SFC', label: 'SFC' },
-		{ value: 'MSG', label: 'MSG' }
+		{ value: 'CPL', label: 'CPL' },
+		{ value: 'SPC', label: 'SPC' },
+		{ value: 'PFC', label: 'PFC' },
+		{ value: 'PV2', label: 'PV2' },
+		{ value: 'PV1', label: 'PV1' },
+		{ value: 'CIV', label: 'CIV' }
 	];
 	const groupItems = [
 		{ value: 'enlisted', label: 'Enlisted' },
@@ -464,85 +455,68 @@
 		{ label: 'Settings', value: 'settings', active: routeTab === 'settings' }
 	]);
 
-	function statusVariant(status: string): BadgeVariant {
-		if (
-			status === 'active' ||
-			status === 'applied' ||
-			status === 'official' ||
-			status === 'ok' ||
-			status === 'accepted'
-		) {
-			return 'success';
-		}
-		if (
-			status === 'needs-sync' ||
-			status === 'review' ||
-			status === 'correction-pending' ||
-			status === 'manual' ||
-			status === 'override'
-		) {
-			return 'warning';
-		}
-		if (status === 'invalidated' || status === 'unresolved' || status === 'archived') {
-			return 'danger';
-		}
-		if (status === 'draft-preview' || status === 'latest') {
-			return 'info';
-		}
-		return 'secondary';
-	}
+	const matrixMetadata: DA6MatrixMetadataItem[] = [
+		{ label: 'Duty Position', value: 'Staff Duty NCO' },
+		{ label: 'Date Range', value: 'Jun 1 - Jun 7, 2026' },
+		{ label: 'Roster Type', value: 'Single sequence' },
+		{ label: 'Mode', value: 'Draft preview' }
+	];
 
-	function statusLabel(status: string): string {
-		return status
-			.split('-')
-			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-			.join(' ');
-	}
+	const matrixFooterRows: DA6MatrixFooterRow[] = [
+		{
+			label: 'Assigned Count',
+			values: { 'jun-01': 1, 'jun-02': 1, 'jun-03': 1, 'jun-04': 1, 'jun-05': 0, 'jun-06': 0, 'jun-07': 1 }
+		},
+		{
+			label: 'Required Count',
+			values: { 'jun-01': 1, 'jun-02': 1, 'jun-03': 1, 'jun-04': 1, 'jun-05': 1, 'jun-06': 1, 'jun-07': 1 }
+		}
+	];
+
+	const correctionReasons = [
+		{ value: 'unexpected-absence', label: 'Unexpected absence' },
+		{ value: 'sd-detail', label: 'SD/Detail' },
+		{ value: 'leader-directed', label: 'Leader directed' }
+	];
+
+	const auditEvents: AuditTimelineEvent[] = [
+		{ id: 'accepted', timestamp: 'May 12, 2026 09:15', title: 'Run accepted', actor: 'SFC James Miller' },
+		{
+			id: 'correction',
+			timestamp: 'May 14, 2026 10:22',
+			title: 'Correction initiated',
+			actor: 'SSG Laura Bennett'
+		},
+		{ id: 'pending', timestamp: 'May 14, 2026 10:22', title: 'Pending approval', actor: 'System' }
+	];
 
 	function da6Cell(
 		display: string,
-		tone: MatrixCellTone,
+		_tone: string,
 		code: MatrixCellCode,
 		sequenceNumber: number | null,
 		queuePosition: number | null,
 		reason: string | null
-	): MatrixCell {
+	): DA6MatrixCell {
+		const kind =
+			code === 'assigned'
+				? 'assigned'
+				: code === 'authorized-absence'
+					? 'exempt'
+					: code === 'blocked-by-duty' || code === 'misconduct-unavailable'
+						? 'blocked'
+						: 'not-assigned';
+
+		const countText = sequenceNumber === null ? 'no DA6 count' : `DA6 count ${sequenceNumber}`;
+		const queueText = queuePosition === null ? null : `queue position ${queuePosition}`;
 		return {
 			display,
-			tone,
-			code,
-			assigned: code === 'assigned',
+			kind,
 			chargeable: code !== 'authorized-absence',
-			sequenceNumber,
-			queuePosition,
-			reason
+			count: sequenceNumber,
+			reason,
+			ariaLabel: [code.replaceAll('-', ' '), countText, queueText, reason].filter(Boolean).join('. ')
 		};
-	}
-
-	function matrixCell(row: MatrixRow, column: MatrixColumn): MatrixCell {
-		return (
-			matrixCells[row.id]?.[column.id] ??
-			da6Cell('', 'default', 'available-not-selected', null, null, 'No DA6 cell for this date')
-		);
-	}
-
-	function matrixCellClass(tone: MatrixCellTone): string {
-		if (tone === 'assigned') return 'bg-success-muted text-success-foreground';
-		if (tone === 'warning') return 'bg-warning-muted text-warning-foreground';
-		if (tone === 'danger') return 'bg-danger-muted text-danger-foreground';
-		return 'text-muted-foreground';
-	}
-
-	function matrixCellTitle(cell: MatrixCell, column: MatrixColumn): string {
-		const parts = [
-			cell.assigned ? 'Assigned duty' : cell.reason,
-			cell.sequenceNumber === null ? null : `DA6 number ${cell.sequenceNumber}`,
-			cell.queuePosition === null ? null : `queue position ${cell.queuePosition}`,
-			cell.chargeable ? 'chargeable' : 'not chargeable',
-			`${column.sequenceKind === 'weekend-holiday' ? 'Weekend/holiday' : 'Weekday'} sequence`
-		].filter((part): part is string => Boolean(part));
-
-		return parts.join('. ');
 	}
 </script>
 
@@ -623,7 +597,7 @@
 								<h3 class="text-lg font-semibold">{selectedTemplate.name}</h3>
 								<p class="font-mono text-xs text-muted-foreground">{selectedTemplate.slug}</p>
 							</div>
-							<Badge variant={statusVariant(selectedTemplate.status)}>{statusLabel(selectedTemplate.status)}</Badge>
+							<DutyRoster.DutyRosterStatusBadge status={selectedTemplate.status} />
 						</div>
 						<Separator />
 						<div class="grid gap-3">
@@ -727,13 +701,11 @@
 												</Combobox.Root>
 											</div>
 										</div>
-										<Alert.Root variant="warning">
-											<AlertTriangle />
-											<Alert.Title>No eligible pool</Alert.Title>
-											<Alert.Description>
-												Adjust filters above. When no Soldiers match the selected criteria, the pool will be empty.
-											</Alert.Description>
-										</Alert.Root>
+										<DutyRoster.WarningSummary
+											tone="warning"
+											title="No eligible pool"
+											description="Adjust filters above. When no Soldiers match the selected criteria, the pool will be empty."
+										/>
 									</section>
 								</div>
 							</Stepper.Content>
@@ -768,23 +740,13 @@
 									Select a date range to build a draft preview of this template.
 								</p>
 							</div>
-							<div class="grid gap-3 md:grid-cols-2">
-								<Field.Root>
-									<Field.Label>Start Date</Field.Label>
-									<DatePicker
-										value={startDate}
-										onValueChange={(value) => (startDate = value)}
-										aria-label="Start Date"
-									/>
-									<Field.Description>Start date must be today or later.</Field.Description>
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>End Date</Field.Label>
-									<DatePicker value={endDate} onValueChange={(value) => (endDate = value)} aria-label="End Date" />
-									<Field.Description>End date must be on or after start date.</Field.Description>
-								</Field.Root>
-							</div>
-							<PageShell.FactRow label="Date Range (14 days)" value="Tue, May 20, 2026 - Mon, Jun 2, 2026" />
+							<DutyRoster.DateRangeControls
+								{startDate}
+								{endDate}
+								rangeLabel="Tue, May 20, 2026 - Mon, Jun 2, 2026 (14 days)"
+								onStartDateChange={(value) => (startDate = value)}
+								onEndDateChange={(value) => (endDate = value)}
+							/>
 						</div>
 
 						<div class="grid gap-4 rounded-lg border p-4">
@@ -801,7 +763,7 @@
 						<div class="grid gap-4 rounded-lg border p-4">
 							<div class="flex items-center justify-between gap-3">
 								<h3 class="text-base font-semibold">Draft Commit Readiness</h3>
-								<Badge variant="warning">Review needed</Badge>
+								<DutyRoster.DutyRosterStatusBadge status="review" label="Review needed" />
 							</div>
 							<div class="grid gap-3 md:grid-cols-5">
 								<PageShell.Metric label="Duty Dates" value="14" detail="May 12 - May 25" />
@@ -841,7 +803,7 @@
 													<Table.Cell>{row.final}</Table.Cell>
 													<Table.Cell>{row.warnings}</Table.Cell>
 													<Table.Cell>
-														<Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+														<DutyRoster.DutyRosterStatusBadge status={row.status} />
 													</Table.Cell>
 													<Table.Cell>
 														<Sheet.Root>
@@ -850,7 +812,22 @@
 																	<Button variant="outline" size="sm" {...props}>{row.action}</Button>
 																{/snippet}
 															</Sheet.Trigger>
-															{@render ManualChangeSheet()}
+															<DutyRoster.ManualChangePanel
+																dateLabel="May 14, 2026 (Wednesday)"
+																currentSoldier="SSG David Wilson"
+																currentRole="Squad Leader"
+																originalSoldier="SGT Michael Brown"
+																originalRole="Team Leader"
+																riskItems={[
+																	'Higher rank than original recommendation',
+																	'Only 1 eligible Soldier available',
+																	'Would exceed SSG recommended coverage'
+																]}
+																{soldiers}
+																replacementValue={replacementSoldier}
+																replacementSummary="Only 1 eligible Soldier available for this date."
+																reasonRequired
+															/>
 														</Sheet.Root>
 													</Table.Cell>
 												</Table.Row>
@@ -861,7 +838,17 @@
 								{@render ActionBar()}
 							</Tabs.Content>
 							<Tabs.Content value="matrix" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-								{@render Da6Matrix()}
+								<DutyRoster.DA6Matrix
+									title="Preview Review, DA6 Matrix (Draft)"
+									description="Production-shaped DA6 output: X marks assigned duty, numbers are visible DA6 counts, and A/D/U codes follow current availability rules."
+									mode="draft"
+									rows={matrixRows}
+									columns={matrixColumns}
+									cells={matrixCells}
+									footerRows={matrixFooterRows}
+									metadata={matrixMetadata}
+									warning="Authorized absence pauses a Soldier's visible count. D and U cells remain chargeable, so the DA6 number continues to move."
+								/>
 								<PageShell.SummaryRail title="Print Options">
 									<PageShell.FactRow label="Layout" value="DA Form 6 (Landscape)" />
 									<PageShell.FactRow label="Include Signatures" value="Yes" />
@@ -903,18 +890,16 @@
 							<Play />
 							Generate Preview
 						</Button>
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Title>Warnings (2)</Alert.Title>
-							<Alert.Description
-								>2 upcoming unavailability periods overlap. 1 Soldier has high duty day count.</Alert.Description
-							>
-						</Alert.Root>
-						<Alert.Root variant="destructive">
-							<CircleAlert />
-							<Alert.Title>Errors (1)</Alert.Title>
-							<Alert.Description>Date range is too far in the past.</Alert.Description>
-						</Alert.Root>
+						<DutyRoster.WarningSummary
+							tone="warning"
+							title="Warnings (2)"
+							items={['2 upcoming unavailability periods overlap', '1 Soldier has high duty day count.']}
+						/>
+						<DutyRoster.WarningSummary
+							tone="destructive"
+							title="Errors (1)"
+							description="Date range is too far in the past."
+						/>
 						<div class="grid gap-2">
 							<Skeleton class="h-4 w-3/4" />
 							<Skeleton class="h-4 w-1/2" />
@@ -1072,12 +1057,12 @@
 													<Table.Cell>{row.generated}</Table.Cell>
 													<Table.Cell>{row.status === 'review' ? 'SGT Alex Johnson' : row.final}</Table.Cell>
 													<Table.Cell>
-														<Badge variant={row.status === 'review' ? 'warning' : 'success'}>
-															{row.status === 'review' ? 'Correction Pending' : 'Accepted'}
-														</Badge>
+														<DutyRoster.DutyRosterStatusBadge
+															status={row.status === 'review' ? 'correction-pending' : 'accepted'}
+														/>
 													</Table.Cell>
 													<Table.Cell>{row.status === 'review' ? 'Unexpected absence' : '-'}</Table.Cell>
-													<Table.Cell><Badge variant="success">Applied</Badge></Table.Cell>
+													<Table.Cell><DutyRoster.DutyRosterStatusBadge status="applied" /></Table.Cell>
 													<Table.Cell>
 														<Sheet.Root>
 															<Sheet.Trigger>
@@ -1092,7 +1077,14 @@
 																	</Button>
 																{/snippet}
 															</Sheet.Trigger>
-															{@render CorrectionSheet()}
+															<DutyRoster.CorrectionSheet
+																dateLabel="May 14, 2026 (Wed)"
+																originalSoldier="SSG Daniel Warren"
+																{soldiers}
+																reasons={correctionReasons}
+																soldierValue={correctionSoldier}
+																reasonValue={correctionReason}
+															/>
 														</Sheet.Root>
 													</Table.Cell>
 												</Table.Row>
@@ -1103,7 +1095,9 @@
 							</Tabs.Content>
 						</Tabs.Root>
 					</div>
-					{@render AuditRail()}
+					<PageShell.SummaryRail title="Audit Trail">
+						<DutyRoster.AuditTimeline events={auditEvents} timezoneLabel="All times are in local time (UTC -04:00)." />
+					</PageShell.SummaryRail>
 				</section>
 			</Tabs.Content>
 
@@ -1114,7 +1108,7 @@
 							<div class="grid gap-1">
 								<div class="flex flex-wrap items-center gap-2">
 									<h2 id="settings-heading" class="text-xl font-semibold tracking-tight">Staff Duty NCO</h2>
-									<Badge variant="success">Active</Badge>
+									<DutyRoster.DutyRosterStatusBadge status="active" />
 								</div>
 								<p class="text-sm text-muted-foreground">
 									Configure rules and defaults for this template. Changes apply to future runs only.
@@ -1140,105 +1134,84 @@
 								</DropdownMenu.Root>
 							</div>
 						</div>
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Title>Settings affect future runs only.</Alert.Title>
-							<Alert.Description
-								>Changes you make here will be used when you generate the next roster.</Alert.Description
-							>
-						</Alert.Root>
-						<SettingsSection number="1" title="Identity">
-							<div class="grid gap-3 md:grid-cols-4">
+						<DutyRoster.WarningSummary
+							tone="warning"
+							title="Settings affect future runs only."
+							description="Changes you make here will be used when you generate the next roster."
+						/>
+						<SettingsSection number="01" title="Template Identity">
+							<p class="max-w-2xl text-xs text-muted-foreground">
+								These labels identify the template in links, compact tables, and exports.
+							</p>
+							<div class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(12rem,0.7fr)]">
 								<Field.Root>
-									<Field.Label>Template Name</Field.Label>
+									<Field.Label>Template name</Field.Label>
 									<Input value="Staff Duty NCO" />
 								</Field.Root>
 								<Field.Root>
-									<Field.Label>Slug</Field.Label>
+									<Field.Label>Template slug</Field.Label>
 									<Input value="staff-duty-nco" />
+									<Field.Description>Used in the template URL. Keep it short and readable.</Field.Description>
 								</Field.Root>
 								<Field.Root>
-									<Field.Label>Short Code</Field.Label>
+									<Field.Label>Short code</Field.Label>
 									<Input value="SDNCO" />
-								</Field.Root>
-								<Field.Root>
-									<Field.Label>State</Field.Label>
-									<div class="flex gap-2">
-										<Button size="sm">Active</Button>
-										<Button size="sm" variant="outline">Archived</Button>
-									</div>
+									<Field.Description>Shown in compact tables and exports.</Field.Description>
 								</Field.Root>
 							</div>
 						</SettingsSection>
-						<SettingsSection number="2" title="Eligibility Rules">
+						<SettingsSection number="02" title="Eligibility Rules">
 							<div class="grid gap-3 md:grid-cols-4">
-								<MultiSelectField label="Rank" items={rankItems} bind:value={selectedRanks} />
-								<MultiSelectField label="Group" items={groupItems} bind:value={selectedGroups} />
-								<MultiSelectField label="MOS" items={mosItems} bind:value={selectedMos} />
-								<MultiSelectField label="Duty Role" items={roleItems} bind:value={selectedDutyRoles} />
+								<DutyRoster.SearchableRuleMultiSelect
+									label="Rank filters"
+									options={rankItems}
+									bind:value={selectedRanks}
+									placeholder="Search ranks..."
+								/>
+								<DutyRoster.SearchableRuleMultiSelect
+									label="Group filters"
+									options={groupItems}
+									bind:value={selectedGroups}
+									placeholder="Search groups..."
+								/>
+								<DutyRoster.SearchableRuleMultiSelect
+									label="MOS filters"
+									options={mosItems}
+									bind:value={selectedMos}
+									placeholder="Search MOS..."
+								/>
+								<DutyRoster.SearchableRuleMultiSelect
+									label="Duty role filters"
+									options={roleItems}
+									bind:value={selectedDutyRoles}
+									placeholder="Search duty roles..."
+								/>
 							</div>
 							<Button variant="outline" class="justify-between">
 								Additional Rules
 								<span class="text-muted-foreground">2 rules configured</span>
 							</Button>
 						</SettingsSection>
-						<SettingsSection number="3" title="Individual Exclusions (3)">
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<div class="relative">
-									<Search class="absolute left-2 top-2 size-4 text-muted-foreground" />
-									<Input class="w-64 pl-8" placeholder="Search by name or rank..." />
+						<SettingsSection number="03" title="Individual Exclusions (3)">
+							<div class="grid gap-3">
+								<Field.Root>
+									<Field.Label>Add exclusion</Field.Label>
+									<Combobox.Root items={soldiers} value="">
+										<Combobox.Trigger placeholder="Search by name, rank, MOS, group..." />
+										<Combobox.Content>
+											<Combobox.List />
+										</Combobox.Content>
+									</Combobox.Root>
+									<Field.Description>Only Soldiers in the resolved pool can be excluded.</Field.Description>
+								</Field.Root>
+								<div class="grid gap-2 rounded-lg border bg-muted/20 p-3">
+									<ExemptionPill name="SSG Michael Johnson" detail="11C, Team Leader" />
+									<ExemptionPill name="SFC Daniel Martinez" detail="11B, NCO" />
+									<ExemptionPill name="SGT James Wilson" detail="11B, Team Leader" />
 								</div>
-								<div class="flex gap-2">
-									<Button variant="outline">
-										<Plus />
-										Add Individual
-									</Button>
-									<Button variant="outline" disabled>
-										<Trash2 />
-										Remove
-									</Button>
-								</div>
-							</div>
-							<div class="overflow-hidden rounded-lg border">
-								<Table.Table>
-									<Table.Header>
-										<Table.Row>
-											<Table.Head><Checkbox aria-label="Select all exclusions" /></Table.Head>
-											<Table.Head>Name</Table.Head>
-											<Table.Head>Rank</Table.Head>
-											<Table.Head>MOS</Table.Head>
-											<Table.Head>Unit</Table.Head>
-											<Table.Head>Reason</Table.Head>
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										{#each ['Sgt. Jacob Miller', 'SSG Marcus Reed', 'SFC Daniel Kim'] as person, index (person)}
-											<Table.Row>
-												<Table.Cell><Checkbox aria-label={`Select ${person}`} /></Table.Cell>
-												<Table.Cell>{person}</Table.Cell>
-												<Table.Cell>{index === 0 ? 'SGT' : index === 1 ? 'SSG' : 'SFC'}</Table.Cell>
-												<Table.Cell>{index === 1 ? '11C' : '11B'}</Table.Cell>
-												<Table.Cell
-													>{index === 2
-														? 'HQ Co, 1-22 IN'
-														: index === 1
-															? 'Bravo Co, 1-22 IN'
-															: 'Alpha Co, 1-22 IN'}</Table.Cell
-												>
-												<Table.Cell
-													>{index === 0
-														? 'Medical profile'
-														: index === 1
-															? 'Permanent staff'
-															: 'School attendance'}</Table.Cell
-												>
-											</Table.Row>
-										{/each}
-									</Table.Body>
-								</Table.Table>
 							</div>
 						</SettingsSection>
-						<SettingsSection number="4" title="DA6 Continuity / Baseline">
+						<SettingsSection number="04" title="DA6 Continuity / Baseline">
 							<Alert.Root>
 								<LockKeyhole />
 								<Alert.Title>Baseline is locked once accepted history exists.</Alert.Title>
@@ -1309,20 +1282,32 @@
 						<PageShell.FactRow label="MOS" value="11B, 11C, 11Z, +2" />
 						<PageShell.FactRow label="Duty Roles" value="NCO, Team Leader, Squad Leader" />
 						<PageShell.FactRow label="Baseline Status" value="Locked" />
-						<Alert.Root variant="warning">
-							<AlertTriangle />
-							<Alert.Description
-								>Archiving this template will prevent future rosters from being generated.</Alert.Description
-							>
-							<div class="col-start-2 mt-2">
-								<Button variant="outline" size="sm">Archive Template</Button>
-							</div>
-						</Alert.Root>
+						<DutyRoster.WarningSummary
+							tone="warning"
+							title="Archive warning"
+							description="Archiving this template will prevent future rosters from being generated."
+							actionLabel="Archive Template"
+						/>
 					</PageShell.SummaryRail>
 				</section>
 			</Tabs.Content>
 		</Tabs.Root>
 	</PageShell.Root>
+	{#if archiveTemplateName}
+		<ConfirmDialog
+			title="Archive template"
+			message={`Archive ${archiveTemplateName}? Future rosters cannot be generated from this template.`}
+			confirmLabel="Archive Template"
+			cancelLabel="Cancel"
+			variant="destructive"
+			onConfirm={() => {
+				archiveTemplateName = null;
+			}}
+			onCancel={() => {
+				archiveTemplateName = null;
+			}}
+		/>
+	{/if}
 </Tooltip.Provider>
 
 {#snippet templateCell(row: TemplateRow, column: ColumnDef<TemplateRow>)}
@@ -1337,17 +1322,30 @@
 			<span class="text-xs text-muted-foreground">{row.status}</span>
 		</button>
 	{:else if column.key === 'actions'}
-		<div class="flex justify-end gap-1">
+		<div class="flex justify-end gap-0.5">
 			<Tooltip.Root>
 				<Tooltip.Trigger>
 					{#snippet child({ props })}
-						<Button variant="outline" size="icon-sm" aria-label={`Generate ${row.name}`} {...props}><Play /></Button>
+						<Button class="size-6" variant="outline" size="icon-sm" aria-label={`Generate ${row.name}`} {...props}
+							><Play class="size-3.5" /></Button
+						>
 					{/snippet}
 				</Tooltip.Trigger>
 				<Tooltip.Content>Generate</Tooltip.Content>
 			</Tooltip.Root>
-			<Button variant="outline" size="icon-sm" aria-label={`View history for ${row.name}`}><Clock3 /></Button>
-			<Button variant="outline" size="icon-sm" aria-label={`Open settings for ${row.name}`}><Settings /></Button>
+			<Button class="size-6" variant="outline" size="icon-sm" aria-label={`View history for ${row.name}`}
+				><Clock3 class="size-3.5" /></Button
+			>
+			<Button
+				class="size-6"
+				variant="outline"
+				size="icon-sm"
+				aria-label={`Archive ${row.name}`}
+				disabled={row.status === 'archived'}
+				onclick={() => (archiveTemplateName = row.name)}
+			>
+				<Archive class="size-3.5" />
+			</Button>
 		</div>
 	{:else}
 		{String(column.value(row) ?? '')}
@@ -1356,14 +1354,15 @@
 
 {#snippet historyCell(row: HistoryRun, column: ColumnDef<HistoryRun>)}
 	{#if column.key === 'calendar'}
-		<Badge variant={row.calendar === 'published' ? 'success' : 'danger'}>
-			{row.calendar === 'published' ? 'Published' : 'Invalidated'}
-		</Badge>
+		<DutyRoster.DutyRosterStatusBadge
+			status={row.calendar === 'published' ? 'applied' : 'invalidated'}
+			label={row.calendar === 'published' ? 'Published' : 'Invalidated'}
+		/>
 	{:else if column.key === 'state'}
-		<Badge variant={statusVariant(row.state)}>{statusLabel(row.state)}</Badge>
+		<DutyRoster.DutyRosterStatusBadge status={row.state} />
 	{:else if column.key === 'latest'}
 		{#if row.latest}
-			<Badge>Latest</Badge>
+			<DutyRoster.DutyRosterStatusBadge status="latest" />
 		{:else}
 			<span class="text-muted-foreground">-</span>
 		{/if}
@@ -1404,249 +1403,6 @@
 					Accept + Apply to Calendar
 				</Button>
 			</div>
-		</div>
-	</div>
-{/snippet}
-
-{#snippet Da6Matrix()}
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="da6-matrix-heading">
-		<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-			<div>
-				<h3 id="da6-matrix-heading" class="text-lg font-semibold">Preview Review, DA6 Matrix (Draft)</h3>
-				<p class="text-sm text-muted-foreground">
-					Production-shaped DA6 output: `X` marks assigned duty, numbers are visible DA6 counts, and A/D/U codes follow
-					current availability rules.
-				</p>
-			</div>
-			<Badge variant="info">Draft Preview</Badge>
-		</div>
-		<Alert.Root variant="warning">
-			<AlertTriangle />
-			<Alert.Description>
-				Authorized absence pauses a Soldier's visible count. D and U cells remain chargeable, so the DA6 number
-				continues to move.
-			</Alert.Description>
-			<Alert.Action>
-				<Button variant="outline" size="sm">Review Rules</Button>
-			</Alert.Action>
-		</Alert.Root>
-		<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} readOnly>
-			<OperationalMatrix.Viewport ariaLabel="Draft DA6 matrix viewport" class="rounded-lg border bg-card">
-				<OperationalMatrix.Table
-					ariaLabel="Draft DA6 matrix"
-					class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-12 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
-				>
-					<OperationalMatrix.Header>
-						<OperationalMatrix.HeaderRow>
-							<OperationalMatrix.CornerCell sticky class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left">
-								Rank / Name
-							</OperationalMatrix.CornerCell>
-							{#each matrixColumns as column (column.id)}
-								<OperationalMatrix.ColumnHeader {column} sticky class="sticky top-0 z-20 bg-muted">
-									<span class="grid min-w-12 place-items-center gap-0.5 text-center text-xs leading-tight">
-										<span class="font-semibold">{column.weekday}</span>
-										<span class="font-normal text-muted-foreground">{column.date}</span>
-									</span>
-								</OperationalMatrix.ColumnHeader>
-							{/each}
-						</OperationalMatrix.HeaderRow>
-					</OperationalMatrix.Header>
-					<OperationalMatrix.Body>
-						{#each matrixRows as row (row.id)}
-							<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
-								<OperationalMatrix.RowHeader
-									{row}
-									sticky
-									class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left"
-								>
-									<span class="grid">
-										<span class="font-medium">{row.label}</span>
-										<span class="text-xs text-muted-foreground">{row.group}</span>
-									</span>
-								</OperationalMatrix.RowHeader>
-								{#each matrixColumns as column (column.id)}
-									{@const cell = matrixCell(row, column)}
-									<OperationalMatrix.Cell
-										{row}
-										{column}
-										readOnly
-										ariaLabel={`${row.label} ${column.label} ${matrixCellTitle(cell, column)}`}
-										class={matrixCellClass(cell.tone)}
-									>
-										<span class="font-mono text-xs font-semibold">{cell.display}</span>
-									</OperationalMatrix.Cell>
-								{/each}
-							</OperationalMatrix.Row>
-						{/each}
-					</OperationalMatrix.Body>
-				</OperationalMatrix.Table>
-			</OperationalMatrix.Viewport>
-		</OperationalMatrix.Root>
-		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-			<div class="flex flex-wrap gap-3 text-sm">
-				{@render LegendItem('X', 'Assigned duty; next visible count resets to 1.', 'assigned')}
-				{@render LegendItem('1-30', 'Available and not selected; visible DA6 count.', 'default')}
-				{@render LegendItem('A', 'Authorized absence; not chargeable, count pauses.', 'warning')}
-				{@render LegendItem('D', 'Other duty or cooldown; chargeable, count advances.', 'danger')}
-				{@render LegendItem('U', 'Misconduct/unavailable; chargeable, count advances.', 'danger')}
-			</div>
-			<div class="rounded-md border bg-muted/20 p-3 text-sm">
-				<h4 class="font-semibold">Sequence details</h4>
-				<p class="mt-1 text-muted-foreground">
-					Single-sequence templates use one running DA6 count. Separate weekend/holiday mode starts a distinct
-					weekend-holiday sequence, shown here on Jun 6-7.
-				</p>
-			</div>
-		</div>
-	</section>
-{/snippet}
-
-{#snippet LegendItem(mark: string, label: string, tone: MatrixCellTone)}
-	<span class="inline-flex items-center gap-2">
-		<span
-			class={`inline-flex min-w-7 items-center justify-center rounded-sm border px-1.5 py-1 font-mono text-[10px] font-semibold ${matrixCellClass(tone)}`}
-		>
-			{mark}
-		</span>
-		<span class="text-sm text-muted-foreground">{label}</span>
-	</span>
-{/snippet}
-
-{#snippet ManualChangeSheet()}
-	<Sheet.Content class="sm:max-w-md">
-		<Sheet.Header>
-			<Sheet.Title>Manual Preview Change</Sheet.Title>
-			<Sheet.Description>Resolve or review a draft roster assignment before acceptance.</Sheet.Description>
-		</Sheet.Header>
-		<div class="grid gap-4 px-4 pb-4">
-			<section class="grid gap-2">
-				<h3 class="font-semibold">Selected Date</h3>
-				<p class="flex items-center gap-2 text-sm">
-					<CalendarDays class="size-4" />
-					May 14, 2026 (Wednesday)
-				</p>
-			</section>
-			<div class="overflow-hidden rounded-lg border">
-				<div class="grid gap-1 border-b p-4">
-					<span class="text-sm font-medium">Current Final Selection</span>
-					<strong>SSG David Wilson</strong>
-					<span class="text-sm text-muted-foreground">Squad Leader</span>
-				</div>
-				<div class="grid gap-1 p-4">
-					<span class="text-sm font-medium">Original Generated Selection</span>
-					<strong>SGT Michael Brown</strong>
-					<span class="text-sm text-muted-foreground">Team Leader</span>
-				</div>
-			</div>
-			<Alert.Root variant="warning">
-				<AlertTriangle />
-				<Alert.Title>Why this replacement is considered risky</Alert.Title>
-				<Alert.Description>
-					Higher rank than original recommendation. Would exceed SSG recommended coverage.
-				</Alert.Description>
-			</Alert.Root>
-			<Field.Root>
-				<Field.Label>Replacement Soldier</Field.Label>
-				<Combobox.Root items={soldiers} bind:value={replacementSoldier}>
-					<Combobox.Trigger placeholder="Search personnel..." />
-					<Combobox.Content>
-						<Combobox.List />
-					</Combobox.Content>
-				</Combobox.Root>
-			</Field.Root>
-			<Field.Root>
-				<Field.Label>Reason for Change</Field.Label>
-				<Textarea placeholder="Provide a clear reason for this manual change..." />
-				<Field.Description>0 / 300</Field.Description>
-			</Field.Root>
-			<Alert.Root variant="warning">
-				<AlertTriangle />
-				<Alert.Title>Archived or missing personnel are blocked.</Alert.Title>
-				<Alert.Description>Only active, eligible personnel can be selected.</Alert.Description>
-			</Alert.Root>
-		</div>
-		<Sheet.Footer>
-			<Button variant="outline">Cancel</Button>
-			<Button>Save Change</Button>
-		</Sheet.Footer>
-	</Sheet.Content>
-{/snippet}
-
-{#snippet CorrectionSheet()}
-	<Sheet.Content class="sm:max-w-md">
-		<Sheet.Header>
-			<Sheet.Title>Duty Roster Correction</Sheet.Title>
-			<Sheet.Description>Submit a correction for this roster entry.</Sheet.Description>
-		</Sheet.Header>
-		<div class="grid gap-4 px-4 pb-4">
-			<div class="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
-				<PageShell.FactRow label="Date" value="May 14, 2026 (Wed)" />
-				<PageShell.FactRow label="Originally Assigned Soldier" value="SSG Daniel Warren" />
-			</div>
-			<Field.Root>
-				<Field.Label>Soldier Who Actually Served</Field.Label>
-				<Combobox.Root items={soldiers} bind:value={correctionSoldier}>
-					<Combobox.Trigger placeholder="Search by name or rank..." />
-					<Combobox.Content>
-						<Combobox.List />
-					</Combobox.Content>
-				</Combobox.Root>
-			</Field.Root>
-			<Field.Root>
-				<Field.Label>Reason</Field.Label>
-				<Select.Root type="single" bind:value={correctionReason}>
-					<Select.Trigger>{correctionReason || 'Select a reason...'}</Select.Trigger>
-					<Select.Content>
-						<Select.Item value="unexpected-absence" label="Unexpected absence" />
-						<Select.Item value="sd-detail" label="SD/Detail" />
-						<Select.Item value="leader-directed" label="Leader directed" />
-					</Select.Content>
-				</Select.Root>
-			</Field.Root>
-			<Field.Root>
-				<Field.Label>Additional details (optional)</Field.Label>
-				<Textarea />
-				<Field.Description>0 / 250</Field.Description>
-			</Field.Root>
-			<Alert.Root variant="warning">
-				<AlertTriangle />
-				<Alert.Title>Outside Pool Warning</Alert.Title>
-				<Alert.Description>
-					The selected Soldier is not in the original duty pool for this slot. Continue only if this is accurate.
-				</Alert.Description>
-			</Alert.Root>
-			<Alert.Root variant="info">
-				<Info />
-				<Alert.Description>
-					Corrections affect future counts and will update the Calendar since this run was applied.
-				</Alert.Description>
-			</Alert.Root>
-		</div>
-		<Sheet.Footer>
-			<Button>Save Correction</Button>
-			<Button variant="outline">Cancel</Button>
-		</Sheet.Footer>
-	</Sheet.Content>
-{/snippet}
-
-{#snippet AuditRail()}
-	<PageShell.SummaryRail title="Audit Trail">
-		<div class="grid gap-4">
-			{@render AuditEvent('May 12, 2026 09:15', 'Run accepted', 'SFC James Miller')}
-			{@render AuditEvent('May 14, 2026 10:22', 'Correction initiated', 'SSG Laura Bennett')}
-			{@render AuditEvent('May 14, 2026 10:22', 'Pending approval', 'System')}
-		</div>
-		<p class="text-xs text-muted-foreground">All times are in local time (UTC -04:00).</p>
-	</PageShell.SummaryRail>
-{/snippet}
-
-{#snippet AuditEvent(time: string, title: string, detail: string)}
-	<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
-		<span class="mt-1 size-2 rounded-full bg-foreground" aria-hidden="true"></span>
-		<div class="grid gap-1">
-			<span class="text-xs text-muted-foreground">{time}</span>
-			<strong class="text-sm">{title}</strong>
-			<span class="text-sm text-muted-foreground">{detail}</span>
 		</div>
 	</div>
 {/snippet}

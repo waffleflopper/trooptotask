@@ -1,21 +1,29 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { AlertTriangle, Calendar, CheckCircle2, Info, Printer, Save, X } from '@lucide/svelte';
+	import { AlertTriangle, Calendar, CheckCircle2, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
-	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
 		buildDutyRosterPreviewReviewModel,
 		type DutyRosterPreviewReviewModel
 	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
+	import {
+		DA6Matrix,
+		DateRangeControls,
+		DutyRosterStatusBadge,
+		WarningSummary,
+		type DA6MatrixCell,
+		type DA6MatrixColumn,
+		type DA6MatrixFooterRow,
+		type DA6MatrixMetadataItem,
+		type DA6MatrixRow
+	} from '$features/duty-roster/components/shared';
 	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 	import type { DutyRosterGenerateWorkspaceModel } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
@@ -28,9 +36,7 @@
 	let startDateOverride = $state('');
 	let endDateOverride = $state('');
 
-	type Da6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
-	type Da6MatrixRow = OperationalMatrixRow & { meta: { cells: Da6MatrixCell[] } };
-	type Da6MatrixColumn = OperationalMatrixColumn & { meta: { date: string } };
+	type PreviewDa6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
 
 	const selectedTemplate = $derived(generate.selectedTemplate);
 	const actionForm = $derived(generate.actionForm);
@@ -69,20 +75,53 @@
 	const previewIsCommitReady = $derived(previewRequiresActionCount === 0 && previewWarningCount === 0);
 	const recentAcceptedRuns = $derived(acceptedRuns.slice(0, 3));
 
-	const previewMatrixColumns = $derived<Da6MatrixColumn[]>(
+	const previewMatrixColumns = $derived<DA6MatrixColumn[]>(
 		(previewReview?.matrix.columns ?? []).map((column) => ({
 			id: column.date,
-			label: dayMonthLabel(column.date),
-			meta: { date: column.date }
+			weekday: dateParts(column.date).weekday,
+			date: dayMonthLabel(column.date),
+			sequenceKind: da6SequenceKind(column.sequenceKind)
 		}))
 	);
-	const previewMatrixRows = $derived<Da6MatrixRow[]>(
+	const previewMatrixRows = $derived<DA6MatrixRow[]>(
 		(previewReview?.matrix.rows ?? []).map((row) => ({
 			id: row.personnelId,
-			label: row.soldierLabel,
-			meta: { cells: row.cells }
+			label: row.soldierLabel
 		}))
 	);
+	const previewMatrixCells = $derived<Record<string, Record<string, DA6MatrixCell>>>(
+		Object.fromEntries(
+			(previewReview?.matrix.rows ?? []).map((row) => [
+				row.personnelId,
+				Object.fromEntries(row.cells.map((cell) => [cell.date, toSharedDa6Cell(row.soldierLabel, cell)]))
+			])
+		)
+	);
+	const previewMatrixFooterRows = $derived<DA6MatrixFooterRow[]>([
+		{
+			label: 'Assigned Count',
+			values: Object.fromEntries(
+				(previewReview?.matrix.columns ?? []).map((column) => [
+					column.date,
+					previewReview?.rows.filter((row) => row.date === column.date && row.finalAssignee).length ?? 0
+				])
+			)
+		},
+		{
+			label: 'Required Count',
+			values: Object.fromEntries(
+				(previewReview?.matrix.columns ?? []).map((column) => [column.date, column.chargeableCount])
+			)
+		}
+	]);
+	const previewMatrixMetadata = $derived<DA6MatrixMetadataItem[]>([
+		{ label: 'Duty Position', value: selectedTemplate.name },
+		{ label: 'Date Range', value: `${dayMonthLabel(generateStartDate)} to ${dayMonthLabel(generateEndDate)}` },
+		{ label: 'Pool Size', value: String(countReadModel?.rows.length ?? 0) },
+		{ label: 'Generated On', value: preview?.generatedAt ? dateParts(preview.generatedAt.slice(0, 10)).label : '-' },
+		{ label: 'Roster Type', value: 'Daily' },
+		{ label: 'Template', value: `${selectedTemplate.name} (${selectedTemplate.status})` }
+	]);
 
 	function handleGenerateEnhance() {
 		generatingPreview = true;
@@ -135,17 +174,44 @@
 		return `${dayPart}-${monthPart}`;
 	}
 
-	function previewMatrixCell(row: Da6MatrixRow, column: Da6MatrixColumn): Da6MatrixCell | undefined {
-		return row.meta.cells.find((cell) => cell.date === column.meta.date);
+	function toSharedDa6Cell(soldierLabel: string, cell: PreviewDa6MatrixCell): DA6MatrixCell {
+		const kind =
+			cell.tone === 'assigned'
+				? 'assigned'
+				: cell.tone === 'warning'
+					? 'manual-override'
+					: cell.tone === 'danger'
+						? 'blocked'
+						: cell.display === 'A' || cell.display === 'EX'
+							? 'exempt'
+							: 'not-assigned';
+
+		return {
+			display: cell.display ?? '-',
+			kind,
+			ariaLabel: `${soldierLabel} ${formatDutyDateLabel(cell.date)}: ${cell.display ?? 'not assigned'}`,
+			chargeable: cell.chargeable,
+			count: cell.sequenceNumber,
+			reason: cell.reason
+		};
+	}
+
+	function da6SequenceKind(
+		sequenceKind: 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday'
+	): DA6MatrixColumn['sequenceKind'] {
+		return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
+	}
+
+	function formatDutyDateLabel(date: string): string {
+		const parts = dateParts(date);
+		return `${parts.weekday} ${parts.label}`;
 	}
 </script>
 
 <h2 id="template-view-heading" class="sr-only">Generate Duty Roster preview</h2>
 
 {#if actionForm?.generateError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-		{actionForm.generateError}
-	</p>
+	<WarningSummary tone="destructive" title="Preview generation failed" description={actionForm.generateError} />
 {/if}
 
 <div class="grid gap-5" class:gap-4={Boolean(preview)}>
@@ -170,34 +236,15 @@
 						use:enhance={handleGenerateEnhance}
 					>
 						<input type="hidden" name="templateId" value={selectedTemplate.id} />
-						<div class="grid gap-4 sm:grid-cols-2">
-							<label
-								class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-							>
-								<span>Start date</span>
-								<input type="hidden" name="startDate" value={startDateValue} />
-								<DatePicker
-									id="generate-start-date"
-									value={startDateValue}
-									placeholder="Select start date"
-									aria-label="Start date"
-									onValueChange={(value) => (startDateOverride = value)}
-								/>
-							</label>
-							<label
-								class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-							>
-								<span>End date</span>
-								<input type="hidden" name="endDate" value={endDateValue} />
-								<DatePicker
-									id="generate-end-date"
-									value={endDateValue}
-									placeholder="Select end date"
-									aria-label="End date"
-									onValueChange={(value) => (endDateOverride = value)}
-								/>
-							</label>
-						</div>
+						<input type="hidden" name="startDate" value={startDateValue} />
+						<input type="hidden" name="endDate" value={endDateValue} />
+						<DateRangeControls
+							startDate={startDateValue}
+							endDate={endDateValue}
+							rangeLabel={`${dateParts(startDateValue).label} to ${dateParts(endDateValue).label}`}
+							onStartDateChange={(value) => (startDateOverride = value)}
+							onEndDateChange={(value) => (endDateOverride = value)}
+						/>
 						<p class="text-sm text-muted-foreground">
 							Start date must be today or later, and the end date must be on or after the start date.
 						</p>
@@ -342,12 +389,13 @@
 						>
 							Recent History
 						</h3>
-						<a
+						<Button
+							variant="outline"
+							size="sm"
 							href={resolve(historyPath as `/org/${string}/duty-rosters/${string}/${string}`)}
-							class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-primary hover:underline"
 						>
 							View All
-						</a>
+						</Button>
 					</div>
 					{#if recentAcceptedRuns.length > 0}
 						<div class="mt-3 grid gap-1">
@@ -356,12 +404,10 @@
 									href={resolve(
 										`${historyPath}/${run.id}` as `/org/${string}/duty-rosters/${string}/history/${string}`
 									)}
-									class="flex items-center justify-between gap-3 rounded px-3 py-2 text-sm text-foreground no-underline hover:bg-muted/40"
+									class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm text-foreground no-underline hover:border-border hover:bg-muted/40"
 								>
-									<span>{dayMonthLabel(run.startDate)} to {dayMonthLabel(run.endDate)}</span>
-									<strong class="font-mono text-xs uppercase"
-										>{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</strong
-									>
+									<span class="min-w-0 truncate">{dayMonthLabel(run.startDate)} to {dayMonthLabel(run.endDate)}</span>
+									<Badge variant="secondary">{run.status === 'invalidated' ? 'Invalidated' : 'Accepted'}</Badge>
 									<small class="text-muted-foreground">{dateParts(run.acceptedAt.slice(0, 10)).label}</small>
 								</a>
 							{/each}
@@ -407,15 +453,15 @@
 							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
 							<Button variant="outline" size="sm" type="submit">
 								<CheckCircle2 size={16} aria-hidden="true" />
-								Accept
+								Accept Run
 							</Button>
 							<Button variant="outline" size="sm" type="submit" name="intent" value="print">
 								<Printer size={16} aria-hidden="true" />
-								Accept + Print
+								Accept Run + Print
 							</Button>
 							<Button size="sm" type="submit" formaction={applyPreviewAction}>
 								<Calendar size={16} aria-hidden="true" />
-								Accept + Apply
+								Accept + Apply to Calendar
 							</Button>
 						</form>
 					</div>
@@ -430,7 +476,8 @@
 					</Tabs.List>
 				</Tabs.Root>
 				<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
-					<Info size={15} aria-hidden="true" /> Accept writes official DA6 history. Accept + Apply also creates Calendar events.
+					<Info size={15} aria-hidden="true" /> Accept Run writes official DA6 history. Accept + Apply to Calendar also creates
+					Calendar events.
 				</p>
 			</div>
 
@@ -593,13 +640,14 @@
 									</span>
 									<div class="flex items-center px-3 py-2" role="cell">
 										<Button
-											variant="link"
+											variant={row.liveWarnings.length > 0 || !row.finalAssignee ? 'default' : 'secondary'}
 											size="sm"
 											type="button"
 											aria-label={`${row.liveWarnings.length > 0 ? 'Review warning and change assignment' : 'Change assignment'} for ${parts.weekday} ${parts.label}`}
 											onclick={() => openManualChange(row)}
 										>
-											{row.liveWarnings.length > 0 ? 'Review' : 'Change'}
+											<Pencil size={14} aria-hidden="true" />
+											Edit
 										</Button>
 									</div>
 								</div>
@@ -761,67 +809,19 @@
 
 			{#if previewMode === 'matrix'}
 				<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
-					<section aria-labelledby="preview-matrix-heading">
-						<h4 id="preview-matrix-heading" class="sr-only">DA6 matrix</h4>
-						<OperationalMatrix.Root rows={previewMatrixRows} columns={previewMatrixColumns} readOnly>
-							<OperationalMatrix.Viewport
-								ariaLabel="DA6 preview matrix viewport"
-								class="rounded-lg border border-border bg-card"
-							>
-								<OperationalMatrix.Table
-									ariaLabel="DA6 preview matrix"
-									class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
-								>
-									<OperationalMatrix.Header>
-										<OperationalMatrix.HeaderRow>
-											<OperationalMatrix.CornerCell
-												sticky
-												class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
-											>
-												Rank / Name
-											</OperationalMatrix.CornerCell>
-											{#each previewMatrixColumns as column (column.id)}
-												<OperationalMatrix.ColumnHeader
-													{column}
-													orientation="vertical"
-													sticky
-													class="sticky top-0 z-20 bg-muted"
-												/>
-											{/each}
-										</OperationalMatrix.HeaderRow>
-									</OperationalMatrix.Header>
-									<OperationalMatrix.Body>
-										{#each previewMatrixRows as row (row.id)}
-											<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
-												<OperationalMatrix.RowHeader
-													{row}
-													sticky
-													class="sticky left-0 z-10 min-w-40 border border-border bg-card px-3 py-2 text-left font-medium"
-												>
-													{row.label}
-												</OperationalMatrix.RowHeader>
-												{#each previewMatrixColumns as column (column.id)}
-													{@const cell = previewMatrixCell(row, column)}
-													<OperationalMatrix.Cell
-														{row}
-														{column}
-														readOnly
-														class={[
-															cell?.tone === 'assigned' && 'bg-success-muted text-success-foreground',
-															cell?.tone === 'warning' && 'bg-warning-muted text-warning-foreground',
-															cell?.tone === 'danger' && 'bg-danger-muted text-danger-foreground'
-														]}
-													>
-														<span class="font-mono text-xs font-semibold">{cell?.display ?? '-'}</span>
-													</OperationalMatrix.Cell>
-												{/each}
-											</OperationalMatrix.Row>
-										{/each}
-									</OperationalMatrix.Body>
-								</OperationalMatrix.Table>
-							</OperationalMatrix.Viewport>
-						</OperationalMatrix.Root>
-					</section>
+					<DA6Matrix
+						title="DA6 preview matrix"
+						description="Draft DA Form 6 view for this generated roster preview."
+						mode="draft"
+						rows={previewMatrixRows}
+						columns={previewMatrixColumns}
+						cells={previewMatrixCells}
+						footerRows={previewMatrixFooterRows}
+						metadata={previewMatrixMetadata}
+						warning={previewWarningCount > 0
+							? `${previewWarningCount} preview warning needs review before acceptance.`
+							: undefined}
+					/>
 					<aside
 						class="grid content-start gap-5 rounded-md border border-border bg-muted/15 p-4"
 						aria-label="DA6 preview details"
@@ -899,6 +899,7 @@
 								<AlertTriangle size={16} aria-hidden="true" />
 								{previewWarningCount}
 							</p>
+							<DutyRosterStatusBadge status={previewWarningCount > 0 ? 'review' : 'ok'} />
 						</section>
 						<section class="border-t border-border pt-4">
 							<Button variant="ghost" size="sm" type="button" onclick={() => printDraftPreview(preview)}>

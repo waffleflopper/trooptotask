@@ -93,15 +93,18 @@ describe('dutyRosterPreviewReview', () => {
 		});
 
 		expect(model.rows[1]?.liveWarnings).toEqual(['Selected Soldier is outside this template pool.']);
-		expect(model.matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toEqual({
+		expect(model.matrix.rows.find((row) => row.personnelId === 'person-3')?.cells[0]).toMatchObject({
 			date: '2026-06-01',
 			assigned: false,
 			tone: 'danger',
-			display: 'D'
+			display: 'D',
+			chargeable: true,
+			sequenceNumber: 2,
+			reason: 'Other duty: Staff Duty'
 		});
 	});
 
-	it('shapes DA6 matrix cells without leaking raw cell rules to the view', () => {
+	it('shapes DA6 matrix cells with rendered DA6 labels and count context', () => {
 		const model = buildDutyRosterPreviewReviewModel({ preview: previewSnapshot() });
 
 		expect(model.matrix.columns).toEqual([
@@ -113,8 +116,24 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, tone: 'assigned', display: 'X' },
-					{ date: '2026-06-02', assigned: false, tone: 'warning', display: 'A' }
+					{
+						date: '2026-06-01',
+						assigned: true,
+						tone: 'assigned',
+						display: 'X',
+						chargeable: true,
+						sequenceNumber: 1,
+						reason: null
+					},
+					{
+						date: '2026-06-02',
+						assigned: false,
+						tone: 'warning',
+						display: 'A',
+						chargeable: false,
+						sequenceNumber: null,
+						reason: 'Authorized absence: Leave'
+					}
 				]
 			}
 		]);
@@ -189,7 +208,7 @@ describe('dutyRosterPreviewReview', () => {
 		});
 	});
 
-	it('shapes accepted DA6 matrix cells for history without leaking raw cell rules to the view', () => {
+	it('shapes accepted DA6 matrix cells for history with rendered DA6 labels and count context', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
 			run: acceptedRun(),
 			isLatestRun: false
@@ -200,8 +219,24 @@ describe('dutyRosterPreviewReview', () => {
 				personnelId: 'person-1',
 				soldierLabel: 'SGT Able',
 				cells: [
-					{ date: '2026-06-01', assigned: true, tone: 'assigned', display: 'X' },
-					{ date: '2026-06-02', assigned: false, tone: 'warning', display: 'A' }
+					{
+						date: '2026-06-01',
+						assigned: true,
+						tone: 'assigned',
+						display: 'X',
+						chargeable: true,
+						sequenceNumber: 1,
+						reason: null
+					},
+					{
+						date: '2026-06-02',
+						assigned: false,
+						tone: 'warning',
+						display: 'A',
+						chargeable: false,
+						sequenceNumber: null,
+						reason: 'Authorized absence: Leave'
+					}
 				]
 			}
 		]);

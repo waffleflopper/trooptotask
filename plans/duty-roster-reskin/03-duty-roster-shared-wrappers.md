@@ -162,3 +162,28 @@ Required content:
 ## Stop Conditions
 
 Stop if the wrapper needs to change the visual nature of an existing shared component at its usage site. Move that need back into the shared component/showroom layer or ask for explicit approval.
+
+## Implementation Progress
+
+Status: implemented for showroom migration.
+
+Added feature-owned wrappers under `src/features/duty-roster/components/shared/`:
+
+- `DutyRosterStatusBadge`: owns the full duty-roster status to badge variant/accessibility mapping.
+- `DA6Matrix`: wraps `ui/operational-matrix` with DA6 rows, date columns, cell meanings, footer counts, metadata, legend, draft/official mode, and accessible cell semantics.
+- `ManualChangePanel`: sheet-ready draft preview manual change panel with selected date, current/original selections, risk explanation, replacement Soldier combobox, reason capture, warnings, and footer actions.
+- `CorrectionSheet`: sheet-ready accepted-run correction panel with original assignment facts, actual-served Soldier, reason select, details, prior corrections, outside-pool warning, Calendar/count impact, and footer actions.
+- `AuditTimeline`: compact event timeline for duty-roster correction/run history rails. Kept feature-owned for now because its first use is duty-roster history context.
+- `WarningSummary`: duty-roster review/info/warning/error block over `ui/alert`.
+- `DateRangeControls`: generate-flow date range wrapper over `ui/date-picker`, `ui/field`, and `PageShell.FactRow`.
+
+Showroom updates:
+
+- `/ui-showroom/duty-roster` now consumes the wrappers for status badges, generate date controls, warning blocks, DA6 matrix, manual change sheet, correction sheet, and audit trail examples.
+- The DA6 matrix example remains production-shaped while keeping DA6-specific meanings out of `ui/operational-matrix`.
+- No production duty-roster route was migrated.
+
+Tests:
+
+- Added `src/features/duty-roster/components/shared/DutyRosterSharedWrappers.test.ts`.
+- Coverage includes status mapping, DA6 matrix rendering/accessibility contract, warning summary, audit timeline, and required panel states.

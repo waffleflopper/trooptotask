@@ -133,6 +133,19 @@ Rules:
 
 ---
 
+## Feature-Owned Duty Roster Wrappers
+
+Duty-roster-specific wrappers live under `src/features/duty-roster/components/shared/` because they encode DA6 and accepted-run language. They are not global `ui/*` primitives.
+
+- `DutyRosterStatusBadge` maps duty-roster states to locked badge variants and accessible labels.
+- `DA6Matrix` wraps `ui/operational-matrix` with DA6-specific rows, date headers, cell meanings, footer counts, legend, and accessible labels.
+- `ManualChangePanel` and `CorrectionSheet` provide sheet-ready workflow panels for draft manual changes and accepted-run corrections.
+- `AuditTimeline`, `WarningSummary`, and `DateRangeControls` support the duty-roster route composition while staying aligned with shared shadcn-svelte primitives.
+
+If `AuditTimeline`, `WarningSummary`, or `DateRangeControls` are needed outside duty roster, promote them deliberately into `src/lib/components/ui/**` with showroom coverage before production routes consume them globally.
+
+---
+
 ## `ui/date-picker`
 
 Shared shadcn-svelte date picker composed from `button`, `popover`, and `calendar`. Use this instead of route-local `input type="date"` controls when a production form needs the showroom date picker appearance.

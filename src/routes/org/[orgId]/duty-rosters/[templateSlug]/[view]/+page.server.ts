@@ -6,6 +6,7 @@ import {
 	acceptAndApplyDutyRosterTemplatePreview,
 	applyAcceptedDutyRosterTemplateRun,
 	applyDutyRosterTemplatePreviewManualSelection,
+	archiveDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
 	generateDutyRosterTemplatePreview,
 	invalidateLatestDutyRosterTemplateRun,
@@ -290,5 +291,22 @@ export const actions: Actions = {
 		}
 
 		throw redirect(303, `/org/${event.params.orgId}/duty-rosters/${slug}/settings`);
+	},
+	archiveTemplate: async (event) => {
+		const formData = await event.request.formData();
+
+		try {
+			const ctx = await buildRouteContext(event);
+			await archiveDutyRosterTemplate(ctx, {
+				templateId: String(formData.get('templateId') ?? '')
+			});
+		} catch (errorValue) {
+			return actionError(errorValue, {
+				key: 'settingsError',
+				fallback: 'Failed to archive Duty Roster Template.'
+			});
+		}
+
+		throw redirect(303, `/org/${event.params.orgId}/duty-rosters`);
 	}
 };

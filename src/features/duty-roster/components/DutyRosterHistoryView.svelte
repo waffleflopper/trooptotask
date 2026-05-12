@@ -15,14 +15,23 @@
 		X
 	} from '@lucide/svelte';
 	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
-	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
-	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
 	import * as Select from '$lib/components/ui/select';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import {
+		DA6Matrix,
+		DutyRosterStatusBadge,
+		WarningSummary,
+		type DA6MatrixCell,
+		type DA6MatrixColumn,
+		type DA6MatrixFooterRow,
+		type DA6MatrixMetadataItem,
+		type DA6MatrixRow,
+		type DutyRosterStatus
+	} from '$features/duty-roster/components/shared';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import type {
 		DutyRosterTemplate,
@@ -79,8 +88,6 @@
 	];
 
 	type AcceptedDa6MatrixCell = NonNullable<DutyRosterAcceptedRunReviewModel['matrix']['rows'][number]['cells'][number]>;
-	type AcceptedDa6MatrixRow = OperationalMatrixRow & { meta: { cells: AcceptedDa6MatrixCell[] } };
-	type AcceptedDa6MatrixColumn = OperationalMatrixColumn & { meta: { date: string } };
 
 	function historyDetailHref(run: DutyRosterTemplateAcceptedRun, mode: 'roster' | 'da6'): string {
 		const detailPath = `${basePath}/${selectedTemplate.slug}/history/${run.id}`;
@@ -184,11 +191,11 @@
 		return 'Official';
 	}
 
-	function runStatusVariant(run: DutyRosterTemplateAcceptedRun): BadgeVariant {
-		if (run.status === 'invalidated') return 'danger';
-		if (run.appliedAt && !run.calendarAssignmentsEdited) return 'success';
-		if (run.appliedAt && run.calendarAssignmentsEdited) return 'warning';
-		return 'secondary';
+	function runStatusBadge(run: DutyRosterTemplateAcceptedRun): DutyRosterStatus {
+		if (run.status === 'invalidated') return 'invalidated';
+		if (run.appliedAt && run.calendarAssignmentsEdited) return 'needs-sync';
+		if (run.appliedAt) return 'applied';
+		return 'official';
 	}
 
 	function acceptedByLabel(run: DutyRosterTemplateAcceptedRun): string {
@@ -246,44 +253,99 @@
 	const selectedCorrectionRow = $derived(
 		detailReview?.rows.find((row) => correctionKey(row.run.id, row.date) === selectedCorrectionKey) ?? null
 	);
-	const acceptedMatrixColumns = $derived<AcceptedDa6MatrixColumn[]>(
+	const acceptedMatrixColumns = $derived<DA6MatrixColumn[]>(
 		(detailReview?.matrix.columns ?? []).map((column) => ({
 			id: column.date,
-			label: formatDutyDate(column.date),
-			meta: { date: column.date }
+			weekday: formatDutyDate(column.date).split(' ')[0] ?? '',
+			date: formatDutyDate(column.date).split(' ').slice(1).join('-'),
+			sequenceKind: da6SequenceKind(column.sequenceKind)
 		}))
 	);
-	const acceptedMatrixRows = $derived<AcceptedDa6MatrixRow[]>(
+	const acceptedMatrixRows = $derived<DA6MatrixRow[]>(
 		(detailReview?.matrix.rows ?? []).map((row) => ({
 			id: row.personnelId,
-			label: row.soldierLabel,
-			meta: { cells: row.cells }
+			label: row.soldierLabel
 		}))
 	);
+	const acceptedMatrixCells = $derived<Record<string, Record<string, DA6MatrixCell>>>(
+		Object.fromEntries(
+			(detailReview?.matrix.rows ?? []).map((row) => [
+				row.personnelId,
+				Object.fromEntries(row.cells.map((cell) => [cell.date, toSharedAcceptedDa6Cell(row.soldierLabel, cell)]))
+			])
+		)
+	);
+	const acceptedMatrixFooterRows = $derived<DA6MatrixFooterRow[]>([
+		{
+			label: 'Assigned Count',
+			values: Object.fromEntries(
+				(detailReview?.matrix.columns ?? []).map((column) => [
+					column.date,
+					detailReview?.rows.filter((row) => row.date === column.date && row.finalRow.finalDisplay).length ?? 0
+				])
+			)
+		},
+		{
+			label: 'Required Count',
+			values: Object.fromEntries(
+				(detailReview?.matrix.columns ?? []).map((column) => [column.date, column.chargeableCount])
+			)
+		}
+	]);
+	const acceptedMatrixMetadata = $derived<DA6MatrixMetadataItem[]>(
+		historyDetailRun
+			? [
+					{ label: 'Run', value: historyDetailRun.templateName },
+					{
+						label: 'Date Range',
+						value: `${formatDate(historyDetailRun.startDate)} to ${formatDate(historyDetailRun.endDate)}`
+					},
+					{ label: 'Accepted', value: formatDateTime(historyDetailRun.acceptedAt) },
+					{ label: 'Accepted By', value: acceptedByLabel(historyDetailRun) },
+					{ label: 'State', value: runStatusLabel(historyDetailRun) },
+					{ label: 'Calendar', value: calendarStateLabel(historyDetailRun) }
+				]
+			: []
+	);
 
-	function acceptedMatrixCell(
-		row: AcceptedDa6MatrixRow,
-		column: AcceptedDa6MatrixColumn
-	): AcceptedDa6MatrixCell | undefined {
-		return row.meta.cells.find((cell) => cell.date === column.meta.date);
+	function toSharedAcceptedDa6Cell(soldierLabel: string, cell: AcceptedDa6MatrixCell): DA6MatrixCell {
+		const kind =
+			cell.tone === 'assigned'
+				? 'assigned'
+				: cell.tone === 'warning'
+					? 'manual-override'
+					: cell.tone === 'danger'
+						? 'blocked'
+						: cell.display === 'A' || cell.display === 'EX'
+							? 'exempt'
+							: 'not-assigned';
+
+		return {
+			display: cell.display ?? '-',
+			kind,
+			ariaLabel: `${soldierLabel} ${formatDutyDate(cell.date)}: ${cell.display ?? 'not assigned'}`,
+			chargeable: cell.chargeable,
+			count: cell.sequenceNumber,
+			reason: cell.reason
+		};
+	}
+
+	function da6SequenceKind(
+		sequenceKind: 'weekday' | 'weekend' | 'holiday' | 'weekend-holiday'
+	): DA6MatrixColumn['sequenceKind'] {
+		return sequenceKind === 'weekday' ? 'weekday' : 'weekend-holiday';
 	}
 </script>
 
 <h2 id="template-view-heading" class="sr-only">Accepted runs</h2>
 {#if actionForm?.applyError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-		{actionForm.applyError}
-	</p>
+	<WarningSummary tone="destructive" title="Calendar apply failed" description={actionForm.applyError} />
 {/if}
 {#if actionForm?.invalidateError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-		{actionForm.invalidateError}
-	</p>
+	<WarningSummary tone="destructive" title="Run invalidation failed" description={actionForm.invalidateError} />
 {/if}
 {#if actionForm?.correctionError}
-	<p class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-		{actionForm.correctionError}
-	</p>
+	<WarningSummary tone="destructive" title="Correction failed" description={actionForm.correctionError} />
 {/if}
 {#if acceptedRuns.length === 0}
 	<div class="grid place-items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
@@ -300,7 +362,7 @@
 				<header class="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
 					<Button variant="outline" size="sm" href={historyListHref()}>Back to history</Button>
 					<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-label="Run status">
-						<Badge variant={runStatusVariant(historyDetailRun)}>{runStatusLabel(historyDetailRun)}</Badge>
+						<DutyRosterStatusBadge status={runStatusBadge(historyDetailRun)} />
 						{#if historyDetailRun.appliedAt}
 							<span class="inline-flex items-center gap-1"><Calendar size={14} aria-hidden="true" /> Applied</span>
 						{/if}
@@ -360,10 +422,11 @@
 				</header>
 
 				{#if historyDetailRun.calendarAssignmentsEdited && !detailReview.isInvalidated}
-					<p class="rounded-md border border-warning/50 bg-warning-muted px-4 py-3 text-xs text-warning-foreground">
-						Calendar assignments linked to this run changed after apply. Re-applying may overwrite linked Calendar
-						assignments, and invalidation will remove the run footprint after confirmation.
-					</p>
+					<WarningSummary
+						tone="warning"
+						title="Calendar assignments linked to this run changed after apply"
+						description="Re-applying may overwrite linked Calendar assignments, and invalidation will remove the run footprint after confirmation."
+					/>
 				{/if}
 
 				{#if historyMode === 'list'}
@@ -433,7 +496,7 @@
 													onclick={() => openCorrection(tableRow.run.id, tableRow.date)}
 												>
 													<Eye size={14} aria-hidden="true" />
-													Change
+													Change Assignment
 												</Button>
 											{:else if tableRow.correctionLockedText}
 												<span class="text-xs text-muted-foreground">{tableRow.correctionLockedText}</span>
@@ -450,61 +513,16 @@
 						Showing 1-{detailReview.rows.length} of {detailReview.rows.length} entries
 					</p>
 				{:else}
-					<OperationalMatrix.Root rows={acceptedMatrixRows} columns={acceptedMatrixColumns} readOnly>
-						<OperationalMatrix.Viewport ariaLabel="Accepted DA6 matrix viewport" class="rounded-lg border bg-card">
-							<OperationalMatrix.Table
-								ariaLabel="Accepted DA6 matrix"
-								class="min-w-max table-fixed text-sm [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:w-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-slot=operational-matrix-cell-content]]:grid [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:place-items-center"
-							>
-								<OperationalMatrix.Header>
-									<OperationalMatrix.HeaderRow>
-										<OperationalMatrix.CornerCell
-											sticky
-											class="sticky left-0 top-0 z-30 min-w-40 bg-muted px-3 text-left"
-										>
-											Soldier
-										</OperationalMatrix.CornerCell>
-										{#each acceptedMatrixColumns as column (column.id)}
-											<OperationalMatrix.ColumnHeader
-												{column}
-												orientation="vertical"
-												sticky
-												class="sticky top-0 z-20 bg-muted"
-											/>
-										{/each}
-									</OperationalMatrix.HeaderRow>
-								</OperationalMatrix.Header>
-								<OperationalMatrix.Body>
-									{#each acceptedMatrixRows as row (row.id)}
-										<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
-											<OperationalMatrix.RowHeader
-												{row}
-												sticky
-												class="sticky left-0 z-10 min-w-40 border bg-card px-3 py-2 text-left font-medium"
-											>
-												{row.label}
-											</OperationalMatrix.RowHeader>
-											{#each acceptedMatrixColumns as column (column.id)}
-												{@const cell = acceptedMatrixCell(row, column)}
-												<OperationalMatrix.Cell
-													{row}
-													{column}
-													readOnly
-													class={[
-														cell?.tone === 'assigned' && 'bg-success-muted text-success-foreground',
-														cell?.tone === 'warning' && 'bg-warning-muted text-warning-foreground',
-														cell?.tone === 'danger' && 'bg-danger-muted text-danger-foreground'
-													]}
-												>
-													<span class="font-mono text-xs font-semibold">{cell?.display ?? '-'}</span>
-												</OperationalMatrix.Cell>
-											{/each}
-										</OperationalMatrix.Row>
-									{/each}
-								</OperationalMatrix.Body>
-							</OperationalMatrix.Table>
-						</OperationalMatrix.Viewport>
-					</OperationalMatrix.Root>
+					<DA6Matrix
+						title="Accepted DA6 matrix"
+						description="Immutable DA Form 6 matrix from accepted history."
+						mode="official"
+						rows={acceptedMatrixRows}
+						columns={acceptedMatrixColumns}
+						cells={acceptedMatrixCells}
+						footerRows={acceptedMatrixFooterRows}
+						metadata={acceptedMatrixMetadata}
+					/>
 				{/if}
 			</div>
 
@@ -654,6 +672,7 @@
 									Run {historyDetailRun.startDate} to {historyDetailRun.endDate} will be marked invalidated. Linked Calendar
 									assignments will be removed.
 								</p>
+								<p class="text-xs text-muted-foreground">This action is only available for the latest accepted run.</p>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
 								<Button variant="destructive" type="submit">Confirm invalidation</Button>
 								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}
@@ -662,7 +681,7 @@
 							</form>
 						{/if}
 						{#if !detailReview.canInvalidate && detailReview.isInvalidated}
-							<p class="text-xs text-muted-foreground">This run is invalidated and available for view only.</p>
+							<p class="text-xs text-muted-foreground">Non-counting because this run is invalidated.</p>
 						{:else if !detailReview.canInvalidate}
 							<p class="text-xs text-muted-foreground">Only the latest accepted run can be invalidated.</p>
 						{/if}
@@ -759,7 +778,7 @@
 									>
 								</td>
 								<td class="px-4 py-2.5 text-center text-sm font-medium text-foreground">{run.corrections.length}</td>
-								<td class="px-4 py-2.5"><Badge variant={runStatusVariant(run)}>{runStatusLabel(run)}</Badge></td>
+								<td class="px-4 py-2.5"><DutyRosterStatusBadge status={runStatusBadge(run)} /></td>
 								<td class="px-4 py-2.5">
 									<div class="flex items-center gap-1">
 										<Button
@@ -797,14 +816,14 @@
 				</p>
 				<div class="flex items-center gap-2">
 					{#if historyPage?.previousPage}
-						<Button variant="outline" size="sm" href={historyPageHref(historyPage.previousPage)}>Newer</Button>
+						<Button variant="outline" size="sm" href={historyPageHref(historyPage.previousPage)}>Newer runs</Button>
 					{:else}
-						<Button variant="outline" size="sm" disabled>Newer</Button>
+						<Button variant="outline" size="sm" disabled>Newer runs</Button>
 					{/if}
 					{#if historyPage?.hasMore && historyPage.nextPage}
-						<Button variant="outline" size="sm" href={historyPageHref(historyPage.nextPage)}>Older</Button>
+						<Button variant="outline" size="sm" href={historyPageHref(historyPage.nextPage)}>Older runs</Button>
 					{:else}
-						<Button variant="outline" size="sm" disabled>Older</Button>
+						<Button variant="outline" size="sm" disabled>Older runs</Button>
 					{/if}
 				</div>
 			</div>

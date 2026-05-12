@@ -8,6 +8,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
+	import { WarningSummary } from '$features/duty-roster/components/shared';
 	import { slugifyDutyRosterTemplateName } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import {
 		groupOptionItems,
@@ -176,15 +177,10 @@
 	<h2 id="new-template-heading" class="sr-only">New Duty Roster Template</h2>
 
 	{#if actionForm?.settingsError}
-		<p
-			class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-			role="alert"
-		>
-			{actionForm.settingsError}
-		</p>
+		<WarningSummary tone="destructive" title={actionForm.settingsError} />
 	{/if}
 
-	<form class="grid gap-6" method="POST" action={createWizardAction}>
+	<form class="new-template-form grid gap-6" method="POST" action={createWizardAction}>
 		<Stepper.Root steps={stepperSteps} value={newTemplateStep} onValueChange={handleStepChange}>
 			<Stepper.List aria-label="New Template steps" class="border-b border-border pb-4">
 				{#each stepperSteps as step (step.value)}
@@ -203,12 +199,13 @@
 							<div class="grid gap-5 sm:grid-cols-2">
 								<div class="grid gap-2">
 									<Label for="template-name" class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">
-										Template name <span class="text-destructive">*</span>
+										Template name <span class="text-destructive" aria-hidden="true">*</span>
 									</Label>
 									<p class="text-sm text-muted-foreground">Display name for this duty roster template.</p>
 									<Input
 										id="template-name"
 										name="name"
+										aria-label="Template name"
 										maxlength={120}
 										required
 										bind:value={newTemplateName}
@@ -220,12 +217,13 @@
 								</div>
 								<div class="grid gap-2">
 									<Label for="template-slug" class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">
-										Route slug <span class="text-destructive">*</span>
+										Route slug <span class="text-destructive" aria-hidden="true">*</span>
 									</Label>
 									<p class="text-sm text-muted-foreground">URL-friendly identifier used in links and routes.</p>
 									<Input
 										id="template-slug"
 										name="slug"
+										aria-label="Route slug"
 										maxlength={72}
 										required
 										bind:value={newTemplateSlug}
@@ -240,6 +238,7 @@
 									<Input
 										id="template-short-code"
 										name="shortCode"
+										aria-label="Short code"
 										maxlength={12}
 										class="max-w-32"
 										bind:value={newTemplateShortCode}
@@ -556,7 +555,8 @@
 								{/each}
 							</div>
 							<p class="text-xs text-muted-foreground" aria-live="polite">
-								Showing {visibleWizardExemptionRows.length} of {filteredWizardExemptionRows.length} matching Soldiers.
+								Showing {visibleWizardExemptionRows.length} of {filteredWizardExemptionRows.length} matching Soldiers. Search
+								to narrow large pools.
 							</p>
 						{/if}
 						<section class="grid grid-cols-3 gap-3 border-t border-border pt-4">

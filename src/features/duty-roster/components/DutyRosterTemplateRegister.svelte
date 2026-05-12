@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { History, Play, Settings, UsersRound } from '@lucide/svelte';
+	import { Archive, History, Play, UsersRound } from '@lucide/svelte';
 	import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplateSetupOptions } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
-	import { Badge } from '$lib/components/ui/badge';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { DutyRosterStatusBadge } from '$features/duty-roster/components/shared';
 
 	let {
 		basePath,
@@ -17,6 +19,8 @@
 	} = $props();
 
 	let selectedTemplateId = $state<string | null>(null);
+	let archiveTemplate = $state<DutyRosterTemplate | null>(null);
+	let archiveFormRef = $state<HTMLFormElement | null>(null);
 
 	const templateRows = $derived(
 		templates.map((template) => {
@@ -82,92 +86,132 @@
 
 		return activeFilters.length ? activeFilters.join(', ') : 'All active personnel';
 	}
+
+	function requestArchive(template: DutyRosterTemplate): void {
+		archiveTemplate = template;
+	}
+
+	function submitArchiveTemplate(): void {
+		archiveFormRef?.requestSubmit();
+	}
 </script>
 
-<section class="grid min-h-inherit flex-1 grid-rows-[auto_1fr] gap-0" aria-labelledby="template-register-heading">
-	<div class="flex h-14 max-h-14 items-center justify-end gap-4 px-4" style="align-self: start;">
-		<h2 id="template-register-heading" class="sr-only">Duty Roster Templates</h2>
-		<Button href={`${basePath}/new`}>New Template</Button>
-	</div>
+<section class="grid gap-6" aria-labelledby="template-register-heading">
+	<PageShell.Header
+		title="Duty Rosters"
+		subtitle="Create and manage duty roster templates used to generate DA Form 6 style rosters."
+	>
+		{#snippet actions()}
+			<Button href={`${basePath}/new`}>New Template</Button>
+		{/snippet}
+	</PageShell.Header>
 
 	{#if templates.length === 0}
-		<div class="grid place-items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
+		<div
+			class="grid place-items-center gap-2 rounded-lg border bg-card px-5 py-12 text-center text-sm text-muted-foreground"
+		>
 			<p class="font-medium text-foreground">No templates yet</p>
 			<p>Create a one-duty template for CQ, Staff Duty, or another DA Form 6 roster.</p>
 		</div>
 	{:else}
-		<div class="grid min-h-0 border-t border-border bg-card lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
-			<div class="min-w-0 overflow-x-auto">
-				<table class="w-full text-sm" role="table" aria-label="Duty Roster Template register">
-					<thead>
-						<tr class="border-b border-border bg-muted/50">
-							<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Template</th>
-							<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Pool</th>
-							<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Updated</th>
-							<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each templateRows as row (row.template.id)}
-							<tr
-								class={[
-									'border-b border-border transition-colors',
-									selectedRow?.template.id === row.template.id && 'bg-muted/50'
-								]}
-							>
-								<td class="px-4 py-2.5">
-									<button
-										class="flex cursor-pointer flex-col items-start gap-0.5 bg-transparent text-left"
-										type="button"
-										aria-pressed={selectedRow?.template.id === row.template.id}
-										onclick={() => (selectedTemplateId = row.template.id)}
-									>
-										<span class="text-sm font-semibold text-foreground">{row.template.name}</span>
-										<span class="text-xs text-muted-foreground">{row.template.shortCode ?? row.template.slug}</span>
-									</button>
-								</td>
-								<td class="px-4 py-2.5" role="cell">
-									<span class="text-sm text-foreground"
-										>{row.poolCount === null ? 'Not loaded' : `${row.poolCount} personnel`}</span
-									>
-									<span class="block text-xs text-muted-foreground">{describePool(row.template)}</span>
-								</td>
-								<td class="px-4 py-2.5 text-xs text-muted-foreground" role="cell">
-									{formatUpdatedAt(row.template.updatedAt)}
-								</td>
-								<td class="px-4 py-2.5" role="cell" aria-label={`${row.template.name} quick actions`}>
-									<div class="flex items-center gap-1">
-										<Button variant="outline" size="sm" href={`${basePath}/${row.template.slug}/generate`}>
-											<Play size={14} aria-hidden="true" />
-											Generate
-										</Button>
-										<Button variant="outline" size="sm" href={`${basePath}/${row.template.slug}/history`}>
-											<History size={14} aria-hidden="true" />
-											History
-										</Button>
-										<Button variant="outline" size="sm" href={`${basePath}/${row.template.slug}/settings`}>
-											<Settings size={14} aria-hidden="true" />
-											Settings
-										</Button>
-									</div>
-								</td>
+		<div class="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+			<div class="min-w-0 overflow-hidden rounded-lg border bg-card">
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm" aria-label="Duty Roster Template register">
+						<thead>
+							<tr class="border-b border-border bg-muted/50">
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Template</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Slug</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Pool Size</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Exemptions</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Last Updated</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Quick Actions</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
+						</thead>
+						<tbody>
+							{#each templateRows as row (row.template.id)}
+								<tr
+									class={[
+										'border-b border-border transition-colors',
+										selectedRow?.template.id === row.template.id && 'bg-muted/50'
+									]}
+								>
+									<td class="px-4 py-2.5">
+										<button
+											class="flex cursor-pointer flex-col items-start gap-0.5 bg-transparent text-left"
+											type="button"
+											aria-pressed={selectedRow?.template.id === row.template.id}
+											onclick={() => (selectedTemplateId = row.template.id)}
+										>
+											<span class="text-sm font-semibold text-foreground">{row.template.name}</span>
+											<span class="text-xs text-muted-foreground">{row.template.status}</span>
+										</button>
+									</td>
+									<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground" role="cell">
+										{row.template.slug}
+									</td>
+									<td class="px-4 py-2.5" role="cell">
+										<span class="text-sm text-foreground">{row.poolCount === null ? 'Not loaded' : row.poolCount}</span>
+										<span class="block text-xs text-muted-foreground">{describePool(row.template)}</span>
+									</td>
+									<td class="px-4 py-2.5 text-sm text-foreground" role="cell">{row.exemptCount}</td>
+									<td class="px-4 py-2.5 text-xs text-muted-foreground" role="cell">
+										{formatUpdatedAt(row.template.updatedAt)}
+									</td>
+									<td class="px-4 py-2.5" role="cell" aria-label={`${row.template.name} quick actions`}>
+										<div class="flex items-center justify-end gap-0.5">
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/generate`}
+												aria-label={`Generate ${row.template.name}`}
+											>
+												<Play class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/history`}
+												aria-label={`View history for ${row.template.name}`}
+											>
+												<History class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												type="button"
+												disabled={row.template.status === 'archived'}
+												aria-label={`Archive ${row.template.name}`}
+												onclick={() => requestArchive(row.template)}
+											>
+												<Archive class="size-3.5" aria-hidden="true" />
+											</Button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				<div class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+					<span>Showing 1 to {templateRows.length} of {templateRows.length} templates</span>
+					<span>Rows per page 10</span>
+				</div>
 			</div>
 
 			{#if selectedRow}
-				<aside
-					class="grid content-start gap-4 border-l border-border bg-muted/20 p-4"
+				<PageShell.SummaryRail
+					title={selectedRow.template.name}
 					aria-label={`${selectedRow.template.name} template details`}
 				>
 					<div class="flex items-start justify-between gap-3">
 						<div>
-							<h3 class="text-sm font-semibold text-foreground">{selectedRow.template.name}</h3>
 							<p class="text-xs text-muted-foreground">{selectedRow.template.shortCode ?? selectedRow.template.slug}</p>
 						</div>
-						<Badge variant="success">{selectedRow.template.status}</Badge>
+						<DutyRosterStatusBadge status={selectedRow.template.status === 'active' ? 'active' : 'archived'} />
 					</div>
 
 					<div class="grid gap-2 border-t border-border pt-3">
@@ -220,8 +264,23 @@
 					<p class="border-t border-border pt-3 text-xs text-muted-foreground">
 						Pool rules are managed in Template Settings.
 					</p>
-				</aside>
+				</PageShell.SummaryRail>
 			{/if}
 		</div>
+	{/if}
+
+	{#if archiveTemplate}
+		<form bind:this={archiveFormRef} method="POST" action={`${basePath}?/archiveTemplate`} class="hidden">
+			<input type="hidden" name="templateId" value={archiveTemplate.id} />
+		</form>
+		<ConfirmDialog
+			title="Archive template"
+			message={`Archive ${archiveTemplate.name}? Future rosters cannot be generated from this template.`}
+			confirmLabel="Archive Template"
+			cancelLabel="Cancel"
+			variant="destructive"
+			onConfirm={submitArchiveTemplate}
+			onCancel={() => (archiveTemplate = null)}
+		/>
 	{/if}
 </section>

@@ -68,11 +68,46 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.queryByRole('link', { name: 'Back to Templates' })).toBeNull();
 		expect(screen.queryByRole('navigation', { name: 'Open Duty Roster Template' })).toBeNull();
 
-		const viewTabs = screen.getByRole('tablist', { name: 'Duty Roster Template views' });
-		expect(within(viewTabs).getByRole('tab', { name: /Generate/ })).toBeTruthy();
-		expect(within(viewTabs).getByRole('tab', { name: /History/ })).toBeTruthy();
-		expect(within(viewTabs).getByRole('tab', { name: /Settings/ })).toBeTruthy();
+		const viewTabs = screen.getByRole('navigation', { name: 'Duty Roster Template views' });
+		expect(
+			within(viewTabs)
+				.getByRole('link', { name: /Generate/ })
+				.getAttribute('href')
+		).toBe('/org/org-1/duty-rosters/cq-nco/generate');
+		expect(
+			within(viewTabs)
+				.getByRole('link', { name: /History/ })
+				.getAttribute('href')
+		).toBe('/org/org-1/duty-rosters/cq-nco/history');
+		expect(
+			within(viewTabs)
+				.getByRole('link', { name: /Settings/ })
+				.getAttribute('href')
+		).toBe('/org/org-1/duty-rosters/cq-nco/settings');
 		expect(screen.getByRole('heading', { name: 'Accepted runs' })).toBeTruthy();
+	});
+
+	it('opens the shadcn archive confirmation from the register quick actions', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: null,
+					view: 'generate',
+					setupOptions: { personnel: [] }
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive CQ NCO' }));
+
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Archive template' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
+		expect(document.querySelector('form[action="/org/org-1/duty-rosters?/archiveTemplate"]')).toBeTruthy();
+		expect(document.querySelector('input[name="templateId"][value="template-1"]')).toBeTruthy();
 	});
 
 	it('shows New Template wizard validation errors without dropping entered values', () => {
@@ -93,7 +128,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('alert').textContent).toBe('Name is required');
+		expect(screen.getByRole('alert').textContent).toContain('Name is required');
 		expect(screen.getByLabelText<HTMLInputElement>('Route slug').value).toBe('cq-nco');
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
@@ -301,11 +336,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByText('Official')).toBeTruthy();
-		expect(screen.getByText('History')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'History' })).toBeTruthy();
 		const recordLink = screen.getByRole('link', { name: /JUN 01, 2026 to JUN 01, 2026/ });
 		expect(recordLink.getAttribute('href')).toBe('/org/org-1/duty-rosters/cq-nco/history/run-1');
 		expect(screen.getByText('Not applied')).toBeTruthy();
-		expect(screen.getByText('Open official record')).toBeTruthy();
+		expect(screen.getByRole('link', { name: /JUN 01, 2026 to JUN 01, 2026/ })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		// Roster table is hidden in collapsed list view
 		expect(screen.queryByRole('table', { name: 'Accepted Duty Roster list' })).toBeNull();
@@ -359,11 +394,10 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByText('Corrected')).toBeTruthy();
 		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
-		expect(screen.getByText(/performed duty for/)).toBeTruthy();
-		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
-		expect(screen.getAllByText('Outside normal pool. Saved as an override.').length).toBeGreaterThan(0);
 		expect(screen.getByRole('button', { name: 'Change Assignment' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Change Assignment' }));
+		expect(screen.getByText(/performed duty for/)).toBeTruthy();
+		expect(screen.getAllByText('Outside normal pool. Saved as an override.').length).toBeGreaterThan(0);
 		const form = screen.getByRole('button', { name: 'Save' }).closest('form') as HTMLFormElement;
 		expect(form.action).toContain('/org/org-1/duty-rosters/cq-nco/history?/recordCorrection');
 		expect(within(form).getByRole('button', { name: 'Actual Soldier for 2026-06-01' })).toBeTruthy();
@@ -527,7 +561,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByLabelText(/Short code/)).toHaveLength(1);
 		expect(screen.getByRole('heading', { name: 'Eligibility Rules' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Individual Exclusions' })).toBeTruthy();
-		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add Soldier exclusion' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'DA6 Continuity' })).toBeTruthy();
 		expect(screen.getByLabelText('Settings save actions')).toBeTruthy();
 		expect(screen.getByRole('complementary', { name: 'Template summary' })).toBeTruthy();
@@ -537,14 +571,12 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'Open History' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/history'
 		);
-		expect(screen.getByLabelText('Search pool')).toBeTruthy();
-		expect(screen.getByLabelText('Show excluded only')).toBeTruthy();
+		expect(screen.getByText('SGT Able, Ann')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove SGT Able, Ann from exclusions' })).toBeTruthy();
 		expect(screen.getByLabelText('Search baseline')).toBeTruthy();
 		expect(screen.getByLabelText('Show counted only')).toBeTruthy();
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Baker' } });
-		expect(screen.queryByText('Able, Ann')).toBeNull();
 		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-1"]')).toBeTruthy();
 
 		expect(screen.getByRole('button', { name: 'Save settings from sticky bar' })).toBeTruthy();
@@ -577,19 +609,14 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getAllByText('Showing 100 of 130 matching Soldiers')).toHaveLength(2);
-		expect(screen.queryByText('Large130, Test')).toBeNull();
+		expect(screen.getByText('Showing 100 of 130 matching Soldiers')).toBeTruthy();
+		expect(screen.getByText('SGT Large130, Test')).toBeTruthy();
 		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-130"]')).toBeTruthy();
-
-		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Large130' } });
-
-		expect(screen.getByText('Large130, Test')).toBeTruthy();
-		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
 
 		await fireEvent.input(screen.getByLabelText('Search baseline'), { target: { value: 'Large129' } });
 
 		expect(screen.getByText('Large129, Test')).toBeTruthy();
-		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
+		expect(screen.getByText('Showing 1 of 1 matching Soldiers')).toBeTruthy();
 	});
 });
 

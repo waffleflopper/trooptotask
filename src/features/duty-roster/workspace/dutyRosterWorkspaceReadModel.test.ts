@@ -135,7 +135,36 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		);
 
 		expect(model.isNewTemplate).toBe(true);
-		expect(model.rankOptions).toEqual(['CPL', 'SGT']);
+		expect(model.rankOptions).toEqual([
+			'GEN',
+			'LTG',
+			'MG',
+			'BG',
+			'COL',
+			'LTC',
+			'MAJ',
+			'CPT',
+			'1LT',
+			'2LT',
+			'CW5',
+			'CW4',
+			'CW3',
+			'CW2',
+			'WO1',
+			'CSM',
+			'SGM',
+			'1SG',
+			'MSG',
+			'SFC',
+			'SSG',
+			'SGT',
+			'CPL',
+			'SPC',
+			'PFC',
+			'PV2',
+			'PV1',
+			'CIV'
+		]);
 		expect(model.groupOptions).toEqual([{ id: 'alpha', label: 'Alpha' }]);
 		expect(model.mosOptions).toEqual(['11B']);
 		expect(model.dutyRoleOptions).toEqual(['Rifleman']);

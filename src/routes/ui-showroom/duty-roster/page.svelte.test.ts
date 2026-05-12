@@ -48,12 +48,12 @@ describe('/ui-showroom/duty-roster', () => {
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'DA6 Matrix' }));
 		expect(screen.getByRole('heading', { name: 'Preview Review, DA6 Matrix (Draft)' })).toBeTruthy();
-		expect(screen.getByRole('table', { name: 'Draft DA6 matrix' })).toBeTruthy();
+		expect(screen.getByRole('table', { name: 'Preview Review, DA6 Matrix (Draft)' })).toBeTruthy();
 		expect(screen.getAllByText('X').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('A').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('D').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('U').length).toBeGreaterThan(0);
-		expect(screen.getByText('Authorized absence; not chargeable, count pauses.')).toBeTruthy();
-		expect(screen.getByText('Other duty or cooldown; chargeable, count advances.')).toBeTruthy();
+		expect(screen.getByText('Authorized absence or exempt; not chargeable.')).toBeTruthy();
+		expect(screen.getByText('Blocked but chargeable; count advances.')).toBeTruthy();
 	});
 });

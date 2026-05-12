@@ -8,6 +8,7 @@ import type {
 } from '$features/duty-roster/templates/dutyRosterTemplates';
 import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-roster/templates/dutyRosterDatePolicy';
+import { ARMY_RANKS } from '$lib/types';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
 export type DutyRosterWorkspaceActionForm = {
@@ -144,6 +145,14 @@ const VIEW_TABS: DutyRosterWorkspaceViewTab[] = [
 	{ id: 'settings', label: 'Settings', note: 'Template identity and setup' }
 ];
 
+const DUTY_ROSTER_RANK_OPTIONS = [
+	...[...ARMY_RANKS.officer].reverse(),
+	...[...ARMY_RANKS.warrant].reverse(),
+	...[...ARMY_RANKS.nco].reverse(),
+	...[...ARMY_RANKS.enlisted].reverse(),
+	...ARMY_RANKS.civilian
+];
+
 export function buildDutyRosterWorkspaceReadModel(
 	data: DutyRosterWorkspaceData,
 	form: unknown,
@@ -201,7 +210,7 @@ export function buildDutyRosterWorkspaceReadModel(
 	const settingsAction = selectedTemplate
 		? `${basePath}/${selectedTemplate.slug}/settings?/updateSettings`
 		: createAction;
-	const rankOptions = uniqueOptions(setupPersonnel.map((person) => person.rank));
+	const rankOptions = DUTY_ROSTER_RANK_OPTIONS;
 	const groupOptions = uniqueGroupOptions(setupPersonnel);
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));

@@ -46,8 +46,9 @@
 						<div
 							class={[
 								i === 0 ? 'border-t-0 pt-0' : 'border-t pt-3',
-								'border-border/60 pb-1 font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase'
+								'border-border/60 pb-1 font-mono text-xs font-semibold tracking-[0.08em] uppercase'
 							]}
+							style:color={people[0]?.statusColor}
 						>
 							{statusName}
 						</div>

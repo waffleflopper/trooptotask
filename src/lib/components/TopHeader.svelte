@@ -179,7 +179,7 @@
 <Tooltip.Provider>
 	<Sidebar.Provider
 		class="min-h-0 overflow-hidden bg-background font-sans"
-		style="height: calc(100dvh - var(--banner-height, 0px)); max-height: calc(100dvh - var(--banner-height, 0px));"
+		style="margin-top: var(--banner-height, 0px); height: calc(100dvh - var(--banner-height, 0px)); max-height: calc(100dvh - var(--banner-height, 0px));"
 	>
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
@@ -350,9 +350,7 @@
 		</Sidebar.Root>
 
 		<Sidebar.Inset>
-			<header
-				class="sticky top-(--banner-height,0px) z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4"
-			>
+			<header class="sticky top-0 z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4">
 				<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3"
 					>Skip to main content</a
 				>

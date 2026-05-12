@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { DatePicker } from '$lib/components/ui/date-picker';
-	import { Input } from '$lib/components/ui/input';
-	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
-	import Trash2Icon from '$lib/components/ui/icons/Trash2Icon.svelte';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -15,7 +15,6 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import {
-		DA6_AVAILABILITY_HELP,
 		DA6_AVAILABILITY_TREATMENT_OPTIONS,
 		DA6_TREATMENT_NONE,
 		formatDa6AvailabilityTreatment,
@@ -24,50 +23,94 @@
 	} from '$features/calendar/utils/da6AvailabilityTreatment';
 	import { formatDate } from '$lib/utils/dates';
 	import type { StatusType, AssignmentType, SpecialDay } from '$lib/types';
-	import { fly } from 'svelte/transition';
-	import { expoOut, cubicIn } from 'svelte/easing';
+	import Settings from '@lucide/svelte/icons/settings';
+	import Palette from '@lucide/svelte/icons/palette';
+	import Users from '@lucide/svelte/icons/users';
+	import CalendarOff from '@lucide/svelte/icons/calendar-off';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Search from '@lucide/svelte/icons/search';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	const org = getOrgContext();
-	const reducedMotion =
-		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
-	const rowIn = reducedMotion ? { y: 0, duration: 0 } : { y: -8, duration: 180, easing: expoOut };
-	const rowOut = reducedMotion ? { y: 0, duration: 0 } : { y: -4, duration: 120, easing: cubicIn };
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
 	);
 	const canManageConfig = $derived(configureAffordance.visible);
 	const canMutate = $derived(configureAffordance.allowed);
 
+	type Section = 'status' | 'assignments' | 'closures';
+	let activeSection = $state<Section>('status');
+	let searchQuery = $state('');
+
+	const sectionDefs = [
+		{
+			key: 'status' as Section,
+			label: 'Status Types',
+			description: 'Personnel availability statuses',
+			icon: Palette,
+			getCount: () => statusTypesStore.items.length
+		},
+		{
+			key: 'assignments' as Section,
+			label: 'Assignment Types',
+			description: 'Duty coverage assignments',
+			icon: Users,
+			getCount: () => dailyAssignmentsStore.types.length
+		},
+		{
+			key: 'closures' as Section,
+			label: 'Closures',
+			description: 'Holidays & special days',
+			icon: CalendarOff,
+			getCount: () => specialDaysStore.items.length
+		}
+	];
+
 	// ---- Status Types ----
+	let addStatusOpen = $state(false);
 	let newStatusName = $state('');
 	let newStatusColor = $state('#4a4a47');
 	let newStatusTextColor = $state('#f8f7f4');
 	let newStatusDa6Treatment = $state<Da6AvailabilityTreatmentOption>(DA6_TREATMENT_NONE);
+
+	let editStatusOpen = $state(false);
 	let editingStatus = $state<StatusType | null>(null);
 	let editStatusName = $state('');
 	let editStatusColor = $state('');
 	let editStatusTextColor = $state('');
 	let editStatusDa6Treatment = $state<Da6AvailabilityTreatmentOption>(DA6_TREATMENT_NONE);
+
 	let confirmDeleteStatus = $state<StatusType | null>(null);
 
-	function startEditStatus(s: StatusType) {
+	function resetAddStatusForm() {
+		newStatusName = '';
+		newStatusColor = '#4a4a47';
+		newStatusTextColor = '#f8f7f4';
+		newStatusDa6Treatment = DA6_TREATMENT_NONE;
+	}
+
+	function openEditStatus(s: StatusType) {
 		editingStatus = s;
 		editStatusName = s.name;
 		editStatusColor = s.color;
 		editStatusTextColor = s.textColor;
 		editStatusDa6Treatment = s.da6AvailabilityTreatment ?? DA6_TREATMENT_NONE;
+		editStatusOpen = true;
 	}
 
-	function cancelEditStatus() {
-		editingStatus = null;
-	}
-
-	function handleNewDa6TreatmentChange(event: Event) {
-		newStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
-	}
-
-	function handleEditDa6TreatmentChange(event: Event) {
-		editStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
+	async function addStatus() {
+		if (!canMutate || !newStatusName.trim()) return;
+		await statusTypesStore.add({
+			name: newStatusName.trim(),
+			color: newStatusColor,
+			textColor: newStatusTextColor,
+			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment),
+			da6TreatmentReviewed: true
+		});
+		resetAddStatusForm();
+		addStatusOpen = false;
 	}
 
 	async function saveEditStatus() {
@@ -79,23 +122,8 @@
 			da6AvailabilityTreatment: toDa6AvailabilityTreatment(editStatusDa6Treatment),
 			da6TreatmentReviewed: true
 		});
+		editStatusOpen = false;
 		editingStatus = null;
-	}
-
-	async function addStatus() {
-		if (!canMutate) return;
-		if (!newStatusName.trim()) return;
-		await statusTypesStore.add({
-			name: newStatusName.trim(),
-			color: newStatusColor,
-			textColor: newStatusTextColor,
-			da6AvailabilityTreatment: toDa6AvailabilityTreatment(newStatusDa6Treatment),
-			da6TreatmentReviewed: true
-		});
-		newStatusName = '';
-		newStatusColor = '#4a4a47';
-		newStatusTextColor = '#f8f7f4';
-		newStatusDa6Treatment = DA6_TREATMENT_NONE;
 	}
 
 	async function deleteStatus(s: StatusType) {
@@ -113,31 +141,56 @@
 		});
 	}
 
+	const statusTypesMissingDa6Treatment = $derived(
+		statusTypesStore.items.filter((status) => !status.da6AvailabilityTreatment && !status.da6TreatmentReviewed)
+	);
+
 	// ---- Assignment Types ----
+	let addAssignmentOpen = $state(false);
 	let newAssignName = $state('');
 	let newAssignShortName = $state('');
 	let newAssignTo = $state<'personnel' | 'group'>('personnel');
 	let newAssignColor = $state('#c47f00');
+
+	let editAssignmentOpen = $state(false);
 	let editingAssign = $state<AssignmentType | null>(null);
 	let editAssignName = $state('');
 	let editAssignShortName = $state('');
 	let editAssignTo = $state<'personnel' | 'group'>('personnel');
 	let editAssignColor = $state('');
+
 	let confirmDeleteAssign = $state<AssignmentType | null>(null);
-	let showResetConfirm = $state(false);
 
 	const headerTypeId = $derived(dailyAssignmentsStore.types.find((t) => t.showInDateHeader)?.id ?? null);
 
-	function startEditAssign(t: AssignmentType) {
+	function resetAddAssignForm() {
+		newAssignName = '';
+		newAssignShortName = '';
+		newAssignTo = 'personnel';
+		newAssignColor = '#c47f00';
+	}
+
+	function openEditAssign(t: AssignmentType) {
 		editingAssign = t;
 		editAssignName = t.name;
 		editAssignShortName = t.shortName;
 		editAssignTo = t.assignTo;
 		editAssignColor = t.color;
+		editAssignmentOpen = true;
 	}
 
-	function cancelEditAssign() {
-		editingAssign = null;
+	async function addAssignType() {
+		if (!canMutate || !newAssignName.trim() || !newAssignShortName.trim()) return;
+		await dailyAssignmentsStore.addType({
+			name: newAssignName.trim(),
+			shortName: newAssignShortName.trim().toUpperCase(),
+			assignTo: newAssignTo,
+			color: newAssignColor,
+			exemptPersonnelIds: [],
+			showInDateHeader: false
+		});
+		resetAddAssignForm();
+		addAssignmentOpen = false;
 	}
 
 	async function saveEditAssign() {
@@ -148,24 +201,8 @@
 			assignTo: editAssignTo,
 			color: editAssignColor
 		});
+		editAssignmentOpen = false;
 		editingAssign = null;
-	}
-
-	async function addAssignType() {
-		if (!canMutate) return;
-		if (!newAssignName.trim() || !newAssignShortName.trim()) return;
-		await dailyAssignmentsStore.addType({
-			name: newAssignName.trim(),
-			shortName: newAssignShortName.trim().toUpperCase(),
-			assignTo: newAssignTo,
-			color: newAssignColor,
-			exemptPersonnelIds: [],
-			showInDateHeader: false
-		});
-		newAssignName = '';
-		newAssignShortName = '';
-		newAssignTo = 'personnel';
-		newAssignColor = '#c47f00';
 	}
 
 	async function deleteAssignType(t: AssignmentType) {
@@ -186,14 +223,19 @@
 	}
 
 	// ---- Holidays & Special Days ----
+	let addClosureOpen = $state(false);
 	let newSpecialDate = $state(formatDate(new Date()));
 	let newSpecialName = $state('');
 	let newSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
-	let filterYear = $state(new Date().getFullYear());
-	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
+
+	let editClosureOpen = $state(false);
 	let editingSpecialDay = $state<SpecialDay | null>(null);
 	let editSpecialName = $state('');
 	let editSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
+
+	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
+	let showResetConfirm = $state(false);
+	let filterYear = $state(new Date().getFullYear());
 
 	const yearOptions = $derived.by(() => {
 		const y = new Date().getFullYear();
@@ -206,27 +248,24 @@
 			.sort((a, b) => a.date.localeCompare(b.date))
 	);
 
-	async function addSpecialDay() {
-		if (!canMutate) return;
-		if (!newSpecialDate || !newSpecialName.trim()) return;
-		await specialDaysStore.add({ date: newSpecialDate, name: newSpecialName.trim(), type: newSpecialType });
+	function resetAddClosureForm() {
+		newSpecialDate = formatDate(new Date());
 		newSpecialName = '';
+		newSpecialType = 'org-closure';
 	}
 
-	async function deleteSpecialDay(d: SpecialDay) {
-		if (!canMutate) return;
-		await specialDaysStore.remove(d.id);
-		confirmDeleteSpecial = null;
-	}
-
-	function startEditSpecialDay(d: SpecialDay) {
+	function openEditSpecialDay(d: SpecialDay) {
 		editingSpecialDay = d;
 		editSpecialName = d.name;
 		editSpecialType = d.type;
+		editClosureOpen = true;
 	}
 
-	function cancelEditSpecialDay() {
-		editingSpecialDay = null;
+	async function addSpecialDay() {
+		if (!canMutate || !newSpecialDate || !newSpecialName.trim()) return;
+		await specialDaysStore.add({ date: newSpecialDate, name: newSpecialName.trim(), type: newSpecialType });
+		resetAddClosureForm();
+		addClosureOpen = false;
 	}
 
 	async function saveEditSpecialDay() {
@@ -236,9 +275,29 @@
 			type: editSpecialType
 		});
 		if (updated) {
+			editClosureOpen = false;
 			editingSpecialDay = null;
 		}
 	}
+
+	async function deleteSpecialDay(d: SpecialDay) {
+		if (!canMutate) return;
+		await specialDaysStore.remove(d.id);
+		confirmDeleteSpecial = null;
+	}
+
+	// ---- Filtering ----
+	const filteredStatuses = $derived(
+		statusTypesStore.items.filter((s) => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+	);
+
+	const filteredAssignments = $derived(
+		dailyAssignmentsStore.types.filter((t) => !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+	);
+
+	const filteredClosures = $derived(
+		filteredDays.filter((d) => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+	);
 
 	function formatDisplayDate(dateStr: string): string {
 		return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
@@ -248,481 +307,716 @@
 		});
 	}
 
-	const settingsLinks = [
-		{ label: 'Status Types', href: '#status-types' },
-		{ label: 'Assignment Types', href: '#assignment-types' },
-		{ label: 'Closures', href: '#special-days' }
-	];
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }]);
-	const statusTypesMissingDa6Treatment = $derived(
-		statusTypesStore.items.filter((status) => !status.da6AvailabilityTreatment && !status.da6TreatmentReviewed)
-	);
+	function handleNewDa6TreatmentChange(event: Event) {
+		newStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
+	}
+
+	function handleEditDa6TreatmentChange(event: Event) {
+		editStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
+	}
 </script>
 
-<div class="settings-page">
-	<WorkspaceToolbar.Root ariaLabel="Calendar settings controls">
-		<WorkspaceToolbar.Group label="Calendar settings sections">
-			<WorkspaceToolbar.Nav ariaLabel="Calendar settings sections" items={settingsLinks} />
-		</WorkspaceToolbar.Group>
-
-		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
-			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
-
-	{#if !canManageConfig}
-		<section class="settings-hero">
-			<div class="hero-copy">
-				<p class="eyebrow">Calendar configuration</p>
-				<h1>Access restricted.</h1>
-				<p class="hero-description">
-					You can view the calendar, but only organization admins and full editors can manage calendar settings.
-				</p>
-				<Button href={`/org/${org.orgId}/calendar`} size="sm">View calendar</Button>
+{#if !canManageConfig}
+	<div class="mx-auto max-w-3xl px-6 py-12">
+		<p class="mb-1 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+			Calendar configuration
+		</p>
+		<h1 class="mb-3 text-2xl font-semibold tracking-tight">Access restricted.</h1>
+		<p class="mb-4 text-sm text-muted-foreground">
+			You can view the calendar, but only organization admins and full editors can manage calendar settings.
+		</p>
+		<Button href={`/org/${org.orgId}/calendar`} size="sm">View calendar</Button>
+	</div>
+{:else}
+	<div class="flex min-h-[600px] overflow-hidden rounded-md border border-border bg-background">
+		<!-- Sidebar -->
+		<aside class="flex w-[260px] shrink-0 flex-col border-r border-border bg-muted/30">
+			<div class="flex items-center gap-2 border-b border-border px-5 py-4">
+				<Settings class="size-4 text-muted-foreground" />
+				<h2 class="text-sm font-semibold tracking-tight">Calendar Settings</h2>
 			</div>
-		</section>
-	{:else}
-		<div class="settings-grid">
-			<!-- ===== STATUS TYPES ===== -->
-			<section id="status-types" class="settings-section card card-flat">
-				<div class="section-header">
-					<div>
-						<p class="section-kicker">Personnel availability</p>
-						<h2 class="section-title">Status Types</h2>
-					</div>
-					<p class="section-description">Define the statuses that can be assigned to personnel on the calendar.</p>
-				</div>
 
-				<div class="add-form add-form-priority">
-					<Input
-						type="text"
-						bind:value={newStatusName}
-						placeholder="Status name (e.g., Leave, TDY)"
-						disabled={!canMutate}
-					/>
-					<label class="color-picker">
-						<span>Background</span>
-						<input type="color" bind:value={newStatusColor} disabled={!canMutate} />
-					</label>
-					<label class="color-picker">
-						<span>Text</span>
-						<input type="color" bind:value={newStatusTextColor} disabled={!canMutate} />
-					</label>
-					{#if newStatusName.trim()}
-						<CalendarStatusBadge
-							statusType={{
-								id: 'new-status',
-								name: newStatusName,
-								color: newStatusColor,
-								textColor: newStatusTextColor
-							}}
-						>
-							{newStatusName}
-						</CalendarStatusBadge>
-					{/if}
-					<div class="treatment-field">
-						<div class="treatment-label-row">
-							<label class="treatment-label" for="new-status-da6-treatment">Duty roster treatment</label>
-							<span class="help-wrapper">
-								<button class="help-icon" type="button" aria-label="Duty roster treatment help">
-									<span aria-hidden="true">?</span>
-								</button>
-								<span class="help-tooltip" role="tooltip">{DA6_AVAILABILITY_HELP}</span>
+			<nav class="flex flex-1 flex-col gap-0.5 p-2" aria-label="Calendar settings controls">
+				{#each sectionDefs as section}
+					<button
+						class="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors {activeSection ===
+						section.key
+							? 'bg-background shadow-sm'
+							: 'hover:bg-background/60'}"
+						onclick={() => (activeSection = section.key)}
+					>
+						<section.icon
+							class="size-4 {activeSection === section.key ? 'text-foreground' : 'text-muted-foreground'}"
+						/>
+						<div class="flex flex-1 flex-col">
+							<span
+								class="text-sm font-medium {activeSection === section.key
+									? 'text-foreground'
+									: 'text-muted-foreground'}"
+							>
+								{section.label}
 							</span>
+							<span class="text-[11px] text-muted-foreground">{section.description}</span>
 						</div>
-						<NativeSelect
-							id="new-status-da6-treatment"
-							value={newStatusDa6Treatment}
-							onchange={handleNewDa6TreatmentChange}
-							disabled={!canMutate}
-						>
-							{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
-								<option value={option.value} disabled={option.disabled}>{option.label}</option>
-							{/each}
-						</NativeSelect>
-					</div>
-					<Button size="sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>+ Add</Button>
-				</div>
+						<Badge variant="secondary" class="ml-auto text-[10px]">{section.getCount()}</Badge>
+						{#if activeSection === section.key}
+							<ChevronRight class="size-3.5 text-muted-foreground" />
+						{/if}
+					</button>
+				{/each}
+			</nav>
 
-				{#if statusTypesMissingDa6Treatment.length > 0}
-					<section class="da6-review" aria-label="DA6 treatment review">
-						<div class="da6-review-copy">
-							<div class="da6-review-heading">
-								<span class="da6-review-marker" aria-hidden="true">DA6</span>
-								<h3>Confirm statuses with no DA6 effect</h3>
+			<div class="border-t border-border px-4 py-3">
+				<Button variant="outline" size="sm" class="w-full" href={`/org/${org.orgId}/calendar`}>Back to Calendar</Button>
+			</div>
+		</aside>
+
+		<!-- Detail Panel -->
+		<main class="flex flex-1 flex-col overflow-hidden">
+			<!-- Detail header -->
+			<div class="flex items-center justify-between border-b border-border px-6 py-4">
+				<div>
+					<h3 class="text-base font-semibold">
+						{sectionDefs.find((s) => s.key === activeSection)?.label}
+					</h3>
+					<p class="text-sm text-muted-foreground">
+						{sectionDefs.find((s) => s.key === activeSection)?.description}
+					</p>
+				</div>
+				<div class="flex items-center gap-2">
+					<div class="relative">
+						<Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+						<Input type="text" placeholder="Filter..." class="h-8 w-48 pl-8 text-sm" bind:value={searchQuery} />
+					</div>
+					{#if canMutate}
+						{#if activeSection === 'status'}
+							<Button size="sm" class="gap-1.5" onclick={() => (addStatusOpen = true)}>
+								<Plus class="size-3.5" />
+								Add new
+							</Button>
+						{:else if activeSection === 'assignments'}
+							<Button size="sm" class="gap-1.5" onclick={() => (addAssignmentOpen = true)}>
+								<Plus class="size-3.5" />
+								Add new
+							</Button>
+						{:else if activeSection === 'closures'}
+							<Button size="sm" class="gap-1.5" onclick={() => (addClosureOpen = true)}>
+								<Plus class="size-3.5" />
+								Add new
+							</Button>
+						{/if}
+					{/if}
+				</div>
+			</div>
+
+			<!-- Detail content -->
+			<div class="flex-1 overflow-y-auto p-6">
+				<!-- ===== STATUS TYPES ===== -->
+				{#if activeSection === 'status'}
+					{#if statusTypesMissingDa6Treatment.length > 0}
+						<section
+							class="mb-4 rounded-md border border-border bg-amber-50 p-4 dark:bg-amber-950/20"
+							aria-label="DA6 treatment review"
+						>
+							<div class="mb-1 flex items-center gap-2">
+								<Badge variant="outline" class="font-mono text-[10px]">DA6</Badge>
+								<h4 class="text-sm font-semibold">Confirm statuses with no DA6 effect</h4>
 							</div>
-							<p>
+							<p class="mb-3 text-xs text-muted-foreground">
 								These status types are excluded from DA Form 6 rosters unless you edit them and assign a duty roster
 								treatment.
 							</p>
-						</div>
-						<div class="da6-review-list" aria-label="Status types needing DA6 treatment review">
-							<span class="da6-review-count">
-								{statusTypesMissingDa6Treatment.length === 1
-									? '1 needs review'
-									: `${statusTypesMissingDa6Treatment.length} need review`}
-							</span>
-							{#each statusTypesMissingDa6Treatment as status (status.id)}
-								<span class="da6-review-chip">
-									<span>{status.name}</span>
-									{#if canMutate}
-										<button
-											class="da6-review-action"
-											type="button"
-											aria-label={`Confirm ${status.name} has no DA6 effect`}
-											onclick={() => markStatusDa6Reviewed(status)}>No effect</button
-										>
-									{/if}
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-mono text-[10px] font-semibold text-muted-foreground">
+									{statusTypesMissingDa6Treatment.length === 1
+										? '1 needs review'
+										: `${statusTypesMissingDa6Treatment.length} need review`}
 								</span>
-							{/each}
-						</div>
-					</section>
-				{/if}
+								{#each statusTypesMissingDa6Treatment as status (status.id)}
+									<span
+										class="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium"
+									>
+										{status.name}
+										{#if canMutate}
+											<button
+												class="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/30"
+												type="button"
+												aria-label={`Confirm ${status.name} has no DA6 effect`}
+												onclick={() => markStatusDa6Reviewed(status)}
+											>
+												No effect
+											</button>
+										{/if}
+									</span>
+								{/each}
+							</div>
+						</section>
+					{/if}
 
-				<div class="item-list">
-					{#each statusTypesStore.items as status (status.id)}
-						<div class="item-row status-item-row" in:fly={rowIn} out:fly={rowOut}>
-							{#if editingStatus?.id === status.id}
-								<div class="inline-edit">
-									<Input type="text" bind:value={editStatusName} placeholder="Status name" aria-label="Status name" />
-									<label class="color-picker">
-										<span>Background</span>
-										<input type="color" bind:value={editStatusColor} />
-									</label>
-									<label class="color-picker">
-										<span>Text</span>
-										<input type="color" bind:value={editStatusTextColor} />
-									</label>
-									<CalendarStatusBadge
-										statusType={{
-											id: 'edit-status',
-											name: editStatusName || 'Preview',
-											color: editStatusColor,
-											textColor: editStatusTextColor
-										}}
-									>
-										{editStatusName || 'Preview'}
-									</CalendarStatusBadge>
-									<div class="treatment-field">
-										<label class="treatment-label" for="edit-status-da6-treatment">Duty roster treatment</label>
-										<NativeSelect
-											id="edit-status-da6-treatment"
-											value={editStatusDa6Treatment}
-											onchange={handleEditDa6TreatmentChange}
-											disabled={!canMutate}
-										>
-											{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
-												<option value={option.value} disabled={option.disabled}>{option.label}</option>
-											{/each}
-										</NativeSelect>
-									</div>
-									<Button size="sm" onclick={saveEditStatus} disabled={!canMutate || !editStatusName.trim()}
-										>Save</Button
-									>
-									<Button variant="outline" size="sm" onclick={cancelEditStatus}>Cancel</Button>
-								</div>
-							{:else}
-								<div class="status-display">
-									<CalendarStatusBadge statusType={status}>{status.name}</CalendarStatusBadge>
-									<span class="treatment-summary">
+					<div class="space-y-1.5">
+						{#each filteredStatuses as status (status.id)}
+							<div
+								class="flex items-center gap-4 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
+							>
+								<div class="flex flex-1 flex-col gap-0.5">
+									<span class="text-sm font-medium">{status.name}</span>
+									<span class="text-xs text-muted-foreground">
 										{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}
 									</span>
 								</div>
-								<div class="item-actions">
-									{#if canMutate}
+								<CalendarStatusBadge statusType={status}>{status.name}</CalendarStatusBadge>
+								{#if canMutate}
+									<div class="flex gap-1">
 										<Button
-											variant="outline"
+											variant="ghost"
 											size="icon-sm"
+											class="size-7"
 											title="Edit status type"
 											aria-label="Edit status type"
-											onclick={() => startEditStatus(status)}
+											onclick={() => openEditStatus(status)}
 										>
-											<PencilIcon size={16} strokeWidth={2} />
+											<Pencil class="size-3.5" />
 										</Button>
 										<Button
-											variant="destructive"
+											variant="ghost"
 											size="icon-sm"
+											class="size-7 text-destructive hover:text-destructive"
 											title="Delete status type"
 											aria-label="Delete status type"
 											onclick={() => (confirmDeleteStatus = status)}
 										>
-											<Trash2Icon size={16} strokeWidth={2} />
+											<Trash2 class="size-3.5" />
 										</Button>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			<!-- ===== ASSIGNMENT TYPES ===== -->
-			<section id="assignment-types" class="settings-section card card-flat">
-				<div class="section-header">
-					<div>
-						<p class="section-kicker">Duty coverage</p>
-						<h2 class="section-title">Assignment Types</h2>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+								No status types found
+							</div>
+						{/each}
 					</div>
-					<p class="section-description">
-						Define assignment types and choose which assignee appears in each calendar date header.
+
+					<!-- ===== ASSIGNMENT TYPES ===== -->
+				{:else if activeSection === 'assignments'}
+					<p class="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+						Select which assignment type's assignee appears in each calendar date column.
+						{#if headerTypeId}
+							Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
+						{:else}
+							None selected — no assignee shown in date columns.
+						{/if}
 					</p>
-				</div>
 
-				<div class="add-form add-form-priority">
-					<Input
-						type="text"
-						bind:value={newAssignName}
-						placeholder="Full name (e.g., Staff Duty)"
-						disabled={!canMutate}
-					/>
-					<Input
-						class="max-w-20 uppercase"
-						type="text"
-						bind:value={newAssignShortName}
-						placeholder="Short (e.g., SD)"
-						maxlength={5}
-						disabled={!canMutate}
-					/>
-					<NativeSelect bind:value={newAssignTo} disabled={!canMutate}>
-						<option value="personnel">Assign to Person</option>
-						<option value="group">Assign to Group</option>
-					</NativeSelect>
-					<label class="color-picker">
-						<span>Color</span>
-						<input type="color" bind:value={newAssignColor} disabled={!canMutate} />
-					</label>
-					{#if newAssignShortName.trim()}
-						<CalendarStatusBadge
-							statusType={{
-								id: 'new-assignment',
-								name: newAssignShortName.trim().toUpperCase(),
-								color: newAssignColor,
-								textColor: '#ffffff'
-							}}
-							class="font-mono font-bold tracking-widest uppercase"
-						>
-							{newAssignShortName.trim().toUpperCase()}
-						</CalendarStatusBadge>
-					{/if}
-					<Button
-						size="sm"
-						onclick={addAssignType}
-						disabled={!canMutate || !newAssignName.trim() || !newAssignShortName.trim()}>+ Add</Button
-					>
-				</div>
-
-				<p class="hint">
-					Select which assignment type's assignee appears in each calendar date column.
-					{#if headerTypeId}
-						Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
-					{:else}
-						None selected — no assignee shown in date columns.
-					{/if}
-				</p>
-
-				<div class="item-list">
-					{#each dailyAssignmentsStore.types as type (type.id)}
-						<div class="item-row" in:fly={rowIn} out:fly={rowOut}>
-							{#if editingAssign?.id === type.id}
-								<div class="inline-edit">
-									<Input
-										type="text"
-										bind:value={editAssignName}
-										placeholder="Full name"
-										aria-label="Assignment full name"
-									/>
-									<Input
-										class="max-w-20 uppercase"
-										type="text"
-										bind:value={editAssignShortName}
-										placeholder="Short"
-										maxlength={5}
-										aria-label="Assignment short name"
-									/>
-									<NativeSelect bind:value={editAssignTo} aria-label="Assign to">
-										<option value="personnel">Person</option>
-										<option value="group">Group</option>
-									</NativeSelect>
-									<label class="color-picker">
-										<span>Color</span>
-										<input type="color" bind:value={editAssignColor} />
+					<div class="space-y-1.5">
+						{#each filteredAssignments as type (type.id)}
+							<div
+								class="flex items-center gap-4 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
+							>
+								{#if canMutate}
+									<label class="flex flex-col items-center gap-0.5">
+										<input
+											type="radio"
+											name="showInDateHeader"
+											value={type.id}
+											checked={headerTypeId === type.id}
+											class="accent-amber-500"
+											aria-label="Show {type.name} in date header"
+											onchange={() => setShowInDateHeader(type.id)}
+										/>
+										<span class="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+											Header
+										</span>
 									</label>
-									<CalendarStatusBadge
-										statusType={{
-											id: 'edit-assignment',
-											name: editAssignShortName.trim().toUpperCase() || '?',
-											color: editAssignColor,
-											textColor: '#ffffff'
-										}}
-										class="font-mono font-bold tracking-widest uppercase"
-									>
-										{editAssignShortName.trim().toUpperCase() || '?'}
-									</CalendarStatusBadge>
-									<Button
-										size="sm"
-										onclick={saveEditAssign}
-										disabled={!canMutate || !editAssignName.trim() || !editAssignShortName.trim()}>Save</Button
-									>
-									<Button variant="outline" size="sm" onclick={cancelEditAssign}>Cancel</Button>
+								{/if}
+								<div class="flex flex-1 flex-col gap-0.5">
+									<span class="text-sm font-medium">{type.name}</span>
+									<span class="text-xs text-muted-foreground">
+										{type.assignTo === 'personnel' ? 'Assigned to person' : 'Assigned to group'}
+									</span>
 								</div>
-							{:else}
-								<label class="header-radio">
-									<input
-										type="radio"
-										name="showInDateHeader"
-										value={type.id}
-										checked={headerTypeId === type.id}
-										disabled={!canMutate}
-										aria-label="Show {type.name} in date header"
-										onchange={() => setShowInDateHeader(type.id)}
-									/>
-									<span class="radio-label-text">Date header</span>
-								</label>
+								{#if type.showInDateHeader}
+									<Badge variant="outline" class="text-[10px]">Date header</Badge>
+								{/if}
 								<CalendarStatusBadge
 									statusType={{ id: type.id, name: type.shortName, color: type.color, textColor: '#ffffff' }}
-									class="font-mono font-bold tracking-widest uppercase"
+									class="font-mono font-bold uppercase tracking-widest"
 								>
 									{type.shortName}
 								</CalendarStatusBadge>
-								<span class="item-name">{type.name}</span>
-								<span class="item-meta">{type.assignTo === 'personnel' ? 'Person' : 'Group'}</span>
-								<div class="item-actions">
-									{#if canMutate}
+								{#if canMutate}
+									<div class="flex gap-1">
 										<Button
-											variant="outline"
+											variant="ghost"
 											size="icon-sm"
+											class="size-7"
 											title="Edit assignment type"
 											aria-label="Edit assignment type"
-											onclick={() => startEditAssign(type)}
+											onclick={() => openEditAssign(type)}
 										>
-											<PencilIcon size={16} strokeWidth={2} />
+											<Pencil class="size-3.5" />
 										</Button>
 										<Button
-											variant="destructive"
+											variant="ghost"
 											size="icon-sm"
+											class="size-7 text-destructive hover:text-destructive"
 											title="Delete assignment type"
 											aria-label="Delete assignment type"
 											onclick={() => (confirmDeleteAssign = type)}
 										>
-											<Trash2Icon size={16} strokeWidth={2} />
+											<Trash2 class="size-3.5" />
 										</Button>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			<!-- ===== HOLIDAYS & SPECIAL DAYS ===== -->
-			<section id="special-days" class="settings-section settings-section-wide card card-flat">
-				<div class="section-header">
-					<div>
-						<p class="section-kicker">Date exceptions</p>
-						<h2 class="section-title">Holidays &amp; Special Days</h2>
-					</div>
-					<p class="section-description">
-						Mark federal holidays or unit closures so they stand out across the calendar and reports.
-					</p>
-				</div>
-
-				<div class="filter-bar">
-					<label class="label" for="filter-year">Year:</label>
-					<NativeSelect id="filter-year" class="w-25" bind:value={filterYear}>
-						{#each yearOptions as year (year)}
-							<option value={year}>{year}</option>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="flex items-center justify-center py-12 text-sm text-muted-foreground">
+								No assignment types found
+							</div>
 						{/each}
-					</NativeSelect>
-					<span class="count">{filteredDays.length} days</span>
-					<div class="reset-block">
-						<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)} disabled={!canMutate}>
-							Reset Federal Holidays
-						</Button>
-						<span class="reset-note">Preserves your custom closures</span>
 					</div>
-				</div>
 
-				<div class="add-form add-form-priority">
-					<DatePicker bind:value={newSpecialDate} disabled={!canMutate} class="w-40" placeholder="Select date" />
-					<Input
-						class="flex-1"
-						type="text"
-						bind:value={newSpecialName}
-						placeholder="Name (e.g., Training Day)"
-						disabled={!canMutate}
-					/>
-					<NativeSelect class="w-38" bind:value={newSpecialType} disabled={!canMutate}>
-						<option value="org-closure">Closure</option>
-						<option value="federal-holiday">Federal Holiday</option>
-					</NativeSelect>
-					<Button size="sm" onclick={addSpecialDay} disabled={!canMutate || !newSpecialName.trim()}>+ Add</Button>
-				</div>
+					<!-- ===== CLOSURES ===== -->
+				{:else if activeSection === 'closures'}
+					<div class="mb-4 flex flex-wrap items-center gap-3">
+						<span class="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">Year</span>
+						<NativeSelect class="w-25" bind:value={filterYear}>
+							{#each yearOptions as year (year)}
+								<option value={year}>{year}</option>
+							{/each}
+						</NativeSelect>
+						<Badge variant="secondary" class="font-mono text-[10px]">{filteredClosures.length} days</Badge>
+						{#if canMutate}
+							<div class="ml-auto flex flex-col items-end gap-0.5">
+								<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)}>
+									Reset Federal Holidays
+								</Button>
+								<span class="font-mono text-[10px] text-muted-foreground">Preserves custom closures</span>
+							</div>
+						{/if}
+					</div>
 
-				<div class="item-list">
-					{#each filteredDays as day (day.id)}
-						<div class="item-row" in:fly={rowIn} out:fly={rowOut}>
-							{#if editingSpecialDay?.id === day.id}
-								<div class="inline-edit">
-									<span class="day-date">{formatDisplayDate(day.date)}</span>
-									<Input
-										class="flex-1"
-										type="text"
-										bind:value={editSpecialName}
-										placeholder="Name"
-										aria-label="Special day name"
-									/>
-									<NativeSelect class="w-38" bind:value={editSpecialType} aria-label="Type">
-										<option value="org-closure">Closure</option>
-										<option value="federal-holiday">Federal Holiday</option>
-									</NativeSelect>
-									<Button size="sm" onclick={saveEditSpecialDay} disabled={!canMutate || !editSpecialName.trim()}
-										>Save</Button
-									>
-									<Button variant="outline" size="sm" onclick={cancelEditSpecialDay}>Cancel</Button>
+					<div class="space-y-1.5">
+						{#each filteredClosures as day (day.id)}
+							<div
+								class="flex items-center gap-4 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
+							>
+								<div class="w-28 shrink-0">
+									<span class="text-sm tabular-nums text-muted-foreground">
+										{formatDisplayDate(day.date)}
+									</span>
 								</div>
-							{:else}
-								<span class="day-date">{formatDisplayDate(day.date)}</span>
-								<span class="item-name">{day.name}</span>
-								<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
+								<span class="flex-1 text-sm font-medium">{day.name}</span>
+								<Badge variant={day.type === 'federal-holiday' ? 'default' : 'outline'} class="text-[10px]">
 									{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
-								</span>
-								<div class="item-actions">
-									{#if canMutate}
+								</Badge>
+								{#if canMutate}
+									<div class="flex gap-1">
 										<Button
-											variant="outline"
+											variant="ghost"
 											size="icon-sm"
-											title="Edit special day"
-											aria-label="Edit special day"
-											onclick={() => startEditSpecialDay(day)}
+											class="size-7"
+											title="Edit closure"
+											aria-label="Edit closure"
+											onclick={() => openEditSpecialDay(day)}
 										>
-											<PencilIcon size={16} strokeWidth={2} />
+											<Pencil class="size-3.5" />
 										</Button>
 										<Button
-											variant="destructive"
+											variant="ghost"
 											size="icon-sm"
-											title="Delete special day"
-											aria-label="Delete special day"
+											class="size-7 text-destructive hover:text-destructive"
+											title="Delete closure"
+											aria-label="Delete closure"
 											onclick={() => (confirmDeleteSpecial = day)}
 										>
-											<Trash2Icon size={16} strokeWidth={2} />
+											<Trash2 class="size-3.5" />
 										</Button>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{:else}
-						<p class="empty-msg">
-							No holidays or closures for {filterYear}. Use the form above to add a closure, or reset federal holidays
-							to populate defaults.
-						</p>
-					{/each}
-				</div>
-			</section>
-		</div>
-	{/if}
-</div>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div
+								class="rounded-md border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
+							>
+								No holidays or closures for {filterYear}. Add a closure or reset federal holidays to populate defaults.
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</main>
+	</div>
+{/if}
 
-<!-- Confirm dialogs -->
+<!-- ===== ADD STATUS TYPE DIALOG ===== -->
+<Dialog.Root
+	bind:open={addStatusOpen}
+	onOpenChange={(open) => {
+		if (!open) resetAddStatusForm();
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Add Status Type</Dialog.Title>
+			<Dialog.Description>Create a new personnel availability status for the calendar.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="add-status-name">Status name</Label>
+				<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
+			</div>
+			<div class="flex items-end gap-4">
+				<div class="grid gap-2">
+					<Label for="add-status-bg">Background</Label>
+					<input
+						id="add-status-bg"
+						type="color"
+						bind:value={newStatusColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				<div class="grid gap-2">
+					<Label for="add-status-text">Text</Label>
+					<input
+						id="add-status-text"
+						type="color"
+						bind:value={newStatusTextColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				{#if newStatusName.trim()}
+					<div class="flex-1">
+						<Label>Preview</Label>
+						<div class="mt-2">
+							<CalendarStatusBadge
+								statusType={{
+									id: 'preview',
+									name: newStatusName,
+									color: newStatusColor,
+									textColor: newStatusTextColor
+								}}
+							>
+								{newStatusName}
+							</CalendarStatusBadge>
+						</div>
+					</div>
+				{/if}
+			</div>
+			<div class="grid gap-2">
+				<Label for="add-status-da6">Duty roster treatment</Label>
+				<div class="flex items-center gap-3">
+					<NativeSelect
+						id="add-status-da6"
+						value={newStatusDa6Treatment}
+						onchange={handleNewDa6TreatmentChange}
+						class="w-auto shrink-0"
+					>
+						{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+							<option value={option.value} disabled={option.disabled}>{option.label}</option>
+						{/each}
+					</NativeSelect>
+					{#if newStatusDa6Treatment === 'authorized-absence'}
+						<span class="text-xs text-muted-foreground">DA6 rotation count pauses during absence</span>
+					{:else if newStatusDa6Treatment === 'other-duty'}
+						<span class="text-xs text-muted-foreground">DA6 rotation count continues while on duty</span>
+					{/if}
+				</div>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (addStatusOpen = false)}>Cancel</Button>
+			<Button onclick={addStatus} disabled={!newStatusName.trim()}>Add Status Type</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== EDIT STATUS TYPE DIALOG ===== -->
+<Dialog.Root bind:open={editStatusOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Edit Status Type</Dialog.Title>
+			<Dialog.Description>Update this personnel availability status.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="edit-status-name">Status name</Label>
+				<Input id="edit-status-name" type="text" bind:value={editStatusName} />
+			</div>
+			<div class="flex items-end gap-4">
+				<div class="grid gap-2">
+					<Label for="edit-status-bg">Background</Label>
+					<input
+						id="edit-status-bg"
+						type="color"
+						bind:value={editStatusColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				<div class="grid gap-2">
+					<Label for="edit-status-text">Text</Label>
+					<input
+						id="edit-status-text"
+						type="color"
+						bind:value={editStatusTextColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				{#if editStatusName.trim()}
+					<div class="flex-1">
+						<Label>Preview</Label>
+						<div class="mt-2">
+							<CalendarStatusBadge
+								statusType={{
+									id: 'edit-preview',
+									name: editStatusName,
+									color: editStatusColor,
+									textColor: editStatusTextColor
+								}}
+							>
+								{editStatusName}
+							</CalendarStatusBadge>
+						</div>
+					</div>
+				{/if}
+			</div>
+			<div class="grid gap-2">
+				<Label for="edit-status-da6">Duty roster treatment</Label>
+				<div class="flex items-center gap-3">
+					<NativeSelect
+						id="edit-status-da6"
+						value={editStatusDa6Treatment}
+						onchange={handleEditDa6TreatmentChange}
+						class="w-auto shrink-0"
+					>
+						{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+							<option value={option.value} disabled={option.disabled}>{option.label}</option>
+						{/each}
+					</NativeSelect>
+					{#if editStatusDa6Treatment === 'authorized-absence'}
+						<span class="text-xs text-muted-foreground">DA6 rotation count pauses during absence</span>
+					{:else if editStatusDa6Treatment === 'other-duty'}
+						<span class="text-xs text-muted-foreground">DA6 rotation count continues while on duty</span>
+					{/if}
+				</div>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (editStatusOpen = false)}>Cancel</Button>
+			<Button onclick={saveEditStatus} disabled={!editStatusName.trim()}>Save Changes</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== ADD ASSIGNMENT TYPE DIALOG ===== -->
+<Dialog.Root
+	bind:open={addAssignmentOpen}
+	onOpenChange={(open) => {
+		if (!open) resetAddAssignForm();
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Add Assignment Type</Dialog.Title>
+			<Dialog.Description>Create a new duty coverage assignment for daily scheduling.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="add-assign-name">Full name</Label>
+				<Input id="add-assign-name" type="text" placeholder="e.g., Staff Duty" bind:value={newAssignName} />
+			</div>
+			<div class="flex items-end gap-4">
+				<div class="grid flex-1 gap-2">
+					<Label for="add-assign-short">Short code</Label>
+					<Input
+						id="add-assign-short"
+						type="text"
+						placeholder="e.g., SD"
+						maxlength={5}
+						class="uppercase"
+						bind:value={newAssignShortName}
+					/>
+				</div>
+				<div class="grid gap-2">
+					<Label for="add-assign-color">Color</Label>
+					<input
+						id="add-assign-color"
+						type="color"
+						bind:value={newAssignColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				{#if newAssignShortName.trim()}
+					<div>
+						<Label>Preview</Label>
+						<div class="mt-2">
+							<CalendarStatusBadge
+								statusType={{
+									id: 'assign-preview',
+									name: newAssignShortName.trim().toUpperCase(),
+									color: newAssignColor,
+									textColor: '#ffffff'
+								}}
+								class="font-mono font-bold uppercase tracking-widest"
+							>
+								{newAssignShortName.trim().toUpperCase()}
+							</CalendarStatusBadge>
+						</div>
+					</div>
+				{/if}
+			</div>
+			<div class="grid gap-2">
+				<Label for="add-assign-to">Assign to</Label>
+				<NativeSelect id="add-assign-to" bind:value={newAssignTo}>
+					<option value="personnel">Person</option>
+					<option value="group">Group</option>
+				</NativeSelect>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (addAssignmentOpen = false)}>Cancel</Button>
+			<Button onclick={addAssignType} disabled={!newAssignName.trim() || !newAssignShortName.trim()}>
+				Add Assignment Type
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== EDIT ASSIGNMENT TYPE DIALOG ===== -->
+<Dialog.Root bind:open={editAssignmentOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Edit Assignment Type</Dialog.Title>
+			<Dialog.Description>Update this duty coverage assignment.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="edit-assign-name">Full name</Label>
+				<Input id="edit-assign-name" type="text" bind:value={editAssignName} />
+			</div>
+			<div class="flex items-end gap-4">
+				<div class="grid flex-1 gap-2">
+					<Label for="edit-assign-short">Short code</Label>
+					<Input id="edit-assign-short" type="text" maxlength={5} class="uppercase" bind:value={editAssignShortName} />
+				</div>
+				<div class="grid gap-2">
+					<Label for="edit-assign-color">Color</Label>
+					<input
+						id="edit-assign-color"
+						type="color"
+						bind:value={editAssignColor}
+						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+					/>
+				</div>
+				{#if editAssignShortName.trim()}
+					<div>
+						<Label>Preview</Label>
+						<div class="mt-2">
+							<CalendarStatusBadge
+								statusType={{
+									id: 'edit-assign-preview',
+									name: editAssignShortName.trim().toUpperCase(),
+									color: editAssignColor,
+									textColor: '#ffffff'
+								}}
+								class="font-mono font-bold uppercase tracking-widest"
+							>
+								{editAssignShortName.trim().toUpperCase()}
+							</CalendarStatusBadge>
+						</div>
+					</div>
+				{/if}
+			</div>
+			<div class="grid gap-2">
+				<Label for="edit-assign-to">Assign to</Label>
+				<NativeSelect id="edit-assign-to" bind:value={editAssignTo}>
+					<option value="personnel">Person</option>
+					<option value="group">Group</option>
+				</NativeSelect>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (editAssignmentOpen = false)}>Cancel</Button>
+			<Button onclick={saveEditAssign} disabled={!editAssignName.trim() || !editAssignShortName.trim()}>
+				Save Changes
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== ADD CLOSURE DIALOG ===== -->
+<Dialog.Root
+	bind:open={addClosureOpen}
+	onOpenChange={(open) => {
+		if (!open) resetAddClosureForm();
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Add Closure</Dialog.Title>
+			<Dialog.Description>Mark a federal holiday or unit closure on the calendar.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="add-closure-date">Date</Label>
+				<DatePicker bind:value={newSpecialDate} placeholder="Select date" />
+			</div>
+			<div class="grid gap-2">
+				<Label for="add-closure-name">Name</Label>
+				<Input
+					id="add-closure-name"
+					type="text"
+					placeholder="e.g., Training Day, Independence Day"
+					bind:value={newSpecialName}
+				/>
+			</div>
+			<div class="grid gap-2">
+				<Label for="add-closure-type">Type</Label>
+				<NativeSelect id="add-closure-type" bind:value={newSpecialType}>
+					<option value="org-closure">Closure</option>
+					<option value="federal-holiday">Federal Holiday</option>
+				</NativeSelect>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (addClosureOpen = false)}>Cancel</Button>
+			<Button onclick={addSpecialDay} disabled={!newSpecialName.trim()}>Add Closure</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== EDIT CLOSURE DIALOG ===== -->
+<Dialog.Root bind:open={editClosureOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Edit Closure</Dialog.Title>
+			<Dialog.Description>
+				{#if editingSpecialDay}
+					{formatDisplayDate(editingSpecialDay.date)}
+				{/if}
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2">
+			<div class="grid gap-2">
+				<Label for="edit-closure-name">Name</Label>
+				<Input id="edit-closure-name" type="text" bind:value={editSpecialName} />
+			</div>
+			<div class="grid gap-2">
+				<Label for="edit-closure-type">Type</Label>
+				<NativeSelect id="edit-closure-type" bind:value={editSpecialType}>
+					<option value="org-closure">Closure</option>
+					<option value="federal-holiday">Federal Holiday</option>
+				</NativeSelect>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (editClosureOpen = false)}>Cancel</Button>
+			<Button onclick={saveEditSpecialDay} disabled={!editSpecialName.trim()}>Save Changes</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- ===== CONFIRM DIALOGS ===== -->
 {#if confirmDeleteStatus}
 	<ConfirmDialog
 		title="Delete Status Type"
@@ -775,546 +1069,3 @@
 		onCancel={() => (showResetConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.settings-page {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: var(--sp-4) var(--sp-6) var(--sp-6);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.settings-hero {
-		padding: var(--sp-6) var(--sp-7);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.hero-copy {
-		max-width: 720px;
-	}
-
-	.eyebrow {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.settings-hero h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(1.75rem, 3vw, 2.5rem);
-		line-height: 1.1;
-		color: var(--text-primary);
-	}
-
-	.hero-description {
-		margin: var(--sp-3) 0 0;
-		max-width: 62ch;
-		font-size: var(--text-base);
-		line-height: var(--line-height-copy);
-		color: var(--text-secondary);
-	}
-
-	.settings-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-5);
-		align-items: start;
-	}
-
-	.settings-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		min-height: 100%;
-		padding: var(--sp-6);
-	}
-
-	.settings-section-wide {
-		grid-column: 1 / -1;
-	}
-
-	.section-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding-bottom: var(--sp-3);
-		border-bottom: var(--border-thin);
-	}
-
-	.section-kicker {
-		margin: 0 0 2px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.section-title {
-		font-family: var(--font-display);
-		font-size: clamp(1.1rem, 1.5vw, 1.35rem);
-		font-weight: var(--font-weight-semibold);
-		margin: 0;
-		color: var(--text-primary);
-	}
-
-	.section-description {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		margin: 0;
-		line-height: var(--line-height-copy);
-	}
-
-	.item-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.item-row {
-		display: flex;
-		align-items: center;
-		align-content: center;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-subtle) 6%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		min-height: 44px;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.item-row:hover {
-		background: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-subtle) 18%);
-		border-color: color-mix(in srgb, var(--border-default) 84%, var(--ink-35) 16%);
-	}
-
-	.inline-edit {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-		width: 100%;
-	}
-
-	.status-display {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-		min-width: 0;
-	}
-
-	.treatment-summary {
-		color: var(--text-tertiary);
-		font-size: var(--text-xs);
-	}
-
-	.da6-review {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
-	}
-
-	.da6-review-heading {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.da6-review-marker,
-	.da6-review-count {
-		display: inline-flex;
-		align-items: center;
-		min-height: 22px;
-		padding: 3px 8px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		white-space: nowrap;
-	}
-
-	.da6-review h3 {
-		margin: 0;
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.da6-review p {
-		margin: var(--sp-2) 0 0;
-		max-width: 68ch;
-		font-size: var(--text-sm);
-		line-height: var(--line-height-copy);
-		color: var(--text-secondary);
-	}
-
-	.da6-review-list {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.da6-review-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-height: 24px;
-		padding: 3px 5px 3px 9px;
-		border: 1px solid color-mix(in srgb, var(--amber) 36%, var(--border-default) 64%);
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--surface-panel) 86%, var(--amber-light) 14%);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		color: var(--text-primary);
-	}
-
-	.da6-review-action {
-		appearance: none;
-		min-height: 22px;
-		padding: 2px 7px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--amber-dark);
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.da6-review-action:hover:not(:disabled) {
-		border-color: color-mix(in srgb, var(--amber) 48%, var(--border-default) 52%);
-		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
-		color: var(--text-primary);
-	}
-
-	.treatment-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: min(100%, 18rem);
-	}
-
-	.treatment-label-row {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-	}
-
-	.treatment-label {
-		display: inline-flex;
-		align-items: center;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.help-wrapper {
-		position: relative;
-		display: inline-flex;
-	}
-
-	.help-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.15rem;
-		height: 1.15rem;
-		padding: 0;
-		border: 1px solid var(--border-default);
-		border-radius: 999px;
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.68rem;
-		font-weight: var(--font-weight-semibold);
-		line-height: 1;
-		cursor: help;
-	}
-
-	.help-tooltip {
-		position: absolute;
-		left: 50%;
-		bottom: calc(100% + var(--sp-2));
-		z-index: var(--z-tooltip);
-		width: min(18rem, 80vw);
-		padding: var(--sp-2);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		box-shadow: var(--shadow-md);
-		color: var(--text-primary);
-		font-family: var(--font-sans);
-		font-size: var(--text-xs);
-		font-weight: 500;
-		letter-spacing: 0;
-		line-height: 1.35;
-		text-transform: none;
-		transform: translateX(-50%);
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity var(--transition-fast);
-	}
-
-	.help-wrapper:hover .help-tooltip,
-	.help-wrapper:focus-within .help-tooltip {
-		opacity: 1;
-	}
-
-	.item-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
-		flex: 1;
-		min-width: 120px;
-		color: var(--text-primary);
-	}
-
-	.item-meta {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.item-actions {
-		display: flex;
-		flex-wrap: wrap;
-		row-gap: var(--sp-2);
-		column-gap: max(var(--sp-4), 16px);
-		margin-left: auto;
-	}
-
-	.add-form {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-		border: 1px dashed color-mix(in srgb, var(--border-default) 88%, var(--ink-35) 12%);
-		border-radius: var(--radius-md);
-	}
-
-	.add-form-priority {
-		order: 0;
-	}
-
-	.color-picker {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--spacing-2xs);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		cursor: pointer;
-	}
-
-	.color-picker input[type='color'] {
-		width: 32px;
-		height: 32px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		padding: 0;
-		background: var(--surface-panel);
-	}
-
-	.header-radio {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 3px;
-		cursor: pointer;
-	}
-
-	.header-radio input {
-		accent-color: var(--amber);
-	}
-
-	.radio-label-text {
-		font-family: var(--font-mono);
-		font-size: 9px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-		line-height: 1;
-	}
-
-	.hint {
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 64%, var(--surface-panel) 36%);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		margin: 0;
-		line-height: 1.5;
-	}
-
-	.filter-bar {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-	}
-
-	.filter-bar .label {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.count {
-		display: inline-flex;
-		align-items: center;
-		min-height: 22px;
-		padding: 3px 8px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.day-date {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		min-width: 132px;
-	}
-
-	.day-type {
-		display: inline-flex;
-		align-items: center;
-		min-height: 22px;
-		padding: 3px 8px;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.day-type.holiday {
-		background: color-mix(in srgb, var(--color-holiday) 76%, var(--surface-panel) 24%);
-		color: var(--text-primary);
-	}
-
-	.empty-msg {
-		text-align: center;
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		padding: var(--sp-4);
-		margin: 0;
-		border: 1px dashed var(--border-default);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
-	}
-
-	.reset-block {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 3px;
-		margin-left: auto;
-	}
-
-	.reset-note {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-	}
-
-	@media (max-width: 960px) {
-		.settings-page {
-			padding: var(--sp-4);
-		}
-
-		.settings-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.settings-section-wide {
-			grid-column: auto;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.settings-hero,
-		.settings-section {
-			padding: var(--sp-4);
-		}
-
-		.item-row {
-			align-items: flex-start;
-		}
-
-		.item-actions {
-			margin-left: 0;
-			width: 100%;
-		}
-
-		.reset-block {
-			margin-left: 0;
-			align-items: flex-start;
-			width: 100%;
-		}
-
-		.day-date {
-			min-width: 0;
-		}
-	}
-</style>

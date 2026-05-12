@@ -82,7 +82,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getByRole('toolbar', { name: 'Calendar settings controls' })).toBeTruthy();
+		expect(screen.getByRole('navigation', { name: 'Calendar settings controls' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
@@ -100,20 +100,19 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getAllByText('Authorized absence (unavailable, nonchargeable)').length).toBeGreaterThanOrEqual(2);
-		expect(screen.getByRole('button', { name: 'Duty roster treatment help' })).toBeTruthy();
+		expect(screen.getByText('Authorized absence (unavailable, nonchargeable)')).toBeTruthy();
 
-		const newTreatment = screen.getByLabelText('Duty roster treatment');
-		(newTreatment as HTMLSelectElement).value = 'other-duty';
-		await fireEvent.change(newTreatment);
-		await fireEvent.input(screen.getByPlaceholderText('Status name (e.g., Leave, TDY)'), {
-			target: { value: 'Detail' }
-		});
-		const addButton = screen
-			.getAllByRole('button', { name: '+ Add' })
-			.find((button) => !button.hasAttribute('disabled'));
-		expect(addButton).toBeTruthy();
-		await fireEvent.click(addButton!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+
+		const dialog = screen.getByRole('dialog');
+		const nameInput = within(dialog).getByLabelText('Status name');
+		await fireEvent.input(nameInput, { target: { value: 'Detail' } });
+
+		const treatmentSelect = within(dialog).getByLabelText('Duty roster treatment');
+		(treatmentSelect as HTMLSelectElement).value = 'other-duty';
+		await fireEvent.change(treatmentSelect);
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Status Type' }));
 
 		expect(statusTypesStoreMock.add).toHaveBeenCalledWith(
 			expect.objectContaining({

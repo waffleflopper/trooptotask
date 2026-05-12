@@ -42,6 +42,7 @@ The product should not look like a generic analytics template with military labe
 4. Accent is for signal, not style. Operational amber should highlight status, emphasis, and action with restraint.
 5. Build for real-world pressure. Interfaces should support fast recognition, brief-ready comprehension, and continuity across leader transitions.
 6. Product surfaces serve the task. Authenticated pages should favor dense but organized information, predictable controls, and fast filtering over marketing composition.
+7. Shared UI carries the visual system. Production routes should configure behavior, data, labels, permissions, and workflow logic while calibrated shared components and tokens own appearance.
 
 ## Accessibility & Inclusion
 

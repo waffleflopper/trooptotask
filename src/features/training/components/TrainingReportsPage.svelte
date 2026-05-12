@@ -22,7 +22,8 @@
 		computeReadinessDashboard,
 		buildPivotTable,
 		generatePivotCSV,
-		type ReportFilters
+		type ReportFilters,
+		type TypeBreakdown
 	} from '$features/training/utils/reportCalculations';
 
 	interface Props {
@@ -71,6 +72,7 @@
 	let filterRank = $state('');
 	let filterStatus = $state<TrainingStatus | ''>('');
 	let filterTypeIds = $state<string[]>([]);
+	let expandedTypeId = $state<string | null>(null);
 
 	const allPersonnel = $derived<Personnel[]>(
 		personnelStore.orgId === org.orgId
@@ -324,7 +326,7 @@
 
 		const rows = pivotRows;
 		const csv = generatePivotCSV(rows, filteredLocalTrainingTypes);
-		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+		const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement('a');
 		link.setAttribute('href', url);
@@ -351,10 +353,76 @@
 		void reloadFirstReportPage();
 	}
 
+	function setGroupFilter(groupId: string) {
+		filterGroupId = filterGroupId === groupId ? '' : groupId;
+		void reloadFirstReportPage();
+	}
+
+	function setStatusFilter(status: TrainingStatus | '') {
+		filterStatus = filterStatus === status ? '' : status;
+		void reloadFirstReportPage();
+	}
+
 	function readinessVariant(pct: number): 'success' | 'warning' | 'destructive' {
 		if (pct >= 80) return 'success';
 		if (pct >= 60) return 'warning';
 		return 'destructive';
+	}
+
+	function readinessToneClass(pct: number): string {
+		if (pct >= 80) return 'text-success-foreground';
+		if (pct >= 60) return 'text-warning-foreground';
+		return 'text-danger-foreground';
+	}
+
+	function readinessBarClass(pct: number): string {
+		if (pct >= 80) return 'bg-success';
+		if (pct >= 60) return 'bg-warning';
+		return 'bg-destructive';
+	}
+
+	function readinessBgClass(pct: number): string {
+		if (pct >= 80) return 'bg-success-muted';
+		if (pct >= 60) return 'bg-warning-muted';
+		return 'bg-danger-muted';
+	}
+
+	const statusDotClass: Record<string, string> = {
+		current: 'bg-success',
+		'warning-yellow': 'bg-warning',
+		'warning-orange': 'bg-warning',
+		expired: 'bg-destructive',
+		'not-completed': 'bg-muted-foreground/40'
+	};
+
+	const statusBarClass: Record<string, string> = {
+		current: 'bg-success',
+		warning: 'bg-warning',
+		expired: 'bg-destructive',
+		notCompleted: 'bg-muted-foreground/30'
+	};
+
+	function ringDasharray(pct: number, r = 36): string {
+		const c = 2 * Math.PI * r;
+		return `${(pct / 100) * c} ${c - (pct / 100) * c}`;
+	}
+
+	function ringStrokeClass(pct: number): string {
+		if (pct >= 80) return 'stroke-success';
+		if (pct >= 60) return 'stroke-warning';
+		return 'stroke-destructive';
+	}
+
+	const typeBreakdown = $derived<TypeBreakdown[]>(dashboard.typeBreakdown ?? []);
+
+	function expandedPersonnelForType(typeId: string, status: 'expired' | 'expiring') {
+		const rows = sortedRows.length > 0 ? sortedRows : pivotRows;
+		return rows.filter((row) => {
+			const cell = row.cells.get(typeId);
+			if (!cell) return false;
+			if (status === 'expired') return cell.status === 'expired' || cell.status === 'not-completed';
+			return cell.status === 'warning-yellow' || cell.status === 'warning-orange';
+		});
 	}
 
 	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
@@ -422,16 +490,68 @@
 	</Empty.Root>
 {:else}
 	<ReportWorkspace.Root ariaLabel="Training reports" class="p-3">
-		<ReportWorkspace.Header
-			title="Training reports"
-			description="Review completion status, gaps, and readiness by person, group, and training type."
-			meta={[
-				{ label: 'Personnel', value: detailPersonnelCount },
-				{ label: 'Readiness', value: `${dashboard.readinessPercent}%` }
-			]}
-		/>
+		<!-- Hero: readiness ring + status pills -->
+		<header
+			class="flex min-w-0 flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between"
+		>
+			<div class="flex items-center gap-4">
+				<svg class="size-16 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
+					<circle cx="40" cy="40" r="36" fill="none" stroke-width="5" class="stroke-muted" />
+					<circle
+						cx="40"
+						cy="40"
+						r="36"
+						fill="none"
+						stroke-width="5"
+						stroke-linecap="round"
+						class={ringStrokeClass(dashboard.readinessPercent)}
+						stroke-dasharray={ringDasharray(dashboard.readinessPercent)}
+					/>
+				</svg>
+				<div>
+					<h2 class="text-xl font-semibold tracking-normal text-foreground">Training Readiness</h2>
+					<p class="text-sm text-muted-foreground">
+						<span class="font-semibold {readinessToneClass(dashboard.readinessPercent)}"
+							>{dashboard.readinessPercent}%</span
+						>
+						across {detailPersonnelCount} personnel
+					</p>
+				</div>
+			</div>
+			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by training status">
+				{#each [{ status: 'current' as TrainingStatus, count: dashboard.statusCounts.current, label: 'Current' }, { status: 'expired' as TrainingStatus, count: dashboard.statusCounts.expired, label: 'Expired' }, { status: 'warning-orange' as TrainingStatus, count: dashboard.statusCounts.warningOrange + dashboard.statusCounts.warningYellow, label: 'Expiring' }, { status: 'not-completed' as TrainingStatus, count: dashboard.statusCounts.notCompleted, label: 'Not Done' }] as pill (pill.status)}
+					<button
+						type="button"
+						class="flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors hover:bg-muted/50 {filterStatus ===
+						pill.status
+							? 'border-foreground bg-muted'
+							: 'border-border'}"
+						aria-pressed={filterStatus === pill.status}
+						onclick={() => setStatusFilter(pill.status)}
+					>
+						<span class="size-2 rounded-full {statusDotClass[pill.status]}"></span>
+						<span class="font-mono text-[0.6875rem] font-semibold text-foreground">{pill.count}</span>
+						<span class="font-mono text-[0.6875rem] text-muted-foreground">{pill.label}</span>
+					</button>
+				{/each}
+			</div>
+		</header>
 
+		<!-- Toolbar: group filter pills + personnel/report filters + actions -->
 		<ReportWorkspace.Toolbar ariaLabel="Training report controls">
+			<WorkspaceToolbar.Group label="Group filter" activeCount={filterGroupId ? 1 : 0}>
+				{#each allGroups as group (group.id)}
+					<Button
+						variant={filterGroupId === group.id ? 'secondary' : 'outline'}
+						size="sm"
+						class={filterGroupId === group.id ? 'bg-accent text-accent-foreground' : ''}
+						aria-pressed={filterGroupId === group.id}
+						onclick={() => setGroupFilter(group.id)}
+					>
+						{group.name}
+					</Button>
+				{/each}
+			</WorkspaceToolbar.Group>
 			<WorkspaceToolbar.Group
 				label="Personnel filters"
 				activeCount={personnelFilterCount}
@@ -471,15 +591,6 @@
 				data-testid="training-report-filters"
 			>
 				<WorkspaceToolbar.Select
-					ariaLabel="Filter by group"
-					options={groupFilterOptions}
-					value={filterGroupId}
-					onValueChange={(value) => {
-						filterGroupId = value;
-						void reloadFirstReportPage();
-					}}
-				/>
-				<WorkspaceToolbar.Select
 					ariaLabel="Filter by status"
 					options={statusFilterOptions}
 					value={filterStatus}
@@ -509,57 +620,193 @@
 		</ReportWorkspace.Toolbar>
 
 		<ReportWorkspace.Content layout="stack">
-			<div class="grid gap-4 lg:grid-cols-2">
-				<ReportWorkspace.Section title={`Overall Readiness (${detailPersonnelCount} personnel)`}>
-					<div class="flex items-center gap-3">
-						<Badge variant={readinessVariant(dashboard.readinessPercent)}>{dashboard.readinessPercent}%</Badge>
-						<span class="text-sm text-muted-foreground">Current report readiness</span>
-					</div>
-				</ReportWorkspace.Section>
+			<!-- Training type cards grid -->
+			{#if typeBreakdown.length > 0}
+				<section aria-label="Training type breakdown">
+					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+						{#each typeBreakdown as tb (tb.typeId)}
+							{@const warningTotal = tb.warningYellow + tb.warningOrange}
+							{@const isExpanded = expandedTypeId === tb.typeId}
+							{@const expiredRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expired') : []}
+							{@const expiringRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expiring') : []}
+							<button
+								type="button"
+								class="flex flex-col items-start rounded-lg border border-border bg-card p-3 text-left transition-shadow hover:shadow-sm {isExpanded
+									? 'ring-2 ring-ring/20'
+									: ''}"
+								aria-expanded={isExpanded}
+								onclick={() => (expandedTypeId = isExpanded ? null : tb.typeId)}
+							>
+								<div class="flex w-full items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<h3 class="truncate text-sm font-semibold text-foreground">{tb.typeName}</h3>
+										<p class="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+											{tb.applicable} personnel
+										</p>
+									</div>
+									<svg class="size-11 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
+										<circle cx="40" cy="40" r="36" fill="none" stroke-width="6" class="stroke-muted" />
+										<circle
+											cx="40"
+											cy="40"
+											r="36"
+											fill="none"
+											stroke-width="6"
+											stroke-linecap="round"
+											class={ringStrokeClass(tb.complianceRate)}
+											stroke-dasharray={ringDasharray(tb.complianceRate)}
+										/>
+										<text
+											x="40"
+											y="44"
+											text-anchor="middle"
+											class="fill-foreground font-mono text-[1.5rem] font-bold"
+											transform="rotate(90 40 40)">{tb.complianceRate}</text
+										>
+									</svg>
+								</div>
 
-				<ReportWorkspace.Section title="Status Breakdown">
-					<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
-						{#each [['current', 'Current', dashboard.statusCounts.current], ['warning-yellow', '60d', dashboard.statusCounts.warningYellow], ['warning-orange', '30d', dashboard.statusCounts.warningOrange], ['expired', 'Expired', dashboard.statusCounts.expired], ['not-completed', 'Not Done', dashboard.statusCounts.notCompleted]] as item (item[0])}
-							<div class="rounded-lg border border-border bg-muted/30 p-2">
-								<TrainingStatusBadge status={item[0] as TrainingStatus} />
-								<p class="mt-2 text-lg font-semibold text-foreground">{item[2]}</p>
-								<p class="text-xs text-muted-foreground">{item[1]}</p>
+								<!-- Stacked status bar -->
+								{#if tb.applicable > 0}
+									<div class="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
+										{#if tb.current > 0}
+											<div class={statusBarClass.current} style:width="{(tb.current / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if warningTotal > 0}
+											<div class={statusBarClass.warning} style:width="{(warningTotal / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if tb.expired > 0}
+											<div class={statusBarClass.expired} style:width="{(tb.expired / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if tb.notCompleted > 0}
+											<div
+												class={statusBarClass.notCompleted}
+												style:width="{(tb.notCompleted / tb.applicable) * 100}%"
+											></div>
+										{/if}
+									</div>
+								{/if}
+
+								<!-- Counts -->
+								<div class="mt-2 flex w-full flex-wrap gap-x-3 gap-y-1">
+									{#if tb.expired > 0}
+										<span class="font-mono text-[0.6875rem] text-danger-foreground">{tb.expired} expired</span>
+									{/if}
+									{#if warningTotal > 0}
+										<span class="font-mono text-[0.6875rem] text-warning-foreground">{warningTotal} expiring</span>
+									{/if}
+									{#if tb.notCompleted > 0}
+										<span class="font-mono text-[0.6875rem] text-muted-foreground">{tb.notCompleted} not done</span>
+									{/if}
+								</div>
+
+								<!-- Expanded: personnel with issues -->
+								{#if isExpanded && (expiredRows.length > 0 || expiringRows.length > 0)}
+									<div class="mt-3 w-full border-t border-border pt-3">
+										{#if expiredRows.length > 0}
+											<p
+												class="mb-1 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-danger-foreground"
+											>
+												Expired / Not Done
+											</p>
+											<ul class="space-y-0.5">
+												{#each expiredRows.slice(0, 6) as row (row.person.id)}
+													<li class="flex items-center justify-between text-xs">
+														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
+														<span class="font-mono text-[0.6875rem] text-muted-foreground"
+															>{row.person.rank} · {row.person.groupName}</span
+														>
+													</li>
+												{/each}
+												{#if expiredRows.length > 6}
+													<li class="font-mono text-[0.6875rem] text-muted-foreground">
+														+{expiredRows.length - 6} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+										{#if expiringRows.length > 0}
+											<p
+												class="mb-1 mt-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-warning-foreground"
+											>
+												Expiring Soon
+											</p>
+											<ul class="space-y-0.5">
+												{#each expiringRows.slice(0, 4) as row (row.person.id)}
+													<li class="flex items-center justify-between text-xs">
+														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
+														<span class="font-mono text-[0.6875rem] text-muted-foreground"
+															>{row.person.rank} · {row.person.groupName}</span
+														>
+													</li>
+												{/each}
+												{#if expiringRows.length > 4}
+													<li class="font-mono text-[0.6875rem] text-muted-foreground">
+														+{expiringRows.length - 4} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+									</div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Two-column: type compliance + group readiness -->
+			<div class="grid gap-4 lg:grid-cols-2">
+				<ReportWorkspace.Section title="Training Type Compliance" description="Sorted by lowest compliance">
+					<div class="grid gap-2">
+						{#each [...typeBreakdown].sort((a, b) => a.complianceRate - b.complianceRate) as tb (tb.typeId)}
+							<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
+								<span class="truncate text-sm font-semibold text-foreground">{tb.typeName}</span>
+								<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
+									<div
+										class="h-full rounded-full {readinessBarClass(tb.complianceRate)}"
+										style:width="{tb.complianceRate}%"
+									></div>
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="w-10 text-right font-mono text-xs font-semibold {readinessToneClass(tb.complianceRate)}">
+										{tb.complianceRate}%
+									</span>
+									{#if tb.expired > 0}
+										<span class="w-14 text-right font-mono text-[0.6875rem] text-danger-foreground"
+											>{tb.expired} exp</span
+										>
+									{/if}
+								</div>
 							</div>
 						{/each}
 					</div>
 				</ReportWorkspace.Section>
 
-				{#if dashboard.worstTypes.length > 0}
-					<ReportWorkspace.Section title="Worst Training Types">
-						<div class="grid gap-2">
-							{#each dashboard.worstTypes as wt (wt.typeId)}
-								<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
-									<span class="truncate text-sm font-semibold text-foreground">{wt.typeName}</span>
-									<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
-										<div class="h-full rounded-full bg-primary" style:width={`${wt.nonComplianceRate}%`}></div>
-									</div>
-									<span class="font-mono text-xs font-semibold uppercase text-muted-foreground">
-										{wt.nonComplianceRate}%
-									</span>
-								</div>
-							{/each}
-						</div>
-					</ReportWorkspace.Section>
-				{/if}
-
 				{#if dashboard.groupComparison.length > 1}
-					<ReportWorkspace.Section title="Group Comparison">
+					<ReportWorkspace.Section title="Group Readiness" description="Click to filter by group">
 						<div class="grid gap-2">
 							{#each dashboard.groupComparison as gc (gc.groupId)}
-								<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
+								<button
+									type="button"
+									class="grid gap-1 rounded-md px-1 py-1 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center {filterGroupId ===
+									gc.groupId
+										? 'bg-muted/60'
+										: ''}"
+									aria-pressed={filterGroupId === gc.groupId}
+									onclick={() => setGroupFilter(gc.groupId)}
+								>
 									<span class="truncate text-sm font-semibold text-foreground">{gc.groupName}</span>
 									<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
-										<div class="h-full rounded-full bg-primary" style:width={`${gc.readinessPercent}%`}></div>
+										<div
+											class="h-full rounded-full {readinessBarClass(gc.readinessPercent)}"
+											style:width="{gc.readinessPercent}%"
+										></div>
 									</div>
-									<span class="font-mono text-xs font-semibold uppercase text-muted-foreground">
+									<span class="font-mono text-xs font-semibold {readinessToneClass(gc.readinessPercent)}">
 										{gc.readinessPercent}%
 									</span>
-								</div>
+								</button>
 							{/each}
 						</div>
 					</ReportWorkspace.Section>
@@ -571,7 +818,8 @@
 			{/if}
 
 			<ReportWorkspace.Table
-				title="Detail Table"
+				title="Personnel Detail"
+				description="{detailPersonnelCount} of {allPersonnel.length} personnel"
 				data={sortedRows}
 				columns={reportColumns}
 				ariaLabel="Training report detail rows"

@@ -108,7 +108,8 @@ describe('GET /api/training-reports', () => {
 				readinessPercent: 0,
 				statusCounts: { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
 				worstTypes: [],
-				groupComparison: []
+				groupComparison: [],
+				typeBreakdown: []
 			},
 			detail: {
 				rows: [],

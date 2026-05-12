@@ -11,6 +11,18 @@ export interface ReportFilters {
 	status?: TrainingStatus;
 }
 
+export interface TypeBreakdown {
+	typeId: string;
+	typeName: string;
+	complianceRate: number;
+	current: number;
+	warningYellow: number;
+	warningOrange: number;
+	expired: number;
+	notCompleted: number;
+	applicable: number;
+}
+
 export interface ReadinessDashboard {
 	readinessPercent: number;
 	statusCounts: {
@@ -22,6 +34,7 @@ export interface ReadinessDashboard {
 	};
 	worstTypes: Array<{ typeId: string; typeName: string; nonComplianceRate: number }>;
 	groupComparison: Array<{ groupId: string; groupName: string; readinessPercent: number }>;
+	typeBreakdown: TypeBreakdown[];
 }
 
 export interface PivotCell {
@@ -115,19 +128,58 @@ export function computeReadinessDashboard(
 
 	const readinessPercent = computeReadinessFromStatuses(allStatuses);
 
-	// Worst types by non-compliance rate (reuse cached statuses)
-	const typeStats = requiredTypes.map((type) => {
+	// Per-type breakdown and worst types (reuse cached statuses)
+	const typeBreakdown: TypeBreakdown[] = [];
+	const typeStats: Array<{ typeId: string; typeName: string; nonComplianceRate: number }> = [];
+	for (const type of requiredTypes) {
 		let applicable = 0;
 		let nonCompliant = 0;
+		let current = 0;
+		let warningYellow = 0;
+		let warningOrange = 0;
+		let expired = 0;
+		let notCompleted = 0;
 		for (const person of personnel) {
 			const statusInfo = statusCache.get(`${person.id}-${type.id}`)!;
 			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
 			applicable++;
-			if (statusInfo.status !== 'current') nonCompliant++;
+			switch (statusInfo.status) {
+				case 'current':
+					current++;
+					break;
+				case 'warning-yellow':
+					warningYellow++;
+					nonCompliant++;
+					break;
+				case 'warning-orange':
+					warningOrange++;
+					nonCompliant++;
+					break;
+				case 'expired':
+					expired++;
+					nonCompliant++;
+					break;
+				case 'not-completed':
+					notCompleted++;
+					nonCompliant++;
+					break;
+			}
 		}
 		const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
-		return { typeId: type.id, typeName: type.name, nonComplianceRate };
-	});
+		const complianceRate = applicable === 0 ? 0 : Math.round((current / applicable) * 100);
+		typeStats.push({ typeId: type.id, typeName: type.name, nonComplianceRate });
+		typeBreakdown.push({
+			typeId: type.id,
+			typeName: type.name,
+			complianceRate,
+			current,
+			warningYellow,
+			warningOrange,
+			expired,
+			notCompleted,
+			applicable
+		});
+	}
 
 	typeStats.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate);
 	const worstTypes = typeStats.filter((t) => t.nonComplianceRate > 0).slice(0, 5);
@@ -153,7 +205,7 @@ export function computeReadinessDashboard(
 		readinessPercent: computeReadinessFromStatuses(statuses)
 	}));
 
-	return { readinessPercent, statusCounts, worstTypes, groupComparison };
+	return { readinessPercent, statusCounts, worstTypes, groupComparison, typeBreakdown };
 }
 
 export function buildPivotTable(

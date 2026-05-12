@@ -66,7 +66,8 @@ function makeTrainingReportData(rowCount = 1): TrainingReportData {
 			readinessPercent: rowCount > 0 ? 100 : 0,
 			statusCounts: { current: rowCount, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
 			worstTypes: [],
-			groupComparison: []
+			groupComparison: [],
+			typeBreakdown: []
 		},
 		detail: {
 			rows:
@@ -150,7 +151,8 @@ describe('training reports page', () => {
 							readinessPercent: 0,
 							statusCounts: { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [],

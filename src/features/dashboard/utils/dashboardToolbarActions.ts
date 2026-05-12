@@ -16,12 +16,14 @@ interface DashboardQuickAction {
 }
 
 export const DASHBOARD_TABS: DashboardTab[] = [
+	{ id: 'overview', label: 'Overview' },
 	{ id: 'unit-readiness', label: 'Unit Readiness' },
 	{ id: 'people-duty', label: 'People & Duty' },
 	{ id: 'training-evals', label: 'Training & Evals' }
 ];
 
 const quickActions: Record<DashboardTabId, DashboardQuickAction[]> = {
+	overview: [],
 	'unit-readiness': [
 		{
 			id: 'add-calendar-entry',

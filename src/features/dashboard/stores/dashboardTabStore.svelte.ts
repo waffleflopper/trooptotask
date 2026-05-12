@@ -6,7 +6,7 @@ import {
 	type DashboardConfig
 } from '../dashboard.types';
 
-const ALL_TABS: DashboardTabId[] = ['unit-readiness', 'people-duty', 'training-evals'];
+const ALL_TABS: DashboardTabId[] = ['overview', 'unit-readiness', 'people-duty', 'training-evals'];
 
 interface DashboardConfigResponse {
 	config: DashboardConfig;

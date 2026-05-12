@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Archive, History, Play, UsersRound } from '@lucide/svelte';
+	import { Archive, History, Play, Settings, UsersRound } from '@lucide/svelte';
 	import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplateSetupOptions } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
@@ -177,6 +177,15 @@
 												aria-label={`View history for ${row.template.name}`}
 											>
 												<History class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/settings`}
+												aria-label={`View settings for ${row.template.name}`}
+											>
+												<Settings class="size-3.5" aria-hidden="true" />
 											</Button>
 											<Button
 												class="size-6"

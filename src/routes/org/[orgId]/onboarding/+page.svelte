@@ -4,7 +4,7 @@
 	import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import OnboardingPageView from '$features/onboarding/components/OnboardingPageView.svelte';
+	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';
 	import OnboardingModals from '$features/onboarding/components/OnboardingModals.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
@@ -86,6 +86,6 @@
 		</div>
 	</section>
 {:else if ctx}
-	<OnboardingPageView {ctx} />
+	<OnboardingKanbanView {ctx} />
 	<OnboardingModals {ctx} />
 {/if}

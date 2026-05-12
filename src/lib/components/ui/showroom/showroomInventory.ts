@@ -151,6 +151,8 @@ export const selectedShowroomComponents = [
 	'spinner',
 	'empty',
 	'separator',
+	'avatar',
+	'kanban-board',
 	'workspace-toolbar',
 	'report-workspace',
 	'bulk-import-workspace',

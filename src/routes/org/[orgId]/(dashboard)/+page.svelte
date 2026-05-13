@@ -6,8 +6,7 @@
 	import type { DashboardPageSummaryData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		isPromiseLike,
 		normalizeDeferredError,
@@ -201,18 +200,18 @@
 	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
 		<div class="workspace-loading__hero">
 			<div class="workspace-loading__copy">
-				<SkeletonLine width="92px" height="12px" />
-				<SkeletonBlock height="56px" />
-				<SkeletonLine width="78%" height="18px" />
-				<SkeletonLine width="62%" height="18px" />
+				<Skeleton class="h-3 w-[92px]" />
+				<Skeleton class="h-14 w-full" />
+				<Skeleton class="h-[18px] w-[78%]" />
+				<Skeleton class="h-[18px] w-[62%]" />
 			</div>
-			<SkeletonBlock width="136px" height="88px" />
+			<Skeleton class="h-[88px] w-[136px]" />
 		</div>
 		<div class="workspace-loading__grid">
-			<SkeletonBlock height="200px" />
-			<SkeletonBlock height="200px" />
-			<SkeletonBlock height="240px" />
-			<SkeletonBlock height="240px" />
+			<Skeleton class="h-[200px] w-full" />
+			<Skeleton class="h-[200px] w-full" />
+			<Skeleton class="h-[240px] w-full" />
+			<Skeleton class="h-[240px] w-full" />
 		</div>
 	</section>
 {:else if ctx}

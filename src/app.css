@@ -1190,21 +1190,6 @@ input[type='checkbox']:focus-visible {
 	margin-top: var(--sp-1);
 }
 
-/* Skeleton loading — also available as SkeletonLine/Block/Grid.svelte components */
-.skeleton-pulse {
-	background: var(--skeleton-from);
-	animation: skeleton-pulse var(--skeleton-duration) ease-in-out infinite;
-}
-@keyframes skeleton-pulse {
-	0%,
-	100% {
-		background: var(--skeleton-from);
-	}
-	50% {
-		background: var(--skeleton-to);
-	}
-}
-
 /* Accessibility: Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	*,

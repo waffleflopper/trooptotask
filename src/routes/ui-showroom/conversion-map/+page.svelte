@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
 	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
-	import LegacySkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import LegacySkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import LegacySkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
 	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
@@ -152,10 +149,10 @@
 		{
 			id: 'skeletons',
 			group: 'Feedback',
-			current: 'SkeletonLine, SkeletonBlock, SkeletonGrid, .skeleton-pulse',
+			current: 'Removed SkeletonLine, SkeletonBlock, SkeletonGrid, .skeleton-pulse',
 			target: 'ui/skeleton',
-			status: 'compose',
-			notes: 'Keep project grid/line helpers as wrappers over shadcn skeleton.'
+			status: 'direct',
+			notes: 'Use ui/skeleton directly with Tailwind dimensions for loading layouts.'
 		},
 		{
 			id: 'loading',
@@ -1286,11 +1283,15 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current skeletons</h3>
+				<h3>Removed legacy skeleton wrappers</h3>
 				<div class="example-stack">
-					<LegacySkeletonLine width="70%" height="12px" />
-					<LegacySkeletonBlock height="56px" />
-					<LegacySkeletonGrid rows={2} columns={4} cellWidth="56px" cellHeight="28px" />
+					<Skeleton class="h-3 w-[70%]" />
+					<Skeleton class="h-14 w-full" />
+					<div class="target-skeleton-grid">
+						{#each Array(8) as _, index (index)}
+							<Skeleton class="h-7 w-14" />
+						{/each}
+					</div>
 				</div>
 			</div>
 			<div class="comparison-cell">

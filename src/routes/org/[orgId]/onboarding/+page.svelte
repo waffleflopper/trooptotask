@@ -6,8 +6,7 @@
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';
 	import OnboardingModals from '$features/onboarding/components/OnboardingModals.svelte';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
@@ -71,17 +70,17 @@
 {:else if workspacePending}
 	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-busy="true" aria-live="polite" role="status">
 		<div class="flex flex-wrap items-center gap-3">
-			<SkeletonLine width="124px" height="12px" />
-			<SkeletonLine width="96px" height="12px" />
+			<Skeleton class="h-3 w-[124px]" />
+			<Skeleton class="h-3 w-24" />
 		</div>
 		<div class="grid gap-3 min-[721px]:grid-cols-3">
 			{#each loadingSkeletonItems as item (item)}
-				<SkeletonBlock height="116px" />
+				<Skeleton class="h-[116px] w-full" />
 			{/each}
 		</div>
 		<div class="grid gap-3">
 			{#each loadingSkeletonItems as item (item)}
-				<SkeletonBlock height="88px" />
+				<Skeleton class="h-[88px] w-full" />
 			{/each}
 		</div>
 	</section>

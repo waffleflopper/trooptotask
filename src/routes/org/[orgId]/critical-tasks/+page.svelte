@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Empty from '$lib/components/ui/empty';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
@@ -300,7 +300,11 @@
 
 			{#if loading}
 				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
-					<SkeletonGrid rows={6} columns={4} />
+					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
+						{#each Array(24) as _, index (index)}
+							<Skeleton class="h-[38px] w-[100px]" />
+						{/each}
+					</div>
 				</section>
 			{:else if activeTasks.length === 0}
 				<section class="h-full overflow-auto">

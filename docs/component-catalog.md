@@ -1305,32 +1305,28 @@ Rules:
 
 ---
 
-## Skeleton Components
+## `ui/skeleton`
 
 Use for loading states in pages that use `defer: true` streaming loads.
 
 ```svelte
-import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
-import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+import { Skeleton } from '$lib/components/ui/skeleton';
 
 <!-- Block: card, image, hero area -->
-<SkeletonBlock width="100%" height="120px" borderRadius="8px" />
+<Skeleton class="h-[120px] w-full rounded-lg" />
 
 <!-- Line: text, labels -->
-<SkeletonLine width="60%" height="1em" />
+<Skeleton class="h-4 w-[60%]" />
 
 <!-- Grid: table/matrix skeleton -->
-<SkeletonGrid rows={5} columns={4} cellWidth="120px" cellHeight="38px" />
+<div class="grid grid-cols-4 gap-2" aria-hidden="true">
+    {#each Array(20) as _, index (index)}
+        <Skeleton class="h-[38px] w-[120px]" />
+    {/each}
+</div>
 ```
 
-**SkeletonBlock** props: `width?: string` (default `'100%'`), `height?: string` (default `'80px'`), `borderRadius?: string`
-
-**SkeletonLine** props: `width?: string` (default `'100%'`), `height?: string` (default `'1em'`)
-
-**SkeletonGrid** props: `rows?: number` (default `3`), `columns?: number` (default `5`), `cellWidth?: string` (default `'100px'`), `cellHeight?: string` (default `'38px'`), `gap?: string` (default `var(--spacing-sm)`)
-
-All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
+The legacy `SkeletonBlock`, `SkeletonLine`, `SkeletonGrid`, and `.skeleton-pulse` wrappers have been removed. Preserve loading-state dimensions with Tailwind utilities on `Skeleton` and mark grouped skeleton-only placeholders with `aria-hidden="true"` when a parent status region already announces loading.
 
 ---
 

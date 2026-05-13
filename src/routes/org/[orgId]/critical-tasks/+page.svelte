@@ -241,7 +241,7 @@
 </svelte:head>
 
 <div
-	class="flex h-[calc(100dvh-var(--header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
+	class="flex h-[calc(100dvh-var(--app-shell-header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
 >
 	{#if !canViewReadiness}
 		<section class="h-full max-w-3xl overflow-auto p-4" aria-labelledby="critical-tasks-restricted-title">

@@ -208,7 +208,7 @@ describe('createDashboardScreenModel', () => {
 		);
 
 		expect(model.trainingEvals.hasTrainingIssues).toBe(true);
-		expect(model.trainingEvals.trainingColor).toBe('var(--danger)');
+		expect(model.trainingEvals.trainingColor).toBe('var(--destructive)');
 		expect(model.trainingEvals.groupedIndividuals[0]).toMatchObject({
 			personName: 'SGT Smith',
 			typeNames: 'BLS, CPR',
@@ -272,7 +272,7 @@ describe('createDashboardScreenModel', () => {
 
 		expect(model.trainingEvals.ictl).toMatchObject({
 			state: 'ready',
-			readinessColor: 'var(--danger)',
+			readinessColor: 'var(--destructive)',
 			readinessLabel: '68% ready',
 			deltaLabel: 'down 4 pts vs 30d',
 			primaryConcern: '3 of 8 Soldiers below 70%',

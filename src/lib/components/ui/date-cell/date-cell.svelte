@@ -51,7 +51,7 @@
 	data-slot="date-cell"
 	data-density={density}
 	class={cn(
-		'bg-card relative block h-full min-h-9 w-full min-w-0 cursor-pointer overflow-hidden border-r border-b text-left transition-[background-color,box-shadow,filter] hover:bg-primary/5 focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-w-[var(--cell-width)]',
+		'bg-card relative block h-full min-h-9 w-full min-w-0 cursor-pointer overflow-hidden border-r border-b text-left transition-[background-color,box-shadow,filter] hover:bg-primary/5 focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-w-[var(--calendar-cell-width)]',
 		'date-cell',
 		weekend && 'bg-muted',
 		holiday && 'bg-warning-muted',

@@ -149,7 +149,7 @@
 </script>
 
 <div
-	class="personnel-row grid h-full w-full min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--personnel-column-width)_repeat(var(--dates-count),minmax(var(--cell-width),1fr))]"
+	class="personnel-row grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
 	<button
 		class={[

@@ -24,12 +24,12 @@
 <style>
 	.content-section {
 		padding: 4rem 2rem;
-		background: var(--paper);
-		border-bottom: 1px solid var(--border-default);
+		background: var(--card);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.content-section.alt {
-		background: var(--paper-warm);
+		background: var(--public-paper-warm);
 	}
 
 	.content-inner {
@@ -39,9 +39,9 @@
 
 	.content-label {
 		margin-bottom: 1rem;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
@@ -49,26 +49,26 @@
 
 	.content-inner h2 {
 		margin: 0 0 1rem;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2rem, 4vw, 3rem);
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 		line-height: 0.98;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.content-inner h2 :global(em) {
 		font-style: italic;
-		font-weight: var(--font-weight-light);
+		font-weight: 300;
 		color: var(--brass);
 	}
 
 	.content-inner :global(p) {
 		margin: 0;
-		font-size: var(--text-base);
+		font-size: 1rem;
 		line-height: 1.8;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.content-inner :global(p + p),
@@ -84,7 +84,7 @@
 	.content-inner :global(ul) {
 		margin: 0;
 		padding-left: 1.2rem;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.content-inner :global(li) {
@@ -100,8 +100,8 @@
 	}
 
 	.content-inner :global(strong) {
-		color: var(--text-primary);
-		font-weight: var(--font-weight-semibold);
+		color: var(--foreground);
+		font-weight: 600;
 	}
 
 	.content-inner :global(.contact-card) {
@@ -111,7 +111,7 @@
 		padding: 0.875rem 1.25rem;
 		background: var(--brass-muted);
 		border: 1px solid color-mix(in srgb, var(--brass) 28%, transparent);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 	}
 
 	.content-inner :global(.contact-card svg) {
@@ -120,9 +120,9 @@
 	}
 
 	.content-inner :global(.contact-card a) {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.8125rem;
+		font-weight: 500;
 		letter-spacing: 0.06em;
 		text-decoration: none;
 		text-transform: uppercase;

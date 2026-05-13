@@ -213,7 +213,7 @@
 					<div class="grid gap-2">
 						<label class="field-label" for="inviteEmail">Email Address (Optional)</label>
 						<Input id="inviteEmail" type="email" bind:value={newEmail} placeholder="Leave blank for anyone to use" />
-						<span class="field-hint">If provided, only this email can use the invite</span>
+						<span class="invite-field-hint">If provided, only this email can use the invite</span>
 					</div>
 
 					<div class="grid gap-2">
@@ -311,49 +311,49 @@
 
 <style>
 	h4 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		margin-bottom: var(--sp-4);
+		margin-bottom: 1rem;
 	}
 
 	.field-label,
-	.field-hint {
+	.invite-field-hint {
 		display: block;
-		margin-top: var(--sp-1);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
+		margin-top: 0.25rem;
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
 	}
 
 	.error-message {
 		background: #fef2f2;
 		border: 1px solid #fecaca;
 		color: #dc2626;
-		padding: var(--sp-2) var(--sp-4);
-		border-radius: var(--radius-md);
-		font-size: var(--text-ui-sm);
-		margin-bottom: var(--sp-4);
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.75rem;
+		margin-bottom: 1rem;
 	}
 
 	/* Create Section */
 	.create-section {
-		padding-bottom: var(--sp-6);
-		margin-bottom: var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
+		padding-bottom: 1.5rem;
+		margin-bottom: 1.5rem;
+		border-bottom: 1px solid var(--border);
 	}
 
 	/* Success Section */
 	.success-section {
 		text-align: center;
-		padding: var(--sp-6) 0;
+		padding: 1.5rem 0;
 	}
 
 	.success-icon {
 		width: 64px;
 		height: 64px;
-		margin: 0 auto var(--sp-4);
+		margin: 0 auto 1rem;
 		background: #dcfce7;
 		border-radius: 50%;
 		display: flex;
@@ -368,93 +368,93 @@
 	}
 
 	.success-section h3 {
-		font-size: var(--text-base);
+		font-size: 1rem;
 		font-weight: 600;
-		margin-bottom: var(--sp-4);
+		margin-bottom: 1rem;
 	}
 
 	.invite-email {
-		color: var(--text-tertiary);
-		margin-bottom: var(--sp-6);
+		color: var(--muted-foreground);
+		margin-bottom: 1.5rem;
 	}
 
 	.invite-code-display,
 	.invite-link-display {
 		text-align: left;
-		margin-bottom: var(--sp-4);
+		margin-bottom: 1rem;
 	}
 
 	.invite-code-display .field-label,
 	.invite-link-display label {
 		display: block;
-		font-size: var(--text-xs);
+		font-size: 0.6875rem;
 		font-weight: 600;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
-		margin-bottom: var(--sp-1);
+		margin-bottom: 0.25rem;
 	}
 
 	.code-box,
 	.link-box {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		align-items: center;
 	}
 
 	.code-box code {
 		flex: 1;
-		padding: var(--sp-2) var(--sp-4);
-		background: var(--surface-page);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		font-size: var(--text-base);
+		padding: 0.5rem 1rem;
+		background: var(--background);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		font-size: 1rem;
 		font-weight: 600;
 		letter-spacing: 2px;
 	}
 
 	.link-box :global([data-slot='input']) {
 		flex: 1;
-		font-size: var(--text-xs);
+		font-size: 0.6875rem;
 	}
 
 	.copy-success {
 		color: #16a34a;
-		font-size: var(--text-ui-sm);
-		margin: var(--sp-2) 0;
+		font-size: 0.75rem;
+		margin: 0.5rem 0;
 	}
 
 	.action-buttons {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		justify-content: center;
-		margin-top: var(--sp-6);
+		margin-top: 1.5rem;
 	}
 
 	/* Invites List */
 	.invites-section {
-		margin-top: var(--sp-4);
+		margin-top: 1rem;
 	}
 
 	.loading,
 	.empty-state {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-6);
+		color: var(--muted-foreground);
+		padding: 1.5rem;
 	}
 
 	.invites-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.invite-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--sp-2) var(--sp-4);
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
+		padding: 0.5rem 1rem;
+		background: var(--background);
+		border-radius: var(--radius);
 	}
 
 	.invite-item.used {
@@ -474,20 +474,20 @@
 
 	.invite-code {
 		font-weight: 600;
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 	}
 
 	.invite-target {
-		font-size: var(--text-xs);
-		color: var(--text-primary);
+		font-size: 0.6875rem;
+		color: var(--foreground);
 	}
 
 	.invite-date {
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
 	}
 
 	.invite-item :global([data-slot='button']) {
-		padding: var(--sp-1);
+		padding: 0.25rem;
 	}
 </style>

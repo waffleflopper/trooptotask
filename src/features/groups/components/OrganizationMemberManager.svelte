@@ -328,11 +328,11 @@
 										View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and
 										availability.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewCalendar" checked={member.canViewCalendar} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditCalendar" checked={member.canEditCalendar} />
 										Edit
 									</label>
@@ -344,11 +344,11 @@
 										View the personnel roster and details. Operators can update existing records; editors manage new
 										personnel, imports, groups, and archive actions.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewPersonnel" checked={member.canViewPersonnel} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditPersonnel" checked={member.canEditPersonnel} />
 										Edit
 									</label>
@@ -360,11 +360,11 @@
 										View training records and compliance status. Edit allows logging training completions and managing
 										records.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewTraining" checked={member.canViewTraining} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditTraining" checked={member.canEditTraining} />
 										Edit
 									</label>
@@ -376,11 +376,11 @@
 										View the ICTL matrix and reports. Edit allows recording ICT completions and maintaining critical
 										task readiness.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewCriticalTasks" checked={member.canViewCriticalTasks} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditCriticalTasks" checked={member.canEditCriticalTasks} />
 										Edit
 									</label>
@@ -392,11 +392,11 @@
 										View onboarding progress for new personnel. Edit allows starting onboardings and updating step
 										progress.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewOnboarding" checked={member.canViewOnboarding} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditOnboarding" checked={member.canEditOnboarding} />
 										Edit
 									</label>
@@ -408,11 +408,11 @@
 										View evaluation-tracking records and workflow status. Edit allows creating and updating rating
 										scheme entries.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewRatingScheme" checked={member.canViewRatingScheme} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditRatingScheme" checked={member.canEditRatingScheme} />
 										Edit
 									</label>
@@ -423,11 +423,11 @@
 									<p class="permission-description">
 										View counseling records and development goals. Edit allows creating and updating counseling entries.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
 										View
 									</label>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditLeadersBook" checked={member.canEditLeadersBook} />
 										Edit
 									</label>
@@ -438,7 +438,7 @@
 									<p class="permission-description">
 										Invite, remove, and manage permissions for other organization members.
 									</p>
-									<label class="checkbox-label">
+									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canManageMembers" checked={member.canManageMembers} />
 										Manage
 									</label>
@@ -612,184 +612,184 @@
 	.member-manager {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.section {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		padding: var(--sp-5);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1.25rem;
 	}
 
 	.section h2 {
-		margin: 0 0 var(--sp-4);
-		font-family: var(--font-display);
+		margin: 0 0 1rem;
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(1.9rem, 3vw, 2.5rem);
 		line-height: 0.98;
 		font-weight: 700;
 		text-transform: uppercase;
-		color: var(--text-strong);
+		color: var(--foreground);
 	}
 
 	.member-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 	}
 
 	.member-card {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 		overflow: hidden;
 	}
 
 	.member-card.expanded {
-		border-color: var(--amber);
+		border-color: var(--accent);
 	}
 
 	.member-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--sp-3) var(--sp-4);
-		gap: var(--sp-4);
+		padding: 0.75rem 1rem;
+		gap: 1rem;
 	}
 
 	.member-info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.member-name-row {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		flex-wrap: wrap;
 	}
 
 	.scope-label {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
 		margin-left: 4px;
 	}
 
 	.member-id {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.8125rem;
 	}
 
 	.member-email {
-		font-size: var(--text-sm);
-		color: var(--text-strong);
+		font-size: 0.8125rem;
+		color: var(--foreground);
 	}
 
 	.member-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		flex-wrap: wrap;
 	}
 
 	.preset-form {
 		display: inline-flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		flex-wrap: wrap;
 	}
 
 	.preset-select {
 		padding: 0.625rem 0.8rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--field-bg);
-		color: var(--text-strong);
-		font-size: var(--text-sm);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		color: var(--foreground);
+		font-size: 0.8125rem;
 		cursor: pointer;
 		min-height: 2.5rem;
 	}
 
 	.expand-btn {
 		padding: 0.625rem 0.8rem;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 		cursor: pointer;
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-family: 'IBM Plex Mono', monospace;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		min-height: 2.5rem;
 	}
 
 	.expand-btn:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
 	}
 
 	.permissions-form {
-		padding: var(--sp-4);
-		border-top: var(--border-thin);
-		background: var(--surface-panel);
+		padding: 1rem;
+		border-top: 1px solid var(--border);
+		background: var(--card);
 	}
 
 	.permission-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
+		gap: 0.75rem;
+		margin-bottom: 1rem;
 	}
 
 	.permission-section {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+		padding: 0.75rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--muted) 68%, var(--card) 32%);
 	}
 
 	.permission-section h4 {
-		font-size: var(--text-sm);
-		font-family: var(--font-mono);
+		font-size: 0.8125rem;
+		font-family: 'IBM Plex Mono', monospace;
 		font-weight: 600;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		margin-bottom: var(--sp-2);
-		color: var(--text-strong);
+		margin-bottom: 0.5rem;
+		color: var(--foreground);
 	}
 
 	.permission-description {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		margin: 0 0 var(--sp-2);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+		margin: 0 0 0.5rem;
 		line-height: 1.5;
 	}
 
-	/* .checkbox-label base in app.css */
+	/* .permission-checkbox-label base in app.css */
 
-	.checkbox-label input {
+	.permission-checkbox-label input {
 		cursor: pointer;
 	}
 
 	.permission-actions {
 		display: flex;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 		justify-content: flex-end;
 	}
 
 	.invite-note {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
+		margin-bottom: 1rem;
+		padding: 0.75rem 1rem;
+		background: color-mix(in srgb, var(--accent) 14%, var(--card));
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.invite-form {
 		display: flex;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 		flex-wrap: wrap;
 	}
 
@@ -801,54 +801,54 @@
 	.invitation-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 	}
 
 	.invitation-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		gap: var(--sp-3);
+		padding: 0.75rem 1rem;
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		gap: 0.75rem;
 	}
 
 	.invite-info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.invite-email {
-		font-size: var(--text-sm);
-		color: var(--text-strong);
+		font-size: 0.8125rem;
+		color: var(--foreground);
 	}
 
 	.invite-meta {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
 	}
 
 	.error-message {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		color: var(--danger);
-		padding: var(--sp-3) var(--sp-4);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-		margin-top: var(--sp-3);
+		background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+		border: 1px solid var(--border);
+		color: var(--destructive);
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.8125rem;
+		margin-top: 0.75rem;
 	}
 
 	.success-message {
-		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		color: var(--success);
-		padding: var(--sp-3) var(--sp-4);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-		margin-top: var(--sp-3);
+		background: color-mix(in srgb, var(--chart-2) 12%, var(--card));
+		border: 1px solid var(--border);
+		color: var(--chart-2);
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.8125rem;
+		margin-top: 0.75rem;
 	}
 
 	/* Mobile styles */

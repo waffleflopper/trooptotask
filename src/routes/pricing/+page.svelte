@@ -193,7 +193,7 @@
 		margin: 1.5rem auto 0;
 		padding: 1rem 1.2rem;
 		border: 1px solid color-mix(in srgb, var(--hero-text) 14%, transparent);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		background: color-mix(in srgb, var(--hero-text) 4%, transparent);
 		text-align: left;
 	}
@@ -201,28 +201,28 @@
 	.beta-banner__label {
 		width: fit-content;
 		padding: 3px 8px;
-		border: 1px solid var(--amber);
-		border-radius: var(--radius-sm);
-		background: var(--amber-light);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		border: 1px solid var(--accent);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--amber-dark);
+		color: var(--accent);
 	}
 
 	.beta-banner p {
 		margin: 0;
-		font-size: var(--text-base);
+		font-size: 1rem;
 		line-height: 1.7;
 		color: var(--hero-muted);
 	}
 
 	.pricing-overview {
 		padding: clamp(3.5rem, 7vw, 5.5rem) 2rem;
-		background: var(--paper);
-		border-bottom: 1px solid var(--border-default);
+		background: var(--card);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.pricing-overview__inner {
@@ -236,7 +236,7 @@
 		display: grid;
 		gap: 1.5rem;
 		padding-bottom: 1.5rem;
-		border-bottom: 1px solid var(--border-default);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.pricing-brief__intro {
@@ -246,9 +246,9 @@
 	}
 
 	.pricing-brief__label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
@@ -256,20 +256,20 @@
 
 	.pricing-brief h2 {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2rem, 4vw, 3rem);
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 		line-height: 0.98;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.pricing-brief p {
 		margin: 0;
-		font-size: var(--text-base);
+		font-size: 1rem;
 		line-height: 1.8;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.pricing-brief__signals {
@@ -281,15 +281,15 @@
 
 	.pricing-brief__signals div {
 		padding: 0.85rem 0.9rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--paper);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.pricing-grid {
@@ -316,29 +316,29 @@
 
 	.pricing-note {
 		padding: 1.25rem 1.1rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--paper);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
 	}
 
 	.pricing-note h3,
 	.faq-item h3 {
 		margin: 0 0 0.5rem;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 1.5rem;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		line-height: 1;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.pricing-note p,
 	.faq-item p {
 		margin: 0;
-		font-size: var(--text-base);
+		font-size: 1rem;
 		line-height: 1.75;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.faq-list {
@@ -349,7 +349,7 @@
 
 	.faq-item {
 		padding: 1rem 0 0;
-		border-top: 1px solid var(--border-default);
+		border-top: 1px solid var(--border);
 	}
 
 	@media (max-width: 980px) {
@@ -375,7 +375,7 @@
 
 		.pricing-brief p,
 		.beta-banner p {
-			font-size: var(--text-base);
+			font-size: 1rem;
 		}
 	}
 </style>

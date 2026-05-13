@@ -242,39 +242,39 @@
 <style>
 	.workspace-loading {
 		display: grid;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
+		gap: 1rem;
+		padding: 1rem;
 	}
 
 	.workspace-loading__hero {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
-		gap: var(--sp-4);
+		gap: 1rem;
 		align-items: stretch;
 	}
 
 	.workspace-loading__copy {
 		display: grid;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.workspace-loading__grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.workspace-support-notice {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--sp-3);
-		margin: 0 var(--sp-4) var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
+		gap: 0.75rem;
+		margin: 0 1rem 1rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		color: var(--muted-foreground);
 	}
 
 	.workspace-support-notice p {
@@ -282,9 +282,9 @@
 	}
 
 	.workspace-support-notice--error {
-		border-color: var(--warning);
-		background: color-mix(in srgb, var(--warning) 8%, var(--surface-panel));
-		color: var(--text-primary);
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		color: var(--foreground);
 	}
 
 	@media (max-width: 720px) {

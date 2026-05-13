@@ -568,8 +568,8 @@
 <style>
 	.feature-rollup {
 		padding: 2.5rem 2rem;
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-page);
+		border-bottom: 1px solid var(--border);
+		background: var(--background);
 	}
 
 	.feature-rollup__inner {
@@ -583,9 +583,9 @@
 
 	.feature-rollup__label {
 		margin-bottom: 0.75rem;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
@@ -594,13 +594,13 @@
 	.feature-rollup h2 {
 		margin: 0;
 		max-width: 14ch;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2rem, 4vw, 3rem);
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 		line-height: 0.98;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.feature-rollup__grid {
@@ -611,15 +611,15 @@
 
 	.feature-rollup__grid div {
 		padding: 0.9rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--paper);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.cal-month-label,
@@ -632,8 +632,8 @@
 	.demo-eval-header span,
 	.demo-eval-due,
 	.security-status-name {
-		font-family: var(--font-mono);
-		color: var(--text-tertiary);
+		font-family: 'IBM Plex Mono', monospace;
+		color: var(--muted-foreground);
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
@@ -652,36 +652,36 @@
 
 	.cal-header {
 		padding-bottom: 0.4rem;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.56rem;
 		text-align: center;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.cal-cell {
 		height: 1.1rem;
 		border-radius: 4px;
-		background: var(--surface-subtle);
+		background: var(--muted);
 	}
 
 	.cal-empty {
-		background: var(--surface-subtle);
+		background: var(--muted);
 	}
 
 	.cal-leave {
-		background: var(--success);
+		background: var(--chart-2);
 	}
 
 	.cal-tdy {
-		background: var(--info);
+		background: var(--chart-3);
 	}
 
 	.cal-school {
-		background: color-mix(in srgb, var(--brass) 76%, var(--paper) 24%);
+		background: color-mix(in srgb, var(--brass) 76%, var(--card) 24%);
 	}
 
 	.cal-appt {
-		background: color-mix(in srgb, var(--danger) 80%, var(--paper) 20%);
+		background: color-mix(in srgb, var(--destructive) 80%, var(--card) 20%);
 	}
 
 	.cal-legend {
@@ -695,9 +695,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.58rem;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.cal-legend-dot {
@@ -712,20 +712,20 @@
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		padding: 0.65rem 0.8rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-page);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--background);
 	}
 
 	.demo-search-icon {
 		width: 0.75rem;
 		height: 0.75rem;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.demo-search-text {
 		font-size: 0.72rem;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.demo-group-header {
@@ -734,7 +734,7 @@
 		justify-content: space-between;
 		margin-bottom: 0.75rem;
 		padding-bottom: 0.6rem;
-		border-bottom: var(--border-thin);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.demo-group-name {
@@ -743,13 +743,13 @@
 
 	.demo-group-count {
 		padding: 3px 8px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--paper);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.08em;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.demo-roster,
@@ -775,21 +775,21 @@
 	.demo-counseling-type,
 	.demo-eval-type,
 	.demo-eval-status span {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 11px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		padding: 2px 7px;
 		border: 1px solid transparent;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius);
 	}
 
 	.demo-rank {
 		flex-shrink: 0;
-		background: var(--amber-light);
-		color: var(--amber-dark);
-		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 	}
 
 	.demo-name,
@@ -798,7 +798,7 @@
 	.demo-duty-name,
 	.demo-eval-name,
 	.demo-duty-date {
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.demo-name,
@@ -807,9 +807,9 @@
 	}
 
 	.demo-mos {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.58rem;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.demo-training-row {
@@ -838,34 +838,34 @@
 	}
 
 	.demo-training-status.current {
-		background: var(--success-bg);
-		color: var(--success);
-		border-color: color-mix(in srgb, var(--success) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+		color: var(--chart-2);
+		border-color: color-mix(in srgb, var(--chart-2) 20%, transparent);
 	}
 
 	.demo-training-status.expiring {
-		background: var(--info-bg);
-		color: var(--info);
-		border-color: color-mix(in srgb, var(--info) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-3) 14%, var(--card));
+		color: var(--chart-3);
+		border-color: color-mix(in srgb, var(--chart-3) 20%, transparent);
 	}
 
 	.demo-training-status.warn {
-		background: var(--amber-light);
-		color: var(--amber-dark);
-		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 	}
 
 	.demo-training-status.expired {
-		background: var(--danger-bg);
-		color: var(--danger);
-		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
+		background: color-mix(in srgb, var(--destructive) 14%, var(--card));
+		color: var(--destructive);
+		border-color: color-mix(in srgb, var(--destructive) 20%, transparent);
 	}
 
 	.demo-training-bar,
 	.demo-progress-bar {
 		overflow: hidden;
 		border-radius: 999px;
-		background: var(--surface-subtle);
+		background: var(--muted);
 	}
 
 	.demo-training-bar {
@@ -879,11 +879,11 @@
 	}
 
 	.demo-training-fill--success {
-		background: var(--success);
+		background: var(--chart-2);
 	}
 
 	.demo-training-fill--info {
-		background: var(--info);
+		background: var(--chart-3);
 	}
 
 	.demo-training-fill--amber,
@@ -892,7 +892,7 @@
 	}
 
 	.demo-training-fill--danger {
-		background: var(--danger);
+		background: var(--destructive);
 	}
 
 	.demo-training-date,
@@ -904,7 +904,7 @@
 	.demo-duty-date,
 	.demo-eval-header {
 		padding-bottom: 0.65rem;
-		border-bottom: var(--border-thin);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.demo-soldier-header {
@@ -913,7 +913,7 @@
 
 	.demo-soldier-name {
 		font-size: 0.82rem;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 	}
 
 	.demo-soldier-info {
@@ -946,30 +946,30 @@
 
 	.demo-counseling-type.initial,
 	.demo-eval-type.oer {
-		background: var(--info-bg);
-		color: var(--info);
-		border-color: color-mix(in srgb, var(--info) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-3) 14%, var(--card));
+		color: var(--chart-3);
+		border-color: color-mix(in srgb, var(--chart-3) 20%, transparent);
 	}
 
 	.demo-counseling-type.quarterly,
 	.demo-eval-status.current span {
-		background: var(--success-bg);
-		color: var(--success);
-		border-color: color-mix(in srgb, var(--success) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+		color: var(--chart-2);
+		border-color: color-mix(in srgb, var(--chart-2) 20%, transparent);
 	}
 
 	.demo-counseling-type.event,
 	.demo-eval-status.due-30 span {
-		background: var(--amber-light);
-		color: var(--amber-dark);
-		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 	}
 
 	.demo-file-icon,
 	.demo-timeline-summary,
 	.demo-progress-names,
 	.demo-checklist-label {
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.demo-progress-header {
@@ -993,18 +993,18 @@
 		flex: 0 0 1rem;
 		width: 1rem;
 		height: 1rem;
-		border: 1px solid var(--border-default);
+		border: 1px solid var(--border);
 		border-radius: 4px;
-		color: var(--success);
+		color: var(--chart-2);
 	}
 
 	.demo-checkbox.checked {
-		border-color: color-mix(in srgb, var(--success) 28%, transparent);
-		background: color-mix(in srgb, var(--success) 18%, transparent);
+		border-color: color-mix(in srgb, var(--chart-2) 28%, transparent);
+		background: color-mix(in srgb, var(--chart-2) 18%, transparent);
 	}
 
 	.demo-checklist-item.completed .demo-checklist-label {
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.demo-eval-table {
@@ -1045,27 +1045,27 @@
 	}
 
 	.demo-eval-type.ncoer {
-		background: var(--amber-light);
-		color: var(--amber-dark);
-		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 	}
 
 	.demo-eval-type.woer,
 	.demo-eval-status.due-60 span {
-		background: var(--success-bg);
-		color: var(--success);
-		border-color: color-mix(in srgb, var(--success) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+		color: var(--chart-2);
+		border-color: color-mix(in srgb, var(--chart-2) 20%, transparent);
 	}
 
 	.demo-eval-status.overdue span {
-		background: var(--danger-bg);
-		color: var(--danger);
-		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
+		background: color-mix(in srgb, var(--destructive) 14%, var(--card));
+		color: var(--destructive);
+		border-color: color-mix(in srgb, var(--destructive) 20%, transparent);
 	}
 
 	.demo-duty-date {
 		margin-bottom: 0.85rem;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 1rem;
 	}
 
@@ -1076,27 +1076,27 @@
 	}
 
 	.demo-duty-badge.mod {
-		background: var(--amber-light);
-		color: var(--amber-dark);
-		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 24%, transparent);
 	}
 
 	.demo-duty-badge.cq {
-		background: var(--info-bg);
-		color: var(--info);
-		border-color: color-mix(in srgb, var(--info) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-3) 14%, var(--card));
+		color: var(--chart-3);
+		border-color: color-mix(in srgb, var(--chart-3) 20%, transparent);
 	}
 
 	.demo-duty-badge.staff {
-		background: var(--danger-bg);
-		color: var(--danger);
-		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
+		background: color-mix(in srgb, var(--destructive) 14%, var(--card));
+		color: var(--destructive);
+		border-color: color-mix(in srgb, var(--destructive) 20%, transparent);
 	}
 
 	.demo-duty-badge.front-desk {
-		background: var(--paper);
-		color: var(--text-tertiary);
-		border-color: var(--border-default);
+		background: var(--card);
+		color: var(--muted-foreground);
+		border-color: var(--border);
 	}
 
 	.security-status-row {
@@ -1104,30 +1104,30 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.6rem 0.7rem;
-		border: 1px solid color-mix(in srgb, var(--success) 24%, transparent);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--success) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--chart-2) 24%, transparent);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--chart-2) 10%, transparent);
 	}
 
 	.security-status-row svg,
 	.security-status-badge.active {
-		color: var(--success);
+		color: var(--chart-2);
 	}
 
 	.security-status-name {
 		font-size: 0.56rem;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.security-status-badge {
 		margin-left: auto;
 		padding: 2px 7px;
-		border: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
-		border-radius: var(--radius-sm);
-		background: var(--success-bg);
-		font-family: var(--font-mono);
+		border: 1px solid color-mix(in srgb, var(--chart-2) 20%, transparent);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 11px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}

@@ -138,7 +138,9 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX, rosterOffsetTop)
 	);
 
-	const rosterWidth = $derived(`calc(var(--personnel-column-width) + ${visibleDateKeys.length * COL_WIDTH}px)`);
+	const rosterWidth = $derived(
+		`calc(var(--calendar-personnel-column-width) + ${visibleDateKeys.length * COL_WIDTH}px)`
+	);
 
 	function getRosterOffsetTop() {
 		if (!scrollAreaEl || !rosterRowsEl) return 0;
@@ -233,6 +235,7 @@
 <div
 	class="long-range-wrapper flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--long-range-col-width:24px] [--long-range-header-height:36px]"
 	style="
+		--calendar-personnel-column-width: 200px;
 		--long-range-group-row-height: {GROUP_ROW_HEIGHT}px;
 		--long-range-person-row-height: {PERSON_ROW_HEIGHT}px;
 	"
@@ -261,7 +264,7 @@
 			<!-- Header Row with Months and Days -->
 			<div class="sticky top-0 z-10 flex border-b bg-muted">
 				<div
-					class="sticky left-0 z-20 flex min-h-[var(--long-range-header-height)] w-[var(--personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+					class="sticky left-0 z-20 flex min-h-[var(--long-range-header-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					Personnel
 				</div>
@@ -278,7 +281,9 @@
 
 			<!-- Day Numbers Row — clickable to jump to that month -->
 			<div class="sticky top-[var(--long-range-header-height)] z-[9] flex border-b bg-card">
-				<div class="sticky left-0 z-10 min-h-8 w-[var(--personnel-column-width)] shrink-0 border-r bg-card px-3"></div>
+				<div
+					class="sticky left-0 z-10 min-h-8 w-[var(--calendar-personnel-column-width)] shrink-0 border-r bg-card px-3"
+				></div>
 				{#each months as month (`${month.year}-${month.month}`)}
 					{#each month.dates as date (formatDate(date))}
 						{@const dateKey = formatDate(date)}
@@ -317,7 +322,7 @@
 						{#if row.type === 'group'}
 							<div class="flex h-[var(--long-range-group-row-height)] overflow-hidden bg-muted/70">
 								<div
-									class="sticky left-0 z-[2] flex h-[var(--long-range-group-row-height)] w-[var(--personnel-column-width)] shrink-0 items-center border-r bg-muted/70 px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+									class="sticky left-0 z-[2] flex h-[var(--long-range-group-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted/70 px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 								>
 									{row.group}
 								</div>
@@ -334,7 +339,7 @@
 								class="flex h-[var(--long-range-person-row-height)] overflow-hidden border-b hover:[&_.empty-status-cell]:bg-muted"
 							>
 								<div
-									class="sticky left-0 z-[2] flex h-[var(--long-range-person-row-height)] w-[var(--personnel-column-width)] shrink-0 items-center gap-1 border-r bg-card px-3 text-sm"
+									class="sticky left-0 z-[2] flex h-[var(--long-range-person-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center gap-1 border-r bg-card px-3 text-sm"
 								>
 									<span class="font-mono text-xs font-semibold tracking-wider text-primary uppercase"
 										>{row.person.rank}</span

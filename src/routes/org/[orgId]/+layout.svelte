@@ -118,7 +118,7 @@
 	<div class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
 		<div class="grid max-w-md gap-4 rounded-lg border bg-card p-8 text-center text-card-foreground">
 			<h1
-				class="[font-family:var(--font-display)] text-3xl leading-tight font-bold tracking-[0.04em] text-destructive uppercase"
+				class="[font-family:'Barlow Condensed', sans-serif] text-3xl leading-tight font-bold tracking-[0.04em] text-destructive uppercase"
 			>
 				Organization Suspended
 			</h1>

@@ -11,7 +11,7 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<main class="page-scroll flex-1 overflow-y-auto" id="main-content">
+	<main class="flex-1 overflow-y-auto p-6 max-sm:p-2" id="main-content">
 		{#if ctx.isHydrating}
 			<div class="flex flex-col gap-3 p-4" aria-busy="true" aria-live="polite" role="status">
 				<div class="grid gap-3 lg:grid-cols-3">

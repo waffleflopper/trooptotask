@@ -74,8 +74,8 @@
 		position: sticky;
 		top: 0;
 		z-index: 100;
-		background: var(--surface-page);
-		border-bottom: var(--border-thin);
+		background: var(--background);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.nav-container {
@@ -93,12 +93,12 @@
 		display: flex;
 		align-items: baseline;
 		text-decoration: none;
-		color: var(--text-primary);
+		color: var(--foreground);
 		flex-shrink: 0;
 	}
 
 	.nav-wordmark {
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 22px;
 		font-weight: 800;
 		letter-spacing: 0.02em;
@@ -110,12 +110,12 @@
 	}
 
 	.nav-subtitle {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 10px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 		margin-top: 0.25rem;
 	}
 
@@ -130,11 +130,11 @@
 	.nav-link {
 		padding: 0.5rem 0;
 		text-decoration: none;
-		font-family: var(--font-display);
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-medium);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1rem;
+		font-weight: 500;
 		letter-spacing: 0.04em;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		border-bottom: 2px solid transparent;
 		transition:
 			color var(--transition-fast),
@@ -143,7 +143,7 @@
 
 	.nav-link:hover,
 	.nav-link.active {
-		color: var(--text-primary);
+		color: var(--foreground);
 		border-bottom-color: var(--brass);
 	}
 
@@ -157,10 +157,10 @@
 	.theme-toggle {
 		width: 36px;
 		height: 36px;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		border: none;
 		background: transparent;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
@@ -171,8 +171,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
+		color: var(--foreground);
+		background: var(--muted);
 	}
 
 	.theme-toggle svg {
@@ -185,11 +185,11 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0.45rem 1rem;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		border: 1px solid transparent;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 14px;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		letter-spacing: 0.04em;
 		line-height: 1;
 		text-decoration: none;
@@ -201,19 +201,19 @@
 
 	.nav-button-outline {
 		background: transparent;
-		border-color: var(--border-default);
-		color: var(--text-primary);
+		border-color: var(--border);
+		color: var(--foreground);
 	}
 
 	.nav-button-outline:hover {
-		border-color: var(--text-secondary);
-		background: var(--surface-subtle);
+		border-color: var(--muted-foreground);
+		background: var(--muted);
 	}
 
 	.nav-button-amber {
 		background: var(--brass);
 		border-color: var(--brass);
-		color: var(--white);
+		color: var(--background);
 	}
 
 	.nav-button-amber:hover {

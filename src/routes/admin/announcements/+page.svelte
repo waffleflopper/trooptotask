@@ -1,10 +1,15 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -16,11 +21,9 @@
 
 	function getStatus(announcement: { is_active: boolean; expires_at: string | null }) {
 		if (announcement.expires_at && new Date(announcement.expires_at) < new Date()) {
-			return { label: 'Expired', color: ADMIN_STATUS_COLORS.expired };
+			return { label: 'Expired', value: 'expired' };
 		}
-		return announcement.is_active
-			? { label: 'Active', color: ADMIN_STATUS_COLORS.active }
-			: { label: 'Inactive', color: ADMIN_STATUS_COLORS.reviewed };
+		return announcement.is_active ? { label: 'Active', value: 'active' } : { label: 'Inactive', value: 'reviewed' };
 	}
 </script>
 
@@ -39,7 +42,7 @@
 		</div>
 		<div class="admin-page-actions">
 			{#if !showCreateForm}
-				<button class="btn btn-primary" onclick={() => (showCreateForm = true)}>Create Announcement</button>
+				<Button onclick={() => (showCreateForm = true)}>Create Announcement</Button>
 			{/if}
 		</div>
 	</header>
@@ -70,49 +73,41 @@
 				}}
 			>
 				<div class="admin-toolbar__field">
-					<label class="label" for="title">Title</label>
-					<input
-						id="title"
-						name="title"
-						class="input"
-						type="text"
-						maxlength="200"
-						placeholder="Announcement title"
-						required
-					/>
+					<Label for="title">Title</Label>
+					<Input id="title" name="title" type="text" maxlength={200} placeholder="Announcement title" required />
 				</div>
 				<div class="admin-toolbar__field">
-					<label class="label" for="message">Message</label>
-					<textarea
+					<Label for="message">Message</Label>
+					<Textarea
 						id="message"
 						name="message"
-						class="input textarea"
-						rows="4"
-						maxlength="1000"
+						rows={4}
+						maxlength={1000}
 						placeholder="Announcement message"
 						required
-					></textarea>
+						class="min-h-[110px] resize-y"
+					></Textarea>
 				</div>
 				<div class="announcement-form__row">
 					<div class="admin-toolbar__field">
-						<label class="label" for="type">Type</label>
-						<select id="type" name="type" class="select" required>
+						<Label for="type">Type</Label>
+						<NativeSelect id="type" name="type" required>
 							<option value="info">Info</option>
 							<option value="warning">Warning</option>
 							<option value="maintenance">Maintenance</option>
-						</select>
+						</NativeSelect>
 					</div>
 					<div class="admin-toolbar__field">
-						<label class="label" for="expiresAt">Expires At</label>
-						<input id="expiresAt" name="expiresAt" class="input" type="datetime-local" />
+						<Label for="expiresAt">Expires At</Label>
+						<Input id="expiresAt" name="expiresAt" type="datetime-local" />
 					</div>
 				</div>
 				<div class="announcement-form__actions">
-					<button type="button" class="btn btn-secondary" onclick={() => (showCreateForm = false)}>Cancel</button>
-					<button class="btn btn-primary" type="submit" disabled={creating}>
+					<Button type="button" variant="outline" onclick={() => (showCreateForm = false)}>Cancel</Button>
+					<Button type="submit" disabled={creating}>
 						{#if creating}<Spinner />{/if}
 						{creating ? 'Saving...' : 'Save'}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</section>
@@ -120,7 +115,13 @@
 
 	<div class="announcement-stack">
 		{#if data.announcements.length === 0}
-			<section class="admin-panel"><EmptyState message="No announcements yet." /></section>
+			<section class="admin-panel">
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No announcements yet.</Empty.Title>
+					</Empty.Header>
+				</Empty.Root>
+			</section>
 		{:else}
 			{#each data.announcements as announcement (announcement.id)}
 				{@const status = getStatus(announcement)}
@@ -129,11 +130,8 @@
 						<div class="announcement-card__copy">
 							<h2>{announcement.title}</h2>
 							<div class="announcement-card__badges">
-								<Badge
-									label={formatAdminLabel(announcement.type)}
-									color={ADMIN_STATUS_COLORS[announcement.type] ?? 'var(--ink-35)'}
-								/>
-								<Badge label={status.label} color={status.color} />
+								<Badge variant={adminBadgeVariant(announcement.type)}>{formatAdminLabel(announcement.type)}</Badge>
+								<Badge variant={adminBadgeVariant(status.value)}>{status.label}</Badge>
 							</div>
 						</div>
 						<div class="announcement-card__actions">
@@ -149,10 +147,10 @@
 								}}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<button class="btn btn-secondary btn-sm" type="submit" disabled={togglingId === announcement.id}>
+								<Button type="submit" variant="outline" disabled={togglingId === announcement.id}>
 									{#if togglingId === announcement.id}<Spinner color="currentColor" />{/if}
 									{announcement.is_active ? 'Deactivate' : 'Activate'}
-								</button>
+								</Button>
 							</form>
 							<form
 								method="POST"
@@ -169,10 +167,10 @@
 								}}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<button class="btn btn-danger btn-sm" type="submit" disabled={deletingId === announcement.id}>
+								<Button type="submit" variant="destructive" disabled={deletingId === announcement.id}>
 									{#if deletingId === announcement.id}<Spinner />{/if}
 									Delete
-								</button>
+								</Button>
 							</form>
 						</div>
 					</div>
@@ -247,11 +245,6 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-	}
-
-	.textarea {
-		resize: vertical;
-		min-height: 110px;
 	}
 
 	@media (max-width: 700px) {

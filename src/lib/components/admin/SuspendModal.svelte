@@ -1,6 +1,9 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { Label } from '$lib/components/ui/label';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
 		type: 'user' | 'org';
@@ -44,54 +47,52 @@
 	}
 </script>
 
-<Modal {title} {onClose} width="480px" canClose={!saving}>
-	<div class="modal-stack">
-		<p class="admin-note">
-			{#if isSuspended}
-				This {type === 'org' ? 'organization' : 'user'} will regain access immediately after you confirm.
-			{:else}
-				This {type === 'org' ? 'organization' : 'user'} will lose access immediately after you confirm.
+<AppDialog.Root open closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving}>
+		<AppDialog.Header>
+			<AppDialog.Title>{title}</AppDialog.Title>
+		</AppDialog.Header>
+		<AppDialog.Body class="flex flex-col gap-4">
+			<p class="admin-note">
+				{#if isSuspended}
+					This {type === 'org' ? 'organization' : 'user'} will regain access immediately after you confirm.
+				{:else}
+					This {type === 'org' ? 'organization' : 'user'} will lose access immediately after you confirm.
+				{/if}
+			</p>
+
+			<div class="admin-callout">
+				<strong>{isSuspended ? 'Unsuspend' : 'Suspend'} target</strong>
+				<p>{targetName}</p>
+			</div>
+
+			<div class="grid gap-2">
+				<Label for="reason">Reason (optional)</Label>
+				<Textarea
+					id="reason"
+					rows={3}
+					bind:value={reason}
+					placeholder="Internal note about why this action was taken..."
+					disabled={saving}
+				></Textarea>
+			</div>
+
+			{#if errorMsg}
+				<p class="text-error modal-error">{errorMsg}</p>
 			{/if}
-		</p>
+		</AppDialog.Body>
 
-		<div class="admin-callout">
-			<strong>{isSuspended ? 'Unsuspend' : 'Suspend'} target</strong>
-			<p>{targetName}</p>
-		</div>
-
-		<div class="form-group">
-			<label for="reason" class="label">Reason (optional)</label>
-			<textarea
-				id="reason"
-				class="input modal-textarea"
-				rows={3}
-				bind:value={reason}
-				placeholder="Internal note about why this action was taken..."
-				disabled={saving}
-			></textarea>
-		</div>
-
-		{#if errorMsg}
-			<p class="text-error modal-error">{errorMsg}</p>
-		{/if}
-	</div>
-
-	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
-		<button class="btn {isSuspended ? 'btn-primary' : 'btn-danger'}" onclick={handleAction} disabled={saving}>
-			{#if saving}<Spinner />{/if}
-			{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
-		</button>
-	{/snippet}
-</Modal>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
+			<Button variant={isSuspended ? 'default' : 'destructive'} onclick={handleAction} disabled={saving}>
+				{#if saving}<Spinner />{/if}
+				{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <style>
-	.modal-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
 	.admin-note,
 	.admin-callout p,
 	.modal-error {
@@ -118,10 +119,5 @@
 		font-size: var(--text-xs);
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-	}
-
-	.modal-textarea {
-		min-height: 88px;
-		resize: vertical;
 	}
 </style>

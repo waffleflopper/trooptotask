@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -81,16 +85,15 @@
 			}}
 		>
 			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="gifting-search">Search</label>
-				<input
+				<Label for="gifting-search">Search</Label>
+				<Input
 					id="gifting-search"
 					type="text"
 					placeholder="Search by org name or owner email..."
 					bind:value={searchInput}
-					class="input"
 				/>
 			</div>
-			<button type="submit" class="btn btn-secondary">Apply</button>
+			<Button type="submit" variant="outline">Apply</Button>
 		</form>
 	</div>
 
@@ -118,20 +121,20 @@
 						<td class="owner-cell">{org.ownerEmail}</td>
 						<td>
 							<div class="tier-cell">
-								<Badge label={formatAdminLabel(org.tier)} color={ADMIN_TIER_COLORS[org.tier] ?? 'var(--ink-35)'} />
-								{#if org.hasActiveSubscription}<Badge label="Stripe" color="var(--info)" />{/if}
+								<Badge variant={adminBadgeVariant(org.tier)}>{formatAdminLabel(org.tier)}</Badge>
+								{#if org.hasActiveSubscription}<Badge variant="info">Stripe</Badge>{/if}
 							</div>
 						</td>
 						<td>{org.personnelCount}</td>
 						<td>
 							{#if isGiftActive(org)}
 								<div class="gift-cell">
-									<Badge label={`Gift: ${formatAdminLabel(org.giftTier ?? '')}`} color={ADMIN_STATUS_COLORS.gifted} />
+									<Badge variant="warning">Gift: {formatAdminLabel(org.giftTier ?? '')}</Badge>
 									<span class="text-muted">Expires {formatDisplayDateTime(org.giftExpiresAt)}</span>
 								</div>
 							{:else if isGiftExpired(org)}
 								<div class="gift-cell">
-									<Badge label="Expired" color={ADMIN_STATUS_COLORS.expired} />
+									<Badge variant="secondary">Expired</Badge>
 									<span class="text-muted">Was {formatAdminLabel(org.giftTier ?? '')}</span>
 								</div>
 							{:else}
@@ -154,26 +157,24 @@
 									}}
 								>
 									<input type="hidden" name="orgId" value={org.id} />
-									<select name="giftTier" bind:value={giftTier} class="select">
+									<NativeSelect name="giftTier" bind:value={giftTier}>
 										<option value="team">Team</option>
 										<option value="unit">Unit</option>
-									</select>
-									<input
+									</NativeSelect>
+									<Input
 										type="number"
 										name="days"
 										bind:value={giftDays}
 										min="1"
 										max="365"
-										class="input days-input"
+										class="w-[92px]"
 										placeholder="Days"
 									/>
-									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
+									<Button type="submit" disabled={loadingId !== null}>
 										{#if loadingId === `${org.id}-gift`}<Spinner />{/if}
 										Apply
-									</button>
-									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (giftingOrgId = null)}
-										>Cancel</button
-									>
+									</Button>
+									<Button type="button" variant="outline" onclick={() => (giftingOrgId = null)}>Cancel</Button>
 								</form>
 							{:else if extendingOrgId === org.id}
 								<form
@@ -190,44 +191,41 @@
 									}}
 								>
 									<input type="hidden" name="orgId" value={org.id} />
-									<input
+									<Input
 										type="number"
 										name="days"
 										bind:value={extendDays}
 										min="1"
 										max="365"
-										class="input days-input"
+										class="w-[92px]"
 										placeholder="Days"
 									/>
-									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
+									<Button type="submit" disabled={loadingId !== null}>
 										{#if loadingId === `${org.id}-extend`}<Spinner />{/if}
 										Extend
-									</button>
-									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (extendingOrgId = null)}
-										>Cancel</button
-									>
+									</Button>
+									<Button type="button" variant="outline" onclick={() => (extendingOrgId = null)}>Cancel</Button>
 								</form>
 							{:else}
 								<div class="action-buttons">
-									<button
-										class="btn btn-primary btn-sm"
+									<Button
 										onclick={() => {
 											giftingOrgId = org.id;
 											extendingOrgId = null;
 										}}
 									>
 										Gift
-									</button>
+									</Button>
 									{#if isGiftActive(org)}
-										<button
-											class="btn btn-secondary btn-sm"
+										<Button
+											variant="outline"
 											onclick={() => {
 												extendingOrgId = org.id;
 												giftingOrgId = null;
 											}}
 										>
 											Extend
-										</button>
+										</Button>
 										<form
 											method="POST"
 											action="?/revokeGift"
@@ -240,10 +238,10 @@
 											}}
 										>
 											<input type="hidden" name="orgId" value={org.id} />
-											<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
+											<Button type="submit" variant="destructive" disabled={loadingId !== null}>
 												{#if loadingId === `${org.id}-revoke`}<Spinner />{/if}
 												Revoke
-											</button>
+											</Button>
 										</form>
 									{/if}
 								</div>
@@ -281,10 +279,6 @@
 		align-items: center;
 		gap: var(--sp-2);
 		flex-wrap: wrap;
-	}
-
-	.days-input {
-		width: 92px;
 	}
 
 	.actions-cell {

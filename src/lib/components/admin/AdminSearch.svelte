@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Input } from '$lib/components/ui/input';
 	import { ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let query = $state('');
@@ -40,10 +41,10 @@
 
 <div class="admin-search">
 	<div class="admin-search__field">
-		<input
+		<Input
 			id="platform-admin-search"
 			type="text"
-			class="input admin-search__input"
+			class="pr-[86px]"
 			aria-label="Search platform admin records"
 			placeholder="Search users by email or organizations by name..."
 			bind:value={query}
@@ -97,10 +98,6 @@
 
 	.admin-search__field {
 		position: relative;
-	}
-
-	.admin-search__input {
-		padding-right: 86px;
 	}
 
 	.admin-search__status,

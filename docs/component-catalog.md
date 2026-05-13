@@ -1,7 +1,7 @@
 # Component Catalog & CSS Design System
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
-Layout components such as `Modal` live in `src/lib/components/`. Import via `$lib/components/...`.
+Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
 ---
@@ -739,7 +739,7 @@ Action guidance:
 - Use `Button` variants for action semantics. Do not pass route-local classes to retune dialog spacing, radius, color, typography, shadow, animation, footer layout, or internal parts.
 - Long dialog bodies must use `AppDialog.Body`; do not add route-local `max-height` or `overflow` wrappers to shared dialog internals.
 
-`src/lib/components/Modal.svelte` is deprecated. It is currently shadcn-backed only to keep remaining legacy call sites working while migration continues. Do not add new `Modal` usages. Migrate old call sites to `ui/app-dialog` when their route slice is explicitly in scope.
+Compatibility note: the legacy `src/lib/components/Modal.svelte` wrapper has been removed. Compose `ui/app-dialog` or `ui/dialog` directly.
 
 ---
 
@@ -772,25 +772,6 @@ Guidance:
 
 ---
 
-## `ui/Badge.svelte`
-
-Compact metadata or status label. Badges are now intentionally mono and uppercase so they read like labels instead of decorative pills.
-
-```svelte
-<Badge label="TDY" color="var(--color-info)" />
-<Badge label="Leave" color={status.color} textColor={status.textColor} />
-<Badge label="Admin" color="var(--color-info)" bold={true} />
-<Badge label="Draft" variant="outlined" />
-```
-
-Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'` when a custom filled color is passed), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
-
-Badge guidance:
-
-- Reserve filled badges for real state or metadata labels.
-- Use `variant="outlined"` for neutral, low-emphasis labels.
-- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-danger`, `--color-info`) over arbitrary decorative colors when possible.
-
 ## `ui/badge`
 
 Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic variants for route status instead of local badge color classes.
@@ -802,36 +783,32 @@ Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic varia
 <Badge variant="danger">Blocked</Badge>
 ```
 
-Status type colors are allowed through `statusType`, not through a raw color prop:
+Compatibility note: the legacy `ui/Badge.svelte` wrapper with `label`, `color`, and `textColor` props has been removed. Admin and route status labels should map product state to semantic badge variants instead of raw color strings.
 
-```svelte
-<Badge statusType={status}>{status.name}</Badge>
-```
-
-Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'status' | 'outline' | 'ghost' | 'link'`, `statusType?: Pick<StatusType, 'id' | 'name' | 'color' | 'textColor'>`
+Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'outline' | 'ghost' | 'link'`
 
 Badge guidance:
 
 - Use `success`, `warning`, `info`, and `danger` only for real status or classification.
 - Keep `destructive` for shadcn compatibility and destructive UI states. Prefer `danger` for general status labels such as blocked, overdue, or risk.
-- Use `statusType` when the color comes from a saved calendar status type, such as dashboard availability or calendar reports.
-- Carry the status type object through the read model instead of flattening it to a route-owned color string.
 - Do not pass route-local visual classes to recolor badges unless Robert approved that specific visual exception.
 
 ---
 
-## `ui/Spinner.svelte`
+## `ui/spinner`
 
 Loading spinner for async buttons.
 
 ```svelte
-<button disabled={saving}>
+<Button disabled={saving}>
     {#if saving}<Spinner />{/if}
     {saving ? 'Saving...' : 'Save'}
-</button>
+</Button>
 ```
 
-Props: `size?: number` (px, default `14`), `color?: string` (default `'white'`)
+Props: SVG attributes, including `class`, `aria-label`, `role`, and icon-compatible `color`/`stroke`.
+
+Compatibility note: the legacy `ui/Spinner.svelte` wrapper and `.spinner` selector have been removed. Import `{ Spinner }` from `$lib/components/ui/spinner`.
 
 ---
 
@@ -1107,24 +1084,21 @@ Compatibility: the legacy `ui/DateCell.svelte` wrapper has been removed. Calenda
 
 ---
 
-## `ui/EmptyState.svelte`
+## `ui/empty`
 
-Empty list placeholder with optional action button.
+Composable empty list placeholder.
 
 ```svelte
-<EmptyState message="No items yet." />
-
-<!-- With action button -->
-<EmptyState message="No types defined." actionLabel="Add Type" onAction={handleAdd} />
-<EmptyState message="No results." actionLabel="Browse All" actionHref="/all" />
-
-<!-- Simple variant (italic, no bg) -->
-<EmptyState message="Nothing to show." variant="simple" />
+<Empty.Root>
+	<Empty.Header>
+		<Empty.Title>No items yet.</Empty.Title>
+		<Empty.Description>Add the first item to start this workflow.</Empty.Description>
+	</Empty.Header>
+	<Button size="sm">Add Item</Button>
+</Empty.Root>
 ```
 
-Props: `message: string`, `variant?: 'box' | 'simple'` (default `'box'`), `actionLabel?: string`, `onAction?: () => void`, `actionHref?: string`
-
-`actionLabel` requires either `onAction` or `actionHref` to render the button.
+Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
 
 ---
 
@@ -1658,20 +1632,9 @@ None. These are canonical tokens, not temporary aliases.
 .field-stack   /* vertical stack for control + support text/chip */
 ```
 
-### Button Classes
+### Legacy Class Compatibility
 
-`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-amber` / `.btn .btn-warning` | `.btn .btn-danger` | `.btn .btn-sm`
-
-Button guidance:
-
-- `btn-primary`: dark filled action for the default strong action on product surfaces.
-- `btn-amber` / `btn-warning`: reserved signal action for confirms, requests, exports, or actions that need deliberate emphasis.
-- `btn-secondary`: restrained outline action for cancel, back, close, and secondary utility actions.
-- `btn-danger`: destructive action only.
-
-### Form Classes
-
-`.input` | `.select` | `.label` | `.form-group` | `.form-row` | `.field-stack`
+Global `.btn`, `.input`, `.select`, `.label`, `.form-group`, and `.card` selectors are migration compatibility only. New or migrated production surfaces should compose `ui/button`, `ui/input`, `ui/textarea`, `ui/native-select` or `ui/select`, `ui/label`, `ui/field`, and `ui/card` instead.
 
 ### Section Card Tokens
 

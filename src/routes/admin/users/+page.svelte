@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import { ADMIN_STATUS_COLORS } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
+	import { adminBadgeVariant } from '$lib/components/admin/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
@@ -39,7 +42,7 @@
 			<p class="admin-page-subtitle">Search, inspect, and manage platform identities across every organization.</p>
 		</div>
 		<div class="admin-page-actions">
-			<button class="btn btn-primary" onclick={() => (showPlatformInvite = true)}>Invite User</button>
+			<Button onclick={() => (showPlatformInvite = true)}>Invite User</Button>
 		</div>
 	</header>
 
@@ -71,10 +74,10 @@
 			}}
 		>
 			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="users-search">Search</label>
-				<input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} class="input" />
+				<Label for="users-search">Search</Label>
+				<Input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} />
 			</div>
-			<button type="submit" class="btn btn-secondary">Apply</button>
+			<Button type="submit" variant="outline">Apply</Button>
 		</form>
 		<div class="admin-toolbar__meta">
 			<span>{data.users.length} shown</span>
@@ -104,13 +107,12 @@
 						<td>{user.organizationCount}</td>
 						<td>{formatDisplayDate(user.createdAt)}</td>
 						<td>
-							<Badge
-								label={user.isSuspended ? 'Suspended' : 'Active'}
-								color={user.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
+							<Badge variant={adminBadgeVariant(user.isSuspended ? 'suspended' : 'active')}>
+								{user.isSuspended ? 'Suspended' : 'Active'}
+							</Badge>
 						</td>
 						<td class="actions-cell">
-							<a href="/admin/users/{user.id}" class="btn btn-secondary btn-sm">Inspect</a>
+							<Button href="/admin/users/{user.id}" variant="outline" size="sm">Inspect</Button>
 						</td>
 					</tr>
 				{:else}
@@ -124,15 +126,13 @@
 
 	{#if totalPages > 1}
 		<div class="pagination-row">
-			<button class="btn btn-secondary btn-sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}
-				>Previous</button
-			>
+			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
+				Previous
+			</Button>
 			<span>Page {data.page} of {totalPages}</span>
-			<button
-				class="btn btn-secondary btn-sm"
-				disabled={data.page >= totalPages}
-				onclick={() => goToPage(data.page + 1)}>Next</button
-			>
+			<Button variant="outline" size="sm" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
+				Next
+			</Button>
 		</div>
 	{/if}
 </div>

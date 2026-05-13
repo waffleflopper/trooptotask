@@ -1,7 +1,11 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data } = $props();
 
@@ -81,32 +85,26 @@
 	<div class="admin-toolbar">
 		<div class="admin-toolbar__group">
 			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="subscription-search">Search</label>
-				<input
-					id="subscription-search"
-					class="input"
-					type="text"
-					placeholder="Search by org or owner..."
-					bind:value={searchInput}
-				/>
+				<Label for="subscription-search">Search</Label>
+				<Input id="subscription-search" type="text" placeholder="Search by org or owner..." bind:value={searchInput} />
 			</div>
 			<div class="admin-toolbar__field">
-				<label class="label" for="subscription-tier">Tier</label>
-				<select id="subscription-tier" bind:value={tierFilter} class="select">
+				<Label for="subscription-tier">Tier</Label>
+				<NativeSelect id="subscription-tier" bind:value={tierFilter}>
 					<option value="all">All tiers</option>
 					<option value="free">Free</option>
 					<option value="team">Team</option>
 					<option value="unit">Unit</option>
-				</select>
+				</NativeSelect>
 			</div>
 			<div class="admin-toolbar__field">
-				<label class="label" for="subscription-status">Status</label>
-				<select id="subscription-status" bind:value={statusFilter} class="select">
+				<Label for="subscription-status">Status</Label>
+				<NativeSelect id="subscription-status" bind:value={statusFilter}>
 					<option value="all">All statuses</option>
 					<option value="active">Active</option>
 					<option value="suspended">Suspended</option>
 					<option value="gifted">Gifted</option>
-				</select>
+				</NativeSelect>
 			</div>
 		</div>
 		<div class="admin-toolbar__meta">
@@ -137,16 +135,12 @@
 							</div>
 						</td>
 						<td>
-							<Badge
-								label={formatAdminLabel(sub.effectiveTier)}
-								color={ADMIN_TIER_COLORS[sub.effectiveTier] ?? 'var(--ink-35)'}
-							/>
+							<Badge variant={adminBadgeVariant(sub.effectiveTier)}>{formatAdminLabel(sub.effectiveTier)}</Badge>
 						</td>
 						<td>
-							<Badge
-								label={sub.isSuspended ? 'Suspended' : 'Active'}
-								color={sub.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
+							<Badge variant={adminBadgeVariant(sub.isSuspended ? 'suspended' : 'active')}>
+								{sub.isSuspended ? 'Suspended' : 'Active'}
+							</Badge>
 						</td>
 						<td class:over-cap={isOverCap(sub.personnelCount, sub.personnelCap)}
 							>{formatPersonnelCap(sub.personnelCount, sub.personnelCap)}</td
@@ -155,7 +149,7 @@
 						<td>
 							{#if sub.isGifted}
 								<div class="gift-cell">
-									<Badge label="Gifted" color={ADMIN_STATUS_COLORS.gifted} />
+									<Badge variant="warning">Gifted</Badge>
 									{#if sub.gift_expires_at}
 										<span class="text-muted">until {formatDisplayDate(sub.gift_expires_at)}</span>
 									{/if}
@@ -186,17 +180,23 @@
 			</p>
 			{#if totalPages > 1}
 				<div class="pagination-row__controls">
-					<button
-						class="btn btn-secondary btn-sm"
+					<Button
+						variant="outline"
+						size="sm"
 						onclick={() => (currentPage = Math.max(1, currentPage - 1))}
-						disabled={currentPage === 1}>Previous</button
+						disabled={currentPage === 1}
 					>
+						Previous
+					</Button>
 					<span>Page {currentPage} of {totalPages}</span>
-					<button
-						class="btn btn-secondary btn-sm"
+					<Button
+						variant="outline"
+						size="sm"
 						onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
-						disabled={currentPage === totalPages}>Next</button
+						disabled={currentPage === totalPages}
 					>
+						Next
+					</Button>
 				</div>
 			{/if}
 		</div>

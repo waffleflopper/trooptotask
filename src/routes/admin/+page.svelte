@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -28,8 +29,8 @@
 			</p>
 		</div>
 		<div class="admin-page-actions">
-			<a href="/admin/audit" class="btn btn-secondary">Audit Log</a>
-			<a href="/admin/users" class="btn btn-primary">Inspect Users</a>
+			<Button href="/admin/audit" variant="outline">Audit Log</Button>
+			<Button href="/admin/users">Inspect Users</Button>
 		</div>
 	</header>
 
@@ -165,7 +166,7 @@
 					<h2 class="admin-panel__title">Recent Activity</h2>
 					<p class="admin-panel__meta">Most recent audit events entering the platform trail.</p>
 				</div>
-				<a href="/admin/audit" class="btn btn-secondary btn-sm">View Full Log</a>
+				<Button href="/admin/audit" variant="outline" size="sm">View Full Log</Button>
 			</div>
 			{#if data.recentActivity.length > 0}
 				<div class="activity-list">

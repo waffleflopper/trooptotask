@@ -1,7 +1,10 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data } = $props();
 
@@ -56,31 +59,25 @@
 	<div class="admin-toolbar">
 		<div class="admin-toolbar__group">
 			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="org-search">Search</label>
-				<input
-					id="org-search"
-					class="input"
-					type="text"
-					placeholder="Search by name or owner email..."
-					bind:value={searchInput}
-				/>
+				<Label for="org-search">Search</Label>
+				<Input id="org-search" type="text" placeholder="Search by name or owner email..." bind:value={searchInput} />
 			</div>
 			<div class="admin-toolbar__field">
-				<label class="label" for="tier-filter">Tier</label>
-				<select id="tier-filter" bind:value={tierFilter} class="select">
+				<Label for="tier-filter">Tier</Label>
+				<NativeSelect id="tier-filter" bind:value={tierFilter}>
 					<option value="all">All tiers</option>
 					<option value="free">Free</option>
 					<option value="team">Team</option>
 					<option value="unit">Unit</option>
-				</select>
+				</NativeSelect>
 			</div>
 			<div class="admin-toolbar__field">
-				<label class="label" for="status-filter">Status</label>
-				<select id="status-filter" bind:value={statusFilter} class="select">
+				<Label for="status-filter">Status</Label>
+				<NativeSelect id="status-filter" bind:value={statusFilter}>
 					<option value="all">All statuses</option>
 					<option value="active">Active</option>
 					<option value="suspended">Suspended</option>
-				</select>
+				</NativeSelect>
 			</div>
 		</div>
 		<div class="admin-toolbar__meta">
@@ -112,12 +109,9 @@
 						</td>
 						<td>
 							<div class="tier-cell">
-								<Badge
-									label={formatAdminLabel(org.effectiveTier)}
-									color={ADMIN_TIER_COLORS[org.effectiveTier] ?? 'var(--ink-35)'}
-								/>
+								<Badge variant={adminBadgeVariant(org.effectiveTier)}>{formatAdminLabel(org.effectiveTier)}</Badge>
 								{#if org.gift_tier}
-									<Badge label="Gift" color={ADMIN_STATUS_COLORS.gifted} />
+									<Badge variant="warning">Gift</Badge>
 								{/if}
 							</div>
 						</td>
@@ -125,10 +119,9 @@
 						<td>{org.personnelCount}</td>
 						<td class="owner-cell">{org.ownerEmail || '—'}</td>
 						<td>
-							<Badge
-								label={org.isSuspended ? 'Suspended' : 'Active'}
-								color={org.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
+							<Badge variant={adminBadgeVariant(org.isSuspended ? 'suspended' : 'active')}>
+								{org.isSuspended ? 'Suspended' : 'Active'}
+							</Badge>
 						</td>
 						<td>{formatDisplayDate(org.created_at)}</td>
 					</tr>

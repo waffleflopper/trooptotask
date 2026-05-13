@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
@@ -70,10 +74,7 @@
 						<div class="feedback-card__copy">
 							<div class="feedback-card__headline">
 								<strong>{item.user_email}</strong>
-								<Badge
-									label={formatAdminLabel(item.category)}
-									color={ADMIN_STATUS_COLORS[item.category] ?? 'var(--ink-35)'}
-								/>
+								<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
 							</div>
 							<p class="feedback-card__preview">
 								{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
@@ -92,7 +93,9 @@
 					{#if expandedId === item.id}
 						<div class="feedback-card__detail">
 							<div class="feedback-card__section">
-								<p class="label">Full Message</p>
+								<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+									Full Message
+								</p>
 								<p class="feedback-card__message">{item.message}</p>
 							</div>
 
@@ -110,31 +113,31 @@
 								<input type="hidden" name="feedbackId" value={item.id} />
 								<div class="feedback-card__form">
 									<div class="admin-toolbar__field">
-										<label class="label" for="status-{item.id}">Status</label>
-										<select id="status-{item.id}" name="status" class="select" value={item.status}>
+										<Label for="status-{item.id}">Status</Label>
+										<NativeSelect id="status-{item.id}" name="status" value={item.status}>
 											<option value="new">New</option>
 											<option value="reviewed">Reviewed</option>
 											<option value="resolved">Resolved</option>
-										</select>
+										</NativeSelect>
 									</div>
 									<div class="admin-toolbar__field feedback-card__notes">
-										<label class="label" for="notes-{item.id}">Admin Notes</label>
-										<textarea
+										<Label for="notes-{item.id}">Admin Notes</Label>
+										<Textarea
 											id="notes-{item.id}"
 											name="adminNotes"
-											class="input feedback-card__textarea"
-											rows="4"
+											rows={4}
 											placeholder="Internal notes about this feedback..."
 											value={item.admin_notes || ''}
-										></textarea>
+											class="min-h-28 resize-y"
+										></Textarea>
 									</div>
 								</div>
 
 								<div class="feedback-card__actions">
-									<button type="submit" class="btn btn-primary btn-sm" disabled={savingId !== null}>
+									<Button type="submit" disabled={savingId !== null}>
 										{#if savingId === item.id}<Spinner />{/if}
 										Save Notes
-									</button>
+									</Button>
 								</div>
 							</form>
 						</div>
@@ -229,11 +232,6 @@
 
 	.feedback-card__notes {
 		flex: none;
-	}
-
-	.feedback-card__textarea {
-		min-height: 112px;
-		resize: vertical;
 	}
 
 	.feedback-card__actions {

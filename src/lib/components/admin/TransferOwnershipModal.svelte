@@ -1,6 +1,10 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Member {
 		userId: string;
@@ -54,57 +58,55 @@
 	}
 </script>
 
-<Modal title="Transfer Ownership" {onClose} width="500px" canClose={!saving}>
-	<div class="modal-stack">
-		<div class="warning-box">
-			<strong>Irreversible action</strong>
-			<p>The current owner will be demoted to admin as soon as the transfer completes.</p>
-		</div>
+<AppDialog.Root open closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving}>
+		<AppDialog.Header>
+			<AppDialog.Title>Transfer Ownership</AppDialog.Title>
+		</AppDialog.Header>
+		<AppDialog.Body class="flex flex-col gap-4">
+			<div class="warning-box">
+				<strong>Irreversible action</strong>
+				<p>The current owner will be demoted to admin as soon as the transfer completes.</p>
+			</div>
 
-		<div class="form-group">
-			<label for="new-owner" class="label">New Owner</label>
-			<select id="new-owner" class="select" bind:value={selectedUserId} disabled={saving}>
-				<option value="">Select a member...</option>
-				{#each eligibleMembers as member (member.userId)}
-					<option value={member.userId}>{member.email} ({member.role})</option>
-				{/each}
-			</select>
-		</div>
+			<div class="grid gap-2">
+				<Label for="new-owner">New Owner</Label>
+				<NativeSelect id="new-owner" bind:value={selectedUserId} disabled={saving}>
+					<option value="">Select a member...</option>
+					{#each eligibleMembers as member (member.userId)}
+						<option value={member.userId}>{member.email} ({member.role})</option>
+					{/each}
+				</NativeSelect>
+			</div>
 
-		<div class="form-group">
-			<label for="confirm-name" class="label">Type {orgName} to confirm</label>
-			<input
-				id="confirm-name"
-				type="text"
-				class="input"
-				bind:value={confirmName}
-				placeholder={orgName}
-				disabled={saving}
-				autocomplete="off"
-			/>
-		</div>
+			<div class="grid gap-2">
+				<Label for="confirm-name">Type {orgName} to confirm</Label>
+				<Input
+					id="confirm-name"
+					type="text"
+					bind:value={confirmName}
+					placeholder={orgName}
+					disabled={saving}
+					autocomplete="off"
+				/>
+			</div>
 
-		{#if errorMsg}
-			<p class="text-error error-msg">{errorMsg}</p>
-		{/if}
-	</div>
+			{#if errorMsg}
+				<p class="text-error error-msg">{errorMsg}</p>
+			{/if}
+		</AppDialog.Body>
 
-	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
-		<button class="btn btn-danger" onclick={handleTransfer} disabled={!canConfirm}>
-			{#if saving}<Spinner />{/if}
-			{saving ? 'Transferring...' : 'Transfer Ownership'}
-		</button>
-	{/snippet}
-</Modal>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
+			<Button variant="destructive" onclick={handleTransfer} disabled={!canConfirm}>
+				{#if saving}<Spinner />{/if}
+				{saving ? 'Transferring...' : 'Transfer Ownership'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <style>
-	.modal-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
 	.warning-box {
 		padding: var(--sp-4);
 		border: 1px solid color-mix(in srgb, var(--amber-dark) 36%, var(--ink-15) 64%);

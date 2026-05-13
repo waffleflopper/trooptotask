@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
@@ -77,10 +78,10 @@
 								}}
 							>
 								<input type="hidden" name="requestId" value={req.id} />
-								<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
+								<Button type="submit" disabled={loadingId !== null}>
 									{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
 									Approve
-								</button>
+								</Button>
 							</form>
 							<form
 								method="POST"
@@ -94,10 +95,10 @@
 								}}
 							>
 								<input type="hidden" name="requestId" value={req.id} />
-								<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
+								<Button type="submit" variant="destructive" disabled={loadingId !== null}>
 									{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
 									Reject
-								</button>
+								</Button>
 							</form>
 						</div>
 					</section>
@@ -113,7 +114,7 @@
 					<div class="request-card__main">
 						<div class="request-card__row">
 							<p class="request-card__name">{req.name}</p>
-							<Badge label={formatAdminLabel(req.status)} color={ADMIN_STATUS_COLORS[req.status] ?? 'var(--ink-35)'} />
+							<Badge variant={adminBadgeVariant(req.status)}>{formatAdminLabel(req.status)}</Badge>
 						</div>
 						<p class="request-card__email">{req.email}</p>
 						{#if req.reason}<p class="request-card__reason">{req.reason}</p>{/if}
@@ -137,10 +138,10 @@
 								}}
 							>
 								<input type="hidden" name="requestId" value={req.id} />
-								<button type="submit" class="btn btn-secondary btn-sm" disabled={loadingId !== null}>
+								<Button type="submit" variant="outline" disabled={loadingId !== null}>
 									{#if loadingId === `${req.id}-resend`}<Spinner color="currentColor" />{/if}
 									Resend Invite
-								</button>
+								</Button>
 							</form>
 						</div>
 					{:else if req.status === 'approved' && req.registration_invites?.used_at}

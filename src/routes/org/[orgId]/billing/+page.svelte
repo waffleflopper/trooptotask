@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';

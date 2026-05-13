@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
-	import Modal from '$lib/components/Modal.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let {
 		orgId,
@@ -37,146 +41,149 @@
 			day: 'numeric'
 		});
 	}
+
+	function actionErrorMessage(data: unknown, fallback: string): string {
+		if (!data || typeof data !== 'object' || !('error' in data)) return fallback;
+
+		const { error } = data as { error?: { message?: unknown } };
+		return typeof error?.message === 'string' ? error.message : fallback;
+	}
 </script>
 
-<Modal title="Gift Tier" {onClose} width="500px">
-	<div class="modal-stack">
-		<div class="context-box">
-			<p class="context-box__label">Organization</p>
-			<strong>{orgName}</strong>
-			{#if hasActiveGift}
-				<div class="context-box__meta">
-					<Badge
-						label={formatAdminLabel(currentGiftTier ?? '')}
-						color={ADMIN_TIER_COLORS[currentGiftTier ?? ''] ?? 'var(--ink-35)'}
-					/>
-					<span>Expires {formatDate(giftExpiresAt)}</span>
-				</div>
+<AppDialog.Root open {onClose}>
+	<AppDialog.Content>
+		<AppDialog.Header>
+			<AppDialog.Title>Gift Tier</AppDialog.Title>
+		</AppDialog.Header>
+		<AppDialog.Body class="flex flex-col gap-4">
+			<div class="context-box">
+				<p class="context-box__label">Organization</p>
+				<strong>{orgName}</strong>
+				{#if hasActiveGift}
+					<div class="context-box__meta">
+						<Badge variant={adminBadgeVariant(currentGiftTier)}>{formatAdminLabel(currentGiftTier ?? '')}</Badge>
+						<span>Expires {formatDate(giftExpiresAt)}</span>
+					</div>
+				{/if}
+			</div>
+
+			{#if errorMsg}
+				<div class="error-box">{errorMsg}</div>
 			{/if}
-		</div>
 
-		{#if errorMsg}
-			<div class="error-box">{errorMsg}</div>
-		{/if}
-
-		{#if hasActiveGift}
-			<section class="action-section">
-				<div class="action-section__header">
-					<h3>Extend Gift</h3>
-					<p>Add time to the current gifted plan without changing the tier.</p>
-				</div>
-				<form
-					method="POST"
-					action="?/extendGift"
-					class="stack-form"
-					use:enhance={() => {
-						saving = true;
-						errorMsg = '';
-						return async ({ result }) => {
-							saving = false;
-							if (result.type === 'failure') {
-								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-								errorMsg = (result.data as any)?.error?.message ?? 'Failed to extend gift';
-							} else {
-								onComplete();
-							}
-						};
-					}}
-				>
-					<input type="hidden" name="orgId" value={orgId} />
-					<div class="admin-toolbar__field">
-						<label class="label" for="extend-days">Days to add</label>
-						<input id="extend-days" type="number" name="days" class="input" bind:value={extendDays} min="1" max="365" />
+			{#if hasActiveGift}
+				<section class="action-section">
+					<div class="action-section__header">
+						<h3>Extend Gift</h3>
+						<p>Add time to the current gifted plan without changing the tier.</p>
 					</div>
-					<button type="submit" class="btn btn-primary" disabled={saving}>
-						{#if saving}<Spinner />{/if}
-						Extend Gift
-					</button>
-				</form>
-			</section>
+					<form
+						method="POST"
+						action="?/extendGift"
+						class="stack-form"
+						use:enhance={() => {
+							saving = true;
+							errorMsg = '';
+							return async ({ result }) => {
+								saving = false;
+								if (result.type === 'failure') {
+									errorMsg = actionErrorMessage(result.data, 'Failed to extend gift');
+								} else {
+									onComplete();
+								}
+							};
+						}}
+					>
+						<input type="hidden" name="orgId" value={orgId} />
+						<div class="admin-toolbar__field">
+							<Label for="extend-days">Days to add</Label>
+							<Input id="extend-days" type="number" name="days" bind:value={extendDays} min="1" max="365" />
+						</div>
+						<Button type="submit" disabled={saving}>
+							{#if saving}<Spinner />{/if}
+							Extend Gift
+						</Button>
+					</form>
+				</section>
 
-			<section class="action-section">
-				<div class="action-section__header">
-					<h3>Revoke Gift</h3>
-					<p>Remove the gifted plan and return the organization to its base subscription.</p>
-				</div>
-				<form
-					method="POST"
-					action="?/revokeGift"
-					use:enhance={() => {
-						saving = true;
-						errorMsg = '';
-						return async ({ result }) => {
-							saving = false;
-							if (result.type === 'failure') {
-								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-								errorMsg = (result.data as any)?.error?.message ?? 'Failed to revoke gift';
-							} else {
-								onComplete();
-							}
-						};
-					}}
-				>
-					<input type="hidden" name="orgId" value={orgId} />
-					<button type="submit" class="btn btn-danger" disabled={saving}>
-						{#if saving}<Spinner />{/if}
-						Revoke Gift
-					</button>
-				</form>
-			</section>
-		{:else}
-			<section class="action-section">
-				<div class="action-section__header">
-					<h3>Apply Gift</h3>
-					<p>Grant temporary access to a paid plan without changing the stored base subscription.</p>
-				</div>
-				<form
-					method="POST"
-					action="?/giftTier"
-					class="stack-form"
-					use:enhance={() => {
-						saving = true;
-						errorMsg = '';
-						return async ({ result }) => {
-							saving = false;
-							if (result.type === 'failure') {
-								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-								errorMsg = (result.data as any)?.error?.message ?? 'Failed to apply gift';
-							} else {
-								onComplete();
-							}
-						};
-					}}
-				>
-					<input type="hidden" name="orgId" value={orgId} />
-					<div class="admin-toolbar__field">
-						<label class="label" for="gift-tier">Tier</label>
-						<select id="gift-tier" name="giftTier" class="select" bind:value={giftTier}>
-							<option value="team">Team</option>
-							<option value="unit">Unit</option>
-						</select>
+				<section class="action-section">
+					<div class="action-section__header">
+						<h3>Revoke Gift</h3>
+						<p>Remove the gifted plan and return the organization to its base subscription.</p>
 					</div>
-					<div class="admin-toolbar__field">
-						<label class="label" for="gift-days">Duration (days)</label>
-						<input id="gift-days" type="number" name="days" class="input" bind:value={days} min="1" max="365" />
+					<form
+						method="POST"
+						action="?/revokeGift"
+						use:enhance={() => {
+							saving = true;
+							errorMsg = '';
+							return async ({ result }) => {
+								saving = false;
+								if (result.type === 'failure') {
+									errorMsg = actionErrorMessage(result.data, 'Failed to revoke gift');
+								} else {
+									onComplete();
+								}
+							};
+						}}
+					>
+						<input type="hidden" name="orgId" value={orgId} />
+						<Button type="submit" variant="destructive" disabled={saving}>
+							{#if saving}<Spinner />{/if}
+							Revoke Gift
+						</Button>
+					</form>
+				</section>
+			{:else}
+				<section class="action-section">
+					<div class="action-section__header">
+						<h3>Apply Gift</h3>
+						<p>Grant temporary access to a paid plan without changing the stored base subscription.</p>
 					</div>
-					<button type="submit" class="btn btn-primary" disabled={saving}>
-						{#if saving}<Spinner />{/if}
-						Apply Gift
-					</button>
-				</form>
-			</section>
-		{/if}
-	</div>
-
-	{#snippet footer()}
-		<div class="footer-spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>Close</button>
-	{/snippet}
-</Modal>
+					<form
+						method="POST"
+						action="?/giftTier"
+						class="stack-form"
+						use:enhance={() => {
+							saving = true;
+							errorMsg = '';
+							return async ({ result }) => {
+								saving = false;
+								if (result.type === 'failure') {
+									errorMsg = actionErrorMessage(result.data, 'Failed to apply gift');
+								} else {
+									onComplete();
+								}
+							};
+						}}
+					>
+						<input type="hidden" name="orgId" value={orgId} />
+						<div class="admin-toolbar__field">
+							<Label for="gift-tier">Tier</Label>
+							<NativeSelect id="gift-tier" name="giftTier" bind:value={giftTier}>
+								<option value="team">Team</option>
+								<option value="unit">Unit</option>
+							</NativeSelect>
+						</div>
+						<div class="admin-toolbar__field">
+							<Label for="gift-days">Duration (days)</Label>
+							<Input id="gift-days" type="number" name="days" bind:value={days} min="1" max="365" />
+						</div>
+						<Button type="submit" disabled={saving}>
+							{#if saving}<Spinner />{/if}
+							Apply Gift
+						</Button>
+					</form>
+				</section>
+			{/if}
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={onClose}>Close</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <style>
-	.modal-stack,
 	.stack-form {
 		display: flex;
 		flex-direction: column;
@@ -245,9 +252,5 @@
 		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
 		color: var(--danger);
 		font-size: var(--text-sm);
-	}
-
-	.footer-spacer {
-		flex: 1;
 	}
 </style>

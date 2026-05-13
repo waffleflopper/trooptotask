@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
-	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
-	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
 	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
@@ -131,11 +129,11 @@
 		{
 			id: 'badges',
 			group: 'Status',
-			current: '.chip, status dots, admin-only Badge.svelte island',
+			current: '.chip, status dots, removed admin-only Badge.svelte island',
 			target: 'ui/badge, ui/calendar-status-badge, ui/requirement-status-badge',
 			status: 'direct',
 			notes:
-				'Base Badge stays semantic. Calendar custom colors belong behind CalendarStatusBadge. Legacy Badge is now only an admin cleanup island.'
+				'Base Badge stays semantic. Calendar custom colors belong behind CalendarStatusBadge. The old admin Badge wrapper has been removed.'
 		},
 		{
 			id: 'legends',
@@ -157,7 +155,7 @@
 		{
 			id: 'loading',
 			group: 'Feedback',
-			current: 'Spinner.svelte, .spinner',
+			current: 'Removed Spinner.svelte and .spinner',
 			target: 'ui/spinner and ui/progress',
 			status: 'direct',
 			notes: 'Spinner for indeterminate work. Progress for known completion.'
@@ -165,7 +163,7 @@
 		{
 			id: 'empty-alert',
 			group: 'Feedback',
-			current: 'EmptyState.svelte and route-local notice boxes',
+			current: 'Removed EmptyState.svelte and route-local notice boxes',
 			target: 'ui/empty and ui/alert',
 			status: 'compose',
 			notes: 'Empty and alert copy stays route-owned. Shape and spacing stay shared.'
@@ -181,7 +179,7 @@
 		{
 			id: 'modal-dialogs',
 			group: 'Overlays',
-			current: 'Modal.svelte',
+			current: 'Removed Modal.svelte',
 			target: 'ui/app-dialog or ui/dialog',
 			status: 'compose',
 			notes: 'Standard form and review dialogs should use the shared app dialog foundation.'
@@ -1312,10 +1310,10 @@
 			<div class="comparison-cell">
 				<h3>Current loading feedback</h3>
 				<div class="example-inline">
-					<button class="btn btn-primary" type="button">
-						<LegacySpinner />
+					<Button disabled>
+						<Spinner />
 						Saving
-					</button>
+					</Button>
 				</div>
 			</div>
 			<div class="comparison-cell">
@@ -1337,11 +1335,14 @@
 			<div class="comparison-cell">
 				<h3>Current empty and notice</h3>
 				<div class="example-stack">
-					<LegacyEmptyState
-						message="No records match this filter."
-						actionLabel="Clear filter"
-						onAction={() => undefined}
-					/>
+					<Empty.Root>
+						<ClipboardList class="size-8 text-muted-foreground" aria-hidden="true" />
+						<Empty.Header>
+							<Empty.Title>No records match this filter.</Empty.Title>
+							<Empty.Description>Adjust the current filters and try again.</Empty.Description>
+						</Empty.Header>
+						<Button size="sm" variant="outline">Clear filter</Button>
+					</Empty.Root>
 					<div class="legacy-notice">
 						<strong>Upload required</strong>
 						<span>Attach a roster before previewing the import.</span>

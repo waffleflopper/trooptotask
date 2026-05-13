@@ -1,15 +1,11 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
-	import {
-		ADMIN_ROLE_COLORS,
-		ADMIN_STATUS_COLORS,
-		ADMIN_TIER_COLORS,
-		formatAdminLabel
-	} from '$lib/components/admin/adminTheme';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
 	import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 
@@ -58,27 +54,20 @@
 			</p>
 		</div>
 		<div class="admin-page-actions">
-			<Badge
-				label={formatAdminLabel(data.org.effectiveTier)}
-				color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
-			/>
-			{#if data.org.giftTier}<Badge label="Gifted" color={ADMIN_STATUS_COLORS.gifted} />{/if}
-			<Badge
-				label={data.org.isSuspended ? 'Suspended' : 'Active'}
-				color={data.org.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-			/>
+			<Badge variant={adminBadgeVariant(data.org.effectiveTier)}>{formatAdminLabel(data.org.effectiveTier)}</Badge>
+			{#if data.org.giftTier}<Badge variant="warning">Gifted</Badge>{/if}
+			<Badge variant={adminBadgeVariant(data.org.isSuspended ? 'suspended' : 'active')}>
+				{data.org.isSuspended ? 'Suspended' : 'Active'}
+			</Badge>
 		</div>
 	</header>
 
 	<div class="action-strip">
-		<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
-		<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}>Transfer Ownership</button>
-		<button
-			class="btn btn-sm {data.org.isSuspended ? 'btn-secondary' : 'btn-danger'}"
-			onclick={() => (showSuspendModal = true)}
-		>
+		<Button variant="outline" onclick={() => (showGiftModal = true)}>Gift Tier</Button>
+		<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
+		<Button variant={data.org.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
 			{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
-		</button>
+		</Button>
 	</div>
 
 	<div class="admin-overview-grid">
@@ -115,10 +104,8 @@
 				<div>
 					<dt>Tier</dt>
 					<dd>
-						<Badge
-							label={formatAdminLabel(data.org.effectiveTier)}
-							color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
-						/>
+						<Badge variant={adminBadgeVariant(data.org.effectiveTier)}>{formatAdminLabel(data.org.effectiveTier)}</Badge
+						>
 					</dd>
 				</div>
 				<div>
@@ -137,10 +124,7 @@
 					<div>
 						<dt>Gift Tier</dt>
 						<dd>
-							<Badge
-								label={formatAdminLabel(data.org.giftTier)}
-								color={ADMIN_TIER_COLORS[data.org.giftTier] ?? 'var(--ink-35)'}
-							/>
+							<Badge variant={adminBadgeVariant(data.org.giftTier)}>{formatAdminLabel(data.org.giftTier)}</Badge>
 						</dd>
 					</div>
 					<div>
@@ -168,7 +152,7 @@
 				{#each data.members as member (member.userId)}
 					<div class="member-row">
 						<a href="/admin/users/{member.userId}" class="member-row__email">{member.email}</a>
-						<Badge label={formatAdminLabel(member.role)} color={ADMIN_ROLE_COLORS[member.role] ?? 'var(--ink-35)'} />
+						<Badge variant={adminBadgeVariant(member.role)}>{formatAdminLabel(member.role)}</Badge>
 					</div>
 				{:else}
 					<div class="admin-empty">No members found.</div>
@@ -204,12 +188,7 @@
 										• {evt.resourceId.slice(0, 8)}…</span
 									>{/if}</td
 							>
-							<td
-								><Badge
-									label={formatAdminLabel(evt.severity)}
-									color={ADMIN_STATUS_COLORS[evt.severity] ?? 'var(--ink-35)'}
-								/></td
-							>
+							<td><Badge variant={adminBadgeVariant(evt.severity)}>{formatAdminLabel(evt.severity)}</Badge></td>
 						</tr>
 					{:else}
 						<tr><td colspan="4" class="admin-empty">No audit events recorded for this organization.</td></tr>

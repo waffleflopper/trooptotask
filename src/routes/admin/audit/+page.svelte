@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
@@ -58,32 +61,30 @@
 	<div class="admin-toolbar">
 		<div class="admin-toolbar__group">
 			<div class="admin-toolbar__field">
-				<label class="label" for="action-filter">Action</label>
-				<select
+				<Label for="action-filter">Action</Label>
+				<NativeSelect
 					id="action-filter"
 					value={data.actionFilter}
 					onchange={(event) => setParam('action', event.currentTarget.value)}
-					class="select"
 				>
 					<option value="">All actions</option>
 					{#each data.availableActions as action (action)}
 						<option value={action}>{formatAdminLabel(action)}</option>
 					{/each}
-				</select>
+				</NativeSelect>
 			</div>
 			<div class="admin-toolbar__field">
-				<label class="label" for="severity-filter">Severity</label>
-				<select
+				<Label for="severity-filter">Severity</Label>
+				<NativeSelect
 					id="severity-filter"
 					value={data.severityFilter}
 					onchange={(event) => setParam('severity', event.currentTarget.value)}
-					class="select"
 				>
 					<option value="">All severities</option>
 					<option value="info">Info</option>
 					<option value="warning">Warning</option>
 					<option value="critical">Critical</option>
-				</select>
+				</NativeSelect>
 			</div>
 		</div>
 		<div class="admin-toolbar__meta">
@@ -108,12 +109,7 @@
 				{#each data.logs as log (log.id)}
 					<tr>
 						<td class="timestamp-cell">{formatDisplayDateTime(log.createdAt)}</td>
-						<td
-							><Badge
-								label={formatAdminLabel(log.severity)}
-								color={ADMIN_STATUS_COLORS[log.severity] ?? 'var(--ink-35)'}
-							/></td
-						>
+						<td><Badge variant={adminBadgeVariant(log.severity)}>{formatAdminLabel(log.severity)}</Badge></td>
 						<td><span class="admin-code">{formatAdminLabel(log.action)}</span></td>
 						<td>
 							{#if log.userId}
@@ -158,15 +154,13 @@
 
 	{#if totalPages > 1}
 		<div class="pagination-row">
-			<button class="btn btn-secondary btn-sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}
-				>Previous</button
-			>
+			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
+				Previous
+			</Button>
 			<span>Page {data.page} of {totalPages}</span>
-			<button
-				class="btn btn-secondary btn-sm"
-				disabled={data.page >= totalPages}
-				onclick={() => goToPage(data.page + 1)}>Next</button
-			>
+			<Button variant="outline" size="sm" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
+				Next
+			</Button>
 		</div>
 	{/if}
 </div>

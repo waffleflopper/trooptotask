@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 
@@ -58,10 +59,9 @@
 		</div>
 		<div class="admin-page-actions">
 			<div class="avatar-circle">{initials}</div>
-			<Badge
-				label={data.isSuspended ? 'Suspended' : 'Active'}
-				color={data.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-			/>
+			<Badge variant={adminBadgeVariant(data.isSuspended ? 'suspended' : 'active')}>
+				{data.isSuspended ? 'Suspended' : 'Active'}
+			</Badge>
 		</div>
 	</header>
 
@@ -89,10 +89,10 @@
 				};
 			}}
 		>
-			<button type="submit" class="btn btn-secondary" disabled={sendingReset}>
+			<Button type="submit" variant="outline" disabled={sendingReset}>
 				{#if sendingReset}<Spinner color="currentColor" />{/if}
 				Send Password Reset
-			</button>
+			</Button>
 		</form>
 
 		<form
@@ -106,15 +106,15 @@
 				};
 			}}
 		>
-			<button type="submit" class="btn btn-secondary" disabled={sendingInvite}>
+			<Button type="submit" variant="outline" disabled={sendingInvite}>
 				{#if sendingInvite}<Spinner color="currentColor" />{/if}
 				Resend Invite
-			</button>
+			</Button>
 		</form>
 
-		<button class="btn {data.isSuspended ? 'btn-secondary' : 'btn-danger'}" onclick={() => (showSuspendModal = true)}>
+		<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
 			{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
-		</button>
+		</Button>
 	</div>
 
 	<div class="detail-grid">
@@ -145,13 +145,12 @@
 										{org.name}
 									{/if}
 								</td>
-								<td><Badge label={formatAdminLabel(org.role)} color="var(--ink-35)" /></td>
+								<td><Badge variant={adminBadgeVariant(org.role)}>{formatAdminLabel(org.role)}</Badge></td>
 								<td>{org.personnelCount}</td>
 								<td
-									><Badge
-										label={formatAdminLabel(org.subscriptionTier)}
-										color={ADMIN_TIER_COLORS[org.subscriptionTier] ?? 'var(--ink-35)'}
-									/></td
+									><Badge variant={adminBadgeVariant(org.subscriptionTier)}
+										>{formatAdminLabel(org.subscriptionTier)}</Badge
+									></td
 								>
 							</tr>
 						{:else}

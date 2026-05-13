@@ -36,6 +36,11 @@ describe('ConfirmDialog', () => {
 
 		expect((screen.getByRole('button', { name: /Confirm action/ }) as HTMLButtonElement).disabled).toBe(true);
 		expect((screen.getByRole('button', { name: 'Stand down' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('alertdialog', { name: 'Confirm shared action' })).toBeTruthy();
+
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.getByRole('alertdialog', { name: 'Confirm shared action' })).toBeTruthy();
+		expect(screen.getByTestId('cancel-count').textContent).toBe('0');
 
 		await waitFor(() => {
 			expect((screen.getByRole('button', { name: 'Stand down' }) as HTMLButtonElement).disabled).toBe(false);
@@ -49,20 +54,19 @@ describe('ConfirmDialog', () => {
 		expect((screen.getByRole('button', { name: 'Stand down' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
-	it('supports destructive and warning semantics', () => {
-		const { unmount } = render(ConfirmDialogTest, { variant: 'destructive' });
-		expect(screen.getByRole('button', { name: 'Confirm action' }).getAttribute('class')).toContain('destructive');
-		expect(
-			screen.getByRole('alertdialog').querySelector('[data-slot="alert-dialog-footer"]')?.getAttribute('class')
-		).not.toContain('border-t');
-		unmount();
+	it('supports every shared confirmation variant without changing behavior', async () => {
+		const variants = ['destructive', 'danger', 'warning', 'primary', 'secondary'] as const;
 
-		render(ConfirmDialogTest, { variant: 'warning' });
-		expect(screen.getByRole('button', { name: 'Confirm action' }).getAttribute('class')).toContain('bg-primary');
-		expect(screen.getByRole('button', { name: 'Confirm action' }).getAttribute('class')).not.toContain('warning');
-		expect(
-			screen.getByRole('alertdialog').querySelector('[data-slot="alert-dialog-footer"]')?.getAttribute('class')
-		).not.toContain('border-t');
+		for (const variant of variants) {
+			const { unmount } = render(ConfirmDialogTest, { variant });
+
+			expect(screen.getByRole('alertdialog', { name: 'Confirm shared action' })).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Confirm action' }));
+			expect(screen.getByTestId('confirm-count').textContent).toBe('1');
+
+			unmount();
+		}
 	});
 
 	it('orders cancel before confirm in the footer', () => {

@@ -56,7 +56,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as Stepper from '$lib/components/ui/stepper/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -2105,7 +2105,41 @@
 											state="pending"
 										>
 											{#snippet status()}
-												<Stepper stages={['Issued', 'Submitted', 'Reviewed']} currentStage="Submitted" />
+												<Stepper.Root
+													steps={[
+														{ value: 'Issued', label: 'Issued', completed: true },
+														{ value: 'Submitted', label: 'Submitted' },
+														{ value: 'Reviewed', label: 'Reviewed' }
+													]}
+													value="Submitted"
+												>
+													<Stepper.List class="gap-0 overflow-visible pb-0">
+														<Stepper.Item value="Issued" completed>
+															<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+																<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+																<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase">
+																	Issued
+																</Stepper.Label>
+															</Stepper.Trigger>
+														</Stepper.Item>
+														<Stepper.Item value="Submitted">
+															<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+																<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+																<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase">
+																	Submitted
+																</Stepper.Label>
+															</Stepper.Trigger>
+														</Stepper.Item>
+														<Stepper.Item value="Reviewed">
+															<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+																<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+																<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase">
+																	Reviewed
+																</Stepper.Label>
+															</Stepper.Trigger>
+														</Stepper.Item>
+													</Stepper.List>
+												</Stepper.Root>
 											{/snippet}
 											<OnboardingPacketList.Notes bind:open={emptyPacketNotesOpen} count={0}>
 												<OnboardingPacketList.NoteInput value="" onAdd={() => undefined} />

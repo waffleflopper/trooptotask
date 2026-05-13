@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import * as Stepper from '$lib/components/ui/stepper';
 	import * as OnboardingPacketList from './index';
 
 	let {
@@ -62,7 +62,41 @@
 
 				<OnboardingPacketList.Step label="Finance packet" typeLabel="Paperwork" tone="paperwork" state="pending">
 					{#snippet status()}
-						<Stepper stages={['Issued', 'Submitted', 'Reviewed']} currentStage="Submitted" />
+						<Stepper.Root
+							steps={[
+								{ value: 'Issued', label: 'Issued', completed: true },
+								{ value: 'Submitted', label: 'Submitted' },
+								{ value: 'Reviewed', label: 'Reviewed' }
+							]}
+							value="Submitted"
+						>
+							<Stepper.List class="gap-0 overflow-visible pb-0">
+								<Stepper.Item value="Issued" completed>
+									<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+										<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+										<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase"
+											>Issued</Stepper.Label
+										>
+									</Stepper.Trigger>
+								</Stepper.Item>
+								<Stepper.Item value="Submitted">
+									<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+										<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+										<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase">
+											Submitted
+										</Stepper.Label>
+									</Stepper.Trigger>
+								</Stepper.Item>
+								<Stepper.Item value="Reviewed">
+									<Stepper.Trigger class="min-h-0 gap-1 rounded-md p-1">
+										<Stepper.Indicator class="size-4 text-[9px] [&>svg]:size-2.5" />
+										<Stepper.Label class="max-w-20 truncate font-mono text-xs font-medium uppercase">
+											Reviewed
+										</Stepper.Label>
+									</Stepper.Trigger>
+								</Stepper.Item>
+							</Stepper.List>
+						</Stepper.Root>
 					{/snippet}
 				</OnboardingPacketList.Step>
 

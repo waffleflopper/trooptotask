@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import StepperPrimitiveTest from './StepperPrimitiveTest.svelte';
-import LegacyStepper from '../Stepper.svelte';
 
 afterEach(() => {
 	cleanup();
@@ -47,22 +46,5 @@ describe('ui/stepper', () => {
 
 		expect(screen.getByTestId('guarded-value').textContent).toContain('account');
 		expect(screen.getByText('Guarded account')).toBeTruthy();
-	});
-
-	it('keeps the legacy stages/currentStage wrapper working', async () => {
-		let selected = 'Submitted';
-		render(LegacyStepper, {
-			props: {
-				stages: ['Issued', 'Submitted', 'Reviewed'],
-				currentStage: selected,
-				onStageClick: (stage: string) => {
-					selected = stage;
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: /Step 3:\s*Reviewed/ }));
-
-		expect(selected).toBe('Reviewed');
 	});
 });

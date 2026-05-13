@@ -5,7 +5,10 @@ import DutyRosterSharedWrappersTest from './DutyRosterSharedWrappersTest.svelte'
 import { getDutyRosterStatusBadge, type DutyRosterStatus } from './index.js';
 
 describe('duty roster shared wrappers', () => {
-	afterEach(() => cleanup());
+	afterEach(async () => {
+		cleanup();
+		await new Promise((resolve) => setTimeout(resolve, 250));
+	});
 
 	test('maps domain statuses to locked badge variants and labels', () => {
 		const statuses: DutyRosterStatus[] = [

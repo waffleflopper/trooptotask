@@ -1,15 +1,12 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
-	import InlineNotes from '$lib/components/ui/InlineNotes.svelte';
 	import LegacyBadge from '$lib/components/ui/Badge.svelte';
 	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import LegacySkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import LegacySkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import LegacySkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
-	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
@@ -701,12 +698,10 @@
 				</div>
 				<div class="unmatched-pair">
 					<div class="pattern-preview">
-						<p class="legend-label">Current component</p>
-						<InlineNotes
-							notes={inlineNotes}
-							resolveAuthor={(userId) => (userId === 'user-1' ? 'Morgan Lee' : 'Casey Nguyen')}
-							onAddNote={() => undefined}
-						/>
+						<p class="legend-label">Removed wrapper</p>
+						<p class="legend-copy">
+							InlineNotes.svelte no longer exists; consumers should import the compound ui/inline-notes primitive.
+						</p>
 					</div>
 					<div class="pattern-preview">
 						<p class="legend-label">ui/inline-notes</p>
@@ -1170,16 +1165,11 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current grouped controls</h3>
-				<SegmentedControl
-					ariaLabel="Current view mode"
-					options={[
-						{ value: 'matrix', label: 'Matrix' },
-						{ value: 'list', label: 'List' },
-						{ value: 'report', label: 'Report' }
-					]}
-					bind:value={selectedMode}
-				/>
+				<h3>Removed grouped-controls wrapper</h3>
+				<p class="legend-copy">
+					SegmentedControl.svelte was only retained by this reference page and now maps directly to the shadcn
+					button-group target.
+				</p>
 			</div>
 			<div class="comparison-cell">
 				<h3>shadcn button group and toggle</h3>
@@ -1208,12 +1198,11 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current stepper wrapper</h3>
-				<Stepper
-					stages={['Draft', 'Review', 'Approve', 'Publish']}
-					currentStage="Review"
-					onStageClick={() => undefined}
-				/>
+				<h3>Removed stepper wrapper</h3>
+				<p class="legend-copy">
+					Stepper.svelte was a compatibility wrapper. Production code now uses the shadcn-style stepper primitive
+					directly.
+				</p>
 			</div>
 			<div class="comparison-cell">
 				<h3>shadcn-style stepper primitive</h3>
@@ -1398,7 +1387,6 @@
 						<LegacySpinner />
 						Saving
 					</button>
-					<span class="spinner" aria-hidden="true"></span>
 				</div>
 			</div>
 			<div class="comparison-cell">

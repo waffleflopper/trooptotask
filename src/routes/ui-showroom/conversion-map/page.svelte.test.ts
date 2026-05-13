@@ -82,7 +82,7 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(examples).toBeTruthy();
 		expect(within(examples as HTMLElement).getByRole('heading', { name: 'Current buttons' })).toBeTruthy();
 		expect(within(examples as HTMLElement).getByRole('heading', { name: 'shadcn button' })).toBeTruthy();
-		expect(within(examples as HTMLElement).getByRole('heading', { name: 'Current stepper wrapper' })).toBeTruthy();
+		expect(within(examples as HTMLElement).getByRole('heading', { name: 'Removed stepper wrapper' })).toBeTruthy();
 		expect(
 			within(examples as HTMLElement).getByRole('heading', { name: 'shadcn-style stepper primitive' })
 		).toBeTruthy();

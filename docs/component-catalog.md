@@ -681,51 +681,6 @@ Lower-level shell primitives used internally by `PublicShell`. Reach for these d
 
 ---
 
-## `PageToolbar.svelte`
-
-Page header toolbar with title, actions, breadcrumbs, and optional below-content. The refreshed toolbar uses a field-document hierarchy: mono breadcrumbs, condensed uppercase title, serif-supporting subtitle, and restrained action framing.
-
-```svelte
-<!-- Basic usage -->
-<PageToolbar title="Personnel">
-    <button class="btn btn-primary" onclick={handleAdd}>Add</button>
-</PageToolbar>
-
-<!-- With breadcrumbs and subtitle -->
-<PageToolbar
-    title="Training Records"
-    subtitle="42 total"
-    breadcrumbs={[{ label: 'Personnel', href: '/personnel' }, { label: 'John Smith' }]}
-/>
-
-<!-- Compact variant, sticky -->
-<PageToolbar title="Detail View" variant="compact" sticky />
-
-<!-- With below slot for filters or local route controls -->
-<PageToolbar title="Calendar">
-    {#snippet below()}
-        <ToolbarFilters {filters} />
-    {/snippet}
-</PageToolbar>
-
-<!-- Leading snippet replaces title area -->
-<PageToolbar title="Dashboard">
-    {#snippet leading()}
-        <CustomHeader />
-    {/snippet}
-</PageToolbar>
-```
-
-Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
-
-Toolbar guidance:
-
-- Use `variant="default"` for normal product pages and `variant="compact"` for denser detail views.
-- Keep breadcrumbs short and structural; they render as mono navigation labels.
-- Prefer `subtitle` for context or counts rather than adding decorative badges beside the title.
-
----
-
 ## Shared Route Toolbar
 
 Authenticated production routes now use `ui/workspace-toolbar` plus generated shadcn-svelte primitives. The old `/components/ui/toolbar` family has been removed and must not be reintroduced.
@@ -910,28 +865,6 @@ item layout with `Stepper.Trigger`, `Stepper.Indicator`, `Stepper.Label`, and `S
 
 ---
 
-## `ui/Stepper.svelte`
-
-Linear stage indicator for multi-step workflows. Shows stages as connected dots with labels. Clickable when not disabled.
-This legacy wrapper is preserved for existing route imports and delegates to `ui/stepper`.
-
-```svelte
-<Stepper
-    stages={['with soldier', 'submitted', 'approved']}
-    currentStage="submitted"
-    onStageClick={(stage) => handleStageClick(step, stage)}
-/>
-
-<!-- Read-only -->
-<Stepper stages={['draft', 'review', 'done']} currentStage="review" disabled />
-```
-
-Props: `stages: string[]`, `currentStage: string`, `onStageClick?: (stage: string) => void`, `disabled?: boolean`
-
-Stage states: `completed` (before current — filled dot, primary connector), `current` (highlighted dot with glow ring, primary label), `upcoming` (hollow dot, muted label).
-
----
-
 ## Shared Form Controls
 
 New form work should use the shadcn-svelte-backed shared control system. The durable public API is compound and explicit: routes compose labels, controls, descriptions, errors, values, disabled state, and handlers. Routes must not restyle controls locally.
@@ -1014,45 +947,6 @@ Rules:
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
 - Toolbar-compact usage should compose the same controls inside `WorkspaceToolbar.Group`, using shared active counts rather than visual route overrides.
-
-## Deprecated `ui/FormField.svelte`
-
-`FormField.svelte` is deprecated for new work. It remains only for existing production routes until those routes migrate to the compound `ui/field` API.
-
-```svelte
-<!-- Simple text input -->
-<FormField label="First Name" id="first-name" required bind:value={firstName} />
-
-<!-- Select -->
-<FormField label="Status" id="status" inputElement="select" options={statusOptions} bind:value={status} />
-
-<!-- Textarea -->
-<FormField label="Notes" id="notes" inputElement="textarea" rows={3} bind:value={notes} />
-
-<!-- With error / hint -->
-<FormField label="Email" id="email" type="email" error={emailError} bind:value={email} />
-<FormField label="MOS" id="mos" hint="e.g., 68W, 68C, RN" bind:value={mos} />
-
-<!-- Escape hatch: custom children (e.g. optgroups) -->
-<FormField label="Rank" id="rank">
-    <select id="rank" class="input" bind:value={rank}>
-        <optgroup label="NCO"><option value="SGT">SGT</option></optgroup>
-    </select>
-</FormField>
-```
-
-Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'textarea'`, `name?: string`, `type?: string`, `placeholder?: string`, `value?: string` (bindable), `required?: boolean`, `error?: string`, `hint?: string`, `disabled?: boolean`, `options?: { value: string; label: string }[]`, `rows?: number`, `children?: Snippet`
-
-Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element.
-
-Field guidance:
-
-- Labels render as mono utility labels by default; keep them short and specific.
-- Hints and errors occupy a reserved support row so layouts do not jump as much when validation appears.
-
-**Children escape hatch**: When using `children`, manually wire `aria-describedby="{id}-error"` or `"{id}-hint"` on your custom input — FormField renders those spans but can't auto-apply them to custom children.
-
----
 
 ## `ui/combobox`
 
@@ -1161,29 +1055,6 @@ Toolbar compact pattern:
 - Provide `name` when selected values must participate in native form submission.
 - Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and showroom example.
 
-## Deprecated `ui/SearchSelect.svelte`
-
-`SearchSelect.svelte` is deprecated for new work. Use `ui/combobox`.
-
-```svelte
-<SearchSelect
-    options={personnel.map((p) => ({ value: p.id, label: p.name }))}
-    bind:value={selectedId}
-    placeholder="Search personnel..."
-    onchange={(v) => console.log(v)}
-/>
-```
-
-Props: `options: { value: string; label: string }[]`, `value: string` (bindable), `placeholder?: string` (default `'Search...'`), `disabled?: boolean`, `clearable?: boolean`, `onchange?: (value: string) => void`, `id?: string`, `ariaLabel?: string`, `compact?: boolean`
-
-- Typing filters the dropdown; keyboard arrows + Enter to navigate; Escape to close
-- Shows a × clear button when a value is selected
-- Clears to `''` when cleared
-- Use `compact` inside dense grids or tables where the default field height is too tall
-- The control reuses shared field density/focus treatment, so prefer it over custom searchable listboxes
-
----
-
 ## Deprecated `ui/MultiTagSelect.svelte`
 
 `MultiTagSelect.svelte` is deprecated for new work. Use `ui/multi-select`.
@@ -1289,37 +1160,9 @@ Props: `filePath: string | null`, `uploadUrl: string`, `downloadUrl: string`, `r
 
 Removed. Use `ui/workspace-toolbar` and generated shadcn-svelte primitives instead.
 
-## `ui/OverflowMenu.svelte`
+## `ui/inline-notes`
 
-Controlled dropdown menu. Used as an escape hatch for per-row menus and other local menu surfaces. The parent manages `open` state.
-
-```svelte
-<script>
-    let menuOpen = $state(false);
-</script>
-
-<div style="position: relative">
-    <button onclick={() => (menuOpen = !menuOpen)}>⋮</button>
-    <OverflowMenu
-        {items}
-        open={menuOpen}
-        onClose={() => (menuOpen = false)}
-        align="right"
-    />
-</div>
-```
-
-Props: `items: OverflowItem[]`, `open: boolean`, `onClose: () => void`, `align?: 'left' | 'right'` (default `'right'`)
-
-`OverflowItem` shape: `label: string`, `onclick?: () => void`, `href?: string`, `toggle?: boolean`, `active?: boolean` (shows checkmark when `toggle && active`), `divider?: boolean` (renders a separator line above this item), `group?: string` (renders a group label above), `danger?: boolean` (red text), `disabled?: boolean`, `disabledReason?: string`
-
-Import type: `import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte'`
-
----
-
-## `ui/InlineNotes.svelte`
-
-Compatibility wrapper for `ui/inline-notes`. Use `ui/inline-notes` for new shadcn-aligned work.
+Use the compound `ui/inline-notes` primitives for note threads.
 
 ```svelte
 <script lang="ts">
@@ -1381,10 +1224,6 @@ Use `ui/type-manager` for small modal CRUD lists such as status types and assign
     {/snippet}
 </TypeManager.Root>
 ```
-
-Compatibility: `ui/TypeManager.svelte` delegates to `ui/type-manager` so existing status/type manager consumers keep their current API.
-
----
 
 ## `ui/type-workspace`
 

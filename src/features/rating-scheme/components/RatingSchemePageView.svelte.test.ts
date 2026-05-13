@@ -5,8 +5,8 @@ import RatingSchemePageView from './RatingSchemePageView.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/RatingSchemePageContext.svelte';
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async () => undefined)
@@ -57,53 +57,38 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-const permissions = {
-	canViewCalendar: false,
-	canEditCalendar: false,
-	canViewPersonnel: false,
-	canEditPersonnel: false,
-	canViewTraining: false,
-	canEditTraining: false,
-	canViewCriticalTasks: false,
-	canEditCriticalTasks: false,
-	canViewOnboarding: false,
-	canEditOnboarding: false,
-	canViewRatingScheme: true,
-	canEditRatingScheme: true,
-	canViewLeadersBook: false,
-	canEditLeadersBook: false,
-	canManageMembers: false
-};
-
-function makeOrg(): OrgContext {
-	return createOrgContext({
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
+function makeOrg() {
+	return createTestOrgContext({
 		userRole: 'member',
-		capabilityMap: {
-			calendar: 'none',
-			personnel: 'none',
-			training: 'none',
-			criticalTasks: 'none',
-			onboarding: 'none',
-			ratingScheme: 'operate'
-		},
-		scopeSet: { kind: 'organization' },
-		permissions,
-		scopedGroupId: null,
-		isReadOnly: false
+		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' }
 	});
 }
 
 function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
+	const org = makeOrg();
 	const data: RatingSchemePageData = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
-		permissions,
+		permissions: {
+			canViewCalendar: false,
+			canEditCalendar: false,
+			canViewPersonnel: false,
+			canEditPersonnel: false,
+			canViewTraining: false,
+			canEditTraining: false,
+			canViewCriticalTasks: false,
+			canEditCriticalTasks: false,
+			canViewOnboarding: false,
+			canEditOnboarding: false,
+			canViewRatingScheme: true,
+			canEditRatingScheme: true,
+			canViewLeadersBook: false,
+			canEditLeadersBook: false,
+			canManageMembers: false
+		},
 		ratingSchemeEntries: entries
 	};
-	return new RatingSchemePageContext(data, modals, makeOrg(), entries);
+	return new RatingSchemePageContext(data, modals, org, entries);
 }
 
 describe('RatingSchemePageView', () => {

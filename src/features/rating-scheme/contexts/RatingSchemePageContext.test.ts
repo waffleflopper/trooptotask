@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import { createOrgContext, type CreateOrgContextInput, type OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CreateOrgContextInput } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
+import {
+	createTestOrgContext,
+	VIEW_TEST_CAPABILITY_MAP,
+	NONE_TEST_CAPABILITY_MAP
+} from '$lib/test-support/orgContextBuilder';
 
 const entries: RatingSchemeEntry[] = [
 	{
@@ -64,31 +69,17 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-function makeOrg(overrides: Partial<CreateOrgContextInput> = {}): OrgContext {
-	return createOrgContext({
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
+function makeOrg(overrides: Partial<CreateOrgContextInput> = {}) {
+	return createTestOrgContext({
 		userRole: 'member',
-		capabilityMap: {
-			calendar: 'view',
-			personnel: 'view',
-			training: 'view',
-			criticalTasks: 'view',
-			onboarding: 'view',
-			ratingScheme: 'view'
-		},
-		scopeSet: { kind: 'organization' },
-		permissions: {} as OrgContext['permissions'],
-		scopedGroupId: null,
-		isReadOnly: false,
+		capabilityMap: VIEW_TEST_CAPABILITY_MAP,
 		...overrides
 	});
 }
 
 function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePageData {
 	return {
-		orgId: 'org-1',
+		orgId: 'test-org',
 		orgName: 'Test Org',
 		permissions: {
 			canViewCalendar: false,
@@ -154,14 +145,7 @@ describe('RatingSchemePageContext', () => {
 			}),
 			new ModalRegistry(),
 			makeOrg({
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'operate'
-				}
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' }
 			}),
 			entries
 		);
@@ -176,14 +160,7 @@ describe('RatingSchemePageContext', () => {
 			makeData(),
 			new ModalRegistry(),
 			makeOrg({
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'operate'
-				},
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' },
 				isReadOnly: true
 			}),
 			entries
@@ -199,14 +176,7 @@ describe('RatingSchemePageContext', () => {
 			makeData(),
 			new ModalRegistry(),
 			makeOrg({
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'configure',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'configure' }
 			}),
 			entries
 		);

@@ -3,8 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import {
+	createTestOrgContext,
+	FULL_TEST_CAPABILITY_MAP,
+	VIEW_TEST_CAPABILITY_MAP
+} from '$lib/test-support/orgContextBuilder';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -78,38 +82,23 @@ const filterPersonnel: Personnel[] = [
 	}
 ];
 
-function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const defaultCapabilityMap = {
-		calendar: 'view',
-		personnel: 'view',
-		training: 'view',
-		criticalTasks: 'view',
-		onboarding: 'view',
-		ratingScheme: 'view'
-	} satisfies OrgContext['capabilityMap'];
-	const configureCapabilityMap = {
-		calendar: 'configure',
-		personnel: 'configure',
-		training: 'configure',
-		criticalTasks: 'configure',
-		onboarding: 'configure',
-		ratingScheme: 'configure'
-	} satisfies OrgContext['capabilityMap'];
-
-	return createOrgContext({
+function makeMockOrg(
+	overrides: {
+		userRole?: 'owner' | 'admin' | 'member';
+		capabilityMap?: import('$lib/access/memberAccessShape').CapabilityMap;
+		scopeSet?: import('$lib/access/memberAccessShape').ScopeSet;
+		isReadOnly?: boolean;
+	} = {}
+) {
+	const role = overrides.userRole ?? 'member';
+	const isPrivileged = role === 'owner' || role === 'admin';
+	return createTestOrgContext({
 		orgId: 'org1',
-		orgName: 'Test Org',
 		userId: 'user1',
-		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
-		capabilityMap:
-			overrides.capabilityMap ??
-			(overrides.isOwner || overrides.isAdmin || overrides.isFullEditor
-				? configureCapabilityMap
-				: defaultCapabilityMap),
-		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
-		permissions: {} as OrgContext['permissions'],
-		scopedGroupId: null,
-		isReadOnly: overrides.readOnly ?? false
+		userRole: role,
+		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
+		scopeSet: overrides.scopeSet,
+		isReadOnly: overrides.isReadOnly ?? false
 	});
 }
 

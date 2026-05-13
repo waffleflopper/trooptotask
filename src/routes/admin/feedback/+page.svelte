@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Label } from '$lib/components/ui/label';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
@@ -24,224 +29,130 @@
 	<title>Beta Feedback - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell admin-page-shell--compact">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Feedback Queue</p>
-			<h1 class="admin-page-title">Beta Feedback</h1>
-			<p class="admin-page-subtitle">
-				Sort incoming bug reports, feature requests, and tester notes without losing the audit trail.
-			</p>
-		</div>
-	</header>
+<PageShell.Root width="content" density="compact">
+	<PageShell.Header
+		title="Beta Feedback"
+		subtitle="Sort incoming bug reports, feature requests, and tester notes without losing the audit trail."
+	/>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Total Items</p>
-			<p class="admin-overview-card__value">{totalCount}</p>
-			<p class="admin-overview-card__meta">Every feedback item currently retained in the platform queue.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">New Items</p>
-			<p class="admin-overview-card__value">{data.newItems.length}</p>
-			<p class="admin-overview-card__meta">Unread items still waiting on first review.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric label="Total Items" value={totalCount} detail="Every retained feedback item." />
+		<PageShell.Metric label="New Items" value={data.newItems.length} detail="Unread items waiting on first review." />
+	</PageShell.FactGrid>
 
 	{#if form?.error}
-		<div class="admin-alert admin-alert--error">{form.error}</div>
+		<Alert.Root variant="destructive">
+			<Alert.Description>{form.error}</Alert.Description>
+		</Alert.Root>
 	{/if}
 
-	<div class="admin-segmented" aria-label="Feedback tabs">
-		<button class:active={activeTab === 'new'} onclick={() => (activeTab = 'new')}
-			>New {#if data.newItems.length > 0}<span>{data.newItems.length}</span>{/if}</button
-		>
-		<button class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}
-			>Reviewed {#if data.reviewedItems.length > 0}<span>{data.reviewedItems.length}</span>{/if}</button
-		>
-		<button class:active={activeTab === 'resolved'} onclick={() => (activeTab = 'resolved')}
-			>Resolved {#if data.resolvedItems.length > 0}<span>{data.resolvedItems.length}</span>{/if}</button
-		>
-	</div>
+	<Tabs.Root bind:value={activeTab} class="grid gap-4">
+		<Tabs.List class="w-full justify-start">
+			<Tabs.Trigger value="new">
+				New {#if data.newItems.length > 0}<Badge variant="secondary">{data.newItems.length}</Badge>{/if}
+			</Tabs.Trigger>
+			<Tabs.Trigger value="reviewed">
+				Reviewed {#if data.reviewedItems.length > 0}<Badge variant="secondary">{data.reviewedItems.length}</Badge>{/if}
+			</Tabs.Trigger>
+			<Tabs.Trigger value="resolved">
+				Resolved {#if data.resolvedItems.length > 0}<Badge variant="secondary">{data.resolvedItems.length}</Badge>{/if}
+			</Tabs.Trigger>
+		</Tabs.List>
 
-	{#if currentItems.length === 0}
-		<div class="admin-panel"><div class="admin-empty">No {activeTab} feedback.</div></div>
-	{:else}
-		<div class="feedback-stack">
-			{#each currentItems as item (item.id)}
-				<section class="admin-panel feedback-card">
-					<button class="feedback-card__summary" onclick={() => (expandedId = expandedId === item.id ? null : item.id)}>
-						<div class="feedback-card__copy">
-							<div class="feedback-card__headline">
-								<strong>{item.user_email}</strong>
-								<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
-							</div>
-							<p class="feedback-card__preview">
-								{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
-							</p>
-							<p class="feedback-card__meta">
-								{formatDisplayDateTime(item.created_at)}
-								{#if item.organization_name}
-									• {item.organization_name}{/if}
-								{#if item.page_url}
-									• {item.page_url}{/if}
-							</p>
-						</div>
-						<span class="feedback-card__toggle">{expandedId === item.id ? 'Hide' : 'Open'}</span>
-					</button>
-
-					{#if expandedId === item.id}
-						<div class="feedback-card__detail">
-							<div class="feedback-card__section">
-								<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-									Full Message
-								</p>
-								<p class="feedback-card__message">{item.message}</p>
-							</div>
-
-							<form
-								method="POST"
-								action="?/update"
-								use:enhance={() => {
-									savingId = item.id;
-									return async ({ update }) => {
-										savingId = null;
-										await update();
-									};
-								}}
+		<Tabs.Content value={activeTab} class="grid gap-3">
+			{#if currentItems.length === 0}
+				<Card.Root>
+					<Card.Content>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>No {activeTab} feedback.</Empty.Title>
+							</Empty.Header>
+						</Empty.Root>
+					</Card.Content>
+				</Card.Root>
+			{:else}
+				{#each currentItems as item (item.id)}
+					<Card.Root>
+						<Card.Header>
+							<button
+								class="grid w-full gap-3 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+								onclick={() => (expandedId = expandedId === item.id ? null : item.id)}
 							>
-								<input type="hidden" name="feedbackId" value={item.id} />
-								<div class="feedback-card__form">
-									<div class="admin-toolbar__field">
-										<Label for="status-{item.id}">Status</Label>
-										<NativeSelect id="status-{item.id}" name="status" value={item.status}>
-											<option value="new">New</option>
-											<option value="reviewed">Reviewed</option>
-											<option value="resolved">Resolved</option>
-										</NativeSelect>
-									</div>
-									<div class="admin-toolbar__field feedback-card__notes">
-										<Label for="notes-{item.id}">Admin Notes</Label>
-										<Textarea
-											id="notes-{item.id}"
-											name="adminNotes"
-											rows={4}
-											placeholder="Internal notes about this feedback..."
-											value={item.admin_notes || ''}
-											class="min-h-28 resize-y"
-										></Textarea>
-									</div>
+								<span class="grid min-w-0 gap-2">
+									<span class="flex min-w-0 flex-wrap items-center gap-2">
+										<strong class="truncate text-sm">{item.user_email}</strong>
+										<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
+									</span>
+									<span class="text-sm leading-6 text-muted-foreground">
+										{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
+									</span>
+									<span class="text-xs text-muted-foreground">
+										{formatDisplayDateTime(item.created_at)}
+										{#if item.organization_name}
+											/ {item.organization_name}{/if}
+										{#if item.page_url}
+											/ {item.page_url}{/if}
+									</span>
+								</span>
+								<span class="text-xs font-medium text-muted-foreground uppercase">
+									{expandedId === item.id ? 'Hide' : 'Open'}
+								</span>
+							</button>
+						</Card.Header>
+
+						{#if expandedId === item.id}
+							<Card.Content class="grid gap-4">
+								<div class="grid gap-2 rounded-lg border bg-muted/40 p-4">
+									<p class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Full Message</p>
+									<p class="text-sm leading-6">{item.message}</p>
 								</div>
 
-								<div class="feedback-card__actions">
-									<Button type="submit" disabled={savingId !== null}>
-										{#if savingId === item.id}<Spinner />{/if}
-										Save Notes
-									</Button>
-								</div>
-							</form>
-						</div>
-					{/if}
-				</section>
-			{/each}
-		</div>
-	{/if}
-</div>
+								<form
+									method="POST"
+									action="?/update"
+									class="grid gap-4"
+									use:enhance={() => {
+										savingId = item.id;
+										return async ({ update }) => {
+											savingId = null;
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="feedbackId" value={item.id} />
+									<div class="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+										<Field.Root>
+											<Field.Label for="status-{item.id}">Status</Field.Label>
+											<NativeSelect id="status-{item.id}" name="status" value={item.status}>
+												<option value="new">New</option>
+												<option value="reviewed">Reviewed</option>
+												<option value="resolved">Resolved</option>
+											</NativeSelect>
+										</Field.Root>
+										<Field.Root>
+											<Field.Label for="notes-{item.id}">Admin Notes</Field.Label>
+											<Textarea
+												id="notes-{item.id}"
+												name="adminNotes"
+												rows={4}
+												placeholder="Internal notes about this feedback..."
+												value={item.admin_notes || ''}
+											></Textarea>
+										</Field.Root>
+									</div>
 
-<style>
-	.feedback-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.feedback-card,
-	.feedback-card__detail {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.feedback-card__summary {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		width: 100%;
-		padding: 0;
-		border: none;
-		background: transparent;
-		text-align: left;
-	}
-
-	.feedback-card__copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.feedback-card__headline {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.feedback-card__headline strong {
-		font-size: var(--text-base);
-	}
-
-	.feedback-card__preview,
-	.feedback-card__meta,
-	.feedback-card__message {
-		margin: 0;
-	}
-
-	.feedback-card__preview,
-	.feedback-card__message {
-		line-height: 1.6;
-	}
-
-	.feedback-card__meta,
-	.feedback-card__toggle {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.feedback-card__toggle {
-		padding-top: 2px;
-	}
-
-	.feedback-card__section {
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-	}
-
-	.feedback-card__form {
-		display: grid;
-		grid-template-columns: 180px minmax(0, 1fr);
-		gap: var(--sp-3);
-	}
-
-	.feedback-card__notes {
-		flex: none;
-	}
-
-	.feedback-card__actions {
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	@media (max-width: 700px) {
-		.feedback-card__form {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
+									<div class="flex justify-end">
+										<Button type="submit" disabled={savingId !== null}>
+											{#if savingId === item.id}<Spinner />{/if}
+											Save Notes
+										</Button>
+									</div>
+								</form>
+							</Card.Content>
+						{/if}
+					</Card.Root>
+				{/each}
+			{/if}
+		</Tabs.Content>
+	</Tabs.Root>
+</PageShell.Root>

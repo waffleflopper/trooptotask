@@ -177,6 +177,15 @@
 			notes: 'Toolbar behavior remains route-owned. Visual structure should stay in the shared toolbar.'
 		},
 		{
+			id: 'admin-workspace',
+			group: 'Workspace structure',
+			current: 'Removed platform admin admin-* CSS layer',
+			target: 'ui/sidebar, ui/page-shell, ui/card, ui/table, ui/tabs, ui/alert, ui/empty, ui/field, ui/command',
+			status: 'compose',
+			notes:
+				'Platform admin routes now compose existing shared primitives and Tailwind layout utilities. Remaining global .btn/.input/.select/.label selectors are non-admin follow-up cleanup.'
+		},
+		{
 			id: 'modal-dialogs',
 			group: 'Overlays',
 			current: 'Removed Modal.svelte',

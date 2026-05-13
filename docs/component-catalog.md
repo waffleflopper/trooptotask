@@ -28,6 +28,7 @@ Replacement previews:
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `MultiTagSelect` is replaced by the shadcn-style `ui/multi-select` compound API with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
+- Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
 
 Rules:
 
@@ -49,6 +50,7 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and exposes native shadcn/Tailwind theme variables without mapping them to TroopToTask colors yet.
+- `src/app.css` no longer owns admin-specific selectors. Remaining global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors are retained only for non-admin consumers until their own cleanup slice migrates them.
 - `src/lib/components/ui/showroom/showroomInventory.ts` records the selected component set and state coverage.
 
 Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.

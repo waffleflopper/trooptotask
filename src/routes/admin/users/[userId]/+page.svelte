@@ -6,6 +6,11 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 
 	let { data, form } = $props();
 
@@ -41,43 +46,50 @@
 	<title>User Details - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell admin-page-shell--compact">
-	{#if toastMessage}<div class="admin-alert admin-alert--success">{toastMessage}</div>{/if}
-	{#if toastError}<div class="admin-alert admin-alert--error">{toastError}</div>{/if}
+<PageShell.Root width="wide" density="compact">
+	{#if toastMessage}
+		<Alert.Root variant="success">
+			<Alert.Description>{toastMessage}</Alert.Description>
+		</Alert.Root>
+	{/if}
+	{#if toastError}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{toastError}</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<a href="/admin/users" class="back-link">Back to Users</a>
-			<p class="admin-page-eyebrow">Identity Record</p>
-			<h1 class="admin-page-title">{data.user.email}</h1>
-			<p class="admin-page-subtitle">
-				Joined {formatDisplayDate(data.user.createdAt)}
-				{#if data.user.lastSignInAt}
-					• Last sign-in {formatDisplayDateTime(data.user.lastSignInAt)}{:else}
-					• Never signed in{/if}
-			</p>
-		</div>
-		<div class="admin-page-actions">
-			<div class="avatar-circle">{initials}</div>
+	<PageShell.Header
+		title={data.user.email}
+		subtitle={`Joined ${formatDisplayDate(data.user.createdAt)} - ${
+			data.user.lastSignInAt ? `Last sign-in ${formatDisplayDateTime(data.user.lastSignInAt)}` : 'Never signed in'
+		}`}
+	>
+		{#snippet back()}
+			<Button href="/admin/users" variant="ghost" size="sm">Back to Users</Button>
+		{/snippet}
+		{#snippet meta()}
+			<Badge variant="secondary">Identity Record</Badge>
+		{/snippet}
+		{#snippet actions()}
+			<div class="flex size-12 items-center justify-center rounded-full border bg-muted text-sm font-semibold">
+				{initials}
+			</div>
 			<Badge variant={adminBadgeVariant(data.isSuspended ? 'suspended' : 'active')}>
 				{data.isSuspended ? 'Suspended' : 'Active'}
 			</Badge>
-		</div>
-	</header>
+		{/snippet}
+	</PageShell.Header>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">User ID</p>
-			<p class="admin-overview-card__meta"><span class="admin-code">{data.user.id}</span></p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Organizations</p>
-			<p class="admin-overview-card__value">{data.organizations.length}</p>
-			<p class="admin-overview-card__meta">Organizations where this account currently holds membership.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric label="User ID" value={data.user.id} class="[&_strong]:font-mono [&_strong]:text-sm" />
+		<PageShell.Metric
+			label="Organizations"
+			value={data.organizations.length}
+			detail="Organizations where this account currently holds membership."
+		/>
+	</PageShell.FactGrid>
 
-	<div class="action-strip">
+	<div class="flex flex-wrap gap-2">
 		<form
 			method="POST"
 			action="?/resetPassword"
@@ -117,86 +129,99 @@
 		</Button>
 	</div>
 
-	<div class="detail-grid">
-		<section class="admin-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Organizations</h2>
-					<p class="admin-panel__meta">Memberships and plan context for this account.</p>
-				</div>
-			</div>
-			<div class="admin-table-shell admin-table-shell--scroll embedded-table">
-				<table class="admin-table">
-					<thead>
-						<tr>
-							<th>Name</th>
-							<th>Role</th>
-							<th>Personnel</th>
-							<th>Tier</th>
-						</tr>
-					</thead>
-					<tbody>
+	<div class="grid gap-4 xl:grid-cols-2">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Organizations</Card.Title>
+				<Card.Description>Memberships and plan context for this account.</Card.Description>
+			</Card.Header>
+			<Card.Content class="overflow-x-auto">
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Name</Table.Head>
+							<Table.Head>Role</Table.Head>
+							<Table.Head>Personnel</Table.Head>
+							<Table.Head>Tier</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
 						{#each data.organizations as org (org.id)}
-							<tr>
-								<td>
+							<Table.Row>
+								<Table.Cell>
 									{#if org.id}
-										<a href="/admin/organizations/{org.id}" class="entity-link">{org.name}</a>
+										<a
+											href="/admin/organizations/{org.id}"
+											class="text-sm font-medium underline-offset-4 hover:underline">{org.name}</a
+										>
 									{:else}
 										{org.name}
 									{/if}
-								</td>
-								<td><Badge variant={adminBadgeVariant(org.role)}>{formatAdminLabel(org.role)}</Badge></td>
-								<td>{org.personnelCount}</td>
-								<td
-									><Badge variant={adminBadgeVariant(org.subscriptionTier)}
+								</Table.Cell>
+								<Table.Cell
+									><Badge variant={adminBadgeVariant(org.role)}>{formatAdminLabel(org.role)}</Badge></Table.Cell
+								>
+								<Table.Cell>{org.personnelCount}</Table.Cell>
+								<Table.Cell>
+									<Badge variant={adminBadgeVariant(org.subscriptionTier)}
 										>{formatAdminLabel(org.subscriptionTier)}</Badge
-									></td
-								>
-							</tr>
+									>
+								</Table.Cell>
+							</Table.Row>
 						{:else}
-							<tr><td colspan="4" class="admin-empty">No organizations.</td></tr>
+							<Table.Row>
+								<Table.Cell colspan={4}>
+									<Empty.Root class="border-0">No organizations.</Empty.Root>
+								</Table.Cell>
+							</Table.Row>
 						{/each}
-					</tbody>
-				</table>
-			</div>
-		</section>
+					</Table.Body>
+				</Table.Root>
+			</Card.Content>
+		</Card.Root>
 
-		<section class="admin-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Recent Activity</h2>
-					<p class="admin-panel__meta">Latest audit events tied to this identity.</p>
-				</div>
-			</div>
-			<div class="admin-table-shell admin-table-shell--scroll embedded-table">
-				<table class="admin-table">
-					<thead>
-						<tr>
-							<th>Timestamp</th>
-							<th>Action</th>
-							<th>Resource</th>
-							<th>Org</th>
-						</tr>
-					</thead>
-					<tbody>
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Recent Activity</Card.Title>
+				<Card.Description>Latest audit events tied to this identity.</Card.Description>
+			</Card.Header>
+			<Card.Content class="overflow-x-auto">
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Timestamp</Table.Head>
+							<Table.Head>Action</Table.Head>
+							<Table.Head>Resource</Table.Head>
+							<Table.Head>Org</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
 						{#each data.recentActivity as event (event.id)}
-							<tr>
-								<td class="timestamp-cell">{formatDisplayDateTime(event.timestamp)}</td>
-								<td><span class="admin-code">{event.action}</span></td>
-								<td class="text-muted"
-									>{event.resourceType}{event.resourceId ? ` • ${event.resourceId.slice(0, 8)}…` : ''}</td
+							<Table.Row>
+								<Table.Cell class="font-mono text-xs text-muted-foreground"
+									>{formatDisplayDateTime(event.timestamp)}</Table.Cell
 								>
-								<td class="text-muted">{event.orgId ? `${event.orgId.slice(0, 8)}…` : '—'}</td>
-							</tr>
+								<Table.Cell><span class="font-mono text-xs">{event.action}</span></Table.Cell>
+								<Table.Cell class="text-muted-foreground">
+									{event.resourceType}{event.resourceId ? ` - ${event.resourceId.slice(0, 8)}...` : ''}
+								</Table.Cell>
+								<Table.Cell class="text-muted-foreground"
+									>{event.orgId ? `${event.orgId.slice(0, 8)}...` : '-'}</Table.Cell
+								>
+							</Table.Row>
 						{:else}
-							<tr><td colspan="4" class="admin-empty">No recent activity.</td></tr>
+							<Table.Row>
+								<Table.Cell colspan={4}>
+									<Empty.Root class="border-0">No recent activity.</Empty.Root>
+								</Table.Cell>
+							</Table.Row>
 						{/each}
-					</tbody>
-				</table>
-			</div>
-		</section>
+					</Table.Body>
+				</Table.Root>
+			</Card.Content>
+		</Card.Root>
 	</div>
-</div>
+</PageShell.Root>
 
 {#if showSuspendModal}
 	<SuspendModal
@@ -211,57 +236,3 @@
 		}}
 	/>
 {/if}
-
-<style>
-	.back-link {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.avatar-circle {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 56px;
-		height: 56px;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--amber-light) 74%, var(--surface-panel) 26%);
-		border: 1px solid color-mix(in srgb, var(--amber-dark) 32%, var(--ink-15) 68%);
-		font-family: var(--font-display);
-		font-size: 1.55rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.action-strip,
-	.detail-grid {
-		display: flex;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-	}
-
-	.detail-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-	}
-
-	.embedded-table {
-		border: none;
-		border-radius: 0;
-	}
-
-	.entity-link {
-		font-size: var(--text-sm);
-		font-weight: 600;
-	}
-
-	.timestamp-cell {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-</style>

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { Label } from '$lib/components/ui/label';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Field from '$lib/components/ui/field';
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
@@ -53,7 +55,7 @@
 			<AppDialog.Title>{title}</AppDialog.Title>
 		</AppDialog.Header>
 		<AppDialog.Body class="flex flex-col gap-4">
-			<p class="admin-note">
+			<p class="text-sm leading-6 text-muted-foreground">
 				{#if isSuspended}
 					This {type === 'org' ? 'organization' : 'user'} will regain access immediately after you confirm.
 				{:else}
@@ -61,24 +63,30 @@
 				{/if}
 			</p>
 
-			<div class="admin-callout">
-				<strong>{isSuspended ? 'Unsuspend' : 'Suspend'} target</strong>
-				<p>{targetName}</p>
-			</div>
+			<Card.Root>
+				<Card.Header>
+					<Card.Description>{isSuspended ? 'Unsuspend' : 'Suspend'} target</Card.Description>
+					<Card.Title>{targetName}</Card.Title>
+				</Card.Header>
+			</Card.Root>
 
-			<div class="grid gap-2">
-				<Label for="reason">Reason (optional)</Label>
-				<Textarea
-					id="reason"
-					rows={3}
-					bind:value={reason}
-					placeholder="Internal note about why this action was taken..."
-					disabled={saving}
-				></Textarea>
-			</div>
+			<Field.Root>
+				<Field.Label for="reason">Reason (optional)</Field.Label>
+				<Field.Control>
+					<Textarea
+						id="reason"
+						rows={3}
+						bind:value={reason}
+						placeholder="Internal note about why this action was taken..."
+						disabled={saving}
+					></Textarea>
+				</Field.Control>
+			</Field.Root>
 
 			{#if errorMsg}
-				<p class="text-error modal-error">{errorMsg}</p>
+				<Alert.Root variant="destructive">
+					<Alert.Description>{errorMsg}</Alert.Description>
+				</Alert.Root>
 			{/if}
 		</AppDialog.Body>
 
@@ -91,33 +99,3 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
-
-<style>
-	.admin-note,
-	.admin-callout p,
-	.modal-error {
-		margin: 0;
-	}
-
-	.admin-note {
-		font-size: var(--text-sm);
-		line-height: 1.6;
-		color: var(--text-secondary);
-	}
-
-	.admin-callout {
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-	}
-
-	.admin-callout strong {
-		display: block;
-		margin-bottom: var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-</style>

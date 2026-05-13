@@ -1,13 +1,16 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Label } from '$lib/components/ui/label';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import type { ActionData, PageData } from './$types';
@@ -31,110 +34,103 @@
 	<title>Announcements - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell admin-page-shell--compact">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Platform Messaging</p>
-			<h1 class="admin-page-title">Announcements</h1>
-			<p class="admin-page-subtitle">
-				Publish and retire platform-wide messages without leaving the internal admin workspace.
-			</p>
-		</div>
-		<div class="admin-page-actions">
+<PageShell.Root width="content" density="compact">
+	<PageShell.Header
+		title="Announcements"
+		subtitle="Publish and retire platform-wide messages from the internal admin workspace."
+	>
+		{#snippet actions()}
 			{#if !showCreateForm}
 				<Button onclick={() => (showCreateForm = true)}>Create Announcement</Button>
 			{/if}
-		</div>
-	</header>
+		{/snippet}
+	</PageShell.Header>
 
 	{#if form?.error}
-		<div class="admin-alert admin-alert--error">{form.error}</div>
+		<Alert.Root variant="destructive">
+			<Alert.Description>{form.error}</Alert.Description>
+		</Alert.Root>
 	{/if}
 
 	{#if showCreateForm}
-		<section class="admin-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">New Announcement</h2>
-					<p class="admin-panel__meta">Keep the message short, direct, and operationally clear.</p>
-				</div>
-			</div>
-			<form
-				method="POST"
-				action="?/create"
-				class="announcement-form"
-				use:enhance={() => {
-					creating = true;
-					return async ({ update }) => {
-						await update();
-						creating = false;
-						if (!form?.error) showCreateForm = false;
-					};
-				}}
-			>
-				<div class="admin-toolbar__field">
-					<Label for="title">Title</Label>
-					<Input id="title" name="title" type="text" maxlength={200} placeholder="Announcement title" required />
-				</div>
-				<div class="admin-toolbar__field">
-					<Label for="message">Message</Label>
-					<Textarea
-						id="message"
-						name="message"
-						rows={4}
-						maxlength={1000}
-						placeholder="Announcement message"
-						required
-						class="min-h-[110px] resize-y"
-					></Textarea>
-				</div>
-				<div class="announcement-form__row">
-					<div class="admin-toolbar__field">
-						<Label for="type">Type</Label>
-						<NativeSelect id="type" name="type" required>
-							<option value="info">Info</option>
-							<option value="warning">Warning</option>
-							<option value="maintenance">Maintenance</option>
-						</NativeSelect>
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>New Announcement</Card.Title>
+				<Card.Description>Keep the message short, direct, and operationally clear.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<form
+					method="POST"
+					action="?/create"
+					class="grid gap-4"
+					use:enhance={() => {
+						creating = true;
+						return async ({ update }) => {
+							await update();
+							creating = false;
+							if (!form?.error) showCreateForm = false;
+						};
+					}}
+				>
+					<Field.Root>
+						<Field.Label for="title">Title</Field.Label>
+						<Input id="title" name="title" type="text" maxlength={200} placeholder="Announcement title" required />
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="message">Message</Field.Label>
+						<Textarea id="message" name="message" rows={4} maxlength={1000} placeholder="Announcement message" required
+						></Textarea>
+					</Field.Root>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root>
+							<Field.Label for="type">Type</Field.Label>
+							<NativeSelect id="type" name="type" required>
+								<option value="info">Info</option>
+								<option value="warning">Warning</option>
+								<option value="maintenance">Maintenance</option>
+							</NativeSelect>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="expiresAt">Expires At</Field.Label>
+							<Input id="expiresAt" name="expiresAt" type="datetime-local" />
+						</Field.Root>
 					</div>
-					<div class="admin-toolbar__field">
-						<Label for="expiresAt">Expires At</Label>
-						<Input id="expiresAt" name="expiresAt" type="datetime-local" />
+					<div class="flex flex-wrap justify-end gap-2">
+						<Button type="button" variant="outline" onclick={() => (showCreateForm = false)}>Cancel</Button>
+						<Button type="submit" disabled={creating}>
+							{#if creating}<Spinner />{/if}
+							{creating ? 'Saving...' : 'Save'}
+						</Button>
 					</div>
-				</div>
-				<div class="announcement-form__actions">
-					<Button type="button" variant="outline" onclick={() => (showCreateForm = false)}>Cancel</Button>
-					<Button type="submit" disabled={creating}>
-						{#if creating}<Spinner />{/if}
-						{creating ? 'Saving...' : 'Save'}
-					</Button>
-				</div>
-			</form>
-		</section>
+				</form>
+			</Card.Content>
+		</Card.Root>
 	{/if}
 
-	<div class="announcement-stack">
+	<div class="grid gap-3">
 		{#if data.announcements.length === 0}
-			<section class="admin-panel">
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title>No announcements yet.</Empty.Title>
-					</Empty.Header>
-				</Empty.Root>
-			</section>
+			<Card.Root>
+				<Card.Content>
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No announcements yet.</Empty.Title>
+						</Empty.Header>
+					</Empty.Root>
+				</Card.Content>
+			</Card.Root>
 		{:else}
 			{#each data.announcements as announcement (announcement.id)}
 				{@const status = getStatus(announcement)}
-				<section class="admin-panel announcement-card">
-					<div class="announcement-card__header">
-						<div class="announcement-card__copy">
-							<h2>{announcement.title}</h2>
-							<div class="announcement-card__badges">
+				<Card.Root>
+					<Card.Header class="gap-3 sm:flex-row sm:items-start sm:justify-between">
+						<div class="grid gap-2">
+							<Card.Title>{announcement.title}</Card.Title>
+							<div class="flex flex-wrap gap-2">
 								<Badge variant={adminBadgeVariant(announcement.type)}>{formatAdminLabel(announcement.type)}</Badge>
 								<Badge variant={adminBadgeVariant(status.value)}>{status.label}</Badge>
 							</div>
 						</div>
-						<div class="announcement-card__actions">
+						<div class="flex flex-wrap gap-2 sm:justify-end">
 							<form
 								method="POST"
 								action="?/toggle"
@@ -148,7 +144,7 @@
 							>
 								<input type="hidden" name="id" value={announcement.id} />
 								<Button type="submit" variant="outline" disabled={togglingId === announcement.id}>
-									{#if togglingId === announcement.id}<Spinner color="currentColor" />{/if}
+									{#if togglingId === announcement.id}<Spinner />{/if}
 									{announcement.is_active ? 'Deactivate' : 'Activate'}
 								</Button>
 							</form>
@@ -173,83 +169,17 @@
 								</Button>
 							</form>
 						</div>
-					</div>
-					<p class="announcement-card__message">{announcement.message}</p>
-					<p class="announcement-card__meta">
-						Created {formatDisplayDate(announcement.created_at)}
-						{#if announcement.expires_at}
-							• Expires {formatDisplayDate(announcement.expires_at)}{/if}
-					</p>
-				</section>
+					</Card.Header>
+					<Card.Content class="grid gap-3">
+						<p class="text-sm leading-6">{announcement.message}</p>
+						<p class="text-xs text-muted-foreground">
+							Created {formatDisplayDate(announcement.created_at)}
+							{#if announcement.expires_at}
+								/ Expires {formatDisplayDate(announcement.expires_at)}{/if}
+						</p>
+					</Card.Content>
+				</Card.Root>
 			{/each}
 		{/if}
 	</div>
-</div>
-
-<style>
-	.announcement-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.announcement-form,
-	.announcement-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.announcement-form__row,
-	.announcement-form__actions,
-	.announcement-card__header,
-	.announcement-card__actions,
-	.announcement-card__badges {
-		display: flex;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-	}
-
-	.announcement-form__actions,
-	.announcement-card__header {
-		justify-content: space-between;
-	}
-
-	.announcement-card__copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.announcement-card__copy h2,
-	.announcement-card__message,
-	.announcement-card__meta {
-		margin: 0;
-	}
-
-	.announcement-card__copy h2 {
-		font-family: var(--font-display);
-		font-size: 1.7rem;
-		line-height: 0.98;
-		text-transform: uppercase;
-	}
-
-	.announcement-card__message {
-		line-height: 1.6;
-	}
-
-	.announcement-card__meta {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	@media (max-width: 700px) {
-		.announcement-form__row {
-			flex-direction: column;
-		}
-	}
-</style>
+</PageShell.Root>

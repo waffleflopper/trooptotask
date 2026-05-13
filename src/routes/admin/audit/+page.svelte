@@ -1,10 +1,14 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Label } from '$lib/components/ui/label';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -32,128 +36,145 @@
 	<title>Audit Log - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Security Trail</p>
-			<h1 class="admin-page-title">Audit Log</h1>
-			<p class="admin-page-subtitle">
-				Central record of authentication, administrative actions, and sensitive resource changes across the platform.
-			</p>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title="Audit Log"
+		subtitle="Central record of authentication, administrative actions, and sensitive resource changes across the platform."
+	/>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Total Entries</p>
-			<p class="admin-overview-card__value">{data.totalCount}</p>
-			<p class="admin-overview-card__meta">Events currently matching the active filter set.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Page</p>
-			<p class="admin-overview-card__value">{data.page}</p>
-			<p class="admin-overview-card__meta">
-				Reviewing page {data.page} of {Math.max(totalPages, 1)} in the audit trail.
-			</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric label="Total Entries" value={data.totalCount} detail="Events matching the active filter set." />
+		<PageShell.Metric
+			label="Page"
+			value={data.page}
+			detail={`Reviewing page ${data.page} of ${Math.max(totalPages, 1)}.`}
+		/>
+	</PageShell.FactGrid>
 
-	<div class="admin-toolbar">
-		<div class="admin-toolbar__group">
-			<div class="admin-toolbar__field">
-				<Label for="action-filter">Action</Label>
-				<NativeSelect
-					id="action-filter"
-					value={data.actionFilter}
-					onchange={(event) => setParam('action', event.currentTarget.value)}
-				>
-					<option value="">All actions</option>
-					{#each data.availableActions as action (action)}
-						<option value={action}>{formatAdminLabel(action)}</option>
+	<Card.Root>
+		<Card.Content class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+			<div class="grid flex-1 gap-4 sm:grid-cols-2">
+				<Field.Root>
+					<Field.Label for="action-filter">Action</Field.Label>
+					<NativeSelect
+						id="action-filter"
+						value={data.actionFilter}
+						onchange={(event) => setParam('action', event.currentTarget.value)}
+					>
+						<option value="">All actions</option>
+						{#each data.availableActions as action (action)}
+							<option value={action}>{formatAdminLabel(action)}</option>
+						{/each}
+					</NativeSelect>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="severity-filter">Severity</Field.Label>
+					<NativeSelect
+						id="severity-filter"
+						value={data.severityFilter}
+						onchange={(event) => setParam('severity', event.currentTarget.value)}
+					>
+						<option value="">All severities</option>
+						<option value="info">Info</option>
+						<option value="warning">Warning</option>
+						<option value="critical">Critical</option>
+					</NativeSelect>
+				</Field.Root>
+			</div>
+			<span class="text-sm text-muted-foreground">{data.logs.length} entries shown</span>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="overflow-hidden">
+		<div class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Timestamp</Table.Head>
+						<Table.Head>Severity</Table.Head>
+						<Table.Head>Action</Table.Head>
+						<Table.Head>User</Table.Head>
+						<Table.Head>Resource</Table.Head>
+						<Table.Head>IP</Table.Head>
+						<Table.Head>Details</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data.logs as log (log.id)}
+						<Table.Row>
+							<Table.Cell class="whitespace-nowrap font-mono text-xs text-muted-foreground">
+								{formatDisplayDateTime(log.createdAt)}
+							</Table.Cell>
+							<Table.Cell
+								><Badge variant={adminBadgeVariant(log.severity)}>{formatAdminLabel(log.severity)}</Badge></Table.Cell
+							>
+							<Table.Cell>
+								<code class="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+									{formatAdminLabel(log.action)}
+								</code>
+							</Table.Cell>
+							<Table.Cell>
+								{#if log.userId}
+									<a href="/admin/users/{log.userId}" class="font-mono text-xs">{log.userId.slice(0, 8)}...</a>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if log.resourceType}
+									<div class="grid gap-1">
+										<span>{log.resourceType}</span>
+										{#if log.resourceId}
+											<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+												{log.resourceId.slice(0, 8)}...
+											</code>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if log.ipAddress}
+									<code class="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{log.ipAddress}</code>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>
+								{#if log.details && Object.keys(log.details).length > 0}
+									<details>
+										<summary class="cursor-pointer text-xs font-medium text-muted-foreground uppercase">View</summary>
+										<pre
+											class="mt-2 max-w-96 overflow-auto rounded-md border bg-muted p-3 text-xs text-muted-foreground">{JSON.stringify(
+												log.details,
+												null,
+												2
+											)}</pre>
+									</details>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={7}>
+								<Empty.Root>
+									<Empty.Header>
+										<Empty.Title>No audit log entries.</Empty.Title>
+									</Empty.Header>
+								</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
 					{/each}
-				</NativeSelect>
-			</div>
-			<div class="admin-toolbar__field">
-				<Label for="severity-filter">Severity</Label>
-				<NativeSelect
-					id="severity-filter"
-					value={data.severityFilter}
-					onchange={(event) => setParam('severity', event.currentTarget.value)}
-				>
-					<option value="">All severities</option>
-					<option value="info">Info</option>
-					<option value="warning">Warning</option>
-					<option value="critical">Critical</option>
-				</NativeSelect>
-			</div>
+				</Table.Body>
+			</Table.Root>
 		</div>
-		<div class="admin-toolbar__meta">
-			<span>{data.logs.length} entries shown</span>
-		</div>
-	</div>
-
-	<div class="admin-table-shell admin-table-shell--scroll">
-		<table class="admin-table audit-table">
-			<thead>
-				<tr>
-					<th>Timestamp</th>
-					<th>Severity</th>
-					<th>Action</th>
-					<th>User</th>
-					<th>Resource</th>
-					<th>IP</th>
-					<th>Details</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.logs as log (log.id)}
-					<tr>
-						<td class="timestamp-cell">{formatDisplayDateTime(log.createdAt)}</td>
-						<td><Badge variant={adminBadgeVariant(log.severity)}>{formatAdminLabel(log.severity)}</Badge></td>
-						<td><span class="admin-code">{formatAdminLabel(log.action)}</span></td>
-						<td>
-							{#if log.userId}
-								<a href="/admin/users/{log.userId}" class="audit-link">{log.userId.slice(0, 8)}...</a>
-							{:else}
-								<span class="text-muted">—</span>
-							{/if}
-						</td>
-						<td>
-							{#if log.resourceType}
-								<div class="resource-cell">
-									<span>{log.resourceType}</span>
-									{#if log.resourceId}<span class="admin-code">{log.resourceId.slice(0, 8)}...</span>{/if}
-								</div>
-							{:else}
-								<span class="text-muted">—</span>
-							{/if}
-						</td>
-						<td
-							>{#if log.ipAddress}<span class="admin-code">{log.ipAddress}</span>{:else}<span class="text-muted">—</span
-								>{/if}</td
-						>
-						<td>
-							{#if log.details && Object.keys(log.details).length > 0}
-								<details class="detail-toggle">
-									<summary>View</summary>
-									<pre>{JSON.stringify(log.details, null, 2)}</pre>
-								</details>
-							{:else}
-								<span class="text-muted">—</span>
-							{/if}
-						</td>
-					</tr>
-				{:else}
-					<tr>
-						<td colspan="7" class="admin-empty">No audit log entries.</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+	</Card.Root>
 
 	{#if totalPages > 1}
-		<div class="pagination-row">
+		<div class="flex flex-wrap items-center justify-end gap-3 text-sm text-muted-foreground">
 			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
 				Previous
 			</Button>
@@ -163,57 +184,4 @@
 			</Button>
 		</div>
 	{/if}
-</div>
-
-<style>
-	.timestamp-cell {
-		white-space: nowrap;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.audit-link {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-	}
-
-	.resource-cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.detail-toggle summary {
-		cursor: pointer;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.detail-toggle pre {
-		margin: var(--sp-2) 0 0;
-		padding: var(--sp-3);
-		max-width: 360px;
-		overflow: auto;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-		font-family: var(--font-mono);
-		font-size: 0.72rem;
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.pagination-row {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: var(--sp-3);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-</style>
+</PageShell.Root>

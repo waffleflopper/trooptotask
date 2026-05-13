@@ -1,8 +1,13 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
@@ -15,209 +20,156 @@
 	<title>Access Requests - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell admin-page-shell--compact">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Trust Queue</p>
-			<h1 class="admin-page-title">Access Requests</h1>
-			<p class="admin-page-subtitle">Review inbound requests from potential users before they enter the platform.</p>
-		</div>
-	</header>
+<PageShell.Root width="content" density="compact">
+	<PageShell.Header title="Access Requests" subtitle="Review inbound requests before users enter the platform." />
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Pending</p>
-			<p class="admin-overview-card__value">{data.pending.length}</p>
-			<p class="admin-overview-card__meta">Requests waiting for approval or rejection.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Reviewed</p>
-			<p class="admin-overview-card__value">{data.reviewed.length}</p>
-			<p class="admin-overview-card__meta">Requests already processed and logged.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric
+			label="Pending"
+			value={data.pending.length}
+			detail="Requests waiting for approval or rejection."
+		/>
+		<PageShell.Metric label="Reviewed" value={data.reviewed.length} detail="Requests already processed and logged." />
+	</PageShell.FactGrid>
 
 	{#if form?.error}
-		<div class="admin-alert admin-alert--error">{form.error}</div>
+		<Alert.Root variant="destructive">
+			<Alert.Description>{form.error}</Alert.Description>
+		</Alert.Root>
 	{/if}
 
-	<div class="admin-segmented" aria-label="Access request tabs">
-		<button class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
-			Pending
-			{#if data.pending.length > 0}<span>{data.pending.length}</span>{/if}
-		</button>
-		<button class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}>
-			Reviewed
-			{#if data.reviewed.length > 0}<span>{data.reviewed.length}</span>{/if}
-		</button>
-	</div>
+	<Tabs.Root bind:value={activeTab} class="grid gap-4">
+		<Tabs.List class="w-full justify-start">
+			<Tabs.Trigger value="pending">
+				Pending
+				{#if data.pending.length > 0}<Badge variant="secondary">{data.pending.length}</Badge>{/if}
+			</Tabs.Trigger>
+			<Tabs.Trigger value="reviewed">
+				Reviewed
+				{#if data.reviewed.length > 0}<Badge variant="secondary">{data.reviewed.length}</Badge>{/if}
+			</Tabs.Trigger>
+		</Tabs.List>
 
-	{#if activeTab === 'pending'}
-		{#if data.pending.length === 0}
-			<div class="admin-panel"><div class="admin-empty">No pending requests.</div></div>
-		{:else}
-			<div class="request-stack">
+		<Tabs.Content value="pending" class="grid gap-3">
+			{#if data.pending.length === 0}
+				<Card.Root>
+					<Card.Content>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>No pending requests.</Empty.Title>
+							</Empty.Header>
+						</Empty.Root>
+					</Card.Content>
+				</Card.Root>
+			{:else}
 				{#each data.pending as req (req.id)}
-					<section class="admin-panel request-card">
-						<div class="request-card__main">
-							<p class="request-card__name">{req.name}</p>
-							<p class="request-card__email">{req.email}</p>
-							{#if req.reason}<p class="request-card__reason">{req.reason}</p>{/if}
-							<p class="request-card__meta">Submitted {formatDisplayDateTime(req.created_at)}</p>
-						</div>
-						<div class="request-card__actions">
-							<form
-								method="POST"
-								action="?/approve"
-								use:enhance={() => {
-									loadingId = `${req.id}-approve`;
-									return async ({ update }) => {
-										loadingId = null;
-										await update();
-									};
-								}}
-							>
-								<input type="hidden" name="requestId" value={req.id} />
-								<Button type="submit" disabled={loadingId !== null}>
-									{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
-									Approve
-								</Button>
-							</form>
-							<form
-								method="POST"
-								action="?/reject"
-								use:enhance={() => {
-									loadingId = `${req.id}-reject`;
-									return async ({ update }) => {
-										loadingId = null;
-										await update();
-									};
-								}}
-							>
-								<input type="hidden" name="requestId" value={req.id} />
-								<Button type="submit" variant="destructive" disabled={loadingId !== null}>
-									{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
-									Reject
-								</Button>
-							</form>
-						</div>
-					</section>
+					<Card.Root>
+						<Card.Content class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+							<div class="grid min-w-0 gap-2">
+								<div class="grid min-w-0 gap-1">
+									<h2 class="truncate text-lg font-semibold tracking-tight">{req.name}</h2>
+									<p class="truncate text-sm text-muted-foreground">{req.email}</p>
+								</div>
+								{#if req.reason}<p class="text-sm leading-6">{req.reason}</p>{/if}
+								<p class="text-xs text-muted-foreground">Submitted {formatDisplayDateTime(req.created_at)}</p>
+							</div>
+							<div class="flex flex-wrap gap-2 md:justify-end">
+								<form
+									method="POST"
+									action="?/approve"
+									use:enhance={() => {
+										loadingId = `${req.id}-approve`;
+										return async ({ update }) => {
+											loadingId = null;
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="requestId" value={req.id} />
+									<Button type="submit" disabled={loadingId !== null}>
+										{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
+										Approve
+									</Button>
+								</form>
+								<form
+									method="POST"
+									action="?/reject"
+									use:enhance={() => {
+										loadingId = `${req.id}-reject`;
+										return async ({ update }) => {
+											loadingId = null;
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="requestId" value={req.id} />
+									<Button type="submit" variant="destructive" disabled={loadingId !== null}>
+										{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
+										Reject
+									</Button>
+								</form>
+							</div>
+						</Card.Content>
+					</Card.Root>
 				{/each}
-			</div>
-		{/if}
-	{:else if data.reviewed.length === 0}
-		<div class="admin-panel"><div class="admin-empty">No reviewed requests yet.</div></div>
-	{:else}
-		<div class="request-stack">
-			{#each data.reviewed as req (req.id)}
-				<section class="admin-panel request-card">
-					<div class="request-card__main">
-						<div class="request-card__row">
-							<p class="request-card__name">{req.name}</p>
-							<Badge variant={adminBadgeVariant(req.status)}>{formatAdminLabel(req.status)}</Badge>
-						</div>
-						<p class="request-card__email">{req.email}</p>
-						{#if req.reason}<p class="request-card__reason">{req.reason}</p>{/if}
-						<p class="request-card__meta">
-							Submitted {formatDisplayDateTime(req.created_at)}
-							{#if req.reviewed_at}
-								• Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
-						</p>
-					</div>
-					{#if req.status === 'approved' && !req.registration_invites?.used_at}
-						<div class="request-card__actions">
-							<form
-								method="POST"
-								action="?/resend"
-								use:enhance={() => {
-									loadingId = `${req.id}-resend`;
-									return async ({ update }) => {
-										loadingId = null;
-										await update();
-									};
-								}}
-							>
-								<input type="hidden" name="requestId" value={req.id} />
-								<Button type="submit" variant="outline" disabled={loadingId !== null}>
-									{#if loadingId === `${req.id}-resend`}<Spinner color="currentColor" />{/if}
-									Resend Invite
-								</Button>
-							</form>
-						</div>
-					{:else if req.status === 'approved' && req.registration_invites?.used_at}
-						<p class="request-card__meta">
-							Account setup completed {formatDisplayDateTime(req.registration_invites.used_at)}
-						</p>
-					{/if}
-				</section>
-			{/each}
-		</div>
-	{/if}
-</div>
+			{/if}
+		</Tabs.Content>
 
-<style>
-	.request-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.request-card {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		flex-wrap: wrap;
-	}
-
-	.request-card__main {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.request-card__row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.request-card__name,
-	.request-card__email,
-	.request-card__reason,
-	.request-card__meta {
-		margin: 0;
-	}
-
-	.request-card__name {
-		font-family: var(--font-display);
-		font-size: 1.55rem;
-		line-height: 0.96;
-		text-transform: uppercase;
-	}
-
-	.request-card__email {
-		color: var(--text-secondary);
-	}
-
-	.request-card__reason {
-		line-height: 1.6;
-	}
-
-	.request-card__meta {
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-
-	.request-card__actions {
-		display: flex;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-</style>
+		<Tabs.Content value="reviewed" class="grid gap-3">
+			{#if data.reviewed.length === 0}
+				<Card.Root>
+					<Card.Content>
+						<Empty.Root>
+							<Empty.Header>
+								<Empty.Title>No reviewed requests yet.</Empty.Title>
+							</Empty.Header>
+						</Empty.Root>
+					</Card.Content>
+				</Card.Root>
+			{:else}
+				{#each data.reviewed as req (req.id)}
+					<Card.Root>
+						<Card.Content class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+							<div class="grid min-w-0 gap-2">
+								<div class="flex min-w-0 flex-wrap items-center gap-2">
+									<h2 class="truncate text-lg font-semibold tracking-tight">{req.name}</h2>
+									<Badge variant={adminBadgeVariant(req.status)}>{formatAdminLabel(req.status)}</Badge>
+								</div>
+								<p class="truncate text-sm text-muted-foreground">{req.email}</p>
+								{#if req.reason}<p class="text-sm leading-6">{req.reason}</p>{/if}
+								<p class="text-xs text-muted-foreground">
+									Submitted {formatDisplayDateTime(req.created_at)}
+									{#if req.reviewed_at}
+										/ Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
+								</p>
+							</div>
+							{#if req.status === 'approved' && !req.registration_invites?.used_at}
+								<form
+									method="POST"
+									action="?/resend"
+									use:enhance={() => {
+										loadingId = `${req.id}-resend`;
+										return async ({ update }) => {
+											loadingId = null;
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="requestId" value={req.id} />
+									<Button type="submit" variant="outline" disabled={loadingId !== null}>
+										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
+										Resend Invite
+									</Button>
+								</form>
+							{:else if req.status === 'approved' && req.registration_invites?.used_at}
+								<p class="text-xs text-muted-foreground">
+									Account setup completed {formatDisplayDateTime(req.registration_invites.used_at)}
+								</p>
+							{/if}
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			{/if}
+		</Tabs.Content>
+	</Tabs.Root>
+</PageShell.Root>

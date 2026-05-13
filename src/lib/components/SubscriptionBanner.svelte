@@ -1,6 +1,11 @@
 <script lang="ts">
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
+	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { isBillingEnabled } from '$lib/config/billing';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+
 	let { orgId }: { orgId: string } = $props();
 
 	const daysRemaining = $derived(subscriptionStore.giftDaysRemaining);
@@ -15,37 +20,32 @@
 </script>
 
 {#if showBanner}
-	<div class="subscription-banner" class:urgent={isUrgent || isReadOnly}>
-		<div class="banner-content">
+	<Alert.Root
+		variant={isUrgent || isReadOnly ? 'destructive' : 'warning'}
+		class="rounded-none border-x-0 border-t-0 px-0 py-0"
+	>
+		<div
+			class="mx-auto flex w-full max-w-[1680px] flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap sm:items-center sm:px-6"
+		>
+			<span class="mt-1 h-auto w-0.5 self-stretch rounded-full bg-current opacity-70 sm:mt-0"></span>
 			{#if isReadOnly}
-				<span class="banner-icon">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-					</svg>
-				</span>
-				<span class="banner-text">
+				<CircleAlertIcon aria-hidden="true" class="mt-1 size-4 shrink-0 sm:mt-0" />
+				<Alert.Description class="min-w-0 flex-1 text-sm leading-6 text-current">
 					Your org has <strong>{personnelCount}</strong> personnel but your current plan allows
 					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
-				</span>
-				<div class="banner-actions">
-					<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
-					<a href="/org/{orgId}/personnel" class="banner-btn">Manage Personnel</a>
-					<a href="/org/{orgId}/settings" class="banner-btn">Export Data</a>
+				</Alert.Description>
+				<div class="flex flex-wrap items-center gap-2">
+					<Button href="/org/{orgId}/billing" variant="outline" size="xs">Subscribe</Button>
+					<Button href="/org/{orgId}/personnel" variant="outline" size="xs">Manage Personnel</Button>
+					<Button href="/org/{orgId}/settings" variant="outline" size="xs">Export Data</Button>
 				</div>
 			{:else if showGiftWarning}
-				<span class="banner-icon">
-					{#if isUrgent}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-						</svg>
-					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="10" />
-							<polyline points="12 6 12 12 16 14" />
-						</svg>
-					{/if}
-				</span>
-				<span class="banner-text">
+				{#if isUrgent}
+					<CircleAlertIcon aria-hidden="true" class="mt-1 size-4 shrink-0 sm:mt-0" />
+				{:else}
+					<ClockIcon aria-hidden="true" class="mt-1 size-4 shrink-0 sm:mt-0" />
+				{/if}
+				<Alert.Description class="min-w-0 flex-1 text-sm leading-6 text-current">
 					{#if isUrgent}
 						Your complimentary <strong>{tierName}</strong> plan expires in
 						<strong>{daysRemaining}</strong>
@@ -55,122 +55,11 @@
 						<strong>{daysRemaining}</strong>
 						{daysRemaining === 1 ? 'day' : 'days'}. Set up a subscription to keep your data.
 					{/if}
-				</span>
-				<div class="banner-actions">
-					<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
+				</Alert.Description>
+				<div class="flex flex-wrap items-center gap-2">
+					<Button href="/org/{orgId}/billing" variant="outline" size="xs">Subscribe</Button>
 				</div>
 			{/if}
 		</div>
-	</div>
+	</Alert.Root>
 {/if}
-
-<style>
-	.subscription-banner {
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel));
-		color: var(--text-primary);
-		padding: 0;
-		width: 100%;
-		box-sizing: border-box;
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.subscription-banner.urgent {
-		background: color-mix(in srgb, var(--danger-bg) 74%, var(--surface-panel));
-	}
-
-	.banner-content {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-4);
-		max-width: 1680px;
-		margin: 0 auto;
-		padding: 0.75rem clamp(var(--sp-4), 2vw, var(--sp-6));
-	}
-
-	.banner-content::before {
-		content: '';
-		width: 3px;
-		align-self: stretch;
-		border-radius: 999px;
-		background: var(--amber);
-		flex-shrink: 0;
-	}
-
-	.subscription-banner.urgent .banner-content::before {
-		background: var(--danger);
-	}
-
-	.banner-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		color: inherit;
-	}
-
-	.banner-icon svg {
-		width: 18px;
-		height: 18px;
-	}
-
-	.banner-text {
-		flex: 1;
-		font-size: var(--text-sm);
-		line-height: 1.5;
-	}
-
-	.banner-text strong {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.banner-btn {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		padding: 0.45rem 0.75rem;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			border-color var(--transition-fast),
-			background var(--transition-fast),
-			color var(--transition-fast);
-		text-decoration: none;
-		white-space: nowrap;
-		flex-shrink: 0;
-	}
-
-	.banner-btn:hover {
-		border-color: rgba(var(--amber-rgb), 0.4);
-		color: var(--amber-dark);
-	}
-
-	.banner-actions {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	@media (max-width: 640px) {
-		.banner-content {
-			flex-wrap: wrap;
-			align-items: flex-start;
-		}
-
-		.banner-text {
-			width: 100%;
-		}
-	}
-</style>

@@ -27,7 +27,7 @@ describe('BannerStack', () => {
 
 	it('should render the banner stack container', () => {
 		const { container } = render(BannerStackTest);
-		const stack = container.querySelector('.banner-stack');
+		const stack = container.querySelector('.fixed.inset-x-0.top-0');
 		expect(stack).toBeTruthy();
 	});
 
@@ -42,8 +42,8 @@ describe('BannerStack', () => {
 	});
 
 	it('should pin the fixed stack above the shadcn app shell', () => {
-		expect(bannerStackSource).toContain('top: 0;');
-		expect(bannerStackSource).toContain('left: 0;');
+		expect(bannerStackSource).toContain('fixed inset-x-0 top-0');
+		expect(bannerStackSource).toContain('z-[90]');
 	});
 
 	it('should disconnect ResizeObserver on unmount', () => {

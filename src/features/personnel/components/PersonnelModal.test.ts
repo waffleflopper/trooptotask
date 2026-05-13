@@ -39,7 +39,7 @@ describe('PersonnelModal', () => {
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));
-		const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => {});
+		const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(PersonnelModal, {
 			props: {

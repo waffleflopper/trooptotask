@@ -170,7 +170,7 @@ describe('AvailabilityModal — edit status feedback', () => {
 	];
 
 	it('shows an updated toast after editing an existing status entry', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => undefined);
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const existingEntries: AvailabilityEntry[] = [
 			{
 				id: 'entry-1',

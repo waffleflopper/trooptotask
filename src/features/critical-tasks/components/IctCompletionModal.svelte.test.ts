@@ -116,7 +116,7 @@ describe('IctCompletionModal', () => {
 	it('autofills the validator and submits the completion payload', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		const onClose = vi.fn();
-		const successSpy = vi.spyOn(toastStore, 'success').mockImplementation(() => {});
+		const successSpy = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 
 		renderModal({ onSave, onClose });
 

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import * as Stepper from '$lib/components/ui/stepper';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { DataTable, useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import { WarningSummary } from '$features/duty-roster/components/shared';
 	import { slugifyDutyRosterTemplateName } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import {
@@ -19,6 +19,7 @@
 
 	type SetupStep = 'general' | 'pool' | 'baseline' | 'review';
 	type PersonnelRow = DutyRosterWorkspaceReadModel['setupPersonnel'][number];
+	type FilterOption = { value: string; label: string };
 
 	let {
 		basePath,
@@ -76,6 +77,10 @@
 	const mosFilterSet = $derived(new Set(mosFilterValues));
 	const dutyRoleFilterSet = $derived(new Set(dutyRoleFilterValues));
 	const wizardExemptPersonnelIdSet = $derived(new Set(wizardExemptPersonnelIds));
+	const rankFilterOptions = $derived(optionItems(rankOptions));
+	const groupFilterOptions = $derived(groupOptionItems(groupOptions));
+	const mosFilterOptions = $derived(optionItems(mosOptions));
+	const dutyRoleFilterOptions = $derived(optionItems(dutyRoleOptions));
 
 	const wizardResolvedPool = $derived(
 		setupPersonnel.filter((person) => {
@@ -134,6 +139,10 @@
 		mosFilterValues = [];
 		dutyRoleFilterValues = [];
 		wizardExemptPersonnelIds = [];
+	}
+
+	function filterOptionLabel(options: FilterOption[], value: string) {
+		return options.find((option) => option.value === value)?.label ?? value;
 	}
 
 	function removeExemption(personnelId: string) {
@@ -275,43 +284,106 @@
 								<div class="grid gap-4 sm:grid-cols-2">
 									<div class="grid gap-2">
 										<Label class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">Rank</Label>
-										<MultiTagSelect
-											options={optionItems(rankOptions)}
-											value={rankFilterValues}
-											ariaLabel="New Template rank filters"
-											placeholder="Any rank"
-											onChange={(values) => (rankFilterValues = values)}
-										/>
+										<Combobox.Root
+											items={rankFilterOptions}
+											multiple
+											autoHighlight
+											bind:value={rankFilterValues}
+											label="New Template rank filters"
+										>
+											<Combobox.Chips>
+												<Combobox.Value>
+													{#snippet children(values)}
+														{#each values as value (value)}
+															<Combobox.Chip {value}>{filterOptionLabel(rankFilterOptions, value)}</Combobox.Chip>
+														{/each}
+														<Combobox.ChipsInput placeholder="Any rank" aria-label="New Template rank filters" />
+													{/snippet}
+												</Combobox.Value>
+											</Combobox.Chips>
+											<Combobox.Content>
+												<Combobox.Empty>No rank matches.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
 									</div>
 									<div class="grid gap-2">
 										<Label class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">Group</Label>
-										<MultiTagSelect
-											options={groupOptionItems(groupOptions)}
-											value={groupFilterValues}
-											ariaLabel="New Template group filters"
-											placeholder="Any group"
-											onChange={(values) => (groupFilterValues = values)}
-										/>
+										<Combobox.Root
+											items={groupFilterOptions}
+											multiple
+											autoHighlight
+											bind:value={groupFilterValues}
+											label="New Template group filters"
+										>
+											<Combobox.Chips>
+												<Combobox.Value>
+													{#snippet children(values)}
+														{#each values as value (value)}
+															<Combobox.Chip {value}>{filterOptionLabel(groupFilterOptions, value)}</Combobox.Chip>
+														{/each}
+														<Combobox.ChipsInput placeholder="Any group" aria-label="New Template group filters" />
+													{/snippet}
+												</Combobox.Value>
+											</Combobox.Chips>
+											<Combobox.Content>
+												<Combobox.Empty>No group matches.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
 									</div>
 									<div class="grid gap-2">
 										<Label class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">MOS</Label>
-										<MultiTagSelect
-											options={optionItems(mosOptions)}
-											value={mosFilterValues}
-											ariaLabel="New Template MOS filters"
-											placeholder="Any MOS"
-											onChange={(values) => (mosFilterValues = values)}
-										/>
+										<Combobox.Root
+											items={mosFilterOptions}
+											multiple
+											autoHighlight
+											bind:value={mosFilterValues}
+											label="New Template MOS filters"
+										>
+											<Combobox.Chips>
+												<Combobox.Value>
+													{#snippet children(values)}
+														{#each values as value (value)}
+															<Combobox.Chip {value}>{filterOptionLabel(mosFilterOptions, value)}</Combobox.Chip>
+														{/each}
+														<Combobox.ChipsInput placeholder="Any MOS" aria-label="New Template MOS filters" />
+													{/snippet}
+												</Combobox.Value>
+											</Combobox.Chips>
+											<Combobox.Content>
+												<Combobox.Empty>No MOS matches.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
 									</div>
 									<div class="grid gap-2">
 										<Label class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">Duty Role</Label>
-										<MultiTagSelect
-											options={optionItems(dutyRoleOptions)}
-											value={dutyRoleFilterValues}
-											ariaLabel="New Template Duty Role filters"
-											placeholder="Any duty role"
-											onChange={(values) => (dutyRoleFilterValues = values)}
-										/>
+										<Combobox.Root
+											items={dutyRoleFilterOptions}
+											multiple
+											autoHighlight
+											bind:value={dutyRoleFilterValues}
+											label="New Template Duty Role filters"
+										>
+											<Combobox.Chips>
+												<Combobox.Value>
+													{#snippet children(values)}
+														{#each values as value (value)}
+															<Combobox.Chip {value}>{filterOptionLabel(dutyRoleFilterOptions, value)}</Combobox.Chip>
+														{/each}
+														<Combobox.ChipsInput
+															placeholder="Any duty role"
+															aria-label="New Template Duty Role filters"
+														/>
+													{/snippet}
+												</Combobox.Value>
+											</Combobox.Chips>
+											<Combobox.Content>
+												<Combobox.Empty>No duty role matches.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
 									</div>
 								</div>
 							</section>

@@ -1127,26 +1127,12 @@ Props: `message: string`, `variant?: 'box' | 'simple'` (default `'box'`), `actio
 
 ---
 
-## `ui/FileUpload.svelte`
+## File Upload Pattern
 
-File upload/download with drag-and-drop. Uses application endpoints for upload, signed download, and removal.
+The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows should compose `Field`, `Input type="file"`, `Button`, `Spinner`, `Alert`, and `Progress` as needed, keeping endpoint behavior in the owning feature.
 
-```svelte
-<FileUpload
-    {filePath}
-    uploadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    downloadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    removeUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    onUpload={(path) => (filePath = path)}
-    onRemove={() => (filePath = null)}
-    label="PDF Document"
-/>
-```
-
-Props: `filePath: string | null`, `uploadUrl: string`, `downloadUrl: string`, `removeUrl: string`, `onUpload: (path: string) => void`, `onRemove: () => void`, `accept?: string` (default `'application/pdf'`), `label?: string` (default `'PDF Document'`), `disabled?: boolean`
-
-**States**: empty (dashed drop zone + "Choose PDF" button), uploading (Spinner + filename), file exists (download link + "Remove" button).
-**Endpoint contract**:
+**States**: empty file input or drop zone, uploading progress, selected-file display, file exists, remove, and error feedback.
+**Endpoint contract** for sign-in roster signed scans:
 
 - `POST uploadUrl` with `FormData(file)` returns `{ filePath: string }`
 - `GET downloadUrl` returns `{ url: string }`

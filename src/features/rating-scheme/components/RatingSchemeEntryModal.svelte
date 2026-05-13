@@ -13,10 +13,10 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -226,14 +226,25 @@
 
 			<Field.Root>
 				<Field.Label for="rated-individual">Rated Individual</Field.Label>
-				<SearchCombobox
-					id="rated-individual"
-					options={personnelOptions}
+				<Combobox.Root
+					items={personnelOptions}
 					bind:value={ratedPersonId}
 					disabled={!!entry}
-					placeholder="Search personnel..."
-					ariaLabel="Rated individual"
-				/>
+					label="Rated individual"
+					autoHighlight
+				>
+					<Combobox.Trigger
+						id="rated-individual"
+						clearable
+						placeholder="Search personnel..."
+						aria-label="Rated individual"
+					/>
+					<Combobox.Content>
+						<Combobox.Search placeholder="Search personnel..." />
+						<Combobox.Empty>No personnel found.</Combobox.Empty>
+						<Combobox.List />
+					</Combobox.Content>
+				</Combobox.Root>
 			</Field.Root>
 
 			<div class="grid gap-4 sm:grid-cols-2">
@@ -276,12 +287,19 @@
 					>
 				</ButtonGroup.Root>
 				{#if raterMode === 'internal'}
-					<SearchCombobox
-						options={personnelOptions}
+					<Combobox.Root
+						items={personnelOptions}
 						bind:value={raterPersonId}
-						placeholder="Search rater..."
-						ariaLabel="Rater from organization"
-					/>
+						label="Rater from organization"
+						autoHighlight
+					>
+						<Combobox.Trigger clearable placeholder="Search rater..." aria-label="Rater from organization" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="Search rater..." />
+							<Combobox.Empty>No personnel found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				{:else}
 					<Input type="text" bind:value={raterName} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
 				{/if}
@@ -302,12 +320,23 @@
 					>
 				</ButtonGroup.Root>
 				{#if srMode === 'internal'}
-					<SearchCombobox
-						options={personnelOptions}
+					<Combobox.Root
+						items={personnelOptions}
 						bind:value={seniorRaterPersonId}
-						placeholder="Search senior rater..."
-						ariaLabel="Senior rater from organization"
-					/>
+						label="Senior rater from organization"
+						autoHighlight
+					>
+						<Combobox.Trigger
+							clearable
+							placeholder="Search senior rater..."
+							aria-label="Senior rater from organization"
+						/>
+						<Combobox.Content>
+							<Combobox.Search placeholder="Search senior rater..." />
+							<Combobox.Empty>No personnel found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				{:else}
 					<Input
 						type="text"
@@ -346,12 +375,23 @@
 						>
 					</ButtonGroup.Root>
 					{#if irMode === 'internal'}
-						<SearchCombobox
-							options={personnelOptions}
+						<Combobox.Root
+							items={personnelOptions}
 							bind:value={intermediateRaterPersonId}
-							placeholder="Search intermediate rater..."
-							ariaLabel="Intermediate rater from organization"
-						/>
+							label="Intermediate rater from organization"
+							autoHighlight
+						>
+							<Combobox.Trigger
+								clearable
+								placeholder="Search intermediate rater..."
+								aria-label="Intermediate rater from organization"
+							/>
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search intermediate rater..." />
+								<Combobox.Empty>No personnel found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
 					{:else}
 						<Input type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
 					{/if}
@@ -387,12 +427,19 @@
 						>
 					</ButtonGroup.Root>
 					{#if rvMode === 'internal'}
-						<SearchCombobox
-							options={personnelOptions}
+						<Combobox.Root
+							items={personnelOptions}
 							bind:value={reviewerPersonId}
-							placeholder="Search reviewer..."
-							ariaLabel="Reviewer from organization"
-						/>
+							label="Reviewer from organization"
+							autoHighlight
+						>
+							<Combobox.Trigger clearable placeholder="Search reviewer..." aria-label="Reviewer from organization" />
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search reviewer..." />
+								<Combobox.Empty>No personnel found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
 					{:else}
 						<Input type="text" bind:value={reviewerName} placeholder="Rank, Name, Position" />
 					{/if}

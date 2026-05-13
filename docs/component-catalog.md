@@ -969,6 +969,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
         {people.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'}
     </Combobox.Trigger>
     <Combobox.Content>
+        <Combobox.Search placeholder="Search personnel..." />
         <Combobox.Empty>No people found.</Combobox.Empty>
         <Combobox.List>
             {#snippet children(value, option)}
@@ -981,7 +982,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
 
 For multi-select behavior, either use `Combobox.Root multiple` directly or prefer the `ui/multi-select` namespace below when the control is conceptually a multi-select.
 
-Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Chip` and `Item` require `value: string`; `Item` can also receive `label` and `description`.
+Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Search` wraps the command input and keeps filtering inside the shared primitive. `Chip` and `Item` require `value: string`; `Item` can also receive `label`, `description`, and `searchValue`.
 
 - Use for large option lists, searchable personnel/template/type lookup, clearable and non-clearable search selection, and no-results states.
 - Pass string items for simple lists. Pass object options when routes need stable ids, display labels, descriptions, group headings, or disabled options.

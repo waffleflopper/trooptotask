@@ -2,11 +2,11 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
@@ -257,14 +257,19 @@
 					{#if showPersonnelSelect}
 						<Field.Root>
 							<Field.Label for="ict-person-select">Person</Field.Label>
-							<SearchCombobox
-								id="ict-person-select"
-								options={personnelSelectOptions}
+							<Combobox.Root
+								items={personnelSelectOptions}
 								bind:value={selectedPersonnelId}
-								placeholder="Search personnel..."
-								ariaLabel="Person"
-								clearable={false}
-							/>
+								label="Person"
+								autoHighlight
+							>
+								<Combobox.Trigger id="ict-person-select" placeholder="Search personnel..." aria-label="Person" />
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search personnel..." />
+									<Combobox.Empty>No personnel found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
 							{#if personError}
 								<Field.Error>{personError}</Field.Error>
 							{/if}
@@ -274,14 +279,18 @@
 					{#if showTaskSelect}
 						<Field.Root>
 							<Field.Label for="ict-task-select">Critical Task</Field.Label>
-							<SearchCombobox
-								id="ict-task-select"
-								options={taskSelectOptions}
-								bind:value={selectedTaskId}
-								placeholder="Search task or title..."
-								ariaLabel="Critical Task"
-								clearable={false}
-							/>
+							<Combobox.Root items={taskSelectOptions} bind:value={selectedTaskId} label="Critical Task" autoHighlight>
+								<Combobox.Trigger
+									id="ict-task-select"
+									placeholder="Search task or title..."
+									aria-label="Critical Task"
+								/>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search task or title..." />
+									<Combobox.Empty>No critical tasks found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
 							<Field.Description>{selectionHint}</Field.Description>
 							{#if taskError}
 								<Field.Error>{taskError}</Field.Error>

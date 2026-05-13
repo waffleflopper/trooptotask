@@ -14,9 +14,9 @@
 		Wrench,
 		X
 	} from '@lucide/svelte';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
@@ -581,19 +581,30 @@
 						{/if}
 						<Field.Root>
 							<Field.Label>Soldier who actually served</Field.Label>
-							<SearchCombobox
-								options={selectedCorrectionRow.correctionOptions}
+							<Combobox.Root
+								items={selectedCorrectionRow.correctionOptions}
 								value={selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date)}
-								ariaLabel={`Actual Soldier for ${selectedCorrectionRow.date}`}
-								placeholder="Search Soldier"
-								clearable={false}
-								onchange={(value) => {
+								label={`Actual Soldier for ${selectedCorrectionRow.date}`}
+								onValueChange={(value) => {
 									selectedCorrectionAssignees = {
 										...selectedCorrectionAssignees,
-										[correctionKey(selectedCorrectionRow.run.id, selectedCorrectionRow.date)]: value
+										[correctionKey(selectedCorrectionRow.run.id, selectedCorrectionRow.date)]: Array.isArray(value)
+											? (value[0] ?? '')
+											: value
 									};
 								}}
-							/>
+								autoHighlight
+							>
+								<Combobox.Trigger
+									aria-label={`Actual Soldier for ${selectedCorrectionRow.date}`}
+									placeholder="Search Soldier"
+								/>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search Soldier" />
+									<Combobox.Empty>No Soldiers found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
 						</Field.Root>
 						{#if selectedCorrectionOverrideWarning()}
 							<p class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground">

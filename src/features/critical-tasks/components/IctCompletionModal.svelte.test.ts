@@ -31,6 +31,10 @@ const task: IctTask = {
 
 function renderModal(
 	props: Partial<{
+		person: Personnel | null;
+		task: IctTask | null;
+		personnelOptions: Personnel[];
+		taskOptions: IctTask[];
 		existingCompletion: PersonnelIctCompletion;
 		currentUserDisplayName: string | null;
 		onSave: (
@@ -76,6 +80,35 @@ describe('IctCompletionModal', () => {
 		await fireEvent.click(screen.getByTestId('ict-completion-save'));
 
 		expect(onSave).not.toHaveBeenCalled();
+		expect(screen.getByText('Completion date is required')).toBeTruthy();
+		expect(screen.getByText('Validation method is required')).toBeTruthy();
+	});
+
+	it('keeps required selector errors visible until person and task combobox values are selected', async () => {
+		const onSave = vi.fn();
+
+		renderModal({
+			person: null,
+			task: null,
+			personnelOptions: [person],
+			taskOptions: [task],
+			onSave
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(onSave).not.toHaveBeenCalled();
+		expect(screen.getByText('Person is required')).toBeTruthy();
+		expect(screen.getByText('Critical task is required')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		await fireEvent.click(await screen.findByRole('option', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
+		await fireEvent.click(await screen.findByRole('option', { name: /181-105-1001 TCCC/ }));
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(screen.queryByText('Person is required')).toBeNull();
+		expect(screen.queryByText('Critical task is required')).toBeNull();
 		expect(screen.getByText('Completion date is required')).toBeTruthy();
 		expect(screen.getByText('Validation method is required')).toBeTruthy();
 	});

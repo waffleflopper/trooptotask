@@ -6,9 +6,9 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
@@ -116,13 +116,19 @@
 						</Button>
 					</div>
 
-					<SearchCombobox
-						id="personnel-select"
-						options={personnelOptions}
-						bind:value={selectedPersonnelId}
-						placeholder="Search for a member..."
-						ariaLabel="Member"
-					/>
+					<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} label="Member" autoHighlight>
+						<Combobox.Trigger
+							id="personnel-select"
+							clearable
+							placeholder="Search for a member..."
+							aria-label="Member"
+						/>
+						<Combobox.Content>
+							<Combobox.Search placeholder="Search for a member..." />
+							<Combobox.Empty>No matches</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				</div>
 
 				{#if !hasTemplateSteps}

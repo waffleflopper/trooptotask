@@ -5,10 +5,10 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import { untrack } from 'svelte';
 
@@ -135,13 +135,14 @@
 			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
 				<div class="grid gap-2">
 					<Label for="rank">Rank</Label>
-					<SearchCombobox
-						id="rank"
-						options={rankOptions}
-						bind:value={rank}
-						placeholder="Select rank..."
-						clearable={false}
-					/>
+					<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
+						<Combobox.Trigger id="rank" placeholder="Select rank..." aria-label="Rank" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="Select rank..." />
+							<Combobox.Empty>No ranks found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				</div>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -195,7 +196,14 @@
 
 				<div class="grid gap-2">
 					<Label for="group">Group</Label>
-					<SearchCombobox id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
+					<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
+						<Combobox.Trigger id="group" clearable placeholder="No Group Assigned" aria-label="Group" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="No Group Assigned" />
+							<Combobox.Empty>No groups found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				</div>
 			</form>
 		</AppDialog.Body>

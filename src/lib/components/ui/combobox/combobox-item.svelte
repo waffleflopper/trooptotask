@@ -9,6 +9,7 @@
 		value: string;
 		label?: string;
 		description?: string;
+		searchValue?: string;
 		children?: Snippet;
 	};
 
@@ -17,6 +18,7 @@
 		value,
 		label,
 		description,
+		searchValue,
 		children,
 		disabled: disabledProp,
 		onSelect,
@@ -26,11 +28,12 @@
 	const option = $derived(context.getOption(value));
 	const displayLabel = $derived(label ?? option?.label ?? value);
 	const displayDescription = $derived(description ?? option?.description);
+	const commandValue = $derived(searchValue ?? `${displayLabel} ${displayDescription ?? ''}`.trim());
 	const disabled = $derived(disabledProp ?? option?.disabled ?? false);
 </script>
 
 <CommandPrimitive.Item
-	{value}
+	value={commandValue}
 	data-slot="combobox-item"
 	data-checked={context.isSelected(value)}
 	{disabled}

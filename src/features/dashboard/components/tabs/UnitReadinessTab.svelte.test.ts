@@ -44,13 +44,13 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		groupBreakdown: [],
 		unitReadiness: {
 			availabilityColor: (pct: number) => {
-				if (pct >= 90) return 'var(--success)';
-				if (pct >= 75) return 'var(--amber)';
-				return 'var(--danger)';
+				if (pct >= 90) return 'var(--chart-2)';
+				if (pct >= 75) return 'var(--accent)';
+				return 'var(--destructive)';
 			},
 			availPct: 90,
-			availColor: 'var(--success)',
-			trainingColor: 'var(--success)',
+			availColor: 'var(--chart-2)',
+			trainingColor: 'var(--chart-2)',
 			statusEntries: [],
 			upcomingChanges: {
 				mode: 'date',

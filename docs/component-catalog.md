@@ -1493,50 +1493,54 @@ Onboarding migration notes:
 
 ## CSS Design System (`app.css`)
 
-### Canonical Tokens
+### Current Token API
 
-New work should use the canonical design-system tokens from `src/app.css`. Additional design system information can be found in `/trooptotask-design-system.md`
+New work should use shadcn-svelte and Tailwind v4 semantics from `src/app.css`: `@theme inline`, shadcn CSS variables, Tailwind utility classes, and shared component source under `src/lib/components/ui/**`.
+
+The old TroopToTask canonical alias layer has been removed. Do not introduce route-local variables or compatibility aliases that recreate the old parallel API. If a durable visual decision is needed, put it in shadcn semantic tokens, a Tailwind theme mapping, or the smallest shared component boundary that owns the behavior.
 
 ### Palette
 
-Light mode:
-`--ink` | `--ink-60` | `--ink-35` | `--ink-15` | `--ink-06` | `--ink-03` | `--paper` | `--white`
+Use these semantic tokens and Tailwind utilities:
 
-Dark mode remaps the same token names through `:root[data-theme='dark']`.
+`--background` / `bg-background` | `--foreground` / `text-foreground` | `--card` / `bg-card` | `--muted` / `bg-muted` | `--muted-foreground` / `text-muted-foreground` | `--accent` / `text-accent` | `--destructive` / `text-destructive` | `--border` / `border` | `--ring` / `ring-ring`
 
-Accent + semantic states:
-`--amber` | `--amber-light` | `--amber-dark` | `--amber-vivid` | `--success` / `--success-bg` | `--danger` / `--danger-bg` | `--info` / `--info-bg`
+Status colors are exposed as Tailwind theme colors backed by shadcn-compatible primitives:
+
+`success` -> `--chart-2`
+`warning` -> `--accent`
+`info` -> `--chart-3`
+`danger` -> `--destructive`
+
+Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 
 ### Typography
 
-`--font-display: 'Barlow Condensed'`
-`--font-body: 'Source Serif 4'`
-`--font-mono: 'IBM Plex Mono'`
+Use Tailwind typography utilities and shared component defaults. If scoped CSS truly needs a family, use the concrete family stack rather than a global alias:
 
-Primary scale:
-`--text-xs` | `--text-sm` | `--text-base` | `--text-lg` | `--text-xl` | `--text-2xl` | `--text-3xl`
+`'Barlow Condensed', sans-serif`
+`'Source Serif 4', serif`
+`'IBM Plex Mono', monospace`
 
 ### Spacing / Border / Elevation
 
-Spacing:
-`--sp-1: 4px` | `--sp-2: 8px` | `--sp-3: 12px` | `--sp-4: 16px` | `--sp-6: 24px` | `--sp-8: 32px` | `--sp-12: 48px`
+Use Tailwind spacing, radius, border, ring, and shadow utilities instead of root spacing and elevation aliases. In scoped CSS, use concrete rem values for component-local layout or move the style into shared component source.
 
-Borders and radius:
-`--border-thin` | `--border-rule` | `--radius-sm: 2px` | `--radius-md: 4px` | `--radius-lg: 6px`
+Calibrated Tailwind radius scale:
 
-Elevation:
-`--shadow-sm` | `--shadow-md` | `--shadow-lg`
+`rounded-sm: 2px` | `rounded-md: 4px` | `rounded-lg: 6px`
 
-Focus:
-`--focus-outline` | `--focus-ring`
+### Focus And Motion
 
-### Cleanup Status
+Global app concerns retained in `src/app.css`:
 
-The migration alias bridge has been removed from `src/app.css`. New work should use canonical tokens directly instead of older `--color-*`, `--spacing-*`, `--font-size-*`, or `--shadow-*` compatibility names.
+`--focus-outline` | `--focus-outline-offset` | `--focus-ring` | `--transition-fast` | `--transition-normal` | `--transition-slow`
+
+These support native controls and legacy public-page CSS while the shared component system remains the preferred path for new interactions.
 
 ### Chrome / App Shell Tokens
 
-Semantic tokens for the header, nav, and app shell. Dark by default, theme-controllable.
+Semantic tokens for the header, nav, and app shell. These are app-shell owned, not general-purpose color aliases.
 
 | Token                       | Purpose                          |
 | --------------------------- | -------------------------------- |
@@ -1544,95 +1548,12 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--color-chrome-text`       | App shell text                   |
 | `--color-chrome-text-muted` | App shell secondary text         |
 | `--color-chrome-border`     | App shell borders                |
-| `--color-chrome-active`     | Active nav item (`var(--amber)`) |
+### Component-Owned Constants
 
-### Form Field Tokens
+Calendar and long-range matrix sizing is component-owned. Use component-local custom properties such as `--calendar-cell-width`, `--calendar-personnel-column-width`, and `--long-range-*` only inside the calendar/matrix boundary.
 
-| Token                  | Purpose                 |
-| ---------------------- | ----------------------- |
-| `--field-bg`           | Input background        |
-| `--field-border`       | Input border            |
-| `--field-border-focus` | Focused input border    |
-| `--field-label`        | Label text color        |
-| `--field-error`        | Error text/border color |
-| `--field-help`         | Hint text color         |
+### Removed Global Utilities
 
-### Toolbar Tokens
+Global utility selectors such as `.page-scroll`, `.spacer`, `.checkbox-label`, `.field-hint`, `.field-support`, `.text-primary`, `.text-success`, and `.text-warning` have been removed. Use Tailwind utilities or shared shadcn components instead.
 
-`--toolbar-bg` | `--toolbar-border`
-
-### Compact UI Tokens
-
-These are canonical density helpers retained after the cleanup because they express product-specific sizing, not migration scaffolding.
-
-`--text-ui-sm: 0.75rem` | `--text-ui-base: 1rem` | `--text-ui-xl: 1.25rem`
-`--radius-pill: 9999px`
-`--divider-color`
-`--danger-tint`
-
-### Opacity Scale
-
-| Token              | Value  | Use case                         |
-| ------------------ | ------ | -------------------------------- |
-| `--opacity-subtle` | `0.08` | Hover states, tints              |
-| `--opacity-light`  | `0.12` | Chip backgrounds, light overlays |
-| `--opacity-medium` | `0.15` | Active states                    |
-| `--opacity-heavy`  | `0.45` | Disabled states                  |
-
-### #454 Grep Allowlist
-
-If you run the hard-exit grep from issue `#454`, the expected matches are canonical tokens only:
-
-- `--color-chrome*`
-- `--radius-sm` / `--radius-md` / `--radius-lg` / `--radius-pill`
-- `--shadow-sm` / `--shadow-md` / `--shadow-lg`
-- `--text-ui-sm` / `--text-ui-base` / `--text-ui-xl`
-- `--divider-color`
-- `--danger-tint`
-
-Reason for retention:
-These tokens are part of the current design system and still have active consumers across the authenticated shell, dense reporting surfaces, toast/menu primitives, and compact utility layouts.
-
-Current consumer groups:
-Public shell chrome, authenticated app chrome, dense calendar/duty-roster reports, shared utility components, and notification/toast surfaces.
-
-Follow-up removal issue:
-None. These are canonical tokens, not temporary aliases.
-
-### Utility Classes
-
-```css
-.spacer        /* flex: 1 — pushes footer actions apart */
-.text-primary / .text-muted / .text-error / etc.
-.bg-surface / .bg-surface-variant
-.rounded-sm / .rounded-md / .rounded-lg
-.section-card  /* padded vertical stack for card/section content */
-```
-
-### Page Layout Utilities
-
-```css
-.app-page      /* height: 100%; flex column; page root */
-.page-scroll   /* flex: 1; overflow-y: auto; padded — scrollable content area */
-.page-fill     /* flex: 1; overflow: hidden — non-scrolling content (Calendar, matrix views) */
-```
-
-`.page-scroll` padding reduces to `--spacing-sm` on mobile.
-
-### Form Field Utilities
-
-```css
-.input-error   /* border-color: var(--field-error) — apply to .input when validation fails */
-.field-hint    /* hint text below input */
-.field-error   /* error text below input */
-.field-support /* inline support row for hint/chip/meta beneath a field */
-.field-stack   /* vertical stack for control + support text/chip */
-```
-
-### Legacy Class Compatibility
-
-Global `.btn`, `.input`, `.select`, `.label`, `.form-group`, and `.card` selectors are migration compatibility only. New or migrated production surfaces should compose `ui/button`, `ui/input`, `ui/textarea`, `ui/native-select` or `ui/select`, `ui/label`, `ui/field`, and `ui/card` instead.
-
-### Section Card Tokens
-
-`--section-card-padding` | `--section-card-gap`
+Global `.btn`, `.input`, `.select`, `.label`, `.form-group`, and `.card` compatibility selectors were removed in an earlier cleanup. New or migrated production surfaces should compose `ui/button`, `ui/input`, `ui/textarea`, `ui/native-select` or `ui/select`, `ui/label`, `ui/field`, and `ui/card` instead.

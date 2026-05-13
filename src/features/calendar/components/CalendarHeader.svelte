@@ -100,10 +100,10 @@
 	<div
 		class="date-headers overflow-hidden"
 		bind:this={dateHeadersEl}
-		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length}; --calendar-date-columns: var(--personnel-column-width) repeat(var(--dates-count), minmax(var(--cell-width), 1fr));"
+		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length}; --calendar-date-columns: var(--calendar-personnel-column-width) repeat(var(--dates-count), minmax(var(--calendar-cell-width), 1fr));"
 	>
 		<div
-			class="grid w-full min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-date-columns)]"
+			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-date-columns)]"
 		>
 			<div
 				class="sticky left-0 z-[3] flex items-center border-r border-b bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase sm:px-4 sm:py-3"
@@ -115,7 +115,7 @@
 				{@const headerAssignment = getHeaderAssignment(date)}
 				<button
 					class={[
-						'flex min-w-0 cursor-pointer flex-col items-center gap-px overflow-hidden border-r border-b bg-card px-0 py-2 text-center transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-h-11 max-sm:min-w-[var(--cell-width)]',
+						'flex min-w-0 cursor-pointer flex-col items-center gap-px overflow-hidden border-r border-b bg-card px-0 py-2 text-center transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
 						isWeekend(date) && 'bg-muted/55',
 						holiday && 'bg-warning-muted/60',
 						isToday(date) && 'bg-primary/10 shadow-[inset_0_-2px_0_var(--primary)]'

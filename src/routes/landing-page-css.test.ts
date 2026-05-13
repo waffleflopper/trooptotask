@@ -48,7 +48,7 @@ describe('landing page CSS regressions', () => {
 		expect(proofStyles).toContain('color: var(--color-chrome-text)');
 		expect(proofStyles).toContain('var(--color-chrome-text-muted)');
 		expect(proofStyles).toContain('var(--color-chrome-border)');
-		expect(proofStyles).not.toContain('var(--ink-03)');
+		expect(proofStyles).not.toContain('var(--background)');
 	});
 
 	it('turns off the sticky questions sidebar after the mobile layout collapses', () => {

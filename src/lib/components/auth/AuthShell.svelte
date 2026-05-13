@@ -56,7 +56,7 @@
 				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
 				<span
-					class="[font-family:var(--font-display)] text-xl leading-none font-extrabold tracking-[0.03em] uppercase sm:text-2xl"
+					class="[font-family:'Barlow Condensed', sans-serif] text-xl leading-none font-extrabold tracking-[0.03em] uppercase sm:text-2xl"
 				>
 					Troop<span class="text-primary">To</span>Task
 				</span>

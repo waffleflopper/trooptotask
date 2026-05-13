@@ -228,9 +228,9 @@
 								{/each}
 							</NativeSelect>
 							{#if selectedStatus}
-								<div class="field-support">
+								<div class="status-summary-support">
 									<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
-									<span class="field-hint">Selected status</span>
+									<span class="status-summary-hint">Selected status</span>
 								</div>
 							{/if}
 						</Field.Root>
@@ -245,9 +245,9 @@
 								<Field.Label for="removeEndDate">End Date</Field.Label>
 								<DatePicker id="removeEndDate" bind:value={endDate} placeholder="Select end date" />
 								{#if dayCount > 0}
-									<div class="field-support">
+									<div class="status-summary-support">
 										<span class="day-count-number">{dayCount}</span>
-										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
+										<span class="status-summary-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
 									</div>
 								{/if}
 							</Field.Root>
@@ -424,7 +424,7 @@
 
 				<div class="confirm-footer">
 					<Button variant="outline" onclick={handleBack}>Back</Button>
-					<div class="spacer"></div>
+					<div class="confirm-footer-fill"></div>
 					{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
 						<Button variant="destructive" disabled={isSubmitting} onclick={handleConfirmRemoval}>
 							{#if isSubmitting}
@@ -449,7 +449,7 @@
 	.bulk-workspace {
 		display: grid;
 		grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-		gap: var(--sp-6);
+		gap: 1.5rem;
 		align-items: start;
 	}
 
@@ -461,22 +461,22 @@
 	.controls-column {
 		align-self: start;
 		position: sticky;
-		top: calc(var(--header-height, 56px) + var(--sp-6));
+		top: calc(var(--app-shell-header-height, 56px) + 1.5rem);
 	}
 
 	.controls-card,
 	.selection-card,
 	.confirm-card {
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
 	}
 
 	.controls-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-6);
-		padding: var(--sp-6);
+		gap: 1.5rem;
+		padding: 1.5rem;
 	}
 
 	.selection-card {
@@ -493,81 +493,81 @@
 	.pane-heading {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.selection-heading,
 	.confirm-heading {
-		padding: var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		padding: 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
 	}
 
 	.pane-eyebrow {
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-bold);
+		font-size: 0.6875rem;
+		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--danger);
+		color: var(--destructive);
 	}
 
 	.pane-title {
-		font-family: var(--font-display);
-		font-size: var(--text-ui-xl);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1.25rem;
 		font-weight: 400;
 		line-height: 1.1;
 	}
 
 	.pane-copy {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.config-grid {
 		display: grid;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.date-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
+		gap: 1rem;
 		align-items: start;
 	}
 
 	.day-count-number {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	.date-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-1) var(--sp-2);
-		background: var(--danger-tint);
-		border-radius: var(--radius-sm);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 12%, transparent);
+		border-radius: var(--radius);
 	}
 
 	.summary-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-4);
-		border-radius: var(--radius-lg);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
+		gap: 0.5rem;
+		padding: 1rem;
+		border-radius: var(--radius);
+		background: var(--muted);
+		border: 1px solid var(--border);
 	}
 
 	.warning-summary {
-		background: color-mix(in srgb, var(--amber-dark) 10%, var(--surface-panel));
-		border-color: color-mix(in srgb, var(--amber-dark) 28%, var(--border-default));
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 	}
 
 	.summary-heading {
-		font-size: var(--text-ui-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--muted-foreground);
 	}
 
 	.summary-line,
@@ -575,24 +575,24 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 	}
 
 	.summary-copy {
-		font-size: var(--text-ui-sm);
-		color: var(--text-primary);
+		font-size: 0.75rem;
+		color: var(--foreground);
 	}
 
 	.summary-copy strong {
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 	}
 
 	.summary-copy.muted {
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.summary-copy.error {
-		color: var(--danger);
+		color: var(--destructive);
 	}
 
 	.personnel-section {
@@ -606,17 +606,17 @@
 	}
 
 	.confirm-stage {
-		padding: var(--sp-2) 0;
+		padding: 0.5rem 0;
 	}
 
 	.confirm-criteria {
-		padding: var(--sp-4) var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
 	}
 
 	.confirm-content {
-		padding: var(--sp-6);
+		padding: 1.5rem;
 		min-height: 150px;
 	}
 
@@ -624,32 +624,32 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--sp-4) var(--sp-6);
-		border-top: 1px solid var(--border-default);
-		background: var(--surface-panel);
+		padding: 1rem 1.5rem;
+		border-top: 1px solid var(--border);
+		background: var(--card);
 	}
 
-	.spacer {
+	.confirm-footer-fill {
 		flex: 1;
 	}
 
 	.no-matches {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
+		color: var(--muted-foreground);
+		padding: 2rem;
 	}
 
 	.match-section {
-		margin-bottom: var(--sp-6);
+		margin-bottom: 1.5rem;
 	}
 
 	.match-heading {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		font-size: var(--text-ui-base);
+		gap: 0.5rem;
+		font-size: 1rem;
 		font-weight: 600;
-		margin: 0 0 var(--sp-2) 0;
+		margin: 0 0 0.5rem 0;
 	}
 
 	.match-heading.warning {
@@ -665,29 +665,29 @@
 
 	.match-count {
 		font-weight: 700;
-		font-size: var(--text-base);
+		font-size: 1rem;
 	}
 
 	.partial-explanation {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-		margin: 0 0 var(--sp-2) 0;
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
+		margin: 0 0 0.5rem 0;
 	}
 
 	.partial-list {
 		max-height: 180px;
 		overflow-y: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.partial-item {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--sp-2) var(--sp-4);
-		font-size: var(--text-ui-sm);
-		border-bottom: 1px solid var(--border-default);
+		padding: 0.5rem 1rem;
+		font-size: 0.75rem;
+		border-bottom: 1px solid var(--border);
 	}
 
 	.partial-item:last-child {
@@ -699,29 +699,29 @@
 	}
 
 	.partial-dates {
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 		white-space: nowrap;
 	}
 
 	.partial-section {
-		padding: var(--sp-4);
+		padding: 1rem;
 		background: color-mix(in srgb, #f59e0b 10%, transparent);
 		border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 	}
 
 	.total-summary {
-		margin-top: var(--sp-4);
-		padding: var(--sp-4);
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-		font-size: var(--text-ui-sm);
+		margin-top: 1rem;
+		padding: 1rem;
+		background: var(--background);
+		border-radius: var(--radius);
+		font-size: 0.75rem;
 		text-align: center;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.total-summary strong {
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	@media (max-width: 1100px) {
@@ -745,8 +745,8 @@
 		.confirm-content,
 		.confirm-criteria,
 		.confirm-footer {
-			padding-left: var(--sp-4);
-			padding-right: var(--sp-4);
+			padding-left: 1rem;
+			padding-right: 1rem;
 		}
 
 		.date-grid {
@@ -760,7 +760,7 @@
 
 		.partial-item {
 			flex-direction: column;
-			gap: var(--sp-1);
+			gap: 0.25rem;
 		}
 	}
 </style>

@@ -34,7 +34,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--sp-2) var(--sp-4);
+		gap: 0.5rem 1rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -44,7 +44,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.625rem;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;

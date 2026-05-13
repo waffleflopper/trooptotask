@@ -292,7 +292,7 @@
 				</Empty.Root>
 			{:else}
 				<div
-					class="calendar-rows relative min-w-[calc(var(--personnel-column-width)+(var(--cell-width)*var(--dates-count)))]"
+					class="calendar-rows relative min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))]"
 					style:height={`${rosterLayout.totalHeight}px`}
 				>
 					{#each visibleRosterRows as row (row.key)}
@@ -339,3 +339,26 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.calendar {
+		--calendar-cell-width: 36px;
+		--calendar-cell-height: 30px;
+		--calendar-personnel-column-width: 200px;
+	}
+
+	@media (max-width: 640px) {
+		.calendar {
+			--calendar-cell-width: 32px;
+			--calendar-cell-height: 34px;
+			--calendar-personnel-column-width: 120px;
+		}
+	}
+
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.calendar {
+			--calendar-cell-height: 32px;
+			--calendar-personnel-column-width: 160px;
+		}
+	}
+</style>

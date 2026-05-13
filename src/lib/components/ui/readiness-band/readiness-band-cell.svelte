@@ -45,9 +45,9 @@
 		place-items: center;
 		border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
 		border-radius: 2px;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.6875rem;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		font-variant-numeric: tabular-nums;
 		color: #24211d;
 	}

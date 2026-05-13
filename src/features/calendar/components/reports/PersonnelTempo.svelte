@@ -330,27 +330,27 @@
 
 <style>
 	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.config-section h3 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
+		margin: 0 0 0.5rem 0;
 	}
 
 	.date-row {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		align-items: flex-end;
 		flex-wrap: wrap;
 	}
@@ -358,29 +358,29 @@
 	.status-filter-header {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.personnel-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.status-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.status-chip {
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-pill);
-		font-size: var(--text-ui-sm);
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
 		cursor: pointer;
 		border: 2px solid var(--chip-color);
 		background: transparent;
-		color: var(--text-primary);
+		color: var(--foreground);
 		transition: all 0.15s ease;
 	}
 
@@ -395,34 +395,34 @@
 	}
 
 	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 10%, transparent);
+		border-radius: var(--radius);
+		margin-top: 0.5rem;
 	}
 
 	.report-output {
-		margin-top: var(--sp-4);
+		margin-top: 1rem;
 	}
 
 	.report-toolbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--sp-2);
+		margin-bottom: 0.5rem;
 	}
 
 	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.no-data {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
+		color: var(--muted-foreground);
+		padding: 2rem;
 		font-style: italic;
 	}
 

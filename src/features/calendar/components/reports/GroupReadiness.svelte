@@ -191,9 +191,9 @@
 	// --- Cell color helper ---
 
 	function cellBackground(percent: number): string {
-		if (percent >= 80) return 'color-mix(in srgb, var(--success) 15%, transparent)';
-		if (percent >= 50) return 'color-mix(in srgb, var(--amber-dark) 15%, transparent)';
-		return 'color-mix(in srgb, var(--danger) 15%, transparent)';
+		if (percent >= 80) return 'color-mix(in srgb, var(--chart-2) 15%, transparent)';
+		if (percent >= 50) return 'color-mix(in srgb, var(--accent) 15%, transparent)';
+		return 'color-mix(in srgb, var(--destructive) 15%, transparent)';
 	}
 
 	// --- useDataTable for sorting ---
@@ -308,56 +308,56 @@
 
 <style>
 	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.config-section h3 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
+		margin: 0 0 0.5rem 0;
 	}
 
 	.date-row {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		align-items: flex-end;
 		flex-wrap: wrap;
 	}
 
 	.quick-range-row {
 		display: flex;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 		flex-wrap: wrap;
-		margin-top: var(--sp-2);
+		margin-top: 0.5rem;
 	}
 
 	.group-filter-header {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.selection-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.checkbox-list {
 		max-height: 200px;
 		overflow-y: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		padding: var(--sp-1);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 0.25rem;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
@@ -366,15 +366,15 @@
 	.checkbox-item {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-ui-sm);
+		gap: 0.5rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--radius);
+		font-size: 0.75rem;
 		cursor: pointer;
 	}
 
 	.checkbox-item:hover {
-		background: var(--surface-page);
+		background: var(--background);
 	}
 
 	.config-actions {
@@ -383,78 +383,78 @@
 	}
 
 	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 10%, transparent);
+		border-radius: var(--radius);
+		margin-top: 0.5rem;
 	}
 
 	.report-output {
-		margin-top: var(--sp-4);
+		margin-top: 1rem;
 	}
 
 	.report-toolbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--sp-2);
+		margin-bottom: 0.5rem;
 	}
 
 	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.no-data {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
+		color: var(--muted-foreground);
+		padding: 2rem;
 		font-style: italic;
 	}
 
 	/* DataTable-compatible table styles */
 	.data-table {
 		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
 	}
 
 	table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 	}
 
 	thead {
-		background: var(--surface-subtle);
+		background: var(--muted);
 	}
 
 	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
+		padding: 0.25rem 0.5rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
+		border-bottom: 2px solid var(--border);
 		cursor: pointer;
 		user-select: none;
 		white-space: nowrap;
-		background: var(--surface-subtle);
+		background: var(--muted);
 		text-align: center;
 	}
 
 	th:hover {
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
+		padding: 0.25rem 0.5rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+		color: var(--foreground);
 		text-align: center;
 		white-space: nowrap;
 	}
@@ -484,8 +484,8 @@
 
 		th,
 		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
+			padding: 0.25rem 0.5rem;
+			font-size: 0.75rem;
 		}
 	}
 </style>

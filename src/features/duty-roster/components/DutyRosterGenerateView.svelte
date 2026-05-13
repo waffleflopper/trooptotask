@@ -4,9 +4,9 @@
 	import { AlertTriangle, Calendar, CheckCircle2, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
@@ -422,7 +422,11 @@
 		<div class="grid gap-4">
 			{#if generatingPreview}
 				<div class="py-8" aria-label="Generating Duty Roster preview">
-					<SkeletonGrid rows={4} columns={3} />
+					<div class="grid grid-cols-3 gap-2" aria-hidden="true">
+						{#each Array(12) as _, index (index)}
+							<Skeleton class="h-[38px] w-[100px]" />
+						{/each}
+					</div>
 				</div>
 			{/if}
 
@@ -732,16 +736,28 @@
 									class="grid gap-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
 								>
 									<span>Select Replacement Soldier</span>
-									<SearchCombobox
-										options={previewReview?.selectionOptions ?? []}
+									<Combobox.Root
+										items={previewReview?.selectionOptions ?? []}
 										value={selectedPreviewAssignees[activePreviewRow.date] ?? activePreviewRow.editAssigneeId}
-										ariaLabel={`Select Soldier for ${activeParts.weekday} ${activeParts.label}`}
-										placeholder="Search by name..."
-										clearable={false}
-										onchange={(value) => {
-											selectedPreviewAssignees = { ...selectedPreviewAssignees, [activePreviewRow.date]: value };
+										label={`Select Soldier for ${activeParts.weekday} ${activeParts.label}`}
+										onValueChange={(value) => {
+											selectedPreviewAssignees = {
+												...selectedPreviewAssignees,
+												[activePreviewRow.date]: Array.isArray(value) ? (value[0] ?? '') : value
+											};
 										}}
-									/>
+										autoHighlight
+									>
+										<Combobox.Trigger
+											aria-label={`Select Soldier for ${activeParts.weekday} ${activeParts.label}`}
+											placeholder="Search by name..."
+										/>
+										<Combobox.Content>
+											<Combobox.Search placeholder="Search by name..." />
+											<Combobox.Empty>No Soldiers found.</Combobox.Empty>
+											<Combobox.List />
+										</Combobox.Content>
+									</Combobox.Root>
 								</label>
 								<div
 									class="grid gap-2 rounded-md bg-muted/30 px-3 py-2"

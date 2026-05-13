@@ -1,6 +1,11 @@
 <script lang="ts">
-	import Modal from './Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import ClockIcon from '@lucide/svelte/icons/clock';
+	import PenToolIcon from '@lucide/svelte/icons/pen-tool';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Props {
 		onClose: () => void;
@@ -39,139 +44,62 @@
 	}
 </script>
 
-<Modal title="Try Editing" {onClose} width="450px" titleId="sandbox-modal-title" canClose={!creating}>
-	<div class="info-section">
-		<div class="icon">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M12 19l7-7 3 3-7 7-3-3z" />
-				<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-				<path d="M2 2l7.586 7.586" />
-				<circle cx="11" cy="11" r="2" />
-			</svg>
-		</div>
-		<p>
-			You're viewing a <strong>read-only demo</strong>. To try editing, we'll create your own private sandbox with
-			sample data.
-		</p>
-	</div>
+<AppDialog.Root closeBlocked={creating} {onClose}>
+	<AppDialog.Content closeBlocked={creating}>
+		<AppDialog.Header>
+			<AppDialog.Title>Try Editing</AppDialog.Title>
+			<AppDialog.Description>Create a private demo sandbox with sample data.</AppDialog.Description>
+		</AppDialog.Header>
 
-	<div class="features">
-		<div class="feature">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<polyline points="20 6 9 17 4 12" />
-			</svg>
-			<span>Full editing access</span>
-		</div>
-		<div class="feature">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<polyline points="20 6 9 17 4 12" />
-			</svg>
-			<span>Pre-loaded with sample data</span>
-		</div>
-		<div class="feature">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<polyline points="20 6 9 17 4 12" />
-			</svg>
-			<span>No sign-up required</span>
-		</div>
-		<div class="feature warning">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="10" />
-				<polyline points="12 6 12 12 16 14" />
-			</svg>
-			<span>Expires after 1 hour</span>
-		</div>
-	</div>
+		<AppDialog.Body class="grid gap-4">
+			<div class="flex items-start gap-4">
+				<div class="grid size-12 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+					<PenToolIcon aria-hidden="true" class="size-7" />
+				</div>
+				<p class="m-0 text-sm leading-6 text-muted-foreground">
+					You're viewing a <strong class="text-foreground">read-only demo</strong>. To try editing, we'll create your
+					own private sandbox with sample data.
+				</p>
+			</div>
 
-	{#if error}
-		<div class="error-message">
-			{error}
-		</div>
-	{/if}
+			<div class="grid gap-2">
+				<div class="flex items-center gap-2 rounded-lg bg-muted p-2 text-sm">
+					<CheckIcon aria-hidden="true" class="size-4 shrink-0 text-success" />
+					<span>Full editing access</span>
+				</div>
+				<div class="flex items-center gap-2 rounded-lg bg-muted p-2 text-sm">
+					<CheckIcon aria-hidden="true" class="size-4 shrink-0 text-success" />
+					<span>Pre-loaded with sample data</span>
+				</div>
+				<div class="flex items-center gap-2 rounded-lg bg-muted p-2 text-sm">
+					<CheckIcon aria-hidden="true" class="size-4 shrink-0 text-success" />
+					<span>No sign-up required</span>
+				</div>
+				<div class="flex items-center gap-2 rounded-lg bg-warning-muted p-2 text-sm text-warning-foreground">
+					<ClockIcon aria-hidden="true" class="size-4 shrink-0" />
+					<span>Expires after 1 hour</span>
+				</div>
+			</div>
 
-	{#snippet footer()}
-		{#if !creating}
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		{/if}
-		<button class="btn btn-primary" onclick={createSandbox} disabled={creating}>
-			{#if creating}
-				<Spinner />
-				Creating your sandbox...
-			{:else}
-				Create My Sandbox
+			{#if error}
+				<Alert.Root variant="destructive">
+					<Alert.Description>{error}</Alert.Description>
+				</Alert.Root>
 			{/if}
-		</button>
-	{/snippet}
-</Modal>
+		</AppDialog.Body>
 
-<style>
-	.info-section {
-		display: flex;
-		gap: var(--sp-4);
-		align-items: flex-start;
-		margin-bottom: var(--sp-6);
-	}
-
-	.icon {
-		flex-shrink: 0;
-		width: 48px;
-		height: 48px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: #0f0f0f;
-		border-radius: var(--radius-lg);
-		color: #f0ede6;
-	}
-
-	.icon svg {
-		width: 28px;
-		height: 28px;
-	}
-
-	.info-section p {
-		margin: 0;
-		color: var(--text-secondary);
-		line-height: 1.5;
-	}
-
-	.features {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-4);
-	}
-
-	.feature {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2);
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-	}
-
-	.feature svg {
-		width: 20px;
-		height: 20px;
-		color: var(--success);
-		flex-shrink: 0;
-	}
-
-	.feature.warning svg {
-		color: var(--amber-dark);
-	}
-
-	.feature span {
-		font-size: var(--text-ui-sm);
-	}
-
-	.error-message {
-		padding: var(--sp-2);
-		background: rgba(239, 68, 68, 0.1);
-		border: 1px solid #ef4444;
-		border-radius: var(--radius-md);
-		color: #ef4444;
-		font-size: var(--text-ui-sm);
-	}
-</style>
+		<AppDialog.Footer>
+			{#if !creating}
+				<Button type="button" variant="outline" onclick={onClose}>Cancel</Button>
+			{/if}
+			<Button type="button" onclick={createSandbox} disabled={creating}>
+				{#if creating}
+					<Spinner />
+					Creating your sandbox...
+				{:else}
+					Create My Sandbox
+				{/if}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

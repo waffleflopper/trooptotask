@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CalendarDays, History, Play, UsersRound, X, Zap } from '@lucide/svelte';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
@@ -327,15 +327,24 @@
 					{:else}
 						<Field.Root>
 							<Field.Label for="settings-exemption-picker">Add exclusion</Field.Label>
-							<SearchCombobox
-								id="settings-exemption-picker"
-								options={exemptionOptions}
+							<Combobox.Root
+								items={exemptionOptions}
 								bind:value={pendingExemptionId}
-								placeholder="Search by name, rank, MOS, group..."
-								ariaLabel="Add Soldier exclusion"
-								clearable={false}
-								onchange={addExemption}
-							/>
+								label="Add Soldier exclusion"
+								onValueChange={(value) => addExemption(Array.isArray(value) ? (value[0] ?? '') : value)}
+								autoHighlight
+							>
+								<Combobox.Trigger
+									id="settings-exemption-picker"
+									placeholder="Search by name, rank, MOS, group..."
+									aria-label="Add Soldier exclusion"
+								/>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search by name, rank, MOS, group..." />
+									<Combobox.Empty>No Soldiers found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
 							<Field.Description>Only Soldiers in the resolved pool can be excluded.</Field.Description>
 						</Field.Root>
 						<div class="grid gap-2 rounded-md border border-border bg-muted/20 p-3">

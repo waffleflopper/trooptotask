@@ -15,7 +15,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import FileUpload from '$lib/components/ui/FileUpload.svelte';
+	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -45,6 +45,10 @@
 	let expandedId = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
 	let confirmDeleteRoster = $state<SignInRoster | null>(null);
+	let signedScanDragOverId = $state<string | null>(null);
+	const signedScanUploadingIds = new SvelteSet<string>();
+	const signedScanErrors = new SvelteMap<string, string>();
+	const signedScanSelectedFiles = new SvelteMap<string, string>();
 
 	// Create view state
 	let title = $state('');
@@ -326,6 +330,106 @@
 		toastStore.success('Signed scan removed');
 	}
 
+	function getFilename(path: string): string {
+		return path.split('/').pop() ?? path;
+	}
+
+	function getSignedScanUploadUrl(roster: SignInRoster): string {
+		return `/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`;
+	}
+
+	async function uploadSignedScanFile(roster: SignInRoster, file: File) {
+		if (signedScanUploadingIds.has(roster.id)) return;
+
+		signedScanSelectedFiles.set(roster.id, file.name);
+
+		const validationError = validateSensitiveFileSelection(file);
+		if (validationError) {
+			signedScanErrors.set(roster.id, validationError);
+			return;
+		}
+
+		signedScanErrors.delete(roster.id);
+		signedScanUploadingIds.add(roster.id);
+
+		try {
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const response = await fetch(getSignedScanUploadUrl(roster), {
+				method: 'POST',
+				body: formData
+			});
+			const payload = (await response.json()) as {
+				filePath?: string;
+				error?: string;
+			};
+
+			if (!response.ok || !payload.filePath) {
+				throw new Error(payload.error ?? 'Upload failed.');
+			}
+
+			signedScanSelectedFiles.delete(roster.id);
+			handleSignedScanUploaded(roster, payload.filePath);
+		} catch (err: unknown) {
+			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Upload failed.');
+		} finally {
+			signedScanUploadingIds.delete(roster.id);
+		}
+	}
+
+	function handleSignedScanFileSelect(roster: SignInRoster, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file) {
+			uploadSignedScanFile(roster, file);
+		}
+		input.value = '';
+	}
+
+	function handleSignedScanDrop(roster: SignInRoster, event: DragEvent) {
+		event.preventDefault();
+		signedScanDragOverId = null;
+		const file = event.dataTransfer?.files[0];
+		if (file) {
+			uploadSignedScanFile(roster, file);
+		}
+	}
+
+	async function downloadSignedScan(roster: SignInRoster) {
+		if (!roster.signedFilePath) return;
+
+		const response = await fetch(getSignedScanUploadUrl(roster));
+		const payload = (await response.json()) as { url?: string; error?: string };
+
+		if (!response.ok || !payload.url) {
+			signedScanErrors.set(roster.id, 'Could not generate download link.');
+			return;
+		}
+
+		window.open(payload.url, '_blank');
+	}
+
+	async function removeSignedScan(roster: SignInRoster) {
+		if (!roster.signedFilePath || signedScanUploadingIds.has(roster.id)) return;
+
+		try {
+			const response = await fetch(getSignedScanUploadUrl(roster), {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				throw new Error(payload.error ?? 'Remove failed.');
+			}
+
+			signedScanErrors.delete(roster.id);
+			handleSignedScanRemoved(roster);
+		} catch (err: unknown) {
+			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Remove failed.');
+		}
+	}
+
 	// Delete roster
 	async function deleteRoster(roster: SignInRoster) {
 		deleting = roster.id;
@@ -517,17 +621,62 @@
 											{/if}
 										</div>
 										{#if canEdit}
-											<div class="max-w-md">
-												<FileUpload
-													filePath={roster.signedFilePath}
-													uploadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-													downloadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-													removeUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-													onUpload={(path) => handleSignedScanUploaded(roster, path)}
-													onRemove={() => handleSignedScanRemoved(roster)}
-													label="Signed Scan"
-												/>
-											</div>
+											<Field.Root
+												class={[
+													'max-w-md rounded-lg border border-dashed border-border bg-background p-3 transition-colors',
+													signedScanDragOverId === roster.id && 'border-primary bg-primary/5'
+												]}
+												ondrop={(event) => handleSignedScanDrop(roster, event)}
+												ondragover={(event) => {
+													event.preventDefault();
+													signedScanDragOverId = roster.id;
+												}}
+												ondragleave={() => {
+													if (signedScanDragOverId === roster.id) {
+														signedScanDragOverId = null;
+													}
+												}}
+											>
+												<Field.Label for={`signed-scan-${roster.id}`}>Signed Scan</Field.Label>
+												{#if signedScanUploadingIds.has(roster.id)}
+													<div class="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+														<Spinner class="size-3.5" />
+														<span>Uploading {signedScanSelectedFiles.get(roster.id) ?? 'signed scan'}...</span>
+													</div>
+												{:else if roster.signedFilePath}
+													<div class="flex flex-wrap items-center gap-2">
+														<Button
+															variant="outline"
+															size="sm"
+															type="button"
+															onclick={() => downloadSignedScan(roster)}
+														>
+															{getFilename(roster.signedFilePath)}
+														</Button>
+														<Button
+															variant="destructive"
+															size="sm"
+															type="button"
+															onclick={() => removeSignedScan(roster)}
+														>
+															Remove
+														</Button>
+													</div>
+												{:else}
+													<Field.Control>
+														<Input
+															id={`signed-scan-${roster.id}`}
+															type="file"
+															accept={SENSITIVE_FILE_ACCEPT}
+															onchange={(event) => handleSignedScanFileSelect(roster, event)}
+														/>
+													</Field.Control>
+													<Field.Description>Choose a PDF or drop it here.</Field.Description>
+												{/if}
+												{#if signedScanErrors.get(roster.id)}
+													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
+												{/if}
+											</Field.Root>
 										{/if}
 									</div>
 								{/if}

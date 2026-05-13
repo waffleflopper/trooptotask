@@ -1,9 +1,8 @@
 <script lang="ts">
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
-	import OnboardingReportModal from './OnboardingReportModal.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
@@ -23,16 +22,6 @@
 		ctx.templates.find((template) => template.id === ctx.assignTemplateSelected)?.name ?? 'Select a template'
 	);
 </script>
-
-{#if ctx.modals.isOpen(MODAL_IDS.report)}
-	<OnboardingReportModal
-		onboardings={ctx.onboardings}
-		personnel={ctx.personnel}
-		templates={ctx.templates}
-		trainingTypeNames={ctx.trainingTypeNames}
-		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
-	/>
-{/if}
 
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal
@@ -72,101 +61,93 @@
 {/if}
 
 {#if ctx.switchingTemplateId}
-	<Modal
-		title="Switch Template"
-		onClose={() => ctx.closeSwitchTemplate()}
-		width="520px"
-		titleId="switch-template-title"
-	>
-		<div class="flex flex-col gap-3">
-			<div class="rounded-lg border bg-muted/35 p-3">
-				<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-					Template change
-				</p>
-				<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+	<AppDialog.Root open onClose={() => ctx.closeSwitchTemplate()}>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title id="switch-template-title">Switch Template</AppDialog.Title>
+				<AppDialog.Description>
 					Switch this onboarding to a different template. Removed steps stay on the record as inactive, new steps are
 					added, and matching steps are refreshed.
-				</p>
-			</div>
+				</AppDialog.Description>
+			</AppDialog.Header>
 
-			<div class="grid gap-2 rounded-lg border bg-card p-3">
-				<Label for="switch-template-select">New Template</Label>
-				<Select.Root type="single" bind:value={ctx.switchTemplateSelected}>
-					<Select.Trigger id="switch-template-select" class="w-full">{switchTemplateLabel}</Select.Trigger>
-					<Select.Content>
-						{#each ctx.templates as t (t.id)}
-							<Select.Item value={t.id} label={t.name} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
+			<AppDialog.Body>
+				<div class="flex flex-col gap-3">
+					<div class="grid gap-2 rounded-lg border bg-card p-3">
+						<Label for="switch-template-select">New Template</Label>
+						<Select.Root type="single" bind:value={ctx.switchTemplateSelected}>
+							<Select.Trigger id="switch-template-select" class="w-full">{switchTemplateLabel}</Select.Trigger>
+							<Select.Content>
+								{#each ctx.templates as t (t.id)}
+									<Select.Item value={t.id} label={t.name} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 
-			{#if ctx.switchTemplateError}
-				<p class="m-0 text-sm text-destructive">{ctx.switchTemplateError}</p>
-			{/if}
-		</div>
+					{#if ctx.switchTemplateError}
+						<p class="m-0 text-sm text-destructive">{ctx.switchTemplateError}</p>
+					{/if}
+				</div>
+			</AppDialog.Body>
 
-		{#snippet footer()}
-			<div class="spacer"></div>
-			<Button variant="outline" type="button" onclick={() => ctx.closeSwitchTemplate()}>Cancel</Button>
-			<Button
-				type="button"
-				onclick={() => ctx.handleSwitchTemplate()}
-				disabled={!ctx.switchTemplateSelected || ctx.switchingTemplate}
-			>
-				{#if ctx.switchingTemplate}<Spinner />{/if}
-				Switch Template
-			</Button>
-		{/snippet}
-	</Modal>
+			<AppDialog.Footer>
+				<Button variant="outline" type="button" onclick={() => ctx.closeSwitchTemplate()}>Cancel</Button>
+				<Button
+					type="button"
+					onclick={() => ctx.handleSwitchTemplate()}
+					disabled={!ctx.switchTemplateSelected || ctx.switchingTemplate}
+				>
+					{#if ctx.switchingTemplate}<Spinner />{/if}
+					Switch Template
+				</Button>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}
 
 {#if ctx.assigningTemplateId}
-	<Modal
-		title="Assign Template"
-		onClose={() => ctx.closeAssignTemplate()}
-		width="520px"
-		titleId="assign-template-title"
-	>
-		<div class="flex flex-col gap-3">
-			<div class="rounded-lg border bg-muted/35 p-3">
-				<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-					Template assignment
-				</p>
-				<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+	<AppDialog.Root open onClose={() => ctx.closeAssignTemplate()}>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title id="assign-template-title">Assign Template</AppDialog.Title>
+				<AppDialog.Description>
 					This onboarding started before templates were introduced. Assign a template so future syncs can match steps by
 					name and type.
-				</p>
-			</div>
+				</AppDialog.Description>
+			</AppDialog.Header>
 
-			<div class="grid gap-2 rounded-lg border bg-card p-3">
-				<Label for="assign-template-select">Template</Label>
-				<Select.Root type="single" bind:value={ctx.assignTemplateSelected}>
-					<Select.Trigger id="assign-template-select" class="w-full">{assignTemplateLabel}</Select.Trigger>
-					<Select.Content>
-						{#each ctx.templates as t (t.id)}
-							<Select.Item value={t.id} label={t.name} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
+			<AppDialog.Body>
+				<div class="flex flex-col gap-3">
+					<div class="grid gap-2 rounded-lg border bg-card p-3">
+						<Label for="assign-template-select">Template</Label>
+						<Select.Root type="single" bind:value={ctx.assignTemplateSelected}>
+							<Select.Trigger id="assign-template-select" class="w-full">{assignTemplateLabel}</Select.Trigger>
+							<Select.Content>
+								{#each ctx.templates as t (t.id)}
+									<Select.Item value={t.id} label={t.name} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 
-			{#if ctx.assignTemplateError}
-				<p class="m-0 text-sm text-destructive">{ctx.assignTemplateError}</p>
-			{/if}
-		</div>
+					{#if ctx.assignTemplateError}
+						<p class="m-0 text-sm text-destructive">{ctx.assignTemplateError}</p>
+					{/if}
+				</div>
+			</AppDialog.Body>
 
-		{#snippet footer()}
-			<div class="spacer"></div>
-			<Button variant="outline" type="button" onclick={() => ctx.closeAssignTemplate()}>Cancel</Button>
-			<Button
-				type="button"
-				onclick={() => ctx.handleAssignTemplate()}
-				disabled={!ctx.assignTemplateSelected || ctx.assigningTemplate}
-			>
-				{#if ctx.assigningTemplate}<Spinner />{/if}
-				Assign Template
-			</Button>
-		{/snippet}
-	</Modal>
+			<AppDialog.Footer>
+				<Button variant="outline" type="button" onclick={() => ctx.closeAssignTemplate()}>Cancel</Button>
+				<Button
+					type="button"
+					onclick={() => ctx.handleAssignTemplate()}
+					disabled={!ctx.assignTemplateSelected || ctx.assigningTemplate}
+				>
+					{#if ctx.assigningTemplate}<Spinner />{/if}
+					Assign Template
+				</Button>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}

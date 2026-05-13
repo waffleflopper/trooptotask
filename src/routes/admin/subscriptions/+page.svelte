@@ -1,7 +1,15 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();
 
@@ -42,7 +50,7 @@
 	});
 
 	function formatPersonnelCap(count: number, cap: number | null): string {
-		return cap === null ? `${count} / ∞` : `${count} / ${cap}`;
+		return cap === null ? `${count} / Unlimited` : `${count} / ${cap}`;
 	}
 
 	function isOverCap(count: number, cap: number | null): boolean {
@@ -54,194 +62,162 @@
 	<title>Subscriptions - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Billing Ledger</p>
-			<h1 class="admin-page-title">Subscriptions</h1>
-			<p class="admin-page-subtitle">
-				Inspect plan state, gifted access, personnel caps, and billing-related organization status in one ledger.
-			</p>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title="Subscriptions"
+		subtitle="Inspect plan state, gifted access, personnel caps, and billing-related organization status in one ledger."
+	>
+		{#snippet meta()}
+			<Badge variant="secondary">Billing Ledger</Badge>
+		{/snippet}
+	</PageShell.Header>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Tracked Orgs</p>
-			<p class="admin-overview-card__value">{data.subscriptions.length}</p>
-			<p class="admin-overview-card__meta">Organizations currently represented in the subscription dataset.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Filtered</p>
-			<p class="admin-overview-card__value">{filteredSubs.length}</p>
-			<p class="admin-overview-card__meta">Organizations matching the current billing filters.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric
+			label="Tracked Orgs"
+			value={data.subscriptions.length}
+			detail="Organizations currently represented in the subscription dataset."
+		/>
+		<PageShell.Metric
+			label="Filtered"
+			value={filteredSubs.length}
+			detail="Organizations matching the current billing filters."
+		/>
+	</PageShell.FactGrid>
 
-	<div class="admin-toolbar">
-		<div class="admin-toolbar__group">
-			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="subscription-search">Search</label>
-				<input
-					id="subscription-search"
-					class="input"
-					type="text"
-					placeholder="Search by org or owner..."
-					bind:value={searchInput}
-				/>
+	<Card.Root>
+		<Card.Header class="gap-3 xl:flex-row xl:items-end xl:justify-between">
+			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_12rem_12rem]">
+				<Field.Root>
+					<Field.Label for="subscription-search">Search</Field.Label>
+					<Field.Control>
+						<Input
+							id="subscription-search"
+							type="text"
+							placeholder="Search by org or owner..."
+							bind:value={searchInput}
+						/>
+					</Field.Control>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="subscription-tier">Tier</Field.Label>
+					<Field.Control>
+						<NativeSelect id="subscription-tier" bind:value={tierFilter}>
+							<option value="all">All tiers</option>
+							<option value="free">Free</option>
+							<option value="team">Team</option>
+							<option value="unit">Unit</option>
+						</NativeSelect>
+					</Field.Control>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="subscription-status">Status</Field.Label>
+					<Field.Control>
+						<NativeSelect id="subscription-status" bind:value={statusFilter}>
+							<option value="all">All statuses</option>
+							<option value="active">Active</option>
+							<option value="suspended">Suspended</option>
+							<option value="gifted">Gifted</option>
+						</NativeSelect>
+					</Field.Control>
+				</Field.Root>
 			</div>
-			<div class="admin-toolbar__field">
-				<label class="label" for="subscription-tier">Tier</label>
-				<select id="subscription-tier" bind:value={tierFilter} class="select">
-					<option value="all">All tiers</option>
-					<option value="free">Free</option>
-					<option value="team">Team</option>
-					<option value="unit">Unit</option>
-				</select>
-			</div>
-			<div class="admin-toolbar__field">
-				<label class="label" for="subscription-status">Status</label>
-				<select id="subscription-status" bind:value={statusFilter} class="select">
-					<option value="all">All statuses</option>
-					<option value="active">Active</option>
-					<option value="suspended">Suspended</option>
-					<option value="gifted">Gifted</option>
-				</select>
-			</div>
-		</div>
-		<div class="admin-toolbar__meta">
-			<span>{pagedSubs.length} on page</span>
-		</div>
-	</div>
-
-	<div class="admin-table-shell admin-table-shell--scroll">
-		<table class="admin-table">
-			<thead>
-				<tr>
-					<th>Organization</th>
-					<th>Tier</th>
-					<th>Status</th>
-					<th>Personnel</th>
-					<th>Owner</th>
-					<th>Gift</th>
-					<th>Created</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each pagedSubs as sub (sub.id)}
-					<tr>
-						<td>
-							<div class="entity-cell">
-								<a href="/admin/organizations/{sub.id}" class="entity-link">{sub.name}</a>
-								<span class="admin-code">{sub.id.slice(0, 8)}...</span>
-							</div>
-						</td>
-						<td>
-							<Badge
-								label={formatAdminLabel(sub.effectiveTier)}
-								color={ADMIN_TIER_COLORS[sub.effectiveTier] ?? 'var(--ink-35)'}
-							/>
-						</td>
-						<td>
-							<Badge
-								label={sub.isSuspended ? 'Suspended' : 'Active'}
-								color={sub.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
-						</td>
-						<td class:over-cap={isOverCap(sub.personnelCount, sub.personnelCap)}
-							>{formatPersonnelCap(sub.personnelCount, sub.personnelCap)}</td
-						>
-						<td class="owner-cell">{sub.ownerEmail || '—'}</td>
-						<td>
-							{#if sub.isGifted}
-								<div class="gift-cell">
-									<Badge label="Gifted" color={ADMIN_STATUS_COLORS.gifted} />
-									{#if sub.gift_expires_at}
-										<span class="text-muted">until {formatDisplayDate(sub.gift_expires_at)}</span>
-									{/if}
+			<p class="text-sm text-muted-foreground">{pagedSubs.length} on page</p>
+		</Card.Header>
+		<Card.Content class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Organization</Table.Head>
+						<Table.Head>Tier</Table.Head>
+						<Table.Head>Status</Table.Head>
+						<Table.Head>Personnel</Table.Head>
+						<Table.Head>Owner</Table.Head>
+						<Table.Head>Gift</Table.Head>
+						<Table.Head>Created</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each pagedSubs as sub (sub.id)}
+						<Table.Row>
+							<Table.Cell>
+								<div class="grid gap-1">
+									<a href="/admin/organizations/{sub.id}" class="text-sm font-medium underline-offset-4 hover:underline"
+										>{sub.name}</a
+									>
+									<span class="font-mono text-xs text-muted-foreground">{sub.id.slice(0, 8)}...</span>
 								</div>
-							{:else}
-								<span class="text-muted">—</span>
-							{/if}
-						</td>
-						<td>{formatDisplayDate(sub.created_at)}</td>
-					</tr>
-				{:else}
-					<tr>
-						<td colspan="7" class="admin-empty">No subscriptions found.</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+							</Table.Cell>
+							<Table.Cell>
+								<Badge variant={adminBadgeVariant(sub.effectiveTier)}>{formatAdminLabel(sub.effectiveTier)}</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								<Badge variant={adminBadgeVariant(sub.isSuspended ? 'suspended' : 'active')}>
+									{sub.isSuspended ? 'Suspended' : 'Active'}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell
+								class={isOverCap(sub.personnelCount, sub.personnelCap) ? 'font-semibold text-destructive' : ''}
+							>
+								{formatPersonnelCap(sub.personnelCount, sub.personnelCap)}
+							</Table.Cell>
+							<Table.Cell class="max-w-60 break-words text-muted-foreground">{sub.ownerEmail || '-'}</Table.Cell>
+							<Table.Cell>
+								{#if sub.isGifted}
+									<div class="grid gap-1">
+										<Badge variant="warning">Gifted</Badge>
+										{#if sub.gift_expires_at}
+											<span class="text-muted-foreground">until {formatDisplayDate(sub.gift_expires_at)}</span>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-muted-foreground">-</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>{formatDisplayDate(sub.created_at)}</Table.Cell>
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={7}>
+								<Empty.Root class="border-0">No subscriptions found.</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</Card.Content>
+	</Card.Root>
 
 	{#if filteredSubs.length > 0}
-		<div class="pagination-row">
+		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
 			<p>
-				Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredSubs.length)}–{Math.min(
+				Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredSubs.length)}-{Math.min(
 					currentPage * PAGE_SIZE,
 					filteredSubs.length
 				)}
 				of {filteredSubs.length}
 			</p>
 			{#if totalPages > 1}
-				<div class="pagination-row__controls">
-					<button
-						class="btn btn-secondary btn-sm"
+				<div class="flex flex-wrap items-center gap-3">
+					<Button
+						variant="outline"
+						size="sm"
 						onclick={() => (currentPage = Math.max(1, currentPage - 1))}
-						disabled={currentPage === 1}>Previous</button
+						disabled={currentPage === 1}
 					>
+						Previous
+					</Button>
 					<span>Page {currentPage} of {totalPages}</span>
-					<button
-						class="btn btn-secondary btn-sm"
+					<Button
+						variant="outline"
+						size="sm"
 						onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
-						disabled={currentPage === totalPages}>Next</button
+						disabled={currentPage === totalPages}
 					>
+						Next
+					</Button>
 				</div>
 			{/if}
 		</div>
 	{/if}
-</div>
-
-<style>
-	.entity-cell,
-	.gift-cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.entity-link {
-		font-size: var(--text-sm);
-		font-weight: 600;
-	}
-
-	.owner-cell {
-		max-width: 240px;
-		word-break: break-word;
-		color: var(--text-secondary);
-	}
-
-	.over-cap {
-		color: var(--danger);
-		font-weight: 600;
-	}
-
-	.pagination-row,
-	.pagination-row__controls {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-	}
-
-	.pagination-row {
-		justify-content: space-between;
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.pagination-row p {
-		margin: 0;
-	}
-</style>
+</PageShell.Root>

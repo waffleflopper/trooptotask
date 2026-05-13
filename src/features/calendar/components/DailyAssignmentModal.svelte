@@ -5,7 +5,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
+	import * as Combobox from '$lib/components/ui/combobox';
 
 	interface GroupData {
 		group: string;
@@ -138,13 +138,25 @@
 							>
 						</div>
 
-						<SearchCombobox
-							{options}
+						<Combobox.Root
+							items={options}
 							value={getCurrentAssignee(type.id)}
-							placeholder="Search assignments..."
-							ariaLabel={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
-							onchange={(value) => handleAssignmentChange(type.id, value)}
-						/>
+							label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
+							onValueChange={(value) =>
+								handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+							autoHighlight
+						>
+							<Combobox.Trigger
+								clearable
+								placeholder="Search assignments..."
+								aria-label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
+							/>
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search assignments..." />
+								<Combobox.Empty>No assignments found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
 					</div>
 				{/each}
 			</div>

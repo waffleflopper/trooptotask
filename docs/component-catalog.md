@@ -1,7 +1,7 @@
 # Component Catalog & CSS Design System
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
-Layout components such as `Modal` live in `src/lib/components/`. Import via `$lib/components/...`.
+Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
 ---
@@ -28,6 +28,7 @@ Replacement previews:
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `MultiTagSelect` is replaced by the shadcn-style `ui/multi-select` compound API with chips.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
+- Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
 
 Rules:
 
@@ -49,6 +50,7 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and exposes native shadcn/Tailwind theme variables without mapping them to TroopToTask colors yet.
+- `src/app.css` no longer owns admin-specific selectors. Remaining global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors are retained only for non-admin consumers until their own cleanup slice migrates them.
 - `src/lib/components/ui/showroom/showroomInventory.ts` records the selected component set and state coverage.
 
 Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
@@ -739,7 +741,7 @@ Action guidance:
 - Use `Button` variants for action semantics. Do not pass route-local classes to retune dialog spacing, radius, color, typography, shadow, animation, footer layout, or internal parts.
 - Long dialog bodies must use `AppDialog.Body`; do not add route-local `max-height` or `overflow` wrappers to shared dialog internals.
 
-`src/lib/components/Modal.svelte` is deprecated. It is currently shadcn-backed only to keep remaining legacy call sites working while migration continues. Do not add new `Modal` usages. Migrate old call sites to `ui/app-dialog` when their route slice is explicitly in scope.
+Compatibility note: the legacy `src/lib/components/Modal.svelte` wrapper has been removed. Compose `ui/app-dialog` or `ui/dialog` directly.
 
 ---
 
@@ -772,25 +774,6 @@ Guidance:
 
 ---
 
-## `ui/Badge.svelte`
-
-Compact metadata or status label. Badges are now intentionally mono and uppercase so they read like labels instead of decorative pills.
-
-```svelte
-<Badge label="TDY" color="var(--color-info)" />
-<Badge label="Leave" color={status.color} textColor={status.textColor} />
-<Badge label="Admin" color="var(--color-info)" bold={true} />
-<Badge label="Draft" variant="outlined" />
-```
-
-Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'` when a custom filled color is passed), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
-
-Badge guidance:
-
-- Reserve filled badges for real state or metadata labels.
-- Use `variant="outlined"` for neutral, low-emphasis labels.
-- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-danger`, `--color-info`) over arbitrary decorative colors when possible.
-
 ## `ui/badge`
 
 Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic variants for route status instead of local badge color classes.
@@ -802,36 +785,32 @@ Shadcn-svelte badge primitive for migrated Tailwind surfaces. Use semantic varia
 <Badge variant="danger">Blocked</Badge>
 ```
 
-Status type colors are allowed through `statusType`, not through a raw color prop:
+Compatibility note: the legacy `ui/Badge.svelte` wrapper with `label`, `color`, and `textColor` props has been removed. Admin and route status labels should map product state to semantic badge variants instead of raw color strings.
 
-```svelte
-<Badge statusType={status}>{status.name}</Badge>
-```
-
-Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'status' | 'outline' | 'ghost' | 'link'`, `statusType?: Pick<StatusType, 'id' | 'name' | 'color' | 'textColor'>`
+Props: native anchor/span attributes, `variant?: 'default' | 'secondary' | 'destructive' | 'danger' | 'warning' | 'info' | 'success' | 'outline' | 'ghost' | 'link'`
 
 Badge guidance:
 
 - Use `success`, `warning`, `info`, and `danger` only for real status or classification.
 - Keep `destructive` for shadcn compatibility and destructive UI states. Prefer `danger` for general status labels such as blocked, overdue, or risk.
-- Use `statusType` when the color comes from a saved calendar status type, such as dashboard availability or calendar reports.
-- Carry the status type object through the read model instead of flattening it to a route-owned color string.
 - Do not pass route-local visual classes to recolor badges unless Robert approved that specific visual exception.
 
 ---
 
-## `ui/Spinner.svelte`
+## `ui/spinner`
 
 Loading spinner for async buttons.
 
 ```svelte
-<button disabled={saving}>
+<Button disabled={saving}>
     {#if saving}<Spinner />{/if}
     {saving ? 'Saving...' : 'Save'}
-</button>
+</Button>
 ```
 
-Props: `size?: number` (px, default `14`), `color?: string` (default `'white'`)
+Props: SVG attributes, including `class`, `aria-label`, `role`, and icon-compatible `color`/`stroke`.
+
+Compatibility note: the legacy `ui/Spinner.svelte` wrapper and `.spinner` selector have been removed. Import `{ Spinner }` from `$lib/components/ui/spinner`.
 
 ---
 
@@ -969,6 +948,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
         {people.find((person) => person.value === selectedPerson)?.label ?? 'Search personnel'}
     </Combobox.Trigger>
     <Combobox.Content>
+        <Combobox.Search placeholder="Search personnel..." />
         <Combobox.Empty>No people found.</Combobox.Empty>
         <Combobox.List>
             {#snippet children(value, option)}
@@ -981,7 +961,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
 
 For multi-select behavior, either use `Combobox.Root multiple` directly or prefer the `ui/multi-select` namespace below when the control is conceptually a multi-select.
 
-Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Chip` and `Item` require `value: string`; `Item` can also receive `label` and `description`.
+Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Search` wraps the command input and keeps filtering inside the shared primitive. `Chip` and `Item` require `value: string`; `Item` can also receive `label`, `description`, and `searchValue`.
 
 - Use for large option lists, searchable personnel/template/type lookup, clearable and non-clearable search selection, and no-results states.
 - Pass string items for simple lists. Pass object options when routes need stable ids, display labels, descriptions, group headings, or disabled options.
@@ -1102,51 +1082,34 @@ Token-aligned calendar/matrix day cell primitive. Use this for dense date status
 
 Props: `statuses?: DateCellStatus[]`, `markers?: DateCellMarker[]`, `weekend?: boolean`, `today?: boolean`, `holiday?: boolean`, `holidayName?: string`, `onboarding?: boolean`, `showStatusText?: boolean`, `density?: 'month' | 'long-range'`, plus button attributes.
 
-Compatibility: `ui/DateCell.svelte` remains available for current calendar consumers and delegates to `ui/date-cell`.
+Compatibility: the legacy `ui/DateCell.svelte` wrapper has been removed. Calendar consumers should map product data into the `statuses` and `markers` props directly.
 
 ---
 
-## `ui/EmptyState.svelte`
+## `ui/empty`
 
-Empty list placeholder with optional action button.
+Composable empty list placeholder.
 
 ```svelte
-<EmptyState message="No items yet." />
-
-<!-- With action button -->
-<EmptyState message="No types defined." actionLabel="Add Type" onAction={handleAdd} />
-<EmptyState message="No results." actionLabel="Browse All" actionHref="/all" />
-
-<!-- Simple variant (italic, no bg) -->
-<EmptyState message="Nothing to show." variant="simple" />
+<Empty.Root>
+	<Empty.Header>
+		<Empty.Title>No items yet.</Empty.Title>
+		<Empty.Description>Add the first item to start this workflow.</Empty.Description>
+	</Empty.Header>
+	<Button size="sm">Add Item</Button>
+</Empty.Root>
 ```
 
-Props: `message: string`, `variant?: 'box' | 'simple'` (default `'box'`), `actionLabel?: string`, `onAction?: () => void`, `actionHref?: string`
-
-`actionLabel` requires either `onAction` or `actionHref` to render the button.
+Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
 
 ---
 
-## `ui/FileUpload.svelte`
+## File Upload Pattern
 
-File upload/download with drag-and-drop. Uses application endpoints for upload, signed download, and removal.
+The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows should compose `Field`, `Input type="file"`, `Button`, `Spinner`, `Alert`, and `Progress` as needed, keeping endpoint behavior in the owning feature.
 
-```svelte
-<FileUpload
-    {filePath}
-    uploadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    downloadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    removeUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-    onUpload={(path) => (filePath = path)}
-    onRemove={() => (filePath = null)}
-    label="PDF Document"
-/>
-```
-
-Props: `filePath: string | null`, `uploadUrl: string`, `downloadUrl: string`, `removeUrl: string`, `onUpload: (path: string) => void`, `onRemove: () => void`, `accept?: string` (default `'application/pdf'`), `label?: string` (default `'PDF Document'`), `disabled?: boolean`
-
-**States**: empty (dashed drop zone + "Choose PDF" button), uploading (Spinner + filename), file exists (download link + "Remove" button).
-**Endpoint contract**:
+**States**: empty file input or drop zone, uploading progress, selected-file display, file exists, remove, and error feedback.
+**Endpoint contract** for sign-in roster signed scans:
 
 - `POST uploadUrl` with `FormData(file)` returns `{ filePath: string }`
 - `GET downloadUrl` returns `{ url: string }`
@@ -1318,32 +1281,28 @@ Rules:
 
 ---
 
-## Skeleton Components
+## `ui/skeleton`
 
 Use for loading states in pages that use `defer: true` streaming loads.
 
 ```svelte
-import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
-import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+import { Skeleton } from '$lib/components/ui/skeleton';
 
 <!-- Block: card, image, hero area -->
-<SkeletonBlock width="100%" height="120px" borderRadius="8px" />
+<Skeleton class="h-[120px] w-full rounded-lg" />
 
 <!-- Line: text, labels -->
-<SkeletonLine width="60%" height="1em" />
+<Skeleton class="h-4 w-[60%]" />
 
 <!-- Grid: table/matrix skeleton -->
-<SkeletonGrid rows={5} columns={4} cellWidth="120px" cellHeight="38px" />
+<div class="grid grid-cols-4 gap-2" aria-hidden="true">
+    {#each Array(20) as _, index (index)}
+        <Skeleton class="h-[38px] w-[120px]" />
+    {/each}
+</div>
 ```
 
-**SkeletonBlock** props: `width?: string` (default `'100%'`), `height?: string` (default `'80px'`), `borderRadius?: string`
-
-**SkeletonLine** props: `width?: string` (default `'100%'`), `height?: string` (default `'1em'`)
-
-**SkeletonGrid** props: `rows?: number` (default `3`), `columns?: number` (default `5`), `cellWidth?: string` (default `'100px'`), `cellHeight?: string` (default `'38px'`), `gap?: string` (default `var(--spacing-sm)`)
-
-All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
+The legacy `SkeletonBlock`, `SkeletonLine`, `SkeletonGrid`, and `.skeleton-pulse` wrappers have been removed. Preserve loading-state dimensions with Tailwind utilities on `Skeleton` and mark grouped skeleton-only placeholders with `aria-hidden="true"` when a parent status region already announces loading.
 
 ---
 
@@ -1675,20 +1634,9 @@ None. These are canonical tokens, not temporary aliases.
 .field-stack   /* vertical stack for control + support text/chip */
 ```
 
-### Button Classes
+### Legacy Class Compatibility
 
-`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-amber` / `.btn .btn-warning` | `.btn .btn-danger` | `.btn .btn-sm`
-
-Button guidance:
-
-- `btn-primary`: dark filled action for the default strong action on product surfaces.
-- `btn-amber` / `btn-warning`: reserved signal action for confirms, requests, exports, or actions that need deliberate emphasis.
-- `btn-secondary`: restrained outline action for cancel, back, close, and secondary utility actions.
-- `btn-danger`: destructive action only.
-
-### Form Classes
-
-`.input` | `.select` | `.label` | `.form-group` | `.form-row` | `.field-stack`
+Global `.btn`, `.input`, `.select`, `.label`, `.form-group`, and `.card` selectors are migration compatibility only. New or migrated production surfaces should compose `ui/button`, `ui/input`, `ui/textarea`, `ui/native-select` or `ui/select`, `ui/label`, `ui/field`, and `ui/card` instead.
 
 ### Section Card Tokens
 

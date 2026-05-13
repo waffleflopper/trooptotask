@@ -1,58 +1,48 @@
+import { toast as sonnerToast, type ExternalToast } from 'svelte-sonner';
+
 /**
- * Toast store — global notification queue for transient user feedback.
+ * Sonner-backed global notifications for transient user feedback.
  *
  * Auto-dismisses after `duration` ms (default 4000ms; errors default to 6000ms).
- * Rendered by `ToastContainer.svelte` mounted in the root layout.
+ * Rendered by the shadcn-svelte `Toaster` mounted in the root layout.
  *
  * Usage: `toastStore.success('Saved')`, `toastStore.error('Something went wrong')`.
  * Dismiss manually with `toastStore.dismiss(id)` if needed (e.g., for loading toasts).
  * Pass an `action` as the third argument to render an inline action button on the toast.
  */
-type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastId = string | number;
 
 export interface ToastAction {
 	label: string;
 	onClick: () => void;
 }
 
-interface Toast {
-	id: string;
-	type: ToastType;
-	message: string;
-	duration: number;
-	action?: ToastAction;
-}
-
 class ToastStore {
-	list = $state<Toast[]>([]);
-
-	#add(type: ToastType, message: string, duration: number, action?: ToastAction) {
-		const id = crypto.randomUUID();
-		this.list.push({ id, type, message, duration, action });
-
-		setTimeout(() => {
-			this.dismiss(id);
-		}, duration);
+	#options(duration: number, action?: ToastAction): ExternalToast {
+		return {
+			duration,
+			action
+		};
 	}
 
-	success(message: string, duration?: number, action?: ToastAction) {
-		this.#add('success', message, duration ?? 4000, action);
+	success(message: string, duration?: number, action?: ToastAction): ToastId {
+		return sonnerToast.success(message, this.#options(duration ?? 4000, action));
 	}
 
-	error(message: string, duration?: number, action?: ToastAction) {
-		this.#add('error', message, duration ?? 6000, action);
+	error(message: string, duration?: number, action?: ToastAction): ToastId {
+		return sonnerToast.error(message, this.#options(duration ?? 6000, action));
 	}
 
-	warning(message: string, duration?: number, action?: ToastAction) {
-		this.#add('warning', message, duration ?? 4000, action);
+	warning(message: string, duration?: number, action?: ToastAction): ToastId {
+		return sonnerToast.warning(message, this.#options(duration ?? 4000, action));
 	}
 
-	info(message: string, duration?: number, action?: ToastAction) {
-		this.#add('info', message, duration ?? 4000, action);
+	info(message: string, duration?: number, action?: ToastAction): ToastId {
+		return sonnerToast.info(message, this.#options(duration ?? 4000, action));
 	}
 
-	dismiss(id: string) {
-		this.list = this.list.filter((t) => t.id !== id);
+	dismiss(id?: ToastId): ToastId | undefined {
+		return sonnerToast.dismiss(id);
 	}
 }
 

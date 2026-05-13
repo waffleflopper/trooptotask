@@ -10,7 +10,8 @@
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
-	import DateCell from '$lib/components/ui/DateCell.svelte';
+	import * as DateCell from '$lib/components/ui/date-cell/index.js';
+	import type { DateCellMarkerData, DateCellStatus } from '$lib/components/ui/date-cell/index.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
@@ -102,6 +103,49 @@
 	function handlePersonClick() {
 		onPersonClick?.(person);
 	}
+
+	function getDateCellStatuses(entries: AvailabilityEntry[]): DateCellStatus[] {
+		return entries.flatMap((entry) => {
+			const status = statusTypeMap.get(entry.statusTypeId);
+			return status
+				? [
+						{
+							id: entry.id,
+							color: status.color,
+							name: status.name,
+							textColor: status.textColor,
+							note: entry.note ?? undefined
+						}
+					]
+				: [];
+		});
+	}
+
+	function getDateCellMarkers(
+		assignments: { type: AssignmentType; assignment: DailyAssignment }[],
+		dutyBadges: DutyEventBadge[]
+	): DateCellMarkerData[] {
+		return [
+			...assignments.map(({ type, assignment }) => ({
+				id: assignment.id,
+				name: type.name,
+				shortName: type.shortName,
+				color: type.color,
+				textColor: '#ffffff',
+				title: type.name,
+				kind: 'assignment' as const
+			})),
+			...dutyBadges.map((badge) => ({
+				id: badge.slotId,
+				name: badge.title,
+				shortName: badge.shortName,
+				color: badge.color,
+				textColor: badge.textColor,
+				title: badge.title,
+				kind: 'duty' as const
+			}))
+		];
+	}
 </script>
 
 <div
@@ -153,18 +197,17 @@
 	{#each dates as date (formatDate(date))}
 		{@const dateStr = formatDate(date)}
 		{@const specialDay = specialDayMap.get(dateStr)}
-		<DateCell
-			{date}
-			isWeekend={isWeekend(date)}
-			isToday={isToday(date)}
-			isHoliday={!!specialDay}
+		{@const statuses = getDateCellStatuses(availabilityByDate.get(dateStr) ?? [])}
+		{@const markers = getDateCellMarkers(assignmentsByDate.get(dateStr) ?? [], personDutyBadges?.get(dateStr) ?? [])}
+		<DateCell.Root
+			weekend={isWeekend(date)}
+			today={isToday(date)}
+			holiday={!!specialDay}
 			holidayName={specialDay?.name}
-			entries={availabilityByDate.get(dateStr) ?? []}
-			{statusTypeMap}
-			assignments={assignmentsByDate.get(dateStr) ?? []}
-			dutyBadges={personDutyBadges?.get(dateStr) ?? []}
+			{statuses}
+			{markers}
 			{showStatusText}
-			isOnboarding={isOnboarding && highlightOnboarding}
+			onboarding={isOnboarding && highlightOnboarding}
 			onclick={() => handleCellClick(date)}
 		/>
 	{/each}

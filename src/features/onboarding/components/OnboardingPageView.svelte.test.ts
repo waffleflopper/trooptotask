@@ -16,7 +16,7 @@ function makeCtx(overrides: Partial<OnboardingPageContext> = {}): OnboardingPage
 		hasTemplateSteps: true,
 		historyUrl: '/org/org-1/onboarding/history',
 		templatesUrl: '/org/org-1/onboarding/templates',
-		overflowItems: [{ label: 'View Report', onclick: vi.fn() }],
+		overflowItems: [],
 		modals: { open: vi.fn() },
 		onboardings: [],
 		filteredOnboardings: [],

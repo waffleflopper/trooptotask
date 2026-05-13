@@ -1,12 +1,5 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
-	import DateCell from '$lib/components/ui/DateCell.svelte';
-	import LegacyBadge from '$lib/components/ui/Badge.svelte';
-	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
-	import LegacySkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import LegacySkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import LegacySkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
-	import LegacySpinner from '$lib/components/ui/Spinner.svelte';
 	import * as DateCellPrimitive from '$lib/components/ui/date-cell/index.js';
 	import * as InlineNotesPrimitive from '$lib/components/ui/inline-notes/index.js';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix/index.js';
@@ -42,8 +35,6 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
 	import * as WorkflowPanel from '$lib/components/ui/workflow-panel/index.js';
-	import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$lib/types';
-	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 
 	type ComponentMapItem = {
 		id: string;
@@ -138,10 +129,11 @@
 		{
 			id: 'badges',
 			group: 'Status',
-			current: 'Badge.svelte, .chip, status dots',
-			target: 'ui/badge',
+			current: '.chip, status dots, removed admin-only Badge.svelte island',
+			target: 'ui/badge, ui/calendar-status-badge, ui/requirement-status-badge',
 			status: 'direct',
-			notes: 'Base Badge should stay semantic. Calendar custom colors belong behind CalendarStatusBadge.'
+			notes:
+				'Base Badge stays semantic. Calendar custom colors belong behind CalendarStatusBadge. The old admin Badge wrapper has been removed.'
 		},
 		{
 			id: 'legends',
@@ -155,15 +147,15 @@
 		{
 			id: 'skeletons',
 			group: 'Feedback',
-			current: 'SkeletonLine, SkeletonBlock, SkeletonGrid, .skeleton-pulse',
+			current: 'Removed SkeletonLine, SkeletonBlock, SkeletonGrid, .skeleton-pulse',
 			target: 'ui/skeleton',
-			status: 'compose',
-			notes: 'Keep project grid/line helpers as wrappers over shadcn skeleton.'
+			status: 'direct',
+			notes: 'Use ui/skeleton directly with Tailwind dimensions for loading layouts.'
 		},
 		{
 			id: 'loading',
 			group: 'Feedback',
-			current: 'Spinner.svelte, .spinner',
+			current: 'Removed Spinner.svelte and .spinner',
 			target: 'ui/spinner and ui/progress',
 			status: 'direct',
 			notes: 'Spinner for indeterminate work. Progress for known completion.'
@@ -171,7 +163,7 @@
 		{
 			id: 'empty-alert',
 			group: 'Feedback',
-			current: 'EmptyState.svelte and route-local notice boxes',
+			current: 'Removed EmptyState.svelte and route-local notice boxes',
 			target: 'ui/empty and ui/alert',
 			status: 'compose',
 			notes: 'Empty and alert copy stays route-owned. Shape and spacing stay shared.'
@@ -185,9 +177,18 @@
 			notes: 'Toolbar behavior remains route-owned. Visual structure should stay in the shared toolbar.'
 		},
 		{
+			id: 'admin-workspace',
+			group: 'Workspace structure',
+			current: 'Removed platform admin admin-* CSS layer',
+			target: 'ui/sidebar, ui/page-shell, ui/card, ui/table, ui/tabs, ui/alert, ui/empty, ui/field, ui/command',
+			status: 'compose',
+			notes:
+				'Platform admin routes now compose existing shared primitives and Tailwind layout utilities. Remaining global .btn/.input/.select/.label selectors are non-admin follow-up cleanup.'
+		},
+		{
 			id: 'modal-dialogs',
 			group: 'Overlays',
-			current: 'Modal.svelte',
+			current: 'Removed Modal.svelte',
 			target: 'ui/app-dialog or ui/dialog',
 			status: 'compose',
 			notes: 'Standard form and review dialogs should use the shared app dialog foundation.'
@@ -385,89 +386,30 @@
 		criticalTaskStatus?: CriticalTaskRequirementStatus;
 	}[];
 
-	const dateCellStatusTypes = new Map<string, StatusType>([
-		[
-			'leave',
-			{
-				id: 'leave',
-				name: 'Leave',
-				color: '#345b22',
-				textColor: '#f7f8f4',
-				da6AvailabilityTreatment: 'authorized-absence',
-				da6TreatmentReviewed: true
-			}
-		],
-		[
-			'training',
-			{
-				id: 'training',
-				name: 'Training',
-				color: '#c47f00',
-				textColor: '#0e0e0d',
-				da6AvailabilityTreatment: 'other-duty',
-				da6TreatmentReviewed: true
-			}
-		]
-	]);
-
-	const dateCellEntries: AvailabilityEntry[] = [
-		{
-			id: 'availability-1',
-			personnelId: 'personnel-1',
-			statusTypeId: 'leave',
-			startDate: '2026-05-09',
-			endDate: '2026-05-10',
-			note: 'Approved pass'
-		},
-		{
-			id: 'availability-2',
-			personnelId: 'personnel-1',
-			statusTypeId: 'training',
-			startDate: '2026-05-09',
-			endDate: '2026-05-09',
-			note: 'Range support'
-		}
-	];
-
-	const dateCellAssignments: { type: AssignmentType; assignment: DailyAssignment }[] = [
-		{
-			type: {
-				id: 'staff-duty',
-				name: 'Staff Duty',
-				shortName: 'SD',
-				assignTo: 'personnel',
-				color: '#263f75',
-				exemptPersonnelIds: [],
-				showInDateHeader: true
-			},
-			assignment: {
-				id: 'assignment-1',
-				date: '2026-05-09',
-				assignmentTypeId: 'staff-duty',
-				assigneeId: 'personnel-1'
-			}
-		}
-	];
-
-	const dateCellDutyBadges: DutyEventBadge[] = [
-		{
-			shortName: 'CQ',
-			color: '#6f3f7d',
-			textColor: '#ffffff',
-			title: 'Charge of Quarters',
-			eventId: 'duty-event-1',
-			slotId: 'slot-1'
-		}
-	];
-
 	const dateCellTargetStatuses = [
 		{ id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' },
 		{ id: 'training', name: 'Training', color: '#c47f00', textColor: '#0e0e0d', note: 'Range support' }
 	];
 
 	const dateCellTargetMarkers = [
-		{ id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' },
-		{ id: 'cq', name: 'Charge of Quarters', shortName: 'CQ', color: '#6f3f7d', textColor: '#ffffff' }
+		{
+			id: 'staff-duty',
+			name: 'Staff Duty',
+			shortName: 'SD',
+			color: '#263f75',
+			textColor: '#ffffff',
+			title: 'Staff Duty',
+			kind: 'assignment' as const
+		},
+		{
+			id: 'cq',
+			name: 'Charge of Quarters',
+			shortName: 'CQ',
+			color: '#6f3f7d',
+			textColor: '#ffffff',
+			title: 'Charge of Quarters',
+			kind: 'duty' as const
+		}
 	];
 
 	const inlineNotes = [
@@ -655,25 +597,15 @@
 			<div class="unmatched-card unmatched-card--full">
 				<div class="unmatched-card__header">
 					<span class="map-group">Data display</span>
-					<h3>DateCell.svelte</h3>
+					<h3>Removed DateCell.svelte wrapper</h3>
 				</div>
 				<div class="unmatched-pair">
 					<div class="pattern-preview">
-						<p class="legend-label">Current component</p>
-						<div class="date-cell-frame" aria-label="Current DateCell preview">
-							<DateCell
-								date={new Date('2026-05-09T12:00:00')}
-								isWeekend={false}
-								isToday={true}
-								isHoliday={true}
-								holidayName="Training Holiday"
-								entries={dateCellEntries}
-								statusTypeMap={dateCellStatusTypes}
-								assignments={dateCellAssignments}
-								dutyBadges={dateCellDutyBadges}
-								showStatusText={true}
-							/>
-						</div>
+						<p class="legend-label">Removed wrapper</p>
+						<p class="legend-copy">
+							Legacy DateCell.svelte no longer exists. Calendar rows map product data into ui/date-cell status and
+							marker props directly.
+						</p>
 					</div>
 					<div class="pattern-preview">
 						<p class="legend-label">ui/date-cell</p>
@@ -1335,10 +1267,10 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current badges and chips</h3>
+				<h3>Previous badge-like chips</h3>
 				<div class="example-inline">
-					<LegacyBadge label="Ready" color="#345b22" textColor="#f7f8f4" />
-					<LegacyBadge label="Warning" color="#c47f00" textColor="#0e0e0d" />
+					<span class="chip bg-[color:#345b22] text-[#f7f8f4]">Ready</span>
+					<span class="chip bg-[color:#c47f00] text-[#0e0e0d]">Warning</span>
 					<span class="chip chip-primary">Manual</span>
 					<span class="chip chip-warning">Due</span>
 				</div>
@@ -1358,11 +1290,15 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current skeletons</h3>
+				<h3>Removed legacy skeleton wrappers</h3>
 				<div class="example-stack">
-					<LegacySkeletonLine width="70%" height="12px" />
-					<LegacySkeletonBlock height="56px" />
-					<LegacySkeletonGrid rows={2} columns={4} cellWidth="56px" cellHeight="28px" />
+					<Skeleton class="h-3 w-[70%]" />
+					<Skeleton class="h-14 w-full" />
+					<div class="target-skeleton-grid">
+						{#each Array(8) as _, index (index)}
+							<Skeleton class="h-7 w-14" />
+						{/each}
+					</div>
 				</div>
 			</div>
 			<div class="comparison-cell">
@@ -1383,10 +1319,10 @@
 			<div class="comparison-cell">
 				<h3>Current loading feedback</h3>
 				<div class="example-inline">
-					<button class="btn btn-primary" type="button">
-						<LegacySpinner />
+					<Button disabled>
+						<Spinner />
 						Saving
-					</button>
+					</Button>
 				</div>
 			</div>
 			<div class="comparison-cell">
@@ -1408,11 +1344,14 @@
 			<div class="comparison-cell">
 				<h3>Current empty and notice</h3>
 				<div class="example-stack">
-					<LegacyEmptyState
-						message="No records match this filter."
-						actionLabel="Clear filter"
-						onAction={() => undefined}
-					/>
+					<Empty.Root>
+						<ClipboardList class="size-8 text-muted-foreground" aria-hidden="true" />
+						<Empty.Header>
+							<Empty.Title>No records match this filter.</Empty.Title>
+							<Empty.Description>Adjust the current filters and try again.</Empty.Description>
+						</Empty.Header>
+						<Button size="sm" variant="outline">Clear filter</Button>
+					</Empty.Root>
 					<div class="legacy-notice">
 						<strong>Upload required</strong>
 						<span>Attach a roster before previewing the import.</span>

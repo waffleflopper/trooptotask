@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -56,13 +56,14 @@
 	}
 </script>
 
-<Dialog.Root open onOpenChange={(open) => !open && !submitting && onClose()}>
-	<Dialog.Content showCloseButton={!submitting}>
-		<Dialog.Header>
-			<Dialog.Title>Send Feedback</Dialog.Title>
-		</Dialog.Header>
+<AppDialog.Root closeBlocked={submitting} {onClose}>
+	<AppDialog.Content closeBlocked={submitting}>
+		<AppDialog.Header>
+			<AppDialog.Title>Send Feedback</AppDialog.Title>
+			<AppDialog.Description>Share feedback about the current page or workflow.</AppDialog.Description>
+		</AppDialog.Header>
 
-		<div class="grid gap-4">
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="feedback-category">Category</Label>
 				<Select.Root type="single" bind:value={category}>
@@ -90,14 +91,14 @@
 					required
 				/>
 			</div>
-		</div>
+		</AppDialog.Body>
 
-		<Dialog.Footer>
+		<AppDialog.Footer>
 			<Button type="button" variant="outline" onclick={onClose} disabled={submitting}>Cancel</Button>
 			<Button type="button" onclick={handleSubmit} disabled={!canSubmit || submitting}>
 				{#if submitting}<Spinner />{/if}
 				{submitting ? 'Submitting...' : 'Submit'}
 			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

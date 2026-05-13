@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
@@ -99,14 +99,14 @@
 		}
 	}
 
-	function sourceColor(src: string): string {
+	function sourceVariant(src: string): BadgeVariant {
 		switch (src) {
 			case 'subscription':
-				return 'var(--amber)';
+				return 'warning';
 			case 'gift':
-				return 'var(--success)';
+				return 'success';
 			default:
-				return 'var(--text-secondary)';
+				return 'secondary';
 		}
 	}
 
@@ -269,7 +269,9 @@
 				<div class="plan-header">
 					<h2>Current Plan:</h2>
 					<span class="plan-name">{tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}</span>
-					<Badge label={sourceLabel(source)} color={sourceColor(source)} />
+					<Badge variant={sourceVariant(source)} class="font-mono tracking-widest uppercase"
+						>{sourceLabel(source)}</Badge
+					>
 				</div>
 			</div>
 

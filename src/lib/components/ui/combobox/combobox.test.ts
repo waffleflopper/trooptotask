@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import ComboboxMultipleTest from './ComboboxMultipleTest.svelte';
+import ComboboxSingleTest from './ComboboxSingleTest.svelte';
 
 describe('Combobox multiple', () => {
 	afterEach(() => {
@@ -51,5 +52,40 @@ describe('Combobox multiple', () => {
 			expect(screen.queryByRole('listbox')).toBeNull();
 		});
 		expect(screen.getByRole('combobox', { name: 'Frameworks' }).getAttribute('aria-expanded')).toBe('false');
+	});
+});
+
+describe('Combobox single', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('searches by label and description, selects, and clears a value', async () => {
+		render(ComboboxSingleTest);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		const search = await screen.findByPlaceholderText('Search personnel...');
+		await fireEvent.input(search, { target: { value: 'A Co' } });
+
+		const listbox = screen.getByRole('listbox');
+		expect(within(listbox).queryByRole('option', { name: /Avery Brooks/ })).toBeNull();
+		await fireEvent.click(within(listbox).getByRole('option', { name: /Maya Chen/ }));
+
+		expect(screen.getByLabelText('Selected person').textContent).toBe('maya');
+		expect(screen.getByRole('button', { name: 'Person' }).textContent).toContain('Maya Chen');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+		expect(screen.getByLabelText('Selected person').textContent).toBe('');
+	});
+
+	it('shows an empty state when search has no matches', async () => {
+		render(ComboboxSingleTest);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		await fireEvent.input(await screen.findByPlaceholderText('Search personnel...'), {
+			target: { value: 'No matching person' }
+		});
+
+		expect(await screen.findByText('No people found.')).toBeTruthy();
 	});
 });

@@ -2,7 +2,6 @@
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import SearchCombobox from '$lib/components/ui/SearchCombobox.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -195,12 +194,19 @@
 
 			{#if selectedType?.assignTo === 'personnel'}
 				<div class="quick-fill-control">
-					<SearchCombobox
+					<Combobox.Root
+						items={personnelOptions}
 						bind:value={quickFillPerson}
-						options={personnelOptions}
-						placeholder="Search personnel..."
-						ariaLabel="Select quick-fill person"
-					/>
+						label="Select quick-fill person"
+						autoHighlight
+					>
+						<Combobox.Trigger clearable placeholder="Search personnel..." aria-label="Select quick-fill person" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="Search personnel..." />
+							<Combobox.Empty>No personnel found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
 				</div>
 			{:else if selectedType?.assignTo === 'group'}
 				<div class="quick-fill-control">
@@ -274,13 +280,25 @@
 							{@const assignment = getAssignment(date, type.id)}
 							<td class="px-2 py-1.5">
 								{#if type.assignTo === 'personnel'}
-									<SearchCombobox
+									<Combobox.Root
+										items={personnelOptions}
 										value={assignment?.assigneeId ?? ''}
-										options={personnelOptions}
-										placeholder="-"
-										ariaLabel={`Select ${type.name} assignee for ${dateStr}`}
-										onchange={(value) => handleChange(date, type.id, value)}
-									/>
+										label={`Select ${type.name} assignee for ${dateStr}`}
+										onValueChange={(value) =>
+											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+										autoHighlight
+									>
+										<Combobox.Trigger
+											clearable
+											placeholder="-"
+											aria-label={`Select ${type.name} assignee for ${dateStr}`}
+										/>
+										<Combobox.Content>
+											<Combobox.Search placeholder="Search personnel..." />
+											<Combobox.Empty>No personnel found.</Combobox.Empty>
+											<Combobox.List />
+										</Combobox.Content>
+									</Combobox.Root>
 								{:else}
 									<Combobox.Root
 										items={groupOptions}

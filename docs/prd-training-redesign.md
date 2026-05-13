@@ -225,19 +225,17 @@ The export produces a CSV matching the filtered detail table:
 
 #### Reusable Primitives
 
-New shared UI components in `$lib/components/ui/`:
+Shared UI component in `$lib/components/ui/skeleton`:
 
-- `SkeletonLine` — a single pulsing line placeholder (configurable width, height)
-- `SkeletonBlock` — a rectangular pulsing block (configurable dimensions)
-- `SkeletonGrid` — a grid of pulsing cells (configurable rows, columns)
+- `Skeleton` — shadcn-style skeleton primitive composed with Tailwind dimensions for line, block, and grid placeholders
 
-These are generic primitives that can be composed into page-specific skeleton layouts across the app, not just training.
+This generic primitive can be composed into page-specific skeleton layouts across the app, not just training.
 
 #### Training-Specific Skeletons
 
 The matrix page renders its full structure immediately (toolbar, filter bar, stats bar, matrix container) with skeleton placeholders:
-- Stats bar: `SkeletonBlock` for each stat card
-- Matrix: `SkeletonGrid` matching the heatmap cell dimensions
+- Stats bar: `Skeleton` for each stat card
+- Matrix: a `Skeleton` grid matching the heatmap cell dimensions
 - Filter bar: rendered immediately (no skeleton needed)
 
 Data replaces skeletons as it loads. On slow government machines, this turns a blank white screen into an instant page structure with progressive data population.
@@ -291,9 +289,7 @@ Existing training API routes are updated to support the new applicability fields
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `SkeletonLine` | `$lib/components/ui/` | Single line placeholder |
-| `SkeletonBlock` | `$lib/components/ui/` | Rectangular block placeholder |
-| `SkeletonGrid` | `$lib/components/ui/` | Grid of cell placeholders |
+| `Skeleton` | `$lib/components/ui/skeleton` | Line, block, and grid loading placeholders composed with Tailwind dimensions |
 | `TrainingTypesPage` | `$features/training/components/` | Two-panel type management |
 | `TrainingTypeDetail` | `$features/training/components/` | Right panel: view + edit mode |
 | `TrainingReportsPage` | `$features/training/components/` | Dashboard + detail table |

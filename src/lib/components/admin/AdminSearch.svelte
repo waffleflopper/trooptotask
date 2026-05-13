@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Command from '$lib/components/ui/command';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let query = $state('');
 	let results = $state<{
@@ -9,6 +12,8 @@
 	let isOpen = $state(false);
 	let loading = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout>;
+
+	const hasResults = $derived(results.users.length > 0 || results.organizations.length > 0);
 
 	function handleInput() {
 		clearTimeout(debounceTimer);
@@ -23,7 +28,7 @@
 				const res = await fetch(`/admin/api/search?q=${encodeURIComponent(query.trim())}`);
 				if (res.ok) {
 					results = await res.json();
-					isOpen = results.users.length > 0 || results.organizations.length > 0;
+					isOpen = hasResults;
 				}
 			} finally {
 				loading = false;
@@ -34,161 +39,69 @@
 	function close() {
 		setTimeout(() => {
 			isOpen = false;
-		}, 200);
+		}, 160);
 	}
 </script>
 
-<div class="admin-search">
-	<div class="admin-search__field">
-		<input
+<div class="relative w-full max-w-lg">
+	<Command.Root class="h-auto bg-transparent p-0 shadow-none">
+		<Command.Input
 			id="platform-admin-search"
-			type="text"
-			class="input admin-search__input"
 			aria-label="Search platform admin records"
-			placeholder="Search users by email or organizations by name..."
+			placeholder="Search users or organizations..."
 			bind:value={query}
 			oninput={handleInput}
+			onfocus={() => {
+				if (hasResults) isOpen = true;
+			}}
 			onblur={close}
 		/>
-		{#if loading}
-			<span class="admin-search__status">Searching</span>
-		{:else}
-			<span class="admin-search__hint">3+ chars</span>
-		{/if}
-	</div>
+	</Command.Root>
 
 	{#if isOpen}
-		<div class="admin-search__dropdown">
-			{#if results.users.length > 0}
-				<p class="admin-search__section">Users</p>
-				{#each results.users as user (user.id)}
-					<a href="/admin/users/{user.id}" class="admin-search__result">
-						<span class="admin-search__primary">{user.email}</span>
-						<span class="admin-search__secondary">{user.orgCount} org{user.orgCount === 1 ? '' : 's'}</span>
-					</a>
-				{/each}
-			{/if}
+		<Command.Root
+			class="absolute top-[calc(100%+0.375rem)] right-0 left-0 z-50 max-h-[22rem] min-h-48 border shadow-lg"
+		>
+			<Command.List class="max-h-[21.5rem]">
+				{#if loading}
+					<Command.Loading>
+						<span class="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground"><Spinner /> Searching</span>
+					</Command.Loading>
+				{/if}
 
-			{#if results.organizations.length > 0}
-				<p class="admin-search__section">Organizations</p>
-				{#each results.organizations as org (org.id)}
-					<a href="/admin/organizations/{org.id}" class="admin-search__result">
-						<span class="admin-search__primary">{org.name}</span>
-						<span class="admin-search__meta">
-							<span class="admin-search__badge" style="color: {ADMIN_TIER_COLORS[org.tier] ?? 'var(--ink-35)'}">
-								{formatAdminLabel(org.tier)}
-							</span>
-							<span class="admin-search__secondary">{org.personnelCount} personnel</span>
-						</span>
-					</a>
-				{/each}
-			{/if}
-		</div>
+				{#if results.users.length > 0}
+					<Command.Group heading="Users">
+						{#each results.users as user (user.id)}
+							<Command.LinkItem href="/admin/users/{user.id}">
+								<span class="grid min-w-0 flex-1">
+									<span class="truncate font-medium">{user.email}</span>
+									<span class="truncate text-xs text-muted-foreground">
+										{user.orgCount} org{user.orgCount === 1 ? '' : 's'}
+									</span>
+								</span>
+							</Command.LinkItem>
+						{/each}
+					</Command.Group>
+				{/if}
+
+				{#if results.organizations.length > 0}
+					<Command.Group heading="Organizations">
+						{#each results.organizations as org (org.id)}
+							<Command.LinkItem href="/admin/organizations/{org.id}">
+								<span class="grid min-w-0 flex-1">
+									<span class="truncate font-medium">{org.name}</span>
+									<span class="truncate text-xs text-muted-foreground">{org.personnelCount} personnel</span>
+								</span>
+								<Badge variant={adminBadgeVariant(org.tier)}>{formatAdminLabel(org.tier)}</Badge>
+							</Command.LinkItem>
+						{/each}
+					</Command.Group>
+				{/if}
+
+				{#if !loading && !hasResults}
+					<Command.Empty>No admin records found.</Command.Empty>
+				{/if}
+			</Command.List>
+		</Command.Root>
 	{/if}
 </div>
-
-<style>
-	.admin-search {
-		position: relative;
-		flex: 1;
-		max-width: 560px;
-		min-width: 240px;
-	}
-
-	.admin-search__field {
-		position: relative;
-	}
-
-	.admin-search__input {
-		padding-right: 86px;
-	}
-
-	.admin-search__status,
-	.admin-search__hint,
-	.admin-search__section,
-	.admin-search__badge {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.admin-search__status,
-	.admin-search__hint {
-		position: absolute;
-		top: 50%;
-		right: var(--sp-3);
-		transform: translateY(-50%);
-		color: var(--text-tertiary);
-		pointer-events: none;
-	}
-
-	.admin-search__dropdown {
-		position: absolute;
-		top: calc(100% + 6px);
-		left: 0;
-		right: 0;
-		padding: var(--sp-2);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		box-shadow: var(--shadow-lg);
-		z-index: 50;
-		max-height: 420px;
-		overflow-y: auto;
-	}
-
-	.admin-search__section {
-		margin: var(--sp-2) var(--sp-2) var(--sp-1);
-		color: var(--text-tertiary);
-	}
-
-	.admin-search__result {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: 0.8rem 0.9rem;
-		border-radius: var(--radius-md);
-		color: var(--text-primary);
-	}
-
-	.admin-search__result:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-	}
-
-	.admin-search__primary {
-		font-size: var(--text-sm);
-		line-height: 1.4;
-	}
-
-	.admin-search__secondary {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.admin-search__meta {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-		justify-content: flex-end;
-	}
-
-	.admin-search__badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.18rem 0.45rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
-	}
-
-	@media (max-width: 900px) {
-		.admin-search {
-			max-width: none;
-			min-width: 0;
-		}
-	}
-</style>

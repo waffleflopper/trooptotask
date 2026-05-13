@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import type { OrganizationMember, PermissionPreset } from '$lib/types';
 	import { getPermissionPreset } from '$lib/types';
 	import { sortMembers } from '$features/groups/utils/sortMembers';
@@ -164,6 +165,12 @@
 			expandedMemberId = null;
 		}
 	}
+
+	function roleVariant(role: OrganizationMember['role']) {
+		if (role === 'owner') return 'warning';
+		if (role === 'admin') return 'info';
+		return 'secondary';
+	}
 </script>
 
 <div class="member-manager">
@@ -181,13 +188,12 @@
 								{:else}
 									<span class="member-id">{member.userId.slice(0, 8)}...</span>
 								{/if}
-								{#if member.role === 'owner'}
-									<Badge label="OWNER" color="var(--amber-dark)" />
-								{:else if member.role === 'admin'}
-									<Badge label="ADMIN" color="var(--info)" bold={true} />
-								{:else}
-									<Badge label="MEMBER" color="var(--ink-60)" />
-								{/if}
+								<Badge
+									variant={roleVariant(member.role)}
+									class={['font-mono tracking-widest uppercase', member.role === 'admin' && 'font-bold']}
+								>
+									{member.role}
+								</Badge>
 								{#if member.scopedGroupId}
 									<span class="scope-label"
 										>({groups.find((g) => g.id === member.scopedGroupId)?.name ?? 'Unknown group'})</span
@@ -277,7 +283,7 @@
 									</button>
 								</form>
 							{:else}
-								<Badge label={getPresetLabel(preset)} variant="outlined" />
+								<Badge variant="outline" class="font-mono tracking-widest uppercase">{getPresetLabel(preset)}</Badge>
 							{/if}
 
 							{#if isOwner && member.role !== 'owner'}
@@ -550,45 +556,47 @@
 	{/if}
 
 	{#if showTransferConfirm && transferTargetId}
-		<Modal
-			title="Transfer Ownership"
-			onClose={() => (showTransferConfirm = false)}
-			width="400px"
-			titleId="transfer-ownership-title"
-		>
-			<p>
-				Are you sure you want to transfer ownership of this organization? You will become an Admin member and lose owner
-				privileges.
-			</p>
-			<p class="warning">This action cannot be undone by you.</p>
+		<AppDialog.Root open closeBlocked={loading} onClose={() => (showTransferConfirm = false)}>
+			<AppDialog.Content closeBlocked={loading}>
+				<AppDialog.Header>
+					<AppDialog.Title id="transfer-ownership-title">Transfer Ownership</AppDialog.Title>
+					<AppDialog.Description>
+						You will become an Admin member and lose owner privileges. This action cannot be undone by you.
+					</AppDialog.Description>
+				</AppDialog.Header>
 
-			{#if form?.transferError}
-				<div class="error-message">{form.transferError}</div>
-			{/if}
+				<AppDialog.Body>
+					{#if form?.transferError}
+						<div class="error-message">{form.transferError}</div>
+					{/if}
 
-			<form
-				id="transfer-ownership-form"
-				method="POST"
-				action="?/transferOwnership"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						showTransferConfirm = false;
-						await update();
-					};
-				}}
-			>
-				<input type="hidden" name="newOwnerId" value={transferTargetId} />
-			</form>
+					<form
+						id="transfer-ownership-form"
+						method="POST"
+						action="?/transferOwnership"
+						use:enhance={() => {
+							loading = true;
+							return async ({ update }) => {
+								loading = false;
+								showTransferConfirm = false;
+								await update();
+							};
+						}}
+					>
+						<input type="hidden" name="newOwnerId" value={transferTargetId} />
+					</form>
+				</AppDialog.Body>
 
-			{#snippet footer()}
-				<button type="button" class="btn btn-secondary" onclick={() => (showTransferConfirm = false)}> Cancel </button>
-				<button type="submit" form="transfer-ownership-form" class="btn btn-danger" disabled={loading}>
-					{loading ? 'Transferring...' : 'Transfer Ownership'}
-				</button>
-			{/snippet}
-		</Modal>
+				<AppDialog.Footer>
+					<Button type="button" variant="outline" onclick={() => (showTransferConfirm = false)} disabled={loading}>
+						Cancel
+					</Button>
+					<Button type="submit" form="transfer-ownership-form" variant="destructive" disabled={loading}>
+						{loading ? 'Transferring...' : 'Transfer Ownership'}
+					</Button>
+				</AppDialog.Footer>
+			</AppDialog.Content>
+		</AppDialog.Root>
 	{/if}
 </div>
 
@@ -847,11 +855,6 @@
 		border-radius: var(--radius-md);
 		font-size: var(--text-sm);
 		margin-top: var(--sp-3);
-	}
-
-	.warning {
-		color: var(--danger);
-		font-weight: 500;
 	}
 
 	/* Mobile styles */

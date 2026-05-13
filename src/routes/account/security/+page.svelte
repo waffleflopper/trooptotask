@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { data }: { data: PageData } = $props();
 

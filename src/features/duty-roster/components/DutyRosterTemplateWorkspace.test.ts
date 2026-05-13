@@ -216,6 +216,65 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText('Showing 1 of 1 matching Soldiers. Search to narrow large pools.')).toBeTruthy();
 	});
 
+	it('filters the New Template pool with the shared shadcn combobox multi-select', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [],
+					selectedTemplate: null,
+					view: 'new',
+					setupOptions: {
+						personnel: [
+							{
+								id: 'person-1',
+								rank: 'SGT',
+								lastName: 'Able',
+								firstName: 'Ann',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							},
+							{
+								id: 'person-2',
+								rank: 'SPC',
+								lastName: 'Baker',
+								firstName: 'Bea',
+								mos: '42A',
+								dutyRole: 'Clerk',
+								groupId: 'bravo',
+								groupName: 'Bravo'
+							}
+						]
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+		expect(screen.getByText('Able, Ann')).toBeTruthy();
+		expect(screen.getByText('Baker, Bea')).toBeTruthy();
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'New Template rank filters' }));
+		await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'SGT' }));
+
+		expect(screen.getByRole('button', { name: 'Remove SGT' })).toBeTruthy();
+		expect(screen.getByText('Able, Ann')).toBeTruthy();
+		expect(screen.queryByText('Baker, Bea')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove SGT' }));
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'New Template Duty Role filters' }));
+		await fireEvent.input(screen.getByRole('combobox', { name: 'New Template Duty Role filters' }), {
+			target: { value: 'No match' }
+		});
+
+		expect(await screen.findByText('No duty role matches.')).toBeTruthy();
+	});
+
 	it('renders generated preview list and DA6 matrix without official actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {

@@ -40,11 +40,11 @@
 		</div>
 
 		<div class="footer__meta">
-			<div class="label">trooptotask.org</div>
+			<div class="footer-label">trooptotask.org</div>
 			<div class="footer__meta-divider"></div>
-			<div class="label">Version 2.0</div>
+			<div class="footer-label">Version 2.0</div>
 			<div class="footer__meta-divider"></div>
-			<div class="label">Built for unit leaders</div>
+			<div class="footer-label">Built for unit leaders</div>
 		</div>
 	</div>
 </footer>
@@ -56,7 +56,7 @@
 		padding: 0 var(--sp-8);
 	}
 
-	.label {
+	.footer-label {
 		font-family: var(--font-mono);
 		font-size: 9px;
 		font-weight: var(--font-weight-medium);

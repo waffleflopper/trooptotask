@@ -28,9 +28,6 @@ shadcn:
   baseColor: 'stone'
   css: 'src/app.css'
   uiPath: 'src/lib/components/ui'
-  showroom: '/ui-showroom'
-  appShellShowroom: '/ui-showroom/app-shell'
-  conversionMap: '/ui-showroom/conversion-map'
   themeSource: 'documentElement[data-theme]'
   transitionDarkModeSupport: 'data-theme and .dark'
   tokenLayer: 'Tailwind v4 @theme inline variables mapped from CSS custom properties'
@@ -128,7 +125,7 @@ TroopToTask should feel like shadcn-svelte translated through a field ledger: di
 
 This is a product register system. Design serves the work. Authenticated surfaces should prioritize dense but ordered information, predictable controls, fast filtering, and brief-ready comprehension. Marketing gestures, ornamental hero treatments, gratuitous motion, and decorative panels are out of place inside the app.
 
-The current UI direction is a shadcn-svelte and Tailwind v4 migration, not a route-by-route redesign. The approved visual baseline is the shared component system demonstrated in `/ui-showroom` and `/ui-showroom/app-shell`. Future design work should start from those primitives, their compound project wrappers, and the shared tokens in `src/app.css`.
+The current UI direction is a shadcn-svelte and Tailwind v4 migration, not a route-by-route redesign. The approved visual baseline is the shared component system under `src/lib/components/ui/**`, the compound project wrappers, and the shared tokens in `src/app.css`.
 
 The visual system rejects generic SaaS marketing, shiny startup dashboards, soft productivity-app tropes, "AI slop," fake command-center theatrics, decorative gradients, glassmorphism, excessive roundness, heavy glow, purple-gradient AI aesthetics, novelty motion, card soup, stock military cliches, and trend-chasing visuals.
 
@@ -217,15 +214,15 @@ TroopToTask is flat by default and layered by structure. Depth comes primarily f
 
 **The Border Before Shadow Rule.** Reach for a 1px rule, tonal background, or alignment before adding shadow.
 
-**The Shared Layer Owns Depth Rule.** Radius, border, shadow, ring, and hover depth for buttons, fields, cards, dialogs, menus, popovers, sheets, tables, and toolbars must be calibrated in shared UI and proven in the showroom before production routes consume them.
+**The Shared Layer Owns Depth Rule.** Radius, border, shadow, ring, and hover depth for buttons, fields, cards, dialogs, menus, popovers, sheets, tables, and toolbars must be calibrated in shared UI before production routes consume them.
 
 ## 5. Components
 
-TroopToTask now treats shadcn-svelte primitives and shadcn-derived compound components as the primary UI foundation. Generated shadcn code is project-owned once installed, but visual changes still happen centrally in `src/lib/components/ui/**`, `src/lib/components/**`, `src/app.css`, `components.json`, and `/ui-showroom`.
+TroopToTask now treats shadcn-svelte primitives and shadcn-derived compound components as the primary UI foundation. Generated shadcn code is project-owned once installed, but visual changes still happen centrally in `src/lib/components/ui/**`, `src/lib/components/**`, `src/app.css`, and `components.json`.
 
 Production routes may configure behavior, data, labels, permissions, validation, columns, filters, sorting, loading, disabled state, and action handlers. They must not visually retune calibrated shared components through route-local classes, arbitrary Tailwind values, internal selectors, local CSS, or route-specific wrapper styling unless Robert explicitly approves the exception.
 
-Use `/ui-showroom/conversion-map` before replacing legacy components. If a shared component cannot express a real route need, report a design-system gap and extend the shared component/API with showroom coverage instead of patching the route locally.
+Check `docs/component-catalog.md` before replacing legacy components. If a shared component cannot express a real route need, report a design-system gap and extend the shared component/API instead of patching the route locally.
 
 ### shadcn Foundation
 
@@ -233,7 +230,7 @@ Use `/ui-showroom/conversion-map` before replacing legacy components. If a share
 - **Current style:** `nova` with `stone` base color, as recorded by the implementation-time shadcn-svelte CLI.
 - **Token layer:** Tailwind v4 via `@import "tailwindcss"` and `@theme inline` in `src/app.css`.
 - **Dark mode:** `documentElement[data-theme]` remains the app source of truth; `.dark` is also supported during the migration for shadcn compatibility.
-- **Review surface:** `/ui-showroom` and `/ui-showroom/app-shell` are the approved places to calibrate and review shared component appearance.
+- **Review surface:** shared component source, `docs/component-catalog.md`, `components.json`, and `src/app.css` are the approved references for shared component appearance.
 
 ### Buttons
 
@@ -268,7 +265,7 @@ Data-heavy surfaces should use shadcn table primitives, the shared `ui/data-tabl
 
 - **DataTable:** Use the shadcn-backed shared table system for sortable, searchable, paged, selectable, and action-heavy lists.
 - **OperationalMatrix:** Training, Critical Tasks, DA6, and long-range calendar grids are not generic DataTables. Use `ui/operational-matrix` or a feature wrapper around it when the surface needs sticky axes, narrow rotated headers, legends, and status cells.
-- **Reports / Charts:** Use shared report and chart wrappers that follow shadcn chart conventions and the showroom conversion map.
+- **Reports / Charts:** Use shared report and chart wrappers that follow shadcn chart conventions and the component catalog mapping.
 - **Density:** Fixed dimensions, sticky headers where useful, visible focus, accessible row actions, and color-independent status labels are required.
 
 ### Chips
@@ -320,11 +317,11 @@ Feedback states should come from shared shadcn-backed primitives: `empty`, `aler
 - Alerts are semantic and compact. Avoid route-local warning boxes, notice banners, and context panels once a shared primitive exists.
 - Loading states should preserve layout and prevent text or controls from jumping.
 
-### Showroom And Migration Governance
+### Migration Governance
 
-- `/ui-showroom` is the only approved calibration surface for shared visual appearance.
-- `/ui-showroom/app-shell` is the app-shell visual baseline.
-- `/ui-showroom/conversion-map` records legacy-to-shadcn replacement decisions.
+- Shared UI source, `docs/component-catalog.md`, `components.json`, and `src/app.css` are the approved references for shared visual appearance.
+- The shared app-shell components are the app-shell visual baseline.
+- `docs/component-catalog.md` records legacy-to-shadcn replacement decisions.
 - Production route migration should start with a gap scan. If required primitives are missing, stop and create or extend shared UI before migrating the route.
 - Do not bridge old components with compatibility adapters unless a slice explicitly approves that tradeoff. Prefer clean replacement, then delete obsolete local CSS and legacy component paths.
 
@@ -333,13 +330,13 @@ Feedback states should come from shared shadcn-backed primitives: `empty`, `aler
 ### Do:
 
 - **Do** start new product UI from calibrated shadcn-svelte primitives and project-owned compound components.
-- **Do** use `/ui-showroom`, `/ui-showroom/app-shell`, and `/ui-showroom/conversion-map` as the visual review and migration baseline.
+- **Do** use shared UI source, `docs/component-catalog.md`, `components.json`, and `src/app.css` as the visual review and migration baseline.
 - **Do** use warm paper surfaces, dark ink, hairline rules, and tight radii as the default visual grammar.
 - **Do** keep operational amber rare and meaningful: focus, active nav, selected state, current day, and action emphasis.
 - **Do** use mono labels for metadata, filters, breadcrumbs, table headers, badges, and operational markers.
 - **Do** make dense product controls predictable, keyboard-accessible, and visually stable across breakpoints.
 - **Do** use grids, dividers, alignment, and grouping to communicate operational order.
-- **Do** put durable visual variants in shared UI with showroom coverage and component-catalog documentation.
+- **Do** put durable visual variants in shared UI with component-catalog documentation.
 - **Do** let routes configure behavior and content while shared components own appearance.
 - **Do** preserve WCAG AA contrast and never depend on color alone for status.
 
@@ -348,7 +345,7 @@ Feedback states should come from shared shadcn-backed primitives: `empty`, `aler
 - **Don't** visually retune shared components from production routes without explicit owner permission.
 - **Don't** use arbitrary Tailwind values, internal selectors, or route-local wrapper classes to change shared component spacing, radius, border, shadow, typography, color, animation, or density.
 - **Don't** keep legacy wrappers such as old toolbar, search-select, multi-tag-select, empty-state, file-upload, or spinner patterns when a calibrated shadcn replacement exists.
-- **Don't** treat generic shadcn defaults as automatically sufficient. Calibrate them in the showroom for TroopToTask first.
+- **Don't** treat generic shadcn defaults as automatically sufficient. Calibrate them in shared UI for TroopToTask first.
 - **Don't** create compatibility adapters between old and new component systems unless a slice explicitly authorizes that compromise.
 - **Don't** create generic SaaS marketing surfaces inside authenticated workflows.
 - **Don't** use shiny startup dashboards, soft productivity-app tropes, "AI slop," or fake command-center theatrics.

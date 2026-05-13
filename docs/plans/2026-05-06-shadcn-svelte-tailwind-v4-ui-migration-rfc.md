@@ -46,16 +46,16 @@ Reference links:
 
 TroopToTask will adopt shadcn-svelte as the primary shared component source and Tailwind v4 as the utility/token integration layer for future UI work.
 
-Because shadcn-svelte gives the app source code for components, the generated code becomes TroopToTask-owned shared UI after installation. Upstream defaults are a starting point, not a permanent external dependency contract. Local changes should happen centrally in shared component files and token files, with the showroom proving those changes before route migration uses them.
+Because shadcn-svelte gives the app source code for components, the generated code becomes TroopToTask-owned shared UI after installation. Upstream defaults are a starting point, not a permanent external dependency contract. Local changes should happen centrally in shared component files and token files, with the component catalog proving those changes before route migration uses them.
 
-The approved target appearance is the shadcn-svelte visual style calibrated in `/ui-showroom` and `/ui-showroom/app-shell`. Migrated production surfaces should align all non-component styling with that baseline using Tailwind CSS utilities and shared tokens. This applies to layout scaffolding, spacing, local helper text, simple panels, empty permission states, and other route-owned structure that is not itself a shared shadcn/shared component.
+The approved target appearance is the shadcn-svelte visual style recorded in `docs/component-catalog.md` and the shared app-shell components. Migrated production surfaces should align all non-component styling with that baseline using Tailwind CSS utilities and shared tokens. This applies to layout scaffolding, spacing, local helper text, simple panels, empty permission states, and other route-owned structure that is not itself a shared shadcn/shared component.
 
 The migration must happen in phases:
 
 1. Install and configure shadcn-svelte and Tailwind v4.
 2. Identify every shadcn/shared component the project expects to use.
-3. Build a component showroom/demo page containing all selected components and important states.
-4. Tune global tokens and shared component styling using only that showroom.
+3. Document the selected shared components and important states in `docs/component-catalog.md`.
+4. Tune global tokens and shared component styling using only that component catalog.
 5. Migrate app areas using the calibrated shared components without local visual overrides.
 
 No feature route should become the place where the shared visual language is invented.
@@ -76,7 +76,7 @@ Route-level code may configure behavior:
 - which labels, helper text, and empty-state messages are shown
 - which data is passed into cells, dialogs, forms, and menus
 
-Route-level code may use Tailwind CSS for route-owned layout and structure during migration, but that Tailwind must align with the approved showroom/app-shell baseline. It is for expressing shared spacing, layout, surface, and typography patterns consistently, not for creating a new route-specific look.
+Route-level code may use Tailwind CSS for route-owned layout and structure during migration, but that Tailwind must align with the approved component catalog/app-shell baseline. It is for expressing shared spacing, layout, surface, and typography patterns consistently, not for creating a new route-specific look.
 
 Route-level code may not visually restyle calibrated shared components:
 
@@ -87,7 +87,7 @@ Route-level code may not visually restyle calibrated shared components:
 - no duplicate route-local versions of buttons, inputs, badges, dialogs, menus, tables, tabs, toolbars, or empty states
 - no visual variants added only because one route "needs something a little different"
 
-If a route exposes a real reusable need, add a shared component variant or behavior prop in `src/lib/components/**` or `src/lib/components/ui/**`, document it in `docs/component-catalog.md`, and prove it in the showroom before route migration uses it.
+If a route exposes a real reusable need, add a shared component variant or behavior prop in `src/lib/components/**` or `src/lib/components/ui/**`, document it in `docs/component-catalog.md`, and prove it in the component catalog before route migration uses it.
 
 ## Non-Goals
 
@@ -170,13 +170,13 @@ Acceptance criteria:
 - Data-heavy surfaces, especially tables and toolbars, are treated as first-class migration targets instead of afterthoughts.
 - The component list is recorded in this RFC or a linked inventory document before Phase 3 starts.
 
-## Phase 3: Build The Component Showroom
+## Phase 3: Build The Component Catalog
 
 Purpose: create one calibration surface where the UI system can be tuned without borrowing visual decisions from feature routes.
 
-The showroom should be a development-only or internal route that renders selected shared components and important states. The exact route can be decided during implementation, but it should be easy for agents and humans to open locally.
+The component catalog should document selected shared components and important states. Route-based demo surfaces are no longer part of the active migration plan.
 
-Required showroom coverage:
+Required component catalog coverage:
 
 - light and dark themes
 - default, hover, focus, disabled, loading, selected, destructive, warning, success, empty, and error states
@@ -188,22 +188,22 @@ Required showroom coverage:
 - overlays including dialog, confirm dialog, sheet, popover, dropdown, and tooltip
 - status and feedback examples including badges, alerts, toasts, skeletons, progress, empty states, and file-upload states
 
-Showroom rules:
+Component catalog rules:
 
-- The showroom is the only approved place to tune global tokens and shared component visuals.
-- The showroom must use the same shared components that routes will use.
-- The showroom should exercise the upstream `data-slot` hooks where shared styling needs stable component-part targeting.
-- The showroom may arrange examples for clarity, but it must not define alternate component styling that routes can copy.
-- Visual QA findings from feature routes must be brought back to the showroom and resolved at the shared layer.
+- The component catalog is the only approved place to tune global tokens and shared component visuals.
+- The component catalog must use the same shared components that routes will use.
+- The component catalog should exercise the upstream `data-slot` hooks where shared styling needs stable component-part targeting.
+- The component catalog may arrange examples for clarity, but it must not define alternate component styling that routes can copy.
+- Visual QA findings from feature routes must be brought back to the component catalog and resolved at the shared layer.
 
 Acceptance criteria:
 
-- The showroom renders all selected components and states.
-- The showroom is documented in `docs/component-catalog.md`.
-- The showroom is usable for visual review on desktop and mobile widths.
+- The component catalog renders all selected components and states.
+- The component catalog is documented in `docs/component-catalog.md`.
+- The component catalog is usable for visual review on desktop and mobile widths.
 - Automated tests cover shared behavior where practical; visual review covers appearance.
 
-## Phase 4: Tune Global Tokens And Shared Styling In The Showroom
+## Phase 4: Tune Global Tokens And Shared Styling In Shared UI
 
 Purpose: calibrate shadcn-svelte defaults to TroopToTask's product language once, centrally.
 
@@ -231,7 +231,7 @@ Rules:
 
 Acceptance criteria:
 
-- Shared components match the field-ledger design direction in the showroom.
+- Shared components match the field-ledger design direction in the component catalog.
 - Light and dark themes are intentionally calibrated.
 - WCAG AA contrast is checked for core text, controls, focus, status, destructive actions, and disabled states.
 - Component docs describe allowed props, variants, and behavior knobs.
@@ -257,7 +257,7 @@ Route migration order should follow coherent app areas, not isolated opportunist
 Route migration rules:
 
 - Use calibrated shared components as-is.
-- Convert remaining non-component styling to Tailwind CSS that matches the `/ui-showroom` and `/ui-showroom/app-shell` visual baseline.
+- Convert remaining non-component styling to Tailwind CSS that matches the `docs/component-catalog.md` and shared app-shell visual baseline.
 - Keep route files thin: data wiring, feature context, and behavior configuration only.
 - Keep feature-specific orchestration inside `src/features/*`.
 - Move repeated route patterns into shared components instead of local wrappers.
@@ -270,7 +270,7 @@ Acceptance criteria for each app-area slice:
 
 - The area uses calibrated shared components for buttons, forms, tables, dialogs, toolbars, empty states, tabs/navigation, menus, and status labels where applicable.
 - Route-level code contains behavior configuration, not visual overrides.
-- Any needed new visual variant is added centrally, documented, and shown in the showroom before route usage.
+- Any needed new visual variant is added centrally, documented, and shown in the component catalog before route usage.
 - Existing behavior and permissions are preserved unless explicitly changed.
 - Focus, keyboard access, responsive behavior, and dark mode are checked for the migrated area.
 - Required verification passes.
@@ -286,14 +286,14 @@ Governance expectations:
 - Future issues should state whether they are allowed to change shared visuals.
 - Pull requests that add route-local visual overrides should be treated as failing the migration contract unless explicit permission is linked.
 - Reviewers should ask whether a route-level class changes behavior/layout responsibility or visual appearance.
-- If the answer is visual appearance, the change belongs in shared UI and the showroom.
+- If the answer is visual appearance, the change belongs in shared UI and the component catalog.
 - If a route cannot express its needs through shared components, the slice should stop and propose a shared component/API extension.
 
 ## Documentation Updates Required During Implementation
 
 Update these documents as the migration lands:
 
-- `docs/component-catalog.md` for shared component APIs, props, variants, usage rules, and the showroom route.
+- `docs/component-catalog.md` for shared component APIs, props, variants, and usage rules.
 - `docs/architecture/ARCHITECTURE.md` only if the default frontend architecture changes beyond adopting the shared UI stack.
 - `docs/architecture/MODULE_CONVENTIONS.md` if shared UI placement or route conventions change.
 - `docs/architecture/DRIFT_LEDGER.md` if the migration identifies or removes meaningful UI-system drift.
@@ -313,19 +313,19 @@ Additional UI checks for implementation slices:
 
 - shared component unit tests for behavior and accessibility-sensitive state
 - route smoke tests for migrated workflows
-- manual or browser-assisted visual review of the showroom at desktop and mobile widths
+- manual or browser-assisted visual review of the component catalog at desktop and mobile widths
 - focused keyboard testing for dialogs, menus, tabs, forms, table actions, and toolbar compaction
-- dark mode review for the showroom and each migrated area
+- dark mode review for the component catalog and each migrated area
 
 ## Risks
 
 ### Risk: shadcn-svelte adoption is treated as a silver bullet
 
-Mitigation: keep the showroom, token calibration, component catalog, and route-level visual override ban as required parts of the migration.
+Mitigation: keep the component catalog, token calibration, component catalog, and route-level visual override ban as required parts of the migration.
 
 ### Risk: route migration recreates visual drift
 
-Mitigation: route code may configure behavior only. Visual changes go through shared UI and the showroom.
+Mitigation: route code may configure behavior only. Visual changes go through shared UI and the component catalog.
 
 ### Risk: Tailwind utilities become local design escape hatches
 
@@ -333,21 +333,21 @@ Mitigation: utility classes can support layout where ownership belongs to the ro
 
 ### Risk: data-heavy screens lose operational density
 
-Mitigation: tables, toolbars, compact filters, row actions, and mobile compaction are required showroom cases before route migration.
+Mitigation: tables, toolbars, compact filters, row actions, and mobile compaction are required component catalog cases before route migration.
 
 ### Risk: the migration becomes too large to review
 
-Mitigation: ship in area-based vertical slices after the foundation, inventory, showroom, and calibration phases are complete.
+Mitigation: ship in area-based vertical slices after the foundation, inventory, component catalog, and calibration phases are complete.
 
 ## Open Questions
 
-1. Should the showroom be available only in development, only to platform admins, or both?
-2. Should public marketing components migrate through the same showroom or a separate public-facing showroom section?
+1. Should the component catalog be available only in development, only to platform admins, or both?
+2. Should public marketing components migrate through the same component catalog or a separate public-facing component catalog section?
 3. Which legacy shared components should be preserved as app-specific wrappers around shadcn primitives instead of replaced directly?
 4. Should the route-level visual override ban be enforced by lint/governance checks once the migration is underway?
 
 ## Recommendation
 
-Proceed with this RFC as the controlling migration contract. Start with the foundation and inventory slices, then build the showroom before any broad app-area migration.
+Proceed with this RFC as the controlling migration contract. Start with the foundation and inventory slices, then build the component catalog before any broad app-area migration.
 
 The most important success condition is not that TroopToTask uses shadcn-svelte. It is that TroopToTask ends with one shared, calibrated UI system that future route work cannot quietly fork.

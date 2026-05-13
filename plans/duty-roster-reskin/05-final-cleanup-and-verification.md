@@ -8,8 +8,6 @@ Close the duty-roster reskin by removing leftover route-local visual drift, docu
 
 - Completed Step 4 route migration
 - `docs/component-catalog.md`
-- `/ui-showroom`
-- `/ui-showroom/conversion-map`
 - Current duty-roster route and feature code
 - Existing duty-roster tests
 
@@ -53,7 +51,7 @@ Confirm production duty-roster screens use the approved components/wrappers:
 Update docs only where implementation changed shared APIs:
 
 - `docs/component-catalog.md`
-- `/ui-showroom/conversion-map`, if a current-vs-target primitive decision changed
+- `docs/component-catalog.md`, if a current-vs-target primitive decision changed
 - Any duty-roster reskin plan notes if an approved deviation was needed
 
 Do not bury remaining gaps in route code. Create an explicit gap list.
@@ -97,7 +95,7 @@ Review at minimum:
 ## Acceptance Criteria
 
 - No undocumented duty-roster route-local visual overrides remain.
-- All remaining route-owned Tailwind is structural layout only and aligns with the showroom baseline.
+- All remaining route-owned Tailwind is structural layout only and aligns with the component catalog baseline.
 - Shared component docs match the actual APIs used by duty roster.
 - The final gap list is empty or explicitly documented with follow-up scope.
 - All required verification commands pass.

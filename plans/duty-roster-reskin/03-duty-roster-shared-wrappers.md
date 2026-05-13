@@ -6,7 +6,7 @@ Build the duty-roster-specific shared wrappers that encode domain presentation w
 
 ## Inputs
 
-- Step 1 showroom findings
+- Step 1 component catalog findings
 - Step 2 shell primitives
 - `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`
 - `docs/plans/2026-04-27-duty-roster-run-module-rfc.md`
@@ -144,7 +144,7 @@ Required content:
 ## Acceptance Criteria
 
 - Wrappers use the shared components created or confirmed in Steps 1 and 2.
-- Wrappers appear in `/ui-showroom` or a dedicated duty-roster showroom section with realistic states.
+- Wrappers appear in `docs/component-catalog.md` or a dedicated duty-roster component catalog section with realistic states.
 - `docs/component-catalog.md` documents wrappers that are shared outside the feature layer.
 - Feature-owned wrappers stay under `src/features/duty-roster/**` if they contain DA6-specific language or status semantics.
 - Tests cover status mapping, matrix rendering contract, and required/optional panel states where practical.
@@ -161,11 +161,11 @@ Required content:
 
 ## Stop Conditions
 
-Stop if the wrapper needs to change the visual nature of an existing shared component at its usage site. Move that need back into the shared component/showroom layer or ask for explicit approval.
+Stop if the wrapper needs to change the visual nature of an existing shared component at its usage site. Move that need back into the shared component/component catalog layer or ask for explicit approval.
 
 ## Implementation Progress
 
-Status: implemented for showroom migration.
+Status: implemented for component catalog migration.
 
 Added feature-owned wrappers under `src/features/duty-roster/components/shared/`:
 
@@ -177,9 +177,9 @@ Added feature-owned wrappers under `src/features/duty-roster/components/shared/`
 - `WarningSummary`: duty-roster review/info/warning/error block over `ui/alert`.
 - `DateRangeControls`: generate-flow date range wrapper over `ui/date-picker`, `ui/field`, and `PageShell.FactRow`.
 
-Showroom updates:
+Component Catalog updates:
 
-- `/ui-showroom/duty-roster` now consumes the wrappers for status badges, generate date controls, warning blocks, DA6 matrix, manual change sheet, correction sheet, and audit trail examples.
+- `docs/component-catalog.md duty-roster guidance` now consumes the wrappers for status badges, generate date controls, warning blocks, DA6 matrix, manual change sheet, correction sheet, and audit trail examples.
 - The DA6 matrix example remains production-shaped while keeping DA6-specific meanings out of `ui/operational-matrix`.
 - No production duty-roster route was migrated.
 

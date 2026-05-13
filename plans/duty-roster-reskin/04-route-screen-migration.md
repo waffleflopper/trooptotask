@@ -6,7 +6,7 @@ Migrate the production duty-roster route screens to the shared shell primitives 
 
 ## Inputs
 
-- Step 1 showroom examples
+- Step 1 component catalog examples
 - Step 2 shared shell primitives
 - Step 3 duty-roster wrappers
 - `docs/plans/2026-05-03-duty-roster-replacement-da6-prd.md`
@@ -82,7 +82,7 @@ Migrate one screen group at a time, verifying after each group.
 
 ## Acceptance Criteria
 
-- All duty-roster screens align with the showroom-approved shared UI baseline.
+- All duty-roster screens align with the component catalog-approved shared UI baseline.
 - No production route file invents new visual component styling.
 - Existing route behavior remains intact.
 - Existing URL states continue to work:

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { Button } from '$lib/components/ui/button';
 </script>
 
 <svelte:head>
@@ -17,7 +18,7 @@
 			Something went wrong. Please try again later.
 		{/if}
 	</p>
-	<a href="/" class="btn btn-primary">Go Home</a>
+	<Button href="/">Go Home</Button>
 </div>
 
 <style>

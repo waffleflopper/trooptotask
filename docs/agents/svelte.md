@@ -13,4 +13,4 @@ When asked about Svelte or SvelteKit topics, use the Svelte MCP documentation fl
 
 ## shadcn-svelte Docs
 
-- When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or showroom usage.
+- When working with shadcn-svelte components, reference `https://www.shadcn-svelte.com/llms.txt` first so you can jump to the specific component documentation before changing generated component source or shared component usage.

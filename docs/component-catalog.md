@@ -6,21 +6,17 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 ---
 
-## UI Foundation Showroom
+## UI Foundation
 
-Development route: `/ui-showroom`
+This catalog is the active reference for the shadcn-svelte + Tailwind v4 migration foundation. It records the selected shared primitives, compound project wrappers, expected usage, and legacy-to-shadcn replacement decisions now that the development demo routes have been removed.
 
-The showroom is the only approved preview and calibration surface for the shadcn-svelte + Tailwind v4 migration foundation. It is development-only and returns 404 outside `dev` mode.
+Use it to review the selected foundation set before production route migration work starts: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
-Use it to review shadcn-svelte primitives at desktop and mobile widths before production route migration work starts. The route renders docs-style examples of the selected foundation set: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
-
-Development route: `/ui-showroom/conversion-map`
-
-Use the conversion map to compare current repeated TroopToTask building blocks against the current shadcn-svelte/shared UI target. Blank target cells mean the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before route migration relies on that pattern.
+Use the replacement notes here to compare current repeated TroopToTask building blocks against the current shadcn-svelte/shared UI target. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before route migration relies on that pattern.
 
 Replacement previews:
 
-- Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation shown in this showroom.
+- Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation documented in this catalog.
 - Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
@@ -34,15 +30,15 @@ Rules:
 
 - Shared components are visually authoritative. Production routes consume shared component appearance as-is.
 - Visual styling comes from `src/app.css`, `components.json`, theme variables, or shared component source files under `src/lib/components/**`.
-- `/ui-showroom` should stay docs-like: no route-local component skinning, no custom variants, and no visual tuning of generated components.
-- The approved migration baseline is the shadcn-svelte visual appearance shown in `/ui-showroom` and `/ui-showroom/app-shell`. Non-component route layout and legacy CSS should migrate to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
+- This catalog should stay implementation-focused: no route-local component skinning, no custom variants, and no visual tuning of generated components.
+- The approved migration baseline is the shadcn-svelte visual appearance owned by shared UI and the shared app-shell components. Non-component route layout and legacy CSS should migrate to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
 - Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
 - Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
 - Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.
 - Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
-- If a durable visual need appears, add it centrally, document it here, and show it in `/ui-showroom` before any route consumes it.
+- If a durable visual need appears, add it centrally and document it here before any route consumes it.
 - If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
-- `/ui-showroom` must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or `Spinner`; show their shadcn replacements only.
+- Production migrations must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or legacy spinner wrappers when shadcn replacements exist.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 
 Foundation files:
@@ -50,8 +46,7 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and exposes native shadcn/Tailwind theme variables without mapping them to TroopToTask colors yet.
-- `src/app.css` no longer owns admin-specific selectors. Remaining global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors are retained only for non-admin consumers until their own cleanup slice migrates them.
-- `src/lib/components/ui/showroom/showroomInventory.ts` records the selected component set and state coverage.
+- `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
 Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
 
@@ -144,13 +139,13 @@ Duty-roster-specific wrappers live under `src/features/duty-roster/components/sh
 - `ManualChangePanel` and `CorrectionSheet` provide sheet-ready workflow panels for draft manual changes and accepted-run corrections.
 - `AuditTimeline`, `WarningSummary`, and `DateRangeControls` support the duty-roster route composition while staying aligned with shared shadcn-svelte primitives.
 
-If `AuditTimeline`, `WarningSummary`, or `DateRangeControls` are needed outside duty roster, promote them deliberately into `src/lib/components/ui/**` with showroom coverage before production routes consume them globally.
+If `AuditTimeline`, `WarningSummary`, or `DateRangeControls` are needed outside duty roster, promote them deliberately into `src/lib/components/ui/**` with component-catalog documentation before production routes consume them globally.
 
 ---
 
 ## `ui/date-picker`
 
-Shared shadcn-svelte date picker composed from `button`, `popover`, and `calendar`. Use this instead of route-local `input type="date"` controls when a production form needs the showroom date picker appearance.
+Shared shadcn-svelte date picker composed from `button`, `popover`, and `calendar`. Use this instead of route-local `input type="date"` controls when a production form needs the component catalog date picker appearance.
 
 ```svelte
 <script lang="ts">
@@ -166,13 +161,13 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 - Values are stored as ISO date strings so route payloads stay data-oriented.
 - The visual contract comes from the shared component. Routes may provide field labels, placeholders, disabled state, and bound values only.
-- Calendar and popover appearance must be calibrated in `/ui-showroom` before production route usage changes.
+- Calendar and popover appearance must be calibrated in `docs/component-catalog.md` before production route usage changes.
 
 ---
 
 ## `ui/workspace-toolbar`
 
-`ui/workspace-toolbar` is the shadcn-composed route toolbar target for the UI migration. It is being calibrated in `/ui-showroom` before production routes consume it. It replaces route-local toolbar shells with one shared visual contract built from shadcn-svelte primitives.
+`ui/workspace-toolbar` is the shadcn-composed route toolbar target for the UI migration. It is being calibrated in `docs/component-catalog.md` before production routes consume it. It replaces route-local toolbar shells with one shared visual contract built from shadcn-svelte primitives.
 
 ```svelte
 <script lang="ts">
@@ -237,13 +232,13 @@ Rules:
 - Keep disabled actions visible when their presence explains unavailable work. Loading actions should be disabled and show the shared spinner.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Do not create a route-specific wrapper to alter toolbar behavior without explicit approval.
-- If a route needs behavior this API cannot express, document the design-system gap and extend the shared component/API after proving it in `/ui-showroom`.
+- If a route needs behavior this API cannot express, document the design-system gap and extend the shared component/API after proving it in `docs/component-catalog.md`.
 
 Migration guidance:
 
 - Start every migrated route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu`, and shadcn form primitives.
-- Treat the `/ui-showroom` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
-- Production route migration happens only when explicitly requested. Until then, the showroom is the development ground for this toolbar family.
+- Treat the `docs/component-catalog.md` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
+- Production route migration happens only when explicitly requested. Until then, the component catalog is the development ground for this toolbar family.
 
 ---
 
@@ -325,7 +320,7 @@ Report/export state guidance:
 Route-level visual override ban:
 
 - Routes must not pass route-local visual classes that change report component color, radius, border, typography, density, shadow, or internal spacing.
-- If a report needs a reusable new section shape, add it to `ui/report-workspace`, show it in `/ui-showroom`, and document it here before route usage.
+- If a report needs a reusable new section shape, add it to `ui/report-workspace`, show it in `docs/component-catalog.md`, and document it here before route usage.
 
 Migration notes:
 
@@ -360,7 +355,7 @@ Shared components own:
 
 - shadcn chart container usage, LayerChart simplified chart composition, axis baseline, grid styling, legend structure, and responsive chart frame.
 
-`/ui-showroom/conversion-map` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
+`docs/component-catalog.md` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
 
 ---
 
@@ -484,14 +479,14 @@ Rules:
 
 - Keep domain meaning out of the primitive. Do not add calendar, training, Critical Tasks, DA6, readiness, or status-type assumptions to this layer.
 - Do not restore the deleted visual-first API and do not add compatibility adapters for it.
-- Dialogs belong in wrappers/showroom examples. `Cell` emits row and column identity; it does not open dialogs itself.
+- Dialogs belong in wrappers/component catalog examples. `Cell` emits row and column identity; it does not open dialogs itself.
 - Color-only cells must provide an accessible label through `ariaLabel`, visually hidden text, or both.
 - Production route migration is a later phase. Do not consume this primitive from production routes until a route migration slice explicitly asks for it.
 
-Showroom coverage:
+Component Catalog coverage:
 
-- `/ui-showroom` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
-- `/ui-showroom/conversion-map` covers training-matrix parity mapping with vertical task-code headers, requirement status badges, and the note that `IctMatrix` should retire into the shared training-matrix parity path instead of preserving a separate visual system.
+- `docs/component-catalog.md` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
+- `docs/component-catalog.md` covers training-matrix parity mapping with vertical task-code headers, requirement status badges, and the note that `IctMatrix` should retire into the shared training-matrix parity path instead of preserving a separate visual system.
 
 ## `ui/workflow-panel`
 
@@ -531,7 +526,7 @@ Rules:
 - Routes own data loading, selected item state, forms, validation, permissions, actions, and copy.
 - Shared components own panel radius, borders, spacing, selected-row treatment, notice tone, and density.
 - Use `Alert.Root` variants `default`, `info`, `success`, `warning`, or `destructive` instead of route-local warning boxes, callouts, and notice panels.
-- If a workflow needs a new repeated surface shape, add it here and prove it in `/ui-showroom/conversion-map` before production route usage.
+- If a workflow needs a new repeated surface shape, add it here and prove it in `docs/component-catalog.md` before production route usage.
 
 ---
 
@@ -610,7 +605,7 @@ Import validation/result state guidance:
 Route-level visual override ban:
 
 - Routes must not restyle the import workspace, source cards, input panels, validation summary, preview table, footer, or result summary locally.
-- If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `/ui-showroom`.
+- If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `docs/component-catalog.md`.
 
 Migration notes:
 
@@ -689,7 +684,7 @@ Authenticated production routes now use `ui/workspace-toolbar` plus generated sh
 
 Use `WorkspaceToolbar.Root` as the route toolbar root, `WorkspaceToolbar.Group` for control/action/meta boundaries, shadcn `ButtonGroup` plus `Button` for mutually exclusive view modes, shadcn `Toggle` for independent boolean toolbar state, shadcn `Select`/`InputGroup` through the shared workspace toolbar helpers for filters and search, and `WorkspaceToolbar.Actions` for command buttons plus dropdown overflow.
 
-Routes may pass labels, values, options, permissions, disabled state, and handlers only. Visual changes belong in `src/lib/components/ui/workspace-toolbar/**`, generated shadcn component source, theme tokens, or `/ui-showroom` calibration.
+Routes may pass labels, values, options, permissions, disabled state, and handlers only. Visual changes belong in `src/lib/components/ui/workspace-toolbar/**`, generated shadcn component source, theme tokens, or `docs/component-catalog.md` calibration.
 
 ## `ui/app-dialog`
 
@@ -968,7 +963,7 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 - When `name` is provided, `Combobox.Root` renders hidden inputs for native form submission. Single-select renders one hidden input; multi-select renders one hidden input per selected value using the same name.
 - Use `loading` and `loadingText` for async option fetches. Keep the loading copy generic and route-owned; the visual loading state stays in the shared component.
 - `Combobox.Trigger` is the single-select trigger. `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection.
-- Large lists, async/loading option states, empty states, and keyboard paths must be proven in `/ui-showroom` before route usage.
+- Large lists, async/loading option states, empty states, and keyboard paths must be proven in `docs/component-catalog.md` before route usage.
 - Visual changes belong in shared combobox source only.
 
 ## `ui/multi-select`
@@ -1033,7 +1028,7 @@ Toolbar compact pattern:
 - Backspace removes the last selected value when the search input is empty.
 - Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.
 - Provide `name` when selected values must participate in native form submission.
-- Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and showroom example.
+- Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and component catalog example.
 
 ## Deprecated `ui/MultiTagSelect.svelte`
 
@@ -1060,7 +1055,7 @@ Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeh
 
 ## `ui/date-cell`
 
-Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, duty markers, weekend/holiday/today treatment, and the same visual language as `/ui-showroom/calendar`.
+Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, duty markers, weekend/holiday/today treatment, and the same visual language as `the shared calendar component guidance`.
 
 ```svelte
 <script lang="ts">
@@ -1276,7 +1271,7 @@ Rules:
 - Use `Disclosure` and `GroupSelector` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
 - Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
-- Prove visual changes in `/ui-showroom` before production routes consume them.
+- Prove visual changes in `docs/component-catalog.md` before production routes consume them.
 - `ui/type-workspace` is the target shared gap behind the current training type page. `ui/type-manager` remains the compact modal API for smaller status and assignment managers until those workflows need the full workspace.
 
 ---
@@ -1409,7 +1404,7 @@ Route configuration rules:
 
 - Routes may configure data, columns, cell snippets, labels, row actions, disabled states, expandable row details, filters, search, pagination, grouping, row click handlers, and bulk actions.
 - Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
-- If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here, and prove it in `/ui-showroom`.
+- If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here, and prove it in `docs/component-catalog.md`.
 - Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
 - Mark action/display-only columns with `sortable: false` and `searchable: false`.
 - Provide `rowActionLabel` whenever rows are clickable so keyboard and screen-reader users get a clear action name.
@@ -1485,9 +1480,9 @@ Route usage rules:
 - Do not expose raw Accordion or Collapsible primitives to onboarding routes for this workflow.
 - Keep onboarding business rules in feature context/store code. The shared component should not know when a packet can be completed, cancelled, resynced, or edited.
 
-Showroom coverage:
+Component Catalog coverage:
 
-`/ui-showroom` includes active packets, multiple packets with one open, complete/incomplete/inactive steps, checkbox/training/paperwork rows, notes open/closed, note count, empty notes, loading and disabled actions, read-only/history display, constrained layout, keyboard focus path, and dark-mode participation.
+`docs/component-catalog.md` includes active packets, multiple packets with one open, complete/incomplete/inactive steps, checkbox/training/paperwork rows, notes open/closed, note count, empty notes, loading and disabled actions, read-only/history display, constrained layout, keyboard focus path, and dark-mode participation.
 
 Onboarding migration notes:
 

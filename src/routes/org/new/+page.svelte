@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 
 	let { form } = $props();
 	let loading = $state(false);
@@ -31,9 +33,9 @@
 				<div class="error-message">{form.error}</div>
 			{/if}
 
-			<div class="form-group">
-				<label class="label" for="name">Organization Name</label>
-				<input id="name" name="name" type="text" class="input" placeholder="e.g., Ft. Hood TMC" required />
+			<div class="grid gap-2">
+				<label class="field-label" for="name">Organization Name</label>
+				<Input id="name" name="name" type="text" placeholder="e.g., Ft. Hood TMC" required />
 			</div>
 
 			<div class="seed-info">
@@ -45,10 +47,10 @@
 			</div>
 
 			<div class="actions">
-				<a href="/" class="btn btn-secondary">Cancel</a>
-				<button type="submit" class="btn btn-primary" disabled={loading}>
+				<Button href="/" variant="outline">Cancel</Button>
+				<Button type="submit" disabled={loading}>
 					{loading ? 'Creating...' : 'Create Organization'}
-				</button>
+				</Button>
 			</div>
 		</form>
 	</div>
@@ -87,13 +89,18 @@
 	}
 
 	.eyebrow,
-	.seed-label {
+	.seed-label,
+	.field-label {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--amber);
+	}
+
+	.field-label {
+		color: var(--text-secondary);
 	}
 
 	.create-card h1 {
@@ -163,7 +170,7 @@
 			flex-direction: column-reverse;
 		}
 
-		.actions :global(.btn) {
+		.actions :global([data-slot='button']) {
 			width: 100%;
 		}
 	}

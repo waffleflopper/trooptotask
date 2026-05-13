@@ -1,13 +1,17 @@
 <script lang="ts">
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Check, Gift, TriangleAlert } from '@lucide/svelte';
+	import { invalidateAll } from '$app/navigation';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { EffectiveTier, Tier } from '$lib/types/subscription';
 
 	let { data } = $props();
-
-	import { invalidateAll } from '$app/navigation';
 
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
@@ -199,481 +203,170 @@
 	<title>Billing - {data.orgName} - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
-	<main class="page-content">
-		{#if billingToolbarActions.length > 0}
-			<WorkspaceToolbar.Root ariaLabel="Billing controls">
-				<WorkspaceToolbar.Group label="Billing actions" zone="actions">
-					<WorkspaceToolbar.Actions
-						actions={billingToolbarActions}
-						ariaLabel="Billing actions"
-						overflowAriaLabel="More billing actions"
-					/>
-				</WorkspaceToolbar.Group>
-			</WorkspaceToolbar.Root>
-		{/if}
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title="Billing"
+		subtitle="Manage subscription status, plan limits, and Stripe billing for this organization."
+	>
+		{#snippet meta()}
+			<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
+		{/snippet}
+	</PageShell.Header>
 
-		{#if isReadOnly}
-			<div class="read-only-notice">
-				<div class="notice-icon">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-						<path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-					</svg>
-				</div>
-				<div>
-					<strong>Your organization is in read-only mode.</strong>
-					<p>
-						You have <strong>{personnelCount}</strong> personnel but your plan allows
-						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Subscribe to a higher tier or
-						contact support for enterprise access, or remove personnel to restore full access.
-					</p>
-				</div>
-			</div>
-		{/if}
+	{#if billingToolbarActions.length > 0}
+		<WorkspaceToolbar.Root ariaLabel="Billing controls">
+			<WorkspaceToolbar.Group label="Billing actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={billingToolbarActions}
+					ariaLabel="Billing actions"
+					overflowAriaLabel="More billing actions"
+				/>
+			</WorkspaceToolbar.Group>
+		</WorkspaceToolbar.Root>
+	{/if}
 
-		{#if errorMessage}
-			<div class="error-message">{errorMessage}</div>
-		{/if}
+	{#if isReadOnly}
+		<Alert.Root variant="warning">
+			<TriangleAlert />
+			<Alert.Title>Your organization is in read-only mode.</Alert.Title>
+			<Alert.Description>
+				You have <strong>{personnelCount}</strong> personnel but your plan allows
+				<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Subscribe to a higher tier, contact
+				support for enterprise access, or remove personnel to restore full access.
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-		<div class="overview-strip">
-			<div class="overview-card">
-				<span class="overview-label">Current Plan</span>
-				<strong class="overview-value">{tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}</strong>
-				<span class="overview-meta"
-					>{isReadOnly
-						? 'Organization access is limited right now'
-						: 'Organization access is active and available'}</span
-				>
+	{#if errorMessage}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{errorMessage}</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	<PageShell.FactGrid layout="three">
+		<PageShell.Metric
+			label="Current Plan"
+			value={tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}
+			detail={isReadOnly ? 'Organization access is limited right now' : 'Organization access is active and available'}
+			tone={isReadOnly ? 'warning' : 'default'}
+		/>
+		<PageShell.Metric
+			label="Personnel Usage"
+			value={`${personnelCount} / ${personnelCap === Infinity ? 'Unlimited' : personnelCap}`}
+			detail="Current headcount against the plan limit"
+		/>
+		<PageShell.Metric
+			label="Plan Source"
+			value={sourceLabel(source)}
+			detail={source === 'gift'
+				? 'Access is currently being granted outside Stripe billing'
+				: 'How this subscription is currently being applied'}
+		/>
+	</PageShell.FactGrid>
+
+	<Card.Root>
+		<Card.Header>
+			<div class="flex flex-wrap items-center gap-2">
+				<Card.Title>Current Plan</Card.Title>
+				<Badge variant={sourceVariant(source)}>{sourceLabel(source)}</Badge>
 			</div>
-			<div class="overview-card">
-				<span class="overview-label">Personnel Usage</span>
-				<strong class="overview-value"
-					>{personnelCount} / {personnelCap === Infinity ? 'Unlimited' : personnelCap}</strong
-				>
-				<span class="overview-meta">Current headcount against the plan limit</span>
-			</div>
-			<div class="overview-card">
-				<span class="overview-label">Plan Source</span>
-				<strong class="overview-value">{sourceLabel(source)}</strong>
-				<span class="overview-meta"
-					>{source === 'gift'
-						? 'Access is currently being granted outside Stripe billing'
-						: 'How this subscription is currently being applied'}</span
-				>
-			</div>
+			<Card.Description>
+				{tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}
+			</Card.Description>
+		</Card.Header>
+
+		{#if source === 'gift' && giftExpiresAt}
+			<Card.Content>
+				<Alert.Root variant="success">
+					<Gift />
+					<Alert.Title>
+						Complimentary {giftTier ? giftTier.charAt(0).toUpperCase() + giftTier.slice(1) : ''} tier
+					</Alert.Title>
+					<Alert.Description>
+						Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', {
+							year: 'numeric',
+							month: 'long',
+							day: 'numeric'
+						})}
+						{#if giftDaysRemaining !== null}
+							({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
+						{/if}
+					</Alert.Description>
+				</Alert.Root>
+			</Card.Content>
+		{/if}
+	</Card.Root>
+
+	<section class="grid gap-3" aria-labelledby="billing-pricing-heading">
+		<div class="grid gap-1">
+			<h2 id="billing-pricing-heading" class="text-xl font-semibold tracking-tight">Plans & Pricing</h2>
+			<p class="text-sm text-muted-foreground">Choose the plan that matches your organization size and export needs.</p>
 		</div>
 
-		<div class="billing-card">
-			<div class="section-heading">
-				<p class="section-label">Subscription</p>
-				<div class="plan-header">
-					<h2>Current Plan:</h2>
-					<span class="plan-name">{tierComparison.find((t) => t.tier === tier.tier)?.name ?? tier.tier}</span>
-					<Badge variant={sourceVariant(source)} class="font-mono tracking-widest uppercase"
-						>{sourceLabel(source)}</Badge
-					>
-				</div>
-			</div>
-
-			<div class="plan-details">
-				{#if source === 'gift' && giftExpiresAt}
-					<div class="gift-info">
-						<div class="gift-badge">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-								<path
-									d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
-								/>
-							</svg>
-							Complimentary {giftTier ? giftTier.charAt(0).toUpperCase() + giftTier.slice(1) : ''} tier
-						</div>
-						<p class="gift-expires">
-							Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', {
-								year: 'numeric',
-								month: 'long',
-								day: 'numeric'
-							})}
-							{#if giftDaysRemaining !== null}
-								({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
-							{/if}
-						</p>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<div class="pricing-header">
-			<div class="section-heading">
-				<p class="section-label">Pricing</p>
-				<h2 class="pricing-heading">Plans & Pricing</h2>
-			</div>
-			<p class="pricing-copy">Choose the plan that matches your organization size and export needs.</p>
-		</div>
-
-		<div class="pricing-grid">
+		<div class="grid gap-3 lg:grid-cols-3">
 			{#each tierComparison as plan (plan.tier)}
 				{@const isCurrent = plan.tier === tier.tier}
 				{@const label = tierLabel(plan.tier)}
 				{@const isDowngrade = label === 'Downgrade'}
-				<div class="pricing-card" class:current={isCurrent}>
-					{#if isCurrent}
-						<div class="current-badge">Current</div>
-					{/if}
-
-					<div class="pricing-card-header">
-						<h3>{plan.name}</h3>
-						<div class="price">
-							{formatPrice(plan.priceMonthly)}
+				<Card.Root class="flex flex-col">
+					<Card.Header>
+						<div class="flex flex-wrap items-start justify-between gap-2">
+							<div class="grid gap-1">
+								<Card.Title>{plan.name}</Card.Title>
+								<Card.Description>{formatPrice(plan.priceMonthly)}</Card.Description>
+							</div>
+							{#if isCurrent}
+								<Badge variant="warning">Current</Badge>
+							{/if}
 						</div>
-					</div>
+					</Card.Header>
 
-					<ul class="features">
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-							<span><strong>{formatCap(plan.personnelCap)}</strong> personnel</span>
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-							<span
-								><strong>{formatCap(plan.maxOrgsOwned)}</strong>
-								{plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}</span
-							>
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-							<span><strong>{formatCap(plan.bulkExportsPerMonth)}</strong> exports/month</span>
-						</li>
-					</ul>
+					<Card.Content class="flex flex-1 flex-col gap-4">
+						<ul class="grid gap-3 text-sm text-muted-foreground">
+							<li class="flex gap-2">
+								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
+								<span><strong>{formatCap(plan.personnelCap)}</strong> personnel</span>
+							</li>
+							<li class="flex gap-2">
+								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
+								<span>
+									<strong>{formatCap(plan.maxOrgsOwned)}</strong>
+									{plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}
+								</span>
+							</li>
+							<li class="flex gap-2">
+								<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" />
+								<span><strong>{formatCap(plan.bulkExportsPerMonth)}</strong> exports/month</span>
+							</li>
+						</ul>
+					</Card.Content>
 
-					<div class="pricing-card-footer">
+					<Card.Footer>
 						{#if isCurrent}
-							<button class="btn btn-secondary" disabled>Current Plan</button>
+							<Button class="w-full" variant="outline" disabled>Current Plan</Button>
 						{:else if plan.tier === 'free'}
 							{#if isDowngrade && data.canManageSubscription}
-								<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
+								<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
 									{#if portalLoading}<Spinner />{/if}
 									{portalLoading ? 'Opening...' : 'Manage Subscription'}
-								</button>
+								</Button>
 							{:else}
-								<button class="btn btn-secondary" disabled>Free Plan</button>
+								<Button class="w-full" variant="outline" disabled>Free Plan</Button>
 							{/if}
 						{:else if isDowngrade && data.canManageSubscription}
-							<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
+							<Button class="w-full" variant="outline" onclick={handleManageSubscription} disabled={portalLoading}>
 								{#if portalLoading}<Spinner />{/if}
 								{portalLoading ? 'Opening...' : 'Downgrade'}
-							</button>
+							</Button>
 						{:else}
-							<button class="btn btn-primary" onclick={() => handleSubscribe(plan.tier)} disabled={!!subscribingTier}>
+							<Button class="w-full" onclick={() => handleSubscribe(plan.tier)} disabled={!!subscribingTier}>
 								{#if subscribingTier === plan.tier}<Spinner />{/if}
 								{subscribingTier === plan.tier ? 'Redirecting...' : 'Subscribe'}
-							</button>
+							</Button>
 						{/if}
-					</div>
-				</div>
+					</Card.Footer>
+				</Card.Root>
 			{/each}
 		</div>
-	</main>
-</div>
-
-<style>
-	.page {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-page);
-	}
-
-	.page-content {
-		flex: 1;
-		max-width: 1120px;
-		margin: 0 auto;
-		padding: var(--sp-5);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		width: 100%;
-	}
-
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
-	.section-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.overview-label {
-		color: var(--text-muted);
-	}
-
-	.section-label {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 4vw, 2.5rem);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.read-only-notice {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--sp-3);
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		color: var(--danger);
-		padding: var(--sp-4);
-		border-radius: var(--radius-lg);
-	}
-
-	.read-only-notice .notice-icon {
-		flex-shrink: 0;
-		margin-top: 2px;
-	}
-
-	.read-only-notice p {
-		margin-top: var(--sp-1);
-		font-size: var(--text-sm);
-		line-height: 1.5;
-	}
-
-	.error-message {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		color: var(--danger);
-		padding: var(--sp-3) var(--sp-4);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-	}
-
-	.billing-card {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		padding: var(--sp-5);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.section-heading {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.billing-card h2,
-	.pricing-heading {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(2rem, 4vw, 2.8rem);
-		line-height: 0.98;
-		font-weight: 700;
-		text-transform: uppercase;
-	}
-
-	.plan-details {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.plan-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.plan-name {
-		font-size: clamp(2rem, 4vw, 2.8rem);
-		font-family: var(--font-display);
-		font-weight: 600;
-		text-transform: uppercase;
-		color: var(--text-strong);
-	}
-
-	.gift-info {
-		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-	}
-
-	.gift-badge {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		font-weight: 500;
-		color: var(--success);
-		margin-bottom: var(--sp-2);
-	}
-
-	.gift-expires {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		margin: 0;
-	}
-
-	.pricing-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.pricing-copy {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.55;
-		color: var(--text-secondary);
-	}
-
-	.pricing-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: var(--sp-3);
-	}
-
-	.pricing-card {
-		position: relative;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		padding: var(--sp-5);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.pricing-card.current {
-		border-color: var(--amber);
-	}
-
-	.current-badge {
-		position: absolute;
-		top: var(--sp-3);
-		right: var(--sp-3);
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-		color: var(--amber-dark);
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		padding: var(--sp-1) var(--sp-2);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-	}
-
-	.pricing-card-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.pricing-card-header h3 {
-		font-family: var(--font-display);
-		font-size: clamp(1.9rem, 3vw, 2.4rem);
-		line-height: 0.98;
-		font-weight: 700;
-		text-transform: uppercase;
-		margin: 0;
-	}
-
-	.price {
-		font-family: var(--font-display);
-		font-size: clamp(2.2rem, 4vw, 3rem);
-		font-weight: 700;
-		line-height: 0.95;
-		color: var(--text-strong);
-	}
-
-	.features {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		flex: 1;
-	}
-
-	.features li {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--sp-2);
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.features li svg {
-		flex-shrink: 0;
-		color: var(--success);
-		margin-top: 1px;
-	}
-
-	.pricing-card-footer {
-		margin-top: auto;
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.pricing-card-footer .btn {
-		width: 100%;
-	}
-
-	@media (max-width: 900px) {
-		.pricing-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	@media (max-width: 768px) {
-		.pricing-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.page-content {
-			padding: var(--sp-4);
-		}
-	}
-
-	@media (max-width: 640px) {
-		.read-only-notice {
-			flex-direction: column;
-		}
-	}
-</style>
+	</section>
+</PageShell.Root>

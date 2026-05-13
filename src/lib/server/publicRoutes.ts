@@ -14,9 +14,7 @@ const PUBLIC_ROUTE_PREFIXES = [
 	'/security',
 	'/terms',
 	'/privacy',
-	'/help',
-	'/ui-showroom',
-	'/prototype'
+	'/help'
 ];
 
 export function isPublicRoute(pathname: string): boolean {

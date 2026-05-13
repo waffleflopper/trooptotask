@@ -49,7 +49,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Keep public marketing primitives in `$lib/components/public/*`.
 - Follow `docs/component-catalog.md` for shared UI usage and styling expectations.
 - During shadcn-svelte/Tailwind v4 migration work, treat `docs/plans/2026-05-06-shadcn-svelte-tailwind-v4-ui-migration-rfc.md` as the UI migration contract: shared components own appearance, route-level changes are behavioral only, visual changes happen in tokens or shared component source, and component fit problems should be reported as design-system gaps instead of patched locally.
-- The target appearance is the shadcn-svelte baseline calibrated in `/ui-showroom` and `/ui-showroom/app-shell`. When production routes are explicitly migrated, replace legacy route CSS with Tailwind utility composition that matches that baseline instead of preserving route-specific legacy visuals.
+- The target appearance is the shared shadcn-svelte baseline owned by `src/lib/components/ui/**`, `components.json`, and `src/app.css`. When production routes are explicitly migrated, replace legacy route CSS with Tailwind utility composition that matches that baseline instead of preserving route-specific legacy visuals.
 
 ### Contexts and stores
 

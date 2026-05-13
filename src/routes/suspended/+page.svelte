@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+
 	// Server-side guard ensures only suspended users see this
 </script>
 
@@ -13,7 +15,7 @@
 			<p class="contact-label">Support</p>
 			<p class="contact">support@trooptotask.com</p>
 		</div>
-		<a href="/auth/login" class="btn btn-secondary">Back to Login</a>
+		<Button href="/auth/login" variant="outline">Back to Login</Button>
 	</div>
 </div>
 

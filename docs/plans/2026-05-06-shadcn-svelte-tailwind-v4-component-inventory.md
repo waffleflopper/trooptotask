@@ -4,13 +4,13 @@ Source of truth: `docs/plans/2026-05-06-shadcn-svelte-tailwind-v4-ui-migration-r
 
 ## Purpose
 
-This inventory defines the shadcn-svelte component set TroopToTask should plan around before building the showroom or migrating production routes.
+This inventory defines the shadcn-svelte component set TroopToTask should plan around before building the component catalog or migrating production routes.
 
 The goal is not to adopt every upstream component. The goal is to identify the smallest complete set that supports the real app: organization settings, Critical Tasks, training, duty rosters, personnel, calendar, onboarding, admin-style flows, public/auth support surfaces, and shared app shell work.
 
 The RFC rule applies here:
 
-> After shared components are visually calibrated, route-level code owns behavior only. Shared visual appearance belongs to the shared UI layer and showroom.
+> After shared components are visually calibrated, route-level code owns behavior only. Shared visual appearance belongs to the shared UI layer and component catalog.
 
 ## Audit Basis
 
@@ -62,7 +62,7 @@ The app also has route-local UI that should become shared before broad migration
 
 ## Required Components
 
-These are required for the first production-grade shadcn-svelte migration track. Each one should appear in the showroom before any production route depends on the calibrated version.
+These are required for the first production-grade shadcn-svelte migration track. Each one should appear in the component catalog before any production route depends on the calibrated version.
 
 | Component | shadcn-svelte basis | Project wrapper likely needed | Known future consumers | Gaps before route migration |
 | --- | --- | --- | --- | --- |
@@ -76,7 +76,7 @@ These are required for the first production-grade shadcn-svelte migration track.
 | Field | `field` | `FormField`, `FieldRow`, `FieldGroup` | settings, modals, training, personnel, imports, auth | Replace old `FormField` gradually with a shadcn-backed field system. Preserve error/hint accessibility. |
 | Formsnap | `formsnap` | form validation adapter where form libraries are introduced | future complex settings, auth, onboarding template editor, duty roster wizard | Decide if the migration uses Formsnap broadly or keeps app-owned form state for now. Do not mix form patterns randomly by route. |
 | Native select | `native-select` | `NativeSelectField`, `ToolbarFilterSelect` where simple | settings access presets, policies, danger transfer select, calendar reports, duty roster simple selects | Needed for dense forms and browser-native behavior. Calibrate alongside `Select`. |
-| Select | `select` | `SelectField`, `ToolbarFilterSelect` | toolbar filters, report filters, member access levels, assignment/status managers | Define when to use native select versus custom select. Mobile behavior and keyboard behavior need showroom coverage. |
+| Select | `select` | `SelectField`, `ToolbarFilterSelect` | toolbar filters, report filters, member access levels, assignment/status managers | Define when to use native select versus custom select. Mobile behavior and keyboard behavior need component catalog coverage. |
 | Combobox | `combobox` | `SearchSelect` replacement | personnel rank/group, duty roster assignee replacement, rating scheme personnel lookup, onboarding start person/template selection | Replace current `SearchSelect` with a shared combobox wrapper. Needs large-list performance and clearable/non-clearable modes. |
 | Command | `command` | backing primitive for search select, command menu if used | comboboxes, global admin search, possible future command menu | Treat as implementation primitive first. Avoid adding a global command palette unless explicitly scoped. |
 | Checkbox | `checkbox` | `CheckboxField`, `CheckboxList`, `RowCheckbox` | settings access scope groups, onboarding checkbox steps, calendar report group/status filters, duty roster exclusion rows, bulk import checked rows | Current app uses native checkboxes in many layouts. Need shared checkbox row/list patterns before settings and reports migrate. |
@@ -97,11 +97,11 @@ These are required for the first production-grade shadcn-svelte migration track.
 | Spinner | `spinner` | `Spinner`, button loading indicator | async buttons, modals, onboarding resync, imports, saves | Keep or wrap existing spinner. Calibrate size/color against button variants. |
 | Empty | `empty` | `EmptyState` | personnel, training, Critical Tasks, onboarding, DataTable, reports, sign-in rosters, imports | Preserve action button support and simple/box variants. |
 | Table | `table` | base `Table` primitives | settings archived table, calendar reports, duty roster DA6 matrix, report export previews | Define base table styling for native table surfaces that are not full `DataTable`. |
-| Data table | `data-table` | `DataTable`, `useDataTable`, `BulkImportTable` | personnel roster, rating scheme, future training reports, Critical Tasks tables, settings members/archive, import previews | Existing `DataTable` is strong but must be shadcn-backed or deliberately retained as app wrapper. Add mobile, row actions, sticky headers, dense cells, and bulk selection cases to showroom. |
+| Data table | `data-table` | `DataTable`, `useDataTable`, `BulkImportTable` | personnel roster, rating scheme, future training reports, Critical Tasks tables, settings members/archive, import previews | Existing `DataTable` is strong but must be shadcn-backed or deliberately retained as app wrapper. Add mobile, row actions, sticky headers, dense cells, and bulk selection cases to component catalog. |
 | Pagination | `pagination` | `TablePagination`, `PagedListControls` | personnel DataTable, future settings/member tables, audit logs, admin lists, report pages | Required because several current large lists will not stay route-local forever. |
 | Tabs | `tabs` | `Tabs`, `RouteTabs` | settings sections, admin sections, onboarding history/templates, duty roster generate/history/settings, dashboard tabs, calendar reports | `SubNav` has been removed because no production usage remained. Decide tab versus toolbar nav versus side nav by surface. Avoid multiple visual tab styles. |
 | Breadcrumb | `breadcrumb` | app-shell breadcrumb wrapper | `TopHeader`, nested duty roster/template/report routes, admin detail pages | Current breadcrumbs are shell-local. Move to shared calibrated component. |
-| Sidebar | `sidebar` | `AppSidebar`, settings side nav, admin side nav | authenticated app rail, settings workspace nav, admin shell, future showroom navigation | Must preserve current desktop rail and mobile bottom nav behavior. Do not adopt a generic SaaS sidebar look. |
+| Sidebar | `sidebar` | `AppSidebar`, settings side nav, admin side nav | authenticated app rail, settings workspace nav, admin shell, future component catalog navigation | Must preserve current desktop rail and mobile bottom nav behavior. Do not adopt a generic SaaS sidebar look. |
 | Navigation menu | `navigation-menu` | public nav or admin navigation where needed | public marketing nav, admin shell, possibly account/security routes | Authenticated route nav likely uses sidebar/tabs instead. Keep public/auth expression distinct. |
 | Avatar | `avatar` | `AvatarMenu`, member avatar | top header account menu, settings member ledger, admin user/org lists | Replace current initials circles with shared avatar treatment. |
 | Separator | `separator` | `Separator`, `SectionRule` | modals, settings sections, detail panels, report sections, menus | Hairline rules are central to the field-ledger system. |
@@ -113,7 +113,7 @@ These are required for the first production-grade shadcn-svelte migration track.
 
 ## Optional Or Later Components
 
-These are not first-wave requirements. They may be useful, but they should not block the foundation, showroom, or first app-area migrations.
+These are not first-wave requirements. They may be useful, but they should not block the foundation, component catalog, or first app-area migrations.
 
 | Component | Likely timing | Possible consumers | Reason to defer |
 | --- | --- | --- | --- |
@@ -135,7 +135,7 @@ These are not first-wave requirements. They may be useful, but they should not b
 
 ## Project-Specific Wrappers Needed
 
-These wrappers should be designed in shared UI before production route migration. Most should be represented in the showroom.
+These wrappers should be designed in shared UI before production route migration. Most should be represented in the component catalog.
 
 | Wrapper | Likely base components | Known consumers | Notes |
 | --- | --- | --- | --- |
@@ -163,7 +163,7 @@ These wrappers should be designed in shared UI before production route migration
 | `DateRangeControls` | `date-picker`, `native input`, `button group` | calendar reports, duty roster generate, export filters | Must decide native date fields versus date picker before report migration. |
 | `AdminSearch` | `combobox`, `command`, `popover`, `badge` | platform admin search | Current admin search is local and dropdown-like. Good candidate for Command-backed wrapper later. |
 | `ToastProvider` | `sonner` | root layout and toast store callers | Keep current `toastStore` API if possible to avoid churn. Swap renderer centrally. |
-| `ShowroomShell` | most required components | future showroom route | The showroom should include light/dark, desktop/mobile, all required states, and route-like dense examples. |
+| Shared catalog guidance | most required components | component catalog guidance | The component catalog should cover light/dark, desktop/mobile, all required states, and route-like dense examples. |
 
 ## App-Area Consumption Notes
 
@@ -467,9 +467,9 @@ Gaps:
 - Public/auth visual expression can be more editorial than product UI, but it must share token calibration.
 - Generic `Card` should remain wrapped. Public pages should not teach authenticated product routes to use decorative card grids.
 
-## Showroom Requirements From Inventory
+## Component Catalog Requirements From Inventory
 
-The showroom should include these minimum example groups:
+The component catalog should include these minimum example groups:
 
 1. Buttons: default, primary, secondary, danger, amber/signal, ghost if retained, icon-only, loading, disabled, links styled as buttons.
 2. Forms: input, textarea, native select, custom select, combobox, multi-select, checkbox, radio group, switch, number/date fields, hints, errors, disabled, required.
@@ -564,4 +564,4 @@ Priority order:
 6. OperationalMatrix, report, import, calendar/date controls
 7. optional components only when a real route need appears
 
-The first production route migration should not begin until the showroom proves the required components and the gaps above have an owner or an explicit deferral.
+The first production route migration should not begin until the component catalog proves the required components and the gaps above have an owner or an explicit deferral.

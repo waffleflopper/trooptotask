@@ -1,24 +1,24 @@
 # UI And Design-System Migration
 
-Use this file for UI component work, route migration, shared styling, showroom work, or shadcn-svelte/Tailwind v4 migration tasks.
+Use this file for UI component work, route migration, shared styling, or shadcn-svelte/Tailwind v4 migration tasks.
 
 ## Source Documents
 
 - `docs/plans/2026-05-06-shadcn-svelte-tailwind-v4-ui-migration-rfc.md` is the controlling contract for shadcn-svelte and Tailwind v4 UI migration work.
 - `docs/component-catalog.md` documents shared UI component props, CSS variables, utility classes, and usage patterns.
-- `/ui-showroom` and `/ui-showroom/app-shell` are the approved calibration and review surfaces for shared component visuals, states, and variants.
+- Shared component source, `docs/component-catalog.md`, `components.json`, and `src/app.css` are the active references for shared component visuals, states, and variants.
 
 ## Route Migration Boundary
 
 - Do not migrate production routes unless the task explicitly asks for route migration.
-- During route migration, styling outside shadcn/shared components should be converted to Tailwind CSS and aligned with the calibrated showroom baseline.
+- During route migration, styling outside shadcn/shared components should be converted to Tailwind CSS and aligned with the shared component baseline.
 
 ## Visual Authority
 
 - Shared components are visually authoritative. Route code consumes them; it does not restyle them.
 - Route-level visual overrides are forbidden unless Robert explicitly approves that specific visual change.
 - Visual changes belong in tokens (`src/app.css`, `components.json`, theme variables) or shared component source files under `src/lib/components/**`.
-- Prove shared UI changes in `/ui-showroom` before production routes consume them.
+- Prove shared UI changes in shared component source and focused production migration slices before relying on them broadly.
 
 ## Allowed Route-Level Variation
 

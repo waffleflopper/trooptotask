@@ -4,6 +4,8 @@
 	until existing production consumers move to BulkImportWorkspace.
 -->
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import * as NativeSelect from '$lib/components/ui/native-select';
 	import type { ColumnDef, ColumnMapping } from '$lib/utils/columnMapping';
 	import { autoMapColumns, detectHeaderRow, getMissingRequired } from '$lib/utils/columnMapping';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
@@ -256,19 +258,20 @@
 		{#each mappings as mapping, i (mapping.columnIndex)}
 			<div class="mapping-col">
 				<div class="mapping-header">{rawRows[0][mapping.columnIndex] ?? `Col ${i + 1}`}</div>
-				<select
-					class="select mapping-select"
+				<NativeSelect.Root
+					class="w-full"
+					size="sm"
 					value={mapping.fieldKey ?? ''}
 					onchange={(e) => setMapping(mapping.columnIndex, e.currentTarget.value || null)}
 				>
 					{#each getAvailableFields(mapping.columnIndex) as field (field?.key ?? '__skip__')}
 						{#if field === null}
-							<option value="">Skip</option>
+							<NativeSelect.Option value="">Skip</NativeSelect.Option>
 						{:else}
-							<option value={field.key}>{field.label}{field.required ? ' *' : ''}</option>
+							<NativeSelect.Option value={field.key}>{field.label}{field.required ? ' *' : ''}</NativeSelect.Option>
 						{/if}
 					{/each}
-				</select>
+				</NativeSelect.Root>
 			</div>
 		{/each}
 	</div>
@@ -282,8 +285,8 @@
 			<span class="summary-unchecked">{uncheckedCount} unchecked</span>
 		{/if}
 		<div class="spacer"></div>
-		<button class="btn btn-sm btn-secondary" onclick={selectAll}>Select All</button>
-		<button class="btn btn-sm btn-secondary" onclick={selectNone}>Select None</button>
+		<Button size="sm" variant="outline" onclick={selectAll}>Select All</Button>
+		<Button size="sm" variant="outline" onclick={selectNone}>Select None</Button>
 	</div>
 
 	<div class="table-wrapper">
@@ -384,11 +387,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-width: 120px;
-	}
-
-	.mapping-select {
-		font-size: var(--text-xs);
-		padding: 2px 4px;
 	}
 
 	.summary-bar {

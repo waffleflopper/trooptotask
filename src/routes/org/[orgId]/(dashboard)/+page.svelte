@@ -6,6 +6,7 @@
 	import type { DashboardPageSummaryData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		isPromiseLike,
@@ -223,8 +224,9 @@
 	{:else if canLoadSupport && supportError}
 		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
 			<p>Workspace support is temporarily unavailable.</p>
-			<button
-				class="btn btn-secondary btn-sm"
+			<Button
+				variant="outline"
+				size="sm"
 				onclick={() => {
 					if (ctx) {
 						void loadSupportData(ctx);
@@ -232,7 +234,7 @@
 				}}
 			>
 				Retry checklist
-			</button>
+			</Button>
 		</section>
 	{/if}
 {/if}

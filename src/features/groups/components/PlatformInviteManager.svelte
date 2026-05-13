@@ -4,6 +4,8 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import * as NativeSelect from '$lib/components/ui/native-select';
 
 	interface Props {
 		onClose: () => void;
@@ -167,28 +169,20 @@
 					{/if}
 
 					<div class="invite-code-display">
-						<p class="label">Invite Code</p>
+						<p class="field-label">Invite Code</p>
 						<div class="code-box">
 							<code>{createdInvite.code}</code>
-							<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.code)}>
-								Copy
-							</button>
+							<Button variant="outline" size="sm" onclick={() => copyToClipboard(createdInvite!.code)}>Copy</Button>
 						</div>
 					</div>
 
 					<div class="invite-link-display">
 						<label for="invite-registration-link">Registration Link</label>
 						<div class="link-box">
-							<input
-								id="invite-registration-link"
-								type="text"
-								readonly
-								value={createdInvite.registrationUrl}
-								class="input"
-							/>
-							<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.registrationUrl)}>
+							<Input id="invite-registration-link" type="text" readonly value={createdInvite.registrationUrl} />
+							<Button variant="outline" size="sm" onclick={() => copyToClipboard(createdInvite!.registrationUrl)}>
 								Copy
-							</button>
+							</Button>
 						</div>
 					</div>
 
@@ -197,14 +191,14 @@
 					{/if}
 
 					<div class="action-buttons">
-						<button class="btn btn-primary" onclick={sendEmail}>
+						<Button onclick={sendEmail}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
 								<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 								<polyline points="22,6 12,13 2,6" />
 							</svg>
 							Send via Email
-						</button>
-						<button class="btn btn-secondary" onclick={() => (createdInvite = null)}> Create Another </button>
+						</Button>
+						<Button variant="outline" onclick={() => (createdInvite = null)}>Create Another</Button>
 					</div>
 				</div>
 			{:else}
@@ -216,32 +210,31 @@
 						<div class="error-message">{errorMessage}</div>
 					{/if}
 
-					<div class="form-group">
-						<label class="label" for="inviteEmail">Email Address (Optional)</label>
-						<input
-							id="inviteEmail"
-							type="email"
-							class="input"
-							bind:value={newEmail}
-							placeholder="Leave blank for anyone to use"
-						/>
+					<div class="grid gap-2">
+						<label class="field-label" for="inviteEmail">Email Address (Optional)</label>
+						<Input id="inviteEmail" type="email" bind:value={newEmail} placeholder="Leave blank for anyone to use" />
 						<span class="field-hint">If provided, only this email can use the invite</span>
 					</div>
 
-					<div class="form-group">
-						<label class="label" for="expiresIn">Expires In</label>
-						<select id="expiresIn" class="select" bind:value={expiresInDays}>
-							<option value={1}>1 day</option>
-							<option value={7}>7 days</option>
-							<option value={14}>14 days</option>
-							<option value={30}>30 days</option>
-							<option value={90}>90 days</option>
-						</select>
+					<div class="grid gap-2">
+						<label class="field-label" for="expiresIn">Expires In</label>
+						<NativeSelect.Root
+							id="expiresIn"
+							class="w-full"
+							value={String(expiresInDays)}
+							onchange={(event) => (expiresInDays = Number(event.currentTarget.value))}
+						>
+							<NativeSelect.Option value="1">1 day</NativeSelect.Option>
+							<NativeSelect.Option value="7">7 days</NativeSelect.Option>
+							<NativeSelect.Option value="14">14 days</NativeSelect.Option>
+							<NativeSelect.Option value="30">30 days</NativeSelect.Option>
+							<NativeSelect.Option value="90">90 days</NativeSelect.Option>
+						</NativeSelect.Root>
 					</div>
 
-					<button class="btn btn-primary" onclick={createInvite} disabled={isCreating}>
+					<Button class="w-full" onclick={createInvite} disabled={isCreating}>
 						{isCreating ? 'Creating...' : 'Generate Invite'}
-					</button>
+					</Button>
 				</div>
 
 				<!-- Existing Invites -->
@@ -276,7 +269,12 @@
 										</span>
 									</div>
 									{#if !invite.used_at}
-										<button class="btn btn-danger btn-sm" onclick={() => deleteInvite(invite.id)} title="Delete invite">
+										<Button
+											variant="destructive"
+											size="icon-sm"
+											onclick={() => deleteInvite(invite.id)}
+											title="Delete invite"
+										>
 											<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
 												<path
 													fill-rule="evenodd"
@@ -284,7 +282,7 @@
 													clip-rule="evenodd"
 												/>
 											</svg>
-										</button>
+										</Button>
 									{/if}
 								</div>
 							{/each}
@@ -321,6 +319,7 @@
 		margin-bottom: var(--sp-4);
 	}
 
+	.field-label,
 	.field-hint {
 		display: block;
 		margin-top: var(--sp-1);
@@ -343,11 +342,6 @@
 		padding-bottom: var(--sp-6);
 		margin-bottom: var(--sp-6);
 		border-bottom: 1px solid var(--border-default);
-	}
-
-	.create-section .btn-primary {
-		width: 100%;
-		margin-top: var(--sp-2);
 	}
 
 	/* Success Section */
@@ -390,7 +384,7 @@
 		margin-bottom: var(--sp-4);
 	}
 
-	.invite-code-display .label,
+	.invite-code-display .field-label,
 	.invite-link-display label {
 		display: block;
 		font-size: var(--text-xs);
@@ -418,7 +412,7 @@
 		letter-spacing: 2px;
 	}
 
-	.link-box .input {
+	.link-box :global([data-slot='input']) {
 		flex: 1;
 		font-size: var(--text-xs);
 	}
@@ -434,10 +428,6 @@
 		gap: var(--sp-2);
 		justify-content: center;
 		margin-top: var(--sp-6);
-	}
-
-	.action-buttons .btn svg {
-		margin-right: var(--sp-1);
 	}
 
 	/* Invites List */
@@ -497,7 +487,7 @@
 		color: var(--text-tertiary);
 	}
 
-	.invite-item .btn {
+	.invite-item :global([data-slot='button']) {
 		padding: var(--sp-1);
 	}
 </style>

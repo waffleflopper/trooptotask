@@ -11,7 +11,7 @@ This spec replaces the current `ui/operational-matrix` implementation direction.
 ## Controlling Context
 
 - `docs/plans/2026-05-06-shadcn-svelte-tailwind-v4-ui-migration-rfc.md` remains the controlling UI migration contract.
-- `/ui-showroom` remains the calibration and proof surface before production route migration.
+- `docs/component-catalog.md` remains the calibration and proof surface before production route migration.
 - Shared components remain visually authoritative. Route code may configure behavior and data, but it may not create route-local visual skins for shared components without explicit permission.
 - This phase does not migrate production routes.
 
@@ -105,7 +105,7 @@ Matrix implications:
 4. Support cell selection and dialog-trigger workflows.
 5. Allow wrappers to render their own row headers, column headers, cells, ranges, legends, and toolbars.
 6. Support dense, scrollable, sticky-axis operational layouts without the headless core owning the final visual skin.
-7. Prove the API in `/ui-showroom` before production route migration.
+7. Prove the API in `docs/component-catalog.md` before production route migration.
 
 ## Non-Goals
 
@@ -500,9 +500,9 @@ It should support wrapper-rendered range visuals by:
 
 Availability wrappers can decide whether a multi-day status is rendered as repeated cells, a visually connected block, clipped text, diagonal split, or color-only run.
 
-## Showroom Requirements
+## Component Catalog Requirements
 
-Add or update `/ui-showroom` examples before production routes consume the component.
+Add or update `docs/component-catalog.md` examples before production routes consume the component.
 
 Required examples:
 
@@ -517,7 +517,7 @@ Required examples:
 - rich row headers with metadata
 - loading and empty wrapper examples
 
-The showroom should prove the API under realistic pressure. It should not be only a toy three-by-three grid.
+The component catalog should prove the API under realistic pressure. It should not be only a toy three-by-three grid.
 
 ## Testing Requirements
 
@@ -533,7 +533,7 @@ Required coverage:
 - supports selected state data attributes
 - supports grouped/stacked header markup
 
-Visual behavior belongs in showroom review and wrapper tests where practical.
+Visual behavior belongs in component catalog review and wrapper tests where practical.
 
 ## Documentation Updates
 
@@ -550,7 +550,7 @@ When implementing this spec:
 2. Define the new headless type contracts.
 3. Implement the compound component context and primitive parts.
 4. Add primitive component tests.
-5. Build showroom examples with basic styling and at least one dialog-trigger interaction.
+5. Build component catalog examples with basic styling and at least one dialog-trigger interaction.
 6. Update `docs/component-catalog.md`.
 7. Run required verification.
 
@@ -561,7 +561,7 @@ These decisions should be made during implementation if the repo evidence points
 1. Should the public import remain `OperationalMatrix`, or should the root primitive be renamed `HeadlessMatrix`?
    - Recommendation: keep `OperationalMatrix` because the domain is clearer and existing docs already use it.
 2. Should sticky behavior live as headless data attributes only, or should a shared styled wrapper provide default sticky classes?
-   - Recommendation: data attributes in headless, default sticky classes in the showroom/styled wrapper.
+   - Recommendation: data attributes in headless, default sticky classes in the component catalog/styled wrapper.
 3. Should Phase 1 include arrow-key cell navigation?
    - Recommendation: no. Use native button/tab behavior first.
 4. Should calendar status colors be supported by a shared styled cell helper?
@@ -574,5 +574,5 @@ These decisions should be made during implementation if the repo evidence points
 - A durable spec exists in `docs/plans` and can be used as the reference for future implementation prompts.
 - The spec clearly replaces the old visual-first `OperationalMatrix` direction.
 - The API supports monthly availability, long-range availability, training, and Critical Tasks needs without making the primitive domain-specific.
-- The spec preserves the UI migration rule: shared visuals are calibrated in showroom before route migration.
+- The spec preserves the UI migration rule: shared visuals are calibrated in component catalog before route migration.
 - The implementation path does not require production route migration in the first slice.

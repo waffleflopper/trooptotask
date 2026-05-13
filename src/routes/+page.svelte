@@ -158,7 +158,7 @@
 					</p>
 
 					<div class="hero__actions anim-fade-up anim-delay-3">
-						<a href="/auth/request-access" class="btn btn--amber">Join Free Beta</a>
+						<a href="/auth/request-access" class="landing-btn landing-btn--amber">Join Free Beta</a>
 					</div>
 
 					<div class="hero__beta anim-fade-up anim-delay-4">
@@ -782,8 +782,8 @@
 					</p>
 				</div>
 				<div class="cta__actions">
-					<a href="/auth/request-access" class="btn btn--amber cta__action-primary">Join Free Beta</a>
-					<a href="/pricing" class="btn btn--outline">View Pricing</a>
+					<a href="/auth/request-access" class="landing-btn landing-btn--amber cta__action-primary">Join Free Beta</a>
+					<a href="/pricing" class="landing-btn landing-btn--outline">View Pricing</a>
 					<div class="cta__note">Free during beta · paid plans later</div>
 				</div>
 			</div>
@@ -866,7 +866,7 @@
 		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
 	}
 
-	.btn {
+	.landing-btn {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--sp-2);
@@ -884,24 +884,24 @@
 			border-color 0.15s ease;
 	}
 
-	.btn--amber {
+	.landing-btn--amber {
 		background: var(--amber);
 		color: var(--white);
 		border: 1px solid var(--amber);
 	}
 
-	.btn--amber:hover {
+	.landing-btn--amber:hover {
 		background: var(--amber-vivid);
 		border-color: var(--amber-vivid);
 	}
 
-	.btn--outline {
+	.landing-btn--outline {
 		background: transparent;
 		color: var(--text-primary);
 		border: 1px solid var(--border-default);
 	}
 
-	.btn--outline:hover {
+	.landing-btn--outline:hover {
 		border-color: var(--text-secondary);
 		background: var(--surface-subtle);
 	}
@@ -1671,7 +1671,7 @@
 	}
 
 	.faq-question:focus-visible,
-	.btn:focus-visible {
+	.landing-btn:focus-visible {
 		outline: var(--focus-outline);
 		outline-offset: var(--focus-outline-offset);
 	}
@@ -1884,7 +1884,7 @@
 		}
 
 		.cap-card,
-		.btn {
+		.landing-btn {
 			transition: none;
 		}
 	}

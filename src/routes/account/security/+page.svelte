@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { data }: { data: PageData } = $props();
@@ -168,7 +170,7 @@
 				<h1>Account Security</h1>
 				<p class="page-intro">Manage sign-in protection for your Troop to Task account.</p>
 			</div>
-			<a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+			<Button href="/dashboard" variant="outline">Back to Dashboard</Button>
 		</header>
 
 		{#if error}
@@ -219,10 +221,10 @@
 			</div>
 
 			{#if !mfaEnabled && !enrolling}
-				<button class="btn btn-primary" onclick={startEnroll} disabled={loading}>
+				<Button onclick={startEnroll} disabled={loading}>
 					{#if loading}<Spinner />{/if}
 					Enable MFA
-				</button>
+				</Button>
 			{/if}
 
 			{#if enrolling && qrCode}
@@ -249,33 +251,32 @@
 							verifyEnrollment();
 						}}
 					>
-						<div class="form-group">
-							<label class="label" for="verify-code">Verification Code</label>
-							<input
+						<div class="grid gap-2">
+							<label class="field-label" for="verify-code">Verification Code</label>
+							<Input
 								id="verify-code"
 								type="text"
-								class="input code-input"
 								value={verifyCode}
 								oninput={handleCodeInput}
 								placeholder="000000"
-								maxlength="6"
+								maxlength={6}
 								autocomplete="one-time-code"
 								inputmode="numeric"
 							/>
 						</div>
 						<div class="enroll-actions">
-							<button type="button" class="btn btn-secondary" onclick={cancelEnroll}>Cancel</button>
-							<button type="submit" class="btn btn-primary" disabled={loading || verifyCode.length !== 6}>
+							<Button type="button" variant="outline" onclick={cancelEnroll}>Cancel</Button>
+							<Button type="submit" disabled={loading || verifyCode.length !== 6}>
 								{#if loading}<Spinner />{/if}
 								Verify & Enable
-							</button>
+							</Button>
 						</div>
 					</form>
 				</div>
 			{/if}
 
 			{#if mfaEnabled && !enrolling && !confirmingDisable}
-				<button class="btn btn-danger" onclick={startDisableMFA} disabled={disabling}> Disable MFA </button>
+				<Button variant="destructive" onclick={startDisableMFA} disabled={disabling}>Disable MFA</Button>
 			{/if}
 
 			{#if mfaEnabled && confirmingDisable}
@@ -293,28 +294,27 @@
 							Enter a fresh 6-digit code from your authenticator app before MFA can be removed from this account.
 						</p>
 					</div>
-					<div class="form-group">
-						<label class="label" for="disable-code">Authenticator Code</label>
-						<input
+					<div class="grid gap-2">
+						<label class="field-label" for="disable-code">Authenticator Code</label>
+						<Input
 							id="disable-code"
 							type="text"
-							class="input code-input"
 							value={disableCode}
 							oninput={handleDisableCodeInput}
 							placeholder="000000"
-							maxlength="6"
+							maxlength={6}
 							autocomplete="one-time-code"
 							inputmode="numeric"
 						/>
 					</div>
 					<div class="enroll-actions">
-						<button type="button" class="btn btn-secondary" onclick={cancelDisableMFA} disabled={disabling}>
+						<Button type="button" variant="outline" onclick={cancelDisableMFA} disabled={disabling}>
 							Keep MFA Enabled
-						</button>
-						<button type="submit" class="btn btn-danger" disabled={disabling || disableCode.length !== 6}>
+						</Button>
+						<Button type="submit" variant="destructive" disabled={disabling || disableCode.length !== 6}>
 							{#if disabling}<Spinner />{/if}
 							Confirm & Disable
-						</button>
+						</Button>
 					</div>
 				</form>
 			{/if}
@@ -355,7 +355,8 @@
 	.eyebrow,
 	.section-label,
 	.alert-label,
-	.overview-label {
+	.overview-label,
+	.field-label {
 		margin: 0;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
@@ -367,6 +368,10 @@
 	.eyebrow,
 	.section-label {
 		color: var(--amber);
+	}
+
+	.field-label {
+		color: var(--text-secondary);
 	}
 
 	.page-header h1 {
@@ -569,13 +574,6 @@
 		border-top: var(--border-thin);
 	}
 
-	.code-input {
-		font-family: var(--font-mono);
-		font-size: var(--text-xl);
-		letter-spacing: 0.18em;
-		text-align: center;
-	}
-
 	.enroll-actions {
 		display: flex;
 		gap: var(--sp-3);
@@ -600,8 +598,8 @@
 			flex-direction: column-reverse;
 		}
 
-		.enroll-actions :global(.btn),
-		.page-header :global(.btn) {
+		.enroll-actions :global([data-slot='button']),
+		.page-header :global([data-slot='button']) {
 			width: 100%;
 		}
 	}

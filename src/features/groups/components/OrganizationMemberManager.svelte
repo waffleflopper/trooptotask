@@ -5,6 +5,7 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import type { OrganizationMember, PermissionPreset } from '$lib/types';
 	import { getPermissionPreset } from '$lib/types';
 	import { sortMembers } from '$features/groups/utils/sortMembers';
@@ -257,7 +258,7 @@
 												<option value={group.id}>{group.name}</option>
 											{/each}
 										</select>
-										<button type="submit" class="btn btn-primary btn-sm">Apply</button>
+										<Button type="submit" size="sm">Apply</Button>
 									{/if}
 								</form>
 
@@ -272,31 +273,33 @@
 
 								<form method="POST" action="?/removeMember" use:enhance>
 									<input type="hidden" name="membershipId" value={member.id} />
-									<button
+									<Button
 										type="button"
-										class="btn btn-danger btn-sm"
+										variant="destructive"
+										size="sm"
 										onclick={(e) => {
-											pendingRemoveForm = (e.target as HTMLElement).closest('form');
+											pendingRemoveForm = e.currentTarget.closest('form');
 										}}
 									>
 										Remove
-									</button>
+									</Button>
 								</form>
 							{:else}
 								<Badge variant="outline" class="font-mono tracking-widest uppercase">{getPresetLabel(preset)}</Badge>
 							{/if}
 
 							{#if isOwner && member.role !== 'owner'}
-								<button
+								<Button
 									type="button"
-									class="btn btn-secondary btn-sm"
+									variant="outline"
+									size="sm"
 									onclick={() => {
 										transferTargetId = member.userId;
 										showTransferConfirm = true;
 									}}
 								>
 									Transfer
-								</button>
+								</Button>
 							{/if}
 						</div>
 					</div>
@@ -443,12 +446,10 @@
 							</div>
 
 							<div class="permission-actions">
-								<button type="button" class="btn btn-secondary" onclick={() => (expandedMemberId = null)}>
-									Cancel
-								</button>
-								<button type="submit" class="btn btn-primary" disabled={loading}>
+								<Button type="button" variant="outline" onclick={() => (expandedMemberId = null)}>Cancel</Button>
+								<Button type="submit" disabled={loading}>
 									{loading ? 'Saving...' : 'Save Permissions'}
-								</button>
+								</Button>
 							</div>
 						</form>
 					{/if}
@@ -503,14 +504,7 @@
 				</p>
 
 				<div class="invite-form">
-					<input
-						name="email"
-						type="email"
-						class="input"
-						placeholder="colleague@example.com"
-						bind:value={inviteEmail}
-						required
-					/>
+					<Input name="email" type="email" placeholder="colleague@example.com" bind:value={inviteEmail} required />
 					<select name="preset" class="preset-select" bind:value={invitePreset}>
 						{#each availablePresetOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
@@ -524,9 +518,9 @@
 							{/each}
 						</select>
 					{/if}
-					<button type="submit" class="btn btn-primary" disabled={loading}>
+					<Button type="submit" disabled={loading}>
 						{loading ? 'Sending...' : 'Invite'}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</div>
@@ -546,7 +540,7 @@
 							</div>
 							<form method="POST" action="?/revokeInvite" use:enhance>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<button type="submit" class="btn btn-secondary btn-sm">Revoke</button>
+								<Button type="submit" variant="outline" size="sm">Revoke</Button>
 							</form>
 						</div>
 					{/each}
@@ -799,7 +793,7 @@
 		flex-wrap: wrap;
 	}
 
-	.invite-form .input {
+	.invite-form :global([data-slot='input']) {
 		flex: 1;
 		min-width: 200px;
 	}
@@ -873,7 +867,7 @@
 			flex-direction: column;
 		}
 
-		.invite-form .input {
+		.invite-form :global([data-slot='input']) {
 			min-width: unset;
 		}
 

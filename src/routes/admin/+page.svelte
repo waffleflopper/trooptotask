@@ -5,6 +5,8 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { Separator } from '$lib/components/ui/separator';
+	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
+	import { ReportBarChart } from '$lib/components/ui/report-chart';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -17,6 +19,20 @@
 	const maxSignups = $derived(
 		data.signupTrend.length > 0 ? Math.max(...data.signupTrend.map((day: { count: number }) => day.count), 1) : 1
 	);
+	const signupTicks = $derived(buildReportCountTicks(maxSignups, { denseMax: 4 }));
+	const signupChartData = $derived(
+		data.signupTrend.map((day: { date: string; count: number }) => ({
+			label: day.date.slice(5),
+			signups: day.count
+		}))
+	);
+	const signupSeries = [
+		{
+			key: 'signups',
+			label: 'New accounts',
+			color: REPORT_CHART_SERIES[1].color
+		}
+	];
 	const totalTierOrgs = $derived(data.tierCounts.free + data.tierCounts.team + data.tierCounts.unit);
 </script>
 
@@ -92,20 +108,32 @@
 			</Card.Header>
 			<Card.Content>
 				{#if data.signupTrend.length > 0}
-					<div class="flex h-40 items-end gap-1" aria-label="Signup trend chart">
-						{#each data.signupTrend as day (day.date)}
-							<div class="flex h-full flex-1 items-end rounded-sm bg-muted">
-								<div
-									class="w-full rounded-sm bg-primary"
-									style="height: {Math.round((day.count / maxSignups) * 100)}%"
-									title="{day.date}: {day.count} signup{day.count === 1 ? '' : 's'}"
-								></div>
-							</div>
-						{/each}
-					</div>
-					<div class="mt-2 flex justify-between text-xs text-muted-foreground">
-						<span>{data.signupTrend[0]?.date?.slice(5) ?? ''}</span>
-						<span>{data.signupTrend[data.signupTrend.length - 1]?.date?.slice(5) ?? ''}</span>
+					<ReportBarChart
+						data={signupChartData}
+						series={signupSeries}
+						ariaLabel="Admin signup trend by day"
+						yDomain={[0, maxSignups]}
+						yTicks={signupTicks}
+						layout="group"
+						heightClass="h-[190px]"
+					/>
+					<div class="sr-only">
+						<table aria-label="Admin signup trend data">
+							<thead>
+								<tr>
+									<th scope="col">Date</th>
+									<th scope="col">New accounts</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each data.signupTrend as day (day.date)}
+									<tr>
+										<td>{day.date}</td>
+										<td>{day.count}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
 					</div>
 				{:else}
 					<Empty.Root>

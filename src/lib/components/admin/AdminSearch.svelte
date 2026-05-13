@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Search } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Command from '$lib/components/ui/command';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -44,30 +43,26 @@
 	}
 </script>
 
-<div class="relative w-full max-w-xl">
-	<Command.Root class="h-9 rounded-lg border bg-background shadow-none">
-		<div class="flex items-center gap-2 px-2">
-			<Search class="size-4 shrink-0 text-muted-foreground" />
-			<Command.Input
-				id="platform-admin-search"
-				aria-label="Search platform admin records"
-				placeholder="Search users or organizations..."
-				bind:value={query}
-				oninput={handleInput}
-				onfocus={() => {
-					if (hasResults) isOpen = true;
-				}}
-				onblur={close}
-			/>
-			<span class="shrink-0 text-[0.68rem] font-medium tracking-[0.08em] text-muted-foreground uppercase">
-				{loading ? 'Searching' : '3+ chars'}
-			</span>
-		</div>
+<div class="relative w-full max-w-lg">
+	<Command.Root class="h-auto bg-transparent p-0 shadow-none">
+		<Command.Input
+			id="platform-admin-search"
+			aria-label="Search platform admin records"
+			placeholder="Search users or organizations..."
+			bind:value={query}
+			oninput={handleInput}
+			onfocus={() => {
+				if (hasResults) isOpen = true;
+			}}
+			onblur={close}
+		/>
 	</Command.Root>
 
 	{#if isOpen}
-		<Command.Root class="absolute top-[calc(100%+0.375rem)] right-0 left-0 z-50 max-h-[26rem] border shadow-lg">
-			<Command.List>
+		<Command.Root
+			class="absolute top-[calc(100%+0.375rem)] right-0 left-0 z-50 max-h-[22rem] min-h-48 border shadow-lg"
+		>
+			<Command.List class="max-h-[21.5rem]">
 				{#if loading}
 					<Command.Loading>
 						<span class="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground"><Spinner /> Searching</span>

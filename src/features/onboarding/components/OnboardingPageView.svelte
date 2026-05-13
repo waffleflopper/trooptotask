@@ -38,7 +38,6 @@
 				label: item.label,
 				href: item.href,
 				onclick: item.onclick,
-				icon: item.label.toLowerCase().includes('report') ? 'chart' : undefined,
 				disabled: item.disabled,
 				disabledReason: item.disabledReason,
 				priority: 'normal'

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
-	import OnboardingReportModal from './OnboardingReportModal.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -23,16 +22,6 @@
 		ctx.templates.find((template) => template.id === ctx.assignTemplateSelected)?.name ?? 'Select a template'
 	);
 </script>
-
-{#if ctx.modals.isOpen(MODAL_IDS.report)}
-	<OnboardingReportModal
-		onboardings={ctx.onboardings}
-		personnel={ctx.personnel}
-		templates={ctx.templates}
-		trainingTypeNames={ctx.trainingTypeNames}
-		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
-	/>
-{/if}
 
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
-	import LegacyBadge from '$lib/components/ui/Badge.svelte';
 	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
 	import LegacySkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import LegacySkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -138,10 +137,11 @@
 		{
 			id: 'badges',
 			group: 'Status',
-			current: 'Badge.svelte, .chip, status dots',
-			target: 'ui/badge',
+			current: '.chip, status dots, admin-only Badge.svelte island',
+			target: 'ui/badge, ui/calendar-status-badge, ui/requirement-status-badge',
 			status: 'direct',
-			notes: 'Base Badge should stay semantic. Calendar custom colors belong behind CalendarStatusBadge.'
+			notes:
+				'Base Badge stays semantic. Calendar custom colors belong behind CalendarStatusBadge. Legacy Badge is now only an admin cleanup island.'
 		},
 		{
 			id: 'legends',
@@ -1335,10 +1335,10 @@
 
 		<div class="comparison-row">
 			<div class="comparison-cell">
-				<h3>Current badges and chips</h3>
+				<h3>Previous badge-like chips</h3>
 				<div class="example-inline">
-					<LegacyBadge label="Ready" color="#345b22" textColor="#f7f8f4" />
-					<LegacyBadge label="Warning" color="#c47f00" textColor="#0e0e0d" />
+					<span class="chip bg-[color:#345b22] text-[#f7f8f4]">Ready</span>
+					<span class="chip bg-[color:#c47f00] text-[#0e0e0d]">Warning</span>
 					<span class="chip chip-primary">Manual</span>
 					<span class="chip chip-warning">Due</span>
 				</div>

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { formatRelativeDate } from '$lib/utils/dates';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { OrganizationMember, PermissionPreset } from '$lib/types';
 	import { getPermissionPreset } from '$lib/types';
@@ -165,6 +165,12 @@
 			expandedMemberId = null;
 		}
 	}
+
+	function roleVariant(role: OrganizationMember['role']) {
+		if (role === 'owner') return 'warning';
+		if (role === 'admin') return 'info';
+		return 'secondary';
+	}
 </script>
 
 <div class="member-manager">
@@ -182,13 +188,12 @@
 								{:else}
 									<span class="member-id">{member.userId.slice(0, 8)}...</span>
 								{/if}
-								{#if member.role === 'owner'}
-									<Badge label="OWNER" color="var(--amber-dark)" />
-								{:else if member.role === 'admin'}
-									<Badge label="ADMIN" color="var(--info)" bold={true} />
-								{:else}
-									<Badge label="MEMBER" color="var(--ink-60)" />
-								{/if}
+								<Badge
+									variant={roleVariant(member.role)}
+									class={['font-mono tracking-widest uppercase', member.role === 'admin' && 'font-bold']}
+								>
+									{member.role}
+								</Badge>
 								{#if member.scopedGroupId}
 									<span class="scope-label"
 										>({groups.find((g) => g.id === member.scopedGroupId)?.name ?? 'Unknown group'})</span
@@ -278,7 +283,7 @@
 									</button>
 								</form>
 							{:else}
-								<Badge label={getPresetLabel(preset)} variant="outlined" />
+								<Badge variant="outline" class="font-mono tracking-widest uppercase">{getPresetLabel(preset)}</Badge>
 							{/if}
 
 							{#if isOwner && member.role !== 'owner'}

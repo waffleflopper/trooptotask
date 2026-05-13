@@ -66,6 +66,8 @@ describe('OnboardingReportModal', () => {
 			}
 		});
 
+		expect(screen.getByRole('dialog', { name: 'Onboarding Report' })).toBeTruthy();
+		expect(screen.getByText(/Review the current bottlenecks/)).toBeTruthy();
 		const templateTrigger = screen.getByRole('button', { name: 'Template' });
 		expect(templateTrigger).toBeTruthy();
 		expect(screen.getByText('Initial paperwork')).toBeTruthy();

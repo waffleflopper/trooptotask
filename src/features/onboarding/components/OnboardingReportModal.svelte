@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PersonnelOnboarding, OnboardingTemplate } from '../onboarding.types';
 	import type { Personnel } from '$lib/types';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
@@ -115,104 +115,102 @@
 	);
 </script>
 
-<Modal title="Onboarding Report" {onClose} width="720px" titleId="onboarding-report-title">
-	<div class="flex flex-col gap-3">
-		<div class="rounded-lg border bg-muted/35 p-3">
-			<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-				Readiness report
-			</p>
-			<h3 class="mt-1 mb-0 text-lg leading-tight font-semibold tracking-tight">
-				See which onboarding steps are still holding people up.
-			</h3>
-			<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+<AppDialog.Root open {onClose}>
+	<AppDialog.Content size="wide">
+		<AppDialog.Header>
+			<AppDialog.Title id="onboarding-report-title">Onboarding Report</AppDialog.Title>
+			<AppDialog.Description>
 				Review the current bottlenecks across active onboarding packets and narrow the list to a specific template when
 				needed.
-			</p>
-		</div>
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-		<div class="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-end sm:justify-between">
-			<div class="grid gap-1">
-				<span class="font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-					Active packets
-				</span>
-				<strong class="text-2xl leading-none font-semibold tracking-tight">{filteredOnboardings.length}</strong>
-			</div>
-			{#if templateOptions.length > 1}
-				<div class="grid w-full gap-2 sm:max-w-64">
-					<Label for="onboarding-report-template">Template</Label>
-					<Select.Root type="single" bind:value={selectedTemplateId}>
-						<Select.Trigger id="onboarding-report-template" class="w-full">{selectedTemplateLabel}</Select.Trigger>
-						<Select.Content>
-							{#each templateOptions as opt (opt.value)}
-								<Select.Item value={opt.value} label={opt.label} />
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-			{/if}
-		</div>
-
-		{#if report.length === 0}
-			<Empty.Root>
-				<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
-				<Empty.Header>
-					<Empty.Title>No active onboardings</Empty.Title>
-					<Empty.Description>No active onboardings to report on.</Empty.Description>
-				</Empty.Header>
-			</Empty.Root>
-		{:else}
-			<div class="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
-				{#each report as step (step.key)}
-					{@const completedCount = step.totalPeople - step.incomplete.length}
-					<div
-						class={step.incomplete.length === 0
-							? 'rounded-lg border bg-success-muted/50 p-3'
-							: 'rounded-lg border bg-card p-3'}
-					>
-						<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-							<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-								<Badge variant={stepTypeVariants[step.stepType as keyof typeof stepTypeVariants] ?? 'secondary'}>
-									{stepTypeLabels[step.stepType]}
-								</Badge>
-								<span class="text-sm leading-snug font-semibold">
-									{step.stepName}
-									{#if step.trainingTypeName && step.trainingTypeName !== step.stepName}
-										<span class="font-normal text-muted-foreground">({step.trainingTypeName})</span>
-									{/if}
-								</span>
-							</div>
-							<span
-								class={step.incomplete.length === 0
-									? 'font-mono text-xs font-semibold tracking-[0.08em] text-success'
-									: 'font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground'}
-								>{completedCount}/{step.totalPeople}</span
-							>
-						</div>
-
-						{#if step.incomplete.length > 0}
-							<div class="mt-2 grid gap-2 border-t pt-2">
-								{#each step.incomplete as person (person.key)}
-									<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-										<span class="text-sm">{getPersonName(person.personnelId)}</span>
-										{#if person.detail}
-											<span class="font-mono text-xs text-muted-foreground">Current stage: {person.detail}</span>
-										{/if}
-									</div>
-								{/each}
-							</div>
-						{:else}
-							<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
-								Every active packet has cleared this step.
-							</p>
-						{/if}
+		<AppDialog.Body>
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-end sm:justify-between">
+					<div class="grid gap-1">
+						<span class="font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+							Active packets
+						</span>
+						<strong class="text-2xl leading-none font-semibold tracking-tight">{filteredOnboardings.length}</strong>
 					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
+					{#if templateOptions.length > 1}
+						<div class="grid w-full gap-2 sm:max-w-64">
+							<Label for="onboarding-report-template">Template</Label>
+							<Select.Root type="single" bind:value={selectedTemplateId}>
+								<Select.Trigger id="onboarding-report-template" class="w-full">{selectedTemplateLabel}</Select.Trigger>
+								<Select.Content>
+									{#each templateOptions as opt (opt.value)}
+										<Select.Item value={opt.value} label={opt.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</div>
+					{/if}
+				</div>
 
-	{#snippet footer()}
-		<div class="spacer"></div>
-		<Button variant="outline" type="button" onclick={onClose}>Close</Button>
-	{/snippet}
-</Modal>
+				{#if report.length === 0}
+					<Empty.Root>
+						<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+						<Empty.Header>
+							<Empty.Title>No active onboardings</Empty.Title>
+							<Empty.Description>No active onboardings to report on.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
+				{:else}
+					<div class="flex flex-col gap-2">
+						{#each report as step (step.key)}
+							{@const completedCount = step.totalPeople - step.incomplete.length}
+							<div
+								class={step.incomplete.length === 0
+									? 'rounded-lg border bg-success-muted/50 p-3'
+									: 'rounded-lg border bg-card p-3'}
+							>
+								<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+									<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+										<Badge variant={stepTypeVariants[step.stepType as keyof typeof stepTypeVariants] ?? 'secondary'}>
+											{stepTypeLabels[step.stepType]}
+										</Badge>
+										<span class="text-sm leading-snug font-semibold">
+											{step.stepName}
+											{#if step.trainingTypeName && step.trainingTypeName !== step.stepName}
+												<span class="font-normal text-muted-foreground">({step.trainingTypeName})</span>
+											{/if}
+										</span>
+									</div>
+									<span
+										class={step.incomplete.length === 0
+											? 'font-mono text-xs font-semibold tracking-[0.08em] text-success'
+											: 'font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground'}
+										>{completedCount}/{step.totalPeople}</span
+									>
+								</div>
+
+								{#if step.incomplete.length > 0}
+									<div class="mt-2 grid gap-2 border-t pt-2">
+										{#each step.incomplete as person (person.key)}
+											<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+												<span class="text-sm">{getPersonName(person.personnelId)}</span>
+												{#if person.detail}
+													<span class="font-mono text-xs text-muted-foreground">Current stage: {person.detail}</span>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<p class="mt-2 mb-0 text-sm leading-relaxed text-muted-foreground">
+										Every active packet has cleared this step.
+									</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

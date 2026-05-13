@@ -6,46 +6,29 @@ product
 
 ## Users
 
-TroopToTask is designed for military unit leaders and administrative staff responsible for readiness, accountability, and continuity across an organization. Primary users include commanders, XOs, first sergeants, platoon leaders, platoon sergeants, section leaders, training room NCOs, S1/admin staff, and higher-headquarters viewers with scoped access.
-
-They use the product in operational contexts where time pressure, handoffs, and briefing cadence matter. Their core job is to answer unit questions quickly and confidently: who is here, who is unavailable, what is due, where the gaps are, and what action is required before the next formation, brief, or transition.
-
-The interface should leave users feeling confident, supported by authority-grade information, and able to depend on the system as the source of truth.
+NCOs, officers, and staff sections (orderly rooms, S-1, S-3) managing personnel readiness, training compliance, duty rosters, availability, and unit administration at the company and battalion level. They work across desktops and laptops in office and occasionally field settings. Most are not technical — they need the tool to match how they already think about their formation, not force a new mental model.
 
 ## Product Purpose
 
-TroopToTask exists to make unit management clearer, faster, and more trustworthy across personnel tracking, calendar availability, training records, daily assignments, onboarding workflows, evaluations, and organization administration.
-
-Success means leaders can read the current state of the organization without reconstructing it from scattered spreadsheets, message threads, or institutional memory. The product should support decisions, briefings, handoffs, and operational continuity with less friction and fewer accidental gaps.
+TroopToTask replaces spreadsheets, whiteboards, and scattered trackers with a single source of truth for unit management. It tracks who is available, who is trained, who is next for duty, and who needs attention — so leaders can make fair, informed decisions without chasing information across systems. Success looks like a leader opening the app and immediately knowing the state of their formation.
 
 ## Brand Personality
 
-The brand personality is operational, structured, and practical.
-
-The voice should feel disciplined, direct, and trustworthy under pressure. It should communicate authority without theatrics, and clarity without becoming sterile. This is not consumer productivity software and should never sound playful, trendy, or over-marketed.
-
-Emotionally, the product should evoke confidence, authority, and dependability. It should feel like a tool leaders can rely on during real unit work, not a polished demo pretending to understand that environment.
+**Steady, precise, dependable.** Like well-maintained equipment: no flash, no surprises, always works. The voice is direct and clear — briefing-style, not marketing-style. It speaks the user's language (military terminology, formation structure) without overexplaining.
 
 ## Anti-references
 
-TroopToTask must not resemble generic SaaS marketing, shiny startup dashboards, soft productivity-app tropes, "AI slop," or fake command-center theatrics.
-
-Avoid decorative gradients, glassmorphism, excessive roundness, heavy glow, purple-gradient AI aesthetics, novelty motion, card soup, stock military cliches, and trend-chasing visuals that feel disconnected from real unit work.
-
-The product should not look like a generic analytics template with military labels pasted onto it. It should also avoid interfaces that bury operational facts under oversized hero text, vanity metrics, or ornamental dashboards.
+- **Not consumer/startup SaaS.** No pastel gradients, playful illustrations, bouncy animations, or "delightful" empty states. Not Notion, not Linear, not Figma. This is a tool for managing people and readiness, not a productivity app trying to be your friend.
+- **Not legacy military software.** Not DTMS, DTS, or any .mil green-on-gray brutalism. Modern, clean, and fast — not 2004. The bar is professional software, not government software.
 
 ## Design Principles
 
-1. Structure should carry meaning. Use grids, rules, labels, and alignment to communicate hierarchy and operational order.
-2. Clarity beats decoration. Every visual decision should improve scanability, trust, or task comprehension before it adds aesthetic flourish.
-3. Authority comes from discipline. Typography, spacing, and interaction design should feel controlled, deliberate, and dependable.
-4. Accent is for signal, not style. Operational amber should highlight status, emphasis, and action with restraint.
-5. Build for real-world pressure. Interfaces should support fast recognition, brief-ready comprehension, and continuity across leader transitions.
-6. Product surfaces serve the task. Authenticated pages should favor dense but organized information, predictable controls, and fast filtering over marketing composition.
-7. Shared UI carries the visual system. Production routes should configure behavior, data, labels, permissions, and workflow logic while calibrated shared components and tokens own appearance.
+1. **Nothing falls through the cracks.** Every screen gives users confidence they have complete visibility. Surface data proactively; don't hide status behind clicks.
+2. **Built like issued gear.** Reliable, consistent, no surprises. Users build muscle memory through repeating patterns. The tool earns trust by being predictable.
+3. **Show the whole formation.** Context-dense displays that let leaders see their unit at a glance. Respect the user's expertise — don't oversimplify.
+4. **Respect the rank, serve the mission.** The tool reflects military values: fairness, accountability, chain of command. It doesn't impose consumer paradigms on military workflows.
+5. **Get in, execute, move out.** Minimize friction for routine tasks. The tool should feel efficient, not demanding.
 
 ## Accessibility & Inclusion
 
-Accessibility is a baseline requirement. Target WCAG AA across color contrast, focus treatment, semantic content structure, keyboard navigation, and reduced-motion compatibility.
-
-The product should support users working in varied environments, including low-attention moments, brief preparation, mobile checks, and repeated data-entry or review workflows. Visual status cannot depend on color alone; labels, shapes, and text should carry meaning alongside color.
+WCAG AA compliance. Respect `prefers-reduced-motion` — animations are enhancement only and never gate functionality or workflow. All interactive elements must be fully keyboard-navigable with visible focus indicators.

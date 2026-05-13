@@ -1102,7 +1102,7 @@ Token-aligned calendar/matrix day cell primitive. Use this for dense date status
 
 Props: `statuses?: DateCellStatus[]`, `markers?: DateCellMarker[]`, `weekend?: boolean`, `today?: boolean`, `holiday?: boolean`, `holidayName?: string`, `onboarding?: boolean`, `showStatusText?: boolean`, `density?: 'month' | 'long-range'`, plus button attributes.
 
-Compatibility: `ui/DateCell.svelte` remains available for current calendar consumers and delegates to `ui/date-cell`.
+Compatibility: the legacy `ui/DateCell.svelte` wrapper has been removed. Calendar consumers should map product data into the `statuses` and `markers` props directly.
 
 ---
 

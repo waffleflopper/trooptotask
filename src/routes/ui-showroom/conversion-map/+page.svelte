@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { AlertTriangle, ClipboardList, FileUp, Filter, MoreHorizontal, Search, Trash2 } from '@lucide/svelte';
-	import DateCell from '$lib/components/ui/DateCell.svelte';
 	import LegacyEmptyState from '$lib/components/ui/EmptyState.svelte';
 	import LegacySkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import LegacySkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -41,8 +40,6 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
 	import * as WorkflowPanel from '$lib/components/ui/workflow-panel/index.js';
-	import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$lib/types';
-	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 
 	type ComponentMapItem = {
 		id: string;
@@ -385,89 +382,30 @@
 		criticalTaskStatus?: CriticalTaskRequirementStatus;
 	}[];
 
-	const dateCellStatusTypes = new Map<string, StatusType>([
-		[
-			'leave',
-			{
-				id: 'leave',
-				name: 'Leave',
-				color: '#345b22',
-				textColor: '#f7f8f4',
-				da6AvailabilityTreatment: 'authorized-absence',
-				da6TreatmentReviewed: true
-			}
-		],
-		[
-			'training',
-			{
-				id: 'training',
-				name: 'Training',
-				color: '#c47f00',
-				textColor: '#0e0e0d',
-				da6AvailabilityTreatment: 'other-duty',
-				da6TreatmentReviewed: true
-			}
-		]
-	]);
-
-	const dateCellEntries: AvailabilityEntry[] = [
-		{
-			id: 'availability-1',
-			personnelId: 'personnel-1',
-			statusTypeId: 'leave',
-			startDate: '2026-05-09',
-			endDate: '2026-05-10',
-			note: 'Approved pass'
-		},
-		{
-			id: 'availability-2',
-			personnelId: 'personnel-1',
-			statusTypeId: 'training',
-			startDate: '2026-05-09',
-			endDate: '2026-05-09',
-			note: 'Range support'
-		}
-	];
-
-	const dateCellAssignments: { type: AssignmentType; assignment: DailyAssignment }[] = [
-		{
-			type: {
-				id: 'staff-duty',
-				name: 'Staff Duty',
-				shortName: 'SD',
-				assignTo: 'personnel',
-				color: '#263f75',
-				exemptPersonnelIds: [],
-				showInDateHeader: true
-			},
-			assignment: {
-				id: 'assignment-1',
-				date: '2026-05-09',
-				assignmentTypeId: 'staff-duty',
-				assigneeId: 'personnel-1'
-			}
-		}
-	];
-
-	const dateCellDutyBadges: DutyEventBadge[] = [
-		{
-			shortName: 'CQ',
-			color: '#6f3f7d',
-			textColor: '#ffffff',
-			title: 'Charge of Quarters',
-			eventId: 'duty-event-1',
-			slotId: 'slot-1'
-		}
-	];
-
 	const dateCellTargetStatuses = [
 		{ id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' },
 		{ id: 'training', name: 'Training', color: '#c47f00', textColor: '#0e0e0d', note: 'Range support' }
 	];
 
 	const dateCellTargetMarkers = [
-		{ id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' },
-		{ id: 'cq', name: 'Charge of Quarters', shortName: 'CQ', color: '#6f3f7d', textColor: '#ffffff' }
+		{
+			id: 'staff-duty',
+			name: 'Staff Duty',
+			shortName: 'SD',
+			color: '#263f75',
+			textColor: '#ffffff',
+			title: 'Staff Duty',
+			kind: 'assignment' as const
+		},
+		{
+			id: 'cq',
+			name: 'Charge of Quarters',
+			shortName: 'CQ',
+			color: '#6f3f7d',
+			textColor: '#ffffff',
+			title: 'Charge of Quarters',
+			kind: 'duty' as const
+		}
 	];
 
 	const inlineNotes = [
@@ -655,25 +593,15 @@
 			<div class="unmatched-card unmatched-card--full">
 				<div class="unmatched-card__header">
 					<span class="map-group">Data display</span>
-					<h3>DateCell.svelte</h3>
+					<h3>Removed DateCell.svelte wrapper</h3>
 				</div>
 				<div class="unmatched-pair">
 					<div class="pattern-preview">
-						<p class="legend-label">Current component</p>
-						<div class="date-cell-frame" aria-label="Current DateCell preview">
-							<DateCell
-								date={new Date('2026-05-09T12:00:00')}
-								isWeekend={false}
-								isToday={true}
-								isHoliday={true}
-								holidayName="Training Holiday"
-								entries={dateCellEntries}
-								statusTypeMap={dateCellStatusTypes}
-								assignments={dateCellAssignments}
-								dutyBadges={dateCellDutyBadges}
-								showStatusText={true}
-							/>
-						</div>
+						<p class="legend-label">Removed wrapper</p>
+						<p class="legend-copy">
+							Legacy DateCell.svelte no longer exists. Calendar rows map product data into ui/date-cell status and
+							marker props directly.
+						</p>
 					</div>
 					<div class="pattern-preview">
 						<p class="legend-label">ui/date-cell</p>

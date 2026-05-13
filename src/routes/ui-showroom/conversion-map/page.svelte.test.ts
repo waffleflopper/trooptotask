@@ -23,7 +23,7 @@ describe('/ui-showroom/conversion-map', () => {
 		expect(screen.getByText('ui/workflow-panel plus ui/alert')).toBeTruthy();
 		expect(screen.getByText('ui/popover')).toBeTruthy();
 		expect(screen.getByText('ui/select')).toBeTruthy();
-		expect(screen.getAllByText('DateCell.svelte').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText('Removed DateCell.svelte wrapper').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText('Requirement status badge wrappers plus ui/readiness-band')).toBeTruthy();
 		expect(screen.queryByText('No target')).toBeNull();
 		expect(container.querySelectorAll('.blank-target').length).toBe(0);
@@ -38,7 +38,9 @@ describe('/ui-showroom/conversion-map', () => {
 			.closest('section');
 
 		expect(unmatched).toBeTruthy();
-		expect(within(unmatched as HTMLElement).getByRole('heading', { name: 'DateCell.svelte' })).toBeTruthy();
+		expect(
+			within(unmatched as HTMLElement).getByRole('heading', { name: 'Removed DateCell.svelte wrapper' })
+		).toBeTruthy();
 		expect(within(unmatched as HTMLElement).getByRole('heading', { name: 'InlineNotes.svelte' })).toBeTruthy();
 		expect(within(unmatched as HTMLElement).queryByRole('heading', { name: 'Stepper.svelte' })).toBeNull();
 		expect(

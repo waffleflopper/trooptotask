@@ -12,9 +12,11 @@ export const changelog: ChangelogEntry[] = [
 		title: 'A Fresh Look and Smoother Workflows',
 		items: [
 			'TroopToTask has a new look, with cleaner screens and more consistent controls across the app',
+			'Org Settings has moved to the top-left organization area so it is easier to find alongside organization-level controls',
 			'Training and Critical Task reports have been improved so readiness details are easier to scan and act on',
 			'The organization dashboard has been refined to make unit-level information clearer at a glance',
 			'Onboarding has been revamped with a smoother experience for tracking packets, progress, and next steps',
+			'Please report any bugs or issues you run into with the feedback button, or use it to share your thoughts on the new look',
 			'Several other quality-of-life updates are included throughout the app to make day-to-day work feel more polished'
 		]
 	},

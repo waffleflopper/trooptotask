@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let code = $state('');
 	let error = $state('');
@@ -65,44 +66,46 @@
 		'If you no longer have access to your authenticator, contact your unit admin to have the requirement removed.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if error}
 			<AuthNotice tone="error" message={error} />
 		{/if}
 
-		<form onsubmit={handleVerify} class="auth-stack">
-			<FormField label="Verification Code" id="mfa-code" hint="Enter the current code from your authenticator app.">
-				<input
-					id="mfa-code"
-					type="text"
-					class="input auth-code-input"
-					value={code}
-					oninput={handleCodeInput}
-					placeholder="000000"
-					maxlength="6"
-					autocomplete="one-time-code"
-					inputmode="numeric"
-					aria-describedby="mfa-code-hint"
-				/>
-			</FormField>
+		<form onsubmit={handleVerify} class="flex flex-col gap-5">
+			<AuthField
+				label="Verification Code"
+				id="mfa-code"
+				hint="Enter the current code from your authenticator app."
+				value={code}
+				oninput={handleCodeInput}
+				placeholder="000000"
+				maxlength={6}
+				autocomplete="one-time-code"
+				inputmode="numeric"
+				inputClass="px-[calc(0.625rem+0.35em)] text-center font-mono text-2xl tracking-[0.35em]"
+			/>
 
-			<div class="auth-actions">
-				<button type="submit" class="btn btn-primary" disabled={loading || code.length !== 6}>
+			<div class="flex flex-col gap-3">
+				<Button type="submit" disabled={loading || code.length !== 6} class="w-full">
 					{#if loading}
 						<Spinner />
 						Verifying...
 					{:else}
 						Verify
 					{/if}
-				</button>
+				</Button>
 			</div>
 		</form>
 
-		<div class="auth-divider">
-			<span>Wrong account?</span>
+		<div
+			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
+		>
+			<span class="h-px flex-1 bg-border"></span>
+			<span class="whitespace-nowrap">Wrong account?</span>
+			<span class="h-px flex-1 bg-border"></span>
 		</div>
 
-		<div class="auth-link-list">
+		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
 				Leave this verification step and <a href="/auth/logout">sign out</a>.
 			</p>

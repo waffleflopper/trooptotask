@@ -19,7 +19,6 @@ interface OrgRow {
 	stripe_subscription_id: string | null;
 	subscription_status: string | null;
 	stripe_customer_id: string | null;
-	demo_type: string | null;
 }
 
 export const load: PageServerLoad = loadWithAdminContext({
@@ -33,9 +32,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 				adminClient
 					.from('organizations')
 					.select(
-						'id, name, created_by, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id, demo_type'
+						'id, name, created_by, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id'
 					)
-					.is('demo_type', null)
 					.order('name')
 					.range(from, to) as unknown as Promise<{
 					data: OrgRow[] | null;

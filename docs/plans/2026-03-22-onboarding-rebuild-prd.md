@@ -51,7 +51,7 @@ Rebuild onboarding as a template-to-instance system following the snapshot patte
 
 - Onboarding is a feature module at `src/features/onboarding/` with its own components, stores, types, and utils.
 - Two routes: `/onboarding` (operational — list and detail views) and `/onboarding/templates` (configuration — template management).
-- Template management route is accessible via a conditional button in the PageToolbar, visible only to full-editor/admin/owner.
+- Template management route is accessible via a conditional action in the shared workspace toolbar, visible only to full-editor/admin/owner.
 - All server-side logic goes through the ports & adapters architecture. The existing `onboardingRepository.ts` is eliminated. No direct Supabase calls in use cases or API handlers.
 - API routes use the `apiRoute` wrapper with proper permission, audit, validation, and read-only configuration.
 
@@ -158,13 +158,13 @@ All routes enforce: permission checks, read-only guard, input validation via Zod
 - **Onboarding detail**: Loaded as part of the list data (onboarding with nested steps). Training step completion is recomputed on load by querying only the relevant training records for that soldier.
 - **History page**: Loads completed/cancelled onboardings. Could be paginated if volume warrants it (likely not at current scale).
 - **Template management page** (`/onboarding/templates/+page.server.ts`): Loads all templates and all template steps for the org.
-- **Calendar integration**: The calendar layout load adds a lightweight query: `SELECT DISTINCT personnel_id FROM personnel_onboardings WHERE organization_id = $1 AND status = 'in_progress'`. Returns a `Set<string>` of personnel IDs with active onboardings. Calendar uses this to render indicator dot and row tint using existing `--color-onboarding-tint` and `--color-primary` design tokens.
+- **Calendar integration**: The calendar layout load adds a lightweight query: `SELECT DISTINCT personnel_id FROM personnel_onboardings WHERE organization_id = $1 AND status = 'in_progress'`. Returns a `Set<string>` of personnel IDs with active onboardings. Calendar uses shared calendar/status tokens for the active onboarding indicator.
 
 ### UI Structure
 
 **Main onboarding page** (`/onboarding`):
 - List of active onboardings showing: soldier name/rank, template name, progress (e.g., "8/12"), started date.
-- PageToolbar with: "Start Onboarding" button, "History" link, conditional "Manage Templates" link (full-editor+ only).
+- Shared workspace toolbar with: "Start Onboarding" button, "History" link, conditional "Manage Templates" link (full-editor+ only).
 - Start Onboarding modal: select soldier (filtered to exclude those with active onboardings), select template, confirm.
 - Empty state when no active onboardings.
 
@@ -204,7 +204,7 @@ Both components use existing design system CSS variables. No hardcoded values.
 ### Calendar Integration
 
 - The calendar page receives a `Set<string>` of personnel IDs with active onboardings from layout data.
-- For soldiers in that set: render a small dot indicator by their name using `--color-primary`, and shade their row using `--color-onboarding-tint` (already exists in the design system).
+- For soldiers in that set: render a small dot indicator by their name and shade their row using shared calendar/status tokens.
 - Read-only — the calendar does not modify onboarding data.
 
 ### Retention / Cleanup

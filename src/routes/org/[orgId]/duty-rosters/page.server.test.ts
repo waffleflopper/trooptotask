@@ -2,12 +2,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
 	loadWithContextMock,
+	archiveDutyRosterTemplateMock,
 	createDutyRosterTemplateMock,
 	listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSetupOptionsMock,
 	mockCtx
 } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
+	archiveDutyRosterTemplateMock: vi.fn(),
 	createDutyRosterTemplateMock: vi.fn(),
 	listDutyRosterTemplatesMock: vi.fn(),
 	loadDutyRosterTemplateSetupOptionsMock: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
+	archiveDutyRosterTemplate: archiveDutyRosterTemplateMock,
 	createDutyRosterTemplate: createDutyRosterTemplateMock,
 	listDutyRosterTemplates: listDutyRosterTemplatesMock,
 	loadDutyRosterTemplateSetupOptions: loadDutyRosterTemplateSetupOptionsMock
@@ -83,6 +86,25 @@ describe('Duty Roster Templates route', () => {
 		});
 
 		expect(createDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, { name: 'CQ NCO', shortCode: 'cq' });
+	});
+
+	it('archives a template from the register and redirects back to the register', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({ templateId: 'template-1' })
+		});
+
+		await expect(
+			actions.archiveTemplate({
+				request,
+				params: { orgId: 'org-1' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters'
+		});
+
+		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, { templateId: 'template-1' });
 	});
 });
 

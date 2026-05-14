@@ -27,7 +27,7 @@ describe('BannerStack', () => {
 
 	it('should render the banner stack container', () => {
 		const { container } = render(BannerStackTest);
-		const stack = container.querySelector('.banner-stack');
+		const stack = container.querySelector('.fixed.inset-x-0.top-0');
 		expect(stack).toBeTruthy();
 	});
 
@@ -41,10 +41,9 @@ describe('BannerStack', () => {
 		expect(container.querySelector('[data-testid="test-banner"]')).toBeTruthy();
 	});
 
-	it('should offset the fixed stack by the desktop app rail', () => {
-		expect(bannerStackSource).toContain('left: var(--app-rail-width, 0px);');
-		expect(bannerStackSource).toContain('@media (max-width: 920px)');
-		expect(bannerStackSource).toContain('left: 0;');
+	it('should pin the fixed stack above the shadcn app shell', () => {
+		expect(bannerStackSource).toContain('fixed inset-x-0 top-0');
+		expect(bannerStackSource).toContain('z-[90]');
 	});
 
 	it('should disconnect ResizeObserver on unmount', () => {

@@ -91,8 +91,8 @@ describe('IctReadinessMatrixTable', () => {
 	it('renders the MOS by category matrix as an accessible table with signal tiers', () => {
 		render(IctReadinessMatrixTable, { props: { matrix } });
 
-		const region = screen.getByRole('region', { name: 'Readiness Matrix — MOS × Task Category' });
-		expect(within(region).getByText('Cell = % trained & current')).toBeTruthy();
+		const region = screen.getByRole('region', { name: 'Readiness Matrix - MOS x Task Category' });
+		expect(within(region).getByText('Cell = % trained and current')).toBeTruthy();
 		const table = within(region).getByRole('table', { name: 'MOS by task category readiness matrix' });
 
 		expect(within(table).getByRole('columnheader', { name: 'MOS' })).toBeTruthy();
@@ -141,8 +141,7 @@ describe('IctReadinessMatrixTable', () => {
 			}
 		});
 
-		expect(
-			screen.getByText('Task categories are not set yet. Add categories to build the MOS by category matrix.')
-		).toBeTruthy();
+		expect(screen.getByText('Task categories are not set yet.')).toBeTruthy();
+		expect(screen.getByText('Add categories to build the MOS by category matrix.')).toBeTruthy();
 	});
 });

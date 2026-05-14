@@ -78,6 +78,12 @@ vi.mock('$lib/utils/csvParser', async (importOriginal) => {
 	};
 });
 
+async function chooseCompletionDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
+}
+
 const ictTask: IctTask = {
 	id: 'task-1',
 	taskCode: '181-105-1001',
@@ -144,20 +150,6 @@ function expectBefore(a: Node, b: Node): void {
 	expect(Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 }
 
-function rectWithWidth(width: number): DOMRect {
-	return {
-		x: 0,
-		y: 0,
-		width,
-		height: 34,
-		top: 0,
-		right: width,
-		bottom: 34,
-		left: 0,
-		toJSON: () => ({})
-	} as DOMRect;
-}
-
 describe('critical tasks page', () => {
 	beforeEach(() => {
 		parseFileMock.mockReset();
@@ -208,41 +200,6 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
 		expect(screen.getByLabelText('Search by name, rank, or MOS')).toBeTruthy();
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
-	});
-
-	it('compacts the matrix search filter before collapsing the filter group', async () => {
-		const originalRect = HTMLElement.prototype.getBoundingClientRect;
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-toolbar]')) return rectWithWidth(1000);
-			return originalRect.call(this);
-		});
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasks: {
-						data: new Promise(() => undefined)
-					}
-				}
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' }).dataset.toolbarCompactPhase).toBe(
-				'search'
-			);
-		});
-		expect(screen.getByTestId('critical-tasks-filter-group')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Search by name, rank, or MOS' })).toBeTruthy();
-		expect(screen.queryByRole('searchbox', { name: 'Search by name, rank, or MOS' })).toBeNull();
 	});
 
 	it('shows the reports and task library affordances to owners and admins', async () => {
@@ -342,175 +299,6 @@ describe('critical tasks page', () => {
 
 		expect(await screen.findByRole('dialog', { name: 'Import ICT Completions' })).toBeTruthy();
 		expect(screen.getByLabelText('Upload file')).toBeTruthy();
-	});
-
-	it('keeps the matrix export link in sync with group and search filters', async () => {
-		const currentTask: IctTask = {
-			...ictTask,
-			id: 'current-task',
-			taskCode: '181-105-1001',
-			title: 'TCCC',
-			sortOrder: 0
-		};
-		const gapTask: IctTask = {
-			...ictTask,
-			id: 'gap-task',
-			taskCode: '181-105-1002',
-			title: 'Airway management',
-			sortOrder: 1
-		};
-		personnelStore.load(
-			[
-				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
-				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
-			],
-			'org-1'
-		);
-		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
-		ictTasksStore.load([currentTask, gapTask], 'org-1');
-		personnelIctCompletionsStore.load(
-			[
-				completion({ id: 'smith-current', personnelId: 'smith', ictTaskId: currentTask.id }),
-				completion({ id: 'jones-current', personnelId: 'jones', ictTaskId: currentTask.id }),
-				completion({ id: 'jones-gap', personnelId: 'jones', ictTaskId: gapTask.id })
-			],
-			'org-1'
-		);
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
-				}
-			}
-		});
-
-		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
-		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/matrix/export');
-
-		await fireEvent.change(screen.getByLabelText('Critical Tasks group filter'), { target: { value: 'group-bravo' } });
-		await waitFor(() => {
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo'
-			);
-		});
-
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'Jones' } });
-		await waitFor(() => {
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones'
-			);
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Show gaps only' }));
-		await waitFor(() => {
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&search=Jones&gapsOnly=true'
-			);
-		});
-	});
-
-	it('keeps Critical Tasks filters, search, and action overflow coordinated at constrained width', async () => {
-		const originalRect = HTMLElement.prototype.getBoundingClientRect;
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-toolbar]')) return rectWithWidth(420);
-			if (this.classList.contains('toolbar-group__trigger')) return rectWithWidth(176);
-			if (this.hasAttribute('data-measure-full')) {
-				const actionId = this.parentElement?.getAttribute('data-measure-action');
-				const widths: Record<string, number> = {
-					'export-csv': 120,
-					'import-completions': 176,
-					'task-library': 136,
-					reports: 104,
-					'record-completion': 180
-				};
-				return rectWithWidth(widths[actionId ?? ''] ?? 96);
-			}
-			if (this.hasAttribute('data-measure-compact')) return rectWithWidth(40);
-			if (this.hasAttribute('data-measure-overflow')) return rectWithWidth(40);
-			return originalRect.call(this);
-		});
-
-		personnelStore.load(
-			[
-				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
-				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
-			],
-			'org-1'
-		);
-		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
-		ictTasksStore.load([ictTask], 'org-1');
-		personnelIctCompletionsStore.load([], 'org-1');
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
-				}
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
-		});
-		const actionsGroup = screen.getByRole('group', { name: 'Critical Tasks actions' });
-		await waitFor(() => {
-			expect(
-				within(actionsGroup).getByRole('link', { name: 'Export CSV' }).classList.contains('toolbar-action--compact')
-			).toBe(true);
-		});
-		for (const actionName of ['Import Completions', 'Task Library', 'Reports']) {
-			const visibleAction =
-				within(actionsGroup).queryByRole('button', { name: actionName }) ??
-				within(actionsGroup).queryByRole('link', { name: actionName });
-			expect(visibleAction?.classList.contains('toolbar-action--full') ?? false).toBe(false);
-		}
-		const overflowTrigger = screen.queryByRole('button', { name: 'More Critical Tasks actions' });
-		if (overflowTrigger) {
-			await fireEvent.click(overflowTrigger);
-			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
-			await fireEvent.click(overflowTrigger);
-		}
-
-		const filterTrigger = screen.getByRole('button', { name: 'Critical Tasks filters' });
-		await fireEvent.click(filterTrigger);
-		await fireEvent.change(await screen.findByLabelText('Critical Tasks group filter'), {
-			target: { value: bravoGroup.id }
-		});
-		await fireEvent.input(await screen.findByTestId('critical-tasks-search'), { target: { value: 'Jones' } });
-
-		await waitFor(() => {
-			expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
-			expect(screen.getByRole('link', { name: /Jones, Jane/ })).toBeTruthy();
-		});
-
-		if (overflowTrigger) {
-			await fireEvent.click(overflowTrigger);
-			expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0);
-		}
-		expect(screen.getByRole('button', { name: /Record Completion/ })).toBeTruthy();
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {
@@ -638,83 +426,6 @@ describe('critical tasks page', () => {
 		);
 		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Task Library' })).toBeNull();
-	});
-
-	it('renders the matrix with the group filter and simplified toolbar controls', async () => {
-		const currentTask: IctTask = {
-			...ictTask,
-			id: 'current-task',
-			taskCode: '181-105-1001',
-			title: 'TCCC',
-			sortOrder: 0
-		};
-		const gapTask: IctTask = {
-			...ictTask,
-			id: 'gap-task',
-			taskCode: '181-105-1002',
-			title: 'Airway management',
-			sortOrder: 1
-		};
-		personnelStore.load(
-			[
-				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
-				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
-			],
-			'org-1'
-		);
-		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
-		ictTasksStore.load([currentTask, gapTask], 'org-1');
-		personnelIctCompletionsStore.load(
-			[
-				completion({ id: 'smith-current', personnelId: 'smith', ictTaskId: currentTask.id }),
-				completion({ id: 'jones-current', personnelId: 'jones', ictTaskId: currentTask.id }),
-				completion({ id: 'jones-gap', personnelId: 'jones', ictTaskId: gapTask.id })
-			],
-			'org-1'
-		);
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					permissions: {
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					}
-				}
-			}
-		});
-
-		const matrixPanel = screen.getByTestId('critical-tasks-matrix-panel');
-		expect(matrixPanel).toBeTruthy();
-		expect(within(matrixPanel).getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
-		expect(screen.getByText('Smith, Jane')).toBeTruthy();
-		expect(screen.getByText('Jones, Jane')).toBeTruthy();
-
-		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
-		expect(screen.getByRole('group', { name: 'Critical Tasks filters' })).toBeTruthy();
-		expect(screen.getByTestId('critical-tasks-filter-group')).toBeTruthy();
-		expect(screen.getByLabelText('Critical Tasks group filter')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Show gaps only' })).toBeTruthy();
-		expect(screen.getByRole('group', { name: 'Critical Tasks matrix view mode' })).toBeTruthy();
-		expect(screen.getByTestId('critical-tasks-search')).toBeTruthy();
-		expect(screen.queryByText('Readiness 75%')).toBeNull();
-		expect(screen.queryByRole('checkbox', { name: 'Gaps only' })).toBeNull();
-		expect(screen.queryByLabelText('Critical Tasks matrix totals')).toBeNull();
-
-		await fireEvent.change(screen.getByLabelText('Critical Tasks group filter'), { target: { value: 'group-bravo' } });
-
-		await waitFor(() => {
-			expect(screen.queryByText('Smith, Jane')).toBeNull();
-			expect(screen.getByText('Jones, Jane')).toBeTruthy();
-		});
 	});
 
 	it('filters personnel by search text and toggles between grouped and alphabetical views', async () => {
@@ -879,11 +590,11 @@ describe('critical tasks page', () => {
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-01-01' } });
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
-		await fireEvent.change(screen.getByLabelText('I am the validator'), { target: { checked: true } });
+		await fireEvent.click(screen.getByLabelText('I am the validator'));
 		await waitFor(() => {
 			expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('SFC Taylor Example');
 		});
@@ -902,7 +613,7 @@ describe('critical tasks page', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'smith',
 			ictTaskId: 'task-1',
-			completedAt: '2098-01-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Practical Exercise',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Lane validation'
@@ -1002,16 +713,16 @@ describe('critical tasks page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 		const personCombo = await screen.findByRole('combobox', { name: 'Person' });
 		await fireEvent.input(personCombo, { target: { value: 'smith' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Smith, Jane - 68W' }));
+		await fireEvent.click(screen.getByRole('option', { name: 'SGT Smith, Jane - 68W' }));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
 		const taskCombo = await screen.findByRole('combobox', { name: 'Critical Task' });
 		await fireEvent.input(taskCombo, { target: { value: 'airway' } });
 		expect(screen.getByRole('option', { name: '181-105-1002 Airway management' })).toBeTruthy();
 		await fireEvent.input(taskCombo, { target: { value: '1002' } });
-		await fireEvent.mouseDown(screen.getByRole('option', { name: '181-105-1002 Airway management' }));
+		await fireEvent.click(screen.getByRole('option', { name: '181-105-1002 Airway management' }));
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-02-02' } });
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Simulation' }
 		});
@@ -1034,7 +745,7 @@ describe('critical tasks page', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'smith',
 			ictTaskId: 'task-2',
-			completedAt: '2098-02-02',
+			completedAt: '2026-05-10',
 			validationMethod: 'Simulation',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Toolbar entry'

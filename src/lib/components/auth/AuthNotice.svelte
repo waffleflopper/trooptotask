@@ -1,5 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
+	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
+	import InfoIcon from '@lucide/svelte/icons/info';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import * as Alert from '$lib/components/ui/alert';
 
 	type NoticeTone = 'error' | 'success' | 'warning' | 'info';
 
@@ -12,50 +17,33 @@
 	}
 
 	let { tone = 'info', title, message, centered = false, children }: Props = $props();
+
+	const variant = $derived(tone === 'error' ? 'destructive' : tone);
+	const role = $derived(tone === 'error' ? 'alert' : 'status');
 </script>
 
-<div
-	class:auth-alert--centered={centered}
-	class="auth-alert"
-	data-tone={tone}
-	role={tone === 'error' ? 'alert' : 'status'}
->
-	<div class="auth-alert__icon" aria-hidden="true">
+<Alert.Root {variant} {role} class={centered ? 'justify-items-center text-center' : undefined}>
+	<span class="mt-0.5 inline-flex size-4 items-center justify-center" aria-hidden="true">
 		{#if tone === 'error'}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="9" />
-				<path d="M12 7v6" />
-				<circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
-			</svg>
+			<AlertCircleIcon />
 		{:else if tone === 'success'}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="9" />
-				<path d="m8.5 12.5 2.2 2.2 4.8-5.2" />
-			</svg>
+			<CheckCircleIcon />
 		{:else if tone === 'warning'}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M12 3 2.8 19h18.4L12 3Z" />
-				<path d="M12 9v4" />
-				<circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
-			</svg>
+			<TriangleAlertIcon />
 		{:else}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="9" />
-				<path d="M12 10.5v5" />
-				<circle cx="12" cy="7.5" r="0.5" fill="currentColor" />
-			</svg>
+			<InfoIcon />
 		{/if}
-	</div>
+	</span>
 
-	<div class="auth-alert__body">
-		{#if title}
-			<p class="auth-alert__title">{title}</p>
-		{/if}
+	{#if title}
+		<Alert.Title>{title}</Alert.Title>
+	{/if}
 
+	<Alert.Description>
 		{#if children}
 			{@render children()}
 		{:else if message}
 			<p>{message}</p>
 		{/if}
-	</div>
-</div>
+	</Alert.Description>
+</Alert.Root>

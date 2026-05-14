@@ -49,10 +49,10 @@
 
 <style>
 	.cta {
-		background: var(--ink);
+		background: var(--foreground);
 		color: var(--hero-text);
 		padding: clamp(4rem, 8vw, 6rem) 2rem;
-		border-top: 1px solid var(--ink-border);
+		border-top: 1px solid var(--public-ink-border);
 	}
 
 	.cta-container {
@@ -63,9 +63,9 @@
 
 	.cta-title {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2.8rem, 7vw, 5.2rem);
-		font-weight: var(--font-weight-display);
+		font-weight: 800;
 		letter-spacing: 0.04em;
 		line-height: 0.92;
 		text-transform: uppercase;
@@ -73,7 +73,7 @@
 
 	.cta-title em {
 		font-style: italic;
-		font-weight: var(--font-weight-light);
+		font-weight: 300;
 		color: var(--brass);
 	}
 
@@ -81,7 +81,7 @@
 		margin: 1.5rem auto 0;
 		max-width: 44rem;
 		color: var(--hero-muted);
-		font-size: var(--text-lg);
+		font-size: 1.1875rem;
 		line-height: 1.7;
 	}
 
@@ -91,12 +91,12 @@
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.95rem 1.35rem;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		background: var(--brass);
-		color: var(--ink);
-		font-family: var(--font-display);
-		font-size: var(--text-lg);
-		font-weight: var(--font-weight-semibold);
+		color: var(--foreground);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1.1875rem;
+		font-weight: 600;
 		letter-spacing: 0.06em;
 		line-height: 1;
 		text-decoration: none;
@@ -126,7 +126,7 @@
 		}
 
 		.cta-subtitle {
-			font-size: var(--text-base);
+			font-size: 1rem;
 		}
 	}
 </style>

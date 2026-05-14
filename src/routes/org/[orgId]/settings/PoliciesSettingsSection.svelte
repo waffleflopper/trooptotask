@@ -1,5 +1,10 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 
 	let {
 		retentionMonths = $bindable(0),
@@ -38,165 +43,146 @@
 	} = $props();
 </script>
 
-<div class="policies-tab">
-	<section class="ledger-section" aria-labelledby="archive-retention-heading">
-		<div class="ledger-heading">
-			<span>01</span>
-			<h3 id="archive-retention-heading">Archive Retention</h3>
-			<div class="ledger-status-actions">
-				<p
-					class="state-label"
-					class:state-label--success={!hasRetentionChanges}
-					class:state-label--warning={hasRetentionChanges}
+<div class="grid gap-4">
+	<section
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="archive-retention-heading"
+	>
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="archive-retention-heading" class="text-lg font-semibold tracking-tight">Archive Retention</h3>
+				<p class="text-sm text-muted-foreground">Archived personnel are automatically purged after this window.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<Badge variant={hasRetentionChanges ? 'outline' : 'secondary'}
+					>{hasRetentionChanges ? 'Unsaved changes' : 'Saved'}</Badge
 				>
-					{hasRetentionChanges ? 'Unsaved changes' : 'Saved'}
-				</p>
-				<button
-					class="btn btn-primary btn-sm"
+				<Button
+					size="sm"
 					disabled={!hasRetentionChanges || !isRetentionValid || savingRetention}
 					onclick={onSaveRetention}
 				>
 					{#if savingRetention}<Spinner />{/if}
 					{savingRetention ? 'Saving...' : 'Save'}
-				</button>
+				</Button>
 			</div>
 		</div>
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="retention-months">Retention period</label>
-				<p class="field-hint">Archived personnel are automatically purged after this window.</p>
+		<Separator />
+		<div class="grid gap-2 md:max-w-sm">
+			<Label for="retention-months">Retention period</Label>
+			<div class="flex items-center gap-2">
+				<Input id="retention-months" type="number" min="1" max="120" bind:value={retentionMonths} />
+				<span class="text-sm text-muted-foreground">Months</span>
 			</div>
-			<div class="policy-control">
-				<input
-					id="retention-months"
-					class="input input--number"
-					type="number"
-					min="1"
-					max="120"
-					bind:value={retentionMonths}
-				/>
-				<span>Months</span>
-				{#if !isRetentionValid}<p class="validation-hint">Must be between 1 and 120 months.</p>{/if}
-			</div>
+			{#if !isRetentionValid}<p class="text-sm text-destructive">Must be between 1 and 120 months.</p>{/if}
 		</div>
 	</section>
 
-	<section class="ledger-section" aria-labelledby="loss-warning-heading">
-		<div class="ledger-heading">
-			<span>02</span>
-			<h3 id="loss-warning-heading">Loss Warning Window</h3>
-			<div class="ledger-status-actions">
-				<p
-					class="state-label"
-					class:state-label--success={!hasLossWarningChanges}
-					class:state-label--warning={hasLossWarningChanges}
+	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="loss-warning-heading">
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="loss-warning-heading" class="text-lg font-semibold tracking-tight">Loss Warning Window</h3>
+				<p class="text-sm text-muted-foreground">Flag personnel approaching ETS / PCS / DEROS this far out.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<Badge variant={hasLossWarningChanges ? 'outline' : 'secondary'}
+					>{hasLossWarningChanges ? 'Unsaved changes' : 'Saved'}</Badge
 				>
-					{hasLossWarningChanges ? 'Unsaved changes' : 'Saved'}
-				</p>
-				<button
-					class="btn btn-primary btn-sm"
+				<Button
+					size="sm"
 					disabled={!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow}
 					onclick={onSaveLossWarning}
 				>
 					{#if savingWarningWindow}<Spinner />{/if}
 					{savingWarningWindow ? 'Saving...' : 'Save'}
-				</button>
+				</Button>
 			</div>
 		</div>
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="loss-warning-window">Warning lead time</label>
-				<p class="field-hint">Flag personnel approaching ETS / PCS / DEROS this far out.</p>
+		<Separator />
+		<div class="grid gap-2 md:max-w-sm">
+			<Label for="loss-warning-window">Warning lead time</Label>
+			<div class="flex items-center gap-2">
+				<Input id="loss-warning-window" type="number" min="1" max="365" bind:value={warningWindowDays} />
+				<span class="text-sm text-muted-foreground">Days</span>
 			</div>
-			<div class="policy-control">
-				<input
-					id="loss-warning-window"
-					class="input input--number"
-					type="number"
-					min="1"
-					max="365"
-					bind:value={warningWindowDays}
-				/>
-				<span>Days</span>
-				{#if !isLossWarningValid}<p class="validation-hint">Must be between 1 and 365 days.</p>{/if}
-			</div>
+			{#if !isLossWarningValid}<p class="text-sm text-destructive">Must be between 1 and 365 days.</p>{/if}
 		</div>
 	</section>
 
-	<section class="ledger-section" aria-labelledby="critical-tasks-defaults-heading">
-		<div class="ledger-heading">
-			<span>03</span>
-			<h3 id="critical-tasks-defaults-heading">Critical Tasks Defaults</h3>
-			<div class="ledger-status-actions">
-				<p
-					class="state-label"
-					class:state-label--success={!hasCriticalTasksChanges}
-					class:state-label--warning={hasCriticalTasksChanges}
+	<section
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="critical-tasks-defaults-heading"
+	>
+		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+			<div class="grid gap-1">
+				<h3 id="critical-tasks-defaults-heading" class="text-lg font-semibold tracking-tight">
+					Critical Tasks Defaults
+				</h3>
+				<p class="text-sm text-muted-foreground">Shared expiration thresholds for ICTL tracking.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<Badge variant={hasCriticalTasksChanges ? 'outline' : 'secondary'}
+					>{hasCriticalTasksChanges ? 'Unsaved changes' : 'Saved'}</Badge
 				>
-					{hasCriticalTasksChanges ? 'Unsaved changes' : 'Saved'}
-				</p>
-				<button
-					class="btn btn-primary btn-sm"
+				<Button
+					size="sm"
 					disabled={!hasCriticalTasksChanges || !isCriticalTasksValid || savingCriticalTasks}
 					onclick={onSaveCriticalTasks}
 				>
 					{#if savingCriticalTasks}<Spinner />{/if}
 					{savingCriticalTasks ? 'Saving...' : 'Save'}
-				</button>
+				</Button>
 			</div>
 		</div>
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="critical-tasks-default-expiration">Default expiration</label>
-				<p class="field-hint">Used when an ICT task does not define its own override.</p>
+		<Separator />
+		<div class="grid gap-4 md:grid-cols-2">
+			<div class="grid gap-2">
+				<Label for="critical-tasks-default-expiration">Default expiration</Label>
+				<p class="text-sm text-muted-foreground">Used when an ICT task does not define its own override.</p>
+				<div class="flex items-center gap-2">
+					<Input
+						id="critical-tasks-default-expiration"
+						type="number"
+						min="1"
+						max="120"
+						bind:value={criticalTasksDefaultExpirationMonths}
+					/>
+					<span class="text-sm text-muted-foreground">Months</span>
+				</div>
 			</div>
-			<div class="policy-control">
-				<input
-					id="critical-tasks-default-expiration"
-					class="input input--number"
-					type="number"
-					min="1"
-					max="120"
-					bind:value={criticalTasksDefaultExpirationMonths}
-				/>
-				<span>Months</span>
-			</div>
-		</div>
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="critical-tasks-expiring-window">Expiring-soon window</label>
-				<p class="field-hint">Threshold that flips status from current to expiring.</p>
-			</div>
-			<div class="policy-control">
-				<input
-					id="critical-tasks-expiring-window"
-					class="input input--number"
-					type="number"
-					min="1"
-					max="365"
-					bind:value={criticalTasksExpiringSoonWarningDays}
-				/>
-				<span>Days</span>
-				{#if !isCriticalTasksValid}
-					<p class="validation-hint">Default expiration must be 1-120 months. Warning window must be 1-365 days.</p>
-				{/if}
+			<div class="grid gap-2">
+				<Label for="critical-tasks-expiring-window">Expiring-soon window</Label>
+				<p class="text-sm text-muted-foreground">Threshold that flips status from current to expiring.</p>
+				<div class="flex items-center gap-2">
+					<Input
+						id="critical-tasks-expiring-window"
+						type="number"
+						min="1"
+						max="365"
+						bind:value={criticalTasksExpiringSoonWarningDays}
+					/>
+					<span class="text-sm text-muted-foreground">Days</span>
+				</div>
 			</div>
 		</div>
-		<div class="ledger-row">
-			<div>
-				<label class="field-label" for="critical-tasks-auto-notify">Auto-notify squad leader</label>
-				<p class="field-hint">Send a daily digest of expiring tasks to assigned NCO.</p>
-			</div>
-			<div class="policy-control">
+		{#if !isCriticalTasksValid}
+			<p class="text-sm text-destructive">
+				Default expiration must be 1-120 months. Warning window must be 1-365 days.
+			</p>
+		{/if}
+		<div class="grid gap-2 md:max-w-sm">
+			<Label for="critical-tasks-auto-notify">Auto-notify squad leader</Label>
+			<p class="text-sm text-muted-foreground">Send a daily digest of expiring tasks to assigned NCO.</p>
+			<div class="flex items-center gap-2">
 				<select
 					id="critical-tasks-auto-notify"
-					class="input policy-select"
+					class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 					disabled
 					aria-describedby="critical-tasks-auto-notify-note"
 				>
 					<option>Coming soon</option>
 				</select>
-				<span id="critical-tasks-auto-notify-note">Not configured</span>
+				<span id="critical-tasks-auto-notify-note" class="text-sm text-muted-foreground">Not configured</span>
 			</div>
 		</div>
 	</section>

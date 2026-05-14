@@ -11,16 +11,11 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const { count: totalOrganizations } = await adminClient
 			.from('organizations')
-			.select('*', { count: 'exact', head: true })
-			.is('demo_type', null);
+			.select('*', { count: 'exact', head: true });
 
 		const { data: orgTiers } = await selectAllSupabaseRows<{ tier: string | null; gift_tier: string | null }>(
 			(from, to) =>
-				adminClient
-					.from('organizations')
-					.select('tier, gift_tier')
-					.is('demo_type', null)
-					.range(from, to) as unknown as Promise<{
+				adminClient.from('organizations').select('tier, gift_tier').range(from, to) as unknown as Promise<{
 					data: { tier: string | null; gift_tier: string | null }[] | null;
 					error: unknown;
 				}>

@@ -27,19 +27,21 @@
 <style>
 	.demo-frame {
 		overflow: hidden;
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--paper);
-		box-shadow: var(--shadow-lg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		box-shadow:
+			0 4px 20px rgb(0 0 0 / 0.12),
+			0 2px 6px rgb(0 0 0 / 0.07);
 	}
 
 	.demo-frame__chrome {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 10px var(--sp-4);
-		border-bottom: var(--border-thin);
-		background: var(--ink);
+		padding: 10px 1rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--foreground);
 	}
 
 	.demo-frame__dots {
@@ -55,9 +57,9 @@
 	}
 
 	.demo-frame__label {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 11px;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--color-chrome-text);
@@ -66,20 +68,20 @@
 	.demo-frame__status {
 		margin-left: auto;
 		padding: 2px 7px;
-		border-radius: var(--radius-sm);
-		border: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
-		background: var(--success-bg);
-		color: var(--success);
-		font-family: var(--font-mono);
+		border-radius: var(--radius);
+		border: 1px solid color-mix(in srgb, var(--chart-2) 20%, transparent);
+		background: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+		color: var(--chart-2);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 11px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}
 
 	.demo-frame__body {
-		padding: var(--sp-4);
-		background: var(--paper);
+		padding: 1rem;
+		background: var(--card);
 	}
 
 	@media (max-width: 640px) {

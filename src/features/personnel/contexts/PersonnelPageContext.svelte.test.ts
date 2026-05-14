@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
+import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -56,40 +57,7 @@ function makeModals(): ModalRegistry {
 }
 
 function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const org = createOrgContext({
-		orgId: 'org1',
-		orgName: 'Test Org',
-		userId: 'u1',
-		userRole: 'member',
-		capabilityMap: {
-			calendar: 'configure',
-			personnel: 'configure',
-			training: 'configure',
-			criticalTasks: 'configure',
-			onboarding: 'configure',
-			ratingScheme: 'configure'
-		},
-		scopeSet: { kind: 'organization' },
-		permissions: {
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewCriticalTasks: true,
-			canEditCriticalTasks: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
-			canManageMembers: true
-		},
-		scopedGroupId: null,
-		isReadOnly: false
-	});
-
-	return Object.assign({}, org, overrides);
+	return Object.assign({}, createTestOrgContext({ userRole: 'member' }), overrides);
 }
 
 // ---------------------------------------------------------------------------

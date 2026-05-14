@@ -4,12 +4,18 @@
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
 	import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
 	import type { RowInput } from 'jspdf-autotable';
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import FileUpload from '$lib/components/ui/FileUpload.svelte';
+	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -39,6 +45,10 @@
 	let expandedId = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
 	let confirmDeleteRoster = $state<SignInRoster | null>(null);
+	let signedScanDragOverId = $state<string | null>(null);
+	const signedScanUploadingIds = new SvelteSet<string>();
+	const signedScanErrors = new SvelteMap<string, string>();
+	const signedScanSelectedFiles = new SvelteMap<string, string>();
 
 	// Create view state
 	let title = $state('');
@@ -320,6 +330,106 @@
 		toastStore.success('Signed scan removed');
 	}
 
+	function getFilename(path: string): string {
+		return path.split('/').pop() ?? path;
+	}
+
+	function getSignedScanUploadUrl(roster: SignInRoster): string {
+		return `/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`;
+	}
+
+	async function uploadSignedScanFile(roster: SignInRoster, file: File) {
+		if (signedScanUploadingIds.has(roster.id)) return;
+
+		signedScanSelectedFiles.set(roster.id, file.name);
+
+		const validationError = validateSensitiveFileSelection(file);
+		if (validationError) {
+			signedScanErrors.set(roster.id, validationError);
+			return;
+		}
+
+		signedScanErrors.delete(roster.id);
+		signedScanUploadingIds.add(roster.id);
+
+		try {
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const response = await fetch(getSignedScanUploadUrl(roster), {
+				method: 'POST',
+				body: formData
+			});
+			const payload = (await response.json()) as {
+				filePath?: string;
+				error?: string;
+			};
+
+			if (!response.ok || !payload.filePath) {
+				throw new Error(payload.error ?? 'Upload failed.');
+			}
+
+			signedScanSelectedFiles.delete(roster.id);
+			handleSignedScanUploaded(roster, payload.filePath);
+		} catch (err: unknown) {
+			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Upload failed.');
+		} finally {
+			signedScanUploadingIds.delete(roster.id);
+		}
+	}
+
+	function handleSignedScanFileSelect(roster: SignInRoster, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file) {
+			uploadSignedScanFile(roster, file);
+		}
+		input.value = '';
+	}
+
+	function handleSignedScanDrop(roster: SignInRoster, event: DragEvent) {
+		event.preventDefault();
+		signedScanDragOverId = null;
+		const file = event.dataTransfer?.files[0];
+		if (file) {
+			uploadSignedScanFile(roster, file);
+		}
+	}
+
+	async function downloadSignedScan(roster: SignInRoster) {
+		if (!roster.signedFilePath) return;
+
+		const response = await fetch(getSignedScanUploadUrl(roster));
+		const payload = (await response.json()) as { url?: string; error?: string };
+
+		if (!response.ok || !payload.url) {
+			signedScanErrors.set(roster.id, 'Could not generate download link.');
+			return;
+		}
+
+		window.open(payload.url, '_blank');
+	}
+
+	async function removeSignedScan(roster: SignInRoster) {
+		if (!roster.signedFilePath || signedScanUploadingIds.has(roster.id)) return;
+
+		try {
+			const response = await fetch(getSignedScanUploadUrl(roster), {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				throw new Error(payload.error ?? 'Remove failed.');
+			}
+
+			signedScanErrors.delete(roster.id);
+			handleSignedScanRemoved(roster);
+		} catch (err: unknown) {
+			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Remove failed.');
+		}
+	}
+
 	// Delete roster
 	async function deleteRoster(roster: SignInRoster) {
 		deleting = roster.id;
@@ -369,299 +479,401 @@
 	}
 </script>
 
-<Modal title={view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'} {onClose} width="700px">
-	{#if view === 'list'}
-		<div class="list-view">
-			<div class="list-summary">
-				<div class="summary-copy">
-					<p class="eyebrow">Saved Rosters</p>
-					<p class="summary-text">Generate, reprint, and track signed attendance sheets from one place.</p>
-				</div>
-				<Badge label={`${total} total`} variant="outlined" />
-			</div>
+<AppDialog.Root closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving} size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
+		<AppDialog.Header>
+			<AppDialog.Title>{view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'}</AppDialog.Title>
+			<AppDialog.Description>
+				Generate printable attendance sheets, reprint saved rosters, and track signed scans.
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-			<div class="filter-bar">
-				<label class="filter-field filter-field-search">
-					<span class="field-label">Title</span>
-					<input
-						class="input"
-						type="text"
-						placeholder="Search by title..."
-						bind:value={searchTitle}
-						oninput={handleSearch}
-					/>
-				</label>
-				<label class="filter-field">
-					<span class="field-label">From</span>
-					<input class="input date-input" type="date" bind:value={dateFrom} onchange={() => fetchRosters(true)} />
-				</label>
-				<label class="filter-field">
-					<span class="field-label">To</span>
-					<input class="input date-input" type="date" bind:value={dateTo} onchange={() => fetchRosters(true)} />
-				</label>
-				{#if hasActiveListFilters}
-					<button class="btn btn-sm" type="button" onclick={resetListFilters}>Clear filters</button>
-				{/if}
-				{#if canEdit}
-					<button class="btn btn-primary btn-sm" type="button" onclick={() => (view = 'create')}>New Roster</button>
-				{/if}
-			</div>
-
-			{#if loading && rosters.length === 0}
-				<div class="loading-center">
-					<Spinner size={20} color="var(--text-tertiary)" />
-				</div>
-			{:else if rosters.length === 0}
-				<EmptyState message="No sign-in rosters yet." />
-			{:else}
-				<div class="roster-list">
-					{#each rosters as roster (roster.id)}
-						<div class="roster-row" class:expanded={expandedId === roster.id}>
-							<button
-								class="roster-header"
-								type="button"
-								onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}
-							>
-								<div class="roster-info">
-									<span class="roster-title">{roster.title}</span>
-									<div class="roster-meta">
-										<Badge
-											label={roster.blankDate
-												? 'Blank date'
-												: roster.rosterDate
-													? formatDate(roster.rosterDate + 'T00:00:00')
-													: 'No date'}
-											variant="outlined"
-										/>
-										<Badge label={`${roster.personnelSnapshot.length} personnel`} variant="outlined" />
-										{#if roster.signedFilePath}
-											<Badge label="Signed" variant="outlined" />
-										{/if}
-									</div>
-								</div>
-								<span class="expand-icon">{expandedId === roster.id ? '\u25B2' : '\u25BC'}</span>
-							</button>
-
-							{#if expandedId === roster.id}
-								<div class="roster-detail">
-									<div class="detail-meta">
-										<span>Sort: {roster.sortBy === 'rank' ? 'By rank' : 'Alphabetical'}</span>
-										{#if roster.separateByGroup}
-											<span>&middot; Separated by group</span>
-										{/if}
-										<span>&middot; Created {formatDate(roster.createdAt)}</span>
-									</div>
-									<div class="detail-actions">
-										<button class="btn btn-sm btn-secondary" type="button" onclick={() => reprintRoster(roster)}>
-											Re-print
-										</button>
-										{#if canEdit}
-											<button
-												class="btn btn-sm btn-danger"
-												type="button"
-												disabled={deleting === roster.id}
-												onclick={() => (confirmDeleteRoster = roster)}
-											>
-												{#if deleting === roster.id}
-													<Spinner size={12} /> Deleting...
-												{:else}
-													Delete
-												{/if}
-											</button>
-										{/if}
-									</div>
-									{#if canEdit}
-										<div class="detail-upload">
-											<FileUpload
-												filePath={roster.signedFilePath}
-												uploadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-												downloadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-												removeUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
-												onUpload={(path) => handleSignedScanUploaded(roster, path)}
-												onRemove={() => handleSignedScanRemoved(roster)}
-												label="Signed Scan"
-											/>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-
-				{#if rosters.length < total}
-					<div class="load-more">
-						<button
-							class="btn btn-sm btn-secondary"
-							type="button"
-							disabled={loading}
-							onclick={() => fetchRosters(false)}
-						>
-							{#if loading}<Spinner size={12} />{/if}
-							Load more
-						</button>
+		<AppDialog.Body class="grid gap-4">
+			{#if view === 'list'}
+				<section
+					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+				>
+					<div class="grid gap-1">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+							Saved Rosters
+						</p>
+						<p class="text-sm leading-relaxed text-muted-foreground">
+							Generate, reprint, and track signed attendance sheets from one place.
+						</p>
 					</div>
-				{/if}
-			{/if}
-		</div>
-	{:else}
-		<div class="create-view">
-			<div class="create-summary">
-				<div class="summary-copy">
-					<p class="eyebrow">New Roster</p>
-					<p class="summary-text">Build a printable sign-in sheet from the current personnel snapshot.</p>
-				</div>
-				<Badge label={`${filteredPersonnel.length} included`} variant="outlined" />
-			</div>
+					<Badge variant="outline">{total} total</Badge>
+				</section>
 
-			<div class="editor-section">
-				<div class="section-heading">Basics</div>
-				<label class="label" for="roster-title">Title <span class="required">*</span></label>
-				<input id="roster-title" class="input" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
-			</div>
-
-			<div class="editor-section">
-				<div class="section-heading">Date</div>
-				<div class="radio-group">
-					<label class="radio-label">
-						<input type="radio" value="specific" bind:group={dateOption} />
-						Specific date
-					</label>
-					<label class="radio-label">
-						<input type="radio" value="blank" bind:group={dateOption} />
-						Leave blank
-					</label>
-				</div>
-				{#if dateOption === 'specific'}
-					<input class="input date-input" type="date" bind:value={rosterDate} />
-				{/if}
-			</div>
-
-			<div class="form-row">
-				<div class="editor-section">
-					<div class="section-heading">Sort</div>
-					<div class="radio-group">
-						<label class="radio-label">
-							<input type="radio" value="alphabetical" bind:group={sortBy} />
-							Alphabetical
-						</label>
-						<label class="radio-label">
-							<input type="radio" value="rank" bind:group={sortBy} />
-							By rank
-						</label>
-					</div>
-				</div>
-				<div class="editor-section editor-section-compact">
-					<div class="section-heading">Layout</div>
-					<label class="checkbox-label">
-						<input type="checkbox" bind:checked={separateByGroup} />
-						Separate by group
-					</label>
-				</div>
-			</div>
-
-			<div class="editor-section">
-				<div class="section-header">
-					<div class="section-heading">Filter by Rank</div>
-					<Badge label={`${selectedRankCount} selected`} variant="outlined" />
-				</div>
-				<div class="category-toggles">
-					<button
-						class="chip"
-						class:active={allOfficersSelected}
-						type="button"
-						onclick={() => toggleCategory(ARMY_RANKS.officer)}
-					>
-						All Officers
-					</button>
-					<button
-						class="chip"
-						class:active={allWarrantSelected}
-						type="button"
-						onclick={() => toggleCategory(ARMY_RANKS.warrant)}
-					>
-						All Warrant
-					</button>
-					<button
-						class="chip"
-						class:active={allEnlistedSelected}
-						type="button"
-						onclick={() => toggleCategory(enlistedAndNco)}
-					>
-						All Enlisted
-					</button>
-					<button
-						class="chip"
-						class:active={allCiviliansSelected}
-						type="button"
-						onclick={() => toggleCategory(ARMY_RANKS.civilian)}
-					>
-						Civilians
-					</button>
-				</div>
-				<div class="rank-chips">
-					{#each ALL_RANKS as rank (rank)}
-						<button
-							class="rank-chip"
-							class:active={selectedRanks.has(rank)}
-							type="button"
-							onclick={() => toggleRank(rank)}
-						>
-							{rank}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			{#if groups.length > 0}
-				<div class="editor-section">
-					<div class="section-header">
-						<div class="section-heading">Filter by Group</div>
-						<Badge
-							label={selectedGroupCount > 0 ? `${selectedGroupCount} selected` : 'All groups'}
-							variant="outlined"
+				<section class="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+					<Field.Root class="min-w-56 flex-1">
+						<Field.Label for="roster-search">Title</Field.Label>
+						<Input
+							id="roster-search"
+							type="text"
+							placeholder="Search by title..."
+							bind:value={searchTitle}
+							oninput={handleSearch}
 						/>
+					</Field.Root>
+					<Field.Root class="w-44">
+						<Field.Label for="roster-from">From</Field.Label>
+						<DatePicker
+							id="roster-from"
+							bind:value={dateFrom}
+							placeholder="From date"
+							onValueChange={() => fetchRosters(true)}
+						/>
+					</Field.Root>
+					<Field.Root class="w-44">
+						<Field.Label for="roster-to">To</Field.Label>
+						<DatePicker
+							id="roster-to"
+							bind:value={dateTo}
+							placeholder="To date"
+							onValueChange={() => fetchRosters(true)}
+						/>
+					</Field.Root>
+					{#if hasActiveListFilters}
+						<Button variant="outline" size="sm" type="button" onclick={resetListFilters}>Clear filters</Button>
+					{/if}
+					{#if canEdit}
+						<Button size="sm" type="button" onclick={() => (view = 'create')}>New Roster</Button>
+					{/if}
+				</section>
+
+				{#if loading && rosters.length === 0}
+					<div class="flex justify-center p-8">
+						<Spinner class="size-5 text-muted-foreground" />
 					</div>
-					<p class="hint">Leave every group unselected to include the full roster.</p>
-					<div class="rank-chips">
-						{#each groups as group (group.id)}
-							<button
-								class="rank-chip"
-								class:active={selectedGroups.has(group.name)}
-								type="button"
-								onclick={() => toggleGroup(group.name)}
+				{:else if rosters.length === 0}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No sign-in rosters yet.</Empty.Title>
+						</Empty.Header>
+						{#if canEdit}
+							<Empty.Content>
+								<Button type="button" onclick={() => (view = 'create')}>New Roster</Button>
+							</Empty.Content>
+						{/if}
+					</Empty.Root>
+				{:else}
+					<div class="grid gap-3">
+						{#each rosters as roster (roster.id)}
+							<section
+								class="overflow-hidden rounded-lg border border-border bg-card"
+								data-expanded={expandedId === roster.id || undefined}
 							>
-								{group.name}
-							</button>
+								<button
+									class="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+									type="button"
+									aria-expanded={expandedId === roster.id}
+									onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}
+								>
+									<span class="grid min-w-0 flex-1 gap-2">
+										<span class="truncate text-base font-semibold text-foreground">{roster.title}</span>
+										<span class="flex flex-wrap gap-2">
+											<Badge variant="outline">
+												{roster.blankDate
+													? 'Blank date'
+													: roster.rosterDate
+														? formatDate(roster.rosterDate + 'T00:00:00')
+														: 'No date'}
+											</Badge>
+											<Badge variant="outline">{roster.personnelSnapshot.length} personnel</Badge>
+											{#if roster.signedFilePath}
+												<Badge variant="outline">Signed</Badge>
+											{/if}
+										</span>
+									</span>
+									<span class="font-mono text-xs text-muted-foreground">
+										{expandedId === roster.id ? 'Hide' : 'Show'}
+									</span>
+								</button>
+
+								{#if expandedId === roster.id}
+									<div class="grid gap-3 border-t border-border px-4 py-4">
+										<div class="flex flex-wrap gap-2 text-sm text-muted-foreground">
+											<span>Sort: {roster.sortBy === 'rank' ? 'By rank' : 'Alphabetical'}</span>
+											{#if roster.separateByGroup}
+												<span>Separated by group</span>
+											{/if}
+											<span>Created {formatDate(roster.createdAt)}</span>
+										</div>
+										<div class="flex flex-wrap gap-2">
+											<Button variant="outline" size="sm" type="button" onclick={() => reprintRoster(roster)}>
+												Re-print
+											</Button>
+											{#if canEdit}
+												<Button
+													variant="destructive"
+													size="sm"
+													type="button"
+													disabled={deleting === roster.id}
+													onclick={() => (confirmDeleteRoster = roster)}
+												>
+													{#if deleting === roster.id}
+														<Spinner class="size-3" />
+														Deleting...
+													{:else}
+														Delete
+													{/if}
+												</Button>
+											{/if}
+										</div>
+										{#if canEdit}
+											<Field.Root
+												class={[
+													'max-w-md rounded-lg border border-dashed border-border bg-background p-3 transition-colors',
+													signedScanDragOverId === roster.id && 'border-primary bg-primary/5'
+												]}
+												ondrop={(event) => handleSignedScanDrop(roster, event)}
+												ondragover={(event) => {
+													event.preventDefault();
+													signedScanDragOverId = roster.id;
+												}}
+												ondragleave={() => {
+													if (signedScanDragOverId === roster.id) {
+														signedScanDragOverId = null;
+													}
+												}}
+											>
+												<Field.Label for={`signed-scan-${roster.id}`}>Signed Scan</Field.Label>
+												{#if signedScanUploadingIds.has(roster.id)}
+													<div class="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+														<Spinner class="size-3.5" />
+														<span>Uploading {signedScanSelectedFiles.get(roster.id) ?? 'signed scan'}...</span>
+													</div>
+												{:else if roster.signedFilePath}
+													<div class="flex flex-wrap items-center gap-2">
+														<Button
+															variant="outline"
+															size="sm"
+															type="button"
+															onclick={() => downloadSignedScan(roster)}
+														>
+															{getFilename(roster.signedFilePath)}
+														</Button>
+														<Button
+															variant="destructive"
+															size="sm"
+															type="button"
+															onclick={() => removeSignedScan(roster)}
+														>
+															Remove
+														</Button>
+													</div>
+												{:else}
+													<Field.Control>
+														<Input
+															id={`signed-scan-${roster.id}`}
+															type="file"
+															accept={SENSITIVE_FILE_ACCEPT}
+															onchange={(event) => handleSignedScanFileSelect(roster, event)}
+														/>
+													</Field.Control>
+													<Field.Description>Choose a PDF or drop it here.</Field.Description>
+												{/if}
+												{#if signedScanErrors.get(roster.id)}
+													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
+												{/if}
+											</Field.Root>
+										{/if}
+									</div>
+								{/if}
+							</section>
 						{/each}
 					</div>
-				</div>
-			{/if}
 
-			<div class="personnel-preview">
-				<div class="summary-copy">
-					<div class="section-heading">Snapshot</div>
-					<p class="preview-text">{filteredPersonnel.length} personnel will be included in the roster.</p>
-				</div>
-				{#if hasActiveCreateFilters}
-					<button class="btn btn-sm" type="button" onclick={resetCreateFilters}>Reset filters</button>
+					{#if rosters.length < total}
+						<div class="flex justify-center pt-2">
+							<Button variant="outline" size="sm" type="button" disabled={loading} onclick={() => fetchRosters(false)}>
+								{#if loading}<Spinner class="size-3" />{/if}
+								Load more
+							</Button>
+						</div>
+					{/if}
 				{/if}
-			</div>
-		</div>
-	{/if}
+			{:else}
+				<section
+					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+				>
+					<div class="grid gap-1">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">New Roster</p>
+						<p class="text-sm leading-relaxed text-muted-foreground">
+							Build a printable sign-in sheet from the current personnel snapshot.
+						</p>
+					</div>
+					<Badge variant="outline">{filteredPersonnel.length} included</Badge>
+				</section>
 
-	{#snippet footer()}
-		{#if view === 'list'}
-			<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
-		{:else}
-			<button class="btn btn-secondary" type="button" onclick={() => (view = 'list')}>Cancel</button>
-			<button class="btn btn-primary" type="button" disabled={!canGenerate || saving} onclick={handleGenerate}>
-				{#if saving}<Spinner />{/if}
-				{saving ? 'Saving...' : 'Generate & Print'}
-			</button>
-		{/if}
-	{/snippet}
-</Modal>
+				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Basics</p>
+					<Field.Root>
+						<Field.Label for="roster-title">Title <span class="text-destructive">*</span></Field.Label>
+						<Input id="roster-title" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
+					</Field.Root>
+				</section>
+
+				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Date</p>
+					<RadioGroup.Root bind:value={dateOption} class="grid gap-2 sm:grid-cols-2">
+						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+							<RadioGroup.Item id="roster-date-specific" value="specific" />
+							<Field.Label for="roster-date-specific">Specific date</Field.Label>
+						</Field.Root>
+						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+							<RadioGroup.Item id="roster-date-blank" value="blank" />
+							<Field.Label for="roster-date-blank">Leave blank</Field.Label>
+						</Field.Root>
+					</RadioGroup.Root>
+					{#if dateOption === 'specific'}
+						<Field.Root class="max-w-56">
+							<Field.Label for="roster-date">Roster date</Field.Label>
+							<DatePicker id="roster-date" bind:value={rosterDate} placeholder="Select roster date" />
+						</Field.Root>
+					{/if}
+				</section>
+
+				<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
+					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Sort</p>
+						<RadioGroup.Root bind:value={sortBy} class="grid gap-2 sm:grid-cols-2">
+							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+								<RadioGroup.Item id="roster-sort-alpha" value="alphabetical" />
+								<Field.Label for="roster-sort-alpha">Alphabetical</Field.Label>
+							</Field.Root>
+							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+								<RadioGroup.Item id="roster-sort-rank" value="rank" />
+								<Field.Label for="roster-sort-rank">By rank</Field.Label>
+							</Field.Root>
+						</RadioGroup.Root>
+					</section>
+					<section class="grid content-start gap-3 rounded-lg border border-border bg-card p-4">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Layout</p>
+						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+							<Checkbox id="roster-separate-group" bind:checked={separateByGroup} />
+							<Field.Label for="roster-separate-group">Separate by group</Field.Label>
+						</Field.Root>
+					</section>
+				</div>
+
+				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<div class="flex items-center justify-between gap-3">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+							Filter by Rank
+						</p>
+						<Badge variant="outline">{selectedRankCount} selected</Badge>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						<Button
+							variant={allOfficersSelected ? 'secondary' : 'outline'}
+							size="sm"
+							type="button"
+							aria-pressed={allOfficersSelected}
+							onclick={() => toggleCategory(ARMY_RANKS.officer)}
+						>
+							All Officers
+						</Button>
+						<Button
+							variant={allWarrantSelected ? 'secondary' : 'outline'}
+							size="sm"
+							type="button"
+							aria-pressed={allWarrantSelected}
+							onclick={() => toggleCategory(ARMY_RANKS.warrant)}
+						>
+							All Warrant
+						</Button>
+						<Button
+							variant={allEnlistedSelected ? 'secondary' : 'outline'}
+							size="sm"
+							type="button"
+							aria-pressed={allEnlistedSelected}
+							onclick={() => toggleCategory(enlistedAndNco)}
+						>
+							All Enlisted
+						</Button>
+						<Button
+							variant={allCiviliansSelected ? 'secondary' : 'outline'}
+							size="sm"
+							type="button"
+							aria-pressed={allCiviliansSelected}
+							onclick={() => toggleCategory(ARMY_RANKS.civilian)}
+						>
+							Civilians
+						</Button>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						{#each ALL_RANKS as rank (rank)}
+							<Button
+								variant={selectedRanks.has(rank) ? 'secondary' : 'outline'}
+								size="sm"
+								type="button"
+								aria-pressed={selectedRanks.has(rank)}
+								onclick={() => toggleRank(rank)}
+							>
+								{rank}
+							</Button>
+						{/each}
+					</div>
+				</section>
+
+				{#if groups.length > 0}
+					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<div class="flex items-center justify-between gap-3">
+							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+								Filter by Group
+							</p>
+							<Badge variant="outline">{selectedGroupCount > 0 ? `${selectedGroupCount} selected` : 'All groups'}</Badge
+							>
+						</div>
+						<p class="text-xs leading-relaxed text-muted-foreground">
+							Leave every group unselected to include the full roster.
+						</p>
+						<div class="flex flex-wrap gap-2">
+							{#each groups as group (group.id)}
+								<Button
+									variant={selectedGroups.has(group.name) ? 'secondary' : 'outline'}
+									size="sm"
+									type="button"
+									aria-pressed={selectedGroups.has(group.name)}
+									onclick={() => toggleGroup(group.name)}
+								>
+									{group.name}
+								</Button>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
+				<section
+					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<div class="grid gap-1">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Snapshot</p>
+						<p class="text-sm leading-relaxed text-muted-foreground">
+							{filteredPersonnel.length} personnel will be included in the roster.
+						</p>
+					</div>
+					{#if hasActiveCreateFilters}
+						<Button variant="outline" size="sm" type="button" onclick={resetCreateFilters}>Reset filters</Button>
+					{/if}
+				</section>
+			{/if}
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			{#if view === 'list'}
+				<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+			{:else}
+				<Button variant="outline" type="button" onclick={() => (view = 'list')} disabled={saving}>Cancel</Button>
+				<Button type="button" disabled={!canGenerate || saving} onclick={handleGenerate}>
+					{#if saving}<Spinner class="size-4" />{/if}
+					{saving ? 'Saving...' : 'Generate & Print'}
+				</Button>
+			{/if}
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if confirmDeleteRoster}
 	<ConfirmDialog
@@ -675,289 +887,3 @@
 		onCancel={() => (confirmDeleteRoster = null)}
 	/>
 {/if}
-
-<style>
-	.list-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		min-height: 300px;
-	}
-
-	.create-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.list-summary,
-	.create-summary,
-	.personnel-preview {
-		display: flex;
-		align-items: start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.summary-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.eyebrow,
-	.field-label,
-	.section-heading,
-	.label {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-text,
-	.preview-text,
-	.hint {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		color: var(--text-secondary);
-	}
-
-	.hint {
-		font-size: var(--text-xs);
-		line-height: 1.5;
-	}
-
-	.filter-bar {
-		display: flex;
-		align-items: end;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.filter-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.filter-field-search {
-		flex: 1;
-		min-width: 220px;
-	}
-
-	.date-input {
-		width: 140px;
-		flex: none !important;
-	}
-
-	.loading-center {
-		display: flex;
-		justify-content: center;
-		padding: var(--sp-8);
-	}
-
-	.roster-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.roster-row {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-	}
-
-	.roster-row.expanded {
-		border-color: color-mix(in srgb, var(--amber) 24%, var(--border-default));
-	}
-
-	.roster-header {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		padding: var(--sp-4);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		text-align: left;
-		color: var(--text-primary);
-		gap: var(--sp-3);
-		font-family: inherit;
-	}
-
-	.roster-header:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-	}
-
-	.roster-info {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.roster-title {
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.roster-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.expand-icon {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.roster-detail {
-		padding: 0 var(--sp-4) var(--sp-4);
-	}
-
-	.detail-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.detail-actions {
-		display: flex;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.detail-upload {
-		margin-top: var(--sp-3);
-		max-width: 420px;
-	}
-
-	.load-more {
-		display: flex;
-		justify-content: center;
-		padding-top: var(--sp-2);
-	}
-
-	.editor-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.editor-section-compact {
-		justify-content: center;
-		min-width: 220px;
-	}
-
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-	}
-
-	.required {
-		color: var(--danger);
-	}
-
-	.radio-group {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-	}
-
-	.radio-label,
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-		font-size: var(--text-sm);
-		cursor: pointer;
-	}
-
-	.form-row {
-		display: flex;
-		gap: var(--sp-4);
-		align-items: flex-start;
-	}
-
-	.category-toggles,
-	.rank-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.chip,
-	.rank-chip {
-		padding: var(--sp-2) var(--sp-3);
-		border-radius: var(--radius-sm);
-		border: var(--border-thin);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.chip:hover,
-	.rank-chip:hover {
-		border-color: var(--border-strong);
-	}
-
-	.chip.active,
-	.rank-chip.active {
-		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-		border-color: color-mix(in srgb, var(--amber) 30%, var(--border-default));
-		color: var(--amber-dark);
-	}
-
-	@media (max-width: 640px) {
-		.list-summary,
-		.create-summary,
-		.personnel-preview,
-		.form-row,
-		.section-header {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.filter-field-search {
-			min-width: 100%;
-		}
-	}
-</style>

@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
-	import Modal from '$lib/components/Modal.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
 
 	interface GroupData {
 		group: string;
@@ -94,157 +96,74 @@
 	}
 </script>
 
-<Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
-	<div class="date-display">{dateDisplay}</div>
+<AppDialog.Root open {onClose}>
+	<AppDialog.Content>
+		<AppDialog.Header>
+			<AppDialog.Title id="daily-assign-title">Daily Assignments</AppDialog.Title>
+			<AppDialog.Description>{dateDisplay}</AppDialog.Description>
+		</AppDialog.Header>
 
-	{#if dutyEventsForDate.length > 0}
-		<div class="duty-events-section">
-			<h4 class="duty-events-heading">Advanced duty events</h4>
-			{#each dutyEventsForDate as event (event.id)}
-				<div class="duty-event-row">
-					{#if dutyRosterHref}
-						<a href={dutyRosterHref} class="duty-event-name">{event.templateName}</a>
-					{:else}
-						<span class="duty-event-name">{event.templateName}</span>
-					{/if}
-					<span class="duty-event-meta"
-						>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
-					>
+		<AppDialog.Body class="space-y-4">
+			{#if dutyEventsForDate.length > 0}
+				<div class="flex flex-col gap-2 border-b pb-4">
+					<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Advanced duty events</h4>
+					{#each dutyEventsForDate as event (event.id)}
+						<div class="flex flex-col gap-0.5">
+							{#if dutyRosterHref}
+								<a href={resolve(dutyRosterHref as `/org/${string}`)} class="text-sm font-medium hover:underline"
+									>{event.templateName}</a
+								>
+							{:else}
+								<span class="text-sm font-medium">{event.templateName}</span>
+							{/if}
+							<span class="text-muted-foreground text-xs"
+								>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
+							>
+						</div>
+					{/each}
 				</div>
-			{/each}
-		</div>
-	{/if}
+			{/if}
 
-	<div class="assignments-list">
-		{#each assignmentTypes as type (type.id)}
-			<div class="assignment-row">
-				<div class="assignment-label">
-					<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-					<span class="assignment-name">{type.name}</span>
-				</div>
+			<div class="flex flex-col gap-3">
+				{#each assignmentTypes as type (type.id)}
+					{@const options = type.assignTo === 'personnel' ? personnelOptions : groupOptions}
+					<div class="bg-muted/30 flex flex-col gap-2 rounded-lg border p-3">
+						<div class="flex flex-wrap items-center gap-2">
+							<span
+								class="inline-flex min-w-7 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-white uppercase"
+								style="background-color: {type.color}">{type.shortName}</span
+							>
+							<span class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase"
+								>{type.name}</span
+							>
+						</div>
 
-				{#if type.assignTo === 'personnel'}
-					<SearchSelect
-						options={personnelOptions}
-						value={getCurrentAssignee(type.id)}
-						placeholder="Not assigned"
-						ariaLabel={`Set ${type.name} assignee`}
-						onchange={(value) => handleAssignmentChange(type.id, value)}
-					/>
-				{:else}
-					<SearchSelect
-						options={groupOptions}
-						value={getCurrentAssignee(type.id)}
-						placeholder="Not assigned"
-						ariaLabel={`Set ${type.name} group`}
-						onchange={(value) => handleAssignmentChange(type.id, value)}
-					/>
-				{/if}
+						<Combobox.Root
+							items={options}
+							value={getCurrentAssignee(type.id)}
+							label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
+							onValueChange={(value) =>
+								handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+							autoHighlight
+						>
+							<Combobox.Trigger
+								clearable
+								placeholder="Search assignments..."
+								aria-label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
+							/>
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search assignments..." />
+								<Combobox.Empty>No assignments found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+					</div>
+				{/each}
 			</div>
-		{/each}
-	</div>
+		</AppDialog.Body>
 
-	{#snippet footer()}
-		<button class="btn btn-primary" onclick={onClose}>Done</button>
-	{/snippet}
-</Modal>
-
-<style>
-	.date-display {
-		margin-bottom: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-		font-family: var(--font-display);
-		font-size: clamp(1.35rem, 1.1rem + 0.6vw, 1.8rem);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.duty-events-section {
-		margin-bottom: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.duty-events-heading {
-		margin: 0 0 var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.duty-event-row {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.duty-event-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
-		color: var(--text-primary);
-		text-decoration: none;
-	}
-
-	a.duty-event-name:hover {
-		text-decoration: underline;
-	}
-
-	.duty-event-meta {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.assignments-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.assignment-row {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-3);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-	}
-
-	.assignment-label {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.assignment-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 2px 6px;
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: white;
-	}
-
-	.assignment-name {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-</style>
+		<AppDialog.Footer>
+			<Button onclick={onClose}>Done</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

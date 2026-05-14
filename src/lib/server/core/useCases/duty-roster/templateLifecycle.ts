@@ -10,6 +10,7 @@ import {
 	type DutyRosterTemplate,
 	type DutyRosterTemplateAcceptPreviewInput,
 	type DutyRosterTemplateAcceptedRun,
+	type DutyRosterTemplateArchiveInput,
 	type DutyRosterTemplateConfiguredCreateInput,
 	type DutyRosterTemplateCountReadModel,
 	type DutyRosterTemplateCorrectionInput,
@@ -660,6 +661,37 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 
 	ctx.audit.log({
 		action: 'duty_roster_template.settings_updated',
+		resourceType: 'duty_roster_template',
+		resourceId: row.id
+	});
+
+	return toTemplate(row);
+}
+
+export async function archiveDutyRosterTemplateLifecycle(
+	ctx: WritePorts,
+	input: DutyRosterTemplateArchiveInput
+): Promise<DutyRosterTemplate> {
+	const existing = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
+		id: input.templateId,
+		status: 'active'
+	});
+	if (!existing) {
+		fail(404, 'Duty Roster Template not found');
+	}
+
+	const row = await ctx.store.update<DutyRosterTemplateRow>(
+		DUTY_ROSTER_TEMPLATE_TABLE,
+		ctx.auth.orgId,
+		input.templateId,
+		{
+			status: 'archived',
+			updated_at: new Date().toISOString()
+		}
+	);
+
+	ctx.audit.log({
+		action: 'duty_roster_template.archived',
 		resourceType: 'duty_roster_template',
 		resourceId: row.id
 	});

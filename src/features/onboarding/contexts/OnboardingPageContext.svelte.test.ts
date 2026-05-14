@@ -18,8 +18,8 @@ import {
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { createOrgContext } from '$lib/stores/orgContext.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -56,41 +56,16 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 }
 
 const baseCapabilityMap: CapabilityMap = {
-	calendar: 'none',
+	...NONE_TEST_CAPABILITY_MAP,
 	personnel: 'view',
-	training: 'none',
-	criticalTasks: 'none',
-	onboarding: 'operate',
-	ratingScheme: 'none'
+	onboarding: 'operate'
 };
 
 function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
-	return createOrgContext({
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
+	return createTestOrgContext({
 		userRole: 'member',
 		capabilityMap,
-		scopeSet: { kind: 'groups', groupIds: ['g-1'] },
-		scopedGroupId: null,
-		isReadOnly: false,
-		permissions: {
-			canViewCalendar: false,
-			canEditCalendar: false,
-			canViewPersonnel: true,
-			canEditPersonnel: false,
-			canViewTraining: false,
-			canEditTraining: false,
-			canViewCriticalTasks: false,
-			canEditCriticalTasks: false,
-			canViewOnboarding: false,
-			canEditOnboarding: false,
-			canViewRatingScheme: false,
-			canEditRatingScheme: false,
-			canViewLeadersBook: false,
-			canEditLeadersBook: false,
-			canManageMembers: false
-		}
+		scopeSet: { kind: 'groups', groupIds: ['g-1'] }
 	});
 }
 

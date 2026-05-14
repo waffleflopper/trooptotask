@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { History, Play, Settings, UsersRound } from '@lucide/svelte';
+	import { Archive, History, Play, Settings, UsersRound } from '@lucide/svelte';
 	import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplateSetupOptions } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { DutyRosterStatusBadge } from '$features/duty-roster/components/shared';
 
 	let {
 		basePath,
@@ -15,6 +19,8 @@
 	} = $props();
 
 	let selectedTemplateId = $state<string | null>(null);
+	let archiveTemplate = $state<DutyRosterTemplate | null>(null);
+	let archiveFormRef = $state<HTMLFormElement | null>(null);
 
 	const templateRows = $derived(
 		templates.map((template) => {
@@ -80,132 +86,210 @@
 
 		return activeFilters.length ? activeFilters.join(', ') : 'All active personnel';
 	}
+
+	function requestArchive(template: DutyRosterTemplate): void {
+		archiveTemplate = template;
+	}
+
+	function submitArchiveTemplate(): void {
+		archiveFormRef?.requestSubmit();
+	}
 </script>
 
-<section class="template-register" aria-labelledby="template-register-heading">
-	<div class="template-register__header">
-		<h2 id="template-register-heading" class="sr-only">Duty Roster Templates</h2>
-		<a class="btn btn-primary" href={`${basePath}/new`}>New Template</a>
-	</div>
+<section class="grid gap-6" aria-labelledby="template-register-heading">
+	<PageShell.Header
+		title="Duty Rosters"
+		subtitle="Create and manage duty roster templates used to generate DA Form 6 style rosters."
+	>
+		{#snippet actions()}
+			<Button href={`${basePath}/new`}>New Template</Button>
+		{/snippet}
+	</PageShell.Header>
 
 	{#if templates.length === 0}
-		<div class="admin-empty">
-			<p>No templates yet</p>
+		<div
+			class="grid place-items-center gap-2 rounded-lg border bg-card px-5 py-12 text-center text-sm text-muted-foreground"
+		>
+			<p class="font-medium text-foreground">No templates yet</p>
 			<p>Create a one-duty template for CQ, Staff Duty, or another DA Form 6 roster.</p>
 		</div>
 	{:else}
-		<div class="template-register-shell">
-			<div class="template-ledger" role="table" aria-label="Duty Roster Template register">
-				<div class="template-ledger__head" role="row">
-					<span role="columnheader">Template</span>
-					<span role="columnheader">Pool</span>
-					<span role="columnheader">Updated</span>
-					<span role="columnheader">Quick Actions</span>
+		<div class="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+			<div class="min-w-0 overflow-hidden rounded-lg border bg-card">
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm" aria-label="Duty Roster Template register">
+						<thead>
+							<tr class="border-b border-border bg-muted/50">
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Template</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Slug</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Pool Size</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Exemptions</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Last Updated</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Quick Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each templateRows as row (row.template.id)}
+								<tr
+									class={[
+										'border-b border-border transition-colors',
+										selectedRow?.template.id === row.template.id && 'bg-muted/50'
+									]}
+								>
+									<td class="px-4 py-2.5">
+										<button
+											class="flex cursor-pointer flex-col items-start gap-0.5 bg-transparent text-left"
+											type="button"
+											aria-pressed={selectedRow?.template.id === row.template.id}
+											onclick={() => (selectedTemplateId = row.template.id)}
+										>
+											<span class="text-sm font-semibold text-foreground">{row.template.name}</span>
+											<span class="text-xs text-muted-foreground">{row.template.status}</span>
+										</button>
+									</td>
+									<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground" role="cell">
+										{row.template.slug}
+									</td>
+									<td class="px-4 py-2.5" role="cell">
+										<span class="text-sm text-foreground">{row.poolCount === null ? 'Not loaded' : row.poolCount}</span>
+										<span class="block text-xs text-muted-foreground">{describePool(row.template)}</span>
+									</td>
+									<td class="px-4 py-2.5 text-sm text-foreground" role="cell">{row.exemptCount}</td>
+									<td class="px-4 py-2.5 text-xs text-muted-foreground" role="cell">
+										{formatUpdatedAt(row.template.updatedAt)}
+									</td>
+									<td class="px-4 py-2.5" role="cell" aria-label={`${row.template.name} quick actions`}>
+										<div class="flex items-center justify-end gap-0.5">
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/generate`}
+												aria-label={`Generate ${row.template.name}`}
+											>
+												<Play class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/history`}
+												aria-label={`View history for ${row.template.name}`}
+											>
+												<History class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												href={`${basePath}/${row.template.slug}/settings`}
+												aria-label={`View settings for ${row.template.name}`}
+											>
+												<Settings class="size-3.5" aria-hidden="true" />
+											</Button>
+											<Button
+												class="size-6"
+												variant="outline"
+												size="icon-sm"
+												type="button"
+												disabled={row.template.status === 'archived'}
+												aria-label={`Archive ${row.template.name}`}
+												onclick={() => requestArchive(row.template)}
+											>
+												<Archive class="size-3.5" aria-hidden="true" />
+											</Button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
-
-				<div class="template-ledger__body">
-					{#each templateRows as row (row.template.id)}
-						<div
-							class="template-ledger__row"
-							class:is-selected={selectedRow?.template.id === row.template.id}
-							role="row"
-						>
-							<button
-								class="template-ledger__select"
-								type="button"
-								aria-pressed={selectedRow?.template.id === row.template.id}
-								onclick={() => (selectedTemplateId = row.template.id)}
-							>
-								<span class="template-ledger__title">{row.template.name}</span>
-								<span class="template-ledger__description">{row.template.shortCode ?? row.template.slug}</span>
-							</button>
-
-							<div class="template-ledger__pool" role="cell">
-								<span>{row.poolCount === null ? 'Not loaded' : `${row.poolCount} personnel`}</span>
-								<small>{describePool(row.template)}</small>
-							</div>
-
-							<div class="template-ledger__updated" role="cell">
-								{formatUpdatedAt(row.template.updatedAt)}
-							</div>
-
-							<div class="template-ledger__actions" role="cell" aria-label={`${row.template.name} quick actions`}>
-								<a href={`${basePath}/${row.template.slug}/generate`}>
-									<Play size={16} aria-hidden="true" />
-									<span>Generate</span>
-								</a>
-								<a href={`${basePath}/${row.template.slug}/history`}>
-									<History size={16} aria-hidden="true" />
-									<span>History</span>
-								</a>
-								<a href={`${basePath}/${row.template.slug}/settings`}>
-									<Settings size={16} aria-hidden="true" />
-									<span>Settings</span>
-								</a>
-							</div>
-						</div>
-					{/each}
+				<div class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+					<span>Showing 1 to {templateRows.length} of {templateRows.length} templates</span>
+					<span>Rows per page 10</span>
 				</div>
 			</div>
 
 			{#if selectedRow}
-				<aside class="template-register-panel" aria-label={`${selectedRow.template.name} template details`}>
-					<div class="template-register-panel__title">
+				<PageShell.SummaryRail
+					title={selectedRow.template.name}
+					aria-label={`${selectedRow.template.name} template details`}
+				>
+					<div class="flex items-start justify-between gap-3">
 						<div>
-							<h3>{selectedRow.template.name}</h3>
-							<p>{selectedRow.template.shortCode ?? selectedRow.template.slug}</p>
+							<p class="text-xs text-muted-foreground">{selectedRow.template.shortCode ?? selectedRow.template.slug}</p>
 						</div>
-						<span class="chip chip-success">{selectedRow.template.status}</span>
+						<DutyRosterStatusBadge status={selectedRow.template.status === 'active' ? 'active' : 'archived'} />
 					</div>
 
-					<div class="template-register-panel__section">
-						<div class="template-register-panel__label">
-							<span>Template Slug</span>
-						</div>
-						<p class="template-register-panel__mono">{selectedRow.template.slug}</p>
+					<div class="grid gap-2 border-t border-border pt-3">
+						<span class="text-xs font-medium text-muted-foreground">Template Slug</span>
+						<p class="text-xs font-medium text-foreground" style="overflow-wrap: anywhere;">
+							{selectedRow.template.slug}
+						</p>
 					</div>
 
-					<div class="template-register-panel__section">
-						<div class="template-register-panel__label">
-							<span>Pool Summary</span>
-							<UsersRound size={15} aria-hidden="true" />
+					<div class="grid gap-2 border-t border-border pt-3">
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-xs font-medium text-muted-foreground">Pool Summary</span>
+							<UsersRound size={14} class="text-muted-foreground" aria-hidden="true" />
 						</div>
-						<dl class="template-register-panel__facts">
-							<div>
-								<dt>Pool</dt>
-								<dd>{selectedRow.poolCount === null ? 'Not loaded' : selectedRow.poolCount}</dd>
+						<dl class="grid gap-1.5">
+							<div class="flex items-baseline justify-between gap-3">
+								<dt class="text-xs text-muted-foreground">Pool</dt>
+								<dd class="text-xs font-medium text-foreground">
+									{selectedRow.poolCount === null ? 'Not loaded' : selectedRow.poolCount}
+								</dd>
 							</div>
 							{#if selectedRow.resolvedPoolCount !== null}
-								<div>
-									<dt>Matched Before Exemptions</dt>
-									<dd>{selectedRow.resolvedPoolCount}</dd>
+								<div class="flex items-baseline justify-between gap-3">
+									<dt class="text-xs text-muted-foreground">Before Exemptions</dt>
+									<dd class="text-xs font-medium text-foreground">{selectedRow.resolvedPoolCount}</dd>
 								</div>
 							{/if}
-							<div>
-								<dt>Exempt</dt>
-								<dd>{selectedRow.exemptCount}</dd>
+							<div class="flex items-baseline justify-between gap-3">
+								<dt class="text-xs text-muted-foreground">Exempt</dt>
+								<dd class="text-xs font-medium text-foreground">{selectedRow.exemptCount}</dd>
 							</div>
-							<div>
-								<dt>Updated</dt>
-								<dd>{formatUpdatedAt(selectedRow.template.updatedAt)}</dd>
+							<div class="flex items-baseline justify-between gap-3">
+								<dt class="text-xs text-muted-foreground">Updated</dt>
+								<dd class="text-xs font-medium text-foreground">{formatUpdatedAt(selectedRow.template.updatedAt)}</dd>
 							</div>
 						</dl>
 					</div>
 
-					<div class="template-register-panel__actions">
-						<a class="btn btn-primary" href={`${basePath}/${selectedRow.template.slug}/generate`}>
+					<div class="mt-auto grid gap-2">
+						<Button href={`${basePath}/${selectedRow.template.slug}/generate`}>
 							<Play size={16} aria-hidden="true" />
 							Open Generate
-						</a>
-						<a class="btn btn-secondary" href={`${basePath}/${selectedRow.template.slug}/history`}>
+						</Button>
+						<Button variant="outline" href={`${basePath}/${selectedRow.template.slug}/history`}>
 							<History size={16} aria-hidden="true" />
 							Open History
-						</a>
+						</Button>
 					</div>
 
-					<p class="template-register-panel__note">Pool rules are managed in Template Settings.</p>
-				</aside>
+					<p class="border-t border-border pt-3 text-xs text-muted-foreground">
+						Pool rules are managed in Template Settings.
+					</p>
+				</PageShell.SummaryRail>
 			{/if}
 		</div>
+	{/if}
+
+	{#if archiveTemplate}
+		<form bind:this={archiveFormRef} method="POST" action={`${basePath}?/archiveTemplate`} class="hidden">
+			<input type="hidden" name="templateId" value={archiveTemplate.id} />
+		</form>
+		<ConfirmDialog
+			title="Archive template"
+			message={`Archive ${archiveTemplate.name}? Future rosters cannot be generated from this template.`}
+			confirmLabel="Archive Template"
+			cancelLabel="Cancel"
+			variant="destructive"
+			onConfirm={submitArchiveTemplate}
+			onCancel={() => (archiveTemplate = null)}
+		/>
 	{/if}
 </section>

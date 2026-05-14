@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verifyWebhookSignature, pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import { getAdminClient } from '$lib/server/supabase';
+import { invalidateTierCache } from '$lib/server/subscription';
 import type { Tier } from '$lib/types/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
@@ -106,6 +107,8 @@ async function handleCheckoutCompleted(supabase: SupabaseClient, session: Stripe
 	if (error) {
 		throw new Error(`Failed to update org ${orgId}: ${error.message}`);
 	}
+
+	invalidateTierCache(orgId);
 }
 
 async function handleSubscriptionUpdated(supabase: SupabaseClient, subscription: Stripe.Subscription): Promise<void> {
@@ -139,6 +142,7 @@ async function handleSubscriptionUpdated(supabase: SupabaseClient, subscription:
 		.from('organizations')
 		.update({
 			tier,
+			stripe_subscription_id: subscription.id,
 			subscription_status: status,
 			current_period_end: periodEnd
 		})
@@ -147,6 +151,8 @@ async function handleSubscriptionUpdated(supabase: SupabaseClient, subscription:
 	if (error) {
 		throw new Error(`Failed to update org ${orgId}: ${error.message}`);
 	}
+
+	invalidateTierCache(orgId);
 
 	// Check if a gift should pause/resume this subscription
 	await checkGiftPause(supabase, orgId, tier, subscription);
@@ -173,6 +179,8 @@ async function handleSubscriptionDeleted(supabase: SupabaseClient, subscription:
 	if (error) {
 		throw new Error(`Failed to reset org ${orgId}: ${error.message}`);
 	}
+
+	invalidateTierCache(orgId);
 }
 
 async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
@@ -200,6 +208,8 @@ async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Inv
 	if (error) {
 		throw new Error(`Failed to mark org ${org.id} as past_due: ${error.message}`);
 	}
+
+	invalidateTierCache(org.id);
 }
 
 // ---------------------------------------------------------------------------

@@ -3,10 +3,14 @@
 	import type { StatusType } from '$lib/types';
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -48,6 +52,10 @@
 	function toggleExpanded(date: string) {
 		if (expandedDates.has(date)) expandedDates.delete(date);
 		else expandedDates.add(date);
+	}
+
+	function toggleForecastRow(day: ForecastDay): void {
+		if (day.unavailableCount > 0) toggleExpanded(day.date);
 	}
 
 	function toggleGroup(groupId: string) {
@@ -128,19 +136,22 @@
 			key: 'unavailable',
 			header: 'Unavailable',
 			value: (r) => r.unavailableCount,
-			compare: (a, b) => a.unavailableCount - b.unavailableCount
+			compare: (a, b) => a.unavailableCount - b.unavailableCount,
+			align: 'center'
 		},
 		{
 			key: 'available',
 			header: 'Available',
 			value: (r) => r.availableCount,
-			compare: (a, b) => a.availableCount - b.availableCount
+			compare: (a, b) => a.availableCount - b.availableCount,
+			align: 'center'
 		},
 		{
 			key: 'percent',
 			header: 'Available %',
 			value: (r) => r.availablePercent,
-			compare: (a, b) => a.availablePercent - b.availablePercent
+			compare: (a, b) => a.availablePercent - b.availablePercent,
+			align: 'center'
 		}
 	];
 
@@ -151,32 +162,32 @@
 	});
 </script>
 
-<div class="report-config">
-	<div class="config-section">
-		<h3>Date Range</h3>
-		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} />
-			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} />
-			</label>
+<div class="bg-card flex flex-col gap-4 rounded-lg border p-4">
+	<div>
+		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Date Range</h3>
+		<div class="flex flex-wrap items-end gap-2">
+			<Field.Root class="min-w-[120px] flex-1">
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root class="min-w-[120px] flex-1">
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 	</div>
 
-	<div class="config-section">
-		<h3>Group Filter</h3>
-		<div class="checkbox-list">
+	<div>
+		<h3 class="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">Group Filter</h3>
+		<div class="flex max-h-[200px] flex-col gap-0.5 overflow-y-auto rounded-md border p-1">
 			{#each groups as group (group.id)}
-				<label class="checkbox-item">
+				<label class="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm">
 					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
 					<span>{group.name}</span>
 				</label>
 			{/each}
 		</div>
-		<div class="personnel-count">
+		<div class="text-muted-foreground mt-1 text-sm">
 			{filteredPersonnel.length} of {personnel.length} personnel selected
 			{#if selectedGroupIds.size === 0}
 				(all)
@@ -184,323 +195,70 @@
 		</div>
 	</div>
 
-	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate}>
+	<div class="flex justify-end">
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
 {#if errorMsg}
-	<div class="report-error">{errorMsg}</div>
+	<div class="text-destructive bg-destructive/10 mt-2 rounded-md border px-3 py-2 text-sm">{errorMsg}</div>
 {/if}
 
 {#if result}
-	<div class="report-output">
-		<div class="report-toolbar">
-			<span class="report-summary">
+	<div class="mt-4">
+		<div class="mb-2 flex items-center justify-between gap-2">
+			<span class="text-muted-foreground text-sm">
 				{result.days.length} days &middot; {filteredPersonnel.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.days.length === 0}
-			<p class="no-data">No data found for the selected criteria.</p>
+			<p class="text-muted-foreground py-8 text-center text-sm italic">No data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact">
-				<table aria-label="Availability forecast">
-					<thead>
-						<tr>
-							<th class="col-date" onclick={() => table.toggleSort('date')}>Date</th>
-							<th class="col-data" onclick={() => table.toggleSort('unavailable')}>Unavailable</th>
-							<th class="col-data" onclick={() => table.toggleSort('available')}>Available</th>
-							<th class="col-data" onclick={() => table.toggleSort('percent')}>Available %</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as day (day.date)}
-							<tr
-								class="forecast-row"
-								class:expandable={day.unavailableCount > 0}
-								onclick={() => day.unavailableCount > 0 && toggleExpanded(day.date)}
-							>
-								<td class="col-date">
-									{#if day.unavailableCount > 0}
-										<span class="expand-icon">{expandedDates.has(day.date) ? '▾' : '▸'}</span>
-									{/if}
-									{formatDisplayDate(day.date)}
-								</td>
-								<td class="col-data">{day.unavailableCount}</td>
-								<td class="col-data">{day.availableCount}</td>
-								<td class="col-data">
-									<span
-										class="pct-value"
-										class:pct-green={day.availablePercent >= 80}
-										class:pct-orange={day.availablePercent >= 50 && day.availablePercent < 80}
-										class:pct-red={day.availablePercent < 50}
-									>
-										{day.availablePercent}%
-									</span>
-								</td>
-							</tr>
-							{#if expandedDates.has(day.date)}
-								<tr class="detail-row">
-									<td colspan="4">
-										<div class="detail-content">
-											{#each day.unavailablePersonnel as entry (entry.person.id)}
-												<span class="detail-person">
-													<span class="detail-name"
-														>{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span
-													>
-													<Badge label={entry.statusName} color={entry.statusColor} />
-												</span>
-											{/each}
-										</div>
-									</td>
-								</tr>
-							{/if}
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Availability forecast"
+				compact
+				striped
+				emptyMessage="No data found for the selected criteria."
+				onRowClick={toggleForecastRow}
+				rowActionLabel={(day) =>
+					day.unavailableCount > 0
+						? `${expandedDates.has(day.date) ? 'Collapse' : 'Expand'} unavailable personnel for ${formatDisplayDate(day.date)}`
+						: `Availability for ${formatDisplayDate(day.date)}`}
+				rowDetailVisible={(day) => expandedDates.has(day.date)}
+			>
+				{#snippet cell(day, column)}
+					{#if column.key === 'date'}
+						{#if day.unavailableCount > 0}
+							{expandedDates.has(day.date) ? 'Collapse' : 'Expand'} {formatDisplayDate(day.date)}
+						{:else}
+							{formatDisplayDate(day.date)}
+						{/if}
+					{:else if column.key === 'percent'}
+						{day.availablePercent}%
+					{:else}
+						{String(column.value(day) ?? '')}
+					{/if}
+				{/snippet}
+
+				{#snippet rowDetail(day)}
+					<ul>
+						{#each day.unavailablePersonnel as entry (entry.person.id)}
+							<li>
+								{entry.person.rank}
+								{entry.person.lastName}, {entry.person.firstName}
+								<Badge variant="outline">{entry.statusName}</Badge>
+							</li>
 						{/each}
-					</tbody>
-				</table>
-			</div>
+					</ul>
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
-
-<style>
-	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.config-section h3 {
-		font-size: var(--text-ui-sm);
-		font-weight: 600;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
-	}
-
-	.date-row {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: flex-end;
-		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
-	}
-
-	.checkbox-list {
-		max-height: 200px;
-		overflow-y: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		padding: var(--sp-1);
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.checkbox-item {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-ui-sm);
-		cursor: pointer;
-	}
-
-	.checkbox-item:hover {
-		background: var(--surface-page);
-	}
-
-	.personnel-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-		margin-top: var(--sp-1);
-	}
-
-	.config-actions {
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
-	}
-
-	.report-output {
-		margin-top: var(--sp-4);
-	}
-
-	.report-toolbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--sp-2);
-	}
-
-	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
-	}
-
-	.no-data {
-		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
-		font-style: italic;
-	}
-
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.forecast-row:nth-child(odd) {
-		background: var(--surface-subtle);
-	}
-
-	.forecast-row:hover {
-		background: var(--surface-page);
-	}
-
-	.forecast-row.expandable {
-		cursor: pointer;
-	}
-
-	.col-date {
-		text-align: left;
-		min-width: 180px;
-		white-space: nowrap;
-	}
-
-	.col-data {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	th.col-date {
-		text-align: left;
-	}
-
-	.expand-icon {
-		display: inline-block;
-		width: 16px;
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	.pct-value {
-		font-weight: 600;
-	}
-
-	.pct-green {
-		color: var(--success);
-	}
-
-	.pct-orange {
-		color: var(--amber-dark);
-	}
-
-	.pct-red {
-		color: var(--danger);
-	}
-
-	.detail-row td {
-		padding: var(--sp-2) var(--sp-4);
-		background: var(--surface-page);
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.detail-content {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.detail-person {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-		font-size: var(--text-ui-sm);
-	}
-
-	.detail-name {
-		color: var(--text-primary);
-	}
-
-	@media (max-width: 640px) {
-		.date-row {
-			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
-		}
-	}
-</style>

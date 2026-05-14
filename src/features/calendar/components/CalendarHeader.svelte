@@ -83,7 +83,7 @@
 	}
 </script>
 
-<div class="calendar-header">
+<div class="sticky top-0 z-10 bg-card">
 	<CalendarNavigation
 		title={`${monthName} ${year}`}
 		onPrev={onPrevMonth}
@@ -98,28 +98,38 @@
 	/>
 
 	<div
-		class="date-headers"
+		class="date-headers overflow-hidden"
 		bind:this={dateHeadersEl}
-		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length};"
+		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length}; --calendar-date-columns: var(--calendar-personnel-column-width) repeat(var(--dates-count), minmax(var(--calendar-cell-width), 1fr));"
 	>
-		<div class="date-headers-grid">
-			<div class="personnel-header-spacer">Personnel</div>
+		<div
+			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-date-columns)]"
+		>
+			<div
+				class="sticky left-0 z-[3] flex items-center border-r border-b bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase sm:px-4 sm:py-3"
+			>
+				Personnel
+			</div>
 			{#each dates as date (formatDate(date))}
 				{@const holiday = isHoliday(date)}
 				{@const headerAssignment = getHeaderAssignment(date)}
 				<button
-					class="date-header"
-					class:weekend={isWeekend(date)}
-					class:today={isToday(date)}
-					class:holiday
+					class={[
+						'flex min-w-0 cursor-pointer flex-col items-center gap-px overflow-hidden border-r border-b bg-card px-0 py-2 text-center transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
+						isWeekend(date) && 'bg-muted/55',
+						holiday && 'bg-warning-muted/60',
+						isToday(date) && 'bg-primary/10 shadow-[inset_0_-2px_0_var(--primary)]'
+					]}
 					title={getHolidayName(date) || 'Click to set daily assignments'}
 					onclick={() => onDateClick?.(date)}
 				>
-					<span class="day-name">{getDayName(date)}</span>
-					<span class="day-number">{date.getDate()}</span>
+					<span class="font-mono text-[9px] font-semibold tracking-widest text-muted-foreground uppercase sm:text-xs">
+						{getDayName(date)}
+					</span>
+					<span class="font-display text-base leading-none font-bold text-foreground sm:text-lg">{date.getDate()}</span>
 					{#if headerAssignment}
 						<span
-							class="header-assignment-badge"
+							class="header-assignment-badge mt-0.5 max-w-[calc(100%-0.375rem)] overflow-hidden rounded-sm border border-primary/20 bg-primary/10 px-1 py-px font-mono text-[8px] leading-none font-medium text-primary uppercase sm:text-[9px]"
 							title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeLabel}"
 						>
 							{headerAssignment.assigneeLabel}
@@ -130,158 +140,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.calendar-header {
-		background: var(--surface-panel);
-		position: sticky;
-		top: 0;
-		z-index: 10;
-	}
-
-	.date-headers {
-		overflow: hidden;
-	}
-
-	.date-headers-grid {
-		display: grid;
-		grid-template-columns: var(--personnel-column-width) repeat(var(--dates-count), minmax(var(--cell-width), 1fr));
-		width: 100%;
-		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
-	}
-
-	.personnel-header-spacer {
-		display: flex;
-		align-items: center;
-		padding: var(--sp-3) var(--sp-4);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		background: var(--surface-subtle);
-		border-right: var(--border-thin);
-		border-bottom: var(--border-thin);
-		position: sticky;
-		left: 0;
-		z-index: 3;
-		color: var(--text-secondary);
-	}
-
-	.date-header {
-		appearance: none;
-		border: none;
-		min-width: 0;
-		overflow: hidden;
-		padding: var(--sp-2) 0;
-		text-align: center;
-		border-right: var(--border-thin);
-		border-bottom: var(--border-thin);
-		background: var(--surface-panel);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			color var(--transition-fast),
-			box-shadow var(--transition-fast);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1px;
-	}
-
-	.date-header:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-	}
-
-	.date-header:hover .day-number {
-		text-decoration: underline;
-		text-underline-offset: 2px;
-		text-decoration-color: var(--ink-35);
-	}
-
-	.day-name {
-		display: block;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.day-number {
-		display: block;
-		font-family: var(--font-display);
-		font-size: clamp(1rem, 0.9rem + 0.4vw, 1.3rem);
-		font-weight: var(--font-weight-display);
-		line-height: 1;
-		color: var(--text-primary);
-	}
-
-	.weekend {
-		background-color: var(--color-weekend);
-	}
-
-	.holiday {
-		background-color: var(--color-holiday);
-	}
-
-	.today {
-		background-color: var(--color-today-bg);
-		box-shadow: inset 0 -2px 0 var(--color-today-border);
-	}
-
-	.header-assignment-badge {
-		max-width: calc(100% - 6px);
-		padding: 1px 4px;
-		border: 1px solid color-mix(in srgb, var(--border-default) 70%, var(--amber) 30%);
-		border-radius: 2px;
-		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
-		font-family: var(--font-mono);
-		font-size: 9px;
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-		line-height: 1;
-		margin-top: 2px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.date-header {
-			min-width: var(--cell-width);
-			min-height: 44px; /* Touch target */
-		}
-
-		.personnel-header-spacer {
-			width: var(--personnel-column-width);
-			min-width: var(--personnel-column-width);
-			padding: var(--sp-2) var(--sp-3);
-		}
-
-		.day-name {
-			font-size: 9px;
-		}
-
-		.day-number {
-			font-size: 1rem;
-		}
-
-		.header-assignment-badge {
-			font-size: 8px;
-			padding: 0 2px;
-		}
-	}
-
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.personnel-header-spacer {
-			width: var(--personnel-column-width);
-			min-width: var(--personnel-column-width);
-		}
-	}
-</style>

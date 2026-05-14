@@ -1,15 +1,36 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import type { Snippet } from 'svelte';
+	import {
+		BadgeCheck,
+		Bell,
+		Building2,
+		Check,
+		ChevronsUpDownIcon,
+		LogOut,
+		Megaphone,
+		MessageSquareText,
+		Moon,
+		Settings,
+		Sun,
+		UserCircle,
+		UserRound
+	} from '@lucide/svelte';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import type { OrganizationMemberPermissions } from '$lib/types';
-	import { formatDate } from '$lib/utils/dates';
+	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
-	import AvatarMenu from './ui/AvatarMenu.svelte';
-	import NotificationBell from './ui/NotificationBell.svelte';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 
 	interface OrgInfo {
 		id: string;
@@ -29,6 +50,16 @@
 		unreadNotificationCount?: number;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		children?: Snippet;
+	}
+
+	interface Notification {
+		id: string;
+		title: string;
+		message: string | null;
+		link: string | null;
+		read: boolean;
+		created_at: string;
 	}
 
 	let {
@@ -42,10 +73,16 @@
 		isDarkTheme,
 		unreadNotificationCount = 0,
 		onFeedback,
-		onWhatsNew
+		onWhatsNew,
+		children
 	}: Props = $props();
 
 	let clientDashboardDateLabel = $state<string | null>(null);
+	let notificationsOpen = $state(false);
+	let notifications = $state<Notification[]>([]);
+	let notificationsLoaded = $state(false);
+	let notificationsLoading = $state(false);
+	let localUnreadCount = $derived(unreadNotificationCount);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgId}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
@@ -59,485 +96,361 @@
 	const allNavItems = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
+	const activeOrg = $derived(allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole });
+	const isMultiOrg = $derived(allOrgs.length > 1);
+	const accountInitials = $derived('ME');
 
 	onMount(() => {
 		clientDashboardDateLabel = formatDashboardDisplayDate(formatDate(new Date()));
 	});
+
+	function getInitials(value: string) {
+		const words = value
+			.split(/\s+/)
+			.map((word) => word.trim())
+			.filter(Boolean);
+		return words
+			.slice(0, 2)
+			.map((word) => word[0]?.toUpperCase() ?? '')
+			.join('');
+	}
+
+	function switchOrg(targetOrgId: string) {
+		if (targetOrgId === orgId) return;
+
+		const orgPrefix = `/org/${orgId}`;
+		const suffix = pathname.startsWith(orgPrefix) ? pathname.slice(orgPrefix.length) : '';
+		void goto(resolve(`/org/${targetOrgId}${suffix}`));
+	}
+
+	async function loadNotifications() {
+		if (notificationsLoaded || notificationsLoading) return;
+
+		notificationsLoading = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/notifications`);
+			if (response.ok) {
+				notifications = await response.json();
+				notificationsLoaded = true;
+			}
+		} finally {
+			notificationsLoading = false;
+		}
+	}
+
+	async function markAllNotificationsRead() {
+		const response = await fetch(`/org/${orgId}/api/notifications`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ markAllRead: true })
+		});
+
+		if (response.ok) {
+			notifications = notifications.map((notification) => ({ ...notification, read: true }));
+			localUnreadCount = 0;
+		}
+	}
+
+	async function openNotification(notification: Notification) {
+		notificationsOpen = false;
+
+		if (!notification.read) {
+			notification.read = true;
+			localUnreadCount = Math.max(0, localUnreadCount - 1);
+			await fetch(`/org/${orgId}/api/notifications`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: notification.id })
+			});
+		}
+
+		if (notification.link) {
+			void goto(resolve(notification.link as `/org/${string}`));
+		}
+	}
+
+	$effect(() => {
+		if (notificationsOpen) {
+			void loadNotifications();
+		}
+	});
 </script>
 
-<aside class="app-rail" aria-label="Primary navigation">
-	<a href={resolve(`/org/${orgId}`)} class="rail-mark-link" aria-label="Troop to Task dashboard">
-		<span class="rail-mark">T2T</span>
-	</a>
+<Tooltip.Provider>
+	<Sidebar.Provider
+		class="min-h-0 overflow-hidden bg-background font-sans"
+		style="margin-top: var(--banner-height, 0px); height: calc(100dvh - var(--banner-height, 0px)); max-height: calc(100dvh - var(--banner-height, 0px));"
+	>
+		<Sidebar.Root collapsible="icon">
+			<Sidebar.Header>
+				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Sidebar.MenuButton
+										{...props}
+										size="lg"
+										tooltipContent="Switch organization"
+										aria-label="Switch organization"
+									>
+										<span
+											class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground"
+										>
+											{getInitials(activeOrg.name)}
+										</span>
+										<span class="grid flex-1 text-left text-sm leading-tight">
+											<span class="truncate font-medium">{activeOrg.name}</span>
+											<span class="truncate text-xs">{activeOrg.role}</span>
+										</span>
+										<ChevronsUpDownIcon class="ms-auto" />
+									</Sidebar.MenuButton>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content class="w-72" side="right" align="start">
+								<DropdownMenu.Label>Organizations</DropdownMenu.Label>
+								<DropdownMenu.Group>
+									{#each isMultiOrg ? allOrgs : [activeOrg] as org (org.id)}
+										<DropdownMenu.Item onclick={() => switchOrg(org.id)} disabled={org.id === orgId && !isMultiOrg}>
+											<span
+												class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-semibold"
+											>
+												{getInitials(org.name)}
+											</span>
+											<span class="grid min-w-0 flex-1">
+												<span class="truncate font-medium">{org.name}</span>
+												<span class="truncate text-xs text-muted-foreground">{org.role}</span>
+											</span>
+											{#if org.id === orgId}
+												<Check class="ms-auto size-4 text-primary" />
+											{/if}
+										</DropdownMenu.Item>
+									{/each}
+								</DropdownMenu.Group>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgId}/settings`))}>
+									<Settings />
+									Org Settings
+								</DropdownMenu.Item>
+								{#if isMultiOrg}
+									<DropdownMenu.Item onclick={() => goto(resolve('/dashboard?show=all'))}>
+										<Building2 />
+										Manage Organizations
+									</DropdownMenu.Item>
+								{/if}
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.Header>
 
-	<nav class="rail-nav">
-		{#each navItems as item (item.href)}
-			<a
-				href={resolve(item.href as `/org/${string}`)}
-				class="rail-item"
-				class:active={isOrgNavItemActive(pathname, item)}
-				aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
-			>
-				<OrgNavIcon icon={item.icon} size={21} strokeWidth={1.9} />
-				<span class="rail-item-label">{item.compactLabel ?? item.label}</span>
-				{#if item.badgeLabel}
-					<span class="rail-badge">{item.badgeLabel}</span>
-				{/if}
-			</a>
-		{/each}
-	</nav>
+			<Sidebar.Content>
+				<Sidebar.Group>
+					<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
+					<Sidebar.GroupContent>
+						<Sidebar.Menu>
+							{#each navItems as item (item.href)}
+								<Sidebar.MenuItem>
+									<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={item.label}>
+										{#snippet child({ props })}
+											<a
+												{...props}
+												href={resolve(item.href as `/org/${string}`)}
+												aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
+											>
+												<OrgNavIcon icon={item.icon} />
+												<span>{item.compactLabel ?? item.label}</span>
+												{#if item.badgeLabel}
+													<Sidebar.MenuBadge>{item.badgeLabel}</Sidebar.MenuBadge>
+												{/if}
+											</a>
+										{/snippet}
+									</Sidebar.MenuButton>
+								</Sidebar.MenuItem>
+							{/each}
+						</Sidebar.Menu>
+					</Sidebar.GroupContent>
+				</Sidebar.Group>
+			</Sidebar.Content>
 
-	<div class="rail-menu">
-		<AvatarMenu
-			{orgId}
-			{orgName}
-			{userRole}
-			{allOrgs}
-			{onToggleTheme}
-			{isDarkTheme}
-			{onFeedback}
-			{onWhatsNew}
-			menuAlign="left"
-			menuSide="top"
-		/>
-	</div>
-</aside>
+			<Sidebar.Footer>
+				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Sidebar.MenuButton {...props} size="lg" tooltipContent="Account menu" aria-label="Account menu">
+										<span
+											class="flex aspect-square size-8 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+										>
+											{accountInitials}
+										</span>
+										<span class="grid flex-1 text-left text-sm leading-tight">
+											<span class="truncate font-medium">Account</span>
+											<span class="truncate text-xs">Signed in</span>
+										</span>
+									</Sidebar.MenuButton>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content class="w-64" side="right" align="end">
+								<DropdownMenu.Label>
+									<div class="flex min-w-0 items-center gap-2">
+										<span
+											class="flex aspect-square size-9 shrink-0 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+										>
+											{accountInitials}
+										</span>
+										<span class="grid min-w-0 gap-1">
+											<span class="truncate text-sm font-medium leading-none text-foreground">Account</span>
+											<span class="truncate text-xs leading-none text-muted-foreground">Signed in</span>
+										</span>
+									</div>
+								</DropdownMenu.Label>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Group>
+									<DropdownMenu.Item>
+										<BadgeCheck />
+										Role: {userRole}
+									</DropdownMenu.Item>
+									<DropdownMenu.Item>
+										<UserCircle />
+										Account
+									</DropdownMenu.Item>
+								</DropdownMenu.Group>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Group>
+									{#if onWhatsNew}
+										<DropdownMenu.Item onclick={onWhatsNew}>
+											<Megaphone />
+											What's New
+										</DropdownMenu.Item>
+									{/if}
+									{#if onFeedback}
+										<DropdownMenu.Item onclick={onFeedback}>
+											<MessageSquareText />
+											Send Feedback
+										</DropdownMenu.Item>
+									{/if}
+									<DropdownMenu.Item onclick={() => goto(resolve('/help'))}>
+										<UserRound />
+										Help
+									</DropdownMenu.Item>
+								</DropdownMenu.Group>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item variant="destructive" onclick={() => goto(resolve('/auth/logout'))}>
+									<LogOut />
+									Sign Out
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.Footer>
+			<Sidebar.Rail />
+		</Sidebar.Root>
 
-<header class="top-header">
-	<a href="#main-content" class="skip-link">Skip to main content</a>
-	<div class="header-shell">
-		<div class="header-left">
-			<div class="breadcrumb" aria-label="Current section">
-				{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
-					{#if index === 0}
-						{#if crumb.href}
-							<a class="breadcrumb-parent breadcrumb-link" href={crumb.href}>{crumb.label}</a>
-						{:else}
-							<span class="breadcrumb-parent">{crumb.label}</span>
-						{/if}
-					{:else}
-						<span class="breadcrumb-separator">›</span>
-						{#if crumb.href}
-							<a
-								class="breadcrumb-current breadcrumb-link"
-								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
-								href={crumb.href}>{crumb.label}</a
-							>
-						{:else}
-							<span
-								class="breadcrumb-current"
-								class:breadcrumb-current--section={index < breadcrumbs.length - 1}
-								aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined}>{crumb.label}</span
-							>
-						{/if}
+		<Sidebar.Inset>
+			<header class="sticky top-0 z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4">
+				<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3"
+					>Skip to main content</a
+				>
+				<Sidebar.Trigger />
+				<Separator orientation="vertical" class="h-4" />
+				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
+					<Breadcrumb.List class="flex-nowrap overflow-hidden">
+						{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
+							<Breadcrumb.Item class="min-w-0 shrink-0">
+								{#if crumb.href && index < breadcrumbs.length - 1}
+									<Breadcrumb.Link href={resolve(crumb.href as `/org/${string}`)} class="truncate">
+										{crumb.label}
+									</Breadcrumb.Link>
+								{:else}
+									<Breadcrumb.Page class="truncate">{crumb.label}</Breadcrumb.Page>
+								{/if}
+							</Breadcrumb.Item>
+							{#if index < breadcrumbs.length - 1}
+								<Breadcrumb.Separator class="shrink-0" />
+							{/if}
+						{/each}
+					</Breadcrumb.List>
+				</Breadcrumb.Root>
+				<div class="ml-auto flex items-center gap-1">
+					{#if onFeedback}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={onFeedback}
+							class="hidden sm:inline-flex"
+							aria-label="Send feedback"
+						>
+							Feedback
+						</Button>
 					{/if}
-				{/each}
-			</div>
-		</div>
+					<DropdownMenu.Root bind:open={notificationsOpen}>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="ghost"
+									size="icon"
+									aria-label={localUnreadCount > 0 ? `${localUnreadCount} unread notifications` : 'Notifications'}
+								>
+									<Bell />
+									{#if localUnreadCount > 0}
+										<span class="sr-only">{localUnreadCount} unread</span>
+									{/if}
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content class="w-80" align="end">
+							<DropdownMenu.Label>
+								<span class="flex items-center justify-between gap-3">
+									<span>Notifications</span>
+									{#if localUnreadCount > 0}
+										<Button variant="ghost" size="xs" onclick={markAllNotificationsRead}>Mark all read</Button>
+									{/if}
+								</span>
+							</DropdownMenu.Label>
+							<DropdownMenu.Separator />
+							{#if notificationsLoading}
+								<DropdownMenu.Item disabled>Loading notifications...</DropdownMenu.Item>
+							{:else if notifications.length === 0}
+								<DropdownMenu.Item disabled>No notifications</DropdownMenu.Item>
+							{:else}
+								{#each notifications as notification (notification.id)}
+									<DropdownMenu.Item onclick={() => openNotification(notification)}>
+										<span class="grid min-w-0 gap-1">
+											<span class="truncate font-medium">{notification.title}</span>
+											{#if notification.message}
+												<span class="line-clamp-2 text-xs text-muted-foreground">{notification.message}</span>
+											{/if}
+											<span class="text-xs text-muted-foreground">{formatRelativeDate(notification.created_at)}</span>
+										</span>
+									</DropdownMenu.Item>
+								{/each}
+							{/if}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} variant="ghost" size="icon" onclick={onToggleTheme} aria-label="Toggle theme">
+									{#if isDarkTheme}
+										<Sun />
+									{:else}
+										<Moon />
+									{/if}
+								</Button>
+							{/snippet}
+						</Tooltip.Trigger>
+						<Tooltip.Content>{isDarkTheme ? 'Light mode' : 'Dark mode'}</Tooltip.Content>
+					</Tooltip.Root>
+				</div>
+			</header>
 
-		<div class="header-right">
-			{#if onFeedback}
-				<button class="header-feedback-button" type="button" onclick={onFeedback} aria-label="Send feedback">
-					Feedback
-				</button>
-			{/if}
-			<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
-			<a class="header-help-link" href="/help" aria-label="Help">?</a>
-			<div class="mobile-account-menu">
-				<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onFeedback} {onWhatsNew} />
-			</div>
-		</div>
-	</div>
-</header>
-
-<style>
-	:global(:root) {
-		--app-rail-width: 74px;
-		--header-height: 52px;
-	}
-
-	.app-rail {
-		position: fixed;
-		inset: 0 auto 0 0;
-		z-index: calc(var(--z-sticky) + 120);
-		width: var(--app-rail-width);
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		padding: var(--sp-3) 0;
-		box-sizing: border-box;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)), var(--color-chrome);
-		border-right: 1px solid var(--color-chrome-border);
-		color: var(--color-chrome-text-muted);
-	}
-
-	.rail-mark-link {
-		display: flex;
-		justify-content: center;
-		padding: var(--sp-1) 0 var(--sp-6);
-		text-decoration: none;
-	}
-
-	.rail-mark {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 42px;
-		min-height: 28px;
-		border: 1px solid rgba(var(--amber-rgb), 0.72);
-		border-radius: var(--radius-sm);
-		color: var(--color-chrome-active);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		line-height: 1;
-	}
-
-	.rail-nav {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.rail-item,
-	.rail-menu {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 4px;
-		min-height: 68px;
-		padding: 6px 4px;
-		text-align: center;
-		text-decoration: none;
-		color: var(--color-chrome-text-muted);
-		transition:
-			color var(--transition-fast),
-			background var(--transition-fast);
-	}
-
-	.rail-item:hover {
-		color: var(--color-chrome-text);
-		background: rgba(240, 239, 233, 0.04);
-	}
-
-	.rail-item.active {
-		color: var(--color-chrome-active);
-		background: rgba(var(--amber-rgb), 0.08);
-	}
-
-	.rail-item.active::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 16px;
-		bottom: 16px;
-		width: 2px;
-		background: var(--color-chrome-active);
-	}
-
-	.rail-item-label {
-		max-width: 64px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.02em;
-		line-height: 1.1;
-	}
-
-	.rail-badge {
-		color: var(--color-chrome-active);
-		font-family: var(--font-mono);
-		font-size: 8px;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.rail-menu {
-		margin-top: auto;
-		min-height: 56px;
-	}
-
-	.rail-menu :global(.avatar-circle) {
-		min-width: 38px;
-		height: 34px;
-		border-color: rgba(240, 239, 233, 0.16);
-		background: rgba(240, 239, 233, 0.04);
-		color: var(--color-chrome-text);
-	}
-
-	.rail-menu :global(.avatar-circle:hover),
-	.rail-menu :global(.avatar-circle.open) {
-		border-color: rgba(var(--amber-rgb), 0.42);
-		background: rgba(var(--amber-rgb), 0.1);
-		color: var(--color-chrome-active);
-	}
-
-	.top-header {
-		position: fixed;
-		top: 0;
-		left: var(--app-rail-width);
-		width: calc(100% - var(--app-rail-width));
-		height: var(--header-height);
-		background: color-mix(in srgb, var(--surface-panel) 96%, var(--surface-page) 4%);
-		color: var(--text-primary);
-		border-bottom: 1px solid var(--border-default);
-		z-index: calc(var(--z-sticky) + 100);
-		box-sizing: border-box;
-	}
-
-	.header-shell {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-4);
-		height: 100%;
-		width: 100%;
-		box-sizing: border-box;
-		padding: 0 var(--sp-5);
-	}
-
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: clamp(var(--sp-2), 1.5vw, var(--sp-6));
-		min-width: 0;
-	}
-
-	.breadcrumb {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0;
-	}
-
-	.breadcrumb-parent {
-		color: var(--text-tertiary);
-	}
-
-	.breadcrumb-separator {
-		color: var(--border-strong);
-	}
-
-	.breadcrumb-current {
-		color: var(--text-primary);
-	}
-
-	.breadcrumb-current--section {
-		color: var(--text-secondary);
-	}
-
-	.breadcrumb-link {
-		text-decoration: none;
-		transition: color var(--transition-fast);
-	}
-
-	.breadcrumb-link:hover {
-		color: var(--text-primary);
-		text-decoration: underline;
-		text-decoration-thickness: 1px;
-		text-underline-offset: 0.2em;
-	}
-
-	.header-right {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		justify-self: end;
-		min-width: 0;
-	}
-
-	.mobile-account-menu {
-		display: none;
-	}
-
-	.header-feedback-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 2.25rem;
-		padding: 0 0.85rem;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast),
-			background var(--transition-fast);
-	}
-
-	.header-help-link {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.25rem;
-		height: 2.25rem;
-		border-radius: 50%;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		text-decoration: none;
-		transition:
-			color var(--transition-fast),
-			background var(--transition-fast);
-	}
-
-	.header-feedback-button:hover,
-	.header-help-link:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.header-feedback-button:hover {
-		border-color: var(--ink-35);
-	}
-
-	.top-header :global(.bell-button) {
-		border-color: transparent;
-		background: transparent;
-		color: var(--text-secondary);
-	}
-
-	.top-header :global(.bell-button:hover) {
-		border-color: transparent;
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.top-header :global(.bell-button.open) {
-		border-color: transparent;
-		background: var(--amber-light);
-		color: var(--amber-dark);
-	}
-
-	.skip-link {
-		position: absolute;
-		top: -100%;
-		left: var(--sp-4);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		padding: var(--sp-2) var(--sp-4);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		z-index: 200;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		text-decoration: none;
-	}
-
-	.skip-link:focus {
-		top: var(--sp-2);
-	}
-
-	@media (max-width: 920px) {
-		:global(:root) {
-			--header-height: 68px;
-		}
-
-		.app-rail {
-			display: none;
-		}
-
-		.top-header {
-			left: 0;
-			width: 100%;
-			background: var(--color-chrome);
-			color: var(--color-chrome-text);
-			border-bottom-color: var(--color-chrome-border);
-		}
-
-		.header-shell {
-			grid-template-columns: minmax(0, 1fr) auto;
-			padding: 0 clamp(var(--sp-4), 2vw, var(--sp-6));
-		}
-
-		.breadcrumb-parent,
-		.breadcrumb-separator {
-			display: none;
-		}
-
-		.breadcrumb-current {
-			font-family: var(--font-display);
-			font-size: 1.25rem;
-			font-weight: var(--font-weight-display);
-			letter-spacing: 0.02em;
-			text-transform: uppercase;
-			color: var(--color-chrome-text);
-		}
-
-		.header-feedback-button {
-			border-color: var(--color-chrome-border);
-			background: rgba(240, 239, 233, 0.03);
-			color: var(--color-chrome-text-muted);
-		}
-
-		.top-header :global(.bell-button) {
-			border-color: transparent;
-			background: rgba(240, 239, 233, 0.03);
-			color: var(--color-chrome-text-muted);
-		}
-
-		.top-header :global(.bell-button:hover) {
-			border-color: transparent;
-			background: rgba(240, 239, 233, 0.06);
-			color: var(--color-chrome-text);
-		}
-
-		.top-header :global(.bell-button.open) {
-			border-color: transparent;
-			background: rgba(var(--amber-rgb), 0.08);
-			color: var(--color-chrome-active);
-		}
-
-		.mobile-account-menu {
-			display: block;
-		}
-	}
-
-	@media (max-width: 640px) {
-		:global(:root) {
-			--header-height: 60px;
-		}
-
-		.top-header {
-			height: var(--header-height);
-		}
-
-		.header-shell {
-			padding-inline: var(--sp-4);
-			gap: var(--sp-2);
-		}
-
-		.header-left {
-			gap: var(--sp-2);
-		}
-
-		.header-right {
-			gap: var(--sp-1);
-		}
-
-		.header-feedback-button {
-			display: none;
-		}
-	}
-</style>
+			<main id="main-content" class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background">
+				{@render children?.()}
+			</main>
+		</Sidebar.Inset>
+	</Sidebar.Provider>
+</Tooltip.Provider>

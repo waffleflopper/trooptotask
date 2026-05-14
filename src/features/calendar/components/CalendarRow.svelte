@@ -10,7 +10,8 @@
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
-	import DateCell from '$lib/components/ui/DateCell.svelte';
+	import * as DateCell from '$lib/components/ui/date-cell/index.js';
+	import type { DateCellMarkerData, DateCellStatus } from '$lib/components/ui/date-cell/index.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
@@ -102,21 +103,80 @@
 	function handlePersonClick() {
 		onPersonClick?.(person);
 	}
+
+	function getDateCellStatuses(entries: AvailabilityEntry[]): DateCellStatus[] {
+		return entries.flatMap((entry) => {
+			const status = statusTypeMap.get(entry.statusTypeId);
+			return status
+				? [
+						{
+							id: entry.id,
+							color: status.color,
+							name: status.name,
+							textColor: status.textColor,
+							note: entry.note ?? undefined
+						}
+					]
+				: [];
+		});
+	}
+
+	function getDateCellMarkers(
+		assignments: { type: AssignmentType; assignment: DailyAssignment }[],
+		dutyBadges: DutyEventBadge[]
+	): DateCellMarkerData[] {
+		return [
+			...assignments.map(({ type, assignment }) => ({
+				id: assignment.id,
+				name: type.name,
+				shortName: type.shortName,
+				color: type.color,
+				textColor: '#ffffff',
+				title: type.name,
+				kind: 'assignment' as const
+			})),
+			...dutyBadges.map((badge) => ({
+				id: badge.slotId,
+				name: badge.title,
+				shortName: badge.shortName,
+				color: badge.color,
+				textColor: badge.textColor,
+				title: badge.title,
+				kind: 'duty' as const
+			}))
+		];
+	}
 </script>
 
-<div class="personnel-row">
-	<button class="personnel-info" class:compact={!showPersonnelRoles} onclick={handlePersonClick}>
-		<span class="rank">{person.rank}</span>
-		<div class="name-block">
-			<span class="name-line">
-				<span class="name">{person.lastName}, {person.firstName}</span>
+<div
+	class="personnel-row grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
+>
+	<button
+		class={[
+			'personnel-info sticky left-0 z-[3] flex h-full cursor-pointer items-center gap-2 border-r border-b bg-card px-2 py-1 text-left hover:bg-muted sm:px-3',
+			!showPersonnelRoles && 'py-1'
+		]}
+		onclick={handlePersonClick}
+	>
+		<span class="min-w-8 shrink-0 font-mono text-xs font-semibold tracking-wider text-primary uppercase sm:min-w-10">
+			{person.rank}
+		</span>
+		<div class="flex min-w-0 flex-col overflow-hidden">
+			<span class="flex min-w-0 items-center gap-1.5">
+				<span class="overflow-hidden text-sm font-semibold text-ellipsis whitespace-nowrap text-foreground"
+					>{person.lastName}, {person.firstName}</span
+				>
 				{#if isOnboarding}
-					<span class="onboarding-dot" title="Active onboarding"></span>
+					<span class="size-2 shrink-0 rounded-[2px] bg-primary" title="Active onboarding"></span>
 				{/if}
 				{#if upcomingLossRecord}
 					<span
-						class="loss-chip"
-						class:loss-chip--ets={upcomingLossRecord.triggerType === 'ETS'}
+						class={[
+							'shrink-0 rounded-md px-1 py-px font-mono text-[10px] leading-tight font-semibold tracking-widest uppercase',
+							upcomingLossRecord.triggerType === 'ETS'
+								? 'bg-warning-muted text-warning-foreground'
+								: 'bg-muted text-muted-foreground'
+						]}
 						data-testid="loss-indicator-{person.id}"
 						title="{upcomingLossRecord.triggerType} in {upcomingLossRecord.daysRemaining} day{upcomingLossRecord.daysRemaining ===
 						1
@@ -126,189 +186,29 @@
 				{/if}
 			</span>
 			{#if showPersonnelRoles && person.clinicRole}
-				<span class="role">{person.clinicRole}</span>
+				<span
+					class="overflow-hidden font-mono text-[10px] tracking-wider text-ellipsis whitespace-nowrap text-muted-foreground uppercase max-sm:hidden"
+				>
+					{person.clinicRole}
+				</span>
 			{/if}
 		</div>
 	</button>
 	{#each dates as date (formatDate(date))}
 		{@const dateStr = formatDate(date)}
 		{@const specialDay = specialDayMap.get(dateStr)}
-		<DateCell
-			{date}
-			isWeekend={isWeekend(date)}
-			isToday={isToday(date)}
-			isHoliday={!!specialDay}
+		{@const statuses = getDateCellStatuses(availabilityByDate.get(dateStr) ?? [])}
+		{@const markers = getDateCellMarkers(assignmentsByDate.get(dateStr) ?? [], personDutyBadges?.get(dateStr) ?? [])}
+		<DateCell.Root
+			weekend={isWeekend(date)}
+			today={isToday(date)}
+			holiday={!!specialDay}
 			holidayName={specialDay?.name}
-			entries={availabilityByDate.get(dateStr) ?? []}
-			{statusTypeMap}
-			assignments={assignmentsByDate.get(dateStr) ?? []}
-			dutyBadges={personDutyBadges?.get(dateStr) ?? []}
+			{statuses}
+			{markers}
 			{showStatusText}
-			isOnboarding={isOnboarding && highlightOnboarding}
+			onboarding={isOnboarding && highlightOnboarding}
 			onclick={() => handleCellClick(date)}
 		/>
 	{/each}
 </div>
-
-<style>
-	.personnel-row {
-		display: grid;
-		grid-template-columns: var(--personnel-column-width) repeat(var(--dates-count), minmax(var(--cell-width), 1fr));
-		width: 100%;
-		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
-		align-items: stretch;
-	}
-
-	.personnel-row:last-child .personnel-info {
-		border-bottom: none;
-	}
-
-	.personnel-info {
-		appearance: none;
-		border: none;
-		min-height: var(--cell-height);
-		padding: 5px var(--sp-3);
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		background: var(--surface-panel);
-		border-right: var(--border-thin);
-		border-bottom: var(--border-thin);
-		position: sticky;
-		left: 0;
-		z-index: 3;
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.personnel-row:last-child :global(.date-cell) {
-		border-bottom: none;
-	}
-
-	.personnel-info:hover {
-		background-color: var(--surface-subtle);
-	}
-
-	.personnel-info:hover .name {
-		text-decoration: underline;
-		text-underline-offset: 2px;
-		text-decoration-color: var(--ink-35);
-	}
-
-	.personnel-info.compact {
-		padding-top: 4px;
-		padding-bottom: 4px;
-	}
-
-	.rank {
-		min-width: 42px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.name-block {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		min-width: 0;
-	}
-
-	.personnel-info.compact .name-block {
-		justify-content: center;
-	}
-
-	.name-line {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		min-width: 0;
-	}
-
-	.name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-primary);
-	}
-
-	.onboarding-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 1px;
-		background: var(--amber);
-		flex-shrink: 0;
-	}
-
-	/* ── Upcoming-loss chip ──────────────────────────────────────────────────
-	   Lightweight row-header signal for personnel approaching ETS or PCS/DEROS.
-	   Mirrors the trigger-chip styling from UpcomingLossesWidget and
-	   PersonnelPageView for cross-surface consistency.  Kept intentionally
-	   small so the calendar row header stays scannable.
-	──────────────────────────────────────────────────────────────────────── */
-	.loss-chip {
-		display: inline-flex;
-		align-items: center;
-		flex-shrink: 0;
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-		padding: 1px 4px;
-		border-radius: var(--radius-sm);
-		white-space: nowrap;
-		line-height: 1.4;
-		/* PCS / DEROS default: neutral tint */
-		background: var(--ink-06);
-		color: var(--text-secondary);
-	}
-
-	/* ETS: amber-tinted to flag impending separation */
-	.loss-chip--ets {
-		background: color-mix(in srgb, var(--amber-light) 80%, var(--surface-panel) 20%);
-		color: var(--amber-dark);
-	}
-
-	.role {
-		font-family: var(--font-mono);
-		font-size: 10px;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.personnel-info {
-			padding: 6px var(--sp-2);
-		}
-
-		.rank {
-			min-width: 34px;
-		}
-
-		.name {
-			font-size: var(--text-xs);
-		}
-
-		.role {
-			display: none; /* Hide on mobile to save space */
-		}
-	}
-
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.role {
-			font-size: 9px;
-		}
-	}
-</style>

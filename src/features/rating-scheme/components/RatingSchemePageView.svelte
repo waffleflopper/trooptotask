@@ -1,22 +1,20 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
 	import {
-		RATING_STATUS_COLORS,
 		WORKFLOW_STATUS_OPTIONS,
+		type RatingDueStatus,
 		type WorkflowStatus
 	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarViewToggle,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
+	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
@@ -64,12 +62,12 @@
 			(ctx.ratingViewMode !== 'grouped' ? 1 : 0)
 	);
 	const ratingMetricItems = $derived([
-		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue, color: RATING_STATUS_COLORS.overdue },
-		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], color: RATING_STATUS_COLORS['due-60'] },
-		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], color: RATING_STATUS_COLORS['due-30'] }
+		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue, status: 'overdue' as RatingDueStatus },
+		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], status: 'due-60' as RatingDueStatus },
+		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], status: 'due-30' as RatingDueStatus }
 	]);
-	const ratingActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [
+	const ratingActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [
 			{
 				id: 'export',
 				label: exportLoading ? 'Exporting...' : 'Export',
@@ -111,116 +109,81 @@
 	<title>Evals - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
+<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
 	{#if !canViewRatingScheme}
-		<div class="no-permission">
-			<h2>Access Restricted</h2>
-			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		<div class="p-4 md:p-6">
+			<Alert.Root variant="warning">
+				<Alert.Title>Access Restricted</Alert.Title>
+				<Alert.Description>
+					You don't have permission to view this area. Contact your organization admin for access.
+				</Alert.Description>
+			</Alert.Root>
 		</div>
 	{:else}
-		<main class="page-content">
-			<section class="evals-section">
-				<Toolbar ariaLabel="Evaluation controls" collapse="narrow" leadingMin="36rem" compactLeadingWhenCrowded>
-					{#snippet leading()}
-						<ToolbarGroup label="Evaluation filters" activeCount={activeFilterCount} testId="evaluation-filters">
-							{#snippet full()}
-								<ToolbarViewToggle
-									ariaLabel="Evaluation view mode"
-									options={ratingViewOptions}
-									value={ctx.ratingViewMode}
-									mode="full"
-									onValueChange={(value) => (ctx.ratingViewMode = value as 'grouped' | 'table')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation type filter"
-									options={evalTypeFilterOptions}
-									value={ctx.evalTypeFilter}
-									defaultValue="all"
-									mode="full"
-									onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation status filter"
-									options={ratingFilterOptions}
-									value={ctx.ratingFilter}
-									defaultValue="active"
-									width="wide"
-									mode="full"
-									onValueChange={(value) =>
-										(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
-								/>
-								{#if ctx.hasAnyWorkflowStatus}
-									<ToolbarFilterSelect
-										ariaLabel="Evaluation workflow filter"
-										options={workflowFilterOptions}
-										value={ctx.workflowFilter}
-										defaultValue="all"
-										width="wide"
-										mode="full"
-										onValueChange={setWorkflowFilter}
-									/>
-								{/if}
-							{/snippet}
-							{#snippet panel()}
-								<ToolbarViewToggle
-									ariaLabel="Evaluation view mode"
-									options={ratingViewOptions}
-									value={ctx.ratingViewMode}
-									mode="full"
-									onValueChange={(value) => (ctx.ratingViewMode = value as 'grouped' | 'table')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation type filter"
-									options={evalTypeFilterOptions}
-									value={ctx.evalTypeFilter}
-									defaultValue="all"
-									mode="full"
-									onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
-								/>
-								<ToolbarFilterSelect
-									ariaLabel="Evaluation status filter"
-									options={ratingFilterOptions}
-									value={ctx.ratingFilter}
-									defaultValue="active"
-									width="wide"
-									mode="full"
-									onValueChange={(value) =>
-										(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
-								/>
-								{#if ctx.hasAnyWorkflowStatus}
-									<ToolbarFilterSelect
-										ariaLabel="Evaluation workflow filter"
-										options={workflowFilterOptions}
-										value={ctx.workflowFilter}
-										defaultValue="all"
-										width="wide"
-										mode="full"
-										onValueChange={setWorkflowFilter}
-									/>
-								{/if}
-							{/snippet}
-						</ToolbarGroup>
-					{/snippet}
+		<main class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
+			<section class="flex min-h-0 w-full flex-col gap-4 overflow-hidden">
+				<WorkspaceToolbar.Root ariaLabel="Evaluation controls">
+					<WorkspaceToolbar.Group
+						label="Evaluation filters"
+						activeCount={activeFilterCount}
+						data-testid="evaluation-filters"
+					>
+						<ButtonGroup.Root aria-label="Evaluation view mode">
+							{#each ratingViewOptions as option (option.value)}
+								<Button
+									variant={ctx.ratingViewMode === option.value ? 'secondary' : 'outline'}
+									aria-pressed={ctx.ratingViewMode === option.value}
+									onclick={() => (ctx.ratingViewMode = option.value as 'grouped' | 'table')}
+								>
+									{option.label}
+								</Button>
+							{/each}
+						</ButtonGroup.Root>
+						<WorkspaceToolbar.Select
+							ariaLabel="Evaluation type filter"
+							options={evalTypeFilterOptions}
+							value={ctx.evalTypeFilter}
+							onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
+						/>
+						<WorkspaceToolbar.Select
+							ariaLabel="Evaluation status filter"
+							options={ratingFilterOptions}
+							value={ctx.ratingFilter}
+							onValueChange={(value) =>
+								(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
+						/>
+						{#if ctx.hasAnyWorkflowStatus}
+							<WorkspaceToolbar.Select
+								ariaLabel="Evaluation workflow filter"
+								options={workflowFilterOptions}
+								value={ctx.workflowFilter}
+								onValueChange={setWorkflowFilter}
+							/>
+						{/if}
+					</WorkspaceToolbar.Group>
 
-					<ToolbarActions
-						actions={ratingActionItems}
-						ariaLabel="Evaluation actions"
-						overflowAriaLabel="More evaluation actions"
-						overflowIconOnly
-					/>
-				</Toolbar>
+					<WorkspaceToolbar.Group label="Evaluation actions" zone="actions">
+						<WorkspaceToolbar.Actions
+							actions={ratingActionItems}
+							ariaLabel="Evaluation actions"
+							overflowAriaLabel="More evaluation actions"
+						/>
+					</WorkspaceToolbar.Group>
+				</WorkspaceToolbar.Root>
 
-				<div class="evals-content">
-					<div class="evals-table-header">
-						<div class="evals-table-header__stats" aria-label="Evaluation status summary">
+				<div class="min-h-0 flex-1 overflow-auto rounded-lg border bg-card text-card-foreground">
+					<div
+						class="flex flex-col gap-3 border-b bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+					>
+						<div class="flex flex-wrap items-center gap-2" aria-label="Evaluation status summary">
 							{#each ratingMetricItems as item (item.id)}
-								<div class="evals-table-header__metric">
-									<strong style:color={item.color}>{item.value}</strong>
+								<EvalBadge kind="due" value={item.status}>
 									<span>{item.label}</span>
-								</div>
+									<span>{item.value}</span>
+								</EvalBadge>
 							{/each}
 						</div>
-						<div class="evals-table-header__shown" role="status" aria-label={ratingShownLabel}>
+						<div class="text-xs font-medium text-muted-foreground" role="status" aria-label={ratingShownLabel}>
 							{ratingShownLabel}
 						</div>
 					</div>
@@ -242,129 +205,3 @@
 		</main>
 	{/if}
 </div>
-
-<style>
-	.page {
-		height: 100%;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: color-mix(in srgb, var(--surface-page) 92%, var(--surface-panel) 8%);
-	}
-
-	.page-content {
-		flex: 1;
-		display: flex;
-		min-height: 0;
-		overflow: hidden;
-		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.evals-section {
-		width: 100%;
-		height: 100%;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		overflow: hidden;
-	}
-
-	.evals-table-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		border-bottom: 1px solid var(--border-default);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-page) 8%);
-	}
-
-	.evals-table-header__stats {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.evals-table-header__metric {
-		display: inline-flex;
-		align-items: baseline;
-		gap: var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.evals-table-header__metric strong {
-		font-size: var(--text-lg);
-		line-height: 1;
-	}
-
-	.evals-table-header__shown {
-		flex: 0 0 auto;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.evals-content {
-		flex: 1;
-		min-height: 0;
-		overflow: auto;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-	}
-
-	@media (max-width: 640px) {
-		.evals-table-header {
-			align-items: flex-start;
-			flex-direction: column;
-			gap: var(--sp-2);
-		}
-	}
-
-	.no-permission {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 320px;
-		margin: var(--sp-6);
-		padding: var(--sp-8);
-		text-align: center;
-		color: var(--text-secondary);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.no-permission h2 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.no-permission p {
-		margin: 0;
-		max-width: 44ch;
-		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 640px) {
-		.page-content {
-			padding: var(--sp-3);
-		}
-	}
-</style>

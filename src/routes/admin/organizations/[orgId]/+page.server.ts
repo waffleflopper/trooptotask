@@ -17,7 +17,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const { data: org, error: orgError } = await adminClient
 			.from('organizations')
-			.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at, demo_type')
+			.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
 			.eq('id', orgId)
 			.single();
 

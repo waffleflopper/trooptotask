@@ -31,6 +31,10 @@ const task: IctTask = {
 
 function renderModal(
 	props: Partial<{
+		person: Personnel | null;
+		task: IctTask | null;
+		personnelOptions: Personnel[];
+		taskOptions: IctTask[];
 		existingCompletion: PersonnelIctCompletion;
 		currentUserDisplayName: string | null;
 		onSave: (
@@ -56,6 +60,12 @@ function renderModal(
 	});
 }
 
+async function chooseDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
+}
+
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -74,16 +84,43 @@ describe('IctCompletionModal', () => {
 		expect(screen.getByText('Validation method is required')).toBeTruthy();
 	});
 
+	it('keeps required selector errors visible until person and task combobox values are selected', async () => {
+		const onSave = vi.fn();
+
+		renderModal({
+			person: null,
+			task: null,
+			personnelOptions: [person],
+			taskOptions: [task],
+			onSave
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(onSave).not.toHaveBeenCalled();
+		expect(screen.getByText('Person is required')).toBeTruthy();
+		expect(screen.getByText('Critical task is required')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		await fireEvent.click(await screen.findByRole('option', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
+		await fireEvent.click(await screen.findByRole('option', { name: /181-105-1001 TCCC/ }));
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(screen.queryByText('Person is required')).toBeNull();
+		expect(screen.queryByText('Critical task is required')).toBeNull();
+		expect(screen.getByText('Completion date is required')).toBeTruthy();
+		expect(screen.getByText('Validation method is required')).toBeTruthy();
+	});
+
 	it('autofills the validator and submits the completion payload', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		const onClose = vi.fn();
-		const successSpy = vi.spyOn(toastStore, 'success').mockImplementation(() => {});
+		const successSpy = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 
 		renderModal({ onSave, onClose });
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-01-01' }
-		});
+		await chooseDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
@@ -102,7 +139,7 @@ describe('IctCompletionModal', () => {
 				{
 					personnelId: 'person-1',
 					ictTaskId: 'task-1',
-					completedAt: '2098-01-01',
+					completedAt: '2026-05-10',
 					validationMethod: 'Practical Exercise',
 					validatedBy: 'SFC Taylor Example',
 					notes: 'Lane validation'
@@ -132,7 +169,9 @@ describe('IctCompletionModal', () => {
 		renderModal({ existingCompletion, onSave, onClose, currentUserDisplayName: 'SFC Taylor Example' });
 
 		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
-		expect((screen.getByLabelText(/Completion Date/i) as HTMLInputElement).value).toBe('2097-03-10');
+		await waitFor(() => {
+			expect(screen.getByText('Mar 10, 2097')).toBeTruthy();
+		});
 		expect((screen.getByLabelText(/Validation Method/i) as HTMLSelectElement).value).toBe('Lecture');
 		expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('MSG Jordan Example');
 		expect(screen.getByText('2098-03-10')).toBeTruthy();

@@ -138,23 +138,20 @@ describe('AvailabilityModal — advanced duty events', () => {
 	});
 });
 
-describe('AvailabilityModal — searchable status type', () => {
+describe('AvailabilityModal — status type select', () => {
 	const statusTypes: StatusType[] = [
 		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true },
 		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', da6TreatmentReviewed: true }
 	];
 
-	it('filters status type options by typed text before adding status', async () => {
+	it('selects a status type before adding status', async () => {
 		const onAdd = vi.fn();
 		renderModal(new Date(2026, 3, 7), [], undefined, { statusTypes, onAdd });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Status type' }));
-		await fireEvent.input(screen.getByRole('combobox', { name: 'Status type' }), {
-			target: { value: 'tdy' }
-		});
-
-		expect(screen.queryByRole('option', { name: 'Leave' })).toBeNull();
-		await fireEvent.mouseDown(screen.getByRole('option', { name: 'TDY' }));
+		await fireEvent.pointerDown(screen.getByRole('button', { name: /Status Type/i }));
+		const tdyOption = screen.getByRole('option', { name: 'TDY' });
+		await fireEvent.pointerDown(tdyOption);
+		await fireEvent.pointerUp(tdyOption);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
 
 		expect(onAdd).toHaveBeenCalledWith({
@@ -173,7 +170,7 @@ describe('AvailabilityModal — edit status feedback', () => {
 	];
 
 	it('shows an updated toast after editing an existing status entry', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => undefined);
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const existingEntries: AvailabilityEntry[] = [
 			{
 				id: 'entry-1',

@@ -45,6 +45,9 @@ e2e/.auth/
 # Superpowers
 .superpowers/
 
+# Impeccable local session logs
+.impeccable/live/sessions/
+
 # Test data
 test-data/
 tmp/

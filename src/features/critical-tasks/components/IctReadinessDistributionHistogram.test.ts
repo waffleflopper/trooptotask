@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
 import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
 
@@ -29,93 +29,41 @@ const readinessDistribution: IctReadinessDistribution = {
 	]
 };
 
+afterEach(() => cleanup());
+
 describe('IctReadinessDistributionHistogram', () => {
-	beforeEach(() => {
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-			x: 0,
-			y: 0,
-			width: 720,
-			height: 320,
-			top: 0,
-			right: 720,
-			bottom: 320,
-			left: 0,
-			toJSON: () => ({})
-		} as DOMRect);
-		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(720);
-		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(360);
-		vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(720);
-		vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(360);
-		vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockReturnValue(0);
-		vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(0);
-		Object.defineProperty(HTMLElement.prototype, 'animate', {
-			configurable: true,
-			value: vi.fn(() => {
-				const animation = {
-					cancel: vi.fn(),
-					currentTime: 0,
-					effect: null,
-					onfinish: null as ((event: Event) => void) | null,
-					playState: 'finished'
-				};
-				queueMicrotask(() => animation.onfinish?.(new Event('finish')));
-				return animation as unknown as Animation;
-			})
-		});
-	});
+	it('renders the default MOS and lets users switch histogram MOS', async () => {
+		const { container } = render(IctReadinessDistributionHistogram, { props: { distribution: readinessDistribution } });
 
-	afterEach(() => {
-		cleanup();
-		vi.restoreAllMocks();
-		delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
-	});
+		const section = container.querySelector('[data-report-chart-section="true"]') as HTMLElement;
+		expect(section).toBeTruthy();
+		expect(within(section).getByText('Distribution - Individual Readiness by MOS')).toBeTruthy();
+		expect(within(section).getByRole('figure', { name: 'Individual readiness distribution histogram' })).toBeTruthy();
 
-	it('renders the largest MOS by default and lets users switch histogram MOS', async () => {
-		render(IctReadinessDistributionHistogram, { props: { distribution: readinessDistribution } });
-
-		const region = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
-		expect(region.getAttribute('data-report-chart-section')).toBe('true');
-		expect(within(region).getByText('Soldiers grouped by individual readiness percentage.')).toBeTruthy();
-		expect(within(region).getByRole('img', { name: 'Individual readiness distribution histogram' })).toBeTruthy();
-		expect(within(region).getByTestId('layerchart-readiness-distribution')).toBeTruthy();
-
-		const select = within(region).getByRole('combobox', { name: 'Histogram MOS' });
+		const select = within(section).getByRole('combobox', { name: 'Histogram MOS' });
 		expect((select as HTMLSelectElement).value).toBe('11B');
-		const table = within(region).getByRole('table', { name: 'Individual readiness distribution data' });
+		let table = within(section).getByRole('table', { name: 'Individual readiness distribution data' });
 		expect(within(table).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
 		expect(within(table).getByRole('cell', { name: '0-20%' })).toBeTruthy();
 
 		await fireEvent.change(select, { target: { value: '68W' } });
 
 		expect((select as HTMLSelectElement).value).toBe('68W');
+		table = within(section).getByRole('table', { name: 'Individual readiness distribution data' });
 		expect(within(table).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
-		expect(within(region).getByText('68W')).toBeTruthy();
+		expect(within(section).getAllByText('68W (2 Soldiers)').length).toBeGreaterThan(0);
 	});
 
-	it('overlays multiple page-filtered MOS with non-color-only series treatment and direct labels', () => {
+	it('overlays multiple page-filtered MOS with the shared overlap bar chart', () => {
 		render(IctReadinessDistributionHistogram, {
 			props: { distribution: readinessDistribution, selectedPageMos: ['11B', '68W'] }
 		});
 
-		const region = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
-		expect(within(region).queryByRole('combobox', { name: 'Histogram MOS' })).toBeNull();
-		expect(within(region).getByText('Overlaying selected MOS filters.')).toBeTruthy();
-		const legend = within(region).getByRole('list', { name: 'Readiness distribution MOS series' });
-		expect(within(legend).getByRole('listitem', { name: '11B, 3 Soldiers' })).toBeTruthy();
-		expect(within(legend).getByRole('listitem', { name: '68W, 2 Soldiers' })).toBeTruthy();
-		expect(within(legend).queryByText('solid line')).toBeNull();
-		expect(within(legend).queryByText('short dash line')).toBeNull();
-
-		const table = within(region).getByRole('table', { name: 'Individual readiness distribution data' });
-		expect(within(table).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
-		expect(within(table).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
-
-		const bars = [...region.querySelectorAll('.distribution-bar')];
-		expect(bars.length).toBeGreaterThan(0);
-		expect(bars.some((bar) => bar.classList.contains('report-chart-line-solid'))).toBe(true);
-		expect(bars.some((bar) => bar.classList.contains('report-chart-line-short-dash'))).toBe(true);
-		expect(bars.every((bar) => bar.getAttribute('fill') !== 'black')).toBe(true);
-		expect(bars.every((bar) => bar.getAttribute('stroke') !== null)).toBe(true);
+		expect(screen.queryByRole('combobox', { name: 'Histogram MOS' })).toBeNull();
+		expect(screen.getByText('Overlaying selected MOS filters.')).toBeTruthy();
+		expect(screen.getByRole('list', { name: 'Individual readiness distribution histogram series' })).toBeTruthy();
+		expect(screen.getByText('11B (3 Soldiers)')).toBeTruthy();
+		expect(screen.getByText('68W (2 Soldiers)')).toBeTruthy();
 	});
 
 	it('shows a clear empty state when no Soldiers match the selected MOS context', () => {
@@ -123,8 +71,7 @@ describe('IctReadinessDistributionHistogram', () => {
 			props: { distribution: readinessDistribution, selectedPageMos: ['25U', '12N'] }
 		});
 
-		const region = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
-		expect(within(region).getByText('No Soldiers are available for the selected MOS/filter context.')).toBeTruthy();
-		expect(within(region).queryByRole('img', { name: 'Individual readiness distribution histogram' })).toBeNull();
+		expect(screen.getByText('No Soldiers are available for the selected MOS/filter context.')).toBeTruthy();
+		expect(screen.queryByRole('figure', { name: 'Individual readiness distribution histogram' })).toBeNull();
 	});
 });

@@ -1,32 +1,42 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import PublicBrandMark from './PublicBrandMark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+
+	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
 
 	interface Props {
 		user?: unknown;
-		active?: 'features' | 'pricing' | 'security';
-		roadmapHref?: string;
-		faqHref?: string;
+		active?: 'security';
+		roadmapHref?: PublicAnchorHref;
+		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
+		overlay?: boolean;
+		scrolled?: boolean;
 	}
 
-	let { user, active, roadmapHref = '/#roadmap', faqHref = '/#faq', showFaqLink = false }: Props = $props();
+	let {
+		user,
+		active,
+		roadmapHref = '/#roadmap',
+		faqHref = '/#faq',
+		showFaqLink = false,
+		overlay = false,
+		scrolled = false
+	}: Props = $props();
 </script>
 
-<nav class="public-nav">
+<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled} data-roadmap-href={roadmapHref}>
 	<div class="nav-container">
-		<a href="/" class="nav-brand">
-			<div>
-				<div class="nav-wordmark">Troop<span>To</span>Task</div>
-				<div class="nav-subtitle">Unit Readiness Platform</div>
-			</div>
+		<a href={resolve('/')} class="nav-brand">
+			<PublicBrandMark hideSubtitleOnMobile />
 		</a>
 
 		<div class="nav-links">
-			<a href="/features" class="nav-link" class:active={active === 'features'}>Features</a>
-			<a href="/pricing" class="nav-link" class:active={active === 'pricing'}>Pricing</a>
-			<a href="/security" class="nav-link" class:active={active === 'security'}>Security</a>
+			<a href={resolve('/#pricing')} class="nav-link">Pricing</a>
+			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}
-				<a href={faqHref} class="nav-link">FAQ</a>
+				<a href={resolve(faqHref)} class="nav-link">FAQ</a>
 			{/if}
 		</div>
 
@@ -60,10 +70,10 @@
 				{/if}
 			</button>
 			{#if user}
-				<a href="/dashboard?show=all" class="nav-button nav-button-outline">Dashboard</a>
+				<a href={resolve('/dashboard?show=all')} class="nav-button nav-button-outline">Dashboard</a>
 			{:else}
-				<a href="/auth/login" class="nav-button nav-button-outline">Sign In</a>
-				<a href="/auth/request-access" class="nav-button nav-button-amber">Request Access</a>
+				<a href={resolve('/auth/login')} class="nav-button nav-button-outline">Sign In</a>
+				<a href={resolve('/auth/request-access')} class="nav-button nav-button-amber">Request Access</a>
 			{/if}
 		</div>
 	</div>
@@ -71,11 +81,47 @@
 
 <style>
 	.public-nav {
+		--_fg: var(--foreground);
+		--_muted: var(--muted-foreground);
+		--_border: var(--border);
+		--_bg: var(--background);
+		--_hover-bg: var(--muted);
+		--_btn-border: var(--border);
 		position: sticky;
 		top: 0;
 		z-index: 100;
-		background: var(--surface-page);
-		border-bottom: var(--border-thin);
+		background: var(--_bg);
+		border-bottom: 1px solid var(--_border);
+		transition:
+			background-color 240ms cubic-bezier(0.2, 0, 0, 1),
+			border-color 240ms cubic-bezier(0.2, 0, 0, 1),
+			box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
+	}
+
+	.public-nav.overlay {
+		position: fixed;
+		left: 0;
+		right: 0;
+		--_fg: var(--hero-text);
+		--_muted: var(--hero-muted);
+		--_border: transparent;
+		--_bg: var(--color-chrome-overlay);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		--_hover-bg: var(--hero-hover);
+		--_btn-border: var(--hero-border);
+	}
+
+	.public-nav.overlay.scrolled {
+		--_fg: var(--foreground);
+		--_muted: var(--muted-foreground);
+		--_border: var(--border);
+		--_bg: var(--background);
+		--_hover-bg: var(--muted);
+		--_btn-border: var(--border);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+		box-shadow: 0 1px 3px var(--color-chrome-shadow);
 	}
 
 	.nav-container {
@@ -93,30 +139,13 @@
 		display: flex;
 		align-items: baseline;
 		text-decoration: none;
-		color: var(--text-primary);
+		color: var(--_fg);
 		flex-shrink: 0;
 	}
 
-	.nav-wordmark {
-		font-family: var(--font-display);
-		font-size: 22px;
-		font-weight: 800;
-		letter-spacing: 0.02em;
-		line-height: 1;
-	}
-
-	.nav-wordmark span {
-		color: var(--brass);
-	}
-
-	.nav-subtitle {
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		margin-top: 0.25rem;
+	.nav-brand :global(.public-brand-mark) {
+		--public-brand-accent: var(--brass);
+		--public-brand-subtitle-color: var(--_muted);
 	}
 
 	.nav-links {
@@ -130,11 +159,11 @@
 	.nav-link {
 		padding: 0.5rem 0;
 		text-decoration: none;
-		font-family: var(--font-display);
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-medium);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1rem;
+		font-weight: 500;
 		letter-spacing: 0.04em;
-		color: var(--text-secondary);
+		color: var(--_muted);
 		border-bottom: 2px solid transparent;
 		transition:
 			color var(--transition-fast),
@@ -143,7 +172,7 @@
 
 	.nav-link:hover,
 	.nav-link.active {
-		color: var(--text-primary);
+		color: var(--_fg);
 		border-bottom-color: var(--brass);
 	}
 
@@ -157,10 +186,10 @@
 	.theme-toggle {
 		width: 36px;
 		height: 36px;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		border: none;
 		background: transparent;
-		color: var(--text-secondary);
+		color: var(--_muted);
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
@@ -171,8 +200,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
+		color: var(--_fg);
+		background: var(--_hover-bg);
 	}
 
 	.theme-toggle svg {
@@ -185,11 +214,11 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0.45rem 1rem;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius);
 		border: 1px solid transparent;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 14px;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		letter-spacing: 0.04em;
 		line-height: 1;
 		text-decoration: none;
@@ -201,24 +230,25 @@
 
 	.nav-button-outline {
 		background: transparent;
-		border-color: var(--border-default);
-		color: var(--text-primary);
+		border-color: var(--_btn-border);
+		color: var(--_fg);
 	}
 
 	.nav-button-outline:hover {
-		border-color: var(--text-secondary);
-		background: var(--surface-subtle);
+		border-color: var(--_muted);
+		background: var(--_hover-bg);
 	}
 
 	.nav-button-amber {
 		background: var(--brass);
 		border-color: var(--brass);
-		color: var(--white);
+		color: var(--color-chrome);
 	}
 
-	.nav-button-amber:hover {
+	.nav-button.nav-button-amber:hover {
 		background: var(--brass-light);
 		border-color: var(--brass-light);
+		color: var(--color-chrome);
 	}
 
 	.nav-brand:focus-visible,
@@ -239,14 +269,6 @@
 		.nav-container {
 			padding: 0 1rem;
 			gap: 1rem;
-		}
-
-		.nav-wordmark {
-			font-size: 18px;
-		}
-
-		.nav-subtitle {
-			display: none;
 		}
 
 		.nav-button {

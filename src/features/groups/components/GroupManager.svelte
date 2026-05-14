@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { Group } from '$lib/stores/groups.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
 		groups: Group[];
@@ -61,54 +66,71 @@
 	}
 </script>
 
-<Modal title="Manage Groups" {onClose} width="440px" titleId="groups-title">
-	<div class="group-manager">
-		<div class="add-form">
-			<div class="add-copy">
-				<span class="add-kicker">Organization groups</span>
-			</div>
-			<div class="add-controls">
-				<input
-					type="text"
-					class="input"
-					bind:value={newGroupName}
-					placeholder="New group name"
-					onkeydown={handleKeydown}
-				/>
-				<button class="btn btn-primary btn-sm" type="button" onclick={handleAdd} disabled={!newGroupName.trim()}>
-					Add
-				</button>
-			</div>
-		</div>
+<Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Manage Groups</Dialog.Title>
+		</Dialog.Header>
 
-		<div class="group-list">
-			{#each groups as group (group.id)}
-				<div class="group-item">
-					{#if editingId === group.id}
-						<input type="text" class="input" bind:value={editName} onkeydown={(e) => e.key === 'Enter' && saveEdit()} />
-						<div class="group-actions">
-							<button class="btn btn-primary btn-sm" type="button" onclick={saveEdit}>Save</button>
-							<button class="btn btn-secondary btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
-						</div>
-					{:else}
-						<div class="group-meta">
-							<span class="group-name">{group.name}</span>
-						</div>
-						<div class="group-actions">
-							<button class="btn btn-secondary btn-sm" type="button" onclick={() => startEdit(group)}>Edit</button>
-							<button class="btn btn-danger btn-sm" type="button" onclick={() => handleRemove(group)}>Remove</button>
-						</div>
-					{/if}
+		<div class="grid gap-4">
+			<div class="grid gap-2">
+				<Label for="new-group-name">Organization groups</Label>
+				<div class="flex gap-2">
+					<Input
+						id="new-group-name"
+						type="text"
+						bind:value={newGroupName}
+						placeholder="New group name"
+						onkeydown={handleKeydown}
+					/>
+					<Button type="button" size="sm" onclick={handleAdd} disabled={!newGroupName.trim()}>Add</Button>
 				</div>
-			{/each}
-		</div>
-	</div>
+			</div>
 
-	{#snippet footer()}
-		<div class="spacer"></div>
-		<button class="btn btn-primary" type="button" onclick={onClose}>Done</button>
-	{/snippet}
-</Modal>
+			<div class="grid max-h-80 gap-2 overflow-y-auto">
+				{#each groups as group (group.id)}
+					<div class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+						{#if editingId === group.id}
+							<Input type="text" bind:value={editName} onkeydown={(e) => e.key === 'Enter' && saveEdit()} />
+							<div class="flex gap-2 sm:justify-end">
+								<Button type="button" size="sm" onclick={saveEdit}>Save</Button>
+								<Button type="button" variant="outline" size="sm" onclick={cancelEdit}>Cancel</Button>
+							</div>
+						{:else}
+							<span class="min-w-0 truncate">{group.name}</span>
+							<div class="flex shrink-0 gap-1 sm:justify-end">
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									title={`Edit ${group.name}`}
+									aria-label={`Edit ${group.name}`}
+									onclick={() => startEdit(group)}
+								>
+									<PencilIcon aria-hidden="true" />
+								</Button>
+								<Button
+									type="button"
+									variant="destructive"
+									size="icon"
+									title={`Remove ${group.name}`}
+									aria-label={`Remove ${group.name}`}
+									onclick={() => handleRemove(group)}
+								>
+									<Trash2Icon aria-hidden="true" />
+								</Button>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</div>
+
+		<Dialog.Footer>
+			<Button type="button" onclick={onClose}>Done</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 {#if confirmRemove}
 	<ConfirmDialog
@@ -120,100 +142,3 @@
 		onCancel={() => (confirmRemove = null)}
 	/>
 {/if}
-
-<style>
-	.group-manager {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.add-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-	}
-
-	.add-copy {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.add-kicker {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.add-controls {
-		display: flex;
-		gap: var(--sp-2);
-	}
-
-	.add-controls .input {
-		flex: 1;
-	}
-
-	.group-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		max-height: 350px;
-		overflow-y: auto;
-	}
-
-	.group-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-	}
-
-	.group-item .input {
-		flex: 1;
-	}
-
-	.group-meta {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.group-name {
-		flex: 1;
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.group-actions {
-		display: flex;
-		gap: var(--sp-2);
-		flex-shrink: 0;
-	}
-
-	@media (max-width: 640px) {
-		.add-controls,
-		.group-item {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.group-actions {
-			justify-content: flex-end;
-		}
-	}
-</style>

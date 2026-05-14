@@ -1,24 +1,24 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, test, expect, vi } from 'vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import DataTable from './DataTable.svelte';
 import CellSnippetWrapper from './__tests__/CellSnippetWrapper.svelte';
-import HeaderCellSnippetWrapper from './__tests__/HeaderCellSnippetWrapper.svelte';
-import InteractiveCellSnippetWrapper from './__tests__/InteractiveCellSnippetWrapper.svelte';
-import ToolbarSnippetWrapper from './__tests__/ToolbarSnippetWrapper.svelte';
+import GroupHeaderActionWrapper from './__tests__/GroupHeaderActionWrapper.svelte';
+import InteractiveCellWrapper from './__tests__/InteractiveCellWrapper.svelte';
+import SelectionWrapper from './__tests__/SelectionWrapper.svelte';
 import { useDataTable } from './useDataTable.svelte';
-import type { ColumnDef } from './useDataTable.svelte';
+import type { ColumnDef } from './types.js';
 
-// @testing-library/svelte can't infer generics on Svelte 5 components.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Table = DataTable as any;
-
-interface TestRow {
+type TestRow = {
 	id: string;
 	name: string;
 	age: number;
 	group: string;
-}
+};
+
+// @testing-library/svelte cannot infer generics on Svelte 5 components.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Table = DataTable as any;
 
 const testData: TestRow[] = [
 	{ id: '1', name: 'Alice', age: 30, group: 'A' },
@@ -27,437 +27,208 @@ const testData: TestRow[] = [
 ];
 
 const columns: ColumnDef<TestRow>[] = [
-	{ key: 'name', header: 'Name', value: (r) => r.name },
-	{ key: 'age', header: 'Age', value: (r) => r.age },
-	{ key: 'group', header: 'Group', value: (r) => r.group }
+	{ key: 'name', header: 'Name', value: (row) => row.name },
+	{ key: 'age', header: 'Age', value: (row) => row.age, align: 'right' },
+	{ key: 'group', header: 'Group', value: (row) => row.group }
 ];
 
-describe('DataTable', () => {
+describe('shadcn DataTable foundation', () => {
 	afterEach(() => cleanup());
 
-	describe('basic rendering', () => {
-		test('renders a table with thead and tbody', () => {
-			render(Table, { props: { data: testData, columns } });
+	test('renders headers and rows with an accessible table label', () => {
+		render(Table, { props: { data: testData, columns, ariaLabel: 'Personnel table' } });
 
-			expect(screen.getByRole('table')).toBeTruthy();
-			expect(screen.getByRole('table').querySelector('thead')).toBeTruthy();
-			expect(screen.getByRole('table').querySelector('tbody')).toBeTruthy();
-		});
-
-		test('renders column headers from column defs', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const headers = screen.getAllByRole('columnheader');
-			expect(headers).toHaveLength(3);
-			expect(headers[0].textContent).toContain('Name');
-			expect(headers[1].textContent).toContain('Age');
-			expect(headers[2].textContent).toContain('Group');
-		});
-
-		test('renders data rows with cell values', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const rows = screen.getAllByRole('row');
-			// 1 header row + 3 data rows
-			expect(rows).toHaveLength(4);
-
-			// Check cell content
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.getByText('Bob')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-			expect(screen.getByText('30')).toBeTruthy();
-			expect(screen.getByText('25')).toBeTruthy();
-			expect(screen.getByText('35')).toBeTruthy();
-		});
-
-		test('applies aria-label to the table', () => {
-			render(Table, { props: { data: testData, columns, ariaLabel: 'Test table' } });
-
-			expect(screen.getByRole('table').getAttribute('aria-label')).toBe('Test table');
-		});
-
-		test('updates rows when internal table data changes after render', async () => {
-			const view = render(Table, { props: { data: [testData[0]], columns } });
-
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.queryByText('Bob')).toBeNull();
-
-			await view.rerender({ data: testData.slice(1), columns });
-
-			expect(screen.queryByText('Alice')).toBeNull();
-			expect(screen.getByText('Bob')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-		});
-
-		test('renders duplicate primitive rows without duplicate row keys', () => {
-			const primitiveColumns: ColumnDef<string>[] = [{ key: 'value', header: 'Value', value: (row) => row }];
-
-			expect(() =>
-				render(Table, {
-					props: { data: ['Alpha', 'Alpha'], columns: primitiveColumns }
-				})
-			).not.toThrow();
-
-			expect(screen.getAllByText('Alpha')).toHaveLength(2);
-		});
-
-		test('headers have scope="col"', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const headers = screen.getAllByRole('columnheader');
-			headers.forEach((h) => {
-				expect(h.getAttribute('scope')).toBe('col');
-			});
-		});
+		const table = screen.getByRole('table', { name: 'Personnel table' });
+		expect(table).toBeTruthy();
+		expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
+		expect(within(table).getByText('Alice')).toBeTruthy();
+		expect(within(table).getByText('Bob')).toBeTruthy();
+		expect(within(table).getByText('Charlie')).toBeTruthy();
 	});
 
-	describe('empty state', () => {
-		test('shows EmptyState when data is empty', () => {
-			render(Table, { props: { data: [], columns } });
+	test('renders custom cell snippets', () => {
+		render(CellSnippetWrapper, { props: { data: testData, columns } });
 
-			expect(screen.getByText('No data.')).toBeTruthy();
-			// No data rows
-			expect(screen.getAllByRole('row')).toHaveLength(1); // header row only
-		});
-
-		test('shows custom empty message', () => {
-			render(Table, { props: { data: [], columns, emptyMessage: 'Nothing here.' } });
-
-			expect(screen.getByText('Nothing here.')).toBeTruthy();
-		});
+		const customCells = screen.getAllByTestId('custom-cell');
+		expect(customCells).toHaveLength(9);
+		expect(customCells[0].textContent).toBe('name:Alice');
 	});
 
-	describe('sort interaction', () => {
-		test('clicking a header sorts the column and sets aria-sort', async () => {
-			render(Table, { props: { data: testData, columns } });
+	test('sorts rows from sortable headers and exposes aria-sort', async () => {
+		render(Table, { props: { data: testData, columns } });
 
-			const nameHeader = screen.getByText('Name');
-			await fireEvent.click(nameHeader);
+		const nameSort = screen.getByRole('button', { name: 'Sort by Name' });
+		await fireEvent.click(nameSort);
+		expect(screen.getByRole('columnheader', { name: /Name/ }).getAttribute('aria-sort')).toBe('ascending');
 
-			// After click, should be sorted ascending
-			expect(nameHeader.closest('th')!.getAttribute('aria-sort')).toBe('ascending');
+		await fireEvent.click(nameSort);
+		expect(screen.getByRole('columnheader', { name: /Name/ }).getAttribute('aria-sort')).toBe('descending');
 
-			// Data should be in sorted order
-			const cells = screen.getAllByRole('cell');
-			const nameCells = cells.filter((_, i) => i % 3 === 0);
-			expect(nameCells.map((c) => c.textContent)).toEqual(['Alice', 'Bob', 'Charlie']);
-		});
-
-		test('clicking same header twice toggles to descending', async () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const nameHeader = screen.getByText('Name');
-			await fireEvent.click(nameHeader);
-			await fireEvent.click(nameHeader);
-
-			expect(nameHeader.closest('th')!.getAttribute('aria-sort')).toBe('descending');
-
-			const cells = screen.getAllByRole('cell');
-			const nameCells = cells.filter((_, i) => i % 3 === 0);
-			expect(nameCells.map((c) => c.textContent)).toEqual(['Charlie', 'Bob', 'Alice']);
-		});
-
-		test('unsorted columns have no aria-sort', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const headers = screen.getAllByRole('columnheader');
-			headers.forEach((h) => {
-				expect(h.getAttribute('aria-sort')).toBeNull();
-			});
-		});
-
-		test('renders non-sortable columns without a sort button', () => {
-			const actionColumns: ColumnDef<TestRow>[] = [
-				...columns,
-				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
-			];
-			render(Table, { props: { data: testData, columns: actionColumns } });
-
-			expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Sort by Actions' })).toBeNull();
-		});
+		const nameCells = screen.getAllByRole('cell').filter((_, index) => index % 3 === 0);
+		expect(nameCells.map((cell) => cell.textContent)).toEqual(['Charlie', 'Bob', 'Alice']);
 	});
 
-	describe('search bar', () => {
-		test('does not render search input by default', () => {
-			render(Table, { props: { data: testData, columns } });
+	test('filters rows when shared search is enabled', async () => {
+		render(Table, { props: { data: testData, columns, showSearch: true, searchPlaceholder: 'Find personnel' } });
 
-			expect(screen.queryByRole('searchbox')).toBeNull();
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Find personnel' }), {
+			target: { value: 'bob' }
 		});
 
-		test('renders search input when showSearch is true', () => {
-			render(Table, { props: { data: testData, columns, showSearch: true } });
-
-			expect(screen.getByRole('searchbox')).toBeTruthy();
-		});
-
-		test('typing in search filters rows', async () => {
-			render(Table, { props: { data: testData, columns, showSearch: true } });
-
-			const input = screen.getByRole('searchbox');
-			await fireEvent.input(input, { target: { value: 'alice' } });
-
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.queryByText('Bob')).toBeNull();
-			expect(screen.queryByText('Charlie')).toBeNull();
-		});
-
-		test('renders custom search placeholder', () => {
-			render(Table, {
-				props: { data: testData, columns, showSearch: true, searchPlaceholder: 'Find someone...' }
-			});
-
-			expect(screen.getByPlaceholderText('Find someone...')).toBeTruthy();
-		});
+		expect(screen.getByText('Bob')).toBeTruthy();
+		expect(screen.queryByText('Alice')).toBeNull();
+		expect(screen.queryByText('Charlie')).toBeNull();
 	});
 
-	describe('pagination', () => {
-		const fiveRows: TestRow[] = [
-			{ id: '1', name: 'Alice', age: 30, group: 'A' },
-			{ id: '2', name: 'Bob', age: 25, group: 'B' },
-			{ id: '3', name: 'Charlie', age: 35, group: 'A' },
+	test('paginates shared rows', async () => {
+		const data = [
+			...testData,
 			{ id: '4', name: 'Diana', age: 28, group: 'B' },
 			{ id: '5', name: 'Eve', age: 32, group: 'C' }
 		];
 
-		test('does not render pagination when pageSize is 0', () => {
-			render(Table, { props: { data: fiveRows, columns } });
+		render(Table, { props: { data, columns, pageSize: 2 } });
 
-			expect(screen.queryByText('Previous')).toBeNull();
-			expect(screen.queryByText('Next')).toBeNull();
-		});
+		expect(screen.getByText('Page 1 of 3')).toBeTruthy();
+		expect(screen.queryByText('Charlie')).toBeNull();
 
-		test('renders pagination controls when totalPages > 1', () => {
-			render(Table, { props: { data: fiveRows, columns, pageSize: 2 } });
-
-			expect(screen.getByText('Previous')).toBeTruthy();
-			expect(screen.getByText('Next')).toBeTruthy();
-			expect(screen.getByText('Page 1 of 3')).toBeTruthy();
-		});
-
-		test('shows only first page of rows', () => {
-			render(Table, { props: { data: fiveRows, columns, pageSize: 2 } });
-
-			// 1 header row + 2 data rows
-			expect(screen.getAllByRole('row')).toHaveLength(3);
-		});
-
-		test('clicking Next advances to page 2', async () => {
-			render(Table, { props: { data: fiveRows, columns, pageSize: 2 } });
-
-			await fireEvent.click(screen.getByText('Next'));
-
-			expect(screen.getByText('Page 2 of 3')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-		});
-
-		test('clicking Previous goes back', async () => {
-			render(Table, { props: { data: fiveRows, columns, pageSize: 2 } });
-
-			await fireEvent.click(screen.getByText('Next'));
-			await fireEvent.click(screen.getByText('Previous'));
-
-			expect(screen.getByText('Page 1 of 3')).toBeTruthy();
-		});
+		await fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+		expect(screen.getByText('Page 2 of 3')).toBeTruthy();
+		expect(screen.getByText('Charlie')).toBeTruthy();
 	});
 
-	describe('clickable rows', () => {
-		test('calls onRowClick with row data when a row is clicked', async () => {
-			const handler = vi.fn();
-			render(Table, { props: { data: testData, columns, onRowClick: handler } });
-
-			const dataRows = screen.getAllByRole('row').slice(1); // skip header
-			await fireEvent.click(dataRows[1]); // click Bob's row
-
-			expect(handler).toHaveBeenCalledOnce();
-			expect(handler).toHaveBeenCalledWith(testData[1]);
+	test('calls row click from pointer and keyboard activation', async () => {
+		const onRowClick = vi.fn();
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				onRowClick,
+				rowActionLabel: (row: TestRow) => `Open ${row.name}`
+			}
 		});
 
-		test('calls onRowClick with row data when a row is activated by keyboard', async () => {
-			const handler = vi.fn();
-			render(Table, {
-				props: {
-					data: testData,
-					columns,
-					onRowClick: handler,
-					rowActionLabel: (row: TestRow) => `Open ${row.name}`
-				}
-			});
+		const aliceRow = screen.getByLabelText('Open Alice');
+		await fireEvent.click(aliceRow);
+		await fireEvent.keyDown(aliceRow, { key: 'Enter' });
+		await fireEvent.keyDown(aliceRow, { key: ' ' });
 
-			const row = screen.getByLabelText('Open Alice');
-			expect(row.getAttribute('tabindex')).toBe('0');
-			await fireEvent.keyDown(row, { key: 'Enter' });
-			await fireEvent.keyDown(row, { key: ' ' });
-
-			expect(handler).toHaveBeenCalledTimes(2);
-			expect(handler).toHaveBeenNthCalledWith(1, testData[0]);
-			expect(handler).toHaveBeenNthCalledWith(2, testData[0]);
-		});
-
-		test('does not activate the row from nested interactive controls', async () => {
-			const rowHandler = vi.fn();
-			const buttonHandler = vi.fn();
-			const actionColumns: ColumnDef<TestRow>[] = [
-				...columns,
-				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
-			];
-			render(InteractiveCellSnippetWrapper, {
-				props: {
-					data: testData,
-					columns: actionColumns,
-					onRowClick: rowHandler,
-					onButtonClick: buttonHandler
-				}
-			});
-
-			const button = screen.getByRole('button', { name: 'Action Alice' });
-			await fireEvent.click(button);
-			await fireEvent.keyDown(button, { key: 'Enter' });
-			await fireEvent.keyDown(button, { key: ' ' });
-
-			expect(buttonHandler).toHaveBeenCalledOnce();
-			expect(buttonHandler).toHaveBeenCalledWith(testData[0]);
-			expect(rowHandler).not.toHaveBeenCalled();
-		});
-
-		test('rows do not have clickable class when onRowClick is not provided', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const dataRows = screen.getAllByRole('row').slice(1);
-			expect(dataRows[0].classList.contains('clickable')).toBe(false);
-		});
+		expect(onRowClick).toHaveBeenCalledTimes(3);
+		expect(onRowClick).toHaveBeenNthCalledWith(1, testData[0]);
 	});
 
-	describe('group headers', () => {
-		const groupBy = {
-			key: (r: TestRow) => r.group,
-			label: (key: string) => `Group ${key}`
-		};
+	test('does not activate row clicks from nested interactive actions', async () => {
+		const rowHandler = vi.fn();
+		const buttonHandler = vi.fn();
+		const actionColumns: ColumnDef<TestRow>[] = [
+			...columns,
+			{ key: 'actions', header: 'Actions', value: () => '', sortable: false, searchable: false }
+		];
 
-		test('renders group header rows with label and count', () => {
-			render(Table, { props: { data: testData, columns, groupBy } });
-
-			expect(screen.getByRole('button', { name: 'Group A (2)' })).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Group B (1)' })).toBeTruthy();
+		render(InteractiveCellWrapper, {
+			props: {
+				data: testData,
+				columns: actionColumns,
+				onRowClick: rowHandler,
+				onButtonClick: buttonHandler
+			}
 		});
 
-		test('clicking group header collapses the group', async () => {
-			render(Table, { props: { data: testData, columns, groupBy } });
-
-			// Both groups visible initially — Alice, Charlie in A; Bob in B
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-			expect(screen.getByText('Bob')).toBeTruthy();
-
-			// Click Group A header to collapse
-			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
-
-			// Group A rows should be hidden
-			expect(screen.queryByText('Alice')).toBeNull();
-			expect(screen.queryByText('Charlie')).toBeNull();
-			// Group B still visible
-			expect(screen.getByText('Bob')).toBeTruthy();
-		});
-
-		test('clicking collapsed group header expands it', async () => {
-			render(Table, { props: { data: testData, columns, groupBy } });
-
-			// Collapse then expand
-			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
-
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-		});
-
-		test('uses rowKey for duplicate row references in grouped rows', () => {
-			const repeatedRow = { id: 'shared', name: 'Repeated', age: 20, group: 'A' };
-
-			expect(() =>
-				render(Table, {
-					props: {
-						data: [repeatedRow, repeatedRow],
-						columns,
-						groupBy,
-						rowKey: (_row: TestRow, index: number) => `repeated-${index}`
-					}
-				})
-			).not.toThrow();
-
-			expect(screen.getAllByText('Repeated')).toHaveLength(2);
-		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Action Alice' }));
+		expect(buttonHandler).toHaveBeenCalledWith(testData[0]);
+		expect(rowHandler).not.toHaveBeenCalled();
 	});
 
-	describe('CSS class props', () => {
-		test('applies compact class to table wrapper', () => {
-			render(Table, { props: { data: testData, columns, compact: true } });
+	test('renders empty and loading states', () => {
+		const emptyView = render(Table, { props: { data: [], columns, emptyMessage: 'No personnel found.' } });
+		expect(screen.getByText('No personnel found.')).toBeTruthy();
+		emptyView.unmount();
 
-			const wrapper = screen.getByRole('table').closest('.data-table');
-			expect(wrapper?.classList.contains('compact')).toBe(true);
-		});
-
-		test('applies striped class to table wrapper', () => {
-			render(Table, { props: { data: testData, columns, striped: true } });
-
-			const wrapper = screen.getByRole('table').closest('.data-table');
-			expect(wrapper?.classList.contains('striped')).toBe(true);
-		});
-
-		test('applies sticky-first-column class to table wrapper', () => {
-			render(Table, { props: { data: testData, columns, stickyFirstColumn: true } });
-
-			const wrapper = screen.getByRole('table').closest('.data-table');
-			expect(wrapper?.classList.contains('sticky-first-column')).toBe(true);
-		});
-
-		test('no styling classes by default', () => {
-			render(Table, { props: { data: testData, columns } });
-
-			const wrapper = screen.getByRole('table').closest('.data-table');
-			expect(wrapper?.classList.contains('compact')).toBe(false);
-			expect(wrapper?.classList.contains('striped')).toBe(false);
-			expect(wrapper?.classList.contains('sticky-first-column')).toBe(false);
-		});
+		render(Table, { props: { data: testData, columns, loading: true, loadingRows: 2 } });
+		expect(screen.getByLabelText('Loading table rows').getAttribute('aria-busy')).toBe('true');
+		expect(screen.getAllByRole('row')).toHaveLength(3);
 	});
 
-	describe('pre-built mode', () => {
-		test('renders rows from an external DataTableState', () => {
-			const table = useDataTable({ data: () => testData, columns });
-
-			render(Table, { props: { table } });
-
-			expect(screen.getByText('Alice')).toBeTruthy();
-			expect(screen.getByText('Bob')).toBeTruthy();
-			expect(screen.getByText('Charlie')).toBeTruthy();
-			expect(screen.getAllByRole('columnheader')).toHaveLength(3);
+	test('supports grouped rows and collapse behavior', async () => {
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				groupBy: { key: (row: TestRow) => row.group, label: (key: string) => `Group ${key}` }
+			}
 		});
+
+		expect(screen.getByRole('button', { name: 'Group A 2' })).toBeTruthy();
+		expect(screen.getByText('Alice')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Group A 2' }));
+		expect(screen.queryByText('Alice')).toBeNull();
+		expect(screen.getByText('Bob')).toBeTruthy();
 	});
 
-	describe('snippet overrides', () => {
-		test('cell snippet overrides default cell rendering', () => {
-			render(CellSnippetWrapper, { props: { data: testData, columns } });
-
-			const customCells = screen.getAllByTestId('custom-cell');
-			expect(customCells.length).toBe(9); // 3 rows x 3 columns
-			expect(customCells[0].textContent).toBe('name:Alice');
-			expect(customCells[1].textContent).toBe('age:30');
+	test('toggles grouped rows from the full group header row', async () => {
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				groupBy: { key: (row: TestRow) => row.group, label: (key: string) => `Group ${key}` }
+			}
 		});
 
-		test('headerCell snippet overrides default header rendering', () => {
-			render(HeaderCellSnippetWrapper, { props: { data: testData, columns } });
+		const groupRow = screen.getByLabelText('Collapse Group A');
+		await fireEvent.click(groupRow);
+		expect(screen.queryByText('Alice')).toBeNull();
 
-			const customHeaders = screen.getAllByTestId('custom-header');
-			expect(customHeaders.length).toBe(3);
-			expect(customHeaders[0].textContent).toBe('HD:Name');
-			expect(customHeaders[1].textContent).toBe('HD:Age');
-			expect(customHeaders[2].textContent).toBe('HD:Group');
+		await fireEvent.keyDown(groupRow, { key: 'Enter' });
+		expect(screen.getByText('Alice')).toBeTruthy();
+	});
+
+	test('does not toggle grouped rows from nested group header actions', async () => {
+		const onGroupAction = vi.fn();
+		render(GroupHeaderActionWrapper, {
+			props: {
+				data: testData,
+				columns,
+				onGroupAction
+			}
 		});
 
-		test('toolbar snippet renders above the table', () => {
-			render(ToolbarSnippetWrapper, { props: { data: testData, columns } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Pin Group A' }));
 
-			const toolbar = screen.getByTestId('custom-toolbar');
-			expect(toolbar.textContent).toBe('Total: 3');
+		expect(onGroupAction).toHaveBeenCalledWith('A');
+		expect(screen.getByText('Alice')).toBeTruthy();
+	});
+
+	test('supports selection and bulk selection primitives', async () => {
+		render(SelectionWrapper);
+
+		expect(screen.getByText('0 of 3 selected')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
+		expect(screen.getByText('1 of 3 selected')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+		expect(screen.getByText('2 of 3 selected')).toBeTruthy();
+		expect(screen.getByRole('checkbox', { name: 'Select Charlie' }).hasAttribute('disabled')).toBe(true);
+	});
+});
+
+describe('useDataTable', () => {
+	test('keeps sort, filter, pagination, and grouping behavior headless', () => {
+		const table = useDataTable({
+			data: () => testData,
+			columns,
+			pageSize: 2,
+			groupBy: { key: (row) => row.group }
 		});
+
+		table.toggleSort('age');
+		table.setSearch('a');
+
+		expect(table.totalRows).toBe(2);
+		expect(table.rows.map((row) => row.name)).toEqual(['Alice', 'Charlie']);
+		expect(table.groups.map((group) => group.key)).toEqual(['A']);
+
+		table.collapseAll();
+		expect(table.groups[0].collapsed).toBe(true);
 	});
 });

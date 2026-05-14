@@ -1,10 +1,21 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType } from '$features/training/training.types';
-	import Modal from '$lib/components/Modal.svelte';
-	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { TRAINING_COLUMNS } from '$lib/utils/columnMapping';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { useDataTableSelection, type ColumnDef } from '$lib/components/ui/data-table';
+	import {
+		TRAINING_COLUMNS,
+		applyMapping,
+		autoMapColumns,
+		detectHeaderRow,
+		getMissingRequired
+	} from '$lib/utils/columnMapping';
 	import { parseCSVText, parseFile, parseTrainingStatus } from '$lib/utils/csvParser';
 
 	interface ResolvedRecord {
@@ -19,6 +30,13 @@
 		valid: boolean;
 		cellErrors: Record<string, string>;
 		cellWarnings: Record<string, string>;
+	}
+
+	interface PreviewRow {
+		id: string;
+		sourceRowNumber: number;
+		values: Record<string, string>;
+		validation: RowValidation;
 	}
 
 	interface Props {
@@ -37,8 +55,8 @@
 	let importText = $state('');
 	let rawRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
-	let fileInputEl: HTMLInputElement | undefined = $state();
-	let bulkTable: ReturnType<typeof BulkImportTable> | undefined = $state();
+	let importFiles = $state<FileList | undefined>();
+	let previewRows = $state<PreviewRow[]>([]);
 
 	interface ImportResults {
 		inserted: number;
@@ -52,6 +70,34 @@
 
 	const exampleCsv = `Last Name,First Name,Training Type,Date / Status,Notes\nSmith,John,CPR/BLS,2024-01-15,\nJohnson,Jane,ACLS,2024-02-20,\nWilliams,Robert,First Aid,yes,Annual refresh\nDavis,Michael,Safety Brief,exempt,`;
 
+	const previewColumns: ColumnDef<PreviewRow>[] = TRAINING_COLUMNS.map((column) => ({
+		key: column.key,
+		header: column.label,
+		value: (row) => row.values[column.key] ?? '',
+		sortable: false
+	}));
+
+	const selection = useDataTableSelection<PreviewRow>({
+		rows: () => previewRows,
+		rowKey: (row) => row.id,
+		disabledRow: (row) => !row.validation.valid
+	});
+
+	const validationIssues = $derived.by(() => {
+		const errorRows = previewRows.filter((row) => !row.validation.valid).length;
+		const validRows = previewRows.filter((row) => row.validation.valid).length;
+		const selectedRows = selection.selectedCount;
+		return [
+			...(validRows ? [{ label: 'valid rows', count: validRows, tone: 'neutral' as const }] : []),
+			...(selectedRows ? [{ label: 'selected rows', count: selectedRows, tone: 'neutral' as const }] : []),
+			...(errorRows ? [{ label: 'rows need review', count: errorRows, tone: 'error' as const }] : [])
+		];
+	});
+
+	const submitDisabledReason = $derived(
+		selection.selectedCount === 0 ? 'Select at least one valid row before importing.' : undefined
+	);
+
 	function validateRow(row: Record<string, string>): RowValidation {
 		const cellErrors: Record<string, string> = {};
 		const cellWarnings: Record<string, string> = {};
@@ -61,7 +107,6 @@
 		const trainingTypeName = (row.trainingType ?? '').trim();
 		const statusRaw = (row.status ?? '').trim();
 
-		// Validate person
 		if (!lastName) cellErrors.lastName = 'Last name is required';
 		if (!firstName) cellErrors.firstName = 'First name is required';
 
@@ -77,7 +122,6 @@
 			}
 		}
 
-		// Validate training type
 		if (!trainingTypeName) {
 			cellErrors.trainingType = 'Training type is required';
 		}
@@ -90,7 +134,6 @@
 			}
 		}
 
-		// Validate status / date
 		if (!statusRaw) {
 			cellErrors.status = 'Date or status is required';
 		}
@@ -99,16 +142,14 @@
 			const parsed = parseTrainingStatus(statusRaw);
 
 			if (parsed.type === 'skip') {
-				// skip rows are auto-unchecked; mark as invalid with a non-error indicator
-				cellErrors.status = 'Skipped (no/empty — row will not be imported)';
+				cellErrors.status = 'Skipped (no/empty, row will not be imported)';
 			} else if (parsed.type === 'invalid') {
-				cellErrors.status = `Invalid date or status. Use a date (YYYY-MM-DD or MM/DD/YYYY), "yes", "exempt", or "no" to skip`;
+				cellErrors.status = 'Invalid date or status. Use a date, "yes", "exempt", or "no" to skip';
 			} else if (parsed.type === 'exempt') {
 				if (!trainingType.canBeExempted) {
 					cellErrors.status = 'This training type does not allow exemptions';
 				}
 			} else if (parsed.type === 'completed') {
-				// yes/true/done — completion flag without a specific date
 				if (trainingType.expirationDateOnly) {
 					cellErrors.status = `${trainingType.name} requires an expiration date, not yes/no`;
 				} else if (trainingType.expirationMonths !== null) {
@@ -122,15 +163,45 @@
 		return { valid, cellErrors, cellWarnings };
 	}
 
-	async function handleFileUpload(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
+	function rebuildPreviewRows(nextRawRows: string[][]) {
+		if (nextRawRows.length === 0) {
+			previewRows = [];
+			return;
+		}
+
+		const hasHeaders = detectHeaderRow(nextRawRows[0], TRAINING_COLUMNS);
+		const mappings = autoMapColumns(nextRawRows[0], TRAINING_COLUMNS, hasHeaders);
+		const missingRequired = getMissingRequired(mappings, TRAINING_COLUMNS);
+		const dataRows = hasHeaders ? nextRawRows.slice(1) : nextRawRows;
+		const sourceOffset = hasHeaders ? 2 : 1;
+
+		if (missingRequired.length > 0) {
+			importError = `Missing required columns: ${missingRequired.map((column) => column.label).join(', ')}`;
+		}
+
+		previewRows = dataRows.map((row, index) => {
+			const values = applyMapping(row, mappings);
+			return {
+				id: `row-${index}`,
+				sourceRowNumber: index + sourceOffset,
+				values,
+				validation: validateRow(values)
+			};
+		});
+
+		selection.clear();
+		selection.toggleAllPageRows(true);
+	}
+
+	async function handleFilesChange(files: FileList | undefined) {
+		const file = files?.[0];
 		if (!file) return;
 		uploadedFileName = file.name;
 		importText = '';
 		importError = '';
 		try {
 			rawRows = await parseFile(file);
+			rebuildPreviewRows(rawRows);
 			importState = 'preview';
 		} catch (err) {
 			importError = `Failed to read file: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -143,6 +214,7 @@
 		try {
 			rawRows = await parseCSVText(importText);
 			uploadedFileName = '';
+			rebuildPreviewRows(rawRows);
 			importState = 'preview';
 		} catch (err) {
 			importError = `Failed to parse text: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -152,12 +224,34 @@
 	function handleBack() {
 		importState = 'input';
 		rawRows = [];
+		previewRows = [];
 		importError = '';
 	}
 
+	function updatePreviewCell(row: PreviewRow, key: string, value: string) {
+		row.values = { ...row.values, [key]: value };
+		row.validation = validateRow(row.values);
+		previewRows = [...previewRows];
+		if (!row.validation.valid) {
+			selection.toggleRow(row, previewRows.indexOf(row), false);
+		}
+	}
+
+	function rowStatus(row: PreviewRow): BulkImportRowStatus {
+		const errors = Object.values(row.validation.cellErrors);
+		if (errors.length > 0) {
+			return { tone: 'error', label: 'Review', description: errors[0] };
+		}
+		return { tone: 'valid', label: 'Ready', description: `Source row ${row.sourceRowNumber}` };
+	}
+
+	function disabledReason(row: PreviewRow): string | undefined {
+		return Object.values(row.validation.cellErrors)[0];
+	}
+
 	async function handleImport() {
-		if (isSubmitting || !bulkTable) return;
-		const checkedRows = bulkTable.getCheckedRows();
+		if (isSubmitting) return;
+		const checkedRows = selection.selectedRows.map((row) => row.values);
 		if (checkedRows.length === 0) return;
 
 		const records = checkedRows
@@ -233,454 +327,149 @@
 	}
 </script>
 
-<Modal title="Bulk Training Import" {onClose} width="800px" titleId="bulk-training-title" canClose={!isSubmitting}>
-	{#if importState === 'input'}
-		<div class="input-section">
-			<div class="import-summary">
-				<div class="summary-copy">
-					<p class="summary-eyebrow">Import Records</p>
-					<p class="summary-text">
-						Bring in completions or exemptions in bulk, then validate the rows before anything is saved.
-					</p>
-				</div>
-				<div class="summary-meta">
-					<span class="summary-chip">{trainingTypes.length} training types</span>
-					{#if uploadedFileName}
-						<span class="summary-chip">{uploadedFileName}</span>
-					{/if}
-				</div>
-			</div>
+{#snippet previewCell(row: PreviewRow, column: ColumnDef<PreviewRow>)}
+	<Input
+		aria-label={`${column.header} for source row ${row.sourceRowNumber}`}
+		value={row.values[column.key] ?? ''}
+		oninput={(event) => updatePreviewCell(row, column.key, event.currentTarget.value)}
+	/>
+{/snippet}
 
-			<!-- Available training types -->
-			<div class="info-box">
-				<h4>Available Training Types</h4>
-				<div class="type-chips">
-					{#each trainingTypes as type (type.id)}
-						<span
-							class="type-chip"
-							style="background-color: {type.color}"
-							title={type.expirationMonths === null ? 'Accepts yes/no' : `Expires in ${type.expirationMonths} months`}
-						>
-							{type.name}{type.expirationMonths === null ? ' *' : ''}
-						</span>
-					{/each}
-				</div>
-				<p class="type-hint">* = accepts "yes/no" instead of date (never expires). Use "exempt" to exempt a person.</p>
-				{#if trainingTypes.length === 0}
-					<p class="text-error" style="margin: var(--sp-2) 0 0; font-size: var(--text-ui-sm);">
-						No training types defined. Please add training types first.
-					</p>
-				{/if}
-			</div>
+<AppDialog.Root closeBlocked={isSubmitting} {onClose}>
+	<AppDialog.Content size="wide" closeBlocked={isSubmitting} class="h-[min(42rem,calc(100dvh-2rem))]">
+		<AppDialog.Header>
+			<AppDialog.Title>Bulk Training Import</AppDialog.Title>
+			<AppDialog.Description>
+				Bring in completions or exemptions in bulk, then validate the rows before anything is saved.
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-			<!-- File upload -->
-			<div class="upload-section">
-				<h4>Upload File</h4>
-				<p class="hint">Upload an Excel (.xlsx) or CSV file</p>
-				<div class="upload-row">
-					<input
-						type="file"
-						accept=".xlsx,.csv"
-						onchange={handleFileUpload}
-						bind:this={fileInputEl}
-						class="file-input"
-						id="trainingFileUpload"
+		<AppDialog.Body>
+			<BulkImportWorkspace.Root ariaLabel="Bulk training import workspace">
+				{#if importState === 'input'}
+					<BulkImportWorkspace.Header
+						title="Import Records"
+						description="Upload a spreadsheet or paste CSV rows. Nothing is saved until you review the preview."
+						meta={[
+							{ label: 'Training types', value: `${trainingTypes.length} training types` },
+							...(uploadedFileName ? [{ label: 'File', value: uploadedFileName }] : [])
+						]}
 					/>
-					<label for="trainingFileUpload" class="btn btn-secondary upload-btn">
-						<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-							<path
-								fill-rule="evenodd"
-								d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-						Choose File
-					</label>
-				</div>
-				<p class="format-hint">
-					Columns: Last Name, First Name, Training Type, Date or Status (yes/exempt/YYYY-MM-DD), Notes (optional)
-				</p>
-			</div>
 
-			<div class="divider"><span>or paste CSV text</span></div>
+					<BulkImportWorkspace.InputPanel title="Available training types">
+						<div class="flex flex-wrap gap-2">
+							{#each trainingTypes as type (type.id)}
+								<Badge style={`background-color: ${type.color}`}>
+									{type.name}{type.expirationMonths === null ? ' *' : ''}
+								</Badge>
+							{/each}
+						</div>
+						<p class="text-sm text-muted-foreground">
+							* = accepts "yes/no" instead of date. Use "exempt" to exempt a person.
+						</p>
+					</BulkImportWorkspace.InputPanel>
 
-			<!-- Text paste -->
-			<div class="paste-section">
-				<div class="example-header">
-					<h4>Paste Data</h4>
-					<button
-						class="btn btn-secondary btn-sm"
-						type="button"
-						onclick={() => {
-							importText = exampleCsv;
-						}}
-					>
-						Use Example
-					</button>
-				</div>
-				<textarea class="input import-textarea" bind:value={importText} placeholder="Paste CSV data here..." rows="6"
-				></textarea>
-			</div>
+					<BulkImportWorkspace.InputPanel title="Upload file">
+						<BulkImportWorkspace.FileInput
+							bind:files={importFiles}
+							label="Upload training file"
+							description="Upload an Excel (.xlsx) or CSV file."
+							onFilesChange={handleFilesChange}
+						/>
+					</BulkImportWorkspace.InputPanel>
 
-			{#if importError}
-				<p class="text-error" style="margin-top: var(--sp-2); font-size: var(--text-ui-sm);">
-					{importError}
-				</p>
-			{/if}
-		</div>
-	{:else if importState === 'preview'}
-		<div class="preview-section">
-			<div class="import-summary">
-				<div class="summary-copy">
-					<p class="summary-eyebrow">Preview</p>
-					<p class="summary-text">Double-click any cell to correct it before importing the checked rows.</p>
-				</div>
-				<div class="summary-meta">
-					<span class="summary-chip">{rawRows.length} rows loaded</span>
-				</div>
-			</div>
-			<p class="hint">Rows with errors are highlighted and will stay out of the import until they’re fixed.</p>
-			<BulkImportTable bind:this={bulkTable} {rawRows} columnDefs={TRAINING_COLUMNS} {validateRow} />
-			{#if importError}
-				<p class="text-error" style="margin-top: var(--sp-2); font-size: var(--text-ui-sm);">
-					{importError}
-				</p>
-			{/if}
-		</div>
-	{:else if importState === 'importing'}
-		<div class="importing-state">
-			<Spinner size={20} color="var(--amber)" />
-			<span>Importing records...</span>
-		</div>
-	{:else if importState === 'results' && results}
-		<div class="results-section">
-			<div class="result-grid">
-				<div class="result-card inserted">
-					<span class="result-value">{results.inserted}</span>
-					<span class="result-label">Inserted</span>
-				</div>
-				<div class="result-card updated">
-					<span class="result-value">{results.updated}</span>
-					<span class="result-label">Updated</span>
-				</div>
-				<div class="result-card exempted">
-					<span class="result-value">{results.exempted}</span>
-					<span class="result-label">Exempted</span>
-				</div>
-				{#if results.errors > 0}
-					<div class="result-card errored">
-						<span class="result-value">{results.errors}</span>
-						<span class="result-label">Errors</span>
-					</div>
+					<BulkImportWorkspace.InputPanel title="Paste CSV text">
+						<div class="flex justify-end">
+							<Button variant="outline" size="sm" type="button" onclick={() => (importText = exampleCsv)}>
+								Use Example
+							</Button>
+						</div>
+						<BulkImportWorkspace.PasteInput
+							bind:value={importText}
+							label="CSV data"
+							description="Columns: Last Name, First Name, Training Type, Date or Status, Notes."
+							placeholder="Paste CSV data here..."
+							rows={6}
+						/>
+					</BulkImportWorkspace.InputPanel>
+
+					{#if importError}
+						<BulkImportWorkspace.ValidationSummary
+							title="Import input needs review"
+							issues={[{ label: importError, tone: 'error' }]}
+						/>
+					{/if}
+				{:else if importState === 'preview'}
+					<BulkImportWorkspace.Header
+						title="Preview"
+						description="Correct row values inline, then import the checked rows."
+						meta={[{ label: 'Rows', value: `${rawRows.length} rows loaded` }]}
+					/>
+					<BulkImportWorkspace.ValidationSummary
+						title="Preview validation"
+						description="Rows with errors are visible but cannot be selected until fixed."
+						issues={validationIssues}
+					/>
+					<BulkImportWorkspace.PreviewTable
+						rows={previewRows}
+						columns={previewColumns}
+						{selection}
+						rowKey={(row) => row.id}
+						disabledRow={(row) => !row.validation.valid}
+						disabledReason={(row) => disabledReason(row)}
+						rowStatus={(row) => rowStatus(row)}
+						cell={previewCell}
+						selectedCountLabel={(selected, total) => `${selected} of ${total} rows selected`}
+					/>
+					{#if importError}
+						<BulkImportWorkspace.ValidationSummary
+							title="Import preview needs review"
+							issues={[{ label: importError, tone: 'error' }]}
+						/>
+					{/if}
+				{:else if importState === 'importing'}
+					<BulkImportWorkspace.ProgressState title="Importing records" description="Keep this dialog open." />
+				{:else if importState === 'results' && results}
+					<BulkImportWorkspace.ResultSummary
+						status={results.errors > 0 ? 'partial' : 'success'}
+						items={[
+							{ label: 'Inserted', value: results.inserted },
+							{ label: 'Updated', value: results.updated },
+							{ label: 'Exempted', value: results.exempted },
+							{ label: 'Errors', value: results.errors }
+						]}
+						description={results.errors > 0
+							? 'Some records could not be imported. They may have been missing required data or referenced personnel outside your assigned group.'
+							: undefined}
+					/>
 				{/if}
-			</div>
-			{#if results.errors > 0}
-				<p class="hint" style="margin-top: var(--sp-4);">
-					Some records could not be imported. They may have been missing required data or referenced personnel outside
-					your assigned group.
-				</p>
+			</BulkImportWorkspace.Root>
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			{#if importState === 'input'}
+				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+				<Button type="button" onclick={handleTextParse} disabled={!importText.trim()}>Preview</Button>
+			{:else if importState === 'preview'}
+				<Button variant="outline" type="button" onclick={handleBack}>Back</Button>
+				<Button
+					type="button"
+					onclick={handleImport}
+					disabled={isSubmitting || !!submitDisabledReason}
+					title={submitDisabledReason}
+				>
+					{#if isSubmitting}<Spinner />{/if}
+					Import
+				</Button>
+			{:else if importState === 'importing'}
+				<Button variant="outline" type="button" disabled>Back</Button>
+				<Button type="button" disabled>
+					<Spinner />
+					Importing...
+				</Button>
+			{:else if importState === 'results'}
+				<Button type="button" onclick={handleDone}>Done</Button>
 			{/if}
-		</div>
-	{/if}
-
-	{#snippet footer()}
-		{#if importState === 'input'}
-			<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" type="button" onclick={handleTextParse} disabled={!importText.trim()}>
-				Preview
-			</button>
-		{:else if importState === 'preview'}
-			<button class="btn btn-secondary" type="button" onclick={handleBack}>Back</button>
-			<button class="btn btn-primary" type="button" onclick={handleImport} disabled={isSubmitting}>
-				{#if isSubmitting}<Spinner />{/if}
-				Import
-			</button>
-		{:else if importState === 'importing'}
-			<button class="btn btn-secondary" type="button" disabled>Back</button>
-			<button class="btn btn-primary" type="button" disabled>
-				<Spinner />
-				Importing...
-			</button>
-		{:else if importState === 'results'}
-			<button class="btn btn-primary" type="button" onclick={handleDone}>Done</button>
-		{/if}
-	{/snippet}
-</Modal>
-
-<style>
-	.input-section,
-	.preview-section,
-	.results-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.import-summary {
-		display: flex;
-		align-items: start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.summary-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.summary-eyebrow {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-text {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		color: var(--text-secondary);
-	}
-
-	.summary-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.summary-chip {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.importing-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-4);
-		padding: var(--sp-8) 0;
-		color: var(--text-tertiary);
-		font-size: var(--text-ui-sm);
-	}
-
-	.info-box {
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.info-box h4 {
-		margin: 0 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.type-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.type-chip {
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: white;
-	}
-
-	.type-hint {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		margin: var(--sp-3) 0 0;
-		line-height: 1.5;
-	}
-
-	.upload-section {
-		padding: var(--sp-4);
-		background: var(--surface-panel);
-		border-radius: var(--radius-lg);
-		border: 1px dashed var(--border-strong);
-	}
-
-	.upload-section h4 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.upload-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		margin: var(--sp-3) 0;
-	}
-
-	.file-input {
-		display: none;
-	}
-
-	.upload-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-		cursor: pointer;
-	}
-
-	.format-hint {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		margin: 0;
-		line-height: 1.5;
-	}
-
-	.hint {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		margin: 0;
-		line-height: 1.65;
-	}
-
-	.divider {
-		display: flex;
-		align-items: center;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.divider::before,
-	.divider::after {
-		content: '';
-		flex: 1;
-		height: 1px;
-		background: var(--border-default);
-	}
-
-	.divider span {
-		padding: 0 var(--sp-4);
-	}
-
-	.paste-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.example-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-	}
-
-	.example-header h4 {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		margin: 0;
-	}
-
-	.import-textarea {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		resize: vertical;
-	}
-
-	/* Results */
-	.result-grid {
-		display: flex;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-	}
-
-	.result-card {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: var(--sp-4) var(--sp-5);
-		border-radius: var(--radius-lg);
-		min-width: 100px;
-		border: var(--border-thin);
-	}
-
-	.result-card.inserted {
-		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--success) 28%, var(--border-default));
-	}
-
-	.result-card.updated {
-		background: color-mix(in srgb, var(--info-bg) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--info) 28%, var(--border-default));
-	}
-
-	.result-card.exempted {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		border-color: var(--border-default);
-	}
-
-	.result-card.errored {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--danger) 28%, var(--border-default));
-	}
-
-	.result-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.3rem + 0.2vw, 1.75rem);
-		font-weight: var(--font-weight-display);
-		color: var(--text-primary);
-	}
-
-	.result-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: var(--letter-spacing-mono);
-	}
-
-	@media (max-width: 640px) {
-		.import-summary {
-			flex-direction: column;
-			align-items: stretch;
-		}
-	}
-</style>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

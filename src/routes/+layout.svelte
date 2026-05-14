@@ -3,7 +3,7 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
-	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
+	import { Toaster } from '$lib/components/ui/sonner';
 	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
 	let { children } = $props();
@@ -31,7 +31,7 @@
 <div class="app">
 	{@render children()}
 </div>
-<ToastContainer />
+<Toaster />
 <HelpPanel />
 
 <style>

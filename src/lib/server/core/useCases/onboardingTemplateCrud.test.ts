@@ -5,6 +5,7 @@ import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplat
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from './crud';
+import { duplicateOnboardingTemplate } from './onboardingTemplateDuplicate';
 
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
 
@@ -167,5 +168,97 @@ describe('Onboarding Template deletion hooks', () => {
 		const ctx = createWritePortsContext({ readOnly: true });
 
 		await expect(templateUseCases.create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('Onboarding Template duplication', () => {
+	it('creates a distinct template and copies steps without mutating the source', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [
+			{
+				id: TMPL_ID,
+				name: 'Standard Arrival',
+				description: 'Default packet',
+				organization_id: 'test-org',
+				created_at: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'step-training',
+				template_id: TMPL_ID,
+				name: 'CPR Certification',
+				description: 'Bring current card',
+				step_type: 'training',
+				training_type_id: 'training-cpr',
+				stages: null,
+				sort_order: 1,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-paperwork',
+				template_id: TMPL_ID,
+				name: 'Access Packet',
+				description: 'Submit account paperwork',
+				step_type: 'paperwork',
+				training_type_id: null,
+				stages: ['with soldier', 'submitted', 'access granted'],
+				sort_order: 0,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await duplicateOnboardingTemplate(ctx, TMPL_ID);
+
+		expect(result.template).toMatchObject({
+			name: 'Standard Arrival Copy',
+			description: 'Default packet'
+		});
+		expect(result.template.id).not.toBe(TMPL_ID);
+		expect(result.templateSteps).toEqual([
+			expect.objectContaining({
+				templateId: result.template.id,
+				name: 'Access Packet',
+				description: 'Submit account paperwork',
+				stepType: 'paperwork',
+				trainingTypeId: null,
+				stages: ['with soldier', 'submitted', 'access granted'],
+				sortOrder: 0
+			}),
+			expect.objectContaining({
+				templateId: result.template.id,
+				name: 'CPR Certification',
+				description: 'Bring current card',
+				stepType: 'training',
+				trainingTypeId: 'training-cpr',
+				stages: null,
+				sortOrder: 1
+			})
+		]);
+
+		const sourceSteps = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {
+			template_id: TMPL_ID
+		});
+		expect(sourceSteps).toHaveLength(2);
+		expect(sourceSteps.map((step) => step.id).sort()).toEqual(['step-paperwork', 'step-training']);
+		expect(ctx.audit.events.at(-1)).toMatchObject({
+			action: 'onboarding_template.duplicated',
+			resourceType: 'onboarding_template',
+			resourceId: result.template.id,
+			details: { sourceTemplateId: TMPL_ID, stepCount: 2 }
+		});
+	});
+
+	it('increments the duplicate name when copy names already exist', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [
+			{ id: TMPL_ID, name: 'Standard Arrival', organization_id: 'test-org' },
+			{ id: 'copy-1', name: 'Standard Arrival Copy', organization_id: 'test-org' },
+			{ id: 'copy-2', name: 'Standard Arrival Copy 2', organization_id: 'test-org' }
+		]);
+
+		const result = await duplicateOnboardingTemplate(ctx, TMPL_ID);
+
+		expect(result.template.name).toBe('Standard Arrival Copy 3');
 	});
 });

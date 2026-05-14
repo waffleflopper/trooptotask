@@ -1,14 +1,18 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import BulkImportTable, { type RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 	import type { Personnel } from '$lib/types';
 	import {
 		ICT_COMPLETION_IMPORT_COLUMNS,
-		reviewIctCompletionImportRows,
 		reviewMappedIctCompletionImportRows,
 		type IctCompletionImportMappedRow
 	} from '$features/critical-tasks/utils/ictCompletionImport';
@@ -26,9 +30,20 @@
 	type Step = 'input' | 'preview' | 'importing' | 'results';
 	type ReviewGroup = 'ready' | 'ambiguous' | 'invalid';
 
+	type PreviewRow = {
+		rowNumber: number;
+		values: Record<string, string>;
+		validation: RowValidation;
+	};
+
+	type RowValidation = {
+		valid: boolean;
+		ambiguous: boolean;
+		cellErrors: Record<string, string>;
+	};
+
 	let step = $state<Step>('input');
 	let rawRows = $state<string[][]>([]);
-	let previewRows = $state<IctCompletionImportMappedRow[]>([]);
 	let uploadedFileName = $state('');
 	let importError = $state('');
 	let importResult = $state<{ created: number; updated: number; failed: number } | null>(null);
@@ -37,21 +52,43 @@
 	);
 	let activeReviewGroup = $state<ReviewGroup>('ready');
 	let reviewGroupInitialized = $state(false);
-	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
+	let selectionInitialized = $state(false);
 
-	function getReviewOptions() {
-		return {
-			personnel,
-			tasks,
-			existingCompletions: completions
-		};
-	}
-
-	const previewReview = $derived.by(() =>
-		previewRows.length > 0
-			? reviewMappedIctCompletionImportRows(previewRows, getReviewOptions())
-			: reviewIctCompletionImportRows(rawRows, getReviewOptions())
+	const previewRows = $derived.by<PreviewRow[]>(() => buildPreviewRows(rawRows, ICT_COMPLETION_IMPORT_COLUMNS));
+	const previewReview = $derived(
+		reviewMappedIctCompletionImportRows(
+			previewRows.map((row) => ({ rowNumber: row.rowNumber, values: row.values })),
+			getReviewOptions()
+		)
 	);
+	const validationSummary = $derived.by(() => {
+		const invalidCount = previewRows.filter((row) => !row.validation.valid && !row.validation.ambiguous).length;
+		const ambiguousCount = previewRows.filter((row) => row.validation.ambiguous).length;
+		return { invalidCount, ambiguousCount };
+	});
+	const previewColumns: ColumnDef<PreviewRow>[] = ICT_COMPLETION_IMPORT_COLUMNS.map((column) => ({
+		key: column.key,
+		header: column.label,
+		value: (row) => row.values[column.key] ?? '',
+		searchValue: (row) => row.values[column.key] ?? ''
+	}));
+	const selection = DataTable.useDataTableSelection<PreviewRow>({
+		rows: () => previewRows,
+		rowKey: (row) => row.rowNumber,
+		disabledRow: (row) => !row.validation.valid
+	});
+
+	$effect(() => {
+		rawRows;
+		selection.clear();
+		selectionInitialized = false;
+	});
+
+	$effect(() => {
+		if (step !== 'preview' || selectionInitialized) return;
+		selection.toggleAllPageRows(true);
+		selectionInitialized = true;
+	});
 
 	$effect(() => {
 		if (step !== 'preview') return;
@@ -72,6 +109,14 @@
 		if (activeGroupRowCount > 0) return;
 		activeReviewGroup = getPreferredReviewGroup(previewReview);
 	});
+
+	function getReviewOptions() {
+		return {
+			personnel,
+			tasks,
+			existingCompletions: completions
+		};
+	}
 
 	function getPreferredReviewGroup(review = previewReview): ReviewGroup {
 		if (review.ambiguousRows.length > 0) return 'ambiguous';
@@ -106,34 +151,41 @@
 		if (message.startsWith('Last name')) return 'lastName';
 		if (message.startsWith('Completion date')) return 'completedAt';
 		if (message.startsWith('Validation method')) return 'validationMethod';
-		if (message.startsWith('Personnel record') || message.startsWith('Multiple personnel records')) {
-			return 'lastName';
-		}
+		if (message.startsWith('Personnel record') || message.startsWith('Multiple personnel records')) return 'lastName';
 		return 'taskCode';
 	}
 
-	function buildTableValidations(
-		rows: Array<{ rowIndex: number; sourceRowNumber: number; values: Record<string, string> }>
-	): RowValidation[] {
-		const review = reviewMappedIctCompletionImportRows(
-			rows.map((row) => ({
-				rowNumber: row.sourceRowNumber,
-				values: row.values
-			})),
-			getReviewOptions()
+	function buildPreviewRows(raw: string[][], columnDefs: ImportColumnDef[]): PreviewRow[] {
+		if (raw.length === 0) return [];
+		const hasHeaders = detectHeaderRow(raw[0], columnDefs);
+		const mappings = autoMapColumns(raw[0], columnDefs, hasHeaders).filter(
+			(mapping): mapping is NonNullable<typeof mapping> => !!mapping
 		);
-		const invalidByRow = new Map([
-			...review.invalidRows.map((row) => [row.rowNumber, row] as const),
-			...review.ambiguousRows.map((row) => [row.rowNumber, row] as const)
-		]);
+		const dataRows = hasHeaders ? raw.slice(1) : raw;
+		const rows: IctCompletionImportMappedRow[] = dataRows.map((row, rowIndex) => {
+			const values: Record<string, string> = {};
+			for (const mapping of mappings) {
+				if (mapping.fieldKey && mapping.columnIndex < row.length) {
+					values[mapping.fieldKey] = (row[mapping.columnIndex] ?? '').trim();
+				}
+			}
+			return {
+				rowNumber: rowIndex + (hasHeaders ? 2 : 1),
+				values
+			};
+		});
+
+		const review = reviewMappedIctCompletionImportRows(rows, getReviewOptions());
+		const invalidByRow = new Map(review.invalidRows.map((row) => [row.rowNumber, row]));
+		const ambiguousByRow = new Map(review.ambiguousRows.map((row) => [row.rowNumber, row]));
 
 		return rows.map((row) => {
-			const problemRow = invalidByRow.get(row.sourceRowNumber);
+			const problemRow = invalidByRow.get(row.rowNumber) ?? ambiguousByRow.get(row.rowNumber);
 			if (!problemRow) {
 				return {
-					valid: true,
-					cellErrors: {},
-					cellWarnings: {}
+					rowNumber: row.rowNumber,
+					values: row.values,
+					validation: { valid: true, ambiguous: false, cellErrors: {} }
 				};
 			}
 
@@ -143,42 +195,49 @@
 			}
 
 			return {
-				valid: false,
-				cellErrors,
-				cellWarnings: {}
+				rowNumber: row.rowNumber,
+				values: row.values,
+				validation: {
+					valid: false,
+					ambiguous: ambiguousByRow.has(row.rowNumber),
+					cellErrors
+				}
 			};
 		});
 	}
 
-	async function handleFileUpload(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
+	function rowStatus(row: PreviewRow): BulkImportRowStatus {
+		if (row.validation.ambiguous) {
+			return { tone: 'warning', label: 'Ambiguous', description: Object.values(row.validation.cellErrors).join('; ') };
+		}
+		if (!row.validation.valid) {
+			return { tone: 'error', label: 'Error', description: Object.values(row.validation.cellErrors).join('; ') };
+		}
+		return { tone: 'valid', label: 'Ready' };
+	}
+
+	async function handleFilesUpload(files: FileList | undefined) {
+		const file = files?.[0];
 		if (!file) return;
 
 		importError = '';
 		uploadedFileName = file.name;
 
 		try {
-			const parsedRows = await parseFile(file);
-			rawRows = parsedRows;
-			previewRows = [];
+			rawRows = await parseFile(file);
 			activeReviewGroup = 'ready';
 			reviewGroupInitialized = false;
 			step = 'preview';
 		} catch {
 			rawRows = [];
-			previewRows = [];
 			uploadedFileName = '';
 			importError = 'Unable to parse that file. Upload a CSV or spreadsheet and try again.';
-		} finally {
-			input.value = '';
 		}
 	}
 
 	function handleBack() {
 		step = 'input';
 		rawRows = [];
-		previewRows = [];
 		uploadedFileName = '';
 		importError = '';
 		activeReviewGroup = 'ready';
@@ -186,9 +245,8 @@
 	}
 
 	async function handleImport() {
-		if (!tableRef) return;
-		const checkedRows = tableRef.getCheckedRowEntries().map((row) => ({
-			rowNumber: row.sourceRowNumber,
+		const checkedRows = selection.selectedRows.map((row) => ({
+			rowNumber: row.rowNumber,
 			values: row.values
 		}));
 		if (checkedRows.length === 0) return;
@@ -214,397 +272,227 @@
 	}
 </script>
 
-<Modal
-	title="Import ICT Completions"
-	onClose={handleClose}
-	canClose={step !== 'importing'}
-	width="1120px"
-	titleId="ict-completion-import-title"
->
-	{#if step === 'input'}
-		<div class="import-workspace">
-			<div class="import-summary">
-				<div>
-					<p class="summary-eyebrow">Step 1</p>
-					<h2>Upload Completion File</h2>
-					<p class="summary-copy">
-						Upload a CSV or spreadsheet, review the rows in a table, then import only the checked items.
-					</p>
-				</div>
-				<div class="summary-meta">
-					<span>Required: First Name, Last Name, Task Code, Completion Date</span>
-					<span>Optional: Rank, Validation Method, Validator, Notes</span>
-				</div>
-			</div>
+<AppDialog.Root open closeBlocked={step === 'importing'} onClose={handleClose}>
+	<AppDialog.Content class="sm:max-w-5xl">
+		<AppDialog.Header>
+			<AppDialog.Title id="ict-completion-import-title">Import ICT Completions</AppDialog.Title>
+		</AppDialog.Header>
 
-			<div class="form-field">
-				<label for="ict-completion-import-file">Upload file</label>
-				<input
-					id="ict-completion-import-file"
-					type="file"
-					class="input"
-					accept=".csv,.xlsx"
-					aria-label="Upload file"
-					onchange={handleFileUpload}
-				/>
-				<p class="field-hint">CSV and XLSX files are accepted.</p>
-			</div>
+		<AppDialog.Body>
+			<BulkImportWorkspace.Root ariaLabel="ICT completion import workspace">
+				{#if step === 'input'}
+					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+						<BulkImportWorkspace.Header
+							step="Step 1"
+							title="Upload Completion File"
+							description="Upload a spreadsheet, review the rows in a table, then import only the checked items."
+							meta={[
+								{ label: 'Required', value: 'First Name, Last Name, Task Code, Completion Date' },
+								{ label: 'Optional', value: 'Rank, Validation Method, Validator, Notes' }
+							]}
+						/>
 
-			{#if importError}
-				<p class="text-error" role="alert">{importError}</p>
-			{/if}
-		</div>
-	{:else if step === 'preview'}
-		<div class="import-workspace">
-			<div class="import-summary">
-				<div>
-					<p class="summary-eyebrow">Step 2</p>
-					<h2>Review Completion Import</h2>
-					<p class="summary-copy">Double-click a cell to fix it. Only checked rows without errors will import.</p>
-				</div>
-				<div class="summary-meta">
-					<span>{uploadedFileName}</span>
-					<span>{previewReview.validRows.length} ready to import</span>
-					<span>{previewReview.ambiguousRows.length} ambiguous</span>
-					<span>{previewReview.invalidRows.length} invalid</span>
-				</div>
-			</div>
+						<BulkImportWorkspace.InputPanel title="Completion file" description="CSV and XLSX files are accepted.">
+							<BulkImportWorkspace.FileInput onFilesChange={handleFilesUpload} />
+						</BulkImportWorkspace.InputPanel>
 
-			<div class="review-groups" aria-label="Completion import review groups">
-				<div class="review-tabs" role="group" aria-label="Completion import row groups">
-					<button
-						class="review-tab"
-						type="button"
-						aria-pressed={activeReviewGroup === 'ready'}
-						class:active={activeReviewGroup === 'ready'}
-						onclick={() => (activeReviewGroup = 'ready')}
-					>
-						Ready ({previewReview.validRows.length})
-					</button>
-					<button
-						class="review-tab"
-						type="button"
-						aria-pressed={activeReviewGroup === 'ambiguous'}
-						class:active={activeReviewGroup === 'ambiguous'}
-						onclick={() => (activeReviewGroup = 'ambiguous')}
-					>
-						Ambiguous ({previewReview.ambiguousRows.length})
-					</button>
-					<button
-						class="review-tab"
-						type="button"
-						aria-pressed={activeReviewGroup === 'invalid'}
-						class:active={activeReviewGroup === 'invalid'}
-						onclick={() => (activeReviewGroup = 'invalid')}
-					>
-						Invalid ({previewReview.invalidRows.length})
-					</button>
-				</div>
-
-				<section class="review-panel" aria-live="polite">
-					{#if activeReviewGroup === 'ready'}
-						<h3>Showing Ready rows</h3>
-						{#if previewReview.validRows.length === 0}
-							<p class="review-empty">No ready rows to import yet.</p>
-						{:else}
-							<ul class="review-row-list">
-								{#each previewReview.validRows as row (`ready-${row.rowNumber}`)}
-									<li class="review-row">
-										<div class="review-row-header">
-											<strong>Row {row.rowNumber}</strong>
-											<span class="review-chip"
-												>{row.completionId ? 'Updates existing record' : 'Creates new record'}</span
-											>
-										</div>
-										<p>{formatPersonName(row.personnel)}</p>
-										<p>{formatTaskLabel(row.task.taskCode, row.task.title)}</p>
-										<p>Completion date: {row.completion.completedAt}</p>
-									</li>
-								{/each}
-							</ul>
+						{#if importError}
+							<BulkImportWorkspace.ValidationSummary
+								issues={[{ label: 'errors', count: 1, tone: 'error' }]}
+								description={importError}
+								role="alert"
+							/>
 						{/if}
-					{:else if activeReviewGroup === 'ambiguous'}
-						<h3>Showing Ambiguous rows</h3>
-						{#if previewReview.ambiguousRows.length === 0}
-							<p class="review-empty">No ambiguous rows need review.</p>
-						{:else}
-							<ul class="review-row-list">
-								{#each previewReview.ambiguousRows as row (`ambiguous-${row.rowNumber}`)}
-									<li class="review-row">
-										<div class="review-row-header">
-											<strong>Row {row.rowNumber}</strong>
-											<span>{formatImportedPersonName(row.values)}</span>
-										</div>
-										<p>{formatTaskLabel(row.values.taskCode ?? 'No task code')}</p>
-										<ul class="review-errors">
-											{#each row.errors as error (`${row.rowNumber}-${error}`)}
-												<li>{error}</li>
+					</div>
+				{:else if step === 'preview'}
+					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+						<BulkImportWorkspace.Header
+							step="Step 2"
+							title="Review Completion Import"
+							description="Only checked rows without errors will import."
+							meta={[
+								{ label: 'File', value: uploadedFileName },
+								{ label: 'Ready', value: `${previewReview.validRows.length} ready to import` },
+								{ label: 'Ambiguous', value: `${previewReview.ambiguousRows.length} ambiguous` },
+								{ label: 'Invalid', value: `${previewReview.invalidRows.length} invalid` }
+							]}
+						/>
+
+						<Tabs.Root bind:value={activeReviewGroup}>
+							<Tabs.List aria-label="Completion import row groups">
+								<Tabs.Trigger value="ready">Ready ({previewReview.validRows.length})</Tabs.Trigger>
+								<Tabs.Trigger value="ambiguous">Ambiguous ({previewReview.ambiguousRows.length})</Tabs.Trigger>
+								<Tabs.Trigger value="invalid">Invalid ({previewReview.invalidRows.length})</Tabs.Trigger>
+							</Tabs.List>
+
+							<Tabs.Content value="ready">
+								<section class="rounded-lg border bg-muted/30 p-4" aria-live="polite">
+									<h3 class="text-sm font-semibold">Showing Ready rows</h3>
+									{#if previewReview.validRows.length === 0}
+										<p class="mt-2 text-sm text-muted-foreground">No ready rows to import yet.</p>
+									{:else}
+										<ul class="mt-3 grid gap-3">
+											{#each previewReview.validRows as row (`ready-${row.rowNumber}`)}
+												<li class="rounded-md border bg-card p-3 text-sm">
+													<div class="flex flex-wrap items-center gap-2">
+														<strong>Row {row.rowNumber}</strong>
+														<span class="rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+															{row.completionId ? 'Updates existing record' : 'Creates new record'}
+														</span>
+													</div>
+													<p>{formatPersonName(row.personnel)}</p>
+													<p>{formatTaskLabel(row.task.taskCode, row.task.title)}</p>
+													<p>Completion date: {row.completion.completedAt}</p>
+												</li>
 											{/each}
 										</ul>
-										{#if row.matches && row.matches.length > 0}
-											<p class="review-subheading">Possible matches</p>
-											<ul class="review-matches">
-												{#each row.matches as match (`${row.rowNumber}-${match.personnelId}`)}
-													<li>{match.displayName}</li>
-												{/each}
-											</ul>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					{:else}
-						<h3>Showing Invalid rows</h3>
-						{#if previewReview.invalidRows.length === 0}
-							<p class="review-empty">No invalid rows remain.</p>
-						{:else}
-							<ul class="review-row-list">
-								{#each previewReview.invalidRows as row (`invalid-${row.rowNumber}`)}
-									<li class="review-row">
-										<div class="review-row-header">
-											<strong>Row {row.rowNumber}</strong>
-											<span>{formatImportedPersonName(row.values) || 'Missing personnel details'}</span>
-										</div>
-										<p>{formatTaskLabel(row.values.taskCode ?? 'No task code')}</p>
-										<ul class="review-errors">
-											{#each row.errors as error (`${row.rowNumber}-${error}`)}
-												<li>{error}</li>
+									{/if}
+								</section>
+							</Tabs.Content>
+
+							<Tabs.Content value="ambiguous">
+								<section class="rounded-lg border bg-muted/30 p-4" aria-live="polite">
+									<h3 class="text-sm font-semibold">Showing Ambiguous rows</h3>
+									{#if previewReview.ambiguousRows.length === 0}
+										<p class="mt-2 text-sm text-muted-foreground">No ambiguous rows need review.</p>
+									{:else}
+										<ul class="mt-3 grid gap-3">
+											{#each previewReview.ambiguousRows as row (`ambiguous-${row.rowNumber}`)}
+												<li class="rounded-md border bg-card p-3 text-sm">
+													<div class="flex flex-wrap items-center gap-2">
+														<strong>Row {row.rowNumber}</strong>
+														<span>{formatImportedPersonName(row.values)}</span>
+													</div>
+													<p>{formatTaskLabel(row.values.taskCode ?? 'No task code')}</p>
+													<ul class="mt-2 list-disc pl-5 text-destructive">
+														{#each row.errors as error (`${row.rowNumber}-${error}`)}
+															<li>{error}</li>
+														{/each}
+													</ul>
+													{#if row.matches && row.matches.length > 0}
+														<p class="mt-2 text-xs font-semibold text-muted-foreground">Possible matches</p>
+														<ul class="list-disc pl-5">
+															{#each row.matches as match (`${row.rowNumber}-${match.personnelId}`)}
+																<li>{match.displayName}</li>
+															{/each}
+														</ul>
+													{/if}
+												</li>
 											{/each}
 										</ul>
+									{/if}
+								</section>
+							</Tabs.Content>
+
+							<Tabs.Content value="invalid">
+								<section class="rounded-lg border bg-muted/30 p-4" aria-live="polite">
+									<h3 class="text-sm font-semibold">Showing Invalid rows</h3>
+									{#if previewReview.invalidRows.length === 0}
+										<p class="mt-2 text-sm text-muted-foreground">No invalid rows remain.</p>
+									{:else}
+										<ul class="mt-3 grid gap-3">
+											{#each previewReview.invalidRows as row (`invalid-${row.rowNumber}`)}
+												<li class="rounded-md border bg-card p-3 text-sm">
+													<div class="flex flex-wrap items-center gap-2">
+														<strong>Row {row.rowNumber}</strong>
+														<span>{formatImportedPersonName(row.values) || 'Missing personnel details'}</span>
+													</div>
+													<p>{formatTaskLabel(row.values.taskCode ?? 'No task code')}</p>
+													<ul class="mt-2 list-disc pl-5 text-destructive">
+														{#each row.errors as error (`${row.rowNumber}-${error}`)}
+															<li>{error}</li>
+														{/each}
+													</ul>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</section>
+							</Tabs.Content>
+						</Tabs.Root>
+
+						<BulkImportWorkspace.ValidationSummary
+							issues={[
+								{ label: 'ready', count: previewReview.validRows.length, tone: 'neutral' },
+								{
+									label: 'ambiguous rows',
+									count: validationSummary.ambiguousCount,
+									tone: validationSummary.ambiguousCount > 0 ? 'warning' : 'neutral'
+								},
+								{
+									label: 'error rows',
+									count: validationSummary.invalidCount,
+									tone: validationSummary.invalidCount > 0 ? 'error' : 'neutral'
+								}
+							]}
+							description={`${selection.selectedCount} rows selected for import.`}
+						/>
+
+						<BulkImportWorkspace.PreviewTable
+							rows={previewRows}
+							columns={previewColumns}
+							ariaLabel="ICT completion import preview"
+							{selection}
+							rowKey={(row) => row.rowNumber}
+							disabledRow={(row) => !row.validation.valid}
+							{rowStatus}
+							selectedCountLabel={(selected, total) => `${selected} of ${total} rows selected`}
+						/>
+
+						{#if importError}
+							<BulkImportWorkspace.ValidationSummary
+								issues={[{ label: 'errors', count: validationSummary.invalidCount + 1, tone: 'error' }]}
+								description={importError}
+								role="alert"
+							/>
+						{/if}
+					</div>
+				{:else if step === 'importing'}
+					<BulkImportWorkspace.ProgressState
+						title="Importing critical task completions..."
+						description="Do not close this dialog."
+					/>
+				{:else if importResult}
+					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
+						<BulkImportWorkspace.Header
+							step="Complete"
+							title="Import Finished"
+							meta={[
+								{ label: 'Created', value: `${importResult.created} created` },
+								{ label: 'Updated', value: `${importResult.updated} updated` },
+								{ label: 'Failed', value: `${importResult.failed} failed` }
+							]}
+						/>
+
+						{#if importFailures.length > 0}
+							<ul class="flex flex-col gap-2 pl-4">
+								{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
+									<li class="flex flex-col gap-0.5">
+										<strong>Row {failure.rowNumber}</strong>
+										<span>{failure.personnelName || 'Unknown person'}</span>
+										<span>{failure.taskCode || 'No task code'}</span>
+										<span>{failure.message}</span>
 									</li>
 								{/each}
 							</ul>
 						{/if}
-					{/if}
-				</section>
-			</div>
+					</div>
+				{/if}
+			</BulkImportWorkspace.Root>
+		</AppDialog.Body>
 
-			<BulkImportTable
-				bind:this={tableRef}
-				{rawRows}
-				columnDefs={ICT_COMPLETION_IMPORT_COLUMNS}
-				validateRow={() => ({ valid: true, cellErrors: {}, cellWarnings: {} })}
-				validateRows={(rows) => buildTableValidations(rows)}
-				onRowsChange={(rows) =>
-					(previewRows = rows.map((row) => ({
-						rowNumber: row.sourceRowNumber,
-						values: row.values
-					})))}
-			/>
-
-			{#if importError}
-				<p class="text-error" role="alert">{importError}</p>
+		<AppDialog.Footer>
+			{#if step === 'input'}
+				<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
+			{:else if step === 'preview'}
+				<Button variant="outline" size="sm" type="button" onclick={handleBack}>Back</Button>
+				<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
+				<Button size="sm" type="button" onclick={handleImport} disabled={selection.selectedCount === 0}>
+					Import Checked Rows
+				</Button>
+			{:else if step === 'results'}
+				<Button size="sm" type="button" onclick={onDone}>Done</Button>
 			{/if}
-		</div>
-	{:else if step === 'importing'}
-		<div class="importing-state" aria-live="polite">
-			<Spinner size={20} />
-			<span>Importing critical task completions...</span>
-		</div>
-	{:else if importResult}
-		<div class="import-workspace">
-			<div class="import-summary">
-				<div>
-					<p class="summary-eyebrow">Complete</p>
-					<h2>Import Finished</h2>
-				</div>
-				<div class="summary-meta">
-					<span>{importResult.created} created</span>
-					<span>{importResult.updated} updated</span>
-					<span>{importResult.failed} failed</span>
-				</div>
-			</div>
-
-			{#if importFailures.length > 0}
-				<ul class="failure-list">
-					{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
-						<li>
-							<strong>Row {failure.rowNumber}</strong>
-							<span>{failure.personnelName || 'Unknown person'}</span>
-							<span>{failure.taskCode || 'No task code'}</span>
-							<span>{failure.message}</span>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
-	{/if}
-
-	{#snippet footer()}
-		<div class="spacer"></div>
-		{#if step === 'input'}
-			<button class="btn btn-sm" type="button" onclick={onCancel}>Cancel</button>
-		{:else if step === 'preview'}
-			<button class="btn btn-sm" type="button" onclick={handleBack}>Back</button>
-			<button class="btn btn-sm" type="button" onclick={onCancel}>Cancel</button>
-			<button class="btn btn-primary btn-sm" type="button" onclick={handleImport}>Import Checked Rows</button>
-		{:else if step === 'results'}
-			<button class="btn btn-primary btn-sm" type="button" onclick={onDone}>Done</button>
-		{/if}
-	{/snippet}
-</Modal>
-
-<style>
-	.import-workspace {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.import-summary {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
-	}
-
-	.import-summary h2,
-	.summary-copy,
-	.field-hint,
-	.failure-list {
-		margin: 0;
-	}
-
-	.summary-eyebrow {
-		margin: 0 0 var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: flex-start;
-	}
-
-	.summary-meta span {
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.review-groups {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.review-tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.review-tab {
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-		color: var(--text-secondary);
-		font: inherit;
-		cursor: pointer;
-	}
-
-	.review-tab.active {
-		background: var(--surface-panel);
-		color: var(--text-primary);
-		border-color: var(--border-strong);
-	}
-
-	.review-panel {
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-subtle);
-	}
-
-	.review-panel h3,
-	.review-row p,
-	.review-errors,
-	.review-matches,
-	.review-empty,
-	.review-subheading {
-		margin: 0;
-	}
-
-	.review-row-list,
-	.review-errors,
-	.review-matches {
-		padding-left: var(--sp-4);
-	}
-
-	.review-row-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.review-row {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.review-row-header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.review-chip {
-		padding: 2px var(--sp-2);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.review-subheading {
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.importing-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-3);
-		padding: var(--sp-8);
-	}
-
-	.failure-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding-left: var(--sp-4);
-	}
-
-	.failure-list li {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.spacer {
-		flex: 1;
-	}
-</style>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

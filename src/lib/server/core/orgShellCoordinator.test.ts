@@ -60,8 +60,6 @@ const membership: MembershipInfo = {
 
 const orgState: OrgState = {
 	orgName: 'Test Unit',
-	isDemoReadOnly: false,
-	isDemoSandbox: false,
 	effectiveTier: {
 		tier: 'free',
 		source: 'default',
@@ -197,8 +195,6 @@ describe('OrgShellCoordinator', () => {
 			unreadNotificationCount: 3,
 			activeAnnouncements: chrome.activeAnnouncements,
 			allOrgs: chrome.allOrgs,
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			shell: {
 				orgId: 'org-1',
 				orgName: 'Test Unit',
@@ -211,9 +207,7 @@ describe('OrgShellCoordinator', () => {
 				effectiveTier: orgState.effectiveTier,
 				unreadNotificationCount: 3,
 				activeAnnouncements: chrome.activeAnnouncements,
-				allOrgs: chrome.allOrgs,
-				isDemoReadOnly: false,
-				isDemoSandbox: false
+				allOrgs: chrome.allOrgs
 			}
 		});
 	});
@@ -231,82 +225,6 @@ describe('OrgShellCoordinator', () => {
 			orgSuspended: true,
 			orgId: 'org-1',
 			orgName: 'Test Unit'
-		});
-	});
-
-	it('preserves the deprecated demo read-only path through the coordinator boundary', async () => {
-		const coordinator = createTestCoordinator();
-
-		const result = await coordinator.loadRoot({
-			kind: 'shell',
-			access: createInMemoryOrgAccessPort({
-				membership: { ...membership, userId: null },
-				orgState: { ...orgState, isDemoReadOnly: true }
-			}),
-			chrome: createInMemoryOrgChromePort({
-				chrome: {
-					...chrome,
-					unreadNotificationCount: 0,
-					allOrgs: []
-				}
-			})
-		});
-
-		expect(result).toMatchObject({
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			userId: null,
-			userRole: 'member',
-			isDemoReadOnly: true,
-			isDemoSandbox: false
-		});
-	});
-
-	it('preserves the deprecated demo sandbox path through the coordinator boundary', async () => {
-		const coordinator = createTestCoordinator();
-
-		const result = await coordinator.loadRoot({
-			kind: 'shell',
-			access: createInMemoryOrgAccessPort({
-				membership: {
-					...membership,
-					userId: null,
-					role: 'owner',
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: true,
-						canViewPersonnel: true,
-						canEditPersonnel: true,
-						canViewTraining: true,
-						canEditTraining: true,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true,
-						canViewOnboarding: true,
-						canEditOnboarding: true,
-						canViewLeadersBook: true,
-						canEditLeadersBook: true,
-						canManageMembers: true
-					}
-				},
-				orgState: { ...orgState, isDemoSandbox: true }
-			}),
-			chrome: createInMemoryOrgChromePort({
-				chrome: {
-					...chrome,
-					unreadNotificationCount: 0,
-					allOrgs: []
-				}
-			})
-		});
-
-		expect(result).toMatchObject({
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			userId: null,
-			userRole: 'owner',
-			isOwner: true,
-			isDemoReadOnly: false,
-			isDemoSandbox: true
 		});
 	});
 

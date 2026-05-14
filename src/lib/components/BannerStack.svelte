@@ -29,25 +29,6 @@
 	});
 </script>
 
-<div class="banner-stack" bind:this={stackEl}>
+<div class="fixed inset-x-0 top-0 z-[90] flex flex-col bg-transparent" bind:this={stackEl}>
 	{@render children()}
 </div>
-
-<style>
-	.banner-stack {
-		position: fixed;
-		top: var(--header-height, 56px);
-		left: var(--app-rail-width, 0px);
-		right: 0;
-		z-index: 90;
-		display: flex;
-		flex-direction: column;
-		background: transparent;
-	}
-
-	@media (max-width: 920px) {
-		.banner-stack {
-			left: 0;
-		}
-	}
-</style>

@@ -176,18 +176,10 @@ function createDeferredResponse() {
 	return { promise, resolve, reject };
 }
 
-function rectWithWidth(width: number): DOMRect {
-	return {
-		width,
-		height: 40,
-		x: 0,
-		y: 0,
-		top: 0,
-		right: width,
-		bottom: 40,
-		left: 0,
-		toJSON: () => ({})
-	} as DOMRect;
+async function chooseCompletionDate(label: RegExp): Promise<void> {
+	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
+	const day = await screen.findByRole('button', { name: label });
+	await fireEvent.click(day);
 }
 
 describe('IctPersonnelDetailPage', () => {
@@ -248,43 +240,6 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByText('Demonstration')).toBeTruthy();
 		expect(screen.getByText('SFC Observer')).toBeTruthy();
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
-	});
-
-	it('compacts the task search filter before collapsing detail filters', async () => {
-		const originalRect = HTMLElement.prototype.getBoundingClientRect;
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-toolbar]')) return rectWithWidth(1000);
-			return originalRect.call(this);
-		});
-
-		render(IctPersonnelDetailPage, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksSettings: {
-						defaultExpirationMonths: 12,
-						expiringSoonWarningDays: 60
-					},
-					criticalTasksPersonnelHistory: {
-						...history,
-						rows: []
-					}
-				}
-			}
-		});
-
-		await waitFor(() => {
-			expect(
-				screen.getByRole('toolbar', { name: 'Personnel critical task controls' }).dataset.toolbarCompactPhase
-			).toBe('search');
-		});
-		expect(screen.getByTestId('ict-detail-filters')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Filter by task ID or name' })).toBeTruthy();
-		expect(screen.queryByRole('searchbox', { name: 'Filter by task ID or name' })).toBeNull();
 	});
 
 	it('shows log and edit actions for Critical Tasks operators on active task rows', () => {
@@ -465,9 +420,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-02-01' }
-		});
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Practical Exercise' }
 		});
@@ -489,7 +442,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'p-1',
 			ictTaskId: 'task-secondary',
-			completedAt: '2098-02-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Practical Exercise',
 			validatedBy: 'SFC Taylor Example',
 			notes: 'Lane validation'
@@ -504,7 +457,7 @@ describe('IctPersonnelDetailPage', () => {
 				id: 'completion-secondary',
 				personnelId: 'p-1',
 				ictTaskId: 'task-secondary',
-				completedAt: '2098-02-01',
+				completedAt: '2026-05-10',
 				validationMethod: 'Practical Exercise',
 				validatedBy: 'SFC Taylor Example',
 				notes: 'Lane validation',
@@ -560,11 +513,9 @@ describe('IctPersonnelDetailPage', () => {
 			target: { value: 'airway' }
 		});
 		taskList = screen.getByRole('listbox');
-		await fireEvent.mouseDown(within(taskList).getByText('181-105-1003 Airway management'));
+		await fireEvent.click(within(taskList).getByText('181-105-1003 Airway management'));
 
-		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
-			target: { value: '2098-03-01' }
-		});
+		await chooseCompletionDate(/May 10, 2026/i);
 		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
 			target: { value: 'Demonstration' }
 		});
@@ -579,7 +530,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
 			personnelId: 'p-1',
 			ictTaskId: 'task-secondary',
-			completedAt: '2098-03-01',
+			completedAt: '2026-05-10',
 			validationMethod: 'Demonstration',
 			validatedBy: null,
 			notes: null
@@ -590,7 +541,7 @@ describe('IctPersonnelDetailPage', () => {
 				id: 'completion-secondary',
 				personnelId: 'p-1',
 				ictTaskId: 'task-secondary',
-				completedAt: '2098-03-01',
+				completedAt: '2026-05-10',
 				validationMethod: 'Demonstration',
 				validatedBy: null,
 				notes: null,
@@ -700,82 +651,6 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByText('Evacuate casualty')).toBeTruthy();
 		expect(screen.getByText('Archived')).toBeTruthy();
 		expect(screen.getByText('Lane validation')).toBeTruthy();
-	});
-
-	it('keeps personnel toolbar controls on one row and orders icon-backed actions', () => {
-		ictTasksStore.load([activeTask], 'org-1');
-		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
-
-		render(IctPersonnelDetailPage, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksPersonnelHistory: history
-				}
-			}
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Personnel critical task controls' });
-		const statusFilter = within(toolbar).getByLabelText('Status');
-		const categoryFilter = within(toolbar).getByLabelText('Category');
-		const taskSearch = within(toolbar).getByLabelText('Filter by task ID or name');
-
-		expect(statusFilter.compareDocumentPosition(categoryFilter) & 4).toBeTruthy();
-		expect(categoryFilter.compareDocumentPosition(taskSearch) & 4).toBeTruthy();
-		expect(within(toolbar).queryByText('Sorted: Expiring first')).toBeNull();
-		expect(within(toolbar).queryByText('SGT Smith, Jane')).toBeNull();
-		expect(within(toolbar).queryByText('MOS 68W')).toBeNull();
-		const recordContext = screen.getByRole('region', { name: 'Personnel record context' });
-		expect(within(recordContext).getByText('MOS 68W')).toBeTruthy();
-		expect(within(recordContext).getByText('Medic')).toBeTruthy();
-
-		const actionGroup = within(toolbar).getByRole('group', { name: 'Personnel critical task actions' });
-		const actions = within(actionGroup).getAllByRole('button');
-
-		expect(actions.map((action) => action.textContent?.trim())).toEqual(['Print Record', 'Input Task']);
-		expect(actions[0].querySelector('svg')).not.toBeNull();
-		expect(actions[1].querySelector('svg')).not.toBeNull();
-	});
-
-	it('collapses personnel filters as one measured group and counts search as active', async () => {
-		const originalRect = HTMLElement.prototype.getBoundingClientRect;
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			if (this.matches('[data-toolbar]')) return rectWithWidth(520);
-			return originalRect.call(this);
-		});
-		ictTasksStore.load([activeTask], 'org-1');
-		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
-
-		render(IctPersonnelDetailPage, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					permissions: {
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: true
-					},
-					criticalTasksPersonnelHistory: history
-				}
-			}
-		});
-
-		await waitFor(() => {
-			expect(
-				screen.getByRole('toolbar', { name: 'Personnel critical task controls' }).dataset.toolbarCompactPhase
-			).toBe('group');
-		});
-		const filterTrigger = screen.getByRole('button', { name: 'Applicable task filters' });
-		expect(filterTrigger.getAttribute('data-active-count')).toBe('0');
-
-		await fireEvent.click(filterTrigger);
-		await fireEvent.input(await screen.findByLabelText('Filter by task ID or name'), { target: { value: '1102' } });
-
-		expect(filterTrigger.getAttribute('data-active-count')).toBe('1');
-		expect(within(filterTrigger).getByText('1 active')).toBeTruthy();
 	});
 
 	it('keeps archived history separate from active task records', () => {

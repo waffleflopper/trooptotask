@@ -4,10 +4,9 @@
 	import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import OnboardingPageView from '$features/onboarding/components/OnboardingPageView.svelte';
+	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';
 	import OnboardingModals from '$features/onboarding/components/OnboardingModals.svelte';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
@@ -69,55 +68,23 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
-		<div class="workspace-loading__header">
-			<SkeletonLine width="124px" height="12px" />
-			<SkeletonLine width="96px" height="12px" />
+	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-busy="true" aria-live="polite" role="status">
+		<div class="flex flex-wrap items-center gap-3">
+			<Skeleton class="h-3 w-[124px]" />
+			<Skeleton class="h-3 w-24" />
 		</div>
-		<div class="workspace-loading__overview">
+		<div class="grid gap-3 min-[721px]:grid-cols-3">
 			{#each loadingSkeletonItems as item (item)}
-				<SkeletonBlock height="116px" />
+				<Skeleton class="h-[116px] w-full" />
 			{/each}
 		</div>
-		<div class="workspace-loading__list">
+		<div class="grid gap-3">
 			{#each loadingSkeletonItems as item (item)}
-				<SkeletonBlock height="88px" />
+				<Skeleton class="h-[88px] w-full" />
 			{/each}
 		</div>
 	</section>
 {:else if ctx}
-	<OnboardingPageView {ctx} />
+	<OnboardingKanbanView {ctx} />
 	<OnboardingModals {ctx} />
 {/if}
-
-<style>
-	.workspace-loading {
-		display: grid;
-		gap: var(--sp-4);
-		padding: var(--sp-5) var(--sp-6) var(--sp-6);
-	}
-
-	.workspace-loading__header {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		align-items: center;
-	}
-
-	.workspace-loading__overview {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.workspace-loading__list {
-		display: grid;
-		gap: var(--sp-3);
-	}
-
-	@media (max-width: 720px) {
-		.workspace-loading__overview {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

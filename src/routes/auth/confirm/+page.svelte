@@ -2,7 +2,8 @@
 	import { enhance } from '$app/forms';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { data } = $props();
 
@@ -52,7 +53,7 @@
 		'If the link has expired, request a fresh email and try again.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if validConfirmation}
 			<AuthNotice tone="info" title={confirmationTitle}>
 				<p>
@@ -69,21 +70,21 @@
 						await update();
 					};
 				}}
-				class="auth-stack"
+				class="flex flex-col gap-5"
 			>
 				<input type="hidden" name="tokenHash" value={validConfirmation.tokenHash} />
 				<input type="hidden" name="type" value={validConfirmation.type} />
 				<input type="hidden" name="next" value={validConfirmation.next} />
 
-				<div class="auth-actions">
-					<button type="submit" class="btn btn-primary" disabled={loading}>
+				<div class="flex flex-col gap-3">
+					<Button type="submit" disabled={loading} class="w-full">
 						{#if loading}
 							<Spinner />
 							Confirming...
 						{:else}
 							{submitLabel}
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</form>
 		{:else}
@@ -92,10 +93,10 @@
 				<p>Request a fresh invite or password reset email, then try again.</p>
 			</AuthNotice>
 
-			<div class="auth-actions">
-				<a href="/auth/login" class="btn btn-primary">Back to Sign In</a>
-				<a href="/auth/forgot-password" class="btn btn-secondary">Reset Password</a>
-				<a href="/auth/renew-invite" class="btn btn-secondary">Renew Invite</a>
+			<div class="flex flex-col gap-3">
+				<Button href="/auth/login" class="w-full">Back to Sign In</Button>
+				<Button href="/auth/forgot-password" variant="outline" class="w-full">Reset Password</Button>
+				<Button href="/auth/renew-invite" variant="outline" class="w-full">Renew Invite</Button>
 			</div>
 		{/if}
 	</div>

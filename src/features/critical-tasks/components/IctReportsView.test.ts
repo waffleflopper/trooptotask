@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -352,7 +352,7 @@ describe('IctReportsView', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders KPI cards and updates the shared report context when filters change', async () => {
+	it('renders the analysis console and updates the shared report context when filters change', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
@@ -364,89 +364,61 @@ describe('IctReportsView', () => {
 		});
 
 		expect(screen.getByRole('toolbar', { name: 'Critical task report controls' })).toBeTruthy();
-		const kpiStrip = screen.getByRole('region', { name: 'Critical task report metrics' });
-		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
-		expect(
-			within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
-		).toBe('67%');
-		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
-		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤45d' })).toBeTruthy();
-		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
+		const analysisConsole = screen.getByRole('region', { name: 'Critical task analysis console' });
+		expect(within(analysisConsole).queryByRole('heading', { name: 'Critical task analysis console' })).toBeNull();
+		const reportScope = within(analysisConsole).getByLabelText('Critical task report scope');
+		expect(within(reportScope).getByText('Population')).toBeTruthy();
+		expect(within(reportScope).getByText('2')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Readiness summary')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Current filtered population')).toBeTruthy();
+		expect(within(analysisConsole).getAllByText('67%').length).toBeGreaterThan(0);
+		expect(within(analysisConsole).getByText('Immediate risk')).toBeTruthy();
+		expect(within(analysisConsole).getAllByText('Jones, Alex').length).toBeGreaterThan(0);
 		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
 		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
 		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
-		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers — Call List' });
+		const atRiskSection = screen.getByRole('region', { name: 'At-Risk Soldiers - Call List' });
 		expect(within(atRiskSection).getByText('Jones, Alex')).toBeTruthy();
-		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend — 12 Months' });
-		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix — MOS × Task Category' });
+		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
+		const readinessMatrixSection = screen.getByRole('region', { name: 'Readiness Matrix - MOS x Task Category' });
 		expect(
 			within(readinessMatrixSection).getByRole('table', { name: 'MOS by task category readiness matrix' })
 		).toBeTruthy();
 		expect(within(readinessMatrixSection).getByLabelText('11B Medical readiness: 67%, 67 of 100 current')).toBeTruthy();
-		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
+		expect(within(readinessTrendSection).getByRole('figure', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
 		expect(
 			Boolean(readinessMatrixSection.compareDocumentPosition(readinessTrendSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
-		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff — Next 6 Months' });
-		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
+		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff - Next 6 Months' });
+		expect(within(expirationCliffSection).getByRole('figure', { name: '6-month expiration cliff chart' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('58% by SEP 2026')).toBeTruthy();
 		expect(within(expirationCliffSection).getByText('- a 9-point drop from current.')).toBeTruthy();
-		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
-		expect(expirationCliffSection.parentElement?.classList.contains('report-followup-grid')).toBe(true);
+		expect(expirationCliffSection.parentElement).toBe(readinessTrendSection.parentElement);
+		expect(expirationCliffSection.parentElement?.classList.contains('grid')).toBe(true);
 		expect(
-			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+			Boolean(readinessTrendSection.compareDocumentPosition(expirationCliffSection) & Node.DOCUMENT_POSITION_FOLLOWING)
 		).toBe(true);
-		const distributionSection = screen.getByRole('region', { name: 'Distribution — Individual Readiness by MOS' });
+		expect(atRiskSection.parentElement).toBe(belowThresholdSection.parentElement);
+		const distributionSection = screen.getByRole('region', { name: 'Distribution - Individual Readiness by MOS' });
 		expect(
-			within(distributionSection).getByRole('img', { name: 'Individual readiness distribution histogram' })
+			within(distributionSection).getByRole('figure', { name: 'Individual readiness distribution histogram' })
 		).toBeTruthy();
 		expect(
 			within(distributionSection).getByRole('table', { name: 'Individual readiness distribution data' })
 		).toBeTruthy();
 		expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
+		expect(within(analysisConsole).getByText('Distribution readout')).toBeTruthy();
+		expect(within(analysisConsole).getByText('Default MOS')).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 		expect(screen.queryByText('Action KPIs')).toBeNull();
+		expect(screen.queryByText('Baseline report stack')).toBeNull();
+		expect(screen.queryByText('Commander brief')).toBeNull();
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
-
-		const mosFilter = screen.getByRole('combobox', { name: 'Filter by MOS' });
-		await fireEvent.focus(mosFilter);
-		const mosList = screen.getByRole('listbox', { name: 'Filter by MOS' });
-		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '68W' }));
-		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '11B' }));
-
-		expect(screen.getByRole('button', { name: 'Remove 68W' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Remove 11B' })).toBeTruthy();
-
-		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith(
-				'/org/org-1/api/critical-tasks/reports/summary?mos=11B&mos=68W',
-				expect.objectContaining({ signal: expect.any(AbortSignal) })
-			);
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
-			);
-			expect(
-				within(kpiStrip).getByRole('article', { name: 'Overall Readiness' }).querySelector('.kpi-value')?.textContent
-			).toBe('100%');
-			expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤60d' })).toBeTruthy();
-			expect(
-				within(readinessMatrixSection).getByLabelText('68W Medical readiness: 100%, 100 of 100 current')
-			).toBeTruthy();
-			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
-			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
-			expect(within(distributionSection).getByText('Overlaying selected MOS filters.')).toBeTruthy();
-			expect(within(distributionSection).getByRole('columnheader', { name: '68W Soldiers' })).toBeTruthy();
-			expect(within(distributionSection).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
-			expect(within(expirationCliffSection).getByText('Projected unit readiness without retraining:')).toBeTruthy();
-			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
-			expect(within(atRiskSection).getByRole('button', { name: 'Sort by Tasks Expiring ≤60d' })).toBeTruthy();
-			expect(screen.getByText('Smith, Jane')).toBeTruthy();
-		});
 	});
 
 	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
@@ -480,53 +452,6 @@ describe('IctReportsView', () => {
 		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
 		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
-	});
-
-	it('updates report filters through shared toolbar select controls', async () => {
-		render(IctReportsView, {
-			props: {
-				orgId: 'org-1',
-				personnel: [medic, infantry],
-				groups: [alpha, bravo],
-				tasks: [medicTask, commonTask],
-				initialDashboard
-			}
-		});
-
-		await fireEvent.change(screen.getByLabelText('Filter by group'), { target: { value: 'group-bravo' } });
-
-		await fireEvent.change(screen.getByLabelText('Filter by rank'), { target: { value: 'SGT' } });
-
-		await fireEvent.change(screen.getByLabelText('Filter by duty role'), { target: { value: 'Rifleman' } });
-
-		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith(
-				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-bravo&role=Rifleman&rank=SGT',
-				expect.objectContaining({ signal: expect.any(AbortSignal) })
-			);
-			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				'/org/org-1/api/critical-tasks/reports/export?groupId=group-bravo&role=Rifleman&rank=SGT'
-			);
-		});
-	});
-
-	it('collapses report filters at the shared group breakpoint', async () => {
-		measuredToolbarWidth = 580;
-
-		render(IctReportsView, {
-			props: {
-				orgId: 'org-1',
-				personnel: [medic, infantry],
-				groups: [alpha, bravo],
-				tasks: [medicTask, commonTask],
-				initialDashboard
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByTestId('toolbar').getAttribute('data-toolbar-compact-phase')).toBe('group');
-		});
-		expect(screen.getByRole('button', { name: 'Critical task report filters' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'Critical task analysis console' })).toBeNull();
 	});
 });

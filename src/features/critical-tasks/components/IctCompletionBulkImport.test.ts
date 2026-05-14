@@ -108,21 +108,23 @@ describe('IctCompletionBulkImport', () => {
 		expect(screen.getByText('1 ready to import')).toBeTruthy();
 		expect(screen.getByText('1 ambiguous')).toBeTruthy();
 		expect(screen.getByText('1 invalid')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Ready (1)' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Ambiguous (1)' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Invalid (1)' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Ready (1)' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Ambiguous (1)' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Invalid (1)' })).toBeTruthy();
 		expect(screen.getByText('Showing Ambiguous rows')).toBeTruthy();
 		expect(screen.getByText('Possible matches')).toBeTruthy();
 		expect(screen.getByText('SPC Jane Smith')).toBeTruthy();
-		expect(screen.getByText('SGT Jane Smith')).toBeTruthy();
+		expect(screen.getAllByText('SGT Jane Smith').length).toBeGreaterThan(0);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Invalid (1)' }));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Invalid (1)' }));
 
 		expect(screen.getByText('Showing Invalid rows')).toBeTruthy();
 		expect(screen.getByText('Row 4')).toBeTruthy();
-		expect(screen.getByText('Task code "BAD-TASK" does not match an existing critical task')).toBeTruthy();
+		expect(screen.getAllByText('Task code "BAD-TASK" does not match an existing critical task').length).toBeGreaterThan(
+			0
+		);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Ready (1)' }));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Ready (1)' }));
 
 		expect(screen.getByText('Showing Ready rows')).toBeTruthy();
 		expect(screen.getByText(/181-105-1001 Perform tactical combat casualty care/i)).toBeTruthy();

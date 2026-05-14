@@ -3,19 +3,35 @@
 	import type { Personnel } from '$lib/types';
 	import { ALL_RANKS } from '$lib/types';
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { PERSONNEL_COLUMNS, detectHeaderRow } from '$lib/utils/columnMapping';
-	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
+	import { parseFile } from '$lib/utils/csvParser';
 
 	interface Props {
 		orgId: string;
 		personnel: Personnel[];
 		groups: Group[];
 		onComplete: () => void;
+		showInputActions?: boolean;
+		footerState?: {
+			step: MergeState;
+			disabled: boolean;
+			label: string;
+		};
 	}
 
-	let { orgId, personnel, groups, onComplete }: Props = $props();
-
 	type MergeState = 'input' | 'preview' | 'merging' | 'results';
+
+	let {
+		orgId,
+		personnel,
+		groups,
+		onComplete,
+		showInputActions = true,
+		footerState = $bindable({ step: 'input', disabled: true, label: 'Preview Rows' })
+	}: Props = $props();
 
 	interface MergeMessage {
 		index: number;
@@ -66,55 +82,27 @@
 	}
 
 	let mergeStep = $state<MergeState>('input');
-	let importText = $state('');
 	let fileRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
-	let fileInput: HTMLInputElement | undefined = $state();
-	let textRows = $state<string[][]>([]);
-	let textError = $state('');
-	let parseRequestId = 0;
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let importError = $state('');
 	let mergeResult = $state<MergeResult | null>(null);
 	let isSubmitting = $state(false);
 	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
 
-	const exampleCsv = `Rank,Last Name,First Name,ETS,PCS / DEROS
-SGT,Smith,Jamie,2027-05-01,
-SSG,Jones,Pat,,2026-11-30`;
-
-	$effect(() => {
-		const currentText = uploadedFileName ? '' : importText;
-		const requestId = ++parseRequestId;
-
-		if (!currentText.trim()) {
-			textRows = [];
-			textError = '';
-			return;
-		}
-
-		textRows = [];
-		textError = '';
-
-		let active = true;
-		parseCSVText(currentText)
-			.then((rows) => {
-				if (!active || requestId !== parseRequestId) return;
-				textRows = rows;
-			})
-			.catch((err) => {
-				if (!active || requestId !== parseRequestId) return;
-				textRows = [];
-				textError = err instanceof Error ? err.message : 'Failed to parse pasted text';
-			});
-
-		return () => {
-			active = false;
-		};
-	});
-
-	const rawRows = $derived(uploadedFileName ? fileRows : textRows);
+	const rawRows = $derived(fileRows);
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
 	);
+	const previewLabel = $derived(`Preview ${dataRowCount > 0 ? dataRowCount : ''} Rows`);
+
+	$effect(() => {
+		footerState = {
+			step: mergeStep,
+			disabled: rawRows.length === 0,
+			label: previewLabel
+		};
+	});
 
 	function findMatches(row: Record<string, string>): Personnel[] {
 		const rank = (row.rank ?? '').trim().toLowerCase();
@@ -185,24 +173,29 @@ SSG,Jones,Pat,,2026-11-30`;
 		if (!file) return;
 
 		uploadedFileName = file.name;
-		importText = '';
+		importError = '';
 		try {
 			fileRows = await parseFile(file);
 		} catch (err) {
 			fileRows = [];
 			uploadedFileName = '';
-			textError = err instanceof Error ? err.message : 'Failed to parse uploaded file';
+			importError = err instanceof Error ? err.message : 'Failed to parse uploaded file';
 		}
 	}
 
 	function clearFile() {
 		uploadedFileName = '';
 		fileRows = [];
+		importError = '';
 		if (fileInput) fileInput.value = '';
 	}
 
 	function goToPreview() {
 		mergeStep = 'preview';
+	}
+
+	export function previewRows() {
+		goToPreview();
 	}
 
 	function backToInput() {
@@ -267,117 +260,103 @@ SSG,Jones,Pat,,2026-11-30`;
 			isSubmitting = false;
 		}
 	}
-
-	function useExample() {
-		importText = exampleCsv;
-		uploadedFileName = '';
-	}
 </script>
 
 {#if mergeStep === 'input'}
-	<div class="merge-section">
-		<div class="merge-intro">
-			<h3>Bulk Update Existing Personnel</h3>
-			<p>Backfill `ETS` and `PCS / DEROS` on personnel who already exist in the organization.</p>
-			<p class="hint">
+	<div class="grid gap-4">
+		<div class="grid gap-2">
+			<h3 class="text-base font-medium">Bulk Update Existing Personnel</h3>
+			<p class="text-sm text-muted-foreground">
+				Backfill `ETS` and `PCS / DEROS` on personnel who already exist in the organization.
+			</p>
+			<p class="text-sm text-muted-foreground">
 				Matching uses exact Rank + Last Name + First Name. Add Group when duplicates need disambiguation.
 			</p>
 		</div>
 
-		<div class="upload-section">
-			<h4>Upload File</h4>
-			<p class="hint">Upload an Excel (.xlsx) or CSV file</p>
-			<div class="upload-row">
-				<input
-					type="file"
-					accept=".xlsx,.csv"
-					onchange={handleFileUpload}
-					bind:this={fileInput}
-					class="file-input"
-					id="mergeFileUpload"
-				/>
-				<button class="btn btn-secondary upload-btn" type="button" onclick={() => fileInput?.click()}
-					>Choose File</button
-				>
-				{#if uploadedFileName}
-					<span class="file-name">{uploadedFileName}</span>
-					<button class="btn btn-secondary btn-sm" type="button" onclick={clearFile}>Clear</button>
-				{/if}
+		<section class="grid gap-3 rounded-lg border border-dashed bg-muted/25 p-4">
+			<div class="grid gap-1">
+				<h4 class="font-medium">Upload File</h4>
+				<p class="text-sm text-muted-foreground">Upload an Excel (.xlsx) or CSV file.</p>
 			</div>
-			<p class="format-hint">Columns: Rank, Last Name, First Name, Group, ETS, PCS / DEROS</p>
-		</div>
+			<Input id="mergeFileUpload" type="file" accept=".xlsx,.csv" onchange={handleFileUpload} bind:ref={fileInput} />
+			{#if uploadedFileName}
+				<div class="flex items-center justify-between gap-2">
+					<span class="truncate font-mono text-xs">{uploadedFileName}</span>
+					<Button variant="outline" size="sm" type="button" onclick={clearFile}>Clear</Button>
+				</div>
+			{/if}
+			<p class="text-xs text-muted-foreground">Columns: Rank, Last Name, First Name, Group, ETS, PCS / DEROS</p>
+		</section>
 
-		<div class="divider"><span>or paste text</span></div>
-
-		<div class="format-info">
-			<h4>Paste Data</h4>
-			<p>Use a header row with personnel identity columns plus the dates you want to backfill.</p>
-			<code>Rank, Last Name, First Name, Group, ETS, PCS / DEROS</code>
-			<p class="hint">Group is optional unless you need it to break a duplicate match.</p>
-		</div>
-
-		<div class="example-box">
-			<div class="example-header">
-				<span>Example</span>
-				<button class="btn btn-secondary btn-sm" type="button" onclick={useExample}>Use Example</button>
-			</div>
-			<pre>{exampleCsv}</pre>
-		</div>
-
-		<div class="form-group">
-			<label class="label" for="mergeImportText">Personnel Data</label>
-			<textarea
-				id="mergeImportText"
-				class="input import-textarea"
-				bind:value={importText}
-				placeholder="Paste personnel update data here..."
-				rows={6}
-				disabled={!!uploadedFileName}
-			></textarea>
-		</div>
-
-		{#if textError}
-			<p class="text-error">{textError}</p>
+		{#if importError}
+			<p class="text-sm text-destructive">{importError}</p>
 		{/if}
 
-		<div class="actions">
-			<button class="btn btn-primary" type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
-				Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
-			</button>
-		</div>
+		{#if showInputActions}
+			<div class="flex justify-end">
+				<Button type="button" onclick={goToPreview} disabled={rawRows.length === 0}>
+					{previewLabel}
+				</Button>
+			</div>
+		{/if}
 	</div>
 {:else if mergeStep === 'preview'}
-	<div class="merge-preview">
-		<p class="hint preview-hint">
+	<div class="grid gap-4">
+		<p class="text-sm text-muted-foreground">
 			Only checked rows with a unique personnel match and at least one update value will be submitted.
 		</p>
 		<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
-		<div class="actions">
-			<button class="btn btn-secondary" type="button" onclick={backToInput}>Back</button>
-			<button class="btn btn-primary" type="button" onclick={runMerge} disabled={isSubmitting}>Apply Updates</button>
+		<div class="flex justify-end gap-2">
+			<Button variant="outline" type="button" onclick={backToInput}>Back</Button>
+			<Button type="button" onclick={runMerge} disabled={isSubmitting}>Apply Updates</Button>
 		</div>
 	</div>
 {:else if mergeStep === 'merging'}
-	<div class="importing-state">
-		<div class="spinner"></div>
+	<div class="grid justify-items-center gap-4 py-12 text-muted-foreground">
+		<Spinner />
 		<p>Applying personnel updates...</p>
 	</div>
 {:else if mergeStep === 'results' && mergeResult}
-	<div class="results-section">
-		<h3>Merge Results</h3>
-		<p class="hint">Found rows can be higher than changed rows when values are already current.</p>
-		<div class="summary-grid">
-			<div class="summary-card"><strong>{mergeResult.matched.length}</strong><span>person rows found</span></div>
-			<div class="summary-card"><strong>{mergeResult.updated.length}</strong><span>values changed</span></div>
-			<div class="summary-card"><strong>{mergeResult.skipped.length}</strong><span>skipped</span></div>
-			<div class="summary-card"><strong>{mergeResult.ambiguous.length}</strong><span>ambiguous</span></div>
-			<div class="summary-card"><strong>{mergeResult.errors.length}</strong><span>failed</span></div>
+	<div class="grid gap-4">
+		<div class="grid gap-1">
+			<h3 class="text-base font-medium">Merge Results</h3>
+			<p class="text-sm text-muted-foreground">
+				Found rows can be higher than changed rows when values are already current.
+			</p>
+		</div>
+		<div class="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-3">
+			<div class="summary-card grid gap-1 rounded-lg border bg-muted/40 p-4">
+				<strong class="text-xl">{mergeResult.matched.length}</strong><span class="text-sm text-muted-foreground"
+					>person rows found</span
+				>
+			</div>
+			<div class="summary-card grid gap-1 rounded-lg border bg-muted/40 p-4">
+				<strong class="text-xl">{mergeResult.updated.length}</strong><span class="text-sm text-muted-foreground"
+					>values changed</span
+				>
+			</div>
+			<div class="summary-card grid gap-1 rounded-lg border bg-muted/40 p-4">
+				<strong class="text-xl">{mergeResult.skipped.length}</strong><span class="text-sm text-muted-foreground"
+					>skipped</span
+				>
+			</div>
+			<div class="summary-card grid gap-1 rounded-lg border bg-muted/40 p-4">
+				<strong class="text-xl">{mergeResult.ambiguous.length}</strong><span class="text-sm text-muted-foreground"
+					>ambiguous</span
+				>
+			</div>
+			<div class="summary-card grid gap-1 rounded-lg border bg-muted/40 p-4">
+				<strong class="text-xl">{mergeResult.errors.length}</strong><span class="text-sm text-muted-foreground"
+					>failed</span
+				>
+			</div>
 		</div>
 
 		{#if mergeResult.skipped.length > 0}
-			<div class="result-list">
-				<h4>Skipped</h4>
-				<ul>
+			<div class="rounded-lg border bg-muted/40 p-4">
+				<h4 class="font-medium">Skipped</h4>
+				<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 					{#each mergeResult.skipped as item, index (index)}
 						<li>
 							{#if item.index >= 0}Row {item.index + 1}:
@@ -389,9 +368,9 @@ SSG,Jones,Pat,,2026-11-30`;
 		{/if}
 
 		{#if mergeResult.ambiguous.length > 0}
-			<div class="result-list">
-				<h4>Ambiguous</h4>
-				<ul>
+			<div class="rounded-lg border bg-muted/40 p-4">
+				<h4 class="font-medium">Ambiguous</h4>
+				<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 					{#each mergeResult.ambiguous as item, index (index)}
 						<li>
 							{#if item.index >= 0}Row {item.index + 1}:
@@ -403,9 +382,9 @@ SSG,Jones,Pat,,2026-11-30`;
 		{/if}
 
 		{#if mergeResult.errors.length > 0}
-			<div class="result-list result-list--error">
-				<h4>Failed</h4>
-				<ul>
+			<div class="rounded-lg border border-destructive/25 bg-destructive/10 p-4">
+				<h4 class="font-medium text-destructive">Failed</h4>
+				<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-destructive">
 					{#each mergeResult.errors as item, index (index)}
 						<li>
 							{#if item.index >= 0}Row {item.index + 1}:
@@ -416,159 +395,8 @@ SSG,Jones,Pat,,2026-11-30`;
 			</div>
 		{/if}
 
-		<div class="actions">
-			<button class="btn btn-primary" type="button" onclick={onComplete}>Done</button>
+		<div class="flex justify-end">
+			<Button type="button" onclick={onComplete}>Done</Button>
 		</div>
 	</div>
 {/if}
-
-<style>
-	.merge-section,
-	.merge-preview,
-	.results-section,
-	.importing-state {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.merge-intro h3,
-	.results-section h3,
-	.upload-section h4,
-	.format-info h4,
-	.result-list h4 {
-		margin: 0;
-	}
-
-	.merge-intro p {
-		margin: 0;
-	}
-
-	.hint,
-	.format-hint,
-	.preview-hint {
-		color: var(--text-secondary);
-	}
-
-	.upload-section {
-		padding: var(--sp-5);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-		border-radius: var(--radius-md);
-		border: 1px dashed color-mix(in srgb, var(--border-default) 88%, var(--ink-35) 12%);
-	}
-
-	.upload-row,
-	.example-header,
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.file-input {
-		display: none;
-	}
-
-	.file-name {
-		font-weight: var(--font-weight-medium);
-		color: var(--text-primary);
-	}
-
-	.divider {
-		position: relative;
-		text-align: center;
-		color: var(--text-tertiary);
-	}
-
-	.divider::before {
-		content: '';
-		position: absolute;
-		inset: 50% 0 auto;
-		border-top: var(--border-thin);
-	}
-
-	.divider span {
-		position: relative;
-		padding: 0 var(--sp-3);
-		background: var(--surface-panel);
-	}
-
-	.format-info,
-	.example-box,
-	.result-list,
-	.summary-card {
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-	}
-
-	.example-box pre,
-	.format-info code {
-		margin: 0;
-		white-space: pre-wrap;
-		word-break: break-word;
-	}
-
-	.import-textarea {
-		min-height: 180px;
-		font-family: var(--font-mono);
-	}
-
-	.text-error {
-		margin: 0;
-		color: var(--red-dark);
-	}
-
-	.actions {
-		justify-content: flex-end;
-	}
-
-	.importing-state {
-		align-items: center;
-		justify-content: center;
-		padding: var(--sp-8) 0;
-	}
-
-	.spinner {
-		width: 28px;
-		height: 28px;
-		border: 3px solid var(--border-default);
-		border-top-color: var(--amber);
-		border-radius: 999px;
-		animation: spin 1s linear infinite;
-	}
-
-	.summary-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: var(--sp-3);
-	}
-
-	.summary-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		align-items: flex-start;
-	}
-
-	.summary-card strong {
-		font-size: var(--text-xl);
-	}
-
-	.result-list ul {
-		margin: var(--sp-2) 0 0;
-		padding-left: var(--sp-4);
-	}
-
-	.result-list--error {
-		background: color-mix(in srgb, var(--red-light) 55%, var(--surface-panel) 45%);
-		border-color: color-mix(in srgb, var(--red) 55%, var(--border-default) 45%);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-</style>

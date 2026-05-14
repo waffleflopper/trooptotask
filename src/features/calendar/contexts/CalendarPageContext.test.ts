@@ -8,8 +8,13 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
+import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
+import {
+	createTestOrgContext,
+	FULL_TEST_CAPABILITY_MAP,
+	VIEW_TEST_CAPABILITY_MAP
+} from '$lib/test-support/orgContextBuilder';
 
 vi.mock('$lib/preferences/userPreferences.client', () => ({
 	queueUserPreferencesPatch: vi.fn()
@@ -71,38 +76,23 @@ const mutableSpecialDaysStore = specialDaysStore as unknown as { loading: boolea
 const mutableStatusTypesStore = statusTypesStore as unknown as { loading: boolean };
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
 
-function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const defaultCapabilityMap = {
-		calendar: 'view',
-		personnel: 'view',
-		training: 'view',
-		criticalTasks: 'view',
-		onboarding: 'view',
-		ratingScheme: 'view'
-	} satisfies OrgContext['capabilityMap'];
-	const configureCapabilityMap = {
-		calendar: 'configure',
-		personnel: 'configure',
-		training: 'configure',
-		criticalTasks: 'configure',
-		onboarding: 'configure',
-		ratingScheme: 'configure'
-	} satisfies OrgContext['capabilityMap'];
-
-	return createOrgContext({
+function makeMockOrg(
+	overrides: {
+		userRole?: 'owner' | 'admin' | 'member';
+		capabilityMap?: import('$lib/access/memberAccessShape').CapabilityMap;
+		scopeSet?: import('$lib/access/memberAccessShape').ScopeSet;
+		isReadOnly?: boolean;
+	} = {}
+) {
+	const role = overrides.userRole ?? 'member';
+	const isPrivileged = role === 'owner' || role === 'admin';
+	return createTestOrgContext({
 		orgId: 'org1',
-		orgName: 'Test Org',
 		userId: 'user1',
-		userRole: overrides.isOwner ? 'owner' : overrides.isAdmin ? 'admin' : (overrides.role ?? 'member'),
-		capabilityMap:
-			overrides.capabilityMap ??
-			(overrides.isOwner || overrides.isAdmin || overrides.isFullEditor
-				? configureCapabilityMap
-				: defaultCapabilityMap),
-		scopeSet: overrides.scopeSet ?? { kind: 'organization' },
-		permissions: {} as OrgContext['permissions'],
-		scopedGroupId: null,
-		isReadOnly: overrides.readOnly ?? false
+		userRole: role,
+		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
+		scopeSet: overrides.scopeSet,
+		isReadOnly: overrides.isReadOnly ?? false
 	});
 }
 
@@ -137,12 +127,12 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('canManageConfig is true for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ userRole: 'owner' }));
 			expect(ownerCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for admin', () => {
-			const adminCtx = new CalendarPageContext(mockData, makeMockOrg({ isAdmin: true }));
+			const adminCtx = new CalendarPageContext(mockData, makeMockOrg({ userRole: 'admin' }));
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
@@ -157,8 +147,7 @@ describe('CalendarPageContext', () => {
 						criticalTasks: 'view',
 						onboarding: 'view',
 						ratingScheme: 'view'
-					},
-					isFullEditor: false
+					}
 				})
 			);
 			expect(editorCtx.canManageConfig).toBe(true);
@@ -175,8 +164,7 @@ describe('CalendarPageContext', () => {
 						criticalTasks: 'view',
 						onboarding: 'view',
 						ratingScheme: 'view'
-					},
-					isFullEditor: false
+					}
 				})
 			);
 

@@ -5,6 +5,7 @@ const {
 	acceptAndApplyDutyRosterTemplatePreviewMock,
 	applyAcceptedDutyRosterTemplateRunMock,
 	applyDutyRosterTemplatePreviewManualSelectionMock,
+	archiveDutyRosterTemplateMock,
 	invalidateLatestDutyRosterTemplateRunMock,
 	loadWithContextMock,
 	loadDutyRosterTemplateCountReadModelMock,
@@ -22,6 +23,7 @@ const {
 	acceptAndApplyDutyRosterTemplatePreviewMock: vi.fn(),
 	applyAcceptedDutyRosterTemplateRunMock: vi.fn(),
 	applyDutyRosterTemplatePreviewManualSelectionMock: vi.fn(),
+	archiveDutyRosterTemplateMock: vi.fn(),
 	invalidateLatestDutyRosterTemplateRunMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	loadDutyRosterTemplateCountReadModelMock: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock('$lib/server/core/useCases/dutyRosterTemplates', () => ({
 	acceptAndApplyDutyRosterTemplatePreview: acceptAndApplyDutyRosterTemplatePreviewMock,
 	applyAcceptedDutyRosterTemplateRun: applyAcceptedDutyRosterTemplateRunMock,
 	applyDutyRosterTemplatePreviewManualSelection: applyDutyRosterTemplatePreviewManualSelectionMock,
+	archiveDutyRosterTemplate: archiveDutyRosterTemplateMock,
 	findDutyRosterTemplateBySlug: findDutyRosterTemplateBySlugMock,
 	generateDutyRosterTemplatePreview: generateDutyRosterTemplatePreviewMock,
 	invalidateLatestDutyRosterTemplateRun: invalidateLatestDutyRosterTemplateRunMock,
@@ -82,6 +85,7 @@ describe('Duty Roster Template view route', () => {
 		loadDutyRosterTemplateCountReadModelMock.mockResolvedValue(countReadModel());
 		generateDutyRosterTemplatePreviewMock.mockResolvedValue(preview());
 		applyDutyRosterTemplatePreviewManualSelectionMock.mockResolvedValue(preview({ manual: true }));
+		archiveDutyRosterTemplateMock.mockResolvedValue(template({ id: 'template-1', status: 'archived' }));
 		acceptDutyRosterTemplatePreviewMock.mockResolvedValue(acceptedRun());
 		acceptAndApplyDutyRosterTemplatePreviewMock.mockResolvedValue({ acceptedRun: acceptedRun(), insertedCount: 1 });
 		applyAcceptedDutyRosterTemplateRunMock.mockResolvedValue({
@@ -485,6 +489,27 @@ describe('Duty Roster Template view route', () => {
 			data: {
 				settingsError: 'Duty exemptions must come from the resolved pool.'
 			}
+		});
+	});
+
+	it('archives a template and returns to the register', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({ templateId: 'template-1' })
+		});
+
+		await expect(
+			actions.archiveTemplate({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters'
+		});
+
+		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, {
+			templateId: 'template-1'
 		});
 	});
 

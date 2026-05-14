@@ -3,13 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BulkPersonnelMerge from './BulkPersonnelMerge.svelte';
 
-const { parseCSVTextMock, parseFileMock } = vi.hoisted(() => ({
-	parseCSVTextMock: vi.fn(),
+const { parseFileMock } = vi.hoisted(() => ({
 	parseFileMock: vi.fn()
 }));
 
 vi.mock('$lib/utils/csvParser', () => ({
-	parseCSVText: parseCSVTextMock,
 	parseFile: parseFileMock
 }));
 
@@ -26,7 +24,7 @@ describe('BulkPersonnelMerge', () => {
 	});
 
 	it('submits merge rows to the dedicated merge endpoint and renders the results summary', async () => {
-		parseCSVTextMock.mockResolvedValue([
+		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'ETS'],
 			['SGT', 'Smith', 'Jamie', '2027-05-01']
 		]);
@@ -65,10 +63,10 @@ describe('BulkPersonnelMerge', () => {
 			}
 		});
 
-		await fireEvent.input(screen.getByLabelText('Personnel Data'), {
-			target: {
-				value: 'Rank, Last Name, First Name, ETS\nSGT, Smith, Jamie, 2027-05-01'
-			}
+		const input = document.querySelector<HTMLInputElement>('#mergeFileUpload');
+		expect(input).toBeTruthy();
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel-dates.csv', { type: 'text/csv' })] }
 		});
 
 		await waitFor(() => expect(screen.getByRole('button', { name: /Preview 1 Rows/i })).toBeTruthy());
@@ -104,7 +102,7 @@ describe('BulkPersonnelMerge', () => {
 	});
 
 	it('shows parsed error details for a non-ok JSON response without surfacing success counts', async () => {
-		parseCSVTextMock.mockResolvedValue([
+		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'ETS'],
 			['SGT', 'Smith', 'Jamie', '2027-05-01']
 		]);
@@ -142,10 +140,10 @@ describe('BulkPersonnelMerge', () => {
 			}
 		});
 
-		await fireEvent.input(screen.getByLabelText('Personnel Data'), {
-			target: {
-				value: 'Rank, Last Name, First Name, ETS\nSGT, Smith, Jamie, 2027-05-01'
-			}
+		const input = document.querySelector<HTMLInputElement>('#mergeFileUpload');
+		expect(input).toBeTruthy();
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel-dates.csv', { type: 'text/csv' })] }
 		});
 
 		await waitFor(() => expect(screen.getByRole('button', { name: /Preview 1 Rows/i })).toBeTruthy());

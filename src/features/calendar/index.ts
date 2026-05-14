@@ -24,7 +24,7 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/Calendar.svelte
 // $features/calendar/components/CalendarRow.svelte (moved from personnel/PersonnelRow)
 // $features/calendar/components/CalendarHeader.svelte
-// $lib/components/ui/DateCell.svelte (moved to shared UI primitives)
+// $lib/components/ui/date-cell (shared UI primitive)
 // $features/calendar/components/AvailabilityModal.svelte
 // $features/calendar/components/StatusTypeManager.svelte
 // $features/calendar/components/SpecialDayManager.svelte

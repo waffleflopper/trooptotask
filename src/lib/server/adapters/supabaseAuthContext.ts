@@ -1,15 +1,11 @@
 /**
  * AuthContext adapter implementations for SvelteKit routes.
  *
- * Two variants:
- * - `createSupabaseAuthContextAdapter` — real implementation backed by a PermissionContext
- *   (built from the user's membership row). Enforces role and group-scope checks.
- * - `createSandboxAuthContext` — no-op implementation used in demo/sandbox orgs.
- *   All permission checks pass silently; userId is null.
+ * Wraps the real PermissionContext built from the user's membership row.
+ * Enforces role and group-scope checks.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthContext, FeatureArea } from '../core/ports';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 export function createSupabaseAuthContextAdapter(
@@ -63,32 +59,5 @@ export function createSupabaseAuthContextAdapter(
 		async requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void> {
 			await permCtx.requireGroupAccessByRecord(supabase, table, recordId, orgId, personnelIdColumn);
 		}
-	};
-}
-
-export function createSandboxAuthContext(orgId: string): AuthContext {
-	return {
-		userId: null,
-		orgId,
-		role: 'owner',
-		isPrivileged: true,
-		capabilityMap: {
-			calendar: 'configure',
-			personnel: 'configure',
-			training: 'configure',
-			criticalTasks: 'configure',
-			onboarding: 'configure',
-			ratingScheme: 'configure'
-		},
-		compatibilityLanes: createCompatibilityLaneMap('configure'),
-		scopeSet: { kind: 'organization' },
-
-		requireView() {},
-		requirePrivileged() {},
-		requireOwner() {},
-		requireManageMembers() {},
-		async requireGroupAccess() {},
-		async requireGroupAccessBatch() {},
-		async requireGroupAccessByRecord() {}
 	};
 }

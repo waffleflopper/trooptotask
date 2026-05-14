@@ -1,5 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
 
@@ -31,70 +37,81 @@
 	<title>Dashboard - Troop to Task</title>
 </svelte:head>
 
-<div class="selector-page">
-	<button class="theme-toggle btn btn-secondary btn-icon" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+<div class="min-h-screen bg-background p-4 sm:p-6 lg:p-12">
+	<Button
+		class="fixed top-5 right-5 z-10"
+		variant="outline"
+		size="icon"
+		onclick={() => themeStore.toggle()}
+		aria-label="Toggle theme"
+	>
 		{#if themeStore.isDark}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="5" />
-				<line x1="12" y1="1" x2="12" y2="3" />
-				<line x1="12" y1="21" x2="12" y2="23" />
-				<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-				<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-				<line x1="1" y1="12" x2="3" y2="12" />
-				<line x1="21" y1="12" x2="23" y2="12" />
-				<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-				<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-			</svg>
+			<SunIcon />
 		{:else}
-			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-			</svg>
+			<MoonIcon />
 		{/if}
-	</button>
+	</Button>
 
-	<div class="selector-shell">
-		<section class="selector-intro">
-			<p class="selector-kicker">Command Access</p>
-			<h1>Choose where to work.</h1>
-			<p class="selector-copy">
+	<div
+		class="mx-auto grid max-w-6xl items-start gap-8 pt-24 md:grid-cols-[minmax(0,0.9fr)_minmax(20rem,32rem)] lg:gap-16 lg:pt-32"
+	>
+		<section class="flex max-w-xl flex-col gap-5">
+			<p class="font-mono text-xs font-semibold tracking-[0.08em] text-primary uppercase">Command Access</p>
+			<h1 class="max-w-[10ch] text-5xl leading-none font-semibold tracking-tight text-foreground lg:text-7xl">
+				Choose where to work.
+			</h1>
+			<p class="max-w-xl text-base leading-7 text-muted-foreground">
 				Move into an organization, process pending invitations, or create a new workspace before the next handoff.
 			</p>
 
-			<div class="selector-help">
-				<a href="/help">Need a quick refresher? Open the field guide.</a>
+			<div>
+				<a class="text-sm font-medium text-foreground underline-offset-4 hover:underline" href="/help">
+					Need a quick refresher? Open the field guide.
+				</a>
 			</div>
 		</section>
 
-		<section class="selector-panel">
-			<header class="selector-panel-header">
-				<h2>Available workspaces</h2>
+		<section
+			class="flex flex-col gap-6 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm lg:p-8"
+		>
+			<header class="flex flex-col">
+				<h2 class="text-3xl leading-tight font-semibold tracking-tight text-foreground">Available workspaces</h2>
 			</header>
 
 			{#if form?.error}
-				<div class="selector-alert" role="alert">{form.error}</div>
+				<Alert.Root variant="destructive">
+					<Alert.Description>{form.error}</Alert.Description>
+				</Alert.Root>
 			{/if}
 
 			{#if successMessage}
-				<div class="selector-alert selector-alert-success" role="status">{successMessage}</div>
+				<Alert.Root role="status">
+					<Alert.Description>{successMessage}</Alert.Description>
+				</Alert.Root>
 			{/if}
 
 			{#if data.pendingInvitations.length > 0}
-				<section class="selector-section">
-					<div class="selector-section-header">
-						<p class="selector-section-kicker">Pending Invitations</p>
-						<span class="selector-section-count">{data.pendingInvitations.length}</span>
+				<section class="flex flex-col gap-4">
+					<div class="flex items-center justify-between gap-3 border-t border-border pt-4">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+							Pending Invitations
+						</p>
+						<Badge variant="secondary">{data.pendingInvitations.length}</Badge>
 					</div>
 
-					<div class="invitation-list">
+					<div class="flex flex-col gap-3">
 						{#each data.pendingInvitations as invitation (invitation.id)}
-							<div class="invitation-item">
-								<div class="invitation-copy">
-									<span class="invitation-org">{invitation.organizationName}</span>
-									<span class="invitation-meta">Invited {formatRelativeDate(invitation.createdAt)}</span>
+							<div
+								class="flex items-start justify-between gap-4 rounded-lg border border-border bg-background p-4 max-sm:flex-col"
+							>
+								<div class="flex min-w-0 flex-col gap-1">
+									<span class="truncate font-medium text-foreground">{invitation.organizationName}</span>
+									<span class="text-sm text-muted-foreground">Invited {formatRelativeDate(invitation.createdAt)}</span>
 								</div>
 
-								<div class="invitation-actions">
+								<div class="flex flex-wrap justify-end gap-2 max-sm:w-full">
 									<form
+										class="max-sm:flex-1"
 										method="POST"
 										action="?/acceptInvitation"
 										use:enhance={() => {
@@ -107,11 +124,12 @@
 										}}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<button type="submit" class="btn btn-amber btn-sm" disabled={loading === invitation.id}>
+										<Button class="max-sm:w-full" type="submit" disabled={loading === invitation.id}>
 											{loading === invitation.id ? 'Accepting...' : 'Accept'}
-										</button>
+										</Button>
 									</form>
 									<form
+										class="max-sm:flex-1"
 										method="POST"
 										action="?/declineInvitation"
 										use:enhance={() => {
@@ -124,9 +142,9 @@
 										}}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<button type="submit" class="btn btn-secondary btn-sm" disabled={loading === invitation.id}>
+										<Button class="max-sm:w-full" type="submit" variant="outline" disabled={loading === invitation.id}>
 											Decline
-										</button>
+										</Button>
 									</form>
 								</div>
 							</div>
@@ -135,367 +153,64 @@
 				</section>
 			{/if}
 
-			<section class="selector-section">
-				<div class="selector-section-header">
-					<p class="selector-section-kicker">Organizations</p>
+			<section class="flex flex-col gap-4">
+				<div class="flex items-center justify-between gap-3 border-t border-border pt-4">
+					<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Organizations</p>
 					{#if data.organizations.length > 0}
-						<span class="selector-section-count">{data.organizations.length}</span>
+						<Badge variant="secondary">{data.organizations.length}</Badge>
 					{/if}
 				</div>
 
 				{#if data.organizations.length > 4}
-					<input
+					<Input
 						type="search"
-						class="org-filter"
-						placeholder="Filter organizations…"
+						placeholder="Filter organizations..."
 						bind:value={orgFilter}
 						aria-label="Filter organizations"
 					/>
 				{/if}
 
 				{#if data.organizations.length > 0}
-					<div class="org-list">
+					<div class="flex flex-col gap-3">
 						{#each filteredOrgs as org (org.id)}
-							<a href="/org/{org.id}" class="org-item">
-								<div class="org-copy">
-									<span class="org-name">{org.name}</span>
-									<span class="org-role">{formatRole(org.role)}</span>
+							<a
+								href="/org/{org.id}"
+								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors hover:bg-muted max-sm:flex-col max-sm:items-start"
+							>
+								<div class="flex min-w-0 flex-col gap-1">
+									<span class="truncate font-medium">{org.name}</span>
+									<span class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+										{formatRole(org.role)}
+									</span>
 								</div>
-								<span class="org-arrow" aria-hidden="true">Open</span>
+								<span
+									class="shrink-0 font-mono text-xs font-semibold tracking-[0.08em] text-primary uppercase"
+									aria-hidden="true"
+								>
+									Open
+								</span>
 							</a>
 						{/each}
 						{#if filteredOrgs.length === 0}
-							<p class="org-filter-empty">No organizations match "{orgFilter}"</p>
+							<p class="px-4 py-3 font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase">
+								No organizations match "{orgFilter}"
+							</p>
 						{/if}
 					</div>
 				{:else}
-					<div class="selector-empty">
-						<p>You are not a member of any organizations yet.</p>
-						<span>Create a new organization below to start building the workspace.</span>
+					<div class="flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
+						<p class="font-medium text-foreground">You are not a member of any organizations yet.</p>
+						<span class="text-sm leading-6 text-muted-foreground">
+							Create a new organization below to start building the workspace.
+						</span>
 					</div>
 				{/if}
 			</section>
 
-			<div class="selector-actions">
-				<a href="/org/new" class="btn btn-amber">Create Organization</a>
-				<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
+			<div class="flex flex-wrap gap-3 border-t border-border pt-4">
+				<Button href="/org/new">Create Organization</Button>
+				<Button href="/auth/logout" variant="outline">Sign Out</Button>
 			</div>
 		</section>
 	</div>
 </div>
-
-<style>
-	.selector-page {
-		min-height: 100vh;
-		padding: clamp(var(--sp-6), 4vw, var(--sp-12));
-		background:
-			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 12rem no-repeat,
-			var(--surface-page);
-	}
-
-	.selector-shell {
-		display: grid;
-		grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 32rem);
-		gap: clamp(var(--sp-8), 5vw, var(--sp-16));
-		align-items: start;
-		max-width: 1120px;
-		margin: 0 auto;
-		padding-top: clamp(var(--sp-12), 10vh, var(--sp-20));
-	}
-
-	.selector-intro {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		max-width: 36rem;
-	}
-
-	.selector-kicker,
-	.selector-section-kicker,
-	.org-role,
-	.org-arrow {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.selector-kicker {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.selector-intro h1,
-	.selector-panel-header h2 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-weight: var(--font-weight-display);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		line-height: 0.95;
-		color: var(--text-primary);
-	}
-
-	.selector-intro h1 {
-		font-size: clamp(3rem, 2.3rem + 2vw, 4.7rem);
-		max-width: 10ch;
-	}
-
-	.selector-panel-header h2 {
-		font-size: clamp(2rem, 1.6rem + 1vw, 2.8rem);
-	}
-
-	.selector-copy {
-		margin: 0;
-		font-size: var(--text-base);
-		line-height: var(--line-height-copy);
-		color: var(--text-secondary);
-		max-width: 34rem;
-	}
-
-	.selector-help a {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.selector-help a:hover {
-		color: var(--amber-dark);
-	}
-
-	.selector-panel {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-6);
-		padding: clamp(var(--sp-5), 2vw, var(--sp-8));
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-md);
-	}
-
-	.selector-panel-header {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.selector-alert {
-		padding: var(--sp-4);
-		border-left: 3px solid var(--danger);
-		background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-panel));
-		color: var(--danger);
-		font-size: var(--text-sm);
-		line-height: 1.55;
-	}
-
-	.selector-alert-success {
-		border-left-color: var(--amber);
-		background: color-mix(in srgb, var(--amber-light) 40%, var(--surface-panel));
-		color: var(--amber-dark);
-	}
-
-	.selector-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.selector-section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.selector-section-count {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.75rem;
-		height: 1.75rem;
-		padding: 0 0.4rem;
-		border: 1px solid rgba(var(--amber-rgb), 0.35);
-		border-radius: var(--radius-md);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		color: var(--amber-dark);
-	}
-
-	.org-filter {
-		width: 100%;
-		padding: var(--sp-2) var(--sp-3);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-		transition: border-color var(--transition-fast);
-	}
-
-	.org-filter:focus {
-		outline: none;
-		border-color: rgba(var(--amber-rgb), 0.5);
-	}
-
-	.org-filter-empty {
-		margin: 0;
-		padding: var(--sp-3) var(--sp-4);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		color: var(--text-tertiary);
-	}
-
-	.invitation-list,
-	.org-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.invitation-item,
-	.org-item,
-	.selector-empty {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.invitation-item {
-		align-items: flex-start;
-	}
-
-	.invitation-copy,
-	.org-copy,
-	.selector-empty {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		min-width: 0;
-	}
-
-	.invitation-org,
-	.org-name {
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.invitation-meta {
-		font-size: var(--text-sm);
-		color: var(--text-tertiary);
-	}
-
-	.invitation-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		justify-content: flex-end;
-	}
-
-	.org-item {
-		color: inherit;
-		transition:
-			border-color var(--transition-fast),
-			background var(--transition-fast),
-			box-shadow var(--transition-fast);
-	}
-
-	.org-item:hover {
-		border-color: rgba(var(--amber-rgb), 0.34);
-		background: color-mix(in srgb, var(--surface-panel) 82%, var(--amber-light) 18%);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.org-role {
-		color: var(--text-tertiary);
-	}
-
-	.org-arrow {
-		color: var(--amber-dark);
-		flex-shrink: 0;
-	}
-
-	.selector-empty {
-		align-items: flex-start;
-	}
-
-	.selector-empty p,
-	.selector-empty span {
-		margin: 0;
-	}
-
-	.selector-empty p {
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.selector-empty span {
-		font-size: var(--text-sm);
-		line-height: 1.55;
-		color: var(--text-secondary);
-	}
-
-	.selector-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.theme-toggle {
-		position: fixed;
-		top: var(--sp-5);
-		right: var(--sp-5);
-		z-index: 1;
-	}
-
-	.theme-toggle svg {
-		width: 18px;
-		height: 18px;
-	}
-
-	@media (max-width: 900px) {
-		.selector-shell {
-			grid-template-columns: 1fr;
-			padding-top: calc(var(--sp-12) + var(--sp-6));
-		}
-	}
-
-	@media (max-width: 640px) {
-		.selector-page {
-			padding: var(--sp-4);
-		}
-
-		.invitation-item,
-		.org-item {
-			flex-direction: column;
-			align-items: flex-start;
-		}
-
-		.invitation-actions,
-		.selector-actions {
-			width: 100%;
-		}
-
-		.invitation-actions :global(form) {
-			flex: 1;
-		}
-
-		.invitation-actions :global(form button),
-		.selector-actions .btn {
-			width: 100%;
-		}
-	}
-</style>

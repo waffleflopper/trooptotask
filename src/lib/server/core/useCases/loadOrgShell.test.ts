@@ -38,8 +38,6 @@ const baseMembership: MembershipInfo = {
 
 const baseOrgState: OrgState = {
 	orgName: 'Test Unit',
-	isDemoReadOnly: false,
-	isDemoSandbox: false,
 	effectiveTier: {
 		tier: 'free',
 		source: 'default',
@@ -114,8 +112,6 @@ describe('loadOrgShell', () => {
 		expect(result.activeAnnouncements).toHaveLength(1);
 		expect(result.activeAnnouncements[0].title).toBe('Heads up');
 		expect(result.allOrgs).toHaveLength(1);
-		expect(result.isDemoReadOnly).toBe(false);
-		expect(result.isDemoSandbox).toBe(false);
 	});
 
 	it('sets isOwner=true and isFullEditor=false for owner role', async () => {
@@ -174,18 +170,5 @@ describe('loadOrgShell', () => {
 		const result = await loadOrgShell(access, chrome);
 
 		expect(result.orgSuspended).toBe(true);
-	});
-
-	it('passes demo flags through from OrgState', async () => {
-		const { access, chrome } = buildPorts(baseMembership, {
-			...baseOrgState,
-			isDemoReadOnly: true,
-			isDemoSandbox: false
-		});
-
-		const result = await loadOrgShell(access, chrome);
-
-		expect(result.isDemoReadOnly).toBe(true);
-		expect(result.isDemoSandbox).toBe(false);
 	});
 });

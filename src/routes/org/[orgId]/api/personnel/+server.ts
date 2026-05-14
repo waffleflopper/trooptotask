@@ -57,11 +57,7 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, u
 	mutation: true,
 	deferPolicyToUseCase: true,
 	parseInput: async (event: RequestEvent) => {
-		const body = await event.request.json();
-		return {
-			...body,
-			_isSandbox: event.locals.user === undefined && event.cookies.get('sb-sandbox') !== undefined
-		};
+		return event.request.json();
 	},
 	fn: async (ctx, input) => {
 		const { action, id } = input;

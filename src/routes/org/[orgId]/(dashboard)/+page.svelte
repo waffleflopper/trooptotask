@@ -6,8 +6,8 @@
 	import type { DashboardPageSummaryData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		isPromiseLike,
 		normalizeDeferredError,
@@ -133,7 +133,7 @@
 	}
 
 	function shouldLoadWorkspaceSupport(ctx: DashboardContext): boolean {
-		return (ctx.userRole === 'owner' || ctx.userRole === 'admin') && !ctx.isDemoSandbox && !ctx.isDemoReadOnly;
+		return ctx.userRole === 'owner' || ctx.userRole === 'admin';
 	}
 
 	async function loadSupportData(ctx: DashboardContext): Promise<void> {
@@ -201,18 +201,18 @@
 	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
 		<div class="workspace-loading__hero">
 			<div class="workspace-loading__copy">
-				<SkeletonLine width="92px" height="12px" />
-				<SkeletonBlock height="56px" />
-				<SkeletonLine width="78%" height="18px" />
-				<SkeletonLine width="62%" height="18px" />
+				<Skeleton class="h-3 w-[92px]" />
+				<Skeleton class="h-14 w-full" />
+				<Skeleton class="h-[18px] w-[78%]" />
+				<Skeleton class="h-[18px] w-[62%]" />
 			</div>
-			<SkeletonBlock width="136px" height="88px" />
+			<Skeleton class="h-[88px] w-[136px]" />
 		</div>
 		<div class="workspace-loading__grid">
-			<SkeletonBlock height="200px" />
-			<SkeletonBlock height="200px" />
-			<SkeletonBlock height="240px" />
-			<SkeletonBlock height="240px" />
+			<Skeleton class="h-[200px] w-full" />
+			<Skeleton class="h-[200px] w-full" />
+			<Skeleton class="h-[240px] w-full" />
+			<Skeleton class="h-[240px] w-full" />
 		</div>
 	</section>
 {:else if ctx}
@@ -224,8 +224,9 @@
 	{:else if canLoadSupport && supportError}
 		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
 			<p>Workspace support is temporarily unavailable.</p>
-			<button
-				class="btn btn-secondary btn-sm"
+			<Button
+				variant="outline"
+				size="sm"
 				onclick={() => {
 					if (ctx) {
 						void loadSupportData(ctx);
@@ -233,7 +234,7 @@
 				}}
 			>
 				Retry checklist
-			</button>
+			</Button>
 		</section>
 	{/if}
 {/if}
@@ -241,39 +242,39 @@
 <style>
 	.workspace-loading {
 		display: grid;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
+		gap: 1rem;
+		padding: 1rem;
 	}
 
 	.workspace-loading__hero {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
-		gap: var(--sp-4);
+		gap: 1rem;
 		align-items: stretch;
 	}
 
 	.workspace-loading__copy {
 		display: grid;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.workspace-loading__grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.workspace-support-notice {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--sp-3);
-		margin: 0 var(--sp-4) var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
+		gap: 0.75rem;
+		margin: 0 1rem 1rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		color: var(--muted-foreground);
 	}
 
 	.workspace-support-notice p {
@@ -281,9 +282,9 @@
 	}
 
 	.workspace-support-notice--error {
-		border-color: var(--warning);
-		background: color-mix(in srgb, var(--warning) 8%, var(--surface-panel));
-		color: var(--text-primary);
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		color: var(--foreground);
 	}
 
 	@media (max-width: 720px) {

@@ -17,6 +17,7 @@ function createMockQueryBuilder(returnData: unknown = null, returnError: unknown
 	const builder: Record<string, unknown> = {
 		select: track('select'),
 		eq: track('eq'),
+		is: track('is'),
 		or: track('or'),
 		in: track('in'),
 		not: track('not'),
@@ -89,6 +90,19 @@ describe('SupabaseDataStore', () => {
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['id', 'p-1'] });
 		});
 
+		it('uses is.null for nullable filters', async () => {
+			const row = { id: 'p-1', archived_at: null, organization_id: 'org-1' };
+			const { builder, calls } = createMockQueryBuilder(row);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.findOne('personnel', 'org-1', { id: 'p-1', archived_at: null });
+
+			expect(calls).toContainEqual({ method: 'eq', args: ['id', 'p-1'] });
+			expect(calls).toContainEqual({ method: 'is', args: ['archived_at', null] });
+			expect(calls).not.toContainEqual({ method: 'eq', args: ['archived_at', null] });
+		});
+
 		it('returns null when no record found (PGRST116)', async () => {
 			const { builder } = createMockQueryBuilder(null, { code: 'PGRST116', message: 'not found' });
 			const supabase = createMockSupabase(builder);
@@ -145,6 +159,19 @@ describe('SupabaseDataStore', () => {
 			const eqCalls = calls.filter((c) => c.method === 'eq');
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['type', 'A'] });
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['status', 'active'] });
+		});
+
+		it('uses is.null for nullable findMany filters', async () => {
+			const { builder, calls } = createMockQueryBuilder([]);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.findMany('records', 'org-1', { archived_at: null }, { filters: { deleted_at: null } });
+
+			expect(calls).toContainEqual({ method: 'is', args: ['archived_at', null] });
+			expect(calls).toContainEqual({ method: 'is', args: ['deleted_at', null] });
+			expect(calls).not.toContainEqual({ method: 'eq', args: ['archived_at', null] });
+			expect(calls).not.toContainEqual({ method: 'eq', args: ['deleted_at', null] });
 		});
 
 		it('applies inFilters using .in()', async () => {
@@ -365,6 +392,17 @@ describe('SupabaseDataStore', () => {
 			const eqCalls = calls.filter((c) => c.method === 'eq');
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['type_id', 'tt-1'] });
+		});
+
+		it('uses is.null for nullable deleteWhere filters', async () => {
+			const { builder, calls } = createMockQueryBuilder(null);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.deleteWhere('records', 'org-1', { archived_at: null });
+
+			expect(calls).toContainEqual({ method: 'is', args: ['archived_at', null] });
+			expect(calls).not.toContainEqual({ method: 'eq', args: ['archived_at', null] });
 		});
 	});
 

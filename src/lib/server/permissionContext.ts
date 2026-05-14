@@ -1,12 +1,11 @@
 /**
  * PermissionContext — runtime permission state for a single authenticated user in an org.
  *
- * Three construction paths:
+ * Two construction paths:
  * - `createPermissionContext(supabase, userId, orgId)` — fetches the membership row and builds.
  *   Use in routes that don't already have the row (rare; prefer the layout-based path).
  * - `createPermissionContextFromMembership(row)` — builds from an already-fetched membership row.
  *   This is the standard path; the layout server fetches the row once, all routes reuse it.
- * - `createSandboxContext()` — all-permissions-true no-op context used in demo/sandbox orgs.
  *
  * PermissionContext is consumed by the AuthContext adapter (`supabaseAuthContext.ts`), which
  * wraps it in the AuthContext port used by use cases. Direct use in routes is discouraged;
@@ -66,42 +65,6 @@ export interface PermissionContext {
 		orgId: string,
 		personnelIdColumn: string
 	): Promise<void>;
-}
-
-export function createSandboxContext(): PermissionContext {
-	const allTrue: Record<FeatureArea, boolean> = {
-		calendar: true,
-		personnel: true,
-		training: true,
-		'critical-tasks': true,
-		onboarding: true,
-		'rating-scheme': true,
-		'leaders-book': true
-	};
-
-	const ctx: PermissionContext = {
-		role: 'owner',
-		isOwner: true,
-		isAdmin: false,
-		isPrivileged: true,
-		capabilityMap: buildPrivilegedCapabilityMap(),
-		compatibilityLanes: buildPrivilegedCompatibilityLanes(),
-		scopeSet: { kind: 'organization' },
-		canView: { ...allTrue },
-		canEdit: { ...allTrue },
-		canManageMembers: true,
-
-		requireView(): void {},
-		requirePrivileged(): void {},
-		requireOwner(): void {},
-		requireManageMembers(): void {},
-
-		async requireGroupAccess(): Promise<void> {},
-		async requireGroupAccessBatch(): Promise<void> {},
-		async requireGroupAccessByRecord(): Promise<void> {}
-	};
-
-	return ctx;
 }
 
 /** The shape of a membership row needed to build a PermissionContext (no DB query required) */

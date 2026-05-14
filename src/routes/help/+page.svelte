@@ -522,8 +522,8 @@
 <style>
 	.help-page {
 		min-height: 100vh;
-		background: var(--surface-page);
-		padding: var(--sp-6) var(--sp-5);
+		background: var(--background);
+		padding: 1.5rem 1.25rem;
 	}
 
 	.help-container {
@@ -534,16 +534,16 @@
 	.help-header {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-6);
-		padding-bottom: var(--sp-5);
-		border-bottom: var(--border-thin);
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
+		padding-bottom: 1.25rem;
+		border-bottom: 1px solid var(--border);
 	}
 
 	.eyebrow,
 	.role-callout-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
@@ -551,26 +551,26 @@
 
 	.eyebrow {
 		margin: 0;
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	.back-link {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--sp-2);
-		color: var(--text-secondary);
+		gap: 0.5rem;
+		color: var(--muted-foreground);
 		text-decoration: none;
-		font-size: var(--text-sm);
+		font-size: 0.8125rem;
 		font-weight: 500;
 		width: fit-content;
 		padding: 0.625rem 0.85rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--card) 90%, var(--muted) 10%);
 	}
 
 	.back-link:hover {
-		color: var(--text-strong);
+		color: var(--foreground);
 	}
 
 	.back-link svg {
@@ -580,37 +580,37 @@
 
 	.help-header h1 {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2.8rem, 5vw, 4rem);
 		font-weight: 800;
 		line-height: 0.94;
 		text-transform: uppercase;
-		color: var(--text-strong);
+		color: var(--foreground);
 	}
 
 	.subtitle {
 		margin: 0;
 		max-width: 54rem;
-		color: var(--text-secondary);
-		font-size: var(--text-base);
+		color: var(--muted-foreground);
+		font-size: 1rem;
 		line-height: 1.6;
 	}
 
 	.sections {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.section {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 		overflow: hidden;
 	}
 
 	.section.expanded {
-		border-color: color-mix(in srgb, var(--amber) 36%, var(--ink-15) 64%);
+		border-color: color-mix(in srgb, var(--accent) 36%, var(--border) 64%);
 	}
 
 	.section-header {
@@ -618,7 +618,7 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--sp-4);
+		padding: 1rem;
 		background: none;
 		border: none;
 		cursor: pointer;
@@ -626,39 +626,39 @@
 	}
 
 	.section-header:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
 	}
 
 	.section-title {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.section-title svg {
 		width: 28px;
 		height: 28px;
-		color: var(--amber-dark);
+		color: var(--accent);
 		padding: 5px;
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--accent) 14%, var(--card));
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.section-title h2 {
 		font-size: clamp(1.8rem, 3vw, 2.3rem);
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-weight: 700;
 		line-height: 0.98;
 		text-transform: uppercase;
-		color: var(--text-strong);
+		color: var(--foreground);
 		margin: 0;
 	}
 
 	.chevron {
 		width: 24px;
 		height: 24px;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		transition: transform 160ms ease;
 	}
 
@@ -667,93 +667,93 @@
 	}
 
 	.section-content {
-		padding: 0 var(--sp-4) var(--sp-4);
+		padding: 0 1rem 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.help-item {
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-		border-radius: var(--radius-md);
-		border: var(--border-thin);
+		padding: 1rem;
+		background: color-mix(in srgb, var(--muted) 68%, var(--card) 32%);
+		border-radius: var(--radius);
+		border: 1px solid var(--border);
 	}
 
 	.help-item h3 {
-		font-size: var(--text-lg);
-		font-family: var(--font-display);
+		font-size: 1.1875rem;
+		font-family: 'Barlow Condensed', sans-serif;
 		font-weight: 600;
 		line-height: 1;
 		text-transform: uppercase;
-		color: var(--text-strong);
-		margin: 0 0 var(--sp-2);
+		color: var(--foreground);
+		margin: 0 0 0.5rem;
 	}
 
 	.help-item p {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
 		line-height: 1.65;
 		margin: 0;
 	}
 
 	.role-callout {
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
-		border-radius: var(--radius-md);
-		border: var(--border-thin);
+		padding: 1rem;
+		background: color-mix(in srgb, var(--muted) 68%, var(--card) 32%);
+		border-radius: var(--radius);
+		border: 1px solid var(--border);
 		display: flex;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 		align-items: flex-start;
 	}
 
 	.role-callout--admin {
-		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
+		background: color-mix(in srgb, var(--muted) 60%, var(--card) 40%);
 	}
 
 	.role-callout--team-leader {
-		background: color-mix(in srgb, var(--amber-light) 60%, var(--surface-panel) 40%);
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
 	}
 
 	.role-callout--viewer {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
 	}
 
 	.role-callout--admin .role-callout-label {
-		color: var(--amber-dark);
+		color: var(--accent);
 	}
 
 	.role-callout--team-leader .role-callout-label {
-		color: var(--amber-dark);
+		color: var(--accent);
 	}
 
 	.role-callout--viewer .role-callout-label {
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.role-callout-text {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
 		line-height: 1.65;
 	}
 
 	.help-footer {
-		margin-top: var(--sp-5);
-		padding: var(--sp-5);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
+		margin-top: 1.25rem;
+		padding: 1.25rem;
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.help-footer p {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
 		line-height: 1.6;
 		margin: 0;
 	}
 
 	.help-footer a {
-		color: var(--amber-dark);
+		color: var(--accent);
 		font-weight: 500;
 		text-decoration: none;
 	}
@@ -764,24 +764,26 @@
 
 	.theme-toggle {
 		position: fixed;
-		top: var(--sp-4);
-		right: var(--sp-4);
+		top: 1rem;
+		right: 1rem;
 		width: 44px;
 		height: 44px;
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		color: var(--text-secondary);
+		border-radius: var(--radius);
+		background: var(--card);
+		border: 1px solid var(--border);
+		color: var(--muted-foreground);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		box-shadow: var(--shadow-md);
+		box-shadow:
+			0 2px 8px rgb(0 0 0 / 0.1),
+			0 1px 2px rgb(0 0 0 / 0.06);
 		z-index: 100;
 	}
 
 	.theme-toggle:hover {
-		color: var(--text-strong);
+		color: var(--foreground);
 	}
 
 	.theme-toggle svg {
@@ -791,7 +793,7 @@
 
 	@media (max-width: 640px) {
 		.help-page {
-			padding: var(--sp-4);
+			padding: 1rem;
 		}
 
 		.help-header h1 {
@@ -799,11 +801,11 @@
 		}
 
 		.section-header {
-			padding: var(--sp-3);
+			padding: 0.75rem;
 		}
 
 		.section-content {
-			padding: 0 var(--sp-3) var(--sp-3);
+			padding: 0 0.75rem 0.75rem;
 		}
 
 		.section-title h2 {
@@ -816,7 +818,7 @@
 		}
 
 		.help-item {
-			padding: var(--sp-3);
+			padding: 0.75rem;
 		}
 
 		.role-callout {

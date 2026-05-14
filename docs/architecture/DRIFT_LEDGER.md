@@ -104,26 +104,23 @@ Each entry separates:
 ## D-06 Demo And Sandbox Paths
 
 - Current-state truth:
-  - `/demo` already fails closed, but demo cookies and sandbox cookies still influence normal `/org/*` request handling
-  - `src/hooks.server.ts` still bypasses the unauthenticated org-route redirect when legacy demo cookies are present
-  - `src/routes/api/create-demo-sandbox/+server.ts` now fails closed, so runtime sandbox creation no longer has a live public caller even though the schema and RPC still exist
-  - `src/lib/server/adapters/supabaseOrgShell.ts`, `src/lib/server/supabase.ts`, `src/lib/server/adapters/httpAdapter.ts`, and `src/lib/server/adapters/supabaseAuthContext.ts` still manufacture demo/sandbox access without a real membership row
-  - `src/routes/api/cleanup-demo-sandboxes/+server.ts` still keeps sandbox cleanup on a separate exceptional path
+  - Runtime demo and sandbox entrypoints have been removed: `/demo`, `/api/create-demo-sandbox`, and `/api/cleanup-demo-sandboxes` no longer exist as SvelteKit routes.
+  - Legacy demo cookies no longer influence unauthenticated `/org/*` routing, org-shell loading, API context creation, Supabase client selection, or auth-context creation.
+  - The no-op sandbox auth context and in-memory demo org-shell request path have been removed.
+  - Migration `20260514000100_remove_demo_sandbox_schema.sql` removes `demo_type`, `demo_expires_at`, `create_demo_sandbox`, and `cleanup_expired_demo_sandboxes` from the current schema.
+  - Historical migration snapshots still contain the old demo/sandbox objects for audit history only.
 - Intended direction:
-  - contain the remaining demo/sandbox exceptions so they no longer shape ordinary auth, org-shell, or provider-boundary decisions
-  - stage removal rather than reworking demo access into a deeper supported architecture
+  - keep runtime behavior fully membership-backed
+  - remove remaining schema/RPC support through a dedicated database-coordination slice when production migration timing is explicit
 - Why this matters:
-  - cookie-driven gateway bypasses and no-op auth contexts can look like architecture options when they are actually deprecated exceptions
-  - remaining service-role cleanup and schema-level sandbox paths still widen the blast radius of demo-only logic until removal lands
+  - demo/sandbox bypasses should no longer look like an architecture option for ordinary auth, org-shell, provider-boundary, or feature work
+  - applying the schema-level cleanup still needs normal production migration coordination
 - Guardrail until fixed:
   - do not expand or deepen demo/sandbox behavior
-  - do not add new demo/sandbox cookies, no-op auth contexts, or public service-role bootstrap paths
-  - keep the remaining high-risk exceptions explicitly documented in `docs/architecture/GOVERNANCE_BASELINE.json`
-  - keep standalone sandbox bootstrap disabled rather than rebuilding it into a supported trial or provisioning flow
+  - do not add new demo/sandbox cookies, no-op auth contexts, public service-role bootstrap paths, or replacement compatibility shims
+  - do not use historical demo/sandbox schema residue as precedent for runtime access
 - Recommended next slice:
-  - issue `#625` applies stage 1 containment: disable standalone sandbox bootstrap, baseline-govern the remaining exceptions, and document the staged removal order
-  - follow with a dedicated removal slice to delete cookie-driven org-shell/auth bypasses and retire `/demo`
-  - then remove demo/sandbox schema fields, RPCs, and cleanup jobs after no runtime path depends on them
+  - coordinate applying `20260514000100_remove_demo_sandbox_schema.sql` to production through the normal release process
 
 ## D-07 Large Orchestration Modules
 

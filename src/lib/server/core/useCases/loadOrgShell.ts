@@ -29,8 +29,6 @@ export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort)
 		unreadNotificationCount: chromeData.unreadNotificationCount,
 		activeAnnouncements: chromeData.activeAnnouncements,
 		allOrgs: chromeData.allOrgs,
-		isDemoReadOnly: orgState.isDemoReadOnly,
-		isDemoSandbox: orgState.isDemoSandbox,
 		orgSuspended: membership.orgSuspended
 	};
 }

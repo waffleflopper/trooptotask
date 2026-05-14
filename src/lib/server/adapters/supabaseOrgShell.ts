@@ -55,70 +55,11 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
-import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
 import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
 import type { CriticalTasksBootstrap } from '../core/useCases/criticalTasksQuery';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
-
-/**
- * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
- * Do not expand this path; prefer removal when demo sandbox cleanup work is scheduled.
- */
-function createDemoRootOrgShellRequest(config: {
-	orgId: string;
-	orgName: string;
-	permissions: OrganizationMemberPermissions;
-	role: 'owner' | 'admin' | 'member';
-	isDemoReadOnly: boolean;
-	isDemoSandbox: boolean;
-	effectiveTier: EffectiveTier;
-}): RootOrgShellRequest {
-	return {
-		kind: 'shell',
-		access: createInMemoryOrgAccessPort({
-			membership: {
-				orgId: config.orgId,
-				userId: null,
-				role: config.role,
-				capabilityMap: resolveDemoCapabilityMap(config.permissions, config.role),
-				scopeSet: { kind: 'organization' },
-				permissions: config.permissions,
-				scopedGroupId: null
-			},
-			orgState: {
-				orgName: config.orgName,
-				isDemoReadOnly: config.isDemoReadOnly,
-				isDemoSandbox: config.isDemoSandbox,
-				effectiveTier: config.effectiveTier
-			}
-		}),
-		chrome: createInMemoryOrgChromePort({
-			chrome: {
-				unreadNotificationCount: 0,
-				activeAnnouncements: [],
-				allOrgs: [],
-				userPreferences: getDefaultUserOrgPreferences()
-			}
-		})
-	};
-}
-
-function resolveDemoCapabilityMap(
-	permissions: OrganizationMemberPermissions,
-	role: 'owner' | 'admin' | 'member'
-): CapabilityMap {
-	if (role === 'owner' || role === 'admin') {
-		return createCapabilityMap('configure');
-	}
-
-	return resolveMemberAccessShapeFromStoredOrCurrent({
-		membershipRole: role,
-		permissions,
-		scopedGroupId: null
-	}).capabilityMap;
-}
 
 export interface SupabaseRootOrgLoadPortDeps {
 	getLayoutClient?: typeof getLayoutClient;
@@ -142,14 +83,11 @@ export function createSupabaseRootOrgLoadPort(
 
 	return {
 		async resolveRequest(): Promise<RootOrgShellRequest> {
-			const demoMode = config.cookies.get('demo_mode');
-			const demoSandboxCookie = config.cookies.get('demo_sandbox');
-			const isDemoReadOnly = demoMode === 'readonly';
 			const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgId);
 
 			const { data: org } = await supabase
 				.from('organizations')
-				.select('id, name, demo_type, suspended_at')
+				.select('id, name, suspended_at')
 				.eq('id', config.orgId)
 				.single();
 
@@ -163,67 +101,6 @@ export function createSupabaseRootOrgLoadPort(
 					orgId: config.orgId,
 					orgName: org.name
 				};
-			}
-
-			if (org.demo_type === 'showcase' && isDemoReadOnly) {
-				const effectiveTier = await createSubscriptionAdapterFn(supabase, config.orgId).getEffectiveTier();
-				return createDemoRootOrgShellRequest({
-					orgId: config.orgId,
-					orgName: org.name,
-					permissions: {
-						canViewCalendar: true,
-						canEditCalendar: false,
-						canViewPersonnel: true,
-						canEditPersonnel: false,
-						canViewTraining: true,
-						canEditTraining: false,
-						canViewCriticalTasks: true,
-						canEditCriticalTasks: false,
-						canViewOnboarding: true,
-						canEditOnboarding: false,
-						canViewLeadersBook: true,
-						canEditLeadersBook: false,
-						canManageMembers: false
-					},
-					role: 'member',
-					isDemoReadOnly: true,
-					isDemoSandbox: false,
-					effectiveTier
-				});
-			}
-
-			if (org.demo_type === 'sandbox' && demoSandboxCookie) {
-				try {
-					const sandboxInfo = JSON.parse(demoSandboxCookie);
-					if (sandboxInfo.orgId === config.orgId) {
-						const effectiveTier = await createSubscriptionAdapterFn(supabase, config.orgId).getEffectiveTier();
-						return createDemoRootOrgShellRequest({
-							orgId: config.orgId,
-							orgName: org.name,
-							permissions: {
-								canViewCalendar: true,
-								canEditCalendar: true,
-								canViewPersonnel: true,
-								canEditPersonnel: true,
-								canViewTraining: true,
-								canEditTraining: true,
-								canViewCriticalTasks: true,
-								canEditCriticalTasks: true,
-								canViewOnboarding: true,
-								canEditOnboarding: true,
-								canViewLeadersBook: true,
-								canEditLeadersBook: true,
-								canManageMembers: true
-							},
-							role: 'owner',
-							isDemoReadOnly: false,
-							isDemoSandbox: true,
-							effectiveTier
-						});
-					}
-				} catch {
-					// Invalid cookie, ignore.
-				}
 			}
 
 			if (!config.locals.user) {
@@ -240,8 +117,6 @@ export function createSupabaseRootOrgLoadPort(
 					userId: config.locals.user.id,
 					userSupabase: config.locals.supabase,
 					orgName: org.name,
-					isDemoReadOnly: false,
-					isDemoSandbox: false,
 					getEffectiveTier: () => effectiveTierPromise,
 					wrapMembershipLoad: (loadMembershipRow) =>
 						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, config.orgId, loadMembershipRow)
@@ -264,8 +139,6 @@ export function createSupabaseOrgAccessPort(config: {
 	userSupabase: SupabaseClient;
 	/** Pre-fetched org name (org row is already loaded before membership in the layout). */
 	orgName: string;
-	isDemoReadOnly: boolean;
-	isDemoSandbox: boolean;
 	/** Delegate to the existing subscription adapter — avoids re-instantiating it. */
 	getEffectiveTier: () => Promise<EffectiveTier>;
 	wrapMembershipLoad?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
@@ -318,8 +191,6 @@ export function createSupabaseOrgAccessPort(config: {
 			const effectiveTier = await config.getEffectiveTier();
 			return {
 				orgName: config.orgName,
-				isDemoReadOnly: config.isDemoReadOnly,
-				isDemoSandbox: config.isDemoSandbox,
 				effectiveTier
 			};
 		}

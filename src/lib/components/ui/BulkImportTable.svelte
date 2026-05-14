@@ -1,5 +1,11 @@
-<!-- src/lib/components/ui/BulkImportTable.svelte -->
+<!--
+	@deprecated Use ui/bulk-import-workspace PreviewTable, RowStatus, ValidationSummary,
+	and ResultSummary for new or migrated import flows. This legacy helper stays
+	until existing production consumers move to BulkImportWorkspace.
+-->
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import * as NativeSelect from '$lib/components/ui/native-select';
 	import type { ColumnDef, ColumnMapping } from '$lib/utils/columnMapping';
 	import { autoMapColumns, detectHeaderRow, getMissingRequired } from '$lib/utils/columnMapping';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
@@ -252,19 +258,20 @@
 		{#each mappings as mapping, i (mapping.columnIndex)}
 			<div class="mapping-col">
 				<div class="mapping-header">{rawRows[0][mapping.columnIndex] ?? `Col ${i + 1}`}</div>
-				<select
-					class="select mapping-select"
+				<NativeSelect.Root
+					class="w-full"
+					size="sm"
 					value={mapping.fieldKey ?? ''}
 					onchange={(e) => setMapping(mapping.columnIndex, e.currentTarget.value || null)}
 				>
 					{#each getAvailableFields(mapping.columnIndex) as field (field?.key ?? '__skip__')}
 						{#if field === null}
-							<option value="">Skip</option>
+							<NativeSelect.Option value="">Skip</NativeSelect.Option>
 						{:else}
-							<option value={field.key}>{field.label}{field.required ? ' *' : ''}</option>
+							<NativeSelect.Option value={field.key}>{field.label}{field.required ? ' *' : ''}</NativeSelect.Option>
 						{/if}
 					{/each}
-				</select>
+				</NativeSelect.Root>
 			</div>
 		{/each}
 	</div>
@@ -277,9 +284,9 @@
 		{#if uncheckedCount > 0}
 			<span class="summary-unchecked">{uncheckedCount} unchecked</span>
 		{/if}
-		<div class="spacer"></div>
-		<button class="btn btn-sm btn-secondary" onclick={selectAll}>Select All</button>
-		<button class="btn btn-sm btn-secondary" onclick={selectNone}>Select None</button>
+		<div class="bulk-import-toolbar-fill"></div>
+		<Button size="sm" variant="outline" onclick={selectAll}>Select All</Button>
+		<Button size="sm" variant="outline" onclick={selectNone}>Select None</Button>
 	</div>
 
 	<div class="table-wrapper">
@@ -352,90 +359,85 @@
 	.mapping-warning {
 		background: #fff3cd;
 		color: #856404;
-		padding: var(--sp-2) var(--sp-4);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-ui-sm);
-		margin-bottom: var(--sp-2);
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.mapping-row {
 		display: flex;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-4);
+		gap: 0.5rem;
+		margin-bottom: 1rem;
 		overflow-x: auto;
-		padding-bottom: var(--sp-1);
+		padding-bottom: 0.25rem;
 	}
 
 	.mapping-col {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 		min-width: 100px;
 	}
 
 	.mapping-header {
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-width: 120px;
 	}
 
-	.mapping-select {
-		font-size: var(--text-xs);
-		padding: 2px 4px;
-	}
-
 	.summary-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) 0;
-		font-size: var(--text-ui-sm);
-		border-bottom: 1px solid var(--divider-color);
-		margin-bottom: var(--sp-2);
+		gap: 0.5rem;
+		padding: 0.5rem 0;
+		font-size: 0.75rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+		margin-bottom: 0.5rem;
 	}
 
 	.summary-ready {
-		color: var(--success);
+		color: var(--chart-2);
 		font-weight: 600;
 	}
 	.summary-errors {
-		color: var(--danger);
+		color: var(--destructive);
 		font-weight: 600;
 	}
 	.summary-unchecked {
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.table-wrapper {
 		max-height: 400px;
 		overflow: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.import-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 	}
 
 	.import-table th {
 		position: sticky;
 		top: 0;
-		background: var(--surface-subtle);
-		padding: var(--sp-1) var(--sp-2);
+		background: var(--muted);
+		padding: 0.25rem 0.5rem;
 		text-align: left;
 		font-weight: 600;
-		border-bottom: 2px solid var(--border-default);
+		border-bottom: 2px solid var(--border);
 		white-space: nowrap;
 	}
 
 	.import-table td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
+		padding: 0.25rem 0.5rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
 	}
 
 	.col-check {
@@ -444,7 +446,7 @@
 	}
 	.col-row {
 		width: 35px;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 	.col-status {
 		min-width: 11rem;
@@ -456,7 +458,7 @@
 	}
 	.cell-error {
 		background: #fde8e8;
-		border: 1px solid var(--danger);
+		border: 1px solid var(--destructive);
 	}
 	.cell-warning {
 		background: #fff3cd;
@@ -465,10 +467,10 @@
 
 	.cell-input {
 		width: 100%;
-		border: 2px solid var(--amber);
-		border-radius: var(--radius-sm);
+		border: 2px solid var(--accent);
+		border-radius: var(--radius);
 		padding: 1px 4px;
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		outline: none;
 	}
 
@@ -480,11 +482,11 @@
 	}
 
 	.status-ok {
-		color: var(--success);
+		color: var(--chart-2);
 		font-weight: bold;
 	}
 	.status-err {
-		color: var(--danger);
+		color: var(--destructive);
 		font-weight: bold;
 	}
 	.status-warning {
@@ -493,11 +495,11 @@
 		justify-content: center;
 		padding: 2px 8px;
 		border: 1px solid var(--color-warning, #f59e0b);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius);
 		background: #fff3cd;
 		color: #8a5a00;
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-size: 0.6875rem;
+		font-weight: 600;
 		white-space: nowrap;
 	}
 </style>

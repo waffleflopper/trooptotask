@@ -7,9 +7,9 @@ import type { TrainingStats } from '$features/training/utils/trainingStatus';
 // Dashboard tab identity
 // ---------------------------------------------------------------------------
 
-export type DashboardTabId = 'unit-readiness' | 'people-duty' | 'training-evals';
+export type DashboardTabId = 'overview' | 'unit-readiness' | 'people-duty' | 'training-evals';
 
-const ALL_TABS: DashboardTabId[] = ['unit-readiness', 'people-duty', 'training-evals'];
+const ALL_TABS: DashboardTabId[] = ['overview', 'unit-readiness', 'people-duty', 'training-evals'];
 
 // ---------------------------------------------------------------------------
 // Dashboard permissions

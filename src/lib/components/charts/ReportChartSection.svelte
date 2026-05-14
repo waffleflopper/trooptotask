@@ -57,59 +57,59 @@
 
 <style>
 	.report-chart-section {
-		--trend-unit: var(--text-primary);
-		--trend-1: var(--amber);
+		--trend-unit: var(--foreground);
+		--trend-1: var(--accent);
 		--trend-2: #993c1d;
-		--trend-3: var(--success);
+		--trend-3: var(--chart-2);
 		--trend-4: #534ab7;
-		--chart-grid-line: color-mix(in srgb, var(--border-default) 44%, transparent);
+		--chart-grid-line: color-mix(in srgb, var(--border) 44%, transparent);
 
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-5);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		padding: var(--sp-5) var(--sp-6);
+		gap: 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
+		padding: 1.25rem 1.5rem;
 	}
 
 	.report-chart-header {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: var(--sp-3);
-		border-bottom: 1px solid color-mix(in srgb, var(--border-default) 72%, transparent);
+		gap: 0.75rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
 		padding-bottom: 14px;
 	}
 
 	.report-chart-section h2 {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 1.25rem;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		line-height: 1;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.report-chart-meta {
 		display: inline-flex;
 		flex-wrap: wrap;
 		justify-content: flex-end;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		min-width: 0;
 	}
 
 	.chart-kicker,
 	.chart-status {
 		margin: 0;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 0.625rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.screen-reader-text {
@@ -125,7 +125,7 @@
 	}
 
 	:root[data-theme='dark'] .report-chart-section {
-		--trend-unit: var(--text-primary);
+		--trend-unit: var(--foreground);
 		--trend-2: #ed9d80;
 		--trend-3: #9cc87b;
 		--trend-4: #b8b0ff;
@@ -133,7 +133,7 @@
 
 	@media (max-width: 720px) {
 		.report-chart-section {
-			padding: var(--sp-4);
+			padding: 1rem;
 		}
 
 		.report-chart-header {

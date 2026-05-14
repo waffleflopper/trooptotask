@@ -291,21 +291,6 @@ describe('getOrgBreadcrumbs', () => {
 		]);
 	});
 
-	it('uses linked Settings breadcrumbs for organization governance subroutes outside primary navigation', () => {
-		const nav = getOrgNavigation('org-1', basePermissions);
-
-		expect(getOrgBreadcrumbs('/org/org-1/settings/audit', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Settings', href: '/org/org-1/settings' },
-			{ label: 'Audit' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/settings/approvals', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Settings', href: '/org/org-1/settings' },
-			{ label: 'Approvals' }
-		]);
-	});
-
 	it('uses linked Billing breadcrumbs for billing result routes outside primary navigation', () => {
 		const nav = getOrgNavigation('org-1', basePermissions);
 

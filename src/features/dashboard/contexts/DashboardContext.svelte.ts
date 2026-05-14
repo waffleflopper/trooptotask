@@ -128,14 +128,6 @@ export class DashboardContext {
 		return this.data.userRole as string | undefined;
 	}
 
-	get isDemoSandbox(): boolean {
-		return !!(this.data.isDemoSandbox as boolean | undefined);
-	}
-
-	get isDemoReadOnly(): boolean {
-		return !!(this.data.isDemoReadOnly as boolean | undefined);
-	}
-
 	get isHydrating(): boolean {
 		return this.screen.isHydrating;
 	}

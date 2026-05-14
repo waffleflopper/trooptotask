@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { Button } from '$lib/components/ui/button';
 </script>
 
 <svelte:head>
@@ -17,7 +18,7 @@
 			Something went wrong. Please try again later.
 		{/if}
 	</p>
-	<a href="/org/{page.params.orgId}" class="btn btn-primary">Back to Dashboard</a>
+	<Button href="/org/{page.params.orgId}">Back to Dashboard</Button>
 </div>
 
 <style>
@@ -28,21 +29,21 @@
 		justify-content: center;
 		min-height: 60vh;
 		text-align: center;
-		padding: var(--sp-8);
+		padding: 2rem;
 	}
 
 	h1 {
 		font-size: 72px;
 		font-weight: 700;
-		color: var(--amber);
-		margin: 0 0 var(--sp-2);
+		color: var(--accent);
+		margin: 0 0 0.5rem;
 		line-height: 1;
 	}
 
 	.error-message {
-		font-size: var(--text-base);
-		color: var(--text-secondary);
-		margin: 0 0 var(--sp-6);
+		font-size: 1rem;
+		color: var(--muted-foreground);
+		margin: 0 0 1.5rem;
 		max-width: 400px;
 	}
 </style>

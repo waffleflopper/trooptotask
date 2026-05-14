@@ -2,16 +2,14 @@
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
-	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
-	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
@@ -58,11 +56,6 @@
 			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
 		}
 	}
-
-	// Initialize demo mode store with server data
-	$effect(() => {
-		demoModeStore.load(data.isDemoReadOnly ?? false, data.isDemoSandbox ?? false);
-	});
 
 	// Load subscription tier into store (reacts to org navigation changes)
 	$effect(() => {
@@ -115,23 +108,22 @@
 </script>
 
 {#if data.orgSuspended}
-	<div class="suspended-org-container">
-		<div class="suspended-org-card">
-			<h1>Organization Suspended</h1>
-			<p>
+	<div class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+		<div class="grid max-w-md gap-4 rounded-lg border bg-card p-8 text-center text-card-foreground">
+			<h1
+				class="[font-family:'Barlow Condensed', sans-serif] text-3xl leading-tight font-bold tracking-[0.04em] text-destructive uppercase"
+			>
+				Organization Suspended
+			</h1>
+			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
 				This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.
 			</p>
-			<p class="contact">support@trooptotask.com</p>
-			<a href="/dashboard?show=all" class="btn btn-secondary">Back to Dashboard</a>
+			<p class="m-0 font-medium">support@trooptotask.com</p>
+			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
 	</div>
 {:else}
 	<BannerStack>
-		{#if demoModeStore.hasBanner}
-			{#await import('$lib/components/DemoBanner.svelte') then { default: DemoBanner }}
-				<DemoBanner />
-			{/await}
-		{/if}
 		<SubscriptionBanner orgId={data.orgId} />
 		{#if data.activeAnnouncements?.length}
 			<AnnouncementBanner announcements={data.activeAnnouncements} />
@@ -148,15 +140,11 @@
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
 		unreadNotificationCount={data.unreadNotificationCount ?? 0}
-		onFeedback={!demoModeStore.hasBanner ? () => (showFeedback = true) : undefined}
+		onFeedback={() => (showFeedback = true)}
 		onWhatsNew={() => whatsNewStore.show()}
-	/>
-
-	<main id="main-content" class="app-content">
+	>
 		{@render children()}
-	</main>
-
-	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} capabilityMap={data.capabilityMap} />
+	</TopHeader>
 
 	{#if showFeedback}
 		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
@@ -169,64 +157,9 @@
 		{/await}
 	{/if}
 
-	{#if demoModeStore.showSandboxModal}
-		<DemoSandboxModal onClose={() => demoModeStore.closeSandboxModal()} />
-	{/if}
-
 	{#if whatsNewStore.open}
 		{#await import('$lib/components/WhatsNewModal.svelte') then { default: WhatsNewModal }}
 			<WhatsNewModal onClose={closeWhatsNew} />
 		{/await}
 	{/if}
 {/if}
-
-<style>
-	.suspended-org-container {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		background: var(--surface-page);
-		padding: var(--sp-6);
-	}
-
-	.suspended-org-card {
-		text-align: center;
-		max-width: 440px;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		padding: var(--sp-8);
-	}
-
-	.suspended-org-card h1 {
-		color: var(--danger);
-		margin-bottom: var(--sp-4);
-	}
-
-	.suspended-org-card p {
-		color: var(--text-secondary);
-		margin-bottom: var(--sp-4);
-	}
-
-	.suspended-org-card .contact {
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-
-	.app-content {
-		padding-top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
-		padding-left: var(--app-rail-width, 0px);
-		min-height: 100vh;
-		background:
-			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 7rem no-repeat,
-			var(--surface-page);
-	}
-
-	@media (max-width: 920px) {
-		.app-content {
-			padding-left: 0;
-			padding-bottom: calc(64px + env(safe-area-inset-bottom));
-		}
-	}
-</style>

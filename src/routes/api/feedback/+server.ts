@@ -15,17 +15,13 @@ const SECTION_MAP: Record<string, string> = {
 	'leaders-book': "Leader's Book",
 	onboarding: 'Onboarding',
 	settings: 'Settings',
-	'settings/approvals': 'Settings Approvals',
-	'settings/audit': 'Settings Audit Log',
-	'settings/archived': 'Settings Archived Personnel',
-	'settings/policies': 'Settings Policies',
 	billing: 'Billing',
 	audit: 'Audit Log',
 	admin: 'Admin',
-	'admin/settings': 'Settings Policies',
-	'admin/approvals': 'Settings Approvals',
-	'admin/audit': 'Settings Audit Log',
-	'admin/archived': 'Settings Archived Personnel'
+	'admin/settings': 'Settings',
+	'admin/approvals': 'Settings',
+	'admin/audit': 'Settings',
+	'admin/archived': 'Settings'
 };
 
 function getPageSection(pageUrl?: string): string | null {

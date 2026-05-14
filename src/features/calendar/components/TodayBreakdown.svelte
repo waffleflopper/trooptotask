@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
-	import Modal from '$lib/components/Modal.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 
 	interface GroupData {
 		group: string;
@@ -21,7 +23,6 @@
 	let { personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments, onClose }: Props = $props();
 
 	let selectedDate = $state(new Date());
-	let datePickerEl: HTMLInputElement | undefined = $state();
 	const selectedDateStr = $derived(formatDate(selectedDate));
 
 	const isToday = $derived(formatDate(selectedDate) === formatDate(new Date()));
@@ -39,8 +40,7 @@
 		selectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + days);
 	}
 
-	function handleDateInput(e: Event) {
-		const value = (e.target as HTMLInputElement).value;
+	function handleDatePickerValue(value: string) {
 		if (value) {
 			const [y, m, d] = value.split('-').map(Number);
 			selectedDate = new Date(y, m - 1, d);
@@ -144,448 +144,163 @@
 	});
 </script>
 
-<Modal title={isToday ? "Today's Breakdown" : 'Daily Breakdown'} {onClose} width="700px" titleId="breakdown-title">
-	<div class="date-banner">
-		<button class="date-nav-btn" onclick={() => shiftDate(-1)} title="Previous day">&lsaquo;</button>
-		<button class="date-display-btn" onclick={() => datePickerEl?.showPicker?.()}>
-			{dateDisplay}
-		</button>
-		<input
-			bind:this={datePickerEl}
-			type="date"
-			class="hidden-date-input"
-			value={inputDateStr}
-			oninput={handleDateInput}
-		/>
-		<button class="date-nav-btn" onclick={() => shiftDate(1)} title="Next day">&rsaquo;</button>
-	</div>
+<AppDialog.Root open {onClose}>
+	<AppDialog.Content size="wide">
+		<AppDialog.Header>
+			<AppDialog.Title id="breakdown-title">{isToday ? "Today's Breakdown" : 'Daily Breakdown'}</AppDialog.Title>
+			<AppDialog.Description>{dateDisplay}</AppDialog.Description>
+		</AppDialog.Header>
 
-	<!-- Summary Stats -->
-	<div class="stats-row">
-		<div class="stat">
-			<span class="stat-value available">{personnelBreakdown.available.length}</span>
-			<span class="stat-label">Available</span>
+		<div class="bg-muted flex items-center justify-center gap-2 border-y px-4 py-2">
+			<Button
+				variant="outline"
+				size="icon-sm"
+				onclick={() => shiftDate(-1)}
+				title="Previous day"
+				aria-label="Previous day">&lsaquo;</Button
+			>
+			<DatePicker
+				value={inputDateStr}
+				onValueChange={handleDatePickerValue}
+				aria-label="Select breakdown date"
+				class="w-56"
+			/>
+			<Button variant="outline" size="icon-sm" onclick={() => shiftDate(1)} title="Next day" aria-label="Next day"
+				>&rsaquo;</Button
+			>
 		</div>
-		<div class="stat">
-			<span class="stat-value unavailable">{personnelBreakdown.unavailable.length}</span>
-			<span class="stat-label">Out</span>
-		</div>
-		<div class="stat">
-			<span class="stat-value total">{allPersonnel.length}</span>
-			<span class="stat-label">Total</span>
-		</div>
-	</div>
 
-	<div class="breakdown-content">
-		<!-- Daily Assignments -->
-		{#if assignmentInfo.length > 0}
-			<section class="section assignments-section">
-				<h3>Daily Assignments</h3>
-				<div class="assignment-grid">
-					{#each assignmentInfo as info (info.type.id)}
-						<div class="assignment-card" class:not-assigned={!info.isAssigned}>
-							<div class="assignment-type">
-								<span class="assignment-short">{info.type.shortName}</span>
-								<span class="assignment-name">{info.type.name}</span>
-							</div>
-							<div class="assignment-value">
-								{#if info.isAssigned}
-									<span class="assignee-name">{info.assigneeName}</span>
-									{#if info.assigneeDetails}
-										<span class="assignee-details">{info.assigneeDetails}</span>
+		<div class="bg-card flex justify-center gap-8 border-b px-6 py-4">
+			<div class="flex flex-col items-center">
+				<span class="text-primary text-2xl leading-none font-bold">{personnelBreakdown.available.length}</span>
+				<span class="text-muted-foreground text-xs uppercase">Available</span>
+			</div>
+			<div class="flex flex-col items-center">
+				<span class="text-destructive text-2xl leading-none font-bold">{personnelBreakdown.unavailable.length}</span>
+				<span class="text-muted-foreground text-xs uppercase">Out</span>
+			</div>
+			<div class="flex flex-col items-center">
+				<span class="text-2xl leading-none font-bold">{allPersonnel.length}</span>
+				<span class="text-muted-foreground text-xs uppercase">Total</span>
+			</div>
+		</div>
+
+		<AppDialog.Body class="grid gap-4">
+			{#if assignmentInfo.length > 0}
+				<section class="grid gap-2">
+					<h3 class="text-sm font-semibold">Daily Assignments</h3>
+					<div class="grid gap-2 sm:grid-cols-2">
+						{#each assignmentInfo as info (info.type.id)}
+							<div class={['rounded-lg border p-3', info.isAssigned ? 'bg-card' : 'bg-muted/40 opacity-80']}>
+								<div class="mb-1 flex items-center gap-2">
+									<span
+										class="bg-primary text-primary-foreground rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold uppercase"
+									>
+										{info.type.shortName}
+									</span>
+									<span class="text-muted-foreground text-xs font-medium">{info.type.name}</span>
+								</div>
+								<div class="grid gap-0.5">
+									{#if info.isAssigned}
+										<span class="text-sm font-semibold">{info.assigneeName}</span>
+										{#if info.assigneeDetails}
+											<span class="text-muted-foreground text-xs">{info.assigneeDetails}</span>
+										{/if}
+									{:else}
+										<span class="text-muted-foreground text-sm">Not Assigned</span>
 									{/if}
-								{:else}
-									<span class="not-assigned-text">Not Assigned</span>
-								{/if}
+								</div>
 							</div>
-						</div>
-					{/each}
-				</div>
-			</section>
-		{/if}
+						{/each}
+					</div>
+				</section>
+			{/if}
 
-		<!-- Available -->
-		<section class="section available-section">
-			<h3>
-				<span class="section-icon in">&#10003;</span>
-				Available
-				<span class="count">{personnelBreakdown.available.length}</span>
-			</h3>
-			{#if personnelBreakdown.available.length === 0}
-				<div class="empty-message">No one is available {isToday ? 'today' : 'this day'}</div>
-			{:else}
-				<div class="personnel-groups">
-					{#each personnelByGroup as grp (grp.group)}
-						{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
-						{#if availableForGroup.length > 0}
-							<div class="group-block">
-								<div class="group-label">{grp.group}</div>
-								<div class="personnel-chips">
-									{#each availableForGroup as { person, assignments } (person.id)}
-										<div class="person-chip" class:has-assignment={assignments.length > 0}>
-											<span class="chip-rank">{person.rank}</span>
-											<span class="chip-name">{person.lastName}</span>
-											{#if assignments.length > 0}
-												{#each assignments as badge (badge.typeId)}
-													<span class="assignment-badge">{badge.shortName}</span>
-												{/each}
-											{/if}
+			<section class="grid gap-2">
+				<h3 class="flex items-center gap-2 text-sm font-semibold">
+					<span class="text-primary" aria-hidden="true">&#10003;</span>
+					Available
+					<span class="text-muted-foreground text-xs">{personnelBreakdown.available.length}</span>
+				</h3>
+				{#if personnelBreakdown.available.length === 0}
+					<div class="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+						No one is available {isToday ? 'today' : 'this day'}
+					</div>
+				{:else}
+					<div class="grid gap-3">
+						{#each personnelByGroup as grp (grp.group)}
+							{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
+							{#if availableForGroup.length > 0}
+								<div class="grid gap-1">
+									<div class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">
+										{grp.group}
+									</div>
+									<div class="flex flex-wrap gap-1.5">
+										{#each availableForGroup as { person, assignments } (person.id)}
+											<div
+												class={[
+													'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm',
+													assignments.length > 0 ? 'bg-secondary text-secondary-foreground' : 'bg-card'
+												]}
+											>
+												<span class="text-muted-foreground font-mono text-xs">{person.rank}</span>
+												<span class="font-medium">{person.lastName}</span>
+												{#if assignments.length > 0}
+													{#each assignments as badge (badge.typeId)}
+														<span
+															class="bg-primary text-primary-foreground rounded px-1 font-mono text-[10px] font-semibold uppercase"
+															>{badge.shortName}</span
+														>
+													{/each}
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			<section class="grid gap-2">
+				<h3 class="flex items-center gap-2 text-sm font-semibold">
+					<span class="text-destructive" aria-hidden="true">&#10007;</span>
+					Unavailable
+					<span class="text-muted-foreground text-xs">{personnelBreakdown.unavailable.length}</span>
+				</h3>
+				{#if personnelBreakdown.unavailable.length === 0}
+					<div class="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+						Everyone is available{isToday ? ' today' : ''}!
+					</div>
+				{:else}
+					<div class="grid gap-3">
+						{#each outByStatus as { status, personnel } (status.id)}
+							<div class="overflow-hidden rounded-lg border">
+								<div
+									class="flex items-center justify-between px-3 py-1.5 text-sm font-semibold"
+									style="background-color: {status.color}; color: {status.textColor}"
+								>
+									{status.name}
+									<span class="rounded-full bg-black/15 px-2 py-0.5 text-xs">{personnel.length}</span>
+								</div>
+								<div class="flex flex-wrap gap-1.5 p-2">
+									{#each personnel as person (person.id)}
+										<div class="bg-card inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
+											<span class="text-muted-foreground font-mono text-xs">{person.rank}</span>
+											<span class="font-medium">{person.lastName}</span>
 										</div>
 									{/each}
 								</div>
 							</div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
-		</section>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		</AppDialog.Body>
 
-		<!-- Unavailable -->
-		<section class="section unavailable-section">
-			<h3>
-				<span class="section-icon out">&#10007;</span>
-				Unavailable
-				<span class="count">{personnelBreakdown.unavailable.length}</span>
-			</h3>
-			{#if personnelBreakdown.unavailable.length === 0}
-				<div class="empty-message success">Everyone is available{isToday ? ' today' : ''}!</div>
-			{:else}
-				<div class="status-groups">
-					{#each outByStatus as { status, personnel } (status.id)}
-						<div class="status-group">
-							<div class="status-header" style="background-color: {status.color}; color: {status.textColor}">
-								{status.name}
-								<span class="status-count">{personnel.length}</span>
-							</div>
-							<div class="status-personnel">
-								{#each personnel as person (person.id)}
-									<div class="person-chip out">
-										<span class="chip-rank">{person.rank}</span>
-										<span class="chip-name">{person.lastName}</span>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</section>
-	</div>
-
-	{#snippet footer()}
-		<button class="btn btn-primary" onclick={onClose}>Close</button>
-	{/snippet}
-</Modal>
-
-<style>
-	.date-banner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-6);
-		background: var(--amber);
-		color: var(--color-chrome);
-		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-6)) 0;
-		position: relative;
-	}
-
-	.date-nav-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: var(--radius-md);
-		background: transparent;
-		color: var(--color-chrome);
-		font-size: 1.25rem;
-		cursor: pointer;
-		transition: background 0.15s ease;
-	}
-
-	.date-nav-btn:hover {
-		background: rgba(255, 255, 255, 0.15);
-	}
-
-	.date-display-btn {
-		background: transparent;
-		border: none;
-		color: var(--color-chrome);
-		font-size: var(--text-base);
-		font-weight: 600;
-		cursor: pointer;
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-md);
-		transition: background 0.15s ease;
-	}
-
-	.date-display-btn:hover {
-		background: rgba(255, 255, 255, 0.15);
-	}
-
-	.hidden-date-input {
-		position: absolute;
-		opacity: 0;
-		width: 0;
-		height: 0;
-		pointer-events: none;
-	}
-
-	/* Stats Row */
-	.stats-row {
-		display: flex;
-		justify-content: center;
-		gap: var(--sp-8);
-		padding: var(--sp-4) var(--sp-6);
-		background: var(--surface-page);
-		border-bottom: 1px solid var(--border-default);
-		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: 0 calc(-1 * var(--sp-6));
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.stat-value {
-		font-size: 1.75rem;
-		font-weight: 700;
-		line-height: 1;
-	}
-
-	.stat-value.available {
-		color: #22c55e;
-	}
-
-	.stat-value.unavailable {
-		color: #ef4444;
-	}
-
-	.stat-value.total {
-		color: var(--amber);
-	}
-
-	.stat-label {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-		margin-top: var(--sp-1);
-	}
-
-	/* Content */
-	.breakdown-content {
-		padding: var(--sp-6);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-6);
-	}
-
-	.section h3 {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		font-size: var(--text-ui-base);
-		font-weight: 600;
-		margin-bottom: var(--sp-2);
-	}
-
-	.section-icon {
-		width: 20px;
-		height: 20px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 12px;
-		font-weight: 700;
-	}
-
-	.section-icon.in {
-		background: #22c55e;
-		color: white;
-	}
-
-	.section-icon.out {
-		background: #ef4444;
-		color: white;
-	}
-
-	.count {
-		background: var(--amber);
-		color: var(--color-chrome);
-		font-size: var(--text-ui-sm);
-		padding: 2px 8px;
-		border-radius: 10px;
-		font-weight: 500;
-		margin-left: auto;
-	}
-
-	/* Assignments Section */
-	.assignment-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.assignment-card {
-		padding: var(--sp-4);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		border: 2px solid var(--amber);
-	}
-
-	.assignment-card.not-assigned {
-		border-color: var(--border-default);
-		background: var(--surface-page);
-	}
-
-	.assignment-type {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-1);
-	}
-
-	.assignment-short {
-		font-weight: 700;
-		font-size: var(--text-ui-sm);
-		color: var(--amber);
-	}
-
-	.assignment-name {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-	}
-
-	.assignment-value {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.assignee-name {
-		font-weight: 600;
-		font-size: var(--text-ui-base);
-	}
-
-	.assignee-details {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
-	}
-
-	.not-assigned-text {
-		color: var(--text-tertiary);
-		font-style: italic;
-	}
-
-	/* Personnel Groups */
-	.personnel-groups {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.group-block {
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-		padding: var(--sp-2);
-	}
-
-	.group-label {
-		font-size: var(--text-ui-sm);
-		font-weight: 600;
-		color: var(--amber);
-		margin-bottom: var(--sp-1);
-	}
-
-	.personnel-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-1);
-	}
-
-	.person-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 4px 8px;
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-ui-sm);
-	}
-
-	.person-chip.has-assignment {
-		border-color: var(--amber);
-		background: #ebf8ff;
-	}
-
-	.chip-rank {
-		font-weight: 600;
-		color: var(--amber);
-	}
-
-	.assignment-badge {
-		background: var(--amber);
-		color: var(--color-chrome);
-		font-size: 9px;
-		font-weight: 700;
-		padding: 1px 4px;
-		border-radius: 2px;
-		margin-left: 2px;
-	}
-
-	.person-chip.out {
-		background: var(--surface-panel);
-	}
-
-	/* Status Groups */
-	.status-groups {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.status-group {
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-
-	.status-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-ui-sm);
-		font-weight: 600;
-	}
-
-	.status-count {
-		opacity: 0.8;
-	}
-
-	.status-personnel {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-1);
-		padding: var(--sp-2);
-	}
-
-	.empty-message {
-		color: var(--text-tertiary);
-		font-style: italic;
-		padding: var(--sp-4);
-		text-align: center;
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-	}
-
-	.empty-message.success {
-		background: #f0fdf4;
-		color: #22c55e;
-	}
-</style>
+		<AppDialog.Footer>
+			<Button onclick={onClose}>Close</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

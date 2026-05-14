@@ -52,8 +52,6 @@ const baseMembership: MembershipInfo = {
 
 const baseOrgState: OrgState = {
 	orgName: 'Test Unit',
-	isDemoReadOnly: false,
-	isDemoSandbox: false,
 	effectiveTier: {
 		tier: 'free',
 		source: 'default',

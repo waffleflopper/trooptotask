@@ -9,15 +9,13 @@
 			<div class="footer__links">
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Product</div>
-					<a href="/features" class="footer__link">Features</a>
-					<a href="/pricing" class="footer__link">Pricing</a>
+					<a href="/#pricing" class="footer__link">Pricing</a>
 					<a href="/security" class="footer__link">Security</a>
 					<a href="/#faq" class="footer__link">FAQ</a>
 				</div>
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Access</div>
 					<a href="/auth/request-access" class="footer__link">Request Access</a>
-					<a href="/demo" class="footer__link">Schedule Demo</a>
 					<a href="/auth/login" class="footer__link">Sign In</a>
 				</div>
 				<div class="footer__links-col">
@@ -40,11 +38,11 @@
 		</div>
 
 		<div class="footer__meta">
-			<div class="label">trooptotask.org</div>
+			<div class="footer-label">trooptotask.org</div>
 			<div class="footer__meta-divider"></div>
-			<div class="label">Version 2.0</div>
+			<div class="footer-label">Version 2.0</div>
 			<div class="footer__meta-divider"></div>
-			<div class="label">Built for unit leaders</div>
+			<div class="footer-label">Built for unit leaders</div>
 		</div>
 	</div>
 </footer>
@@ -53,86 +51,86 @@
 	.container {
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: 0 var(--sp-8);
+		padding: 0 2rem;
 	}
 
-	.label {
-		font-family: var(--font-mono);
+	.footer-label {
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 9px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.site-footer {
-		border-top: var(--border-thin);
-		padding: var(--sp-12) 0 var(--sp-10);
-		background: var(--surface-page);
+		border-top: 1px solid var(--border);
+		padding: 3rem 0 2.5rem;
+		background: var(--background);
 	}
 
 	.footer__inner {
 		display: grid;
 		grid-template-columns: auto 1fr auto;
-		gap: var(--sp-16);
+		gap: 4rem;
 		align-items: start;
 	}
 
 	.footer__brand {
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 20px;
-		font-weight: var(--font-weight-display);
+		font-weight: 800;
 		letter-spacing: 0.02em;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.footer__brand span {
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	.footer__tagline {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 10px;
-		font-weight: var(--font-weight-medium);
+		font-weight: 500;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
-		margin-top: var(--sp-2);
+		color: var(--muted-foreground);
+		margin-top: 0.5rem;
 	}
 
 	.footer__links {
 		display: flex;
-		gap: var(--sp-12);
+		gap: 3rem;
 	}
 
 	.footer__links-col {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 	}
 
 	.footer__link-heading {
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 10px;
-		font-weight: var(--font-weight-semibold);
+		font-weight: 600;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
-		margin-bottom: var(--sp-1);
+		color: var(--muted-foreground);
+		margin-bottom: 0.25rem;
 	}
 
 	.footer__link {
-		font-family: var(--font-display);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 0.8125rem;
+		font-weight: 500;
 		letter-spacing: 0.03em;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		transition: color 0.12s;
 		text-decoration: none;
 	}
 
 	.footer__link:hover {
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.footer__link:focus-visible {
@@ -143,41 +141,41 @@
 	.footer__legal {
 		justify-self: end;
 		max-width: 36ch;
-		font-family: var(--font-mono);
+		font-family: 'IBM Plex Mono', monospace;
 		font-size: 10px;
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 		line-height: 1.7;
 		text-align: right;
 	}
 
 	.footer__legal-spacer {
-		margin-top: var(--sp-2);
+		margin-top: 0.5rem;
 	}
 
 	.footer__legal-note {
-		margin-top: var(--sp-2);
+		margin-top: 0.5rem;
 	}
 
 	.footer__meta {
-		margin-top: var(--sp-8);
-		padding-top: var(--sp-6);
-		border-top: var(--border-thin);
+		margin-top: 2rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--border);
 		display: flex;
 		align-items: center;
-		gap: var(--sp-6);
+		gap: 1.5rem;
 		flex-wrap: wrap;
 	}
 
 	.footer__meta-divider {
 		width: 1px;
 		height: 12px;
-		background: var(--border-default);
+		background: var(--border);
 	}
 
 	@media (max-width: 900px) {
 		.footer__inner {
 			grid-template-columns: 1fr;
-			gap: var(--sp-10);
+			gap: 2.5rem;
 		}
 
 		.footer__legal {
@@ -194,7 +192,7 @@
 
 		.footer__links {
 			flex-direction: column;
-			gap: var(--sp-8);
+			gap: 2rem;
 		}
 	}
 </style>

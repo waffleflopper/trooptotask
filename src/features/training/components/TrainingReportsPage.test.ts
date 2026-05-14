@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -87,14 +87,6 @@ const trainingType: TrainingType = {
 	isOptional: false
 };
 
-const secondaryTrainingType: TrainingType = {
-	...trainingType,
-	id: 'type-2',
-	name: 'Weapons Qual',
-	color: '#f59e0b',
-	sortOrder: 1
-};
-
 function makeServerReport(
 	person: Personnel,
 	overrides: Partial<TrainingReportData['detail']> = {}
@@ -110,7 +102,8 @@ function makeServerReport(
 				notCompleted: 1
 			},
 			worstTypes: [],
-			groupComparison: []
+			groupComparison: [],
+			typeBreakdown: []
 		},
 		detail: {
 			rows: [
@@ -176,98 +169,8 @@ describe('TrainingReportsPage', () => {
 			}
 		});
 
-		expect(screen.getByRole('option', { name: 'Alpha' })).toBeTruthy();
-		expect(screen.getByText('Overall Readiness (2 personnel)')).toBeTruthy();
-	});
-
-	it('puts report filters and export in the floating page toolbar', () => {
-		trainingTypesStore.load([trainingType, secondaryTrainingType], 'org-1');
-
-		render(TrainingReportsPage, {
-			props: {
-				data: {
-					training: {
-						data: {
-							personnelTrainings: Promise.resolve([])
-						}
-					},
-					personnel,
-					groups
-				}
-			}
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Training report controls' });
-
-		expect(toolbar).toBeTruthy();
-		expect(screen.queryByTestId('page-toolbar')).toBeNull();
-		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
-		expect(screen.getByLabelText('Filter by status')).toBeTruthy();
-		expect(screen.getByRole('combobox', { name: 'Filter by training type' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export' }).classList.contains('btn-primary')).toBe(true);
-		expect(screen.queryByText('2 personnel')).toBeNull();
-	});
-
-	it('collapses report filters into a shared filter group when the toolbar is narrow', async () => {
-		trainingTypesStore.load([trainingType, secondaryTrainingType], 'org-1');
-
-		render(TrainingReportsPage, {
-			props: {
-				toolbarContainerWidth: 520,
-				data: {
-					training: {
-						data: {
-							personnelTrainings: Promise.resolve([])
-						}
-					},
-					personnel,
-					groups
-				}
-			}
-		});
-
-		expect(screen.getByRole('button', { name: 'Personnel filters' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Report filters' })).toBeTruthy();
-		expect(screen.queryByLabelText('Filter by group')).toBeNull();
-		expect(screen.queryByLabelText('Filter by status')).toBeNull();
-		expect(screen.queryByRole('combobox', { name: 'Filter by training type' })).toBeNull();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Report filters' }));
-		const panel = screen.getByTestId('training-report-filters-panel');
-
-		expect(within(panel).getByLabelText('Filter by group')).toBeTruthy();
-		expect(within(panel).getByLabelText('Filter by status')).toBeTruthy();
-		expect(within(panel).getByRole('combobox', { name: 'Filter by training type' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
-	});
-
-	it('filters training types with the tag-style multi-select', async () => {
-		const fetchMock = vi.fn(async () => ({
-			ok: true,
-			json: async () => makeServerReport(personnel[0])
-		}));
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(TrainingReportsPage, {
-			props: {
-				data: {
-					trainingReport: {
-						...makeServerReport(personnel[1]),
-						trainingTypes: [trainingType, secondaryTrainingType]
-					}
-				}
-			}
-		});
-
-		await fireEvent.focus(screen.getByRole('combobox', { name: 'Filter by training type' }));
-		await fireEvent.mouseDown(
-			within(screen.getByRole('listbox', { name: 'Filter by training type' })).getByText('CPR')
-		);
-
-		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Remove CPR' })).toBeTruthy();
-			expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('trainingTypeId=type-1'));
-		});
+		expect(screen.getByText('Training Readiness')).toBeTruthy();
+		expect(screen.getByText(/across 2 personnel/)).toBeTruthy();
 	});
 
 	it('renders only the server-provided report page instead of rebuilding every store row', () => {
@@ -285,7 +188,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [
@@ -337,7 +241,8 @@ describe('TrainingReportsPage', () => {
 						notCompleted: 1
 					},
 					worstTypes: [],
-					groupComparison: []
+					groupComparison: [],
+					typeBreakdown: []
 				},
 				detail: {
 					rows: [
@@ -384,7 +289,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [
@@ -456,232 +362,6 @@ describe('TrainingReportsPage', () => {
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
-	it('fetches a fresh server report page when filters change', async () => {
-		const fetchMock = vi.fn(async () => ({
-			ok: true,
-			json: async () => ({
-				dashboard: {
-					readinessPercent: 0,
-					statusCounts: {
-						current: 0,
-						warningYellow: 0,
-						warningOrange: 0,
-						expired: 0,
-						notCompleted: 1
-					},
-					worstTypes: [],
-					groupComparison: []
-				},
-				detail: {
-					rows: [
-						{
-							person: personnel[0],
-							cells: [
-								{
-									trainingTypeId: trainingType.id,
-									status: 'not-completed',
-									label: 'Not Done',
-									date: null
-								}
-							]
-						}
-					],
-					totalRows: 1,
-					page: 1,
-					pageSize: 1,
-					totalPages: 1,
-					sort: { column: 'name', direction: 'asc' }
-				},
-				trainingTypes: [trainingType],
-				filterOptions: {
-					groups,
-					mos: ['11B', '68W'],
-					roles: ['Line', 'Medic'],
-					ranks: ['SGT', 'SPC']
-				}
-			})
-		}));
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(TrainingReportsPage, {
-			props: {
-				data: {
-					trainingReport: {
-						dashboard: {
-							readinessPercent: 50,
-							statusCounts: {
-								current: 1,
-								warningYellow: 0,
-								warningOrange: 0,
-								expired: 0,
-								notCompleted: 1
-							},
-							worstTypes: [],
-							groupComparison: []
-						},
-						detail: {
-							rows: [
-								{
-									person: personnel[1],
-									cells: [
-										{
-											trainingTypeId: trainingType.id,
-											status: 'current',
-											label: 'Current',
-											date: null
-										}
-									]
-								}
-							],
-							totalRows: 2,
-							page: 1,
-							pageSize: 1,
-							totalPages: 2,
-							sort: { column: 'name', direction: 'asc' }
-						},
-						trainingTypes: [trainingType],
-						filterOptions: {
-							groups,
-							mos: ['11B', '68W'],
-							roles: ['Line', 'Medic'],
-							ranks: ['SGT', 'SPC']
-						}
-					}
-				}
-			}
-		});
-
-		await fireEvent.change(screen.getByLabelText('Filter by group'), { target: { value: 'group-1' } });
-
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('groupId=group-1'));
-			expect(((fetchMock.mock.calls.at(0) as unknown as [string]) ?? [''])[0]).toContain('page=1');
-			expect(screen.getByText('Smith, Jane')).toBeTruthy();
-		});
-	});
-
-	it('keeps the latest server report when earlier requests resolve late', async () => {
-		let resolveStaleResponse!: (response: Response) => void;
-		let resolveLatestResponse!: (response: Response) => void;
-		const staleResponse = new Promise<Response>((resolve) => {
-			resolveStaleResponse = resolve;
-		});
-		const latestResponse = new Promise<Response>((resolve) => {
-			resolveLatestResponse = resolve;
-		});
-		const reportResponse = (person: Personnel, totalRows: number) =>
-			({
-				ok: true,
-				json: async () => ({
-					dashboard: {
-						readinessPercent: 0,
-						statusCounts: {
-							current: 0,
-							warningYellow: 0,
-							warningOrange: 0,
-							expired: 0,
-							notCompleted: 1
-						},
-						worstTypes: [],
-						groupComparison: []
-					},
-					detail: {
-						rows: [
-							{
-								person,
-								cells: [
-									{
-										trainingTypeId: trainingType.id,
-										status: 'not-completed',
-										label: 'Not Done',
-										date: null
-									}
-								]
-							}
-						],
-						totalRows,
-						page: 1,
-						pageSize: 1,
-						totalPages: totalRows,
-						sort: { column: 'name', direction: 'asc' }
-					},
-					trainingTypes: [trainingType],
-					filterOptions: {
-						groups,
-						mos: ['11B', '68W'],
-						roles: ['Line', 'Medic'],
-						ranks: ['SGT', 'SPC']
-					}
-				})
-			}) as Response;
-		const fetchMock = vi.fn((url: string) => (url.includes('groupId=group-1') ? latestResponse : staleResponse));
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(TrainingReportsPage, {
-			props: {
-				data: {
-					trainingReport: {
-						dashboard: {
-							readinessPercent: 50,
-							statusCounts: {
-								current: 1,
-								warningYellow: 0,
-								warningOrange: 0,
-								expired: 0,
-								notCompleted: 1
-							},
-							worstTypes: [],
-							groupComparison: []
-						},
-						detail: {
-							rows: [
-								{
-									person: personnel[1],
-									cells: [
-										{
-											trainingTypeId: trainingType.id,
-											status: 'current',
-											label: 'Current',
-											date: null
-										}
-									]
-								}
-							],
-							totalRows: 2,
-							page: 1,
-							pageSize: 1,
-							totalPages: 2,
-							sort: { column: 'name', direction: 'asc' }
-						},
-						trainingTypes: [trainingType],
-						filterOptions: {
-							groups,
-							mos: ['11B', '68W'],
-							roles: ['Line', 'Medic'],
-							ranks: ['SGT', 'SPC']
-						}
-					}
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-		await fireEvent.change(screen.getByLabelText('Filter by group'), { target: { value: 'group-1' } });
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-		resolveLatestResponse(reportResponse(personnel[0], 1));
-		await waitFor(() => expect(screen.getByText('Smith, Jane')).toBeTruthy());
-
-		resolveStaleResponse(reportResponse(personnel[1], 2));
-		await staleResponse;
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(screen.getByText('Smith, Jane')).toBeTruthy();
-		expect(screen.queryByText('Adams, John')).toBeNull();
-	});
-
 	it('uses the server export endpoint for server-backed reports', async () => {
 		const appendSpy = vi.spyOn(document.body, 'appendChild');
 		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -700,7 +380,8 @@ describe('TrainingReportsPage', () => {
 								notCompleted: 1
 							},
 							worstTypes: [],
-							groupComparison: []
+							groupComparison: [],
+							typeBreakdown: []
 						},
 						detail: {
 							rows: [

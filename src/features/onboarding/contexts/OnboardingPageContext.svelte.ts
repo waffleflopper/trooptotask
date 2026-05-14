@@ -23,7 +23,6 @@ const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 export const MODAL_IDS = {
 	templateManager: 'templateManager',
 	startOnboarding: 'startOnboarding',
-	report: 'report',
 	assignTemplate: 'assignTemplate',
 	cancelConfirm: 'cancelConfirm',
 	switchTemplate: 'switchTemplate',
@@ -226,7 +225,6 @@ export class OnboardingPageContext {
 
 	get overflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
-		items.push({ label: 'View Report', onclick: () => this.modals.open(MODAL_IDS.report) });
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Templates',

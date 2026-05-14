@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { resolve } from '$app/paths';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import PublicBrandMark from '$lib/components/public/PublicBrandMark.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		eyebrow?: string;
@@ -9,6 +15,8 @@
 		panelEyebrow?: string;
 		panelTitle?: string;
 		panelDescription?: string;
+		imageSrc?: string;
+		imageAlt?: string;
 		supportLabel?: string;
 		supportTitle?: string;
 		supportDescription?: string;
@@ -26,6 +34,8 @@
 		panelEyebrow,
 		panelTitle,
 		panelDescription,
+		imageSrc,
+		imageAlt = '',
 		supportLabel = 'Account Help',
 		supportTitle = 'Use the path that fits your account.',
 		supportDescription = 'Sign in, recover access, or complete an invite from the links on this page.',
@@ -35,100 +45,117 @@
 	}: Props = $props();
 
 	const resolvedPanelTitle = $derived(panelTitle ?? title);
+	const resolvedImageSrc = $derived(imageSrc ?? null);
+	const hasImage = $derived(!!resolvedImageSrc);
 </script>
 
-<div class="auth-shell">
-	<div class="auth-shell__frame">
-		<header class="auth-shell__topbar">
-			<a href="/" class="auth-shell__brand">
-				<span class="auth-shell__brand-mark">Troop<span>To</span>Task</span>
-				<span class="auth-shell__brand-subtitle">Unit Readiness Platform</span>
+<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 text-foreground">
+	<div class="mx-auto flex min-h-screen max-w-[1120px] flex-col px-4 py-5 sm:px-6 lg:px-8">
+		<header class="flex items-center justify-between gap-4">
+			<a
+				href={resolve('/')}
+				class="auth-brand inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+			>
+				<PublicBrandMark />
 			</a>
 
-			<div class="auth-shell__topbar-actions">
-				<a href="/" class="auth-shell__back-link">Back to site</a>
-				<button
-					class="auth-shell__theme-toggle"
+			<div class="flex items-center gap-2">
+				<Button href={resolve('/')} variant="outline" size="sm">Back to site</Button>
+				<Button
+					variant="outline"
+					size="icon-sm"
 					type="button"
 					onclick={() => themeStore.toggle()}
 					aria-label="Toggle theme"
 				>
 					{#if themeStore.isDark}
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="12" cy="12" r="5" />
-							<path
-								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-							/>
-						</svg>
+						<SunIcon aria-hidden="true" />
 					{:else}
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-						</svg>
+						<MoonIcon aria-hidden="true" />
 					{/if}
-				</button>
+				</Button>
 			</div>
 		</header>
 
-		<main class="auth-shell__main">
-			<section class="auth-shell__intro" aria-labelledby="auth-shell-intro-title">
-				<p class="auth-shell__eyebrow">{eyebrow}</p>
-				<h1 id="auth-shell-intro-title" class="auth-shell__title">{title}</h1>
-				{#if description}
-					<p class="auth-shell__description">{description}</p>
-				{/if}
+		<main class="flex flex-1 items-center justify-center py-8 md:py-12">
+			<section
+				class={cn(
+					'grid w-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-[0_16px_48px_-36px_oklch(0.147_0.004_49.25/0.55),0_1px_2px_oklch(0.147_0.004_49.25/0.08)]',
+					hasImage ? 'max-w-[960px] md:grid-cols-[minmax(0,0.92fr)_minmax(0,1fr)]' : 'max-w-[480px]'
+				)}
+				aria-labelledby="auth-panel-title"
+			>
+				<div class="flex flex-col px-6 py-7 sm:px-8 sm:py-9">
+					{#if panelEyebrow ?? eyebrow}
+						<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+							{panelEyebrow ?? eyebrow}
+						</p>
+					{/if}
 
-				<div class="auth-shell__signal">
-					<p class="auth-shell__signal-label">{supportLabel}</p>
-					<h2 class="auth-shell__signal-title">{supportTitle}</h2>
-					<p class="auth-shell__signal-copy">{supportDescription}</p>
+					<h1
+						id="auth-panel-title"
+						class="mt-4 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-3xl"
+					>
+						{resolvedPanelTitle}
+					</h1>
 
-					{#if supportPoints.length > 0}
-						<ul class="auth-shell__points">
-							{#each supportPoints as point, index (`${point}:${index}`)}
-								<li>{point}</li>
-							{/each}
-						</ul>
+					{#if panelDescription ?? description}
+						<p class="mt-2 text-sm leading-6 text-muted-foreground">{panelDescription ?? description}</p>
+					{/if}
+
+					<div class="mt-6 flex flex-col gap-5">
+						{@render children()}
+					</div>
+
+					{#if !hasImage && supportPoints.length > 0}
+						<div class="mt-6 rounded-lg border bg-muted/35 p-4">
+							<p class="text-sm font-medium text-foreground">{supportTitle}</p>
+							<ul class="mt-3 grid gap-2">
+								{#each supportPoints as point, index (`${point}:${index}`)}
+									<li class="grid grid-cols-[auto_1fr] items-start gap-2 text-sm leading-5 text-muted-foreground">
+										<span class="mt-2 size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+										<span>{point}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
 					{/if}
 
 					{#if aside}
-						<div class="auth-shell__aside">
+						<div class="mt-5">
 							{@render aside()}
 						</div>
 					{/if}
 				</div>
-			</section>
 
-			<section class="auth-shell__panel" aria-labelledby="auth-panel-title">
-				<header class="auth-shell__panel-header">
-					{#if panelEyebrow}
-						<p class="auth-shell__panel-eyebrow">{panelEyebrow}</p>
-					{/if}
-					<h2 id="auth-panel-title" class="auth-shell__panel-title">{resolvedPanelTitle}</h2>
-					{#if panelDescription}
-						<p class="auth-shell__panel-description">{panelDescription}</p>
-					{/if}
-				</header>
-
-				<div class="auth-shell__panel-body">
-					{@render children()}
-				</div>
+				{#if resolvedImageSrc}
+					<div class="relative hidden min-h-[520px] overflow-hidden border-l border-border/80 bg-muted md:block">
+						<img src={resolvedImageSrc} alt={imageAlt} class="absolute inset-0 size-full object-cover" />
+						<div class="absolute inset-0 bg-gradient-to-t from-background/55 via-transparent to-transparent"></div>
+						<div
+							class="absolute right-5 bottom-5 left-5 rounded-lg border border-border/80 bg-background/88 p-4 shadow-[0_10px_30px_-24px_oklch(0.147_0.004_49.25/0.45),0_1px_2px_oklch(0.147_0.004_49.25/0.08)] backdrop-blur-sm"
+						>
+							<p class="font-mono text-[0.625rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+								{supportLabel}
+							</p>
+							<p class="mt-1 text-sm font-medium text-foreground">{supportTitle}</p>
+							<p class="mt-1 text-xs leading-5 text-muted-foreground">{supportDescription}</p>
+						</div>
+					</div>
+				{/if}
 			</section>
 		</main>
 
-		<footer class="auth-shell__footer">Built for Army leaders, by Army leaders.</footer>
+		<footer class="pb-6 text-center text-sm leading-6 text-muted-foreground">
+			By continuing, you agree to our <a href={resolve('/terms')}>Terms of Use</a> and
+			<a href={resolve('/privacy')}>Privacy Policy</a>.
+		</footer>
 	</div>
 </div>
+
+<style>
+	.auth-brand {
+		--public-brand-accent: var(--accent);
+		--public-brand-subtitle-color: var(--muted-foreground);
+	}
+</style>

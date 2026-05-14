@@ -12,7 +12,7 @@ import type {
 	DutyRosterTemplateAcceptedRun,
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
-import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+import type { ColumnDef } from '$lib/components/ui/data-table';
 
 export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
 
@@ -42,6 +42,9 @@ export type DutyRosterPreviewReviewModel = {
 				assigned: boolean;
 				tone: DutyRosterMatrixCellTone;
 				display: string;
+				chargeable: boolean;
+				sequenceNumber: number | null;
+				reason: string | null;
 			}>;
 		}>;
 	};
@@ -90,6 +93,9 @@ export type DutyRosterAcceptedRunReviewModel = {
 				assigned: boolean;
 				tone: DutyRosterMatrixCellTone;
 				display: string;
+				chargeable: boolean;
+				sequenceNumber: number | null;
+				reason: string | null;
 			}>;
 		}>;
 	};
@@ -160,7 +166,10 @@ export function buildDutyRosterPreviewReviewModel(input: {
 					date: cell.date,
 					assigned: cell.assigned,
 					tone: da6CellTone(cell),
-					display: previewCellDisplay(cell)
+					display: previewCellDisplay(cell),
+					chargeable: cell.chargeable,
+					sequenceNumber: cell.sequenceNumber,
+					reason: cell.reason
 				}))
 			}))
 		}
@@ -241,7 +250,10 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 					date: cell.date,
 					assigned: cell.assigned,
 					tone: da6CellTone(cell),
-					display: da6CellDisplay(cell)
+					display: da6CellDisplay(cell),
+					chargeable: cell.chargeable,
+					sequenceNumber: cell.sequenceNumber,
+					reason: cell.reason
 				}))
 			}))
 		}

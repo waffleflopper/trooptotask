@@ -158,8 +158,7 @@ describe('buildLayoutContext', () => {
 		const { supabase } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;
@@ -190,8 +189,7 @@ describe('buildLayoutContext', () => {
 		const { supabase } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;
@@ -203,39 +201,6 @@ describe('buildLayoutContext', () => {
 		expect(seeded.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		expect(reused.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		await expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)!).resolves.toEqual(membership);
-	});
-
-	it('skips request-cache seeding when buildLayoutContextFromMembership runs in sandbox mode', async () => {
-		const membership = {
-			role: 'member',
-			scoped_group_id: 'group-123',
-			can_view_calendar: true,
-			can_edit_calendar: false,
-			can_view_personnel: true,
-			can_edit_personnel: false,
-			can_view_training: true,
-			can_edit_training: false,
-			can_view_onboarding: false,
-			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
-			can_manage_members: false
-		} satisfies MembershipRow;
-		const { supabase } = createMembershipSupabase(membership);
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID,
-			isSandbox: true
-		});
-
-		const locals = {} as App.Locals;
-		const ctx = await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership);
-
-		expect(supabase.from).not.toHaveBeenCalled();
-		expect(ctx.auth.role).toBe('owner');
-		expect(ctx.auth.userId).toBeNull();
-		expect(locals.membershipContextCache).toBeUndefined();
-		expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)).toBeNull();
 	});
 
 	it('stores a fetched membership row and reuses it on the next layout context build for the same request', async () => {
@@ -257,8 +222,7 @@ describe('buildLayoutContext', () => {
 		const { supabase, query } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;
@@ -300,8 +264,7 @@ describe('buildLayoutContext', () => {
 		};
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;
@@ -348,8 +311,7 @@ describe('buildLayoutContext', () => {
 		};
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;
@@ -405,8 +367,7 @@ describe('buildLayoutContext', () => {
 		const { supabase } = createMembershipSupabase(queriedMembership);
 		getApiContextMock.mockReturnValue({
 			supabase,
-			userId: USER_ID,
-			isSandbox: false
+			userId: USER_ID
 		});
 
 		const locals = {} as App.Locals;

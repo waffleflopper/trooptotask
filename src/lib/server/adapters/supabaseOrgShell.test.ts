@@ -55,8 +55,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier
 		});
 
@@ -77,8 +75,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier
 		});
 
@@ -116,8 +112,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier,
 			wrapMembershipLoad
 		});
@@ -191,8 +185,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier
 		});
 
@@ -230,8 +222,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase: createMockSupabase(builder),
 			orgName: 'Test Org',
-			isDemoReadOnly: false,
-			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier
 		});
 

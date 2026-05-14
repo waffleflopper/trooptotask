@@ -6,4 +6,6 @@
 	<title>Calendar Settings - Troop to Task</title>
 </svelte:head>
 
-<CalendarSettingsPage />
+<div class="mx-auto max-w-[1200px] px-6 py-4 pb-6">
+	<CalendarSettingsPage />
+</div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './supabaseAuthContext';
+import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -117,28 +117,5 @@ describe('SupabaseAuthContextAdapter', () => {
 			'org-456',
 			'personnel_id'
 		);
-	});
-});
-
-describe('createSandboxAuthContext', () => {
-	it('returns a permissive context with owner role', () => {
-		const auth = createSandboxAuthContext('org-sandbox');
-
-		expect(auth.userId).toBeNull();
-		expect(auth.orgId).toBe('org-sandbox');
-		expect(auth.role).toBe('owner');
-		expect(auth.isPrivileged).toBe(true);
-		expect(auth.scopeSet).toEqual({ kind: 'organization' });
-	});
-
-	it('does not throw on any require* call', async () => {
-		const auth = createSandboxAuthContext('org-sandbox');
-
-		expect(() => auth.requireView('training')).not.toThrow();
-		expect(() => auth.requirePrivileged()).not.toThrow();
-		expect(() => auth.requireOwner()).not.toThrow();
-		await expect(auth.requireGroupAccess('p-1')).resolves.toBeUndefined();
-		await expect(auth.requireGroupAccessBatch(['p-1'])).resolves.toBeUndefined();
-		await expect(auth.requireGroupAccessByRecord('t', 'r', 'c')).resolves.toBeUndefined();
 	});
 });

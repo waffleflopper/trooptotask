@@ -4,12 +4,14 @@
 	import PublicFooter from './PublicFooter.svelte';
 	import PublicSiteNav from './PublicSiteNav.svelte';
 
+	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
+
 	interface Props {
 		user?: unknown;
-		active?: 'features' | 'pricing' | 'security';
+		active?: 'security';
 		bodyClass?: string;
-		roadmapHref?: string;
-		faqHref?: string;
+		roadmapHref?: PublicAnchorHref;
+		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		showClassificationBar?: boolean;
 		showCta?: boolean;
@@ -17,6 +19,8 @@
 		ctaTitleBefore?: string;
 		ctaEmphasis?: string;
 		ctaSubtitle?: string;
+		navOverlay?: boolean;
+		navScrolled?: boolean;
 		children: Snippet;
 		cta?: Snippet;
 	}
@@ -34,6 +38,8 @@
 		ctaTitleBefore = 'Ready to streamline',
 		ctaEmphasis = 'your unit?',
 		ctaSubtitle = 'Free to use. No credit card. Set up in minutes.',
+		navOverlay = false,
+		navScrolled = false,
 		children,
 		cta
 	}: Props = $props();
@@ -48,7 +54,7 @@
 		</div>
 	{/if}
 
-	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} />
+	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
 
 	<main class={`public-body ${bodyClass}`.trim()}>
 		{@render children()}
@@ -69,46 +75,51 @@
 
 <style>
 	.public-shell {
-		--brass: var(--amber);
-		--brass-light: var(--amber-vivid);
-		--brass-muted: color-mix(in srgb, var(--amber) 14%, transparent);
-		--font-family: var(--font-body);
-		--font-size-base: var(--text-base);
-		--ink: var(--color-chrome);
-		--ink-light: color-mix(in srgb, var(--color-chrome) 86%, var(--paper) 14%);
-		--ink-border: var(--color-chrome-border);
-		--paper: var(--surface-panel);
-		--paper-warm: color-mix(in srgb, var(--surface-panel) 78%, var(--surface-subtle) 22%);
-		--hero-bg: var(--ink);
+		--brass: var(--accent);
+		--brass-light: var(--accent);
+		--brass-muted: color-mix(in srgb, var(--accent) 14%, transparent);
+		--public-accent: var(--accent);
+		--public-accent-strong: var(--ring);
+		--public-accent-hover: color-mix(in srgb, var(--ring) 82%, var(--color-chrome-text) 18%);
+		--font-family: 'Source Serif 4', serif;
+		--font-size-base: 1rem;
+		--public-ink: var(--color-chrome);
+		--public-ink-light: color-mix(in srgb, var(--color-chrome) 86%, var(--card) 14%);
+		--public-ink-border: var(--color-chrome-border);
+		--public-paper: var(--card);
+		--public-paper-warm: color-mix(in srgb, var(--card) 78%, var(--muted) 22%);
+		--hero-bg: var(--color-chrome);
 		--hero-text: var(--color-chrome-text);
 		--hero-muted: var(--color-chrome-text-muted);
-		--classification-bg: color-mix(in srgb, var(--surface-subtle) 88%, var(--surface-page) 12%);
-		--classification-text: var(--text-secondary);
-		--classification-border: var(--border-default);
+		--hero-border: var(--color-chrome-border-subtle);
+		--hero-hover: var(--color-chrome-hover);
+		--classification-bg: color-mix(in srgb, var(--muted) 88%, var(--background) 12%);
+		--classification-text: var(--muted-foreground);
+		--classification-border: var(--border);
 		min-height: 100vh;
-		background: var(--surface-page);
-		color: var(--text-primary);
-		font-family: var(--font-body);
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-light);
+		background: var(--background);
+		color: var(--foreground);
+		font-family: 'Source Serif 4', serif;
+		font-size: 1rem;
+		font-weight: 300;
 		line-height: 1.65;
 		overflow-x: hidden;
 	}
 
 	:global([data-theme='dark']) .public-shell {
-		--paper: var(--surface-panel);
-		--paper-warm: color-mix(in srgb, var(--surface-panel) 82%, black 18%);
-		--classification-bg: var(--ink);
+		--public-paper: var(--card);
+		--public-paper-warm: color-mix(in srgb, var(--card) 82%, black 18%);
+		--classification-bg: var(--foreground);
 		--classification-text: var(--hero-muted);
-		--classification-border: var(--ink-border);
+		--classification-border: var(--public-ink-border);
 	}
 
 	.classification-bar {
 		background: var(--classification-bg);
 		color: var(--classification-text);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.15em;
 		line-height: 1.4;
 		text-align: center;

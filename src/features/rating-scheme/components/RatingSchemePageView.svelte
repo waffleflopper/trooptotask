@@ -1,16 +1,20 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
-	import { WORKFLOW_STATUS_OPTIONS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
+	import {
+		WORKFLOW_STATUS_OPTIONS,
+		type RatingDueStatus,
+		type WorkflowStatus
+	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
+	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
@@ -58,9 +62,9 @@
 			(ctx.ratingViewMode !== 'grouped' ? 1 : 0)
 	);
 	const ratingMetricItems = $derived([
-		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue },
-		{ id: 'due-60', label: '60d', value: ratingStats['due-60'] },
-		{ id: 'due-30', label: '30d', value: ratingStats['due-30'] }
+		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue, status: 'overdue' as RatingDueStatus },
+		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], status: 'due-60' as RatingDueStatus },
+		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], status: 'due-30' as RatingDueStatus }
 	]);
 	const ratingActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
 		const items: WorkspaceToolbarAction[] = [
@@ -173,10 +177,10 @@
 					>
 						<div class="flex flex-wrap items-center gap-2" aria-label="Evaluation status summary">
 							{#each ratingMetricItems as item (item.id)}
-								<Badge variant="outline">
+								<EvalBadge kind="due" value={item.status}>
 									<span>{item.label}</span>
 									<span>{item.value}</span>
-								</Badge>
+								</EvalBadge>
 							{/each}
 						</div>
 						<div class="text-xs font-medium text-muted-foreground" role="status" aria-label={ratingShownLabel}>

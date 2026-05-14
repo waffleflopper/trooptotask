@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from '@lucide/svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
@@ -15,7 +15,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
+	import { duplicateTemplate, templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
 	import type {
 		OnboardingTemplate,
 		OnboardingTemplateStep,
@@ -51,6 +51,7 @@
 	let confirmDelete: { type: 'template' | 'step'; id: string; name: string } | null = $state(null);
 	let savingTemplate = $state(false);
 	let savingStep = $state(false);
+	let duplicatingTemplateId: string | null = $state(null);
 
 	const templates = $derived(templateStore.items);
 	const allSteps = $derived(templateStepStore.items);
@@ -75,7 +76,9 @@
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
-	const templateActionDisabled = $derived(creatingTemplate || editingTemplate || addingStep || !!editingStepId);
+	const templateActionDisabled = $derived(
+		creatingTemplate || editingTemplate || addingStep || !!editingStepId || !!duplicatingTemplateId
+	);
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
 	]);
@@ -188,6 +191,20 @@
 		if (selectedTemplateId === id) selectedTemplateId = null;
 		mobileDetailOpen = false;
 		confirmDelete = null;
+	}
+
+	async function duplicateSelectedTemplate(template: OnboardingTemplate) {
+		if (!canMutate || templateActionDisabled) return;
+		duplicatingTemplateId = template.id;
+		try {
+			const duplicate = await duplicateTemplate(template.id);
+			if (duplicate) {
+				selectedTemplateId = duplicate.template.id;
+				mobileDetailOpen = true;
+			}
+		} finally {
+			duplicatingTemplateId = null;
+		}
 	}
 
 	function resetStepForm() {
@@ -380,6 +397,16 @@
 										aria-label={`Edit ${template.name}`}
 									>
 										<Pencil aria-hidden="true" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										title="Duplicate template"
+										onclick={() => duplicateSelectedTemplate(template)}
+										aria-label={`Duplicate ${template.name}`}
+									>
+										<Copy aria-hidden="true" />
 									</Button>
 									<Button
 										variant="outline"
@@ -605,6 +632,20 @@
 							Delete Template
 						</Button>
 						<TypeWorkspace.ActionSpacer />
+						<Button
+							variant="outline"
+							size="sm"
+							type="button"
+							onclick={() => duplicateSelectedTemplate(selectedTemplate)}
+							disabled={duplicatingTemplateId === selectedTemplate.id}
+						>
+							{#if duplicatingTemplateId === selectedTemplate.id}
+								<Spinner class="size-3" />
+							{:else}
+								<Copy aria-hidden="true" />
+							{/if}
+							Duplicate Template
+						</Button>
 						<Button
 							variant="outline"
 							size="sm"

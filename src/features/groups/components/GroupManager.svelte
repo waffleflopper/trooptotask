@@ -5,6 +5,8 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
 		groups: Group[];
@@ -95,11 +97,27 @@
 								<Button type="button" variant="outline" size="sm" onclick={cancelEdit}>Cancel</Button>
 							</div>
 						{:else}
-							<span>{group.name}</span>
-							<div class="flex gap-2 sm:justify-end">
-								<Button type="button" variant="outline" size="sm" onclick={() => startEdit(group)}>Edit</Button>
-								<Button type="button" variant="destructive" size="sm" onclick={() => handleRemove(group)}>
-									Remove
+							<span class="min-w-0 truncate">{group.name}</span>
+							<div class="flex shrink-0 gap-1 sm:justify-end">
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									title={`Edit ${group.name}`}
+									aria-label={`Edit ${group.name}`}
+									onclick={() => startEdit(group)}
+								>
+									<PencilIcon aria-hidden="true" />
+								</Button>
+								<Button
+									type="button"
+									variant="destructive"
+									size="icon"
+									title={`Remove ${group.name}`}
+									aria-label={`Remove ${group.name}`}
+									onclick={() => handleRemove(group)}
+								>
+									<Trash2Icon aria-hidden="true" />
 								</Button>
 							</div>
 						{/if}

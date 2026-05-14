@@ -83,7 +83,7 @@
 	<title>{data.orgName} - Troop to Task</title>
 </svelte:head>
 
-<div class="flex h-full flex-col bg-background [--cell-height:30px] [--personnel-column-width:250px]">
+<div class="flex h-full flex-col bg-background">
 	{#if !ctx.canViewCalendar}
 		<Empty.Root class="m-4 min-h-80 border bg-card p-6 text-card-foreground sm:m-6 sm:p-8">
 			<Empty.Header>

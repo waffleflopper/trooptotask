@@ -519,12 +519,6 @@
 		padding: 0;
 	}
 
-	.personnel-section :global(.data-table) {
-		border: none;
-		border-radius: 0;
-		overflow: visible;
-	}
-
 	.person-rank {
 		font-weight: 600;
 		color: var(--accent);

@@ -599,12 +599,6 @@
 		padding: 0;
 	}
 
-	.personnel-section :global(.data-table) {
-		border: none;
-		border-radius: 0;
-		overflow: visible;
-	}
-
 	.confirm-stage {
 		padding: 0.5rem 0;
 	}

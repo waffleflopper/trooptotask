@@ -72,7 +72,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - `Leaders Book` still exists conceptually and in permissions, help content, exports, and plans, but is hidden from primary nav while redesign work is pending.
 - `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
 - Deprecated demo and sandbox runtime flows have been removed from routes, org-shell loading, API context construction, and auth-context creation.
-- Historical schema snapshots and seed data still contain demo/sandbox fields and RPCs; removing that schema residue requires a separate production-coordinated migration.
+- Migration `20260514000100_remove_demo_sandbox_schema.sql` removes demo/sandbox fields and RPCs from the current schema. Historical migration snapshots still show the old model for audit history only.
 
 ## Intended Guardrails Going Forward
 

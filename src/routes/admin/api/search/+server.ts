@@ -34,8 +34,7 @@ export const GET: RequestHandler = adminHandle({
 
 		const { data: orgs } = await adminClient
 			.from('organizations')
-			.select('id, name, tier, demo_type')
-			.is('demo_type', null)
+			.select('id, name, tier')
 			.ilike('name', `%${query}%`)
 			.limit(5);
 

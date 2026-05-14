@@ -184,12 +184,13 @@ Focus entries:
 - Current-state truth:
   - `/demo`, `/api/create-demo-sandbox`, and `/api/cleanup-demo-sandboxes` have been removed from runtime routing
   - demo cookies no longer influence org-route access, org-shell loading, API context creation, Supabase client selection, or auth-context creation
-  - historical schema snapshots and seed data still contain `demo_type` and sandbox RPC residue
+  - migration `20260514000100_remove_demo_sandbox_schema.sql` removes `demo_type`, `demo_expires_at`, and sandbox RPCs from the current schema
+  - historical migration snapshots still contain the old demo/sandbox objects for audit history only
 - Why this is unsatisfying:
-  - schema residue still needs a production-coordinated cleanup so future contributors do not mistake historical demo/sandbox support for current product direction
+  - applying the schema cleanup still needs production migration coordination
 - Intended v1 direction:
   - keep runtime auth and org access membership-backed only
-  - remove `demo_type`, sandbox RPCs, grants, and seed references in issue `#874` after production coordination is explicit
+  - apply `20260514000100_remove_demo_sandbox_schema.sql` through the normal production release process
 - Constraints to preserve:
   - do not expand demo/sandbox behavior or invent a new v1 trial architecture
   - keep current production auth, org, billing, and membership behavior outside the deprecated demo paths

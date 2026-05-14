@@ -27,7 +27,6 @@ export const load: PageServerLoad = loadWithAdminContext({
 				adminClient
 					.from('organizations')
 					.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
-					.is('demo_type', null)
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
 					data:

@@ -60,7 +60,7 @@
 		"@lucide/svelte": "^1.14.0",
 		"@supabase/ssr": "^0.10.2",
 		"@supabase/supabase-js": "^2.94.1",
-		"@sveltejs/adapter-vercel": "^6.3.2",
+		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@tailwindcss/vite": "^4.2.4",
 		"@tanstack/table-core": "^8.21.3",
 		"@vercel/analytics": "^2.0.1",

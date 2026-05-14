@@ -35,6 +35,10 @@
 		reasonRequired = false,
 		blockedWarning = 'Only active, eligible personnel can be selected.'
 	}: Props = $props();
+
+	let selectedReplacement = $state<string | null>(null);
+	let reason = $state('');
+	const replacementAssigneeId = $derived(selectedReplacement ?? replacementValue);
 </script>
 
 <Sheet.Content class="sm:max-w-md">
@@ -71,7 +75,14 @@
 		{/if}
 		<Field.Root>
 			<Field.Label>Replacement Soldier</Field.Label>
-			<Combobox.Root items={soldiers} value={replacementValue}>
+			<input type="hidden" name="replacementAssigneeId" value={replacementAssigneeId} />
+			<Combobox.Root
+				items={soldiers}
+				value={replacementAssigneeId}
+				onValueChange={(value) => {
+					selectedReplacement = Array.isArray(value) ? (value[0] ?? '') : value;
+				}}
+			>
 				<Combobox.Trigger placeholder="Search personnel..." />
 				<Combobox.Content>
 					<Combobox.List />
@@ -83,8 +94,15 @@
 		</Field.Root>
 		<Field.Root>
 			<Field.Label>Reason for Change{reasonRequired ? ' *' : ''}</Field.Label>
-			<Textarea placeholder="Provide a clear reason for this manual change..." aria-required={reasonRequired} />
-			<Field.Description>0 / 300</Field.Description>
+			<Textarea
+				name="reason"
+				placeholder="Provide a clear reason for this manual change..."
+				aria-required={reasonRequired}
+				required={reasonRequired}
+				maxlength={300}
+				bind:value={reason}
+			/>
+			<Field.Description>{reason.length} / 300</Field.Description>
 		</Field.Root>
 		<WarningSummary tone="warning" title="Archived or missing personnel are blocked." description={blockedWarning} />
 	</div>

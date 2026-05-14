@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import {
 		Calendar,
 		Database,
@@ -78,6 +80,7 @@
 	let historySearch = $state('');
 	let historyStateFilter = $state<'all' | 'accepted' | 'invalidated' | 'applied' | 'not-applied'>('all');
 	let selectedCorrectionKey = $state<string | null>(null);
+	let pendingHistoryAction = $state<'apply' | 'invalidate' | 'correction' | null>(null);
 
 	const historyStateOptions: Array<{ value: typeof historyStateFilter; label: string }> = [
 		{ value: 'all', label: 'All' },
@@ -111,6 +114,22 @@
 		if (!selectedCorrectionRow) return null;
 		const assigneeId = selectedCorrectionAssigneeId(selectedCorrectionRow.run.id, selectedCorrectionRow.date);
 		return selectedCorrectionRow.correctionOverrideWarnings[assigneeId] ?? null;
+	}
+
+	const selectedCorrectionWarning = $derived(selectedCorrectionOverrideWarning());
+
+	function handleHistoryActionEnhance(action: 'apply' | 'invalidate' | 'correction') {
+		pendingHistoryAction = action;
+
+		return async ({ update }: { update: () => Promise<void> }) => {
+			await update();
+			pendingHistoryAction = null;
+		};
+	}
+
+	function enhancePostForm(formElement: HTMLFormElement, submit: SubmitFunction) {
+		formElement.method = 'post';
+		return enhance(formElement, submit);
 	}
 
 	function openCorrection(runId: string, date: string): void {
@@ -546,7 +565,12 @@
 							<X size={18} aria-hidden="true" />
 						</Button>
 					</div>
-					<form class="grid gap-3" method="POST" action={correctAcceptedRunAction}>
+					<form
+						class="grid gap-3"
+						method="post"
+						action={correctAcceptedRunAction}
+						use:enhancePostForm={() => handleHistoryActionEnhance('correction')}
+					>
 						<input type="hidden" name="runId" value={selectedCorrectionRow.run.id} />
 						<input type="hidden" name="runRowDate" value={selectedCorrectionRow.date} />
 						<input
@@ -606,9 +630,9 @@
 								</Combobox.Content>
 							</Combobox.Root>
 						</Field.Root>
-						{#if selectedCorrectionOverrideWarning()}
+						{#if selectedCorrectionWarning}
 							<p class="rounded-md border border-warning/50 bg-warning-muted px-3 py-2 text-xs text-warning-foreground">
-								{selectedCorrectionOverrideWarning()}
+								{selectedCorrectionWarning}
 							</p>
 						{/if}
 						<Field.Root>
@@ -635,9 +659,9 @@
 								{/each}
 							</div>
 						{/if}
-						<Button type="submit">
+						<Button type="submit" disabled={pendingHistoryAction === 'correction'}>
 							<Save size={16} aria-hidden="true" />
-							Save
+							{pendingHistoryAction === 'correction' ? 'Saving...' : 'Save'}
 						</Button>
 						<Button variant="outline" type="button" onclick={closeCorrection}>Cancel</Button>
 					</form>
@@ -651,11 +675,19 @@
 							Use Change Assignment on a roster row to record who actually served.
 						</p>
 						{#if !detailReview.isInvalidated && detailReview.calendarState !== 'applied'}
-							<form method="POST" action={applyAcceptedRunAction}>
+							<form
+								method="post"
+								action={applyAcceptedRunAction}
+								use:enhancePostForm={() => handleHistoryActionEnhance('apply')}
+							>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<Button type="submit" class="w-full">
+								<Button type="submit" class="w-full" disabled={pendingHistoryAction === 'apply'}>
 									<RefreshCw size={16} aria-hidden="true" />
-									{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
+									{#if pendingHistoryAction === 'apply'}
+										Applying...
+									{:else}
+										{detailReview.calendarState === 'reapply' ? 'Re-apply to Calendar' : 'Apply to Calendar'}
+									{/if}
 								</Button>
 							</form>
 						{/if}
@@ -675,8 +707,9 @@
 						{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
 							<form
 								class="grid gap-3 rounded-md border border-destructive/50 bg-destructive/5 p-3"
-								method="POST"
+								method="post"
 								action={invalidateAcceptedRunAction}
+								use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
 							>
 								<h4 class="text-xs font-semibold text-destructive">Remove this official run from Calendar</h4>
 								<p class="text-xs text-muted-foreground">
@@ -685,7 +718,9 @@
 								</p>
 								<p class="text-xs text-muted-foreground">This action is only available for the latest accepted run.</p>
 								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<Button variant="destructive" type="submit">Confirm invalidation</Button>
+								<Button variant="destructive" type="submit" disabled={pendingHistoryAction === 'invalidate'}>
+									{pendingHistoryAction === 'invalidate' ? 'Invalidating...' : 'Confirm invalidation'}
+								</Button>
 								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}
 									>Keep run</Button
 								>

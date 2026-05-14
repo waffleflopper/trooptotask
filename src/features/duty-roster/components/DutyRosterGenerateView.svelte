@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { AlertTriangle, Calendar, CheckCircle2, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -10,6 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
 	import {
+		buildDutyRosterAcceptedRunReviewModel,
 		buildDutyRosterPreviewReviewModel,
 		type DutyRosterPreviewReviewModel
 	} from '$features/duty-roster/workspace/dutyRosterPreviewReview';
@@ -24,6 +26,7 @@
 		type DA6MatrixMetadataItem,
 		type DA6MatrixRow
 	} from '$features/duty-roster/components/shared';
+	import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
 	import type { DutyRosterGenerateWorkspaceModel } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
@@ -35,6 +38,7 @@
 	let selectedPreviewAssignees = $state<Record<string, string>>({});
 	let startDateOverride = $state('');
 	let endDateOverride = $state('');
+	let pendingOfficialAction = $state<'accept' | 'print' | 'apply' | null>(null);
 
 	type PreviewDa6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
 
@@ -129,6 +133,44 @@
 		return async ({ update }: { update: () => Promise<void> }) => {
 			await update();
 			generatingPreview = false;
+		};
+	}
+
+	function enhancePostForm(formElement: HTMLFormElement, submit: SubmitFunction) {
+		formElement.method = 'post';
+		return enhance(formElement, submit);
+	}
+
+	type AcceptPreviewActionData = {
+		acceptedRun?: DutyRosterTemplateAcceptedRun;
+		printAcceptedRun?: boolean;
+	};
+
+	function handleOfficialRunEnhance({ submitter }: { submitter: HTMLElement | null }) {
+		const intent = submitter instanceof HTMLButtonElement ? submitter.value : '';
+		const formaction = submitter instanceof HTMLButtonElement ? submitter.getAttribute('formaction') : null;
+		pendingOfficialAction = formaction ? 'apply' : intent === 'print' ? 'print' : 'accept';
+
+		return async ({
+			result,
+			update
+		}: {
+			result: { type: string; data?: AcceptPreviewActionData };
+			update: () => Promise<void>;
+		}) => {
+			await update();
+
+			if (result.type === 'success' && result.data?.printAcceptedRun && result.data.acceptedRun) {
+				printDutyRosterForBrowser({
+					acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
+						run: result.data.acceptedRun,
+						isLatestRun: true
+					}).snapshot,
+					statusLabel: 'Official'
+				});
+			}
+
+			pendingOfficialAction = null;
 		};
 	}
 
@@ -231,7 +273,7 @@
 					<form
 						id="generate-preview-form"
 						class="mt-5 grid gap-5"
-						method="POST"
+						method="post"
 						action={generateAction}
 						use:enhance={handleGenerateEnhance}
 					>
@@ -453,19 +495,31 @@
 						<span class="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
 							>Official</span
 						>
-						<form class="flex items-center gap-2" method="POST" action={acceptPreviewAction}>
+						<form
+							class="flex items-center gap-2"
+							method="POST"
+							action={acceptPreviewAction}
+							use:enhancePostForm={handleOfficialRunEnhance}
+						>
 							<input type="hidden" name="preview" value={previewReview?.previewPayload ?? ''} />
-							<Button variant="outline" size="sm" type="submit">
+							<Button variant="outline" size="sm" type="submit" disabled={pendingOfficialAction !== null}>
 								<CheckCircle2 size={16} aria-hidden="true" />
-								Accept Run
+								{pendingOfficialAction === 'accept' ? 'Accepting...' : 'Accept Run'}
 							</Button>
-							<Button variant="outline" size="sm" type="submit" name="intent" value="print">
+							<Button
+								variant="outline"
+								size="sm"
+								type="submit"
+								name="intent"
+								value="print"
+								disabled={pendingOfficialAction !== null}
+							>
 								<Printer size={16} aria-hidden="true" />
-								Accept Run + Print
+								{pendingOfficialAction === 'print' ? 'Printing...' : 'Accept Run + Print'}
 							</Button>
-							<Button size="sm" type="submit" formaction={applyPreviewAction}>
+							<Button size="sm" type="submit" formaction={applyPreviewAction} disabled={pendingOfficialAction !== null}>
 								<Calendar size={16} aria-hidden="true" />
-								Accept + Apply to Calendar
+								{pendingOfficialAction === 'apply' ? 'Applying...' : 'Accept + Apply to Calendar'}
 							</Button>
 						</form>
 					</div>

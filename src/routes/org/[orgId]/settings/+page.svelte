@@ -111,6 +111,7 @@
 	let savingRetention = $state(false);
 	let savingWarningWindow = $state(false);
 	let savingCriticalTasks = $state(false);
+	let syncedPolicySnapshot = $state('');
 	const hasRetentionChanges = $derived(retentionMonths !== savedRetentionMonths);
 	const isRetentionValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
 	const hasLossWarningChanges = $derived(warningWindowDays !== savedWarningWindowDays);
@@ -247,7 +248,25 @@
 	const billingStatus = $derived(getBillingStatus(tier));
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
+	const serverPolicySnapshot = $derived(
+		JSON.stringify({
+			retentionMonths: serverRetention,
+			warningWindowDays: serverWarningWindow,
+			criticalTasksDefaultExpirationMonths: serverCriticalTasksSettings.defaultExpirationMonths,
+			criticalTasksExpiringSoonWarningDays: serverCriticalTasksSettings.expiringSoonWarningDays
+		})
+	);
+	const hasUnsavedPolicyEdits = $derived(
+		retentionMonths !== savedRetentionMonths ||
+			warningWindowDays !== savedWarningWindowDays ||
+			criticalTasksDefaultExpirationMonths !== savedCriticalTasksDefaultExpirationMonths ||
+			criticalTasksExpiringSoonWarningDays !== savedCriticalTasksExpiringSoonWarningDays
+	);
+
 	$effect.pre(() => {
+		if (serverPolicySnapshot === syncedPolicySnapshot) return;
+		if (syncedPolicySnapshot && hasUnsavedPolicyEdits) return;
+
 		retentionMonths = serverRetention;
 		savedRetentionMonths = serverRetention;
 		warningWindowDays = serverWarningWindow;
@@ -256,6 +275,7 @@
 		savedCriticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
 		criticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
 		savedCriticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
+		syncedPolicySnapshot = serverPolicySnapshot;
 	});
 
 	function getInvitePreset(invite: (typeof data.invitations)[number]): PermissionPreset {

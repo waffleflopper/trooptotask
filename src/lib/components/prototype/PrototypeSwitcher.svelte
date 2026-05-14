@@ -1,3 +1,10 @@
+<script lang="ts" module>
+	export interface PrototypeVariant {
+		key: string;
+		label: string;
+	}
+</script>
+
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -5,18 +12,14 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { onMount } from 'svelte';
 
-	interface Variant {
-		key: string;
-		label: string;
-	}
-
 	interface Props {
-		variants: Variant[];
+		variants: PrototypeVariant[];
 		current: string;
 		param?: string;
+		ariaLabel?: string;
 	}
 
-	let { variants, current, param = 'variant' }: Props = $props();
+	let { variants, current, param = 'variant', ariaLabel = 'Prototype variants' }: Props = $props();
 
 	const isPrototypeSwitcherVisible = !import.meta.env.PROD;
 	const currentIndex = $derived(
@@ -65,7 +68,7 @@
 </script>
 
 {#if isPrototypeSwitcherVisible && currentVariant}
-	<div class="prototype-switcher" role="group" aria-label="Landing page prototype variants">
+	<div class="prototype-switcher" role="group" aria-label={ariaLabel}>
 		<a href={previousHref} aria-label="Previous prototype variant">
 			<ChevronLeftIcon size={18} strokeWidth={2.25} />
 		</a>
@@ -84,13 +87,15 @@
 <style>
 	.prototype-switcher {
 		position: fixed;
-		inset-inline: 50%;
+		inset-inline-start: 50%;
 		bottom: 1.25rem;
-		z-index: 1000;
+		z-index: 2147483647;
 		display: grid;
 		grid-template-columns: 2.5rem minmax(13rem, auto) 2.5rem;
 		align-items: center;
 		transform: translateX(-50%);
+		width: max-content;
+		max-width: calc(100vw - 1.5rem);
 		border: 1px solid rgb(255 255 255 / 0.18);
 		border-radius: 999px;
 		background: rgb(12 15 14 / 0.94);

@@ -17,6 +17,8 @@
 		ctaTitleBefore?: string;
 		ctaEmphasis?: string;
 		ctaSubtitle?: string;
+		navOverlay?: boolean;
+		navScrolled?: boolean;
 		children: Snippet;
 		cta?: Snippet;
 	}
@@ -34,6 +36,8 @@
 		ctaTitleBefore = 'Ready to streamline',
 		ctaEmphasis = 'your unit?',
 		ctaSubtitle = 'Free to use. No credit card. Set up in minutes.',
+		navOverlay = false,
+		navScrolled = false,
 		children,
 		cta
 	}: Props = $props();
@@ -48,7 +52,7 @@
 		</div>
 	{/if}
 
-	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} />
+	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
 
 	<main class={`public-body ${bodyClass}`.trim()}>
 		{@render children()}

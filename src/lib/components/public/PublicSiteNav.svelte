@@ -7,12 +7,22 @@
 		roadmapHref?: string;
 		faqHref?: string;
 		showFaqLink?: boolean;
+		overlay?: boolean;
+		scrolled?: boolean;
 	}
 
-	let { user, active, roadmapHref = '/#roadmap', faqHref = '/#faq', showFaqLink = false }: Props = $props();
+	let {
+		user,
+		active,
+		roadmapHref = '/#roadmap',
+		faqHref = '/#faq',
+		showFaqLink = false,
+		overlay = false,
+		scrolled = false
+	}: Props = $props();
 </script>
 
-<nav class="public-nav">
+<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
 	<div class="nav-container">
 		<a href="/" class="nav-brand">
 			<div>
@@ -71,11 +81,47 @@
 
 <style>
 	.public-nav {
+		--_fg: var(--foreground);
+		--_muted: var(--muted-foreground);
+		--_border: var(--border);
+		--_bg: var(--background);
+		--_hover-bg: var(--muted);
+		--_btn-border: var(--border);
 		position: sticky;
 		top: 0;
 		z-index: 100;
-		background: var(--background);
-		border-bottom: 1px solid var(--border);
+		background: var(--_bg);
+		border-bottom: 1px solid var(--_border);
+		transition:
+			background-color 240ms cubic-bezier(0.2, 0, 0, 1),
+			border-color 240ms cubic-bezier(0.2, 0, 0, 1),
+			box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
+	}
+
+	.public-nav.overlay {
+		position: fixed;
+		left: 0;
+		right: 0;
+		--_fg: #f0efe9;
+		--_muted: #b0afa8;
+		--_border: transparent;
+		--_bg: oklch(7% 0.005 49 / 0.85);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		--_hover-bg: oklch(100% 0 0 / 0.08);
+		--_btn-border: oklch(100% 0 0 / 0.2);
+	}
+
+	.public-nav.overlay.scrolled {
+		--_fg: var(--foreground);
+		--_muted: var(--muted-foreground);
+		--_border: var(--border);
+		--_bg: var(--background);
+		--_hover-bg: var(--muted);
+		--_btn-border: var(--border);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+		box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
 	}
 
 	.nav-container {
@@ -93,7 +139,7 @@
 		display: flex;
 		align-items: baseline;
 		text-decoration: none;
-		color: var(--foreground);
+		color: var(--_fg);
 		flex-shrink: 0;
 	}
 
@@ -115,7 +161,7 @@
 		font-weight: 500;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: var(--muted-foreground);
+		color: var(--_muted);
 		margin-top: 0.25rem;
 	}
 
@@ -134,7 +180,7 @@
 		font-size: 1rem;
 		font-weight: 500;
 		letter-spacing: 0.04em;
-		color: var(--muted-foreground);
+		color: var(--_muted);
 		border-bottom: 2px solid transparent;
 		transition:
 			color var(--transition-fast),
@@ -143,7 +189,7 @@
 
 	.nav-link:hover,
 	.nav-link.active {
-		color: var(--foreground);
+		color: var(--_fg);
 		border-bottom-color: var(--brass);
 	}
 
@@ -160,7 +206,7 @@
 		border-radius: var(--radius);
 		border: none;
 		background: transparent;
-		color: var(--muted-foreground);
+		color: var(--_muted);
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
@@ -171,8 +217,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: var(--foreground);
-		background: var(--muted);
+		color: var(--_fg);
+		background: var(--_hover-bg);
 	}
 
 	.theme-toggle svg {
@@ -201,13 +247,13 @@
 
 	.nav-button-outline {
 		background: transparent;
-		border-color: var(--border);
-		color: var(--foreground);
+		border-color: var(--_btn-border);
+		color: var(--_fg);
 	}
 
 	.nav-button-outline:hover {
-		border-color: var(--muted-foreground);
-		background: var(--muted);
+		border-color: var(--_muted);
+		background: var(--_hover-bg);
 	}
 
 	.nav-button-amber {

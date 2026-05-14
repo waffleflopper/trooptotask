@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PrototypeSwitcher from '$lib/components/prototype/PrototypeSwitcher.svelte';
+	import { PrototypeSwitcher } from '$lib/components/prototype';
 
 	interface Props {
 		variant: 'A' | 'B' | 'C';

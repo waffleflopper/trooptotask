@@ -69,10 +69,6 @@
 			<AuthNotice tone="success" title="We've got your request" centered>
 				<p>We'll review your request and email <strong>{email}</strong> if access is approved.</p>
 				<p>For security, that invite link will only work for 24 hours once it is sent.</p>
-				<p>
-					If you're using an <strong>@army.mil</strong> or <strong>@health.mil</strong> address and nothing shows up after
-					a few days, try requesting access again with a non-military email while we investigate the filtering issue.
-				</p>
 			</AuthNotice>
 
 			<div class="flex flex-col gap-3">
@@ -82,15 +78,9 @@
 			{#if errorMsg}
 				<AuthNotice tone="error" message={errorMsg} />
 			{/if}
-
 			<AuthNotice tone="warning" title="Important">
 				<p>If your request is approved, the setup link in your email will only be valid for 24 hours.</p>
 				<p>That short window is intentional for security, so plan to open it promptly.</p>
-				<p>
-					We are also investigating an email-delivery issue affecting some <strong>@army.mil</strong> and
-					<strong>@health.mil</strong>
-					addresses. If you do not receive anything after a few days, try a non-military email address instead.
-				</p>
 			</AuthNotice>
 
 			<form onsubmit={handleSubmit} class="flex flex-col gap-5">

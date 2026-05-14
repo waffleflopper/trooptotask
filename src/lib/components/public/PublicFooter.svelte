@@ -9,8 +9,7 @@
 			<div class="footer__links">
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Product</div>
-					<a href="/features" class="footer__link">Features</a>
-					<a href="/pricing" class="footer__link">Pricing</a>
+					<a href="/#pricing" class="footer__link">Pricing</a>
 					<a href="/security" class="footer__link">Security</a>
 					<a href="/#faq" class="footer__link">FAQ</a>
 				</div>

@@ -41,7 +41,7 @@
 				</p>
 				<div class="proto-actions">
 					<a href="/auth/request-access" class="proto-button proto-button--primary">Request beta access</a>
-					<a href="/features" class="proto-button">Review capabilities</a>
+					<a href="/#pricing" class="proto-button">Review pricing</a>
 				</div>
 			</div>
 

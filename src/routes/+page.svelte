@@ -8,6 +8,34 @@
 	let navScrolled = $state(false);
 	let openFaq = $state(-1);
 
+	const plans = [
+		{
+			name: 'Free',
+			price: '$0',
+			capacity: 'Up to 20 personnel',
+			supporting: '1 organization, 3 exports per month'
+		},
+		{
+			name: 'Team',
+			price: '$5',
+			capacity: 'Up to 100 personnel',
+			supporting: '1 organization, unlimited exports',
+			featured: true
+		},
+		{
+			name: 'Unit',
+			price: '$12',
+			capacity: 'Up to 500 personnel',
+			supporting: 'Up to 3 organizations, unlimited exports'
+		},
+		{
+			name: 'Enterprise',
+			price: 'Contact us',
+			capacity: 'Larger formations',
+			supporting: 'Custom capacity and support terms'
+		}
+	];
+
 	const faqs = [
 		{
 			question: 'Are the calendar statuses fixed, or can I define my own?',
@@ -119,7 +147,7 @@
 				</p>
 				<div class="hero__actions">
 					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
-					<a href={resolve('/features')} class="btn-ghost">View Features</a>
+					<a href="#pricing" class="btn-ghost">View Pricing</a>
 				</div>
 				<div class="hero__meta">
 					<span>Free during beta</span>
@@ -260,6 +288,38 @@
 					</div>
 				</div>
 			</div>
+
+			<div class="feature reveal">
+				<div class="feature__content">
+					<span class="section-label">DUTY ROSTERS</span>
+					<h2 class="feature__heading">Generate the DA6 without rebuilding the wheel every month.</h2>
+					<p class="feature__body">
+						Create duty roster templates, account for availability, review the generated run, and keep correction
+						history attached to the roster instead of buried in another file.
+					</p>
+				</div>
+				<div class="feature__visual">
+					<div class="feature__frame">
+						<img
+							src="/product-screens/da6.jpg"
+							alt="Automatic DA6 duty roster workspace showing generated roster assignments, duty dates, and review controls"
+							width="1280"
+							height="672"
+							loading="lazy"
+						/>
+					</div>
+				</div>
+			</div>
+
+			<div class="more-features reveal">
+				<span class="section-label">MORE IN THE SYSTEM</span>
+				<h2>And this is not the whole platform.</h2>
+				<p>
+					Personnel records, permission-scoped access, exports, audit history, sign-in rosters, counseling support, and
+					admin workflows are built into the same operating picture. The landing page only covers the workflows leaders
+					ask about first.
+				</p>
+			</div>
 		</div>
 	</section>
 
@@ -296,6 +356,54 @@
 					<h3 class="proof__point-title">Replaces the handoff binder</h3>
 					<p class="proof__point-text">Full audit log means incoming leaders have context from day one.</p>
 				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- ──────────────────── PRICING ──────────────────── -->
+	<section class="pricing" id="pricing">
+		<div class="pricing__container">
+			<div class="pricing__header reveal">
+				<span class="section-label">PRICING</span>
+				<h2 class="pricing__heading">
+					One platform,<br /><em>sized to the formation.</em>
+				</h2>
+				<p>
+					All plans are free during beta. Paid tiers later scale by personnel capacity, not by hiding core workflows
+					from smaller units.
+				</p>
+			</div>
+
+			<div class="pricing__grid">
+				{#each plans as plan (plan.name)}
+					<article class="pricing__tier reveal" class:pricing__tier--featured={plan.featured}>
+						<div class="pricing__tier-header">
+							<div>
+								<h3>{plan.name}</h3>
+								<p>{plan.capacity}</p>
+							</div>
+							{#if plan.featured}
+								<span>Most common</span>
+							{/if}
+						</div>
+						<div class="pricing__price">
+							<span class:pricing__price-text--contact={plan.price === 'Contact us'} class="pricing__price-text"
+								>{plan.price}</span
+							>
+							{#if plan.price !== '$0' && plan.price !== 'Contact us'}
+								<span class="pricing__price-suffix">/mo</span>
+							{/if}
+						</div>
+						<p class="pricing__supporting">{plan.supporting}</p>
+					</article>
+				{/each}
+			</div>
+
+			<div class="pricing__note reveal">
+				<strong>No feature gating.</strong>
+				<span
+					>Calendar, training, onboarding, duty rosters, exports, and readiness workflows stay available across tiers.</span
+				>
 			</div>
 		</div>
 	</section>
@@ -359,7 +467,7 @@
 				{:else}
 					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
 				{/if}
-				<a href={resolve('/pricing')} class="btn-ghost">View Pricing</a>
+				<a href="#pricing" class="btn-ghost">View Pricing</a>
 			</div>
 			<div class="cta-final__meta">Free during beta · Paid plans later</div>
 		</div>
@@ -702,6 +810,32 @@
 		height: auto;
 	}
 
+	.more-features {
+		max-width: 760px;
+		margin: 0 auto;
+		padding: clamp(2rem, 4vw, 3rem);
+		border-top: 1px solid var(--border);
+		border-bottom: 1px solid var(--border);
+		text-align: center;
+	}
+
+	.more-features h2 {
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: clamp(1.75rem, 3vw + 0.5rem, 2.75rem);
+		font-weight: 700;
+		line-height: 1.1;
+		letter-spacing: 0.02em;
+		margin: 0.75rem 0 0;
+		text-wrap: balance;
+	}
+
+	.more-features p {
+		margin: 1rem auto 0;
+		color: var(--muted-foreground);
+		line-height: 1.65;
+		max-width: 62ch;
+	}
+
 	/* ── Social Proof ── */
 	.proof {
 		padding: clamp(5rem, 10vh, 8rem) 0;
@@ -770,6 +904,171 @@
 		color: var(--muted-foreground);
 		line-height: 1.5;
 		margin: 0;
+	}
+
+	/* ── Pricing ── */
+	.pricing {
+		padding: clamp(5rem, 10vh, 9rem) 0;
+		background: var(--background);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.pricing__container {
+		max-width: 1120px;
+		margin: 0 auto;
+		padding: 0 2rem;
+	}
+
+	.pricing__header {
+		display: grid;
+		justify-items: center;
+		gap: 0;
+		text-align: center;
+		margin-bottom: clamp(2.5rem, 5vw, 4rem);
+	}
+
+	.pricing__heading {
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: clamp(2rem, 4vw + 0.5rem, 3.5rem);
+		font-weight: 800;
+		line-height: 0.98;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+		margin: 0.75rem 0 0;
+		text-wrap: balance;
+	}
+
+	.pricing__heading em {
+		font-style: italic;
+		font-weight: 300;
+		color: var(--accent);
+	}
+
+	.pricing__header p {
+		margin: 1.25rem auto 0;
+		color: var(--muted-foreground);
+		line-height: 1.65;
+		max-width: 52ch;
+	}
+
+	.pricing__grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg, 6px);
+		overflow: hidden;
+		background: var(--card);
+	}
+
+	.pricing__tier {
+		position: relative;
+		display: flex;
+		min-height: 260px;
+		flex-direction: column;
+		padding: 1.5rem;
+		border-right: 1px solid var(--border);
+		background: var(--card);
+	}
+
+	.pricing__tier:last-child {
+		border-right: none;
+	}
+
+	.pricing__tier--featured {
+		box-shadow: inset 0 0 0 2px var(--accent);
+	}
+
+	.pricing__tier-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.pricing__tier h3 {
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1.25rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.pricing__tier-header p,
+	.pricing__supporting {
+		margin: 0.5rem 0 0;
+		color: var(--muted-foreground);
+		font-size: 0.9375rem;
+		line-height: 1.5;
+	}
+
+	.pricing__tier-header span {
+		display: inline-flex;
+		width: fit-content;
+		height: 1.25rem;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		flex-shrink: 0;
+		overflow: hidden;
+		padding: 0.125rem 0.5rem;
+		border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+		border-radius: var(--radius-md, 4px);
+		background: color-mix(in srgb, var(--accent) 12%, var(--card));
+		color: var(--accent);
+		font-size: 0.75rem;
+		font-weight: 500;
+		line-height: 1;
+		white-space: nowrap;
+	}
+
+	.pricing__price {
+		display: flex;
+		align-items: baseline;
+		gap: 0.35rem;
+		margin-top: auto;
+		padding-top: 2rem;
+		color: var(--foreground);
+	}
+
+	.pricing__price-text {
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: clamp(2.25rem, 4vw, 3.75rem);
+		font-weight: 800;
+		line-height: 0.95;
+		letter-spacing: 0.02em;
+		white-space: nowrap;
+	}
+
+	.pricing__price-text--contact {
+		font-size: clamp(2rem, 3vw, 2.75rem);
+	}
+
+	.pricing__price-suffix {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--muted-foreground);
+	}
+
+	.pricing__note {
+		display: flex;
+		gap: 0.75rem;
+		align-items: baseline;
+		margin-top: 1.25rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border);
+		color: var(--muted-foreground);
+		line-height: 1.6;
+	}
+
+	.pricing__note strong {
+		flex-shrink: 0;
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1.125rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		color: var(--foreground);
+		text-transform: uppercase;
 	}
 
 	/* ── FAQ ── */
@@ -958,6 +1257,20 @@
 		.proof__grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
+
+		.pricing__grid {
+			grid-template-columns: 1fr;
+		}
+
+		.pricing__tier {
+			min-height: auto;
+			border-right: none;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.pricing__tier:last-child {
+			border-bottom: none;
+		}
 	}
 
 	@media (max-width: 640px) {
@@ -970,6 +1283,7 @@
 		.showcase__container,
 		.features__container,
 		.proof__container,
+		.pricing__container,
 		.faq__container,
 		.cta-final__container {
 			padding-inline: 1.25rem;
@@ -986,6 +1300,15 @@
 
 		.proof__grid {
 			grid-template-columns: 1fr;
+		}
+
+		.pricing__note {
+			display: block;
+		}
+
+		.pricing__note span {
+			display: block;
+			margin-top: 0.35rem;
 		}
 
 		.cta-final__actions {

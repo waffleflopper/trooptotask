@@ -1,11 +1,19 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import { ADMIN_STATUS_COLORS } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
+	import { adminBadgeVariant } from '$lib/components/admin/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
@@ -31,138 +39,109 @@
 	<title>Users - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Identity Ledger</p>
-			<h1 class="admin-page-title">Users</h1>
-			<p class="admin-page-subtitle">Search, inspect, and manage platform identities across every organization.</p>
-		</div>
-		<div class="admin-page-actions">
-			<button class="btn btn-primary" onclick={() => (showPlatformInvite = true)}>Invite User</button>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header title="Users" subtitle="Search, inspect, and manage platform identities across every organization.">
+		{#snippet meta()}
+			<Badge variant="secondary">Identity Ledger</Badge>
+		{/snippet}
+		{#snippet actions()}
+			<Button onclick={() => (showPlatformInvite = true)}>Invite User</Button>
+		{/snippet}
+	</PageShell.Header>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Directory Size</p>
-			<p class="admin-overview-card__value">{data.totalCount}</p>
-			<p class="admin-overview-card__meta">Total user accounts currently indexed by the platform.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Page</p>
-			<p class="admin-overview-card__value">{data.page}</p>
-			<p class="admin-overview-card__meta">
-				Reviewing page {data.page} of {Math.max(totalPages, 1)} in the user ledger.
-			</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric
+			label="Directory Size"
+			value={data.totalCount}
+			detail="Total user accounts currently indexed by the platform."
+		/>
+		<PageShell.Metric label="Page" value={data.page}>
+			Reviewing page {data.page} of {Math.max(totalPages, 1)} in the user ledger.
+		</PageShell.Metric>
+	</PageShell.FactGrid>
 
 	{#if data.authError}
-		<div class="admin-alert admin-alert--error"><strong>Failed to load users:</strong> {data.authError}</div>
+		<Alert.Root variant="destructive">
+			<Alert.Title>Failed to load users</Alert.Title>
+			<Alert.Description>{data.authError}</Alert.Description>
+		</Alert.Root>
 	{/if}
 
-	<div class="admin-toolbar">
-		<form
-			class="admin-toolbar__group"
-			onsubmit={(event) => {
-				event.preventDefault();
-				applyFilters();
-			}}
-		>
-			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="users-search">Search</label>
-				<input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} class="input" />
-			</div>
-			<button type="submit" class="btn btn-secondary">Apply</button>
-		</form>
-		<div class="admin-toolbar__meta">
-			<span>{data.users.length} shown</span>
-		</div>
-	</div>
-
-	<div class="admin-table-shell admin-table-shell--scroll">
-		<table class="admin-table users-table">
-			<thead>
-				<tr>
-					<th>User</th>
-					<th>Organizations</th>
-					<th>Joined</th>
-					<th>Status</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.users as user (user.id)}
-					<tr>
-						<td>
-							<div class="entity-cell">
-								<strong>{user.email || 'No email'}</strong>
-								<span class="admin-code">{user.id.slice(0, 8)}...</span>
-							</div>
-						</td>
-						<td>{user.organizationCount}</td>
-						<td>{formatDisplayDate(user.createdAt)}</td>
-						<td>
-							<Badge
-								label={user.isSuspended ? 'Suspended' : 'Active'}
-								color={user.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
-						</td>
-						<td class="actions-cell">
-							<a href="/admin/users/{user.id}" class="btn btn-secondary btn-sm">Inspect</a>
-						</td>
-					</tr>
-				{:else}
-					<tr>
-						<td colspan="5" class="admin-empty">No users found.</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+	<Card.Root>
+		<Card.Header class="gap-3 sm:flex-row sm:items-end sm:justify-between">
+			<form
+				class="grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_auto] sm:items-end"
+				onsubmit={(event) => {
+					event.preventDefault();
+					applyFilters();
+				}}
+			>
+				<Field.Root>
+					<Field.Label for="users-search">Search</Field.Label>
+					<Field.Control>
+						<Input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} />
+					</Field.Control>
+				</Field.Root>
+				<Button type="submit" variant="outline">Apply</Button>
+			</form>
+			<p class="text-sm text-muted-foreground">{data.users.length} shown</p>
+		</Card.Header>
+		<Card.Content class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>User</Table.Head>
+						<Table.Head>Organizations</Table.Head>
+						<Table.Head>Joined</Table.Head>
+						<Table.Head>Status</Table.Head>
+						<Table.Head class="text-right"></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data.users as user (user.id)}
+						<Table.Row>
+							<Table.Cell>
+								<div class="grid gap-1">
+									<strong class="text-sm font-medium">{user.email || 'No email'}</strong>
+									<span class="font-mono text-xs text-muted-foreground">{user.id.slice(0, 8)}...</span>
+								</div>
+							</Table.Cell>
+							<Table.Cell>{user.organizationCount}</Table.Cell>
+							<Table.Cell>{formatDisplayDate(user.createdAt)}</Table.Cell>
+							<Table.Cell>
+								<Badge variant={adminBadgeVariant(user.isSuspended ? 'suspended' : 'active')}>
+									{user.isSuspended ? 'Suspended' : 'Active'}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell class="text-right">
+								<Button href="/admin/users/{user.id}" variant="outline" size="sm">Inspect</Button>
+							</Table.Cell>
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={5}>
+								<Empty.Root class="border-0">No users found.</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</Card.Content>
+	</Card.Root>
 
 	{#if totalPages > 1}
-		<div class="pagination-row">
-			<button class="btn btn-secondary btn-sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}
-				>Previous</button
-			>
+		<div class="flex flex-wrap items-center justify-end gap-3 text-sm text-muted-foreground">
+			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
+				Previous
+			</Button>
 			<span>Page {data.page} of {totalPages}</span>
-			<button
-				class="btn btn-secondary btn-sm"
-				disabled={data.page >= totalPages}
-				onclick={() => goToPage(data.page + 1)}>Next</button
-			>
+			<Button variant="outline" size="sm" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
+				Next
+			</Button>
 		</div>
 	{/if}
-</div>
+</PageShell.Root>
 
 {#if showPlatformInvite}
 	<PlatformInviteManager onClose={() => (showPlatformInvite = false)} />
 {/if}
-
-<style>
-	.entity-cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.entity-cell strong {
-		font-size: var(--text-sm);
-	}
-
-	.actions-cell {
-		width: 1%;
-		white-space: nowrap;
-	}
-
-	.pagination-row {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: var(--sp-3);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-</style>

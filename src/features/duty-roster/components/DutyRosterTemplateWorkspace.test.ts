@@ -87,6 +87,29 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('heading', { name: 'Accepted runs' })).toBeTruthy();
 	});
 
+	it('opens the shadcn archive confirmation from the register quick actions', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [template],
+					selectedTemplate: null,
+					view: 'generate',
+					setupOptions: { personnel: [] }
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive CQ NCO' }));
+
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Archive template' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
+		expect(document.querySelector('form[action="/org/org-1/duty-rosters?/archiveTemplate"]')).toBeTruthy();
+		expect(document.querySelector('input[name="templateId"][value="template-1"]')).toBeTruthy();
+	});
+
 	it('shows New Template wizard validation errors without dropping entered values', () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -105,7 +128,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByRole('alert').textContent).toBe('Name is required');
+		expect(screen.getByRole('alert').textContent).toContain('Name is required');
 		expect(screen.getByLabelText<HTMLInputElement>('Route slug').value).toBe('cq-nco');
 		expect(screen.getByLabelText<HTMLInputElement>('Short code').value).toBe('CQ');
 	});
@@ -193,6 +216,65 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByText('Showing 1 of 1 matching Soldiers. Search to narrow large pools.')).toBeTruthy();
 	});
 
+	it('filters the New Template pool with the shared shadcn combobox multi-select', async () => {
+		render(DutyRosterTemplateWorkspace, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Able Company',
+					templates: [],
+					selectedTemplate: null,
+					view: 'new',
+					setupOptions: {
+						personnel: [
+							{
+								id: 'person-1',
+								rank: 'SGT',
+								lastName: 'Able',
+								firstName: 'Ann',
+								mos: '11B',
+								dutyRole: 'Rifleman',
+								groupId: 'alpha',
+								groupName: 'Alpha'
+							},
+							{
+								id: 'person-2',
+								rank: 'SPC',
+								lastName: 'Baker',
+								firstName: 'Bea',
+								mos: '42A',
+								dutyRole: 'Clerk',
+								groupId: 'bravo',
+								groupName: 'Bravo'
+							}
+						]
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+		expect(screen.getByText('Able, Ann')).toBeTruthy();
+		expect(screen.getByText('Baker, Bea')).toBeTruthy();
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'New Template rank filters' }));
+		await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'SGT' }));
+
+		expect(screen.getByRole('button', { name: 'Remove SGT' })).toBeTruthy();
+		expect(screen.getByText('Able, Ann')).toBeTruthy();
+		expect(screen.queryByText('Baker, Bea')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove SGT' }));
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'New Template Duty Role filters' }));
+		await fireEvent.input(screen.getByRole('combobox', { name: 'New Template Duty Role filters' }), {
+			target: { value: 'No match' }
+		});
+
+		expect(await screen.findByText('No duty role matches.')).toBeTruthy();
+	});
+
 	it('renders generated preview list and DA6 matrix without official actions', async () => {
 		render(DutyRosterTemplateWorkspace, {
 			props: {
@@ -219,7 +301,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByText('01-JUN to 01-JUN').length).toBeGreaterThan(0);
 		expect(screen.getByText(/Accept Run writes official DA6 history/)).toBeTruthy();
 		expect(within(list).getAllByText('SGT Able, Ann').length).toBeGreaterThan(0);
-		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
+		await fireEvent.click(
+			within(screen.getByRole('tablist', { name: 'Preview review mode' })).getByRole('tab', { name: 'DA6 Matrix' })
+		);
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(matrix).toBeTruthy();
 		expect(within(matrix).getByText('X')).toBeTruthy();
@@ -252,7 +336,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		const list = screen.getByRole('table', { name: 'Generated Duty Roster preview' });
-		expect(within(list).getByText('REVIEW')).toBeTruthy();
+		expect(within(list).getAllByText('Review').length).toBeGreaterThan(0);
 		expect(within(list).getByText(/Generated SGT\s+Able, Ann/)).toBeTruthy();
 		expect(within(list).getByText('Selected Soldier is outside this template pool.')).toBeTruthy();
 		expect(within(list).queryByText('Commander approved outside-pool replacement.')).toBeNull();
@@ -263,7 +347,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByText('Selected Soldier is outside this template pool.').length).toBeGreaterThan(1);
 		expect(screen.getByText('Commander approved outside-pool replacement.')).toBeTruthy();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'DA6 Matrix' }));
+		await fireEvent.click(
+			within(screen.getByRole('tablist', { name: 'Preview review mode' })).getByRole('tab', { name: 'DA6 Matrix' })
+		);
 		const matrix = screen.getByRole('table', { name: 'DA6 preview matrix' });
 		expect(within(matrix).queryByText('MANUAL')).toBeNull();
 	});
@@ -309,11 +395,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 		});
 
 		expect(screen.getByText('Official')).toBeTruthy();
-		expect(screen.getByText('History')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'History' })).toBeTruthy();
 		const recordLink = screen.getByRole('link', { name: /JUN 01, 2026 to JUN 01, 2026/ });
 		expect(recordLink.getAttribute('href')).toBe('/org/org-1/duty-rosters/cq-nco/history/run-1');
 		expect(screen.getByText('Not applied')).toBeTruthy();
-		expect(screen.getByText('Open official record')).toBeTruthy();
+		expect(screen.getByRole('link', { name: /JUN 01, 2026 to JUN 01, 2026/ })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Apply to Calendar' })).toBeNull();
 		// Roster table is hidden in collapsed list view
 		expect(screen.queryByRole('table', { name: 'Accepted Duty Roster list' })).toBeNull();
@@ -346,7 +432,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'Older runs' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/history?page=2'
 		);
-		expect(screen.getByText('Newer runs').getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Newer runs' }).hasAttribute('disabled')).toBe(true);
 	});
 
 	it('renders correction history and an inline correction form for accepted rows', async () => {
@@ -365,13 +451,12 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getByText('CORRECTED')).toBeTruthy();
+		expect(screen.getByText('Corrected')).toBeTruthy();
 		expect(screen.getByText('Actual: SGT Able, Ann')).toBeTruthy();
-		expect(screen.getByText(/performed duty for/)).toBeTruthy();
-		expect(screen.getByText('Counts toward future DA6 runs.')).toBeTruthy();
-		expect(screen.getAllByText('Outside normal pool. Saved as an override.').length).toBeGreaterThan(0);
 		expect(screen.getByRole('button', { name: 'Change Assignment' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Change Assignment' }));
+		expect(screen.getByText(/performed duty for/)).toBeTruthy();
+		expect(screen.getAllByText('Outside normal pool. Saved as an override.').length).toBeGreaterThan(0);
 		const form = screen.getByRole('button', { name: 'Save' }).closest('form') as HTMLFormElement;
 		expect(form.action).toContain('/org/org-1/duty-rosters/cq-nco/history?/recordCorrection');
 		expect(within(form).getByRole('button', { name: 'Actual Soldier for 2026-06-01' })).toBeTruthy();
@@ -535,7 +620,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getAllByLabelText(/Short code/)).toHaveLength(1);
 		expect(screen.getByRole('heading', { name: 'Eligibility Rules' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Individual Exclusions' })).toBeTruthy();
-		expect(screen.getByRole('table', { name: 'Resolved Duty Roster pool' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add Soldier exclusion' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'DA6 Continuity' })).toBeTruthy();
 		expect(screen.getByLabelText('Settings save actions')).toBeTruthy();
 		expect(screen.getByRole('complementary', { name: 'Template summary' })).toBeTruthy();
@@ -545,14 +630,12 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(screen.getByRole('link', { name: 'Open History' }).getAttribute('href')).toBe(
 			'/org/org-1/duty-rosters/cq-nco/history'
 		);
-		expect(screen.getByLabelText('Search pool')).toBeTruthy();
-		expect(screen.getByLabelText('Show excluded only')).toBeTruthy();
+		expect(screen.getByText('SGT Able, Ann')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove SGT Able, Ann from exclusions' })).toBeTruthy();
 		expect(screen.getByLabelText('Search baseline')).toBeTruthy();
 		expect(screen.getByLabelText('Show counted only')).toBeTruthy();
 		expect(screen.getByDisplayValue('4')).toBeTruthy();
 
-		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Baker' } });
-		expect(screen.queryByText('Able, Ann')).toBeNull();
 		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-1"]')).toBeTruthy();
 
 		expect(screen.getByRole('button', { name: 'Save settings from sticky bar' })).toBeTruthy();
@@ -585,19 +668,14 @@ describe('DutyRosterTemplateWorkspace', () => {
 			}
 		});
 
-		expect(screen.getAllByText('Showing 100 of 130 matching Soldiers')).toHaveLength(2);
-		expect(screen.queryByText('Large130, Test')).toBeNull();
+		expect(screen.getByText('Showing 100 of 130 matching Soldiers')).toBeTruthy();
+		expect(screen.getByText('SGT Large130, Test')).toBeTruthy();
 		expect(document.querySelector('input[type="hidden"][name="exemptPersonnelIds"][value="person-130"]')).toBeTruthy();
-
-		await fireEvent.input(screen.getByLabelText('Search pool'), { target: { value: 'Large130' } });
-
-		expect(screen.getByText('Large130, Test')).toBeTruthy();
-		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
 
 		await fireEvent.input(screen.getByLabelText('Search baseline'), { target: { value: 'Large129' } });
 
 		expect(screen.getByText('Large129, Test')).toBeTruthy();
-		expect(screen.getAllByText('Showing 1 of 1 matching Soldiers').length).toBeGreaterThan(0);
+		expect(screen.getByText('Showing 1 of 1 matching Soldiers')).toBeTruthy();
 	});
 });
 

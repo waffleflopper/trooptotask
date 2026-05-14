@@ -9,7 +9,7 @@ It is intentionally narrow. It does not prove the architecture is clean. It does
 - required governance files exist
 - route-level `locals.supabase` usage under `src/routes/` stays inside an explicit allowlist
 - known cross-feature permission-lane couplings stay explicitly documented
-- the remaining high-risk demo/sandbox exception files stay inside an explicit allowlist
+- deprecated demo/sandbox runtime signals do not reappear outside the now-empty allowlist
 - legacy authorization entry points stay inside an explicit inventory-backed allowlist
 - allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
 
@@ -33,7 +33,8 @@ Treat that file as a temporary truth table for tolerated exceptions:
 ## Current-State Truth Versus Guardrail
 
 - Current-state truth:
-  - v1 still has route-level provider leaks, feature-lane piggybacking, demo/sandbox exception paths, and legacy authorization compatibility paths
+  - v1 still has route-level provider leaks, feature-lane piggybacking, and legacy authorization compatibility paths
+  - the deprecated demo/sandbox runtime exception allowlist is currently empty; new demo/sandbox runtime signals should fail governance
 - Intended guardrail:
   - no new undocumented leaks, piggybacking, demo/sandbox exception paths, or legacy authorization entry points should land
 - Deferred cleanup:

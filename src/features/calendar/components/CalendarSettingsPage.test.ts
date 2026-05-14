@@ -2,9 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
-import type { StatusType } from '$lib/types';
+import type { SpecialDay, StatusType } from '$lib/types';
 
-const { orgContextMock, statusTypesStoreMock } = vi.hoisted(() => ({
+const { orgContextMock, statusTypesStoreMock, specialDaysStoreMock } = vi.hoisted(() => ({
 	orgContextMock: {
 		orgId: 'org-1',
 		isPrivileged: true,
@@ -17,6 +17,13 @@ const { orgContextMock, statusTypesStoreMock } = vi.hoisted(() => ({
 		add: vi.fn(),
 		update: vi.fn(),
 		remove: vi.fn()
+	},
+	specialDaysStoreMock: {
+		items: [] as SpecialDay[],
+		add: vi.fn(),
+		update: vi.fn(),
+		remove: vi.fn(),
+		resetFederalHolidays: vi.fn()
 	}
 }));
 
@@ -33,13 +40,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 }));
 
 vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
-	specialDaysStore: {
-		items: [],
-		add: vi.fn(),
-		update: vi.fn(),
-		remove: vi.fn(),
-		resetFederalHolidays: vi.fn()
-	}
+	specialDaysStore: specialDaysStoreMock
 }));
 
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
@@ -62,21 +63,11 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.update.mockReset();
 		statusTypesStoreMock.remove.mockReset();
-	});
-
-	it('uses shared toolbar navigation for settings sections and related calendar link', () => {
-		render(CalendarSettingsPage);
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Calendar settings controls' });
-		const settingsNav = screen.getByRole('navigation', { name: 'Calendar settings sections' });
-		const relatedNav = screen.getByRole('navigation', { name: 'Related calendar pages' });
-
-		expect(toolbar.contains(settingsNav)).toBe(true);
-		expect(toolbar.contains(relatedNav)).toBe(true);
-		expect(screen.getByRole('link', { name: 'Status Types' }).getAttribute('href')).toBe('#status-types');
-		expect(screen.getByRole('link', { name: 'Assignment Types' }).getAttribute('href')).toBe('#assignment-types');
-		expect(screen.getByRole('link', { name: 'Closures' }).getAttribute('href')).toBe('#special-days');
-		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+		specialDaysStoreMock.items = [];
+		specialDaysStoreMock.add.mockReset();
+		specialDaysStoreMock.update.mockReset();
+		specialDaysStoreMock.remove.mockReset();
+		specialDaysStoreMock.resetFederalHolidays.mockReset();
 	});
 
 	it('preserves the restricted settings state for non-managers', () => {
@@ -97,7 +88,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getByRole('toolbar', { name: 'Calendar settings controls' })).toBeTruthy();
+		expect(screen.getByRole('navigation', { name: 'Calendar settings controls' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
@@ -115,20 +106,19 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage);
 
-		expect(screen.getAllByText('Authorized absence (unavailable, nonchargeable)').length).toBeGreaterThanOrEqual(2);
-		expect(screen.getByRole('button', { name: 'Duty roster treatment help' })).toBeTruthy();
+		expect(screen.getByText('Authorized absence (unavailable, nonchargeable)')).toBeTruthy();
 
-		const newTreatment = screen.getByLabelText('Duty roster treatment');
-		(newTreatment as HTMLSelectElement).value = 'other-duty';
-		await fireEvent.change(newTreatment);
-		await fireEvent.input(screen.getByPlaceholderText('Status name (e.g., Leave, TDY)'), {
-			target: { value: 'Detail' }
-		});
-		const addButton = screen
-			.getAllByRole('button', { name: '+ Add' })
-			.find((button) => !button.hasAttribute('disabled'));
-		expect(addButton).toBeTruthy();
-		await fireEvent.click(addButton!);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+
+		const dialog = screen.getByRole('dialog');
+		const nameInput = within(dialog).getByLabelText('Status name');
+		await fireEvent.input(nameInput, { target: { value: 'Detail' } });
+
+		const treatmentSelect = within(dialog).getByLabelText('Duty roster treatment');
+		(treatmentSelect as HTMLSelectElement).value = 'other-duty';
+		await fireEvent.change(treatmentSelect);
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Status Type' }));
 
 		expect(statusTypesStoreMock.add).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -211,5 +201,29 @@ describe('CalendarSettingsPage', () => {
 			da6AvailabilityTreatment: null,
 			da6TreatmentReviewed: true
 		});
+	});
+
+	it('keeps the closures year visible after changing the filter', async () => {
+		specialDaysStoreMock.items = [
+			{
+				id: 'new-year-2026',
+				date: '2026-01-01',
+				name: "New Year's Day",
+				type: 'federal-holiday'
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+
+		const yearSelect = screen.getByLabelText('Year') as HTMLSelectElement;
+		expect(yearSelect.value).toBe(String(new Date().getFullYear()));
+
+		yearSelect.value = '2026';
+		await fireEvent.change(yearSelect);
+
+		expect(yearSelect.value).toBe('2026');
+		expect(screen.getByText("New Year's Day")).toBeTruthy();
 	});
 });

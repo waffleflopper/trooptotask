@@ -1,16 +1,11 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem,
-		ToolbarToggle,
-		ToolbarViewToggle
-	} from '$lib/components/ui/toolbar';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import { Toggle } from '$lib/components/ui/toggle';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -28,7 +23,7 @@
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-	import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Personnel } from '$lib/types';
 
 	let { data } = $props();
@@ -158,8 +153,8 @@
 		showCompletionImportModal = true;
 	}
 
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [
 			{
 				id: 'export-csv',
 				label: 'Export CSV',
@@ -245,104 +240,84 @@
 	<title>Critical Tasks - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
+<div
+	class="flex h-[calc(100dvh-var(--app-shell-header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
+>
 	{#if !canViewReadiness}
-		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
-			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
-			<p>Contact your organization admin for critical tasks access.</p>
+		<section class="h-full max-w-3xl overflow-auto p-4" aria-labelledby="critical-tasks-restricted-title">
+			<h2 id="critical-tasks-restricted-title" class="text-2xl font-semibold text-foreground">Access Restricted</h2>
+			<p class="text-muted-foreground">Contact your organization admin for critical tasks access.</p>
 		</section>
 	{:else}
-		<main class="page-content">
-			<Toolbar ariaLabel="Critical Tasks controls" collapse="medium" leadingMin="34rem" searchCompactAt={1180}>
-				{#snippet leading()}
-					<ToolbarGroup
-						label="Critical Tasks filters"
-						activeCount={activeFilterCount}
-						testId="critical-tasks-filter-group"
+		<main class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
+			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls">
+				<WorkspaceToolbar.Group
+					label="Critical Tasks filters"
+					activeCount={activeFilterCount}
+					data-testid="critical-tasks-filter-group"
+				>
+					<ButtonGroup.Root aria-label="Critical Tasks matrix view mode">
+						{#each matrixViewOptions as option (option.value)}
+							<Button
+								variant={viewMode === option.value ? 'secondary' : 'outline'}
+								aria-pressed={viewMode === option.value}
+								onclick={() => (viewMode = option.value as 'alphabetical' | 'by-group')}
+							>
+								{option.label}
+							</Button>
+						{/each}
+					</ButtonGroup.Root>
+					<WorkspaceToolbar.Select
+						ariaLabel="Critical Tasks group filter"
+						options={groupFilterOptions}
+						value={selectedGroupId}
+						onValueChange={(value) => (selectedGroupId = value)}
+					/>
+					<Toggle
+						variant="outline"
+						pressed={gapsOnly}
+						title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
+						onPressedChange={(pressed) => (gapsOnly = pressed)}
 					>
-						{#snippet full()}
-							<ToolbarViewToggle
-								ariaLabel="Critical Tasks matrix view mode"
-								options={matrixViewOptions}
-								value={viewMode}
-								mode="full"
-								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Critical Tasks group filter"
-								options={groupFilterOptions}
-								defaultValue=""
-								value={selectedGroupId}
-								width="wide"
-								mode="full"
-								onValueChange={(value) => (selectedGroupId = value)}
-							/>
-							<ToolbarToggle
-								label="Show gaps only"
-								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-								bind:pressed={gapsOnly}
-							/>
-							<ToolbarSearchItem
-								testId="critical-tasks-search"
-								ariaLabel="Search by name, rank, or MOS"
-								placeholder="Search name, rank, MOS..."
-								width="wide"
-								bind:value={personnelSearch}
-							/>
-						{/snippet}
-						{#snippet panel()}
-							<ToolbarViewToggle
-								ariaLabel="Critical Tasks matrix view mode"
-								options={matrixViewOptions}
-								value={viewMode}
-								mode="full"
-								onValueChange={(value) => (viewMode = value as 'alphabetical' | 'by-group')}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Critical Tasks group filter"
-								options={groupFilterOptions}
-								defaultValue=""
-								value={selectedGroupId}
-								width="wide"
-								mode="full"
-								onValueChange={(value) => (selectedGroupId = value)}
-							/>
-							<ToolbarToggle
-								label="Show gaps only"
-								title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-								bind:pressed={gapsOnly}
-							/>
-							<ToolbarSearchItem
-								testId="critical-tasks-search"
-								ariaLabel="Search by name, rank, or MOS"
-								placeholder="Search name, rank, MOS..."
-								width="wide"
-								mode="full"
-								bind:value={personnelSearch}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-				{/snippet}
+						Show gaps only
+					</Toggle>
+					<WorkspaceToolbar.Search
+						testId="critical-tasks-search"
+						ariaLabel="Search by name, rank, or MOS"
+						placeholder="Search name, rank, MOS..."
+						bind:value={personnelSearch}
+					/>
+				</WorkspaceToolbar.Group>
 
-				<ToolbarActions
-					actions={toolbarActionItems}
-					ariaLabel="Critical Tasks actions"
-					overflowAriaLabel="More Critical Tasks actions"
-					overflowIconOnly
-				/>
-			</Toolbar>
+				<WorkspaceToolbar.Group label="Critical Tasks actions" zone="actions">
+					<WorkspaceToolbar.Actions
+						actions={toolbarActionItems}
+						ariaLabel="Critical Tasks actions"
+						overflowAriaLabel="More Critical Tasks actions"
+					/>
+				</WorkspaceToolbar.Group>
+			</WorkspaceToolbar.Root>
 
 			{#if loading}
-				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
-					<SkeletonGrid rows={6} columns={4} />
+				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
+					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
+						{#each Array(24) as _, index (index)}
+							<Skeleton class="h-[38px] w-[100px]" />
+						{/each}
+					</div>
 				</section>
 			{:else if activeTasks.length === 0}
-				<section class="workspace-state">
-					<EmptyState message="No critical tasks yet. Add ICTL tasks to begin tracking annual proficiency." />
+				<section class="h-full overflow-auto">
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No critical tasks yet.</Empty.Title>
+							<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
 				</section>
 			{:else}
-				<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
-					<div class="matrix-panel" data-testid="critical-tasks-matrix-panel">
+				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
+					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
 						<IctMatrix
 							{orgId}
 							personnel={filteredPersonnel}
@@ -395,75 +370,3 @@
 		onDone={() => (showCompletionImportModal = false)}
 	/>
 {/if}
-
-<style>
-	.page {
-		height: calc(100dvh - var(--header-height, 56px) - var(--banner-height, 0px));
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: var(--surface-page);
-	}
-
-	.page-content {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		padding: var(--sp-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.workspace-state,
-	.page-message {
-		padding: 0;
-		height: 100%;
-		overflow: auto;
-	}
-
-	.matrix-workspace {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		flex: 1;
-		min-height: 0;
-	}
-
-	.matrix-panel {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.page-message {
-		max-width: 52rem;
-	}
-
-	.page-message h2 {
-		margin: 0 0 var(--sp-2);
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: var(--text-2xl);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.page-message p {
-		margin: 0;
-		color: var(--text-secondary);
-	}
-
-	/* ── Responsive ─────────────────────────────────────────── */
-
-	@media (max-width: 720px) {
-		.page-content {
-			padding: var(--sp-3);
-		}
-
-		.matrix-workspace {
-			gap: var(--sp-3);
-		}
-	}
-</style>

@@ -1,18 +1,21 @@
 <script lang="ts">
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarNavGroup,
-		type ToolbarActionConfig,
-		type ToolbarNavItem
-	} from '$lib/components/ui/toolbar';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from '@lucide/svelte';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as Select from '$lib/components/ui/select';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
+	import { duplicateTemplate, templateStore, templateStepStore } from '$features/onboarding/stores/templates.svelte';
 	import type {
 		OnboardingTemplate,
 		OnboardingTemplateStep,
@@ -24,21 +27,18 @@
 
 	const org = getOrgContext();
 
-	// --- Initialize stores from server data ---
 	$effect(() => {
 		templateStore.load(data.templates, data.orgId);
 		templateStepStore.load(data.templateSteps, data.orgId);
 	});
 
-	// --- Local state ---
 	let selectedTemplateId: string | null = $state(null);
-	let renamingTemplateId: string | null = $state(null);
-	let renameValue = $state('');
-	let addingTemplate = $state(false);
-	let newTemplateName = $state('');
-	let newTemplateDescription = $state('');
+	let creatingTemplate = $state(false);
+	let editingTemplate = $state(false);
+	let mobileDetailOpen = $state(false);
+	let templateName = $state('');
+	let templateDescription = $state('');
 
-	// Step editor state
 	let addingStep = $state(false);
 	let editingStepId: string | null = $state(null);
 	let stepName = $state('');
@@ -48,42 +48,48 @@
 	let stepStages: string[] = $state([]);
 	let newStageName = $state('');
 
-	// Confirm dialog
 	let confirmDelete: { type: 'template' | 'step'; id: string; name: string } | null = $state(null);
-
-	// Saving indicators
 	let savingTemplate = $state(false);
 	let savingStep = $state(false);
+	let duplicatingTemplateId: string | null = $state(null);
 
-	// --- Derived ---
 	const templates = $derived(templateStore.items);
 	const allSteps = $derived(templateStepStore.items);
-
-	const selectedTemplate = $derived(selectedTemplateId ? templateStore.getById(selectedTemplateId) : null);
-
-	const selectedSteps = $derived(
-		selectedTemplateId
-			? allSteps.filter((s) => s.templateId === selectedTemplateId).sort((a, b) => a.sortOrder - b.sortOrder)
+	const orderedTemplates = $derived([...templates].sort((a, b) => a.name.localeCompare(b.name)));
+	const selectedTemplate = $derived(
+		creatingTemplate
+			? null
+			: (selectedTemplateId ? (templateStore.getById(selectedTemplateId) ?? null) : null) || orderedTemplates[0] || null
+	);
+	const selectedTemplateSteps = $derived(
+		selectedTemplate
+			? allSteps.filter((step) => step.templateId === selectedTemplate.id).sort((a, b) => a.sortOrder - b.sortOrder)
 			: []
 	);
 
 	const trainingTypes: TrainingType[] = $derived(data.trainingTypes ?? []);
+	const stepTrainingTypeLabel = $derived(
+		trainingTypes.find((type) => type.id === stepTrainingTypeId)?.name ?? 'Select training type'
+	);
 
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
-	const onboardingNavItems = $derived<ToolbarNavItem[]>([
+	const templateActionDisabled = $derived(
+		creatingTemplate || editingTemplate || addingStep || !!editingStepId || !!duplicatingTemplateId
+	);
+	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
 	]);
-	const templateToolbarActions = $derived.by<ToolbarActionConfig[]>(() => {
+	const templateToolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
 		if (!canMutate) return [];
 		return [
 			{
 				id: 'add-template',
 				label: 'Add Template',
-				onclick: () => (addingTemplate = true),
-				disabled: addingTemplate,
+				onclick: startCreateTemplate,
+				disabled: templateActionDisabled,
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'
@@ -91,11 +97,10 @@
 		];
 	});
 
-	// --- Step type config ---
-	const STEP_TYPE_COLORS: Record<OnboardingStepType, string> = {
-		checkbox: 'var(--text-secondary)',
-		paperwork: 'var(--amber-dark)',
-		training: 'var(--info)'
+	const STEP_TYPE_VARIANTS: Record<OnboardingStepType, BadgeVariant> = {
+		checkbox: 'secondary',
+		paperwork: 'warning',
+		training: 'info'
 	};
 
 	const STEP_TYPE_LABELS: Record<OnboardingStepType, string> = {
@@ -104,74 +109,104 @@
 		training: 'Training'
 	};
 
-	// --- Template actions ---
+	function getTemplateStepCount(templateId: string): number {
+		return allSteps.filter((step) => step.templateId === templateId).length;
+	}
+
+	function getTemplateSummary(template: OnboardingTemplate): string {
+		const stepCount = getTemplateStepCount(template.id);
+		return `${stepCount} step${stepCount === 1 ? '' : 's'}`;
+	}
+
 	function selectTemplate(id: string) {
+		if (templateActionDisabled) return;
 		selectedTemplateId = id;
+		mobileDetailOpen = true;
 		cancelAddStep();
 		cancelEditStep();
 	}
 
-	function startRename(template: OnboardingTemplate) {
-		renamingTemplateId = template.id;
-		renameValue = template.name;
+	function startCreateTemplate() {
+		if (!canMutate || templateActionDisabled) return;
+		cancelAddStep();
+		cancelEditStep();
+		selectedTemplateId = null;
+		templateName = '';
+		templateDescription = '';
+		creatingTemplate = true;
+		editingTemplate = false;
+		mobileDetailOpen = true;
 	}
 
-	async function commitRename() {
-		if (!renamingTemplateId || !renameValue.trim()) return;
-		await templateStore.update(renamingTemplateId, { name: renameValue.trim() });
-		renamingTemplateId = null;
-		renameValue = '';
+	function startEditTemplate() {
+		if (!selectedTemplate || !canMutate || templateActionDisabled) return;
+		cancelAddStep();
+		cancelEditStep();
+		selectedTemplateId = selectedTemplate.id;
+		templateName = selectedTemplate.name;
+		templateDescription = selectedTemplate.description ?? '';
+		creatingTemplate = false;
+		editingTemplate = true;
+		mobileDetailOpen = true;
 	}
 
-	function cancelRename() {
-		renamingTemplateId = null;
-		renameValue = '';
+	function cancelTemplateEdit() {
+		const wasCreating = creatingTemplate;
+		creatingTemplate = false;
+		editingTemplate = false;
+		savingTemplate = false;
+		templateName = '';
+		templateDescription = '';
+		if (wasCreating) mobileDetailOpen = false;
 	}
 
-	function handleRenameKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			commitRename();
-		} else if (e.key === 'Escape') {
-			cancelRename();
-		}
-	}
-
-	async function addTemplate() {
-		if (!newTemplateName.trim()) return;
+	async function saveTemplate() {
+		if (!templateName.trim() || savingTemplate) return;
 		savingTemplate = true;
 		try {
-			const created = await templateStore.add({
-				orgId: data.orgId,
-				name: newTemplateName.trim(),
-				description: newTemplateDescription.trim() || null,
-				createdAt: new Date().toISOString()
-			});
-			if (created) {
-				selectedTemplateId = created.id;
+			if (creatingTemplate) {
+				const created = await templateStore.add({
+					orgId: data.orgId,
+					name: templateName.trim(),
+					description: templateDescription.trim() || null,
+					createdAt: new Date().toISOString()
+				});
+				if (created) selectedTemplateId = created.id;
+				creatingTemplate = false;
+				mobileDetailOpen = true;
+			} else if (selectedTemplateId) {
+				await templateStore.update(selectedTemplateId, {
+					name: templateName.trim(),
+					description: templateDescription.trim() || null
+				});
+				editingTemplate = false;
 			}
-			newTemplateName = '';
-			newTemplateDescription = '';
-			addingTemplate = false;
 		} finally {
 			savingTemplate = false;
 		}
 	}
 
-	function cancelAddTemplate() {
-		addingTemplate = false;
-		newTemplateName = '';
-		newTemplateDescription = '';
-	}
-
 	async function deleteTemplate(id: string) {
 		await templateStore.removeBool(id);
-		if (selectedTemplateId === id) {
-			selectedTemplateId = null;
-		}
+		if (selectedTemplateId === id) selectedTemplateId = null;
+		mobileDetailOpen = false;
 		confirmDelete = null;
 	}
 
-	// --- Step actions ---
+	async function duplicateSelectedTemplate(template: OnboardingTemplate) {
+		if (!canMutate || templateActionDisabled) return;
+		duplicatingTemplateId = template.id;
+		try {
+			const duplicate = await duplicateTemplate(template.id);
+			if (duplicate) {
+				selectedTemplateId = duplicate.template.id;
+				mobileDetailOpen = true;
+			}
+		} finally {
+			duplicatingTemplateId = null;
+		}
+	}
+
 	function resetStepForm() {
 		stepName = '';
 		stepDescription = '';
@@ -182,6 +217,7 @@
 	}
 
 	function startAddStep() {
+		if (!selectedTemplate || !canMutate || creatingTemplate || editingTemplate) return;
 		cancelEditStep();
 		resetStepForm();
 		addingStep = true;
@@ -193,6 +229,7 @@
 	}
 
 	function startEditStep(step: OnboardingTemplateStep) {
+		if (creatingTemplate || editingTemplate) return;
 		cancelAddStep();
 		editingStepId = step.id;
 		stepName = step.name;
@@ -209,13 +246,14 @@
 	}
 
 	async function saveNewStep() {
-		if (!selectedTemplateId || !stepName.trim()) return;
+		if (!selectedTemplate || !stepName.trim()) return;
 		savingStep = true;
 		try {
-			const nextOrder = selectedSteps.length > 0 ? Math.max(...selectedSteps.map((s) => s.sortOrder)) + 1 : 0;
+			const nextOrder =
+				selectedTemplateSteps.length > 0 ? Math.max(...selectedTemplateSteps.map((step) => step.sortOrder)) + 1 : 0;
 
 			await templateStepStore.add({
-				templateId: selectedTemplateId,
+				templateId: selectedTemplate.id,
 				name: stepName.trim(),
 				description: stepDescription.trim() || null,
 				stepType,
@@ -249,24 +287,22 @@
 	async function deleteStep(id: string) {
 		await templateStepStore.removeBool(id);
 		confirmDelete = null;
-		if (editingStepId === id) {
-			cancelEditStep();
-		}
+		if (editingStepId === id) cancelEditStep();
 	}
 
 	async function moveStep(step: OnboardingTemplateStep, direction: 'up' | 'down') {
-		const idx = selectedSteps.findIndex((s) => s.id === step.id);
-		if (idx < 0) return;
-		const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-		if (swapIdx < 0 || swapIdx >= selectedSteps.length) return;
+		const index = selectedTemplateSteps.findIndex((item) => item.id === step.id);
+		if (index < 0) return;
+		const swapIndex = direction === 'up' ? index - 1 : index + 1;
+		if (swapIndex < 0 || swapIndex >= selectedTemplateSteps.length) return;
 
-		const other = selectedSteps[swapIdx];
-		// Swap sort orders
-		await templateStepStore.update(step.id, { sortOrder: other.sortOrder });
-		await templateStepStore.update(other.id, { sortOrder: step.sortOrder });
+		const other = selectedTemplateSteps[swapIndex];
+		await Promise.all([
+			templateStepStore.update(step.id, { sortOrder: other.sortOrder }),
+			templateStepStore.update(other.id, { sortOrder: step.sortOrder })
+		]);
 	}
 
-	// --- Stage management (for paperwork steps) ---
 	function addStage() {
 		if (!newStageName.trim()) return;
 		stepStages = [...stepStages, newStageName.trim()];
@@ -274,7 +310,7 @@
 	}
 
 	function removeStage(index: number) {
-		stepStages = stepStages.filter((_, i) => i !== index);
+		stepStages = stepStages.filter((_, itemIndex) => itemIndex !== index);
 	}
 
 	function moveStage(index: number, direction: 'up' | 'down') {
@@ -285,313 +321,355 @@
 		stepStages = copy;
 	}
 
-	function handleStageKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			e.preventDefault();
+	function handleStageKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
 			addStage();
 		}
 	}
 
 	function handleConfirmDelete() {
 		if (!confirmDelete) return;
-		if (confirmDelete.type === 'template') {
-			return deleteTemplate(confirmDelete.id);
-		} else {
-			return deleteStep(confirmDelete.id);
-		}
+		if (confirmDelete.type === 'template') return deleteTemplate(confirmDelete.id);
+		return deleteStep(confirmDelete.id);
+	}
+
+	function closeMobileDetail() {
+		if (creatingTemplate || editingTemplate) cancelTemplateEdit();
+		mobileDetailOpen = false;
 	}
 </script>
 
-<div class="templates-page">
-	<Toolbar ariaLabel="Onboarding template controls" collapse="medium" leadingMin="20rem">
-		{#snippet leading()}
-			<ToolbarNavGroup ariaLabel="Onboarding sections" items={onboardingNavItems} />
-		{/snippet}
+<TypeWorkspace.Root aria-label="Onboarding template management workspace" class="overflow-hidden">
+	<WorkspaceToolbar.Root ariaLabel="Onboarding template controls">
+		<WorkspaceToolbar.Group label="Onboarding sections">
+			<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
+		</WorkspaceToolbar.Group>
 
 		{#if templateToolbarActions.length > 0}
-			<ToolbarActions
-				actions={templateToolbarActions}
-				ariaLabel="Onboarding template actions"
-				overflowAriaLabel="More onboarding template actions"
-				overflowIconOnly
-			/>
-		{/if}
-	</Toolbar>
-
-	<div class="templates-layout">
-		<!-- Left panel: Template list -->
-		<div class="panel template-list-panel">
-			<div class="panel-header">
-				<div class="panel-heading">
-					<p class="panel-eyebrow">Library</p>
-					<h3 class="panel-title">Templates</h3>
-				</div>
-			</div>
-
-			{#if addingTemplate}
-				<div class="add-template-form">
-					<input
-						class="input"
-						type="text"
-						placeholder="Template name"
-						bind:value={newTemplateName}
-						onkeydown={(e) => e.key === 'Enter' && addTemplate()}
-					/>
-					<textarea class="input" placeholder="Description (optional)" rows="2" bind:value={newTemplateDescription}
-					></textarea>
-					<div class="form-actions">
-						<button class="btn btn-secondary btn-sm" onclick={cancelAddTemplate}>Cancel</button>
-						<button
-							class="btn btn-primary btn-sm"
-							onclick={addTemplate}
-							disabled={!newTemplateName.trim() || savingTemplate}
-						>
-							{#if savingTemplate}<Spinner size={12} />{/if}
-							Save
-						</button>
-					</div>
-				</div>
-			{/if}
-
-			{#if templates.length === 0 && !addingTemplate}
-				<EmptyState
-					message="No templates yet. Create one to get started."
-					actionLabel={canMutate ? '+ Add Template' : undefined}
-					onAction={canMutate ? () => (addingTemplate = true) : undefined}
+			<WorkspaceToolbar.Group label="Onboarding template actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={templateToolbarActions}
+					ariaLabel="Onboarding template actions"
+					overflowAriaLabel="More onboarding template actions"
 				/>
-			{:else}
-				<ul class="template-list" role="listbox" aria-label="Onboarding templates">
-					{#each templates as template (template.id)}
-						{@const stepCount = allSteps.filter((s) => s.templateId === template.id).length}
-						<li
-							class="template-item"
-							class:selected={selectedTemplateId === template.id}
-							role="option"
-							aria-selected={selectedTemplateId === template.id}
-							onclick={() => selectTemplate(template.id)}
-							onkeydown={(e) => e.key === 'Enter' && selectTemplate(template.id)}
-							tabindex="0"
-						>
-							{#if renamingTemplateId === template.id}
-								<input
-									class="input rename-input"
-									type="text"
-									bind:value={renameValue}
-									onblur={commitRename}
-									onkeydown={handleRenameKeydown}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else}
-								<div class="template-info">
-									<span class="template-name">{template.name}</span>
-									<span class="template-meta">
-										{stepCount} step{stepCount !== 1 ? 's' : ''}
-									</span>
-								</div>
-							{/if}
+			</WorkspaceToolbar.Group>
+		{/if}
+	</WorkspaceToolbar.Root>
 
-							{#if canMutate && renamingTemplateId !== template.id}
-								<div
-									class="template-actions"
-									onclick={(e) => e.stopPropagation()}
-									onkeydown={(e) => e.stopPropagation()}
-									role="toolbar"
-									tabindex="-1"
-								>
-									<button
-										class="btn-ghost btn-icon"
-										title="Rename"
-										onclick={() => startRename(template)}
-										aria-label="Rename template"
+	<TypeWorkspace.Layout>
+		<TypeWorkspace.List mobileHidden={mobileDetailOpen || creatingTemplate || editingTemplate}>
+			{#if orderedTemplates.length === 0 && !creatingTemplate}
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No templates yet.</Empty.Title>
+						<Empty.Description>Create one to get started.</Empty.Description>
+					</Empty.Header>
+					{#if canMutate}
+						<Empty.Content>
+							<Button variant="outline" size="sm" type="button" onclick={startCreateTemplate}>Add Template</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
+			{:else}
+				<TypeWorkspace.ItemList role="listbox" aria-label="Onboarding templates">
+					{#each orderedTemplates as template (template.id)}
+						<TypeWorkspace.ListItem
+							selected={selectedTemplate?.id === template.id && !creatingTemplate}
+							title={template.name}
+							description={getTemplateSummary(template)}
+							onselect={() => selectTemplate(template.id)}
+							disabled={templateActionDisabled}
+							role="option"
+							aria-selected={selectedTemplate?.id === template.id && !creatingTemplate}
+						>
+							{#snippet actions()}
+								{#if canMutate && !templateActionDisabled}
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										title="Edit template"
+										onclick={() => {
+											selectedTemplateId = template.id;
+											startEditTemplate();
+										}}
+										aria-label={`Edit ${template.name}`}
 									>
-										<svg
-											viewBox="0 0 14 14"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="1.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											width="14"
-											height="14"
-											aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
-										>
-									</button>
-									<button
-										class="btn-ghost btn-icon btn-icon-danger"
-										title="Delete"
+										<Pencil aria-hidden="true" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										title="Duplicate template"
+										onclick={() => duplicateSelectedTemplate(template)}
+										aria-label={`Duplicate ${template.name}`}
+									>
+										<Copy aria-hidden="true" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										type="button"
+										title="Delete template"
 										onclick={() =>
 											(confirmDelete = {
 												type: 'template',
 												id: template.id,
 												name: template.name
 											})}
-										aria-label="Delete template"
+										aria-label={`Delete ${template.name}`}
 									>
-										<svg
-											viewBox="0 0 14 14"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="1.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											width="14"
-											height="14"
-											aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
-										>
-									</button>
+										<Trash2 aria-hidden="true" />
+									</Button>
+								{/if}
+							{/snippet}
+						</TypeWorkspace.ListItem>
+					{/each}
+				</TypeWorkspace.ItemList>
+			{/if}
+		</TypeWorkspace.List>
+
+		<TypeWorkspace.Detail
+			mobileHidden={!mobileDetailOpen && !creatingTemplate && !editingTemplate}
+			class={creatingTemplate || editingTemplate || selectedTemplate ? 'flex flex-col overflow-hidden pr-0' : undefined}
+		>
+			{#if creatingTemplate || editingTemplate || selectedTemplate}
+				<TypeWorkspace.MobileBack onclick={closeMobileDetail}>Templates</TypeWorkspace.MobileBack>
+			{/if}
+
+			{#if creatingTemplate || editingTemplate}
+				<div class="grid min-h-0 flex-1 gap-6 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
+					<TypeWorkspace.DetailHeader
+						title={creatingTemplate ? 'New Onboarding Template' : 'Edit Onboarding Template'}
+					/>
+
+					<TypeWorkspace.Form title="Basics">
+						<Field.Root>
+							<Field.Label for="template-name">Name</Field.Label>
+							<Input id="template-name" type="text" bind:value={templateName} placeholder="e.g. Standard Arrival" />
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="template-description">Description</Field.Label>
+							<Textarea
+								id="template-description"
+								rows={3}
+								bind:value={templateDescription}
+								placeholder="Optional template description"
+							/>
+						</Field.Root>
+					</TypeWorkspace.Form>
+				</div>
+
+				<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+					{#if !creatingTemplate && selectedTemplate && canMutate}
+						<Button
+							variant="destructive"
+							size="sm"
+							type="button"
+							onclick={() =>
+								(confirmDelete = { type: 'template', id: selectedTemplate.id, name: selectedTemplate.name })}
+						>
+							<Trash2 aria-hidden="true" />
+							Delete
+						</Button>
+					{/if}
+					<TypeWorkspace.ActionSpacer />
+					<Button variant="outline" size="sm" type="button" onclick={cancelTemplateEdit}>Cancel</Button>
+					<Button size="sm" type="button" onclick={saveTemplate} disabled={!templateName.trim() || savingTemplate}>
+						{#if savingTemplate}<Spinner />{/if}
+						{creatingTemplate ? 'Create' : 'Save'}
+					</Button>
+				</TypeWorkspace.Actions>
+			{:else if selectedTemplate}
+				<div class="min-h-0 flex-1 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
+					<TypeWorkspace.Stack>
+						<TypeWorkspace.DetailHeader title={selectedTemplate.name}>
+							{#snippet actions()}
+								{#if canMutate}
+									<Button variant="outline" size="sm" type="button" onclick={startEditTemplate}>Edit</Button>
+								{/if}
+							{/snippet}
+						</TypeWorkspace.DetailHeader>
+
+						<TypeWorkspace.Description>
+							{selectedTemplate.description ?? 'No description has been added for this onboarding template.'}
+						</TypeWorkspace.Description>
+
+						<TypeWorkspace.FactList>
+							<TypeWorkspace.Impact label="Steps">
+								{selectedTemplateSteps.length} configured
+							</TypeWorkspace.Impact>
+							<TypeWorkspace.Impact label="Created">
+								{new Date(selectedTemplate.createdAt).toLocaleDateString()}
+							</TypeWorkspace.Impact>
+						</TypeWorkspace.FactList>
+
+						<TypeWorkspace.Form title="Steps">
+							{#if selectedTemplateSteps.length === 0 && !addingStep}
+								<button
+									type="button"
+									class="flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-card/70 p-4 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+									onclick={startAddStep}
+									disabled={!canMutate}
+								>
+									<Plus class="size-4" aria-hidden="true" />
+									<span class="font-medium">Add first step</span>
+								</button>
+							{:else}
+								<div class="grid overflow-hidden rounded-md border border-border bg-card">
+									{#each selectedTemplateSteps as step, index (step.id)}
+										<div class="border-b border-border/70 p-3 last:border-b-0">
+											{#if editingStepId === step.id}
+												{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
+											{:else}
+												<div class="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+													<div class="flex min-w-0 flex-1 items-center gap-2 max-sm:flex-wrap">
+														<span class="min-w-5 font-mono text-xs font-semibold text-muted-foreground">
+															{index + 1}.
+														</span>
+														<span class="truncate text-sm font-semibold text-foreground">{step.name}</span>
+														<Badge variant={STEP_TYPE_VARIANTS[step.stepType]}>{STEP_TYPE_LABELS[step.stepType]}</Badge>
+													</div>
+													{#if canMutate && !addingStep}
+														<div class="flex shrink-0 gap-1">
+															<Button
+																variant="outline"
+																size="icon"
+																type="button"
+																title="Move up"
+																disabled={index === 0}
+																onclick={() => moveStep(step, 'up')}
+																aria-label={`Move ${step.name} up`}
+															>
+																<ArrowUp aria-hidden="true" />
+															</Button>
+															<Button
+																variant="outline"
+																size="icon"
+																type="button"
+																title="Move down"
+																disabled={index === selectedTemplateSteps.length - 1}
+																onclick={() => moveStep(step, 'down')}
+																aria-label={`Move ${step.name} down`}
+															>
+																<ArrowDown aria-hidden="true" />
+															</Button>
+															<Button
+																variant="outline"
+																size="icon"
+																type="button"
+																title="Edit"
+																onclick={() => startEditStep(step)}
+																aria-label={`Edit ${step.name}`}
+															>
+																<Pencil aria-hidden="true" />
+															</Button>
+															<Button
+																variant="outline"
+																size="icon"
+																type="button"
+																title="Delete"
+																onclick={() =>
+																	(confirmDelete = {
+																		type: 'step',
+																		id: step.id,
+																		name: step.name
+																	})}
+																aria-label={`Delete ${step.name}`}
+															>
+																<Trash2 aria-hidden="true" />
+															</Button>
+														</div>
+													{/if}
+												</div>
+
+												{#if step.description}
+													<p class="mt-2 ml-7 text-sm leading-5 text-muted-foreground">{step.description}</p>
+												{/if}
+												{#if step.stepType === 'paperwork' && step.stages && step.stages.length > 0}
+													<div class="mt-2 ml-7 flex flex-wrap items-center gap-1">
+														<span class="text-sm text-muted-foreground">Stages:</span>
+														{#each step.stages as stage, stageIndex (stageIndex)}
+															<Badge variant="outline">{stage}</Badge>
+														{/each}
+													</div>
+												{/if}
+												{#if step.stepType === 'training' && step.trainingTypeId}
+													{@const trainingType = trainingTypes.find((type) => type.id === step.trainingTypeId)}
+													{#if trainingType}
+														<div class="mt-2 ml-7 flex flex-wrap items-center gap-1">
+															<span class="text-sm text-muted-foreground">Training:</span>
+															<Badge variant="outline">{trainingType.name}</Badge>
+														</div>
+													{/if}
+												{/if}
+											{/if}
+										</div>
+									{/each}
 								</div>
 							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
 
-		<!-- Right panel: Step editor -->
-		<div class="panel step-editor-panel">
-			{#if !selectedTemplate}
-				<div class="panel-placeholder">
-					<p class="placeholder-text">Select a template to manage its steps</p>
-				</div>
-			{:else}
-				<div class="panel-header">
-					<div class="panel-heading">
-						<p class="panel-eyebrow">Template Editor</p>
-						<h3 class="panel-title">{selectedTemplate.name} &mdash; Steps</h3>
-					</div>
-					{#if canMutate}
-						<button class="btn btn-primary btn-sm" onclick={startAddStep} disabled={addingStep}> + Add Step </button>
-					{/if}
-				</div>
-
-				{#if selectedTemplate.description}
-					<p class="template-description">{selectedTemplate.description}</p>
-				{/if}
-
-				{#if selectedSteps.length === 0 && !addingStep}
-					<EmptyState
-						message="No steps in this template yet."
-						variant="simple"
-						actionLabel={canMutate ? '+ Add Step' : undefined}
-						onAction={canMutate ? startAddStep : undefined}
-					/>
-				{:else}
-					<ul class="step-list">
-						{#each selectedSteps as step, idx (step.id)}
-							{#if editingStepId === step.id}
-								<!-- Inline edit form -->
-								<li class="step-item step-item-editing">
-									{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
-								</li>
-							{:else}
-								<li class="step-item">
-									<div class="step-header">
-										<div class="step-info">
-											<span class="step-order">{idx + 1}.</span>
-											<span class="step-name">{step.name}</span>
-											<Badge label={STEP_TYPE_LABELS[step.stepType]} color={STEP_TYPE_COLORS[step.stepType]} />
-										</div>
-										{#if canMutate}
-											<div class="step-actions">
-												<button
-													class="btn-ghost btn-icon"
-													title="Move up"
-													disabled={idx === 0}
-													onclick={() => moveStep(step, 'up')}
-													aria-label="Move step up"
-												>
-													&#9650;
-												</button>
-												<button
-													class="btn-ghost btn-icon"
-													title="Move down"
-													disabled={idx === selectedSteps.length - 1}
-													onclick={() => moveStep(step, 'down')}
-													aria-label="Move step down"
-												>
-													&#9660;
-												</button>
-												<button
-													class="btn-ghost btn-icon"
-													title="Edit"
-													onclick={() => startEditStep(step)}
-													aria-label="Edit step"
-												>
-													<svg
-														viewBox="0 0 14 14"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.5"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														width="14"
-														height="14"
-														aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
-													>
-												</button>
-												<button
-													class="btn-ghost btn-icon btn-icon-danger"
-													title="Delete"
-													onclick={() =>
-														(confirmDelete = {
-															type: 'step',
-															id: step.id,
-															name: step.name
-														})}
-													aria-label="Delete step"
-												>
-													<svg
-														viewBox="0 0 14 14"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.5"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														width="14"
-														height="14"
-														aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
-													>
-												</button>
-											</div>
-										{/if}
-									</div>
-									{#if step.description}
-										<p class="step-description">{step.description}</p>
-									{/if}
-									{#if step.stepType === 'paperwork' && step.stages && step.stages.length > 0}
-										<div class="step-stages-preview">
-											<span class="stages-label">Stages:</span>
-											{#each step.stages as stage, stageIdx (stageIdx)}
-												<Badge label={stage} variant="outlined" />
-											{/each}
-										</div>
-									{/if}
-									{#if step.stepType === 'training' && step.trainingTypeId}
-										{@const tt = trainingTypes.find((t) => t.id === step.trainingTypeId)}
-										{#if tt}
-											<div class="step-training-preview">
-												<span class="stages-label">Training:</span>
-												<Badge label={tt.name} color={tt.color} />
-											</div>
-										{/if}
-									{/if}
-								</li>
+							{#if addingStep}
+								<TypeWorkspace.Choice>
+									{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
+								</TypeWorkspace.Choice>
 							{/if}
-						{/each}
-					</ul>
-				{/if}
+						</TypeWorkspace.Form>
+					</TypeWorkspace.Stack>
+				</div>
 
-				{#if addingStep}
-					<div class="add-step-form">
-						{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
-					</div>
+				{#if canMutate}
+					<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+						<Button
+							variant="destructive"
+							size="sm"
+							type="button"
+							onclick={() =>
+								(confirmDelete = { type: 'template', id: selectedTemplate.id, name: selectedTemplate.name })}
+						>
+							Delete Template
+						</Button>
+						<TypeWorkspace.ActionSpacer />
+						<Button
+							variant="outline"
+							size="sm"
+							type="button"
+							onclick={() => duplicateSelectedTemplate(selectedTemplate)}
+							disabled={duplicatingTemplateId === selectedTemplate.id}
+						>
+							{#if duplicatingTemplateId === selectedTemplate.id}
+								<Spinner class="size-3" />
+							{:else}
+								<Copy aria-hidden="true" />
+							{/if}
+							Duplicate Template
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							type="button"
+							onclick={startAddStep}
+							disabled={addingStep || !!editingStepId}
+						>
+							<Plus aria-hidden="true" />
+							Add Step
+						</Button>
+					</TypeWorkspace.Actions>
 				{/if}
+			{:else}
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>Select a template</Empty.Title>
+						<Empty.Description>Choose a template from the list to view details.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
 			{/if}
-		</div>
-	</div>
-</div>
+		</TypeWorkspace.Detail>
+	</TypeWorkspace.Layout>
+</TypeWorkspace.Root>
 
-<!-- Confirm delete dialog -->
 {#if confirmDelete}
 	<ConfirmDialog
 		title="Delete {confirmDelete.type === 'template' ? 'Template' : 'Step'}"
@@ -605,490 +683,123 @@
 	/>
 {/if}
 
-<!-- Reusable step form snippet -->
 {#snippet stepForm(onSave: () => void | Promise<void>, onCancel: () => void, saveLabel: string)}
-	<div class="step-form">
-		<div class="form-field">
-			<label class="form-label" for="step-name">Name <span class="required">*</span></label>
-			<input class="input" id="step-name" type="text" placeholder="Step name" bind:value={stepName} />
-		</div>
+	<div class="grid gap-4">
+		<TypeWorkspace.Form title="Step Basics">
+			<Field.Root>
+				<Field.Label for="step-name">Name</Field.Label>
+				<Input id="step-name" type="text" placeholder="Step name" bind:value={stepName} />
+			</Field.Root>
 
-		<div class="form-field">
-			<label class="form-label" for="step-desc">Description</label>
-			<textarea class="input" id="step-desc" placeholder="Optional description" rows="2" bind:value={stepDescription}
-			></textarea>
-		</div>
+			<Field.Root>
+				<Field.Label for="step-description">Description</Field.Label>
+				<Textarea id="step-description" placeholder="Optional description" rows={2} bind:value={stepDescription} />
+			</Field.Root>
+		</TypeWorkspace.Form>
 
-		<fieldset class="form-field">
-			<legend class="form-label">Type</legend>
-			<div class="type-options">
+		<TypeWorkspace.Form title="Type">
+			<RadioGroup.Root bind:value={stepType} class="sm:grid-cols-3">
 				{#each ['checkbox', 'paperwork', 'training'] as const as typeOption (typeOption)}
-					<label class="type-option">
-						<input type="radio" name="step-type" value={typeOption} bind:group={stepType} />
-						<Badge label={STEP_TYPE_LABELS[typeOption]} color={STEP_TYPE_COLORS[typeOption]} />
-					</label>
+					<TypeWorkspace.Choice>
+						<label for="step-type-{typeOption}" class="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
+							<RadioGroup.Item
+								id="step-type-{typeOption}"
+								value={typeOption}
+								aria-label={STEP_TYPE_LABELS[typeOption]}
+							/>
+							<Badge variant={STEP_TYPE_VARIANTS[typeOption]}>{STEP_TYPE_LABELS[typeOption]}</Badge>
+						</label>
+					</TypeWorkspace.Choice>
 				{/each}
-			</div>
-		</fieldset>
+			</RadioGroup.Root>
 
-		{#if stepType === 'training'}
-			<div class="form-field">
-				<label class="form-label" for="training-type-select">Training Type</label>
-				<select class="input" id="training-type-select" bind:value={stepTrainingTypeId}>
-					<option value={null}>-- Select training type --</option>
-					{#each trainingTypes as tt (tt.id)}
-						<option value={tt.id}>{tt.name}</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
+			{#if stepType === 'training'}
+				<Field.Root>
+					<Field.Label for="training-type-select">Training Type</Field.Label>
+					<Select.Root
+						type="single"
+						value={stepTrainingTypeId ?? ''}
+						onValueChange={(value) => (stepTrainingTypeId = value || null)}
+					>
+						<Select.Trigger id="training-type-select" class="w-full sm:w-fit sm:min-w-56">
+							{stepTrainingTypeLabel}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="" label="Select training type" />
+							{#each trainingTypes as trainingType (trainingType.id)}
+								<Select.Item value={trainingType.id} label={trainingType.name} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</Field.Root>
+			{/if}
+		</TypeWorkspace.Form>
 
 		{#if stepType === 'paperwork'}
-			<fieldset class="form-field">
-				<legend class="form-label">Stages</legend>
-				<div class="stages-editor">
-					{#each stepStages as stage, i (i)}
-						<div class="stage-row">
-							<span class="stage-name">{stage}</span>
-							<div class="stage-actions">
-								<button
-									class="btn-ghost btn-icon btn-icon-sm"
+			<TypeWorkspace.Form title="Stages">
+				<div class="grid gap-2">
+					{#each stepStages as stage, index (index)}
+						<div class="flex items-center justify-between rounded-md border bg-card p-2">
+							<span class="text-sm text-foreground">{stage}</span>
+							<div class="flex gap-1">
+								<Button
+									variant="outline"
+									size="icon"
+									type="button"
 									title="Move up"
-									disabled={i === 0}
-									onclick={() => moveStage(i, 'up')}>&#9650;</button
+									disabled={index === 0}
+									onclick={() => moveStage(index, 'up')}
+									aria-label={`Move ${stage} up`}
 								>
-								<button
-									class="btn-ghost btn-icon btn-icon-sm"
+									<ArrowUp aria-hidden="true" />
+								</Button>
+								<Button
+									variant="outline"
+									size="icon"
+									type="button"
 									title="Move down"
-									disabled={i === stepStages.length - 1}
-									onclick={() => moveStage(i, 'down')}>&#9660;</button
+									disabled={index === stepStages.length - 1}
+									onclick={() => moveStage(index, 'down')}
+									aria-label={`Move ${stage} down`}
 								>
-								<button
-									class="btn-ghost btn-icon btn-icon-sm btn-icon-danger"
+									<ArrowDown aria-hidden="true" />
+								</Button>
+								<Button
+									variant="outline"
+									size="icon"
+									type="button"
 									title="Remove"
-									onclick={() => removeStage(i)}>&#10005;</button
+									onclick={() => removeStage(index)}
+									aria-label={`Remove ${stage}`}
 								>
+									<Trash2 aria-hidden="true" />
+								</Button>
 							</div>
 						</div>
 					{/each}
-					<div class="stage-add-row">
-						<input
-							class="input"
+					<div class="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+						<Input
+							class="flex-1"
 							type="text"
 							placeholder="Add a stage"
 							bind:value={newStageName}
 							onkeydown={handleStageKeydown}
 						/>
-						<button class="btn btn-secondary btn-sm" onclick={addStage} disabled={!newStageName.trim()}> Add </button>
+						<Button variant="outline" size="sm" type="button" onclick={addStage} disabled={!newStageName.trim()}>
+							Add
+						</Button>
 					</div>
 				</div>
-			</fieldset>
+			</TypeWorkspace.Form>
 		{/if}
 
-		<div class="form-actions">
-			<button class="btn btn-secondary btn-sm" onclick={onCancel}>Cancel</button>
-			<button class="btn btn-primary btn-sm" onclick={onSave} disabled={!stepName.trim() || savingStep}>
-				{#if savingStep}<Spinner size={12} />{/if}
+		<TypeWorkspace.Actions>
+			<TypeWorkspace.ActionSpacer />
+			<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
+			<Button size="sm" type="button" onclick={onSave} disabled={!stepName.trim() || savingStep}>
+				{#if savingStep}<Spinner class="size-3" />{/if}
 				{saveLabel}
-			</button>
-		</div>
+			</Button>
+		</TypeWorkspace.Actions>
 	</div>
 {/snippet}
-
-<style>
-	.templates-page {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-6);
-		background: var(--surface-page);
-		min-height: calc(100vh - 120px);
-	}
-
-	.panel-eyebrow,
-	.form-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.form-label {
-		color: var(--text-tertiary);
-	}
-
-	.templates-layout {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		gap: var(--sp-3);
-		min-height: 0;
-	}
-
-	.panel {
-		display: flex;
-		flex-direction: column;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.panel-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-		padding-bottom: var(--sp-2);
-		border-bottom: var(--border-thin);
-	}
-
-	.panel-heading {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.panel-title {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.panel-eyebrow {
-		margin: 0;
-		color: var(--amber);
-	}
-
-	.panel-placeholder {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.placeholder-text {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.template-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.template-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.template-item:hover {
-		background: var(--surface-subtle);
-	}
-
-	.template-item.selected {
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-		border-color: var(--amber-dark);
-	}
-
-	.template-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.template-name {
-		font-weight: 600;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.template-meta {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.template-actions {
-		display: flex;
-		gap: 2px;
-		opacity: 0;
-		transition: opacity var(--transition-fast);
-	}
-
-	.template-item:hover .template-actions {
-		opacity: 1;
-	}
-
-	.template-description {
-		margin: 0 0 var(--sp-3);
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-secondary);
-	}
-
-	.rename-input {
-		flex: 1;
-		font-size: var(--text-sm);
-	}
-
-	.add-template-form,
-	.add-step-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
-	}
-
-	.add-template-form {
-		margin-bottom: var(--sp-2);
-	}
-
-	.step-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.step-item {
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.step-item-editing {
-		border-color: var(--amber-dark);
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-	}
-
-	.step-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-2);
-	}
-
-	.step-info {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.step-order {
-		min-width: 20px;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		color: var(--amber-dark);
-	}
-
-	.step-name {
-		font-weight: 500;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.step-description {
-		margin: var(--sp-2) 0 0 28px;
-		font-size: var(--text-sm);
-		line-height: 1.4;
-		color: var(--text-secondary);
-	}
-
-	.step-stages-preview,
-	.step-training-preview {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		flex-wrap: wrap;
-		margin-top: var(--sp-2);
-		margin-left: 28px;
-	}
-
-	.stages-label {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-	}
-
-	.step-actions {
-		display: flex;
-		gap: 2px;
-		flex-shrink: 0;
-	}
-
-	.step-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.add-step-form {
-		margin-top: var(--sp-3);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		border: none;
-		margin: 0;
-		padding: 0;
-	}
-
-	.required {
-		color: var(--danger);
-	}
-
-	.form-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		margin-top: var(--sp-1);
-	}
-
-	.type-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.type-option {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		cursor: pointer;
-	}
-
-	.type-option input[type='radio'] {
-		accent-color: var(--amber-dark);
-	}
-
-	.stages-editor {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.stage-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-2);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-	}
-
-	.stage-name {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.stage-actions {
-		display: flex;
-		gap: 2px;
-	}
-
-	.stage-add-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.stage-add-row .input {
-		flex: 1;
-	}
-
-	.btn-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		border: none;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--text-tertiary);
-		cursor: pointer;
-		transition:
-			color var(--transition-fast),
-			background var(--transition-fast);
-	}
-
-	.btn-icon:hover {
-		color: var(--text-primary);
-		background: var(--surface-subtle);
-	}
-
-	.btn-icon:disabled {
-		opacity: 0.3;
-		cursor: default;
-	}
-
-	.btn-icon-danger:hover {
-		color: var(--danger);
-	}
-
-	.btn-icon-sm {
-		width: 24px;
-		height: 24px;
-		font-size: var(--text-xs);
-	}
-
-	@media (max-width: 820px) {
-		.templates-layout {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.templates-page {
-			padding: var(--sp-2);
-		}
-
-		.panel-header,
-		.step-header,
-		.step-info,
-		.stage-add-row,
-		.form-actions {
-			flex-direction: column;
-			align-items: stretch;
-		}
-	}
-</style>

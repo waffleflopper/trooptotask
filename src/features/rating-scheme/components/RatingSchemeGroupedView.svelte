@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
-	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
+	import type { RatingDueStatus } from '../rating-scheme.types';
+	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import EvalBadge from './EvalBadge.svelte';
+	import * as Empty from '$lib/components/ui/empty';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
@@ -72,16 +73,15 @@
 		return result;
 	});
 
-	function formatDueStatus(entry: RatingSchemeEntry): { label: string; color: string } {
+	function formatDueStatus(entry: RatingSchemeEntry): { status: RatingDueStatus; label: string } {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 		const days = getDaysUntilDue(entry.ratingPeriodEnd);
-		const color = RATING_STATUS_COLORS[status];
 
-		if (status === 'completed') return { label: 'Completed', color };
-		if (status === 'overdue') return { label: `Overdue (${Math.abs(days)}d)`, color };
-		if (status === 'due-30') return { label: `${days}d`, color };
-		if (status === 'due-60') return { label: `${days}d`, color };
-		return { label: 'Current', color };
+		if (status === 'completed') return { status, label: 'Completed' };
+		if (status === 'overdue') return { status, label: `Expired (${Math.abs(days)}d)` };
+		if (status === 'due-30') return { status, label: `Expiring (${days}d)` };
+		if (status === 'due-60') return { status, label: `Expires Soon (${days}d)` };
+		return { status, label: 'Current' };
 	}
 
 	function getRatedPersonLabel(id: string): string {
@@ -97,63 +97,66 @@
 	function getWorkflowLabel(status: string): string {
 		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 	}
-
-	function getEvalTypeColor(evalType: string): string {
-		if (evalType === 'OER') return 'var(--info)';
-		if (evalType === 'WOER') return 'var(--amber)';
-		return 'var(--success)';
-	}
 </script>
 
 {#if entries.length === 0}
-	<EmptyState message="No rating scheme entries yet. Click 'Add Entry' to get started." />
+	<Empty.Root>
+		<Empty.Header>
+			<Empty.Title>No rating scheme entries yet</Empty.Title>
+			<Empty.Description>Click Add Entry to get started.</Empty.Description>
+		</Empty.Header>
+	</Empty.Root>
 {:else}
-	<div class="grouped-view">
+	<div class="grid gap-4 p-4">
 		{#each grouped as srGroup (srGroup.seniorRaterKey)}
-			<div class="sr-group">
-				<div class="sr-header">
-					<span class="sr-label">SR:</span>
+			<div class="overflow-hidden rounded-lg border bg-card text-card-foreground">
+				<div class="border-b bg-muted/40 px-4 py-3 text-base font-medium text-foreground uppercase">
+					<span class="text-muted-foreground">SR:</span>
 					{srGroup.seniorRaterLabel}
 				</div>
 				{#each srGroup.raterGroups as rGroup (rGroup.raterKey)}
-					<div class="rater-group">
-						<div class="rater-header">
-							<span class="rater-label">Rater:</span>
+					<div class="border-b last:border-b-0">
+						<div class="border-b bg-muted/20 px-4 py-2 pl-8 text-sm font-medium text-muted-foreground uppercase">
+							<span>Rater:</span>
 							{rGroup.raterLabel}
 						</div>
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
 							{#if onEdit}
-								<button class="entry-row" type="button" onclick={() => onEdit(entry)}>
-									<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<Badge
-										label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
-										color={getEvalTypeColor(entry.evalType)}
-									/>
+								<button
+									class="flex w-full flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
+									type="button"
+									onclick={() => onEdit(entry)}
+								>
+									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
+									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
 									{#if entry.workflowStatus}
-										<Badge
-											label={getWorkflowLabel(entry.workflowStatus)}
-											color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
-										/>
+										<EvalBadge kind="workflow" value={entry.workflowStatus}
+											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
+										>
 									{/if}
-									<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
-									<Badge label={due.label} color={due.color} />
+									<span class="ml-auto inline-flex items-center gap-2">
+										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
+										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
+											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+										</span>
+									</span>
 								</button>
 							{:else}
-								<div class="entry-row entry-row--static">
-									<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<Badge
-										label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
-										color={getEvalTypeColor(entry.evalType)}
-									/>
+								<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-sm last:border-b-0">
+									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
+									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
 									{#if entry.workflowStatus}
-										<Badge
-											label={getWorkflowLabel(entry.workflowStatus)}
-											color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
-										/>
+										<EvalBadge kind="workflow" value={entry.workflowStatus}
+											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
+										>
 									{/if}
-									<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
-									<Badge label={due.label} color={due.color} />
+									<span class="ml-auto inline-flex items-center gap-2">
+										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
+										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
+											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
+										</span>
+									</span>
 								</div>
 							{/if}
 						{/each}
@@ -163,97 +166,3 @@
 		{/each}
 	</div>
 {/if}
-
-<style>
-	.grouped-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.sr-group {
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-		background: var(--surface-panel);
-	}
-
-	.sr-header {
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.sr-label {
-		color: var(--amber-dark);
-	}
-
-	.rater-group {
-		border-top: var(--border-thin);
-	}
-
-	.rater-header {
-		padding: var(--sp-2) var(--sp-4);
-		padding-left: var(--sp-8);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.rater-label {
-		color: var(--text-tertiary);
-	}
-
-	.entry-row {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		padding: var(--sp-3) var(--sp-4);
-		padding-left: 48px;
-		width: 100%;
-		background: transparent;
-		border: none;
-		border-top: var(--border-rule);
-		cursor: pointer;
-		text-align: left;
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	button.entry-row {
-		appearance: none;
-		transition: background-color var(--transition-fast);
-	}
-
-	button.entry-row:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.entry-row--static {
-		border-top: var(--border-rule);
-	}
-
-	.rated-name {
-		font-weight: var(--font-weight-semibold);
-		min-width: 140px;
-	}
-
-	.period {
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		margin-left: auto;
-	}
-</style>

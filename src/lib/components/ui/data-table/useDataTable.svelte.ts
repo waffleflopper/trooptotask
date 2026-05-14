@@ -1,71 +1,27 @@
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import type {
+	ColumnDef,
+	DataTableGroup,
+	DataTableOptions,
+	DataTableState,
+	GroupDef,
+	InitialOption,
+	RowKey,
+	SortDirection
+} from './types.js';
 
-export type SortDirection = 'asc' | 'desc';
-
-export interface ColumnDef<T> {
-	key: string;
-	header: string;
-	value: (row: T) => unknown;
-	headerAriaLabel?: string;
-	searchValue?: (row: T) => string;
-	compare?: (a: T, b: T) => number;
-	searchable?: boolean;
-	sortable?: boolean;
-}
-
-export interface GroupDef<T> {
-	key: (row: T) => string;
-	label?: (key: string) => string;
-	compare?: (a: string, b: string) => number;
-}
-
-export type GroupByOption<T> = GroupDef<T> | (() => GroupDef<T> | undefined);
-type FilterFn<T> = (row: T, query: string) => boolean;
-type InitialOption<T> = T | (() => T | undefined);
-
-/**
- * Options for useDataTable. `data` is reactive via closure; `groupBy` can also
- * be supplied as a getter when grouping must track parent state.
- */
-export interface DataTableOptions<T> {
-	data: () => T[];
-	columns: ColumnDef<T>[] | (() => ColumnDef<T>[]);
-	initialSortKey?: InitialOption<string>;
-	initialSortDirection?: InitialOption<SortDirection>;
-	pageSize?: InitialOption<number>;
-	groupBy?: GroupByOption<T>;
-	filterFn?: FilterFn<T>;
-	getFilterFn?: () => FilterFn<T> | undefined;
-	/** Resolve dynamic columns not in the static list (e.g. for runtime-generated sort keys) */
-	resolveColumn?: (key: string) => ColumnDef<T> | undefined;
-}
-
-export interface DataTableGroup<T> {
-	key: string;
-	label: string;
-	rows: T[];
-	collapsed: boolean;
-}
-
-export interface DataTableState<T> {
-	readonly columns: ColumnDef<T>[];
-	readonly rows: T[];
-	readonly groups: DataTableGroup<T>[];
-	readonly totalRows: number;
-	readonly totalPages: number;
-	readonly sortKey: string | null;
-	readonly sortDirection: SortDirection;
-	toggleSort: (key: string) => void;
-	readonly search: string;
-	setSearch: (query: string) => void;
-	readonly page: number;
-	readonly pageSize: number;
-	setPage: (page: number) => void;
-	setPageSize: (size: number) => void;
-	toggleGroup: (key: string) => void;
-	expandAll: () => void;
-	collapseAll: () => void;
-}
+export type {
+	ColumnDef,
+	DataTableFilterFn,
+	DataTableGroup,
+	DataTableOptions,
+	DataTableState,
+	GroupDef,
+	GroupByOption,
+	InitialOption,
+	RowKey,
+	SortDirection
+} from './types.js';
 
 export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T> {
 	let sortKey = $state<string | null>(resolveInitialOption(options.initialSortKey) ?? null);
@@ -83,98 +39,88 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		return getColumns().find((column) => column.key === key) ?? options.resolveColumn?.(key);
 	}
 
-	function getFilterFn(): FilterFn<T> | undefined {
-		return options.getFilterFn?.() ?? options.filterFn;
+	function getGroupDef(): GroupDef<T> | undefined {
+		return typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy;
 	}
 
-	function getFiltered(): T[] {
+	function getFilteredRows(): T[] {
 		const data = options.data();
 		if (!search) return data;
 
-		const filterFn = getFilterFn();
-		if (filterFn) {
-			return data.filter((row) => filterFn(row, search));
-		}
+		const filterFn = options.getFilterFn?.() ?? options.filterFn;
+		if (filterFn) return data.filter((row) => filterFn(row, search));
 
 		const query = search.toLowerCase();
-		const searchableCols = getColumns().filter((c) => c.searchable !== false);
+		const searchableColumns = getColumns().filter((column) => column.searchable !== false);
 
 		return data.filter((row) =>
-			searchableCols.some((col) => {
-				const text = col.searchValue ? col.searchValue(row) : String(col.value(row) ?? '');
+			searchableColumns.some((column) => {
+				const text = column.searchValue ? column.searchValue(row) : String(column.value(row) ?? '');
 				return text.toLowerCase().includes(query);
 			})
 		);
 	}
 
-	function getSorted(): T[] {
-		const data = getFiltered();
-		if (!sortKey) return data;
-		const col = getColumn(sortKey);
-		if (!col) return data;
+	function getSortedRows(): T[] {
+		const rows = getFilteredRows();
+		if (!sortKey) return rows;
 
-		const dir = sortDirection === 'asc' ? 1 : -1;
-		return [...data].sort((a, b) => {
-			if (col.compare) return col.compare(a, b) * dir;
+		const column = getColumn(sortKey);
+		if (!column || column.sortable === false) return rows;
 
-			const aVal = col.value(a);
-			const bVal = col.value(b);
+		const direction = sortDirection === 'asc' ? 1 : -1;
+		return [...rows].sort((a, b) => compareRows(a, b, column, direction));
+	}
 
-			if (aVal == null && bVal == null) return 0;
-			if (aVal == null) return 1;
-			if (bVal == null) return -1;
+	function getPagedRows(): T[] {
+		const rows = getSortedRows();
+		if (currentPageSize <= 0) return rows;
 
-			if (typeof aVal === 'string' && typeof bVal === 'string') {
-				return aVal.localeCompare(bVal) * dir;
-			}
-			if (typeof aVal === 'number' && typeof bVal === 'number') {
-				return (aVal - bVal) * dir;
-			}
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		const currentPage = clampPage(page, getTotalPages());
+		if (currentPage !== page) page = currentPage;
+
+		const start = (currentPage - 1) * currentPageSize;
+		return rows.slice(start, start + currentPageSize);
 	}
 
 	function getGroups(): DataTableGroup<T>[] {
-		const groupDef = typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy;
-		if (!groupDef) return [];
-		const sorted = getSorted();
-		const groupedRows: Record<string, T[]> = Object.create(null);
-		const keys: string[] = [];
+		const groupBy = getGroupDef();
+		if (!groupBy) return [];
 
-		for (const row of sorted) {
-			const key = groupDef.key(row);
-			if (!Object.hasOwn(groupedRows, key)) {
-				groupedRows[key] = [];
-				keys.push(key);
-			}
-			groupedRows[key].push(row);
+		const groupedRows = new SvelteMap<string, T[]>();
+		for (const row of getSortedRows()) {
+			const key = groupBy.key(row);
+			const rows = groupedRows.get(key);
+			if (rows) rows.push(row);
+			else groupedRows.set(key, [row]);
 		}
 
-		if (groupDef.compare) {
-			keys.sort(groupDef.compare);
-		}
+		const keys = [...groupedRows.keys()];
+		if (groupBy.compare) keys.sort(groupBy.compare);
 
 		return keys.map((key) => ({
 			key,
-			label: groupDef.label ? groupDef.label(key) : key,
-			rows: groupedRows[key],
+			label: groupBy.label?.(key) ?? key,
+			rows: groupedRows.get(key) ?? [],
 			collapsed: collapsedGroups.has(key)
 		}));
 	}
 
 	function getTotalRows(): number {
-		return getSorted().length;
+		return getSortedRows().length;
 	}
 
 	function getTotalPages(): number {
 		return currentPageSize > 0 ? Math.max(1, Math.ceil(getTotalRows() / currentPageSize)) : 1;
 	}
 
-	function getPaged(): T[] {
-		const sorted = getSorted();
-		if (currentPageSize <= 0) return sorted;
-		const start = (page - 1) * currentPageSize;
-		return sorted.slice(start, start + currentPageSize);
+	function getRowKey(row: T, index: number): RowKey {
+		if (options.rowKey) return options.rowKey(row, index);
+		if (row && typeof row === 'object' && 'id' in row) {
+			const id = row.id;
+			if (typeof id === 'string' || typeof id === 'number') return id;
+		}
+		return index;
 	}
 
 	return {
@@ -182,7 +128,10 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			return getColumns();
 		},
 		get rows() {
-			return getPaged();
+			return getPagedRows();
+		},
+		get allRows() {
+			return getSortedRows();
 		},
 		get groups() {
 			return getGroups();
@@ -200,14 +149,15 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			return sortDirection;
 		},
 		toggleSort(key: string) {
-			const col = getColumn(key);
-			if (col?.sortable === false) return;
-			if (sortKey === key) {
-				sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-			} else {
+			const column = getColumn(key);
+			if (column?.sortable === false) return;
+
+			if (sortKey === key) sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+			else {
 				sortKey = key;
 				sortDirection = 'asc';
 			}
+			page = 1;
 		},
 		get search() {
 			return search;
@@ -222,11 +172,11 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		get pageSize() {
 			return currentPageSize;
 		},
-		setPage(p: number) {
-			page = Math.max(1, Math.min(p, getTotalPages()));
+		setPage(nextPage: number) {
+			page = clampPage(nextPage, getTotalPages());
 		},
 		setPageSize(size: number) {
-			currentPageSize = size;
+			currentPageSize = Math.max(0, size);
 			page = 1;
 		},
 		toggleGroup(key: string) {
@@ -237,13 +187,33 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			collapsedGroups.clear();
 		},
 		collapseAll() {
-			const allKeys = getGroups().map((g) => g.key);
+			const keys = getGroups().map((group) => group.key);
 			collapsedGroups.clear();
-			for (const key of allKeys) {
-				collapsedGroups.add(key);
-			}
+			for (const key of keys) collapsedGroups.add(key);
+		},
+		getRowKey,
+		isRowDisabled(row: T) {
+			return options.disabledRow?.(row) ?? false;
 		}
 	};
+}
+
+function compareRows<T>(a: T, b: T, column: ColumnDef<T>, direction: 1 | -1): number {
+	if (column.compare) return column.compare(a, b) * direction;
+
+	const aValue = column.value(a);
+	const bValue = column.value(b);
+
+	if (aValue == null && bValue == null) return 0;
+	if (aValue == null) return 1;
+	if (bValue == null) return -1;
+	if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * direction;
+
+	return String(aValue).localeCompare(String(bValue)) * direction;
+}
+
+function clampPage(page: number, totalPages: number): number {
+	return Math.max(1, Math.min(page, totalPages));
 }
 
 function resolveInitialOption<T>(option: InitialOption<T> | undefined): T | undefined {

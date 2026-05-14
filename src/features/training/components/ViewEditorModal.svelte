@@ -1,7 +1,11 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -109,123 +113,168 @@
 	}
 </script>
 
-<Modal
-	title={mode === 'list' ? 'Manage Views' : editingView ? 'Edit View' : 'New View'}
-	{onClose}
-	width="560px"
-	canClose={!saving}
->
-	{#if mode === 'list'}
-		<div class="view-list-state">
-			<div class="list-summary">
-				<div class="list-summary-copy">
-					<p class="eyebrow">Saved Layouts</p>
-					<p class="summary-text">
-						Control which training columns show up in the matrix without rebuilding the view each time.
-					</p>
-				</div>
-				<Badge label={`${trainingViewsStore.items.length} saved`} variant="outlined" />
-			</div>
+<AppDialog.Root closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving} size="wide">
+		<AppDialog.Header>
+			<AppDialog.Title>{mode === 'list' ? 'Manage Views' : editingView ? 'Edit View' : 'New View'}</AppDialog.Title>
+			<AppDialog.Description>
+				Control which training columns show in the matrix without rebuilding the view each time.
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-			<div class="view-list">
-				{#each trainingViewsStore.items as view (view.id)}
-					<div class="view-item">
-						<div class="view-info">
-							<span class="view-name">{view.name}</span>
-							<div class="view-meta">
-								<Badge label={`${view.columnIds.length} columns`} variant="outlined" />
-								<span class="view-columns">{view.columnIds.map(getTypeName).join(' • ') || 'No columns selected'}</span>
-							</div>
+		<AppDialog.Body>
+			{#if mode === 'list'}
+				<div class="grid gap-4">
+					<div
+						class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+					>
+						<div class="grid gap-1">
+							<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Saved Layouts
+							</p>
+							<p class="text-sm leading-relaxed text-muted-foreground">
+								Control which training columns show up in the matrix without rebuilding the view each time.
+							</p>
 						</div>
-						{#if !readOnly}
-							<div class="view-actions">
-								<button class="btn btn-sm" type="button" onclick={() => startEdit(view)}>Edit</button>
-								<button class="btn btn-sm btn-danger" type="button" onclick={() => (confirmDeleteView = view)}>
-									Delete
-								</button>
-							</div>
-						{/if}
+						<Badge variant="outline">{trainingViewsStore.items.length} saved</Badge>
 					</div>
-				{:else}
-					<EmptyState
-						message="No saved views yet."
-						actionLabel={readOnly ? undefined : 'New View'}
-						onAction={readOnly ? undefined : startCreate}
-					/>
-				{/each}
-			</div>
-		</div>
-	{:else}
-		<div class="edit-form">
-			<label class="form-field">
-				<span class="form-label">View Name</span>
-				<input class="input" type="text" bind:value={name} placeholder="e.g. Annual Trainings" />
-			</label>
 
-			{#if error}
-				<p class="form-error">{error}</p>
-			{/if}
-
-			<div class="editor-section">
-				<div class="section-header">
-					<span class="form-label">Training Types</span>
-					<Badge label={`${orderedIds.length} selected`} variant="outlined" />
-				</div>
-				<div class="type-checklist">
-					{#each trainingTypesStore.items as type (type.id)}
-						<label class="type-check">
-							<input type="checkbox" checked={selectedIds.has(type.id)} onchange={() => toggleType(type.id)} />
-							<span class="type-color" style="background: {type.color};"></span>
-							<span class="type-check-name">{type.name}</span>
-						</label>
-					{/each}
-				</div>
-			</div>
-
-			{#if orderedIds.length > 0}
-				<div class="editor-section">
-					<div class="section-header">
-						<span class="form-label">Column Order</span>
-						<Badge label={`${orderedIds.length} visible`} variant="outlined" />
-					</div>
-					<ol class="order-list">
-						{#each orderedIds as typeId, i (typeId)}
-							<li class="order-item">
-								<span class="order-name">{getTypeName(typeId)}</span>
-								<div class="order-buttons">
-									<button class="btn-icon" type="button" onclick={() => moveUp(i)} disabled={i === 0}>&uarr;</button>
-									<button
-										class="btn-icon"
-										type="button"
-										onclick={() => moveDown(i)}
-										disabled={i === orderedIds.length - 1}>&darr;</button
-									>
+					<div class="grid gap-3">
+						{#each trainingViewsStore.items as view (view.id)}
+							<section
+								class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+							>
+								<div class="grid min-w-0 gap-2">
+									<h3 class="text-base font-semibold text-foreground">{view.name}</h3>
+									<div class="flex min-w-0 flex-wrap items-center gap-2">
+										<Badge variant="outline">{view.columnIds.length} columns</Badge>
+										<span class="truncate text-xs text-muted-foreground">
+											{view.columnIds.map(getTypeName).join(' • ') || 'No columns selected'}
+										</span>
+									</div>
 								</div>
-							</li>
+								{#if !readOnly}
+									<div class="flex justify-end gap-2">
+										<Button variant="outline" size="sm" type="button" onclick={() => startEdit(view)}>Edit</Button>
+										<Button variant="destructive" size="sm" type="button" onclick={() => (confirmDeleteView = view)}>
+											Delete
+										</Button>
+									</div>
+								{/if}
+							</section>
+						{:else}
+							<Empty.Root>
+								<Empty.Header>
+									<Empty.Title>No saved views yet.</Empty.Title>
+								</Empty.Header>
+								{#if !readOnly}
+									<Empty.Content>
+										<Button type="button" onclick={startCreate}>New View</Button>
+									</Empty.Content>
+								{/if}
+							</Empty.Root>
 						{/each}
-					</ol>
+					</div>
+				</div>
+			{:else}
+				<div class="grid gap-4">
+					<Field.Root>
+						<Field.Label for="view-name">View Name</Field.Label>
+						<Input id="view-name" type="text" bind:value={name} placeholder="e.g. Annual Trainings" />
+						{#if error}
+							<Field.Error>{error}</Field.Error>
+						{/if}
+					</Field.Root>
+
+					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<div class="flex items-center justify-between gap-3">
+							<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Training Types
+							</h3>
+							<Badge variant="outline">{orderedIds.length} selected</Badge>
+						</div>
+						<div class="grid max-h-56 gap-2 overflow-y-auto rounded-lg border border-border bg-background p-3">
+							{#each trainingTypesStore.items as type (type.id)}
+								<Field.Root orientation="horizontal">
+									<Checkbox
+										id="view-type-{type.id}"
+										checked={selectedIds.has(type.id)}
+										onCheckedChange={() => toggleType(type.id)}
+									/>
+									<Field.Label for="view-type-{type.id}">
+										<span class="inline-flex min-w-0 items-center gap-2">
+											<span class="size-3 rounded-sm" style:background-color={type.color} aria-hidden="true"></span>
+											<span class="truncate">{type.name}</span>
+										</span>
+									</Field.Label>
+								</Field.Root>
+							{/each}
+						</div>
+					</section>
+
+					{#if orderedIds.length > 0}
+						<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+							<div class="flex items-center justify-between gap-3">
+								<h3 class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+									Column Order
+								</h3>
+								<Badge variant="outline">{orderedIds.length} visible</Badge>
+							</div>
+							<ol class="grid gap-2">
+								{#each orderedIds as typeId, i (typeId)}
+									<li
+										class="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-sm"
+									>
+										<span class="font-semibold text-foreground">{getTypeName(typeId)}</span>
+										<div class="flex gap-1">
+											<Button
+												variant="outline"
+												size="icon"
+												type="button"
+												onclick={() => moveUp(i)}
+												disabled={i === 0}
+												aria-label="Move up"
+											>
+												↑
+											</Button>
+											<Button
+												variant="outline"
+												size="icon"
+												type="button"
+												onclick={() => moveDown(i)}
+												disabled={i === orderedIds.length - 1}
+												aria-label="Move down"
+											>
+												↓
+											</Button>
+										</div>
+									</li>
+								{/each}
+							</ol>
+						</section>
+					{/if}
 				</div>
 			{/if}
-		</div>
-	{/if}
+		</AppDialog.Body>
 
-	{#snippet footer()}
-		{#if mode === 'list'}
-			{#if !readOnly}
-				<button class="btn btn-primary" type="button" onclick={startCreate}>New View</button>
+		<AppDialog.Footer>
+			{#if mode === 'list'}
+				{#if !readOnly}
+					<Button type="button" onclick={startCreate}>New View</Button>
+				{/if}
+				<div class="flex-1"></div>
+				<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+			{:else}
+				<Button variant="outline" type="button" onclick={() => (mode = 'list')} disabled={saving}>Back</Button>
+				<div class="flex-1"></div>
+				<Button variant="outline" type="button" onclick={() => (mode = 'list')} disabled={saving}>Cancel</Button>
+				<Button type="button" onclick={handleSave} disabled={saving}>
+					{saving ? 'Saving...' : 'Save'}
+				</Button>
 			{/if}
-			<span class="spacer"></span>
-			<button class="btn" type="button" onclick={onClose}>Close</button>
-		{:else}
-			<button class="btn" type="button" onclick={() => (mode = 'list')} disabled={saving}>Back</button>
-			<span class="spacer"></span>
-			<button class="btn" type="button" onclick={() => (mode = 'list')} disabled={saving}>Cancel</button>
-			<button class="btn btn-primary" type="button" onclick={handleSave} disabled={saving}>
-				{saving ? 'Saving...' : 'Save'}
-			</button>
-		{/if}
-	{/snippet}
-</Modal>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if confirmDeleteView}
 	<ConfirmDialog
@@ -237,238 +286,3 @@
 		onCancel={() => (confirmDeleteView = null)}
 	/>
 {/if}
-
-<style>
-	.view-list-state,
-	.edit-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.list-summary {
-		display: flex;
-		align-items: start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.list-summary-copy {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.eyebrow {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.summary-text {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		color: var(--text-secondary);
-	}
-
-	.view-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.view-item {
-		display: flex;
-		align-items: start;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.view-info {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: var(--sp-2);
-		min-width: 0;
-	}
-
-	.view-name {
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.view-meta {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.view-columns {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		line-height: 1.5;
-	}
-
-	.view-actions {
-		display: flex;
-		gap: var(--sp-2);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.form-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.form-error {
-		margin: 0;
-		font-size: var(--text-xs);
-		color: var(--danger);
-	}
-
-	.editor-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-	}
-
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-	}
-
-	.type-checklist {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		max-height: 220px;
-		overflow-y: auto;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-	}
-
-	.type-check {
-		display: grid;
-		grid-template-columns: auto auto minmax(0, 1fr);
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-2) var(--sp-1);
-		font-size: var(--text-sm);
-		cursor: pointer;
-	}
-
-	.type-check-name {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.type-color {
-		display: inline-block;
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: 2px;
-		flex-shrink: 0;
-	}
-
-	.order-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.order-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
-		font-size: var(--text-sm);
-	}
-
-	.order-name {
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.order-buttons {
-		display: flex;
-		gap: 2px;
-	}
-
-	.btn-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.75rem;
-		height: 1.75rem;
-		padding: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-		color: var(--text-secondary);
-		cursor: pointer;
-	}
-
-	.btn-icon:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
-		color: var(--text-primary);
-	}
-
-	.btn-icon:disabled {
-		opacity: 0.3;
-		cursor: not-allowed;
-	}
-
-	@media (max-width: 640px) {
-		.list-summary,
-		.view-item,
-		.section-header {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.view-actions {
-			justify-content: flex-end;
-		}
-	}
-</style>

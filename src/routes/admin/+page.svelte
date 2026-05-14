@@ -1,4 +1,12 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { Separator } from '$lib/components/ui/separator';
+	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
+	import { ReportBarChart } from '$lib/components/ui/report-chart';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -11,6 +19,20 @@
 	const maxSignups = $derived(
 		data.signupTrend.length > 0 ? Math.max(...data.signupTrend.map((day: { count: number }) => day.count), 1) : 1
 	);
+	const signupTicks = $derived(buildReportCountTicks(maxSignups, { denseMax: 4 }));
+	const signupChartData = $derived(
+		data.signupTrend.map((day: { date: string; count: number }) => ({
+			label: day.date.slice(5),
+			signups: day.count
+		}))
+	);
+	const signupSeries = [
+		{
+			key: 'signups',
+			label: 'New accounts',
+			color: REPORT_CHART_SERIES[1].color
+		}
+	];
 	const totalTierOrgs = $derived(data.tierCounts.free + data.tierCounts.team + data.tierCounts.unit);
 </script>
 
@@ -18,407 +40,185 @@
 	<title>Admin Dashboard - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Platform Status</p>
-			<h1 class="admin-page-title">Admin Dashboard</h1>
-			<p class="admin-page-subtitle">
-				Track platform growth, subscription mix, and the trust queue from one place without leaving the control room.
-			</p>
-		</div>
-		<div class="admin-page-actions">
-			<a href="/admin/audit" class="btn btn-secondary">Audit Log</a>
-			<a href="/admin/users" class="btn btn-primary">Inspect Users</a>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title="Admin Dashboard"
+		subtitle="Track platform growth, subscription mix, and the trust queue from one place."
+	>
+		{#snippet actions()}
+			<Button href="/admin/audit" variant="outline">Audit Log</Button>
+			<Button href="/admin/users">Inspect Users</Button>
+		{/snippet}
+	</PageShell.Header>
 
 	{#if totalPending > 0}
-		<div class="dashboard-alerts">
+		<div class="grid gap-3 md:grid-cols-2">
 			{#if data.pendingAccessRequests > 0}
-				<a href="/admin/access-requests" class="dashboard-alert dashboard-alert--warning">
-					<div>
-						<p class="dashboard-alert__label">Access Requests</p>
-						<strong>{data.pendingAccessRequests} pending review</strong>
-					</div>
-					<span>Open Queue</span>
-				</a>
+				<Alert.Root variant="warning">
+					<Alert.Title>Access Requests</Alert.Title>
+					<Alert.Description>{data.pendingAccessRequests} pending review.</Alert.Description>
+					<Alert.Action>
+						<Button href="/admin/access-requests" size="sm" variant="outline">Open Queue</Button>
+					</Alert.Action>
+				</Alert.Root>
 			{/if}
 			{#if data.pendingFeedback > 0}
-				<a href="/admin/feedback" class="dashboard-alert dashboard-alert--info">
-					<div>
-						<p class="dashboard-alert__label">Feedback Queue</p>
-						<strong>{data.pendingFeedback} unread item{data.pendingFeedback === 1 ? '' : 's'}</strong>
-					</div>
-					<span>Review Notes</span>
-				</a>
+				<Alert.Root variant="info">
+					<Alert.Title>Feedback Queue</Alert.Title>
+					<Alert.Description>
+						{data.pendingFeedback} unread item{data.pendingFeedback === 1 ? '' : 's'}.
+					</Alert.Description>
+					<Alert.Action>
+						<Button href="/admin/feedback" size="sm" variant="outline">Review Notes</Button>
+					</Alert.Action>
+				</Alert.Root>
 			{/if}
 		</div>
 	{/if}
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Total Users</p>
-			<p class="admin-overview-card__value">{data.userStats.total.toLocaleString()}</p>
-			<p class="admin-overview-card__meta">
-				+{data.userStats.last_30_days} in the last 30 days ({recentPct}% of all accounts)
-			</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Organizations</p>
-			<p class="admin-overview-card__value">{data.totalOrganizations.toLocaleString()}</p>
-			<p class="admin-overview-card__meta">
-				{data.tierCounts.free} free • {data.tierCounts.team} team • {data.tierCounts.unit} unit
-			</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Paid Subscriptions</p>
-			<p class="admin-overview-card__value">{paidCount.toLocaleString()}</p>
-			<p class="admin-overview-card__meta">
-				{data.tierCounts.team} team plans and {data.tierCounts.unit} unit plans currently active
-			</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Pending Items</p>
-			<p class="admin-overview-card__value">{totalPending.toLocaleString()}</p>
-			<p class="admin-overview-card__meta">
-				{data.pendingAccessRequests} requests and {data.pendingFeedback} feedback items need attention
-			</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two" class="lg:grid-cols-4">
+		<PageShell.Metric
+			label="Total Users"
+			value={data.userStats.total.toLocaleString()}
+			detail={`+${data.userStats.last_30_days} in 30 days (${recentPct}% of all accounts)`}
+		/>
+		<PageShell.Metric
+			label="Organizations"
+			value={data.totalOrganizations.toLocaleString()}
+			detail={`${data.tierCounts.free} free / ${data.tierCounts.team} team / ${data.tierCounts.unit} unit`}
+		/>
+		<PageShell.Metric
+			label="Paid Subscriptions"
+			value={paidCount.toLocaleString()}
+			detail={`${data.tierCounts.team} team plans and ${data.tierCounts.unit} unit plans active`}
+		/>
+		<PageShell.Metric
+			label="Pending Items"
+			value={totalPending.toLocaleString()}
+			tone={totalPending > 0 ? 'warning' : 'default'}
+			detail={`${data.pendingAccessRequests} requests and ${data.pendingFeedback} feedback items`}
+		/>
+	</PageShell.FactGrid>
 
-	<div class="dashboard-grid">
-		<section class="admin-panel dashboard-panel dashboard-panel--wide">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Signups</h2>
-					<p class="admin-panel__meta">Last 30 days of account creation activity.</p>
-				</div>
-			</div>
-			{#if data.signupTrend.length > 0}
-				<div class="signup-chart" aria-label="Signup trend chart">
-					{#each data.signupTrend as day (day.date)}
-						<div class="signup-chart__col">
+	<div class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Signups</Card.Title>
+				<Card.Description>Last 30 days of account creation activity.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				{#if data.signupTrend.length > 0}
+					<ReportBarChart
+						data={signupChartData}
+						series={signupSeries}
+						ariaLabel="Admin signup trend by day"
+						yDomain={[0, maxSignups]}
+						yTicks={signupTicks}
+						layout="group"
+						heightClass="h-[190px]"
+					/>
+					<div class="sr-only">
+						<table aria-label="Admin signup trend data">
+							<thead>
+								<tr>
+									<th scope="col">Date</th>
+									<th scope="col">New accounts</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each data.signupTrend as day (day.date)}
+									<tr>
+										<td>{day.date}</td>
+										<td>{day.count}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No signup data available.</Empty.Title>
+						</Empty.Header>
+					</Empty.Root>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Subscription Mix</Card.Title>
+				<Card.Description>Current organization distribution by plan.</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-4">
+				{#each [{ label: 'Free', value: data.tierCounts.free }, { label: 'Team', value: data.tierCounts.team }, { label: 'Unit', value: data.tierCounts.unit }] as tier (tier.label)}
+					<div class="grid gap-1.5">
+						<div class="flex items-center justify-between gap-3 text-sm">
+							<span>{tier.label}</span>
+							<strong>{tier.value}</strong>
+						</div>
+						<div class="h-2 overflow-hidden rounded-full bg-muted">
 							<div
-								class="signup-chart__bar"
-								style="height: {Math.round((day.count / maxSignups) * 100)}%"
-								title="{day.date}: {day.count} signup{day.count === 1 ? '' : 's'}"
+								class="h-full rounded-full bg-primary"
+								style="width: {totalTierOrgs > 0 ? Math.round((tier.value / totalTierOrgs) * 100) : 0}%"
 							></div>
 						</div>
-					{/each}
-				</div>
-				<div class="signup-chart__labels">
-					<span>{data.signupTrend[0]?.date?.slice(5) ?? ''}</span>
-					<span>{data.signupTrend[data.signupTrend.length - 1]?.date?.slice(5) ?? ''}</span>
-				</div>
-			{:else}
-				<div class="admin-empty">No signup data available.</div>
-			{/if}
-		</section>
-
-		<section class="admin-panel dashboard-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Subscription Mix</h2>
-					<p class="admin-panel__meta">Current organization distribution by plan.</p>
-				</div>
-			</div>
-			<div class="tier-stack">
-				<div class="tier-stack__row">
-					<span>Free</span>
-					<div class="tier-stack__track">
-						<div
-							class="tier-stack__fill tier-stack__fill--free"
-							style="width: {totalTierOrgs > 0 ? Math.round((data.tierCounts.free / totalTierOrgs) * 100) : 0}%"
-						></div>
 					</div>
-					<strong>{data.tierCounts.free}</strong>
-				</div>
-				<div class="tier-stack__row">
-					<span>Team</span>
-					<div class="tier-stack__track">
-						<div
-							class="tier-stack__fill tier-stack__fill--team"
-							style="width: {totalTierOrgs > 0 ? Math.round((data.tierCounts.team / totalTierOrgs) * 100) : 0}%"
-						></div>
-					</div>
-					<strong>{data.tierCounts.team}</strong>
-				</div>
-				<div class="tier-stack__row">
-					<span>Unit</span>
-					<div class="tier-stack__track">
-						<div
-							class="tier-stack__fill tier-stack__fill--unit"
-							style="width: {totalTierOrgs > 0 ? Math.round((data.tierCounts.unit / totalTierOrgs) * 100) : 0}%"
-						></div>
-					</div>
-					<strong>{data.tierCounts.unit}</strong>
-				</div>
-			</div>
-		</section>
+				{/each}
+			</Card.Content>
+		</Card.Root>
 	</div>
 
-	<div class="dashboard-grid">
-		<section class="admin-panel dashboard-panel dashboard-panel--wide">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Recent Activity</h2>
-					<p class="admin-panel__meta">Most recent audit events entering the platform trail.</p>
+	<div class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+		<Card.Root>
+			<Card.Header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<div class="grid gap-1.5">
+					<Card.Title>Recent Activity</Card.Title>
+					<Card.Description>Most recent audit events entering the platform trail.</Card.Description>
 				</div>
-				<a href="/admin/audit" class="btn btn-secondary btn-sm">View Full Log</a>
-			</div>
-			{#if data.recentActivity.length > 0}
-				<div class="activity-list">
-					{#each data.recentActivity as event (event.id)}
-						<div class="activity-item">
-							<div class="activity-item__main">
-								<strong>{event.action}</strong>
-								<p>
+				<Button href="/admin/audit" variant="outline" size="sm">View Full Log</Button>
+			</Card.Header>
+			<Card.Content>
+				{#if data.recentActivity.length > 0}
+					<div class="grid gap-3">
+						{#each data.recentActivity as event (event.id)}
+							<div class="grid gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto]">
+								<div class="grid min-w-0 gap-1">
+									<strong class="truncate text-sm">{event.action}</strong>
 									{#if event.user_id}
-										<span class="admin-code">{event.user_id}</span>
+										<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+											>{event.user_id}</code
+										>
 									{:else}
-										<span class="text-muted">System event</span>
+										<span class="text-sm text-muted-foreground">System event</span>
 									{/if}
-								</p>
+								</div>
+								<span class="text-xs text-muted-foreground">{formatDisplayDateTime(event.timestamp)}</span>
 							</div>
-							<span class="text-muted">{formatDisplayDateTime(event.timestamp)}</span>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<div class="admin-empty">No recent activity.</div>
-			{/if}
-		</section>
+						{/each}
+					</div>
+				{:else}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No recent activity.</Empty.Title>
+						</Empty.Header>
+					</Empty.Root>
+				{/if}
+			</Card.Content>
+		</Card.Root>
 
-		<section class="admin-panel dashboard-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Quick Actions</h2>
-					<p class="admin-panel__meta">Fast paths into the highest-traffic admin workflows.</p>
-				</div>
-			</div>
-			<div class="quick-links">
-				<a href="/admin/users" class="quick-links__item">Search Users</a>
-				<a href="/admin/organizations" class="quick-links__item">Inspect Orgs</a>
-				<a href="/admin/access-requests" class="quick-links__item">Access Queue</a>
-				<a href="/admin/feedback" class="quick-links__item">Feedback Queue</a>
-				<a href="/admin/subscriptions" class="quick-links__item">Subscriptions</a>
-				<a href="/admin/gifting" class="quick-links__item">Gifting</a>
-			</div>
-		</section>
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Quick Actions</Card.Title>
+				<Card.Description>Fast paths into the highest-traffic admin workflows.</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-2">
+				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }, { href: '/admin/subscriptions', label: 'Subscriptions' }, { href: '/admin/gifting', label: 'Gifting' }] as link (link.href)}
+					<Button href={link.href} variant="outline" class="justify-start">{link.label}</Button>
+				{/each}
+				<Separator class="my-1" />
+				<p class="text-xs text-muted-foreground">Use global admin search for direct user and organization lookup.</p>
+			</Card.Content>
+		</Card.Root>
 	</div>
-</div>
-
-<style>
-	.dashboard-alerts,
-	.activity-list,
-	.quick-links,
-	.tier-stack {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.dashboard-alerts,
-	.tier-stack {
-		gap: var(--sp-3);
-	}
-
-	.dashboard-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
-		gap: var(--sp-4);
-	}
-
-	.dashboard-panel--wide {
-		min-width: 0;
-	}
-
-	.dashboard-alert {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-		color: var(--text-primary);
-	}
-
-	.dashboard-alert:hover {
-		color: var(--text-primary);
-		border-color: var(--ink-35);
-	}
-
-	.dashboard-alert--warning {
-		border-color: color-mix(in srgb, var(--amber-dark) 36%, var(--ink-15) 64%);
-		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
-	}
-
-	.dashboard-alert--info {
-		border-color: color-mix(in srgb, var(--info) 28%, var(--ink-15) 72%);
-		background: color-mix(in srgb, var(--info-bg) 80%, var(--surface-panel) 20%);
-	}
-
-	.dashboard-alert__label {
-		margin: 0 0 var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.dashboard-alert strong {
-		font-family: var(--font-display);
-		font-size: 1.7rem;
-		line-height: 0.96;
-		text-transform: uppercase;
-	}
-
-	.dashboard-alert span:last-child {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.signup-chart {
-		height: 220px;
-		display: grid;
-		grid-template-columns: repeat(30, minmax(0, 1fr));
-		align-items: end;
-		gap: 6px;
-		padding: var(--sp-3) 0;
-	}
-
-	.signup-chart__col {
-		height: 100%;
-		display: flex;
-		align-items: end;
-	}
-
-	.signup-chart__bar {
-		width: 100%;
-		min-height: 6px;
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--amber-dark) 82%, var(--info) 18%);
-	}
-
-	.signup-chart__labels {
-		display: flex;
-		justify-content: space-between;
-		margin-top: var(--sp-2);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-	}
-
-	.tier-stack__row {
-		display: grid;
-		grid-template-columns: 56px minmax(0, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-3);
-		font-size: var(--text-sm);
-	}
-
-	.tier-stack__row span:first-child,
-	.tier-stack__row strong {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.tier-stack__track {
-		height: 10px;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
-		overflow: hidden;
-	}
-
-	.tier-stack__fill {
-		height: 100%;
-		border-radius: inherit;
-	}
-
-	.tier-stack__fill--free {
-		background: var(--ink-35);
-	}
-
-	.tier-stack__fill--team {
-		background: var(--info);
-	}
-
-	.tier-stack__fill--unit {
-		background: var(--amber-dark);
-	}
-
-	.activity-list {
-		gap: var(--sp-2);
-	}
-
-	.activity-item {
-		display: flex;
-		align-items: start;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3) 0;
-		border-top: var(--border-rule);
-	}
-
-	.activity-item:first-child {
-		border-top: none;
-		padding-top: 0;
-	}
-
-	.activity-item:last-child {
-		padding-bottom: 0;
-	}
-
-	.activity-item__main {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-	}
-
-	.activity-item__main strong,
-	.activity-item__main p {
-		margin: 0;
-	}
-
-	.quick-links {
-		gap: var(--sp-2);
-	}
-
-	.quick-links__item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.9rem 1rem;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.quick-links__item:hover {
-		color: var(--text-primary);
-		border-color: var(--ink-35);
-	}
-
-	@media (max-width: 900px) {
-		.dashboard-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
+</PageShell.Root>

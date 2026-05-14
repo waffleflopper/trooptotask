@@ -1,10 +1,11 @@
 <script lang="ts">
-	import './dutyRosterTemplateWorkspace.css';
 	import DutyRosterGenerateView from './DutyRosterGenerateView.svelte';
 	import DutyRosterHistoryView from './DutyRosterHistoryView.svelte';
 	import DutyRosterNewTemplateWorkspace from './DutyRosterNewTemplateWorkspace.svelte';
 	import DutyRosterTemplateRegister from './DutyRosterTemplateRegister.svelte';
 	import DutyRosterTemplateSettingsView from './DutyRosterTemplateSettingsView.svelte';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import { WarningSummary } from '$features/duty-roster/components/shared';
 	import {
 		buildDutyRosterWorkspaceReadModel,
 		type DutyRosterWorkspaceData
@@ -44,6 +45,15 @@
 	const dutyRoleOptions = $derived(workspace.dutyRoleOptions);
 
 	const viewTabs = $derived(workspace.viewTabs);
+	const routeTabs = $derived(
+		selectedTemplate
+			? viewTabs.map((tab) => ({
+					label: tab.label,
+					href: `${basePath}/${selectedTemplate.slug}/${tab.id}` as '/org/[orgId]/duty-rosters/[templateSlug]/[view]',
+					active: selectedView === tab.id
+				}))
+			: []
+	);
 	const historyMode = $derived(workspace.historyMode);
 
 	$effect(() => {
@@ -65,7 +75,7 @@
 	<title>Duty Rosters - Troop to Task</title>
 </svelte:head>
 
-<section class="duty-roster-workspace" aria-labelledby="duty-roster-title">
+<PageShell.Root density={isNewTemplate ? 'default' : 'compact'} width="full" aria-labelledby="duty-roster-title">
 	{#if selectedTemplate && !isNewTemplate}
 		<h1 id="duty-roster-title" class="sr-only">{selectedTemplate.name} {selectedView}</h1>
 	{:else if isNewTemplate}
@@ -98,25 +108,19 @@
 	{:else if !selectedTemplate}
 		<DutyRosterTemplateRegister {basePath} templates={data.templates} setupOptions={data.setupOptions ?? null} />
 	{:else}
-		<div class="template-detail-workspace">
+		<div class="grid min-w-0 gap-5">
 			{#if actionForm?.error}
-				<p class="form-error" role="alert">{actionForm.error}</p>
+				<WarningSummary tone="destructive" title="Duty roster action failed" description={actionForm.error} />
 			{/if}
 
-			<nav class="view-tabs" aria-label="Duty Roster Template views">
-				{#each viewTabs as tab (tab.id)}
-					<a
-						class:active={selectedView === tab.id}
-						href={`${basePath}/${selectedTemplate.slug}/${tab.id}`}
-						aria-current={selectedView === tab.id ? 'page' : undefined}
-					>
-						<span>{tab.label}</span>
-						<small>{tab.note}</small>
-					</a>
-				{/each}
-			</nav>
+			<PageShell.Header
+				title={selectedTemplate.name}
+				subtitle={`${selectedTemplate.slug} duty roster template. Settings affect future runs only.`}
+			/>
 
-			<main class="view-panel" aria-labelledby="template-view-heading">
+			<PageShell.Tabs items={routeTabs} label="Duty Roster Template views" />
+
+			<main class="grid min-w-0 gap-4" aria-labelledby="template-view-heading">
 				{#if selectedView === 'generate'}
 					{#if generateWorkspace}
 						<DutyRosterGenerateView generate={generateWorkspace} />
@@ -141,4 +145,4 @@
 			</main>
 		</div>
 	{/if}
-</section>
+</PageShell.Root>

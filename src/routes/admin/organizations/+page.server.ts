@@ -14,13 +14,11 @@ export const load: PageServerLoad = loadWithAdminContext({
 			gift_tier: string | null;
 			suspended_at: string | null;
 			created_at: string;
-			demo_type: string | null;
 		}>(
 			(from, to) =>
 				adminClient
 					.from('organizations')
-					.select('id, name, tier, gift_tier, suspended_at, created_at, demo_type')
-					.is('demo_type', null)
+					.select('id, name, tier, gift_tier, suspended_at, created_at')
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
 					data:
@@ -31,7 +29,6 @@ export const load: PageServerLoad = loadWithAdminContext({
 								gift_tier: string | null;
 								suspended_at: string | null;
 								created_at: string;
-								demo_type: string | null;
 						  }[]
 						| null;
 					error: unknown;

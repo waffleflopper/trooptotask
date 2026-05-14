@@ -1,19 +1,35 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import Check from '@lucide/svelte/icons/check';
+	import CircleQuestionMark from '@lucide/svelte/icons/circle-question-mark';
+	import Minus from '@lucide/svelte/icons/minus';
+	import OctagonX from '@lucide/svelte/icons/octagon-x';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import type {
 		CriticalTasksSettingsInput,
 		IctStatus,
 		IctTask,
 		PersonnelIctCompletion
 	} from '$features/critical-tasks/criticalTasks.types';
-	import type { Group } from '$lib/stores/groups.svelte';
-	import type { Personnel } from '$lib/types';
 	import {
 		buildCriticalTasksMatrix,
 		type CriticalTasksMatrixCell,
 		type CriticalTasksMatrixRow
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import { CriticalTaskStatusBadge } from '$lib/components/ui/requirement-status-badge';
+	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Personnel } from '$lib/types';
 
 	type IctMatrixViewMode = 'alphabetical' | 'by-group';
+
+	type MatrixRow = Omit<OperationalMatrix.OperationalMatrixRow, 'meta'> & {
+		source: CriticalTasksMatrixRow;
+	};
+
+	type MatrixColumn = Omit<OperationalMatrix.OperationalMatrixColumn, 'meta'> & {
+		source: IctTask;
+	};
 
 	interface Props {
 		orgId?: string;
@@ -65,13 +81,6 @@
 		})
 	);
 
-	const statusSymbols: Record<IctStatus, string> = {
-		current: '✓',
-		'expiring-soon': '!',
-		expired: '✗',
-		'not-recorded': '—'
-	};
-
 	const statusLabels: Record<IctStatus, string> = {
 		current: 'current',
 		'expiring-soon': 'expiring soon',
@@ -79,22 +88,55 @@
 		'not-recorded': 'not recorded'
 	};
 
-	const totalColumns = $derived(matrix.tasks.length + 1);
+	const matrixColumns = $derived<MatrixColumn[]>(
+		matrix.tasks.map((task) => ({
+			id: task.id,
+			label: `${task.taskCode} ${task.title}`,
+			source: task
+		}))
+	);
 	const visibleRows = $derived(viewMode === 'alphabetical' ? matrix.alphabeticalRows : matrix.rows);
+	const matrixRows = $derived<MatrixRow[]>(visibleRows.map(toMatrixRow));
+	const groupedMatrixRows = $derived.by(() =>
+		viewMode === 'alphabetical'
+			? []
+			: matrix.groups.map((group) => ({
+					group: {
+						id: group.key,
+						label: group.label,
+						rowIds: group.rows.map((row) => row.person.id)
+					},
+					readinessPercent: group.readinessPercent,
+					rows: group.rows.map(toMatrixRow)
+				}))
+	);
+	const totalColumns = $derived(matrixColumns.length + 1);
+
+	const legendItems: Array<{ status: IctStatus | 'not-required'; label: string }> = [
+		{ status: 'current', label: 'Current' },
+		{ status: 'expiring-soon', label: 'Expiring Soon' },
+		{ status: 'expired', label: 'Expired' },
+		{ status: 'not-recorded', label: 'Not Recorded' },
+		{ status: 'not-required', label: 'Not Required for MOS' }
+	];
+
+	function toMatrixRow(row: CriticalTasksMatrixRow): MatrixRow {
+		return {
+			id: row.person.id,
+			label: personName(row.person),
+			source: row
+		};
+	}
 
 	function personName(person: Personnel): string {
 		return `${person.lastName}, ${person.firstName}`;
 	}
 
-	function readinessTone(percent: number, applicableCount: number): 'empty' | 'danger' | 'warn' | 'good' {
-		if (applicableCount === 0) return 'empty';
-		if (percent < 65) return 'danger';
-		if (percent >= 80) return 'good';
-		return 'warn';
-	}
-
-	function personDetailHref(person: Personnel): string {
-		return `/org/${orgId}/critical-tasks/${person.id}`;
+	function readinessTone(percent: number, applicableCount: number): string {
+		if (applicableCount === 0) return 'bg-muted';
+		if (percent < 65) return 'bg-danger';
+		if (percent >= 80) return 'bg-success';
+		return 'bg-warning';
 	}
 
 	function cellAriaLabel(person: Personnel, cell: CriticalTasksMatrixCell): string {
@@ -105,681 +147,211 @@
 		return `${person.lastName} ${cell.task.taskCode}: ${statusLabels[cell.statusInfo.status]}. ${cell.detailLabel}`;
 	}
 
-	function handleCellClick(person: Personnel, cell: CriticalTasksMatrixCell): void {
+	function handleCellClick(row: MatrixRow, column: MatrixColumn): void {
 		if (!canEdit) return;
+
+		const cell = row.source.cells.find((candidate) => candidate.task.id === column.source.id);
+		if (!cell || !cell.applicable) return;
+
 		onSelectCell?.({
-			person,
+			person: row.source.person,
 			task: cell.task,
 			completion: cell.completion
 		});
 	}
+
+	function completionSummary(cell: CriticalTasksMatrixCell): string {
+		if (!cell.completion) return 'No completion';
+		if (cell.statusInfo.expirationDate) return `Expires ${cell.statusInfo.expirationDate}`;
+		return `Completed ${cell.completion.completedAt}`;
+	}
+
+	function cellStatusClass(status: IctStatus): string {
+		if (status === 'current') return 'bg-success-muted text-success-foreground';
+		if (status === 'expiring-soon') return 'bg-warning-muted text-warning-foreground';
+		if (status === 'expired') return 'bg-danger-muted text-danger-foreground';
+		return 'bg-muted text-muted-foreground';
+	}
 </script>
 
-{#snippet matrixRow(row: CriticalTasksMatrixRow)}
-	<tr>
-		<th scope="row" class="person-cell">
-			{#if orgId}
-				<a href={personDetailHref(row.person)} class="person-link">
-					<span class="person-primary">
-						<span class="person-rank">{row.person.rank}</span>
-						<span>
-							<span class="person-name">{personName(row.person)}</span>
-							<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+{#snippet rowHeader(row: MatrixRow)}
+	<OperationalMatrix.RowHeader
+		{row}
+		sticky
+		class="sticky left-0 z-10 w-64 min-w-56 max-w-64 border border-border bg-card px-3 py-2 text-left align-middle"
+	>
+		{#if orgId}
+			<a
+				href={resolve('/org/[orgId]/critical-tasks/[personnelId]', {
+					orgId,
+					personnelId: row.source.person.id
+				})}
+				class="grid gap-2 text-foreground no-underline hover:text-primary"
+			>
+				<span class="flex min-w-0 items-baseline gap-3">
+					<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+						{row.source.person.rank}
+					</span>
+					<span class="min-w-0">
+						<span class="block truncate text-sm font-medium">{row.label}</span>
+						<span class="block truncate font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+							{row.source.person.mos || 'No MOS'}
 						</span>
 					</span>
-					<span
-						class="person-readiness"
-						aria-label={`${personName(row.person)} readiness ${row.readinessPercent}%`}
-						data-readiness={readinessTone(row.readinessPercent, row.applicableCount)}
-					>
-						<span>RDY</span>
-						<span class="person-readiness-bar" aria-hidden="true">
-							<span class="person-readiness-fill" style={`width: ${row.readinessPercent}%`}></span>
-						</span>
-						<span class="person-readiness-percent">{row.readinessPercent}%</span>
+				</span>
+				<span
+					class="grid grid-cols-[auto_minmax(3.5rem,1fr)_2.25rem] items-center gap-2 border-t border-dashed border-border pt-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground"
+					aria-label={`${personName(row.source.person)} readiness ${row.source.readinessPercent}%`}
+				>
+					<span>RDY</span>
+					<span class="h-1 overflow-hidden rounded bg-muted" aria-hidden="true">
+						<span
+							class={`block h-full ${readinessTone(row.source.readinessPercent, row.source.applicableCount)}`}
+							style:width={`${row.source.readinessPercent}%`}
+						></span>
 					</span>
-				</a>
-			{:else}
-				<div class="person-summary">
-					<span class="person-primary">
-						<span class="person-rank">{row.person.rank}</span>
-						<span>
-							<span class="person-name">{personName(row.person)}</span>
-							<span class="person-mos">{row.person.mos || 'No MOS'}</span>
-						</span>
+					<span class="text-right text-foreground">{row.source.readinessPercent}%</span>
+				</span>
+			</a>
+		{:else}
+			<span class="flex min-w-0 items-baseline gap-3">
+				<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+					{row.source.person.rank}
+				</span>
+				<span class="min-w-0">
+					<span class="block truncate text-sm font-medium">{row.label}</span>
+					<span class="block truncate font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+						{row.source.person.mos || 'No MOS'}
 					</span>
-					<span
-						class="person-readiness"
-						aria-label={`${personName(row.person)} readiness ${row.readinessPercent}%`}
-						data-readiness={readinessTone(row.readinessPercent, row.applicableCount)}
-					>
-						<span>RDY</span>
-						<span class="person-readiness-bar" aria-hidden="true">
-							<span class="person-readiness-fill" style={`width: ${row.readinessPercent}%`}></span>
-						</span>
-						<span class="person-readiness-percent">{row.readinessPercent}%</span>
-					</span>
-				</div>
-			{/if}
-		</th>
-		{#each row.cells as cell (cell.task.id)}
-			{#if cell.applicable}
-				<td class="status-cell" data-status={cell.statusInfo.status}>
-					<button
-						type="button"
-						class:editable={canEdit}
-						class="status-button"
-						data-status={cell.statusInfo.status}
-						aria-label={cellAriaLabel(row.person, cell)}
-						aria-haspopup={canEdit ? 'dialog' : undefined}
-						onclick={() => handleCellClick(row.person, cell)}
-					>
-						<span class="status-symbol">{statusSymbols[cell.statusInfo.status]}</span>
-						<span class="status-text">{statusLabels[cell.statusInfo.status]}</span>
-						<span class="cell-details" aria-hidden="true">
-							{#if cell.completion}
-								<span>Completed {cell.completion.completedAt}</span>
-								{#if cell.statusInfo.expirationDate}
-									<span>Expires {cell.statusInfo.expirationDate}</span>
-								{/if}
-								<span>{cell.completion.validatedBy ?? 'Validator not recorded'}</span>
-							{:else}
-								<span>No completion recorded</span>
-							{/if}
-						</span>
-					</button>
-				</td>
-			{:else}
-				<td class="status-cell not-applicable" aria-label={cellAriaLabel(row.person, cell)}></td>
-			{/if}
-		{/each}
-	</tr>
+				</span>
+			</span>
+		{/if}
+	</OperationalMatrix.RowHeader>
 {/snippet}
 
-<div class="ict-matrix-shell">
-	<div class="matrix-legend" aria-label="Critical Tasks status legend">
-		<span class="legend-item" data-status="current"><span class="legend-mark">✓</span> Current</span>
-		<span class="legend-item" data-status="expiring-soon"><span class="legend-mark">!</span> Expiring Soon</span>
-		<span class="legend-item" data-status="expired"><span class="legend-mark">✗</span> Expired</span>
-		<span class="legend-item" data-status="not-recorded"><span class="legend-mark">—</span> Not Recorded</span>
-		<span class="legend-item legend-item--na"><span class="legend-mark"></span> Not Required for MOS</span>
+{#snippet matrixRow(row: MatrixRow)}
+	<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+		{@render rowHeader(row)}
+		{#each matrixColumns as column (column.id)}
+			{@const cell = row.source.cells.find((candidate) => candidate.task.id === column.source.id)}
+			<OperationalMatrix.Cell
+				{row}
+				{column}
+				disabled={!cell?.applicable}
+				readOnly={!cell?.applicable}
+				ariaLabel={cell
+					? cellAriaLabel(row.source.person, cell)
+					: `${row.source.person.lastName} ${column.source.taskCode}: not applicable`}
+				onSelect={() => handleCellClick(row, column)}
+				class="h-10 w-12 min-w-12 border border-border bg-card p-0"
+			>
+				{#if cell?.applicable}
+					<span
+						class={`grid h-10 w-full place-items-center overflow-hidden ${cellStatusClass(cell.statusInfo.status)}`}
+						data-status={cell.statusInfo.status}
+					>
+						{#if cell.statusInfo.status === 'current'}
+							<Check class="size-4" aria-hidden="true" />
+						{:else if cell.statusInfo.status === 'expiring-soon'}
+							<TriangleAlert class="size-4" aria-hidden="true" />
+						{:else if cell.statusInfo.status === 'expired'}
+							<OctagonX class="size-4" aria-hidden="true" />
+						{:else}
+							<CircleQuestionMark class="size-4" aria-hidden="true" />
+						{/if}
+						<span class="sr-only">
+							{completionSummary(cell)}
+						</span>
+					</span>
+				{:else}
+					<span class="grid h-10 w-full place-items-center bg-muted text-muted-foreground/70">
+						<Minus class="size-4" aria-hidden="true" />
+						<span class="sr-only">Not required</span>
+					</span>
+				{/if}
+			</OperationalMatrix.Cell>
+		{/each}
+	</OperationalMatrix.Row>
+{/snippet}
+
+<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} class="grid h-full min-h-0 gap-3">
+	<div class="flex flex-wrap items-center gap-2" aria-label="Critical Tasks status legend">
+		{#each legendItems as item (item.status)}
+			<CriticalTaskStatusBadge status={item.status} />
+		{/each}
 	</div>
 
-	<div class="matrix-scroll" data-testid="critical-tasks-matrix-scroll">
-		<table class="ict-matrix" data-testid="critical-tasks-matrix-table" aria-label="Critical Tasks readiness matrix">
-			<thead>
-				<tr>
-					<th scope="col" class="person-header">Soldier</th>
-					{#each matrix.tasks as task (task.id)}
-						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}" title={task.title}>
-							<span class="task-header-labels" aria-hidden="true">
-								<span class="task-code">{task.taskCode}</span>
-								<span class="task-title-short">{task.title}</span>
+	<OperationalMatrix.Viewport
+		ariaLabel="Critical Tasks matrix viewport"
+		class="h-full min-h-0 rounded-lg border border-border bg-card"
+		data-testid="critical-tasks-matrix-scroll"
+	>
+		<OperationalMatrix.Table
+			ariaLabel="Critical Tasks readiness matrix"
+			data-testid="critical-tasks-matrix-table"
+			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[9px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-column-header]]:shadow-sm [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
+		>
+			<OperationalMatrix.Header>
+				<OperationalMatrix.HeaderRow>
+					<OperationalMatrix.CornerCell
+						sticky
+						class="sticky left-0 top-0 z-30 w-64 min-w-56 bg-muted px-3 py-2 text-left font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+					>
+						Soldier
+					</OperationalMatrix.CornerCell>
+					{#each matrixColumns as column (column.id)}
+						<OperationalMatrix.ColumnHeader
+							{column}
+							sticky
+							orientation="vertical"
+							aria-label={column.label}
+							title={column.source.title}
+							class="sticky top-0 z-20 h-52 w-14 min-w-14 max-w-14 bg-muted"
+						>
+							<span class="grid w-40 gap-0.5 text-center">
+								<span class="truncate text-[9px] font-bold leading-none text-foreground">
+									{column.source.taskCode}
+								</span>
+								<span
+									class="line-clamp-2 whitespace-normal text-[8px] font-medium normal-case leading-tight tracking-normal text-muted-foreground"
+								>
+									{column.source.title}
+								</span>
 							</span>
-						</th>
+						</OperationalMatrix.ColumnHeader>
 					{/each}
-				</tr>
-			</thead>
-			<tbody>
+				</OperationalMatrix.HeaderRow>
+			</OperationalMatrix.Header>
+
+			<OperationalMatrix.Body>
 				{#if visibleRows.length === 0}
 					<tr>
-						<td class="empty-row" colspan={totalColumns}>No personnel match the current Critical Tasks filters.</td>
+						<td class="px-4 py-8 text-center text-sm text-muted-foreground" colspan={totalColumns}>
+							No personnel match the current Critical Tasks filters.
+						</td>
 					</tr>
-				{:else if viewMode === 'alphabetical'}
-					{#each matrix.alphabeticalRows as row (row.person.id)}
-						{@render matrixRow(row)}
-					{/each}
-				{:else}
-					{#each matrix.groups as group (group.key)}
-						<tr class="group-row">
-							<th scope="rowgroup" colspan={totalColumns}>
-								<span class="group-label">
-									{group.label}
-									<span class="group-meta">
-										{group.rows.length} personnel ({group.readinessPercent}% Readiness)
-									</span>
-								</span>
-							</th>
-						</tr>
-						{#each group.rows as row (row.person.id)}
+				{:else if groupedMatrixRows.length > 0}
+					{#each groupedMatrixRows as groupBlock (groupBlock.group.id)}
+						<OperationalMatrix.RowGroup
+							group={groupBlock.group}
+							columnSpan={totalColumns}
+							class="h-8 bg-muted/50 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left"
+						>
+							{groupBlock.group.label}
+							<span class="ml-2 normal-case tracking-normal">
+								{groupBlock.rows.length} personnel ({groupBlock.readinessPercent}% Readiness)
+							</span>
+						</OperationalMatrix.RowGroup>
+						{#each groupBlock.rows as row (row.id)}
 							{@render matrixRow(row)}
 						{/each}
 					{/each}
+				{:else}
+					{#each matrixRows as row (row.id)}
+						{@render matrixRow(row)}
+					{/each}
 				{/if}
-			</tbody>
-		</table>
-	</div>
-</div>
-
-<style>
-	.ict-matrix-shell {
-		--matrix-rule: color-mix(in srgb, var(--text-primary) 12%, transparent);
-		--matrix-rule-strong: color-mix(in srgb, var(--text-primary) 22%, transparent);
-		--matrix-paper-2: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
-		--matrix-paper-3: color-mix(in srgb, var(--border-default) 58%, var(--surface-panel) 42%);
-		--cell-current-bg: color-mix(in srgb, var(--success-bg) 78%, var(--surface-panel) 22%);
-		--cell-current-ink: var(--success);
-		--cell-expiring-bg: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
-		--cell-expiring-ink: var(--amber-dark);
-		--cell-expired-bg: color-mix(in srgb, var(--danger-bg) 78%, var(--surface-panel) 22%);
-		--cell-expired-ink: var(--danger);
-
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-		border: 1px solid var(--matrix-rule);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		overflow: hidden;
-	}
-
-	.matrix-legend {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-5);
-		padding: 10px var(--sp-5);
-		border-bottom: 1px solid var(--matrix-rule);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.legend-item {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		white-space: nowrap;
-	}
-
-	.legend-item--na {
-		margin-left: auto;
-	}
-
-	.legend-mark {
-		display: inline-grid;
-		width: 1.375rem;
-		height: 1.375rem;
-		place-items: center;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--matrix-rule);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-medium);
-		line-height: 1;
-	}
-
-	.legend-item[data-status='current'] .legend-mark {
-		border-color: transparent;
-		background: var(--cell-current-bg);
-		color: var(--cell-current-ink);
-	}
-
-	.legend-item[data-status='expiring-soon'] .legend-mark {
-		border-color: transparent;
-		background: var(--cell-expiring-bg);
-		color: var(--cell-expiring-ink);
-	}
-
-	.legend-item[data-status='expired'] .legend-mark {
-		border-color: transparent;
-		background: var(--cell-expired-bg);
-		color: var(--cell-expired-ink);
-	}
-
-	.legend-item[data-status='not-recorded'] .legend-mark {
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-	}
-
-	.legend-item--na .legend-mark {
-		background:
-			repeating-linear-gradient(
-				45deg,
-				transparent,
-				transparent 3px,
-				color-mix(in srgb, var(--text-primary) 7%, transparent) 3px,
-				color-mix(in srgb, var(--text-primary) 7%, transparent) 4px
-			),
-			var(--surface-panel);
-	}
-
-	.matrix-scroll {
-		flex: 1;
-		overflow: auto;
-		min-height: 0;
-		background: var(--surface-panel);
-	}
-
-	.matrix-scroll::-webkit-scrollbar {
-		width: 10px;
-		height: 10px;
-	}
-
-	.matrix-scroll::-webkit-scrollbar-track {
-		background: var(--matrix-paper-2);
-	}
-
-	.matrix-scroll::-webkit-scrollbar-thumb {
-		border-radius: 0;
-		background: var(--matrix-rule-strong);
-	}
-
-	.ict-matrix {
-		width: max-content;
-		min-width: max-content;
-		border-collapse: separate;
-		border-spacing: 0;
-		font-size: var(--text-sm);
-	}
-
-	.ict-matrix thead {
-		position: sticky;
-		top: 0;
-		z-index: var(--z-sticky, 10);
-		background: var(--matrix-paper-2);
-	}
-
-	.ict-matrix th,
-	.ict-matrix td {
-		border-bottom: 1px solid var(--matrix-rule);
-		text-align: left;
-	}
-
-	.person-header,
-	.person-cell {
-		position: sticky;
-		left: 0;
-		z-index: 5;
-		width: 16.25rem;
-		min-width: 16.25rem;
-		max-width: 16.25rem;
-		border-right: 1px solid var(--matrix-rule-strong);
-		background: var(--surface-panel);
-	}
-
-	.person-header {
-		z-index: calc(var(--z-sticky, 10) + 5);
-		padding: var(--sp-3) var(--sp-4);
-		background: var(--matrix-paper-2);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		font-weight: var(--font-weight-regular);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-
-	.person-cell {
-		padding: 0;
-		color: var(--text-primary);
-		white-space: nowrap;
-	}
-
-	.person-link,
-	.person-summary {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 6px;
-		width: 100%;
-		height: 100%;
-		padding: 10px var(--sp-4);
-		box-sizing: border-box;
-	}
-
-	.person-link {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	.person-link:hover,
-	.person-link:focus-visible {
-		background: var(--matrix-paper-2);
-		color: inherit;
-	}
-
-	.person-link:focus-visible {
-		outline: 2px solid var(--amber-dark);
-		outline-offset: -2px;
-	}
-
-	.person-primary {
-		display: grid;
-		grid-template-columns: 2.75rem minmax(0, 1fr);
-		align-items: center;
-		gap: 10px;
-		min-width: 0;
-	}
-
-	.person-name {
-		display: block;
-		min-width: 0;
-		color: var(--text-primary);
-		font-family: var(--font-body);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		line-height: 1.2;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.person-rank {
-		display: inline-block;
-		min-width: 2.75rem;
-		color: var(--amber-dark);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.person-mos {
-		display: block;
-		margin-top: 2px;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.06em;
-	}
-
-	.person-readiness {
-		display: grid;
-		grid-template-columns: auto minmax(3.5rem, 1fr) 2rem;
-		align-items: center;
-		gap: 10px;
-		padding-top: 6px;
-		border-top: 1px dashed var(--matrix-rule);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-
-	.person-readiness-bar {
-		height: 3px;
-		overflow: hidden;
-		border-radius: 1px;
-		background: var(--matrix-paper-3);
-	}
-
-	.person-readiness-fill {
-		display: block;
-		height: 100%;
-		background: var(--amber);
-	}
-
-	.person-readiness[data-readiness='good'] .person-readiness-fill {
-		background: var(--success);
-	}
-
-	.person-readiness[data-readiness='danger'] .person-readiness-fill {
-		background: var(--danger);
-	}
-
-	.person-readiness-percent {
-		color: var(--text-primary);
-		font-weight: var(--font-weight-medium);
-		text-align: right;
-	}
-
-	.task-header {
-		position: sticky;
-		top: 0;
-		z-index: var(--z-sticky, 10);
-		width: 2.5rem;
-		min-width: 2.5rem;
-		max-width: 2.5rem;
-		height: 8.75rem;
-		padding: 0;
-		vertical-align: bottom;
-		border-right: 1px solid var(--matrix-rule);
-		color: var(--text-secondary);
-		cursor: default;
-		background: var(--matrix-paper-2);
-	}
-
-	.task-header-labels {
-		display: grid;
-		grid-template-rows: auto auto;
-		gap: 4px;
-		position: absolute;
-		bottom: 10px;
-		left: 1.95rem;
-		width: 6.65rem;
-		transform: rotate(-90deg);
-		transform-origin: left bottom;
-		pointer-events: none;
-	}
-
-	.task-code,
-	.task-title-short {
-		display: block;
-		min-width: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		line-height: 1;
-	}
-
-	.task-code {
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		font-weight: var(--font-weight-regular);
-		letter-spacing: 0.04em;
-	}
-
-	.task-title-short {
-		color: var(--text-tertiary);
-		font-family: var(--font-body);
-		font-size: 0.5625rem;
-		font-weight: var(--font-weight-regular);
-		letter-spacing: 0;
-	}
-
-	.group-row th {
-		position: sticky;
-		left: 0;
-		z-index: 4;
-		padding: 10px var(--sp-4);
-		border-top: 1px solid var(--matrix-rule-strong);
-		border-bottom: 1px solid var(--matrix-rule-strong);
-		background: var(--matrix-paper-3);
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.group-label {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		white-space: nowrap;
-	}
-
-	.group-meta {
-		flex: none;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-regular);
-		letter-spacing: 0.06em;
-		text-transform: none;
-	}
-
-	.status-cell {
-		width: 2.5rem;
-		min-width: 2.5rem;
-		height: 2.5rem;
-		padding: 0;
-		border-right: 1px solid var(--matrix-rule);
-		text-align: center;
-		vertical-align: middle;
-		position: relative;
-	}
-
-	.status-cell:hover,
-	.status-cell:focus-within {
-		z-index: calc(var(--z-sticky, 10) + 30);
-	}
-
-	.status-button {
-		position: relative;
-		display: grid;
-		width: 100%;
-		height: 2.5rem;
-		place-items: center;
-		padding: 0;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		cursor: default;
-	}
-
-	.status-button.editable {
-		cursor: pointer;
-	}
-
-	.status-button.editable:hover {
-		z-index: calc(var(--z-sticky, 10) + 31);
-		outline: 2px solid var(--amber);
-		outline-offset: -2px;
-		transform: scale(1.08);
-	}
-
-	.status-button:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: -2px;
-	}
-
-	.status-symbol {
-		font-family: var(--font-mono);
-		font-size: var(--text-lg);
-		font-weight: var(--font-weight-medium);
-		line-height: 1;
-	}
-
-	.status-text {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
-	}
-
-	.cell-details {
-		position: absolute;
-		left: 50%;
-		bottom: calc(100% + 6px);
-		z-index: calc(var(--z-sticky, 10) + 40);
-		display: none;
-		min-width: 12rem;
-		max-width: 16rem;
-		transform: translateX(-50%);
-		padding: var(--sp-2);
-		border: 1px solid var(--matrix-rule-strong);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		box-shadow: var(--shadow-md);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		line-height: 1.4;
-		text-align: left;
-	}
-
-	.cell-details span {
-		display: block;
-	}
-
-	.status-button:hover .cell-details,
-	.status-button:focus-visible .cell-details {
-		display: block;
-	}
-
-	.status-cell[data-status='current'] {
-		background: var(--cell-current-bg);
-		color: var(--cell-current-ink);
-	}
-
-	.status-cell[data-status='expiring-soon'] {
-		background: var(--cell-expiring-bg);
-		color: var(--cell-expiring-ink);
-	}
-
-	.status-cell[data-status='expired'] {
-		background: var(--cell-expired-bg);
-		color: var(--cell-expired-ink);
-	}
-
-	.status-cell[data-status='not-recorded'] {
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-	}
-
-	.not-applicable {
-		background:
-			repeating-linear-gradient(
-				45deg,
-				transparent,
-				transparent 4px,
-				color-mix(in srgb, var(--text-primary) 6%, transparent) 4px,
-				color-mix(in srgb, var(--text-primary) 6%, transparent) 5px
-			),
-			var(--surface-panel);
-	}
-
-	.empty-row {
-		padding: var(--sp-6);
-		color: var(--text-secondary);
-		text-align: center;
-	}
-
-	tr:hover .person-cell,
-	tr:hover .status-cell[data-status='not-recorded'] {
-		background-color: var(--matrix-paper-2);
-	}
-
-	@media (max-width: 640px) {
-		.person-header,
-		.person-cell {
-			width: 13rem;
-			min-width: 13rem;
-			max-width: 13rem;
-		}
-
-		.task-header,
-		.status-cell {
-			width: 2.25rem;
-			min-width: 2.25rem;
-			max-width: 2.25rem;
-		}
-
-		.task-header {
-			height: 7.5rem;
-		}
-
-		.task-header-labels {
-			left: 1.78rem;
-			width: 5.6rem;
-			gap: 3px;
-		}
-
-		.task-title-short {
-			font-size: 0.5rem;
-		}
-
-		.legend-item--na {
-			margin-left: 0;
-		}
-	}
-</style>
+			</OperationalMatrix.Body>
+		</OperationalMatrix.Table>
+	</OperationalMatrix.Viewport>
+</OperationalMatrix.Root>

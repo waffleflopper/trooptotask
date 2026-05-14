@@ -1,11 +1,18 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { TrainingStatusBadge } from '$lib/components/ui/requirement-status-badge';
 
 	interface TrainingEditState {
 		isComplete: boolean;
@@ -29,7 +36,6 @@
 
 	let { person, trainingTypes, trainings, onSave, onRemove, onClose, onToggleExempt }: Props = $props();
 
-	// Create a map of existing trainings for this person
 	const trainingMap = $derived.by(() => {
 		const map = new SvelteMap<string, PersonnelTraining>();
 		for (const t of trainings) {
@@ -40,10 +46,8 @@
 		return map;
 	});
 
-	// Track editing state for each training type
 	const editingStates = new SvelteMap<string, TrainingEditState>();
 
-	// Initialize editing states on mount
 	$effect(() => {
 		editingStates.clear();
 
@@ -63,7 +67,6 @@
 		}
 	});
 
-	// Get training status for display
 	function getStatusInfo(typeId: string) {
 		const type = trainingTypes.find((t) => t.id === typeId);
 		const training = trainingMap.get(typeId);
@@ -71,7 +74,6 @@
 		return getTrainingStatus(training, type, person);
 	}
 
-	// Calculate summary stats
 	const stats = $derived.by(() => {
 		let current = 0,
 			warningYellow = 0,
@@ -142,7 +144,6 @@
 			certificateUrl: null
 		});
 
-		// Update local state
 		editingStates.set(typeId, {
 			isComplete: true,
 			completionDate: today,
@@ -154,7 +155,6 @@
 		});
 	}
 
-	// Mark as complete without a date (for never-expires training)
 	async function markComplete(typeId: string) {
 		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!type || type.expirationMonths !== null) return;
@@ -168,7 +168,6 @@
 			certificateUrl: null
 		});
 
-		// Update local state
 		editingStates.set(typeId, {
 			isComplete: true,
 			completionDate: '',
@@ -188,10 +187,8 @@
 		const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 
 		if (type.expirationDateOnly) {
-			// Expiration-date-only: require the expiration date, completionDate is null
 			if (!state.directExpirationDate) return;
 		} else if (!neverExpires && !state.completionDate) {
-			// For expiring training, date is required
 			return;
 		}
 
@@ -209,7 +206,6 @@
 			certificateUrl: state.certificateUrl.trim() || null
 		});
 
-		// Mark as saved
 		editingStates.set(typeId, { ...state, isComplete: true, isEditing: false, isDirty: false });
 	}
 
@@ -233,7 +229,6 @@
 
 		await onRemove(existing.id);
 
-		// Reset local state
 		editingStates.set(typeId, {
 			isComplete: false,
 			completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
@@ -251,9 +246,7 @@
 
 	async function doMarkAllCompleted() {
 		showMarkAllConfirm = false;
-		// Skip expiration-date-only types — they need individual expiration dates
 		const applicableTypes = trainingTypes.filter((t) => !t.expirationDateOnly);
-
 		const today = formatDate(new Date());
 
 		for (const type of applicableTypes) {
@@ -298,266 +291,198 @@
 	}
 </script>
 
-<Modal title="Training Records" {onClose} width="600px" titleId="person-training-title">
-	{#snippet headerActions()}
-		<div class="person-badge">
-			<span class="person-rank">{person.rank}</span>
-			<span class="person-name">{person.lastName}, {person.firstName}</span>
-		</div>
-	{/snippet}
-	{#snippet footer()}
-		<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
-	{/snippet}
+<AppDialog.Root {onClose}>
+	<AppDialog.Content size="wide">
+		<AppDialog.Header>
+			<AppDialog.Title>Training Records</AppDialog.Title>
+			<AppDialog.Description>{person.rank} {person.lastName}, {person.firstName}</AppDialog.Description>
+		</AppDialog.Header>
 
-	<div class="stats-summary">
-		<div class="stat current">
-			<span class="stat-value">{stats.current}</span>
-			<span class="stat-label">Current</span>
-		</div>
-		<div class="stat warning-yellow">
-			<span class="stat-value">{stats.warningYellow}</span>
-			<span class="stat-label">&lt;60d</span>
-		</div>
-		<div class="stat warning-orange">
-			<span class="stat-value">{stats.warningOrange}</span>
-			<span class="stat-label">&lt;30d</span>
-		</div>
-		<div class="stat expired">
-			<span class="stat-value">{stats.expired}</span>
-			<span class="stat-label">Expired</span>
-		</div>
-		<div class="stat not-done">
-			<span class="stat-value">{stats.notCompleted}</span>
-			<span class="stat-label">Not Done</span>
-		</div>
-	</div>
-
-	<div class="bulk-actions">
-		<button class="btn btn-primary btn-sm" type="button" onclick={markAllCompletedToday}>
-			Mark All Completed Today
-		</button>
-	</div>
-
-	<div class="modal-body">
-		<div class="training-list">
-			{#each trainingTypes as type (type.id)}
-				{@const existing = trainingMap.get(type.id)}
-				{@const status = getStatusInfo(type.id)}
-				{@const state = editingStates.get(type.id)}
-				{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}
-				<div class="training-item" class:has-record={!!existing} class:editing={state?.isEditing}>
-					<div class="training-header">
-						<div class="training-info">
-							<span class="training-badge" style="background-color: {type.color}">
-								{type.name}
-							</span>
-							<span class="status-badge" style="background-color: {status.color}" data-status={status.status}>
-								{status.label}
-							</span>
+		<AppDialog.Body>
+			<div class="grid gap-4">
+				<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+					{#each [['Current', stats.current, 'success'], ['<60d', stats.warningYellow, 'warning'], ['<30d', stats.warningOrange, 'warning'], ['Expired', stats.expired, 'destructive'], ['Not Done', stats.notCompleted, 'outline']] as item (item[0])}
+						<div class="rounded-lg border border-border bg-card p-3 text-center">
+							<div class="text-xl font-semibold text-foreground">{item[1]}</div>
+							<Badge variant={item[2] as 'success' | 'warning' | 'destructive' | 'outline'}>{item[0]}</Badge>
 						</div>
-						<div class="training-actions">
-							{#if !state?.isEditing}
-								{#if type.canBeExempted && onToggleExempt}
-									<button
-										class="btn btn-sm {isExempt ? 'btn-danger' : 'btn-secondary'}"
-										type="button"
-										onclick={() => onToggleExempt(type.id, !isExempt)}
-										title={isExempt ? 'Remove exemption' : 'Mark as exempt'}
-									>
-										{isExempt ? 'Unexempt' : 'Exempt'}
-									</button>
-								{/if}
-								{#if !isExempt}
-									{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
-									{#if type.expirationDateOnly}
-										<!-- Expiration-date-only: no quick action, must use Edit -->
-									{:else if neverExpires && !existing}
-										<button
-											class="btn btn-primary btn-sm"
-											type="button"
-											onclick={() => markComplete(type.id)}
-											title="Mark as complete"
-										>
-											Complete
-										</button>
-									{:else}
-										<button
-											class="btn btn-primary btn-sm"
-											type="button"
-											onclick={() => markCompletedToday(type.id)}
-											title="Mark as completed today"
-										>
-											Today
-										</button>
-									{/if}
-									<button class="btn btn-secondary btn-sm" type="button" onclick={() => toggleEdit(type.id)}>
-										{existing ? 'Edit' : 'Add'}
-									</button>
-									{#if existing}
-										<button
-											class="btn btn-danger btn-sm"
-											type="button"
-											onclick={() => removeTraining(type.id)}
-											title="Remove record"
-										>
-											&times;
-										</button>
-									{/if}
-								{/if}
-							{/if}
-						</div>
-					</div>
-
-					{#if existing && !state?.isEditing}
-						<div class="training-details">
-							{#if existing.completionDate}
-								<span class="detail-item">
-									<span class="detail-label">Completed:</span>
-									<span class="detail-value">{existing.completionDate}</span>
-								</span>
-							{:else}
-								<span class="detail-item">
-									<span class="detail-label">Status:</span>
-									<span class="detail-value">Complete (no date)</span>
-								</span>
-							{/if}
-							{#if existing.expirationDate}
-								<span class="detail-item">
-									<span class="detail-label">Expires:</span>
-									<span class="detail-value">{existing.expirationDate}</span>
-								</span>
-							{/if}
-							{#if existing.notes}
-								<span class="detail-item notes">
-									<span class="detail-label">Notes:</span>
-									<span class="detail-value">{existing.notes}</span>
-								</span>
-							{/if}
-						</div>
-					{/if}
-
-					{#if state?.isEditing}
-						{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
-						<div class="edit-form">
-							{#if type.expirationDateOnly}
-								<div class="form-row">
-									<div class="form-group">
-										<label class="label" for="date-{type.id}">Expiration Date</label>
-										<input
-											type="date"
-											id="date-{type.id}"
-											class="input"
-											value={state.directExpirationDate}
-											oninput={(e) => updateField(type.id, 'directExpirationDate', e.currentTarget.value)}
-											required
-										/>
-									</div>
-									<div class="form-group expiration-preview">
-										<span class="label">Status:</span>
-										<span class="preview-value">
-											{state.directExpirationDate
-												? state.directExpirationDate >= formatDate(new Date())
-													? 'Current'
-													: 'Expired'
-												: 'Set date'}
-										</span>
-									</div>
-								</div>
-							{:else if neverExpires}
-								<div class="form-group checkbox-group">
-									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											checked={state.isComplete}
-											onchange={(e) => updateField(type.id, 'isComplete', e.currentTarget.checked)}
-										/>
-										<span class="checkbox-text">Mark as Complete</span>
-									</label>
-								</div>
-								<div class="form-row">
-									<div class="form-group">
-										<label class="label" for="date-{type.id}">Completion Date (Optional)</label>
-										<input
-											type="date"
-											id="date-{type.id}"
-											class="input"
-											value={state.completionDate}
-											oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
-											disabled={!state.isComplete}
-										/>
-									</div>
-									<div class="form-group expiration-preview">
-										<span class="label">Expires:</span>
-										<span class="preview-value">Never</span>
-									</div>
-								</div>
-							{:else}
-								<div class="form-row">
-									<div class="form-group">
-										<label class="label" for="date-{type.id}">Completion Date</label>
-										<input
-											type="date"
-											id="date-{type.id}"
-											class="input"
-											value={state.completionDate}
-											oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
-											required
-										/>
-									</div>
-									<div class="form-group expiration-preview">
-										<span class="label">Expires:</span>
-										<span class="preview-value">
-											{calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Set date'}
-										</span>
-									</div>
-								</div>
-							{/if}
-							<div class="form-group">
-								<label class="label" for="notes-{type.id}">Notes</label>
-								<input
-									type="text"
-									id="notes-{type.id}"
-									class="input"
-									value={state.notes}
-									oninput={(e) => updateField(type.id, 'notes', e.currentTarget.value)}
-									placeholder="Optional notes..."
-								/>
-							</div>
-							<div class="form-group">
-								<label class="label" for="cert-{type.id}">Certificate URL</label>
-								<input
-									type="url"
-									id="cert-{type.id}"
-									class="input"
-									value={state.certificateUrl}
-									oninput={(e) => updateField(type.id, 'certificateUrl', e.currentTarget.value)}
-									placeholder="https://..."
-								/>
-							</div>
-							<div class="edit-actions">
-								<button class="btn btn-secondary btn-sm" type="button" onclick={() => cancelEdit(type.id)}>
-									Cancel
-								</button>
-								<button
-									class="btn btn-primary btn-sm"
-									type="button"
-									onclick={() => saveTraining(type.id)}
-									disabled={type.expirationDateOnly
-										? !state.directExpirationDate
-										: neverExpires
-											? !state.isComplete
-											: !state.completionDate}
-								>
-									Save
-								</button>
-							</div>
-						</div>
-					{/if}
+					{/each}
 				</div>
-			{/each}
-		</div>
-	</div>
-</Modal>
+
+				<div class="flex justify-end">
+					<Button type="button" size="sm" onclick={markAllCompletedToday}>Mark All Completed Today</Button>
+				</div>
+
+				<div class="grid gap-3">
+					{#each trainingTypes as type (type.id)}
+						{@const existing = trainingMap.get(type.id)}
+						{@const status = getStatusInfo(type.id)}
+						{@const state = editingStates.get(type.id)}
+						{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}
+						<section class="rounded-lg border border-border bg-card">
+							<div
+								class="flex flex-col gap-3 border-b border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+							>
+								<div class="flex min-w-0 flex-wrap items-center gap-2">
+									<Badge style={`background-color: ${type.color}`}>{type.name}</Badge>
+									<TrainingStatusBadge status={status.status} />
+								</div>
+								{#if !state?.isEditing}
+									<div class="flex flex-wrap justify-end gap-2">
+										{#if type.canBeExempted && onToggleExempt}
+											<Button
+												variant={isExempt ? 'destructive' : 'outline'}
+												size="sm"
+												type="button"
+												onclick={() => onToggleExempt?.(type.id, !isExempt)}
+											>
+												{isExempt ? 'Unexempt' : 'Exempt'}
+											</Button>
+										{/if}
+										{#if !isExempt}
+											{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+											{#if type.expirationDateOnly}
+												<!-- Expiration-date-only training must be edited manually. -->
+											{:else if neverExpires && !existing}
+												<Button size="sm" type="button" onclick={() => markComplete(type.id)}>Complete</Button>
+											{:else}
+												<Button size="sm" type="button" onclick={() => markCompletedToday(type.id)}>Today</Button>
+											{/if}
+											<Button variant="outline" size="sm" type="button" onclick={() => toggleEdit(type.id)}>
+												{existing ? 'Edit' : 'Add'}
+											</Button>
+											{#if existing}
+												<Button
+													variant="destructive"
+													size="sm"
+													type="button"
+													aria-label={`Remove ${type.name} record`}
+													onclick={() => removeTraining(type.id)}
+												>
+													Delete
+												</Button>
+											{/if}
+										{/if}
+									</div>
+								{/if}
+							</div>
+
+							{#if existing && !state?.isEditing}
+								<div class="flex flex-wrap gap-4 p-3 text-sm">
+									{#if existing.completionDate}
+										<span><span class="text-muted-foreground">Completed:</span> {existing.completionDate}</span>
+									{:else}
+										<span><span class="text-muted-foreground">Status:</span> Complete (no date)</span>
+									{/if}
+									{#if existing.expirationDate}
+										<span><span class="text-muted-foreground">Expires:</span> {existing.expirationDate}</span>
+									{/if}
+									{#if existing.notes}
+										<span class="w-full"><span class="text-muted-foreground">Notes:</span> {existing.notes}</span>
+									{/if}
+								</div>
+							{/if}
+
+							{#if state?.isEditing}
+								{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+								<div class="grid gap-3 p-4">
+									{#if type.expirationDateOnly}
+										<Field.Root>
+											<Field.Label for="date-{type.id}">Expiration Date</Field.Label>
+											<DatePicker
+												id="date-{type.id}"
+												value={state.directExpirationDate}
+												onValueChange={(value) => updateField(type.id, 'directExpirationDate', value)}
+											/>
+											<Field.Description>
+												Status: {state.directExpirationDate
+													? state.directExpirationDate >= formatDate(new Date())
+														? 'Current'
+														: 'Expired'
+													: 'Set date'}
+											</Field.Description>
+										</Field.Root>
+									{:else if neverExpires}
+										<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-muted/30 p-3">
+											<Checkbox
+												id="complete-{type.id}"
+												checked={state.isComplete}
+												onCheckedChange={(checked) => updateField(type.id, 'isComplete', checked)}
+											/>
+											<Field.Label for="complete-{type.id}">Mark as Complete</Field.Label>
+										</Field.Root>
+										<Field.Root>
+											<Field.Label for="date-{type.id}">Completion Date (Optional)</Field.Label>
+											<DatePicker
+												id="date-{type.id}"
+												value={state.completionDate}
+												disabled={!state.isComplete}
+												onValueChange={(value) => updateField(type.id, 'completionDate', value)}
+											/>
+											<Field.Description>Expires: Never</Field.Description>
+										</Field.Root>
+									{:else}
+										<Field.Root>
+											<Field.Label for="date-{type.id}">Completion Date</Field.Label>
+											<DatePicker
+												id="date-{type.id}"
+												value={state.completionDate}
+												onValueChange={(value) => updateField(type.id, 'completionDate', value)}
+											/>
+											<Field.Description>
+												Expires: {calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Set date'}
+											</Field.Description>
+										</Field.Root>
+									{/if}
+
+									<Field.Root>
+										<Field.Label for="notes-{type.id}">Notes</Field.Label>
+										<Input
+											id="notes-{type.id}"
+											value={state.notes}
+											oninput={(e) => updateField(type.id, 'notes', e.currentTarget.value)}
+											placeholder="Optional notes..."
+										/>
+									</Field.Root>
+									<Field.Root>
+										<Field.Label for="cert-{type.id}">Certificate URL</Field.Label>
+										<Input
+											id="cert-{type.id}"
+											type="url"
+											value={state.certificateUrl}
+											oninput={(e) => updateField(type.id, 'certificateUrl', e.currentTarget.value)}
+											placeholder="https://..."
+										/>
+									</Field.Root>
+									<div class="flex justify-end gap-2">
+										<Button variant="outline" size="sm" type="button" onclick={() => cancelEdit(type.id)}>Cancel</Button
+										>
+										<Button
+											size="sm"
+											type="button"
+											onclick={() => saveTraining(type.id)}
+											disabled={type.expirationDateOnly
+												? !state.directExpirationDate
+												: neverExpires
+													? !state.isComplete
+													: !state.completionDate}
+										>
+											Save
+										</Button>
+									</div>
+								</div>
+							{/if}
+						</section>
+					{/each}
+				</div>
+			</div>
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if confirmRemoveTypeId}
 	<ConfirmDialog
@@ -581,299 +506,3 @@
 		onCancel={() => (showMarkAllConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.person-badge {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		font-size: var(--text-sm);
-	}
-
-	.person-rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.person-name {
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.stats-summary {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-5);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border-bottom: var(--border-thin);
-	}
-
-	.stat {
-		text-align: center;
-		padding: var(--sp-3);
-		border-radius: var(--radius-md);
-		min-width: 50px;
-		border: var(--border-thin);
-	}
-
-	.stat.current {
-		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
-		border-color: color-mix(in srgb, var(--success) 28%, var(--border-default));
-	}
-	.stat.warning-yellow {
-		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--amber) 28%, var(--border-default));
-	}
-	.stat.warning-orange {
-		background: color-mix(in srgb, var(--warning-bg) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--warning) 28%, var(--border-default));
-	}
-	.stat.expired {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border-color: color-mix(in srgb, var(--danger) 28%, var(--border-default));
-	}
-	.stat.not-done {
-		background: color-mix(in srgb, var(--surface-subtle) 66%, var(--surface-panel) 34%);
-		border-color: var(--border-default);
-	}
-
-	.stat-value {
-		display: block;
-		font-family: var(--font-display);
-		font-weight: var(--font-weight-display);
-		font-size: clamp(1.45rem, 1.15rem + 0.35vw, 1.7rem);
-	}
-
-	.stat-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.bulk-actions {
-		display: flex;
-		justify-content: flex-end;
-		padding: var(--sp-4) var(--sp-5);
-		border-bottom: var(--border-thin);
-	}
-
-	.training-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.training-item {
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-		overflow: hidden;
-	}
-
-	.training-item.has-record {
-		border-color: color-mix(in srgb, var(--amber) 20%, var(--border-default));
-	}
-
-	.training-item.editing {
-		border-color: color-mix(in srgb, var(--amber) 34%, var(--border-default));
-	}
-
-	.training-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-	}
-
-	.training-info {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.training-badge {
-		padding: var(--sp-2) var(--sp-3);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-semibold);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.status-badge {
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.training-actions {
-		display: flex;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-		justify-content: flex-end;
-	}
-
-	.training-details {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		font-size: var(--text-sm);
-	}
-
-	.detail-item {
-		display: flex;
-		gap: var(--sp-1);
-	}
-
-	.detail-item.notes {
-		width: 100%;
-	}
-
-	.detail-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.detail-value {
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.edit-form {
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 26%, var(--surface-panel) 74%);
-		border-top: var(--border-thin);
-	}
-
-	.form-row {
-		display: flex;
-		gap: var(--sp-4);
-		align-items: flex-end;
-		margin-bottom: var(--sp-2);
-	}
-
-	.form-row .form-group {
-		margin-bottom: 0;
-	}
-
-	.form-group {
-		margin-bottom: var(--sp-2);
-	}
-
-	.form-group:last-of-type {
-		margin-bottom: 0;
-	}
-
-	.expiration-preview {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.preview-value {
-		font-weight: 500;
-		color: var(--text-primary);
-	}
-
-	.edit-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--sp-2);
-		margin-top: var(--sp-4);
-	}
-
-	.checkbox-group {
-		margin-bottom: var(--sp-2);
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		cursor: pointer;
-		padding: var(--sp-2);
-		background: var(--surface-page);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--border-default);
-	}
-
-	.checkbox-label:hover {
-		border-color: var(--amber);
-	}
-
-	.checkbox-label input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--amber);
-		cursor: pointer;
-	}
-
-	.checkbox-text {
-		font-weight: 500;
-	}
-
-	/* Mobile Responsive */
-	@media (max-width: 640px) {
-		.stats-summary {
-			flex-wrap: wrap;
-			gap: var(--sp-1);
-		}
-
-		.stat {
-			min-width: 45px;
-			padding: var(--sp-1);
-		}
-
-		.stat-value {
-			font-size: var(--text-ui-sm);
-		}
-
-		.training-header {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: var(--sp-2);
-		}
-
-		.training-actions {
-			width: 100%;
-			justify-content: flex-end;
-		}
-
-		.form-row {
-			flex-direction: column;
-		}
-
-		.training-details {
-			flex-direction: column;
-			gap: var(--sp-1);
-		}
-	}
-
-	/* Dark mode overrides for light-colored status badges */
-	:global([data-theme='dark']) .status-badge[data-status='not-required'] {
-		background-color: #4b5563 !important;
-	}
-
-	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
-		background-color: var(--text-tertiary) !important;
-	}
-</style>

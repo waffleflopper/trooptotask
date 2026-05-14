@@ -2,10 +2,15 @@
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		personnel?: Personnel | null;
@@ -17,27 +22,15 @@
 
 	let { personnel = null, groups, onSubmit, onRemove, onClose }: Props = $props();
 
-	let rank = $state('SPC');
-	let firstName = $state('');
-	let lastName = $state('');
-	let mos = $state('');
-	let clinicRole = $state('');
-	let ets = $state('');
-	let deros = $state('');
-	let groupId = $state('');
+	let rank = $state(untrack(() => personnel?.rank ?? 'SPC'));
+	let firstName = $state(untrack(() => personnel?.firstName ?? ''));
+	let lastName = $state(untrack(() => personnel?.lastName ?? ''));
+	let mos = $state(untrack(() => personnel?.mos ?? ''));
+	let clinicRole = $state(untrack(() => personnel?.clinicRole ?? ''));
+	let ets = $state(untrack(() => personnel?.ets ?? ''));
+	let deros = $state(untrack(() => personnel?.deros ?? ''));
+	let groupId = $state(untrack(() => personnel?.groupId ?? ''));
 	let submitAttempted = $state(false);
-
-	$effect(() => {
-		rank = personnel?.rank ?? 'SPC';
-		firstName = personnel?.firstName ?? '';
-		lastName = personnel?.lastName ?? '';
-		mos = personnel?.mos ?? '';
-		clinicRole = personnel?.clinicRole ?? '';
-		ets = personnel?.ets ?? '';
-		deros = personnel?.deros ?? '';
-		groupId = personnel?.groupId ?? '';
-		submitAttempted = false;
-	});
 
 	const isEditing = $derived(!!personnel);
 	const firstNameMissing = $derived(firstName.trim() === '');
@@ -132,83 +125,113 @@
 	}
 </script>
 
-<Modal title={isEditing ? 'Edit Personnel' : 'Add Personnel'} {onClose} titleId="personnel-title" canClose={!isSaving}>
-	<form class="personnel-form" onsubmit={handleSubmit}>
-		<FormField label="Rank" id="rank">
-			<SearchSelect id="rank" options={rankOptions} bind:value={rank} placeholder="Select rank..." clearable={false} />
-		</FormField>
+<AppDialog.Root open closeBlocked={isSaving} {onClose}>
+	<AppDialog.Content closeBlocked={isSaving}>
+		<AppDialog.Header class="px-4 pt-4">
+			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
+		</AppDialog.Header>
 
-		<div class="form-row">
-			<FormField
-				label="Last Name"
-				id="lastName"
-				placeholder="Smith"
-				required
-				error={lastNameError}
-				bind:value={lastName}
-			/>
-			<FormField
-				label="First Name"
-				id="firstName"
-				placeholder="John"
-				required
-				error={firstNameError}
-				bind:value={firstName}
-			/>
-		</div>
+		<AppDialog.Body>
+			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
+				<div class="grid gap-2">
+					<Label for="rank">Rank</Label>
+					<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
+						<Combobox.Trigger id="rank" placeholder="Select rank..." aria-label="Rank" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="Select rank..." />
+							<Combobox.Empty>No ranks found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
+				</div>
 
-		<div class="form-row">
-			<FormField label="MOS / Job Title" id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
-			<FormField label="Duty Role" id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
-		</div>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="lastName">Last Name</Label>
+						<Input
+							id="lastName"
+							placeholder="Smith"
+							required
+							aria-invalid={!!lastNameError}
+							aria-describedby={lastNameError ? 'lastName-error' : undefined}
+							bind:value={lastName}
+						/>
+						{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
+					</div>
+					<div class="grid gap-2">
+						<Label for="firstName">First Name</Label>
+						<Input
+							id="firstName"
+							placeholder="John"
+							required
+							aria-invalid={!!firstNameError}
+							aria-describedby={firstNameError ? 'firstName-error' : undefined}
+							bind:value={firstName}
+						/>
+						{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
+					</div>
+				</div>
 
-		<div class="form-row">
-			<FormField label="ETS" id="ets" type="date" bind:value={ets} />
-			<FormField label="PCS / DEROS" id="deros" type="date" bind:value={deros} />
-		</div>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="mos">MOS / Job Title</Label>
+						<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+					</div>
+					<div class="grid gap-2">
+						<Label for="clinicRole">Duty Role</Label>
+						<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
+					</div>
+				</div>
 
-		<FormField label="Group" id="group">
-			<SearchSelect id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
-		</FormField>
-	</form>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="ets">ETS</Label>
+						<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+					</div>
+					<div class="grid gap-2">
+						<Label for="deros">PCS / DEROS</Label>
+						<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
+					</div>
+				</div>
 
-	{#snippet footer()}
-		{#if isEditing && onRemove}
-			<button
-				type="button"
-				class="btn btn-warning archive-btn"
-				data-testid="personnel-archive"
-				onclick={handleArchive}
-				disabled={isSaving}
-			>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-					<path
-						fill-rule="evenodd"
-						d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				Archive
-			</button>
-		{/if}
-		<div class="spacer"></div>
-		<button type="button" class="btn btn-secondary" onclick={onClose} disabled={isSaving}>Cancel</button>
-		<button
-			type="button"
-			class="btn btn-primary"
-			data-testid="personnel-save"
-			disabled={isSaving}
-			onclick={handleSubmit}
-		>
-			{#if isSaving}
-				Saving...
-			{:else}
-				{isEditing ? 'Save Changes' : 'Add Personnel'}
+				<div class="grid gap-2">
+					<Label for="group">Group</Label>
+					<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
+						<Combobox.Trigger id="group" clearable placeholder="No Group Assigned" aria-label="Group" />
+						<Combobox.Content>
+							<Combobox.Search placeholder="No Group Assigned" />
+							<Combobox.Empty>No groups found.</Combobox.Empty>
+							<Combobox.List />
+						</Combobox.Content>
+					</Combobox.Root>
+				</div>
+			</form>
+		</AppDialog.Body>
+
+		<AppDialog.Footer>
+			{#if isEditing && onRemove}
+				<Button
+					type="button"
+					variant="destructive"
+					data-testid="personnel-archive"
+					onclick={handleArchive}
+					disabled={isSaving}
+				>
+					<ArchiveIcon />
+					Archive
+				</Button>
 			{/if}
-		</button>
-	{/snippet}
-</Modal>
+			<Button type="button" variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
+			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={isSaving}>
+				{#if isSaving}
+					Saving...
+				{:else}
+					{isEditing ? 'Save Changes' : 'Add Personnel'}
+				{/if}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if showArchiveConfirm && personnel}
 	<ConfirmDialog
@@ -220,29 +243,3 @@
 		onCancel={() => (showArchiveConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.personnel-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--sp-4);
-	}
-
-	.archive-btn {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	@media (max-width: 640px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

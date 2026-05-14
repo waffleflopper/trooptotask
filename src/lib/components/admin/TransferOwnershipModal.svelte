@@ -1,6 +1,11 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Field from '$lib/components/ui/field';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	interface Member {
 		userId: string;
@@ -54,82 +59,58 @@
 	}
 </script>
 
-<Modal title="Transfer Ownership" {onClose} width="500px" canClose={!saving}>
-	<div class="modal-stack">
-		<div class="warning-box">
-			<strong>Irreversible action</strong>
-			<p>The current owner will be demoted to admin as soon as the transfer completes.</p>
-		</div>
+<AppDialog.Root open closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving}>
+		<AppDialog.Header>
+			<AppDialog.Title>Transfer Ownership</AppDialog.Title>
+		</AppDialog.Header>
+		<AppDialog.Body class="flex flex-col gap-4">
+			<Alert.Root variant="warning">
+				<Alert.Title>Irreversible action</Alert.Title>
+				<Alert.Description
+					>The current owner will be demoted to admin as soon as the transfer completes.</Alert.Description
+				>
+			</Alert.Root>
 
-		<div class="form-group">
-			<label for="new-owner" class="label">New Owner</label>
-			<select id="new-owner" class="select" bind:value={selectedUserId} disabled={saving}>
-				<option value="">Select a member...</option>
-				{#each eligibleMembers as member (member.userId)}
-					<option value={member.userId}>{member.email} ({member.role})</option>
-				{/each}
-			</select>
-		</div>
+			<Field.Root>
+				<Field.Label for="new-owner">New Owner</Field.Label>
+				<Field.Control>
+					<NativeSelect id="new-owner" bind:value={selectedUserId} disabled={saving}>
+						<option value="">Select a member...</option>
+						{#each eligibleMembers as member (member.userId)}
+							<option value={member.userId}>{member.email} ({member.role})</option>
+						{/each}
+					</NativeSelect>
+				</Field.Control>
+			</Field.Root>
 
-		<div class="form-group">
-			<label for="confirm-name" class="label">Type {orgName} to confirm</label>
-			<input
-				id="confirm-name"
-				type="text"
-				class="input"
-				bind:value={confirmName}
-				placeholder={orgName}
-				disabled={saving}
-				autocomplete="off"
-			/>
-		</div>
+			<Field.Root>
+				<Field.Label for="confirm-name">Type {orgName} to confirm</Field.Label>
+				<Field.Control>
+					<Input
+						id="confirm-name"
+						type="text"
+						bind:value={confirmName}
+						placeholder={orgName}
+						disabled={saving}
+						autocomplete="off"
+					/>
+				</Field.Control>
+			</Field.Root>
 
-		{#if errorMsg}
-			<p class="text-error error-msg">{errorMsg}</p>
-		{/if}
-	</div>
+			{#if errorMsg}
+				<Alert.Root variant="destructive">
+					<Alert.Description>{errorMsg}</Alert.Description>
+				</Alert.Root>
+			{/if}
+		</AppDialog.Body>
 
-	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
-		<button class="btn btn-danger" onclick={handleTransfer} disabled={!canConfirm}>
-			{#if saving}<Spinner />{/if}
-			{saving ? 'Transferring...' : 'Transfer Ownership'}
-		</button>
-	{/snippet}
-</Modal>
-
-<style>
-	.modal-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-
-	.warning-box {
-		padding: var(--sp-4);
-		border: 1px solid color-mix(in srgb, var(--amber-dark) 36%, var(--ink-15) 64%);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
-	}
-
-	.warning-box strong,
-	.warning-box p,
-	.error-msg {
-		margin: 0;
-	}
-
-	.warning-box strong {
-		display: block;
-		margin-bottom: var(--sp-1);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.warning-box p {
-		font-size: var(--text-sm);
-		line-height: 1.6;
-	}
-</style>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
+			<Button variant="destructive" onclick={handleTransfer} disabled={!canConfirm}>
+				{#if saving}<Spinner />{/if}
+				{saving ? 'Transferring...' : 'Transfer Ownership'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

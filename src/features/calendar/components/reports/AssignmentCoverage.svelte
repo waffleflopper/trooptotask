@@ -3,9 +3,14 @@
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { AssignmentCoverageResult, CoverageRow } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -176,8 +181,7 @@
 		URL.revokeObjectURL(url);
 	}
 
-	// --- useDataTable for sorting ---
-	const tableColumns: ColumnDef<CoverageRow>[] = [
+	const tableColumns = $derived.by<ColumnDef<CoverageRow>[]>(() => [
 		{
 			key: 'rank',
 			header: 'Rank',
@@ -189,17 +193,34 @@
 			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
+		...displayTypes.map((assignmentType) => ({
+			key: `assignment:${assignmentType.id}`,
+			header: assignmentType.name,
+			value: (r: CoverageRow) => r.assignmentCounts.get(assignmentType.id) ?? 0,
+			searchable: false,
+			sortable: false,
+			align: 'center' as const
+		})),
 		{
 			key: 'totalAssignments',
 			header: 'Total',
 			value: (r) => r.totalAssignments,
-			compare: (a, b) => a.totalAssignments - b.totalAssignments
+			compare: (a, b) => a.totalAssignments - b.totalAssignments,
+			align: 'center'
+		},
+		{
+			key: 'vsAvg',
+			header: 'vs Avg',
+			value: (r) => Math.round((r.totalAssignments - (result?.averageTotal ?? 0)) * 10) / 10,
+			searchable: false,
+			sortable: false,
+			align: 'center'
 		}
-	];
+	]);
 
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
-		columns: tableColumns,
+		columns: () => tableColumns,
 		initialSortKey: 'name'
 	});
 </script>
@@ -208,10 +229,9 @@
 	<div class="config-section">
 		<h3>Date Range</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Year</span>
-				<select
-					class="select"
+			<Field.Root>
+				<Field.Label>Year</Field.Label>
+				<NativeSelect
 					value={selectedYear ?? ''}
 					onchange={(e) => {
 						const val = e.currentTarget.value;
@@ -222,24 +242,24 @@
 					{#each yearOptions as year (year)}
 						<option value={year}>{year}</option>
 					{/each}
-				</select>
-			</label>
-			<label class="form-group">
-				<span class="label">Start</span>
-				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
-			</label>
-			<label class="form-group">
-				<span class="label">End</span>
-				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
-			</label>
+				</NativeSelect>
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>Start</Field.Label>
+				<DatePicker bind:value={startDate} onValueChange={handleDateChange} placeholder="Select start date" />
+			</Field.Root>
+			<Field.Root>
+				<Field.Label>End</Field.Label>
+				<DatePicker bind:value={endDate} onValueChange={handleDateChange} placeholder="Select end date" />
+			</Field.Root>
 		</div>
 	</div>
 
 	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate}>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -252,9 +272,9 @@
 		<div class="type-filter">
 			<div class="type-filter-header">
 				<h3>Assignment Types</h3>
-				<button class="btn btn-sm btn-secondary" onclick={toggleAllTypes}>
+				<Button variant="outline" size="sm" onclick={toggleAllTypes}>
 					{selectedTypeIds.size === personnelAssignmentTypes.length ? 'Deselect All' : 'Select All'}
-				</button>
+				</Button>
 				<span class="filter-count">
 					{selectedTypeIds.size} of {personnelAssignmentTypes.length} selected
 				</span>
@@ -279,98 +299,82 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0 || displayTypes.length === 0}
 			<p class="no-data">No assignment data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact striped">
-				<table aria-label="Assignment coverage report">
-					<thead>
-						<tr>
-							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
-							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
-							{#each displayTypes as at (at.id)}
-								<th class="col-data">
-									<span class="col-header-badge" style:background={at.color}>{at.name}</span>
-								</th>
-							{/each}
-							<th class="col-data col-total" onclick={() => table.toggleSort('totalAssignments')}>Total</th>
-							<th class="col-data col-vs-avg">vs Avg</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as row (row.person.id)}
-							{@const vsAvg = Math.round((row.totalAssignments - result.averageTotal) * 10) / 10}
-							<tr>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								{#each displayTypes as at (at.id)}
-									<td class="col-data">
-										{(row.assignmentCounts.get(at.id) ?? 0) > 0 ? row.assignmentCounts.get(at.id) : ''}
-									</td>
-								{/each}
-								<td class="col-data col-total">{row.totalAssignments > 0 ? row.totalAssignments : ''}</td>
-								<td class="col-data col-vs-avg">
-									{#if vsAvg > 0}
-										<span class="vs-above">+{vsAvg}</span>
-									{:else if vsAvg < 0}
-										<span class="vs-below">{vsAvg}</span>
-									{:else}
-										<span class="vs-even">0</span>
-									{/if}
-								</td>
-							</tr>
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Assignment coverage report"
+				compact
+				striped
+				emptyMessage="No assignment data found for the selected criteria."
+			>
+				{#snippet cell(row, column)}
+					{#if column.key === 'rank'}
+						{row.person.rank}
+					{:else if column.key === 'name'}
+						{row.person.lastName}, {row.person.firstName}
+					{:else if column.key.startsWith('assignment:')}
+						{column.value(row) || ''}
+					{:else if column.key === 'totalAssignments'}
+						{row.totalAssignments > 0 ? row.totalAssignments : ''}
+					{:else if column.key === 'vsAvg'}
+						{@const vsAvg = Number(column.value(row))}
+						{#if vsAvg > 0}
+							+{vsAvg}
+						{:else if vsAvg < 0}
+							{vsAvg}
+						{:else}
+							0
+						{/if}
+					{:else}
+						{String(column.value(row) ?? '')}
+					{/if}
+				{/snippet}
+
+				{#snippet footer()}
+					<p aria-label="Assignment coverage averages">
+						Average
+						{#each displayTypes as at (at.id)}
+							<span>{at.name}: {averageByType.get(at.id) ?? 0}</span>
 						{/each}
-					</tbody>
-					<tfoot>
-						<tr class="avg-row">
-							<td class="col-rank"></td>
-							<td class="col-name avg-label">Average</td>
-							{#each displayTypes as at (at.id)}
-								<td class="col-data">{averageByType.get(at.id) ?? 0}</td>
-							{/each}
-							<td class="col-data col-total">{result.averageTotal}</td>
-							<td class="col-data col-vs-avg"></td>
-						</tr>
-					</tfoot>
-				</table>
-			</div>
+						<span>Total: {result?.averageTotal ?? 0}</span>
+					</p>
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
 
 <style>
 	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.config-section h3 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
+		margin: 0 0 0.5rem 0;
 	}
 
 	.date-row {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		align-items: flex-end;
 		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
 	}
 
 	.config-actions {
@@ -379,58 +383,58 @@
 	}
 
 	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 10%, transparent);
+		border-radius: var(--radius);
+		margin-top: 0.5rem;
 	}
 
 	.type-filter {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
-		margin-top: var(--sp-4);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem;
+		margin-top: 1rem;
 	}
 
 	.type-filter-header {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.type-filter-header h3 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		margin: 0;
 	}
 
 	.filter-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 		margin-left: auto;
 	}
 
 	.type-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.type-chip {
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-pill);
-		font-size: var(--text-ui-sm);
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
 		cursor: pointer;
 		border: 2px solid var(--chip-color);
 		background: transparent;
-		color: var(--text-primary);
+		color: var(--foreground);
 		transition: all 0.15s ease;
 	}
 
@@ -440,159 +444,31 @@
 	}
 
 	.report-output {
-		margin-top: var(--sp-4);
+		margin-top: 1rem;
 	}
 
 	.report-toolbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--sp-2);
+		margin-bottom: 0.5rem;
 	}
 
 	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.no-data {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
+		color: var(--muted-foreground);
+		padding: 2rem;
 		font-style: italic;
-	}
-
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-		text-align: center;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.striped tbody tr:nth-child(even) {
-		background: var(--surface-subtle);
-	}
-
-	tbody tr:hover {
-		background: var(--surface-page);
-	}
-
-	.col-rank {
-		width: 60px;
-		font-weight: 600;
-		color: var(--amber);
-		text-align: left;
-	}
-
-	.col-name {
-		min-width: 150px;
-		text-align: left;
-	}
-
-	.col-data {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	.col-total {
-		font-weight: 600;
-	}
-
-	.col-vs-avg {
-		min-width: 70px;
-	}
-
-	.col-header-badge {
-		display: inline-block;
-		padding: 2px var(--sp-2);
-		border-radius: var(--radius-pill);
-		color: white;
-		font-size: var(--text-xs);
-		font-weight: 600;
-	}
-
-	.vs-above {
-		color: var(--success);
-		font-weight: 600;
-	}
-
-	.vs-below {
-		color: var(--danger);
-		font-weight: 600;
-	}
-
-	.vs-even {
-		color: var(--text-tertiary);
-	}
-
-	.avg-row {
-		background: var(--surface-subtle);
-		border-top: 2px solid var(--border-default);
-	}
-
-	.avg-row td {
-		font-weight: 600;
-		font-style: italic;
-	}
-
-	.avg-label {
-		text-align: left;
 	}
 
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

@@ -6,27 +6,27 @@ export interface ReportChartSeriesConvention {
 
 export const REPORT_CHART_SERIES: ReportChartSeriesConvention[] = [
 	{
-		color: 'var(--trend-unit)',
+		color: 'var(--chart-1)',
 		className: 'report-chart-line-solid',
 		patternLabel: 'solid line'
 	},
 	{
-		color: 'var(--trend-1)',
+		color: 'var(--chart-2)',
 		className: 'report-chart-line-short-dash',
 		patternLabel: 'short dash line'
 	},
 	{
-		color: 'var(--trend-2)',
+		color: 'var(--chart-3)',
 		className: 'report-chart-line-long-dash',
 		patternLabel: 'long dash line'
 	},
 	{
-		color: 'var(--trend-3)',
+		color: 'var(--chart-4)',
 		className: 'report-chart-line-dot-dash',
 		patternLabel: 'dot dash line'
 	},
 	{
-		color: 'var(--trend-4)',
+		color: 'var(--chart-5)',
 		className: 'report-chart-line-dotted',
 		patternLabel: 'dotted line'
 	}

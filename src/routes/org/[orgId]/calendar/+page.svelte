@@ -8,9 +8,8 @@
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
@@ -128,74 +127,44 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
-		<div class="workspace-loading__header">
-			<SkeletonLine width="136px" height="12px" />
-			<SkeletonLine width="88px" height="12px" />
+	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" aria-busy="true" aria-live="polite" role="status">
+		<div class="flex flex-wrap items-center gap-3">
+			<Skeleton class="h-3 w-34" />
+			<Skeleton class="h-3 w-22" />
 		</div>
-		<div class="workspace-loading__summary">
-			<SkeletonBlock height="96px" />
+		<Skeleton class="h-24 w-full rounded-lg" />
+		<div class="grid grid-cols-7 gap-1">
+			{#each { length: 49 }, index (index)}
+				<Skeleton class="h-20 rounded-md" />
+			{/each}
 		</div>
-		<SkeletonGrid rows={7} columns={7} cellWidth="minmax(0, 1fr)" cellHeight="82px" />
 	</section>
 {:else}
 	<CalendarPageView {ctx} data={viewData} />
 	{#if rangeCoordinator.loading}
-		<section class="workspace-support-notice" aria-live="polite" role="status">
-			<p>Loading additional calendar dates...</p>
+		<section
+			class="mx-3 mb-3 flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:mx-6 sm:mb-6"
+			aria-live="polite"
+			role="status"
+		>
+			<p class="m-0 text-sm text-foreground">Loading additional calendar dates...</p>
 		</section>
 	{:else if rangeCoordinator.error}
-		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
-			<p>Additional calendar data is temporarily unavailable.</p>
-			<button
-				class="btn btn-secondary btn-sm"
+		<section
+			class="mx-3 mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 sm:mx-6 sm:mb-6"
+			aria-live="polite"
+			role="status"
+		>
+			<p class="m-0 text-sm text-foreground">Additional calendar data is temporarily unavailable.</p>
+			<Button
+				variant="outline"
+				size="sm"
 				onclick={() => {
 					rangeCoordinator.retryFailedRange();
 				}}
 			>
 				Retry calendar load
-			</button>
+			</Button>
 		</section>
 	{/if}
 {/if}
-
-<style>
-	.workspace-loading {
-		display: grid;
-		gap: var(--sp-4);
-		padding: var(--sp-5) var(--sp-6) var(--sp-6);
-	}
-
-	.workspace-loading__header {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-3);
-		align-items: center;
-	}
-
-	.workspace-loading__summary {
-		display: grid;
-	}
-
-	.workspace-support-notice {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		margin: 0 var(--sp-6) var(--sp-6);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--amber) 12%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-	}
-
-	.workspace-support-notice p {
-		margin: 0;
-		font-size: var(--text-sm);
-		color: var(--text-default);
-	}
-
-	.workspace-support-notice--error {
-		background: color-mix(in srgb, var(--surface-panel) 82%, var(--danger) 18%);
-	}
-</style>

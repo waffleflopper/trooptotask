@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
 	import {
@@ -70,25 +70,15 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
-		<Spinner color="currentColor" />
-		<p>Loading assignment planner...</p>
+	<section
+		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
+		aria-busy="true"
+		aria-live="polite"
+		role="status"
+	>
+		<Spinner />
+		<p class="m-0">Loading assignment planner...</p>
 	</section>
 {:else}
 	<AssignmentPlannerPage data={pageData} />
 {/if}
-
-<style>
-	.route-loading {
-		display: flex;
-		gap: var(--sp-2);
-		align-items: center;
-		justify-content: center;
-		padding: var(--sp-6);
-		color: var(--text-secondary);
-	}
-
-	.route-loading p {
-		margin: 0;
-	}
-</style>

@@ -192,8 +192,8 @@ INSERT INTO "public"."access_requests" ("id", "email", "name", "reason", "status
 -- Data for Name: organizations; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."organizations" ("id", "name", "created_by", "created_at", "demo_type", "demo_expires_at", "tier", "stripe_customer_id", "stripe_subscription_id", "subscription_status", "current_period_end", "gift_tier", "gift_expires_at", "gifted_by", "archive_retention_months", "suspended_at", "loss_warning_window_days", "critical_tasks_default_expiration_months", "critical_tasks_expiring_soon_warning_days") VALUES
-	('58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'LocalDev', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-13 00:26:28.693345+00', NULL, NULL, 'unit', NULL, NULL, 'active', NULL, NULL, NULL, NULL, 36, NULL, 180, 12, 60);
+INSERT INTO "public"."organizations" ("id", "name", "created_by", "created_at", "tier", "stripe_customer_id", "stripe_subscription_id", "subscription_status", "current_period_end", "gift_tier", "gift_expires_at", "gifted_by", "archive_retention_months", "suspended_at", "loss_warning_window_days", "critical_tasks_default_expiration_months", "critical_tasks_expiring_soon_warning_days") VALUES
+	('58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'LocalDev', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-13 00:26:28.693345+00', 'unit', NULL, NULL, 'active', NULL, NULL, NULL, NULL, 36, NULL, 180, 12, 60);
 
 
 --

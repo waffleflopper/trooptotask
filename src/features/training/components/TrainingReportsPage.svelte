@@ -1,21 +1,17 @@
 <script lang="ts">
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-
 	import { tick } from 'svelte';
-	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarMultiSelectFilter,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 	import type { Personnel } from '$lib/types';
@@ -26,10 +22,28 @@
 		computeReadinessDashboard,
 		buildPivotTable,
 		generatePivotCSV,
-		type ReportFilters
+		type ReportFilters,
+		type TypeBreakdown
 	} from '$features/training/utils/reportCalculations';
 
-	let { data, toolbarContainerWidth = undefined } = $props();
+	interface Props {
+		data: {
+			training?: {
+				data?: {
+					personnel?: Personnel[];
+					groups?: Group[];
+					[key: string]: unknown;
+				};
+			};
+			trainingReport?: TrainingReportData;
+			personnel?: Personnel[];
+			groups?: Group[];
+		};
+	}
+
+	type PivotRow = ReturnType<typeof buildPivotTable>[number];
+
+	let { data }: Props = $props();
 
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
@@ -58,6 +72,7 @@
 	let filterRank = $state('');
 	let filterStatus = $state<TrainingStatus | ''>('');
 	let filterTypeIds = $state<string[]>([]);
+	let expandedTypeId = $state<string | null>(null);
 
 	const allPersonnel = $derived<Personnel[]>(
 		personnelStore.orgId === org.orgId
@@ -107,9 +122,7 @@
 	const filteredLocalTrainingTypes = $derived(
 		filterTypeIds.length > 0 ? localTrainingTypes.filter((type) => filterTypeIds.includes(type.id)) : localTrainingTypes
 	);
-	const typeFilterOptions = $derived<TagOption[]>(
-		availableTypeFilters.map((type) => ({ value: type.id, label: type.name }))
-	);
+	const typeFilterOptions = $derived(availableTypeFilters.map((type) => ({ value: type.id, label: type.name })));
 
 	const dashboard = $derived(
 		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, allTrainings)
@@ -171,6 +184,26 @@
 		return rows;
 	});
 
+	const reportColumns = $derived<ColumnDef<PivotRow>[]>([
+		{
+			key: 'name',
+			header: 'Name',
+			value: (row) => `${row.person.lastName}, ${row.person.firstName}`,
+			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
+		},
+		{ key: 'rank', header: 'Rank', value: (row) => row.person.rank },
+		{ key: 'group', header: 'Group', value: (row) => row.person.groupName },
+		...filteredTypes.map((type) => ({
+			key: type.id,
+			header: type.name,
+			value: (row: PivotRow) => {
+				const cell = row.cells.get(type.id);
+				return cell ? formatTrainingCellText(cell.status, cell.label, cell.date) : '';
+			},
+			sortable: false
+		}))
+	]);
+
 	const statusOptions: { value: TrainingStatus; label: string }[] = [
 		{ value: 'current', label: 'Current' },
 		{ value: 'warning-yellow', label: 'Expiring 60d' },
@@ -218,11 +251,6 @@
 			sortAsc = true;
 		}
 		void reloadFirstReportPage();
-	}
-
-	function sortIndicator(col: string): string {
-		if (sortColumn !== col) return '';
-		return sortAsc ? ' \u25b2' : ' \u25bc';
 	}
 
 	function appendReportParam(params: string[], key: string, value: string): void {
@@ -298,7 +326,7 @@
 
 		const rows = pivotRows;
 		const csv = generatePivotCSV(rows, filteredLocalTrainingTypes);
-		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+		const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement('a');
 		link.setAttribute('href', url);
@@ -325,13 +353,79 @@
 		void reloadFirstReportPage();
 	}
 
-	function getReadinessColor(pct: number): string {
-		if (pct >= 80) return 'var(--success)';
-		if (pct >= 60) return 'var(--amber)';
-		return 'var(--danger)';
+	function setGroupFilter(groupId: string) {
+		filterGroupId = filterGroupId === groupId ? '' : groupId;
+		void reloadFirstReportPage();
 	}
 
-	const toolbarActions = $derived<ToolbarActionConfig[]>([
+	function setStatusFilter(status: TrainingStatus | '') {
+		filterStatus = filterStatus === status ? '' : status;
+		void reloadFirstReportPage();
+	}
+
+	function readinessVariant(pct: number): 'success' | 'warning' | 'destructive' {
+		if (pct >= 80) return 'success';
+		if (pct >= 60) return 'warning';
+		return 'destructive';
+	}
+
+	function readinessToneClass(pct: number): string {
+		if (pct >= 80) return 'text-success-foreground';
+		if (pct >= 60) return 'text-warning-foreground';
+		return 'text-danger-foreground';
+	}
+
+	function readinessBarClass(pct: number): string {
+		if (pct >= 80) return 'bg-success';
+		if (pct >= 60) return 'bg-warning';
+		return 'bg-destructive';
+	}
+
+	function readinessBgClass(pct: number): string {
+		if (pct >= 80) return 'bg-success-muted';
+		if (pct >= 60) return 'bg-warning-muted';
+		return 'bg-danger-muted';
+	}
+
+	const statusDotClass: Record<string, string> = {
+		current: 'bg-success',
+		'warning-yellow': 'bg-warning',
+		'warning-orange': 'bg-warning',
+		expired: 'bg-destructive',
+		'not-completed': 'bg-muted-foreground/40'
+	};
+
+	const statusBarClass: Record<string, string> = {
+		current: 'bg-success',
+		warning: 'bg-warning',
+		expired: 'bg-destructive',
+		notCompleted: 'bg-muted-foreground/30'
+	};
+
+	function ringDasharray(pct: number, r = 36): string {
+		const c = 2 * Math.PI * r;
+		return `${(pct / 100) * c} ${c - (pct / 100) * c}`;
+	}
+
+	function ringStrokeClass(pct: number): string {
+		if (pct >= 80) return 'stroke-success';
+		if (pct >= 60) return 'stroke-warning';
+		return 'stroke-destructive';
+	}
+
+	const typeBreakdown = $derived<TypeBreakdown[]>(dashboard.typeBreakdown ?? []);
+
+	function expandedPersonnelForType(typeId: string, status: 'expired' | 'expiring') {
+		const rows = sortedRows.length > 0 ? sortedRows : pivotRows;
+		return rows.filter((row) => {
+			const cell = row.cells.get(typeId);
+			if (!cell) return false;
+			if (status === 'expired') return cell.status === 'expired' || cell.status === 'not-completed';
+			return cell.status === 'warning-yellow' || cell.status === 'warning-orange';
+		});
+	}
+
+	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
 		{
 			id: 'clear-filters',
 			label: 'Clear filters',
@@ -353,644 +447,418 @@
 	]);
 </script>
 
-{#if allTypes.length === 0}
-	<EmptyState message="No training types configured. Create training types first." />
-{:else}
-	<div class="reports-page-shell">
-		<Toolbar
-			ariaLabel="Training report controls"
-			collapse="wide"
-			leadingMin="42rem"
-			containerWidth={toolbarContainerWidth}
-			compactLeadingWhenCrowded
-		>
-			{#snippet leading()}
-				<div class="report-filter-row" aria-label="Report filters">
-					<ToolbarGroup
-						label="Personnel filters"
-						activeCount={personnelFilterCount}
-						mode="compact"
-						testId="training-personnel-filters"
-					>
-						{#snippet full()}
-							<ToolbarFilterSelect
-								ariaLabel="Filter by rank"
-								options={rankFilterOptions}
-								value={filterRank}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterRank = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by MOS"
-								options={mosFilterOptions}
-								value={filterMos}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterMos = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by duty role"
-								options={roleFilterOptions}
-								value={filterRole}
-								defaultValue=""
-								width="wide"
-								mode="full"
-								onValueChange={(value) => {
-									filterRole = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-						{/snippet}
-					</ToolbarGroup>
-					<ToolbarGroup label="Report filters" activeCount={reportFilterCount} testId="training-report-filters">
-						{#snippet full()}
-							<ToolbarFilterSelect
-								ariaLabel="Filter by group"
-								options={groupFilterOptions}
-								value={filterGroupId}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterGroupId = value;
-									void reloadFirstReportPage();
-								}}
-							/>
-							<ToolbarFilterSelect
-								ariaLabel="Filter by status"
-								options={statusFilterOptions}
-								value={filterStatus}
-								defaultValue=""
-								mode="full"
-								onValueChange={(value) => {
-									filterStatus = value as TrainingStatus | '';
-									void reloadFirstReportPage();
-								}}
-							/>
-							{#if typeFilterOptions.length > 1}
-								<ToolbarMultiSelectFilter
-									options={typeFilterOptions}
-									value={filterTypeIds}
-									placeholder="All training types"
-									ariaLabel="Filter by training type"
-									label="Training types"
-									mode="full"
-									onChange={setTypeFilters}
-								/>
-							{/if}
-						{/snippet}
-					</ToolbarGroup>
-				</div>
-			{/snippet}
+{#snippet reportHeaderCell(column: ColumnDef<PivotRow>)}
+	<button
+		type="button"
+		class="-ml-2 inline-flex h-8 items-center justify-start gap-1.5 bg-transparent px-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+		aria-label={`Sort by ${column.header}`}
+		onclick={() => toggleSort(column.key)}
+	>
+		<span>{column.header}</span>
+		{#if sortColumn === column.key}
+			<span aria-hidden="true">{sortAsc ? '▲' : '▼'}</span>
+		{/if}
+	</button>
+{/snippet}
 
-			<ToolbarActions
-				actions={toolbarActions}
-				ariaLabel="Training report actions"
-				overflowAriaLabel="More training report actions"
+{#snippet reportCell(row: PivotRow, column: ColumnDef<PivotRow>)}
+	{#if column.key === 'name'}
+		<span>{row.person.lastName}, {row.person.firstName}</span>
+	{:else if column.key === 'rank'}
+		<span>{row.person.rank}</span>
+	{:else if column.key === 'group'}
+		<span>{row.person.groupName}</span>
+	{:else}
+		{@const cell = row.cells.get(column.key)}
+		{#if cell}
+			<TrainingStatusCell
+				status={cell.status}
+				label={formatTrainingCellText(cell.status, cell.label, cell.date)}
+				srLabel={cell.label}
+				class="min-w-24"
 			/>
-		</Toolbar>
+		{/if}
+	{/if}
+{/snippet}
 
-		<div class="dashboard">
-			<div class="dashboard-row">
-				<div class="dashboard-card">
-					<div class="card-label">Overall Readiness ({detailPersonnelCount} personnel)</div>
-					<div class="readiness-value" style="color: {getReadinessColor(dashboard.readinessPercent)}">
-						{dashboard.readinessPercent}%
-					</div>
-				</div>
-
-				<div class="dashboard-card">
-					<div class="card-label">Status Breakdown</div>
-					<div class="status-cards">
-						<div class="status-card">
-							<div class="status-header">
-								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.current}"></span>
-								<span class="status-name">Current</span>
-							</div>
-							<span class="status-count">{dashboard.statusCounts.current}</span>
-						</div>
-						<div class="status-card">
-							<div class="status-header">
-								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-yellow']}"></span>
-								<span class="status-name">60d</span>
-							</div>
-							<span class="status-count">{dashboard.statusCounts.warningYellow}</span>
-						</div>
-						<div class="status-card">
-							<div class="status-header">
-								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-orange']}"></span>
-								<span class="status-name">30d</span>
-							</div>
-							<span class="status-count">{dashboard.statusCounts.warningOrange}</span>
-						</div>
-						<div class="status-card">
-							<div class="status-header">
-								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.expired}"></span>
-								<span class="status-name">Expired</span>
-							</div>
-							<span class="status-count">{dashboard.statusCounts.expired}</span>
-						</div>
-						<div class="status-card">
-							<div class="status-header">
-								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['not-completed']}"></span>
-								<span class="status-name">Not Done</span>
-							</div>
-							<span class="status-count">{dashboard.statusCounts.notCompleted}</span>
-						</div>
-					</div>
+{#if allTypes.length === 0}
+	<Empty.Root>
+		<Empty.Header>
+			<Empty.Title>No training types configured.</Empty.Title>
+			<Empty.Description>Create training types first.</Empty.Description>
+		</Empty.Header>
+	</Empty.Root>
+{:else}
+	<ReportWorkspace.Root ariaLabel="Training reports" class="p-3">
+		<!-- Hero: readiness ring + status pills -->
+		<header
+			class="flex min-w-0 flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between"
+		>
+			<div class="flex items-center gap-4">
+				<svg class="size-16 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
+					<circle cx="40" cy="40" r="36" fill="none" stroke-width="5" class="stroke-muted" />
+					<circle
+						cx="40"
+						cy="40"
+						r="36"
+						fill="none"
+						stroke-width="5"
+						stroke-linecap="round"
+						class={ringStrokeClass(dashboard.readinessPercent)}
+						stroke-dasharray={ringDasharray(dashboard.readinessPercent)}
+					/>
+				</svg>
+				<div>
+					<h2 class="text-xl font-semibold tracking-normal text-foreground">Training Readiness</h2>
+					<p class="text-sm text-muted-foreground">
+						<span class="font-semibold {readinessToneClass(dashboard.readinessPercent)}"
+							>{dashboard.readinessPercent}%</span
+						>
+						across {detailPersonnelCount} personnel
+					</p>
 				</div>
 			</div>
+			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by training status">
+				{#each [{ status: 'current' as TrainingStatus, count: dashboard.statusCounts.current, label: 'Current' }, { status: 'expired' as TrainingStatus, count: dashboard.statusCounts.expired, label: 'Expired' }, { status: 'warning-orange' as TrainingStatus, count: dashboard.statusCounts.warningOrange + dashboard.statusCounts.warningYellow, label: 'Expiring' }, { status: 'not-completed' as TrainingStatus, count: dashboard.statusCounts.notCompleted, label: 'Not Done' }] as pill (pill.status)}
+					<button
+						type="button"
+						class="flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors hover:bg-muted/50 {filterStatus ===
+						pill.status
+							? 'border-foreground bg-muted'
+							: 'border-border'}"
+						aria-pressed={filterStatus === pill.status}
+						onclick={() => setStatusFilter(pill.status)}
+					>
+						<span class="size-2 rounded-full {statusDotClass[pill.status]}"></span>
+						<span class="font-mono text-[0.6875rem] font-semibold text-foreground">{pill.count}</span>
+						<span class="font-mono text-[0.6875rem] text-muted-foreground">{pill.label}</span>
+					</button>
+				{/each}
+			</div>
+		</header>
 
-			<div class="dashboard-row">
-				{#if dashboard.worstTypes.length > 0}
-					<div class="dashboard-card">
-						<div class="card-label">Worst Training Types</div>
-						<div class="worst-list">
-							{#each dashboard.worstTypes as wt (wt.typeId)}
-								<div class="worst-item">
-									<span class="worst-name">{wt.typeName}</span>
-									<div class="worst-bar-container">
-										<div
-											class="worst-bar"
-											style="width: {wt.nonComplianceRate}%; background-color: {getReadinessColor(
-												100 - wt.nonComplianceRate
-											)}"
-										></div>
-									</div>
-									<span class="worst-rate">{wt.nonComplianceRate}%</span>
-								</div>
-							{/each}
-						</div>
-					</div>
+		<!-- Toolbar: group filter pills + personnel/report filters + actions -->
+		<ReportWorkspace.Toolbar ariaLabel="Training report controls">
+			<WorkspaceToolbar.Group label="Group filter" activeCount={filterGroupId ? 1 : 0}>
+				{#each allGroups as group (group.id)}
+					<Button
+						variant={filterGroupId === group.id ? 'secondary' : 'outline'}
+						size="sm"
+						class={filterGroupId === group.id ? 'bg-accent text-accent-foreground' : ''}
+						aria-pressed={filterGroupId === group.id}
+						onclick={() => setGroupFilter(group.id)}
+					>
+						{group.name}
+					</Button>
+				{/each}
+			</WorkspaceToolbar.Group>
+			<WorkspaceToolbar.Group
+				label="Personnel filters"
+				activeCount={personnelFilterCount}
+				data-testid="training-personnel-filters"
+			>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by rank"
+					options={rankFilterOptions}
+					value={filterRank}
+					onValueChange={(value) => {
+						filterRank = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by MOS"
+					options={mosFilterOptions}
+					value={filterMos}
+					onValueChange={(value) => {
+						filterMos = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by duty role"
+					options={roleFilterOptions}
+					value={filterRole}
+					onValueChange={(value) => {
+						filterRole = value;
+						void reloadFirstReportPage();
+					}}
+				/>
+			</WorkspaceToolbar.Group>
+			<WorkspaceToolbar.Group
+				label="Report filters"
+				activeCount={reportFilterCount}
+				data-testid="training-report-filters"
+			>
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by status"
+					options={statusFilterOptions}
+					value={filterStatus}
+					onValueChange={(value) => {
+						filterStatus = value as TrainingStatus | '';
+						void reloadFirstReportPage();
+					}}
+				/>
+				{#if typeFilterOptions.length > 1}
+					<WorkspaceToolbar.MultiSelect
+						options={typeFilterOptions}
+						value={filterTypeIds}
+						ariaLabel="Filter by training type"
+						label="Training types"
+						onChange={setTypeFilters}
+					/>
 				{/if}
+			</WorkspaceToolbar.Group>
+
+			<WorkspaceToolbar.Group label="Training report actions" zone="actions">
+				<WorkspaceToolbar.Actions
+					actions={toolbarActions}
+					ariaLabel="Training report actions"
+					overflowAriaLabel="More training report actions"
+				/>
+			</WorkspaceToolbar.Group>
+		</ReportWorkspace.Toolbar>
+
+		<ReportWorkspace.Content layout="stack">
+			<!-- Training type cards grid -->
+			{#if typeBreakdown.length > 0}
+				<section aria-label="Training type breakdown">
+					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+						{#each typeBreakdown as tb (tb.typeId)}
+							{@const warningTotal = tb.warningYellow + tb.warningOrange}
+							{@const isExpanded = expandedTypeId === tb.typeId}
+							{@const expiredRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expired') : []}
+							{@const expiringRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expiring') : []}
+							<button
+								type="button"
+								class="flex flex-col items-start rounded-lg border border-border bg-card p-3 text-left transition-shadow hover:shadow-sm {isExpanded
+									? 'ring-2 ring-ring/20'
+									: ''}"
+								aria-expanded={isExpanded}
+								onclick={() => (expandedTypeId = isExpanded ? null : tb.typeId)}
+							>
+								<div class="flex w-full items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<h3 class="truncate text-sm font-semibold text-foreground">{tb.typeName}</h3>
+										<p class="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+											{tb.applicable} personnel
+										</p>
+									</div>
+									<svg class="size-11 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
+										<circle cx="40" cy="40" r="36" fill="none" stroke-width="6" class="stroke-muted" />
+										<circle
+											cx="40"
+											cy="40"
+											r="36"
+											fill="none"
+											stroke-width="6"
+											stroke-linecap="round"
+											class={ringStrokeClass(tb.complianceRate)}
+											stroke-dasharray={ringDasharray(tb.complianceRate)}
+										/>
+										<text
+											x="40"
+											y="44"
+											text-anchor="middle"
+											class="fill-foreground font-mono text-[1.5rem] font-bold"
+											transform="rotate(90 40 40)">{tb.complianceRate}</text
+										>
+									</svg>
+								</div>
+
+								<!-- Stacked status bar -->
+								{#if tb.applicable > 0}
+									<div class="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
+										{#if tb.current > 0}
+											<div class={statusBarClass.current} style:width="{(tb.current / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if warningTotal > 0}
+											<div class={statusBarClass.warning} style:width="{(warningTotal / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if tb.expired > 0}
+											<div class={statusBarClass.expired} style:width="{(tb.expired / tb.applicable) * 100}%"></div>
+										{/if}
+										{#if tb.notCompleted > 0}
+											<div
+												class={statusBarClass.notCompleted}
+												style:width="{(tb.notCompleted / tb.applicable) * 100}%"
+											></div>
+										{/if}
+									</div>
+								{/if}
+
+								<!-- Counts -->
+								<div class="mt-2 flex w-full flex-wrap gap-x-3 gap-y-1">
+									{#if tb.expired > 0}
+										<span class="font-mono text-[0.6875rem] text-danger-foreground">{tb.expired} expired</span>
+									{/if}
+									{#if warningTotal > 0}
+										<span class="font-mono text-[0.6875rem] text-warning-foreground">{warningTotal} expiring</span>
+									{/if}
+									{#if tb.notCompleted > 0}
+										<span class="font-mono text-[0.6875rem] text-muted-foreground">{tb.notCompleted} not done</span>
+									{/if}
+								</div>
+
+								<!-- Expanded: personnel with issues -->
+								{#if isExpanded && (expiredRows.length > 0 || expiringRows.length > 0)}
+									<div class="mt-3 w-full border-t border-border pt-3">
+										{#if expiredRows.length > 0}
+											<p
+												class="mb-1 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-danger-foreground"
+											>
+												Expired / Not Done
+											</p>
+											<ul class="space-y-0.5">
+												{#each expiredRows.slice(0, 6) as row (row.person.id)}
+													<li class="flex items-center justify-between text-xs">
+														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
+														<span class="font-mono text-[0.6875rem] text-muted-foreground"
+															>{row.person.rank} · {row.person.groupName}</span
+														>
+													</li>
+												{/each}
+												{#if expiredRows.length > 6}
+													<li class="font-mono text-[0.6875rem] text-muted-foreground">
+														+{expiredRows.length - 6} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+										{#if expiringRows.length > 0}
+											<p
+												class="mb-1 mt-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-warning-foreground"
+											>
+												Expiring Soon
+											</p>
+											<ul class="space-y-0.5">
+												{#each expiringRows.slice(0, 4) as row (row.person.id)}
+													<li class="flex items-center justify-between text-xs">
+														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
+														<span class="font-mono text-[0.6875rem] text-muted-foreground"
+															>{row.person.rank} · {row.person.groupName}</span
+														>
+													</li>
+												{/each}
+												{#if expiringRows.length > 4}
+													<li class="font-mono text-[0.6875rem] text-muted-foreground">
+														+{expiringRows.length - 4} more
+													</li>
+												{/if}
+											</ul>
+										{/if}
+									</div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Two-column: type compliance + group readiness -->
+			<div class="grid gap-4 lg:grid-cols-2">
+				<ReportWorkspace.Section title="Training Type Compliance" description="Sorted by lowest compliance">
+					<div class="grid gap-2">
+						{#each [...typeBreakdown].sort((a, b) => a.complianceRate - b.complianceRate) as tb (tb.typeId)}
+							<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
+								<span class="truncate text-sm font-semibold text-foreground">{tb.typeName}</span>
+								<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
+									<div
+										class="h-full rounded-full {readinessBarClass(tb.complianceRate)}"
+										style:width="{tb.complianceRate}%"
+									></div>
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="w-10 text-right font-mono text-xs font-semibold {readinessToneClass(tb.complianceRate)}">
+										{tb.complianceRate}%
+									</span>
+									{#if tb.expired > 0}
+										<span class="w-14 text-right font-mono text-[0.6875rem] text-danger-foreground"
+											>{tb.expired} exp</span
+										>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</ReportWorkspace.Section>
 
 				{#if dashboard.groupComparison.length > 1}
-					<div class="dashboard-card">
-						<div class="card-label">Group Comparison</div>
-						<div class="group-list">
+					<ReportWorkspace.Section title="Group Readiness" description="Click to filter by group">
+						<div class="grid gap-2">
 							{#each dashboard.groupComparison as gc (gc.groupId)}
-								<div class="group-item">
-									<span class="group-name">{gc.groupName}</span>
-									<div class="group-bar-container">
+								<button
+									type="button"
+									class="grid gap-1 rounded-md px-1 py-1 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center {filterGroupId ===
+									gc.groupId
+										? 'bg-muted/60'
+										: ''}"
+									aria-pressed={filterGroupId === gc.groupId}
+									onclick={() => setGroupFilter(gc.groupId)}
+								>
+									<span class="truncate text-sm font-semibold text-foreground">{gc.groupName}</span>
+									<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
 										<div
-											class="group-bar"
-											style="width: {gc.readinessPercent}%; background-color: {getReadinessColor(gc.readinessPercent)}"
+											class="h-full rounded-full {readinessBarClass(gc.readinessPercent)}"
+											style:width="{gc.readinessPercent}%"
 										></div>
 									</div>
-									<span class="group-rate">{gc.readinessPercent}%</span>
-								</div>
+									<span class="font-mono text-xs font-semibold {readinessToneClass(gc.readinessPercent)}">
+										{gc.readinessPercent}%
+									</span>
+								</button>
 							{/each}
 						</div>
-					</div>
+					</ReportWorkspace.Section>
 				{/if}
 			</div>
-		</div>
 
-		<div class="detail-section">
-			<div class="detail-header">
-				<h3 class="section-title">Detail Table</h3>
-				<div class="detail-header-actions">
-					{#if reportLoading}
-						<span class="detail-status">Loading page...</span>
-					{/if}
-				</div>
-			</div>
 			{#if reportError}
-				<div class="report-error" role="alert">{reportError}</div>
+				<ReportWorkspace.State state="error" title="Report page failed" description={reportError} />
 			{/if}
 
-			{#if sortedRows.length === 0}
-				<EmptyState message="No personnel match the current filters." />
-			{:else}
-				<div class="table-container">
-					<table class="report-table">
-						<thead>
-							<tr>
-								<th class="col-name">
-									<button class="sort-button" type="button" onclick={() => toggleSort('name')}>
-										Name{sortIndicator('name')}
-									</button>
-								</th>
-								<th class="col-rank">
-									<button class="sort-button" type="button" onclick={() => toggleSort('rank')}>
-										Rank{sortIndicator('rank')}
-									</button>
-								</th>
-								<th class="col-group">
-									<button class="sort-button" type="button" onclick={() => toggleSort('group')}>
-										Group{sortIndicator('group')}
-									</button>
-								</th>
-								{#each filteredTypes as type (type.id)}
-									<th class="col-type">
-										<button class="sort-button sort-button-type" type="button" onclick={() => toggleSort(type.id)}>
-											<span class="type-dot" style="background-color: {type.color}"></span>
-											{type.name}{sortIndicator(type.id)}
-										</button>
-									</th>
-								{/each}
-							</tr>
-						</thead>
-						<tbody>
-							{#each sortedRows as row (row.person.id)}
-								<tr>
-									<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-									<td class="col-rank">{row.person.rank}</td>
-									<td class="col-group">{row.person.groupName}</td>
-									{#each filteredTypes as type (type.id)}
-										{@const cell = row.cells.get(type.id)}
-										<td
-											class="col-type cell-status"
-											style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] + '18' : undefined}"
-										>
-											<span class="cell-content">
-												<span
-													class="cell-dot"
-													style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] : undefined}"
-												></span>
-												<span class="cell-text">
-													{cell ? formatTrainingCellText(cell.label, cell.date) : ''}
-												</span>
-											</span>
-										</td>
-									{/each}
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-				{#if activeReport}
-					<div class="pagination-bar">
-						<span class="pagination-summary">Page {currentPage} of {totalPages}</span>
-						<div class="pagination-actions">
-							<button
-								class="btn btn-sm"
-								type="button"
-								onclick={() => loadReportPage(currentPage - 1)}
-								disabled={!canPageBack}
-							>
-								Previous page
-							</button>
-							<button
-								class="btn btn-sm"
-								type="button"
-								onclick={() => loadReportPage(currentPage + 1)}
-								disabled={!canPageForward}
-							>
-								Next page
-							</button>
-						</div>
+			<ReportWorkspace.Table
+				title="Personnel Detail"
+				description="{detailPersonnelCount} of {allPersonnel.length} personnel"
+				data={sortedRows}
+				columns={reportColumns}
+				ariaLabel="Training report detail rows"
+				emptyMessage="No personnel match the current filters."
+				loading={reportLoading}
+				cell={reportCell}
+				headerCell={reportHeaderCell}
+				pageSize={activeReport ? undefined : 25}
+			/>
+
+			{#if activeReport}
+				<div
+					class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+						Page {currentPage} of {totalPages}
+					</span>
+					<div class="flex gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							type="button"
+							onclick={() => loadReportPage(currentPage - 1)}
+							disabled={!canPageBack}
+						>
+							Previous page
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							type="button"
+							onclick={() => loadReportPage(currentPage + 1)}
+							disabled={!canPageForward}
+						>
+							Next page
+						</Button>
 					</div>
-				{/if}
+				</div>
 			{/if}
-		</div>
-	</div>
+		</ReportWorkspace.Content>
+	</ReportWorkspace.Root>
 {/if}
-
-<style>
-	.reports-page-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		padding: var(--sp-3);
-	}
-
-	.report-filter-row {
-		display: flex;
-		align-items: center;
-		flex: 1 1 auto;
-		gap: var(--sp-2);
-		min-width: 0;
-		width: 100%;
-	}
-
-	.report-filter-row :global([data-testid='training-report-filters']:not(.toolbar-group--compact)) {
-		flex: 1 1 auto;
-	}
-
-	.dashboard {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		margin-bottom: var(--sp-4);
-	}
-
-	.dashboard-row {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.dashboard-card {
-		min-width: 0;
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.card-label {
-		margin-bottom: var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.readiness-value {
-		font-family: var(--font-display);
-		font-size: clamp(2.6rem, 2.2rem + 1vw, 3.2rem);
-		font-weight: var(--font-weight-display);
-		line-height: 1;
-	}
-
-	.status-cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-		gap: var(--sp-2);
-	}
-
-	.status-card {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		padding: var(--sp-2);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface-panel) 48%);
-	}
-
-	.status-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.status-dot {
-		width: 0.625rem;
-		height: 0.625rem;
-		border-radius: 2px;
-	}
-
-	.status-count {
-		font-family: var(--font-display);
-		font-size: clamp(1.6rem, 1.35rem + 0.3vw, 1.9rem);
-		font-weight: var(--font-weight-display);
-		color: var(--text-primary);
-		line-height: 1;
-	}
-
-	.status-name {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.worst-list,
-	.group-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-	}
-
-	.worst-item,
-	.group-item {
-		display: grid;
-		grid-template-columns: minmax(0, 180px) minmax(0, 1fr) auto;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.worst-name,
-	.group-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.worst-bar-container,
-	.group-bar-container {
-		height: 0.75rem;
-		overflow: hidden;
-		border: 1px solid color-mix(in srgb, var(--border-default) 65%, transparent);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-	}
-
-	.worst-bar,
-	.group-bar {
-		height: 100%;
-		border-radius: inherit;
-	}
-
-	.worst-rate,
-	.group-rate {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.detail-section {
-		overflow: hidden;
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.detail-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-6);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
-	}
-
-	.detail-header-actions {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.detail-status,
-	.pagination-summary {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.report-error {
-		padding: var(--sp-3) var(--sp-6);
-		border-bottom: var(--border-thin);
-		background: color-mix(in srgb, var(--danger) 12%, var(--surface-panel));
-		color: var(--danger);
-	}
-
-	.section-title {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.table-container {
-		overflow-x: auto;
-	}
-
-	.pagination-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-6);
-		border-top: var(--border-thin);
-		background: color-mix(in srgb, var(--surface-subtle) 36%, var(--surface-panel) 64%);
-	}
-
-	.pagination-actions {
-		display: inline-flex;
-		gap: var(--sp-2);
-	}
-
-	.report-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-	}
-
-	.report-table th {
-		position: sticky;
-		top: 0;
-		padding: 0;
-		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
-		border-bottom: var(--border-thin);
-		text-align: left;
-	}
-
-	.report-table td {
-		padding: var(--sp-3) var(--sp-4);
-		border-bottom: var(--border-thin);
-		white-space: nowrap;
-		vertical-align: top;
-	}
-
-	.report-table tbody tr:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-	}
-
-	.sort-button {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		width: 100%;
-		padding: var(--sp-3) var(--sp-4);
-		border: 0;
-		background: transparent;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		cursor: pointer;
-	}
-
-	.sort-button:hover {
-		color: var(--text-primary);
-		background: color-mix(in srgb, var(--surface-subtle) 56%, transparent);
-	}
-
-	.sort-button-type {
-		justify-content: center;
-	}
-
-	.col-name {
-		min-width: 180px;
-	}
-
-	.col-rank,
-	.col-group {
-		min-width: 90px;
-	}
-
-	.col-type {
-		min-width: 164px;
-		text-align: left;
-	}
-
-	.type-dot,
-	.cell-dot {
-		display: inline-block;
-		width: 0.5rem;
-		height: 0.5rem;
-		border-radius: 2px;
-		vertical-align: middle;
-	}
-
-	.cell-dot {
-		margin-right: var(--sp-2);
-	}
-
-	.cell-status {
-		white-space: nowrap;
-	}
-
-	.cell-content {
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.cell-text {
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	@media (max-width: 960px) {
-		.reports-page-shell {
-			padding: var(--sp-2);
-		}
-
-		.dashboard-row {
-			grid-template-columns: 1fr;
-		}
-
-		.worst-item,
-		.group-item {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.reports-page-shell {
-			padding: var(--sp-2);
-		}
-
-		.status-cards {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-</style>

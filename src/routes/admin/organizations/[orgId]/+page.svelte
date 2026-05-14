@@ -1,17 +1,17 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
 	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
-	import {
-		ADMIN_ROLE_COLORS,
-		ADMIN_STATUS_COLORS,
-		ADMIN_TIER_COLORS,
-		formatAdminLabel
-	} from '$lib/components/admin/adminTheme';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { Badge } from '$lib/components/ui/badge';
 	import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();
 
@@ -45,180 +45,168 @@
 	<title>{data.org.name} - Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<a href="/admin/organizations" class="back-link">Back to Organizations</a>
-			<p class="admin-page-eyebrow">Organization Record</p>
-			<h1 class="admin-page-title">{data.org.name}</h1>
-			<p class="admin-page-subtitle">
-				Created {formatDisplayDate(data.org.createdAt)} • {data.members.length} member{data.members.length === 1
-					? ''
-					: 's'} • {data.personnelCount} personnel
-			</p>
-		</div>
-		<div class="admin-page-actions">
-			<Badge
-				label={formatAdminLabel(data.org.effectiveTier)}
-				color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
-			/>
-			{#if data.org.giftTier}<Badge label="Gifted" color={ADMIN_STATUS_COLORS.gifted} />{/if}
-			<Badge
-				label={data.org.isSuspended ? 'Suspended' : 'Active'}
-				color={data.org.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-			/>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title={data.org.name}
+		subtitle={`Created ${formatDisplayDate(data.org.createdAt)} - ${data.members.length} member${
+			data.members.length === 1 ? '' : 's'
+		} - ${data.personnelCount} personnel`}
+	>
+		{#snippet back()}
+			<Button href="/admin/organizations" variant="ghost" size="sm">Back to Organizations</Button>
+		{/snippet}
+		{#snippet meta()}
+			<Badge variant="secondary">Organization Record</Badge>
+		{/snippet}
+		{#snippet actions()}
+			<Badge variant={adminBadgeVariant(data.org.effectiveTier)}>{formatAdminLabel(data.org.effectiveTier)}</Badge>
+			{#if data.org.giftTier}<Badge variant="warning">Gifted</Badge>{/if}
+			<Badge variant={adminBadgeVariant(data.org.isSuspended ? 'suspended' : 'active')}>
+				{data.org.isSuspended ? 'Suspended' : 'Active'}
+			</Badge>
+		{/snippet}
+	</PageShell.Header>
 
-	<div class="action-strip">
-		<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
-		<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}>Transfer Ownership</button>
-		<button
-			class="btn btn-sm {data.org.isSuspended ? 'btn-secondary' : 'btn-danger'}"
-			onclick={() => (showSuspendModal = true)}
-		>
+	<div class="flex flex-wrap gap-2">
+		<Button variant="outline" onclick={() => (showGiftModal = true)}>Gift Tier</Button>
+		<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
+		<Button variant={data.org.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
 			{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
-		</button>
+		</Button>
 	</div>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Effective Tier</p>
-			<p class="admin-overview-card__value">{formatAdminLabel(data.org.effectiveTier)}</p>
-			<p class="admin-overview-card__meta">Base subscription plus any active gifted override.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Personnel</p>
-			<p class="admin-overview-card__value">{data.personnelCount}</p>
-			<p class="admin-overview-card__meta">
-				{data.personnelCount} of {formatPersonnelCap(data.org.effectiveTier)} slots currently used.
-			</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Gift Expires</p>
-			<p class="admin-overview-card__value">
-				{data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'None'}
-			</p>
-			<p class="admin-overview-card__meta">Current gifted plan expiry if one is active.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="three">
+		<PageShell.Metric
+			label="Effective Tier"
+			value={formatAdminLabel(data.org.effectiveTier)}
+			detail="Base subscription plus any active gifted override."
+		/>
+		<PageShell.Metric label="Personnel" value={data.personnelCount}>
+			{data.personnelCount} of {formatPersonnelCap(data.org.effectiveTier)} slots currently used.
+		</PageShell.Metric>
+		<PageShell.Metric
+			label="Gift Expires"
+			value={data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'None'}
+			detail="Current gifted plan expiry if one is active."
+		/>
+	</PageShell.FactGrid>
 
-	<div class="detail-grid">
-		<section class="admin-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Subscription</h2>
-					<p class="admin-panel__meta">Plan and suspension state for this organization.</p>
-				</div>
-			</div>
-			<dl class="detail-list">
-				<div>
-					<dt>Tier</dt>
-					<dd>
-						<Badge
-							label={formatAdminLabel(data.org.effectiveTier)}
-							color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
-						/>
-					</dd>
-				</div>
-				<div>
-					<dt>Base Tier</dt>
-					<dd>{formatAdminLabel(data.org.subscriptionTier)}</dd>
-				</div>
-				<div>
-					<dt>Personnel Count</dt>
-					<dd>{data.personnelCount} / {formatPersonnelCap(data.org.effectiveTier)}</dd>
-				</div>
-				<div>
-					<dt>Member Since</dt>
-					<dd>{formatDisplayDate(data.org.createdAt)}</dd>
-				</div>
-				{#if data.org.giftTier}
-					<div>
-						<dt>Gift Tier</dt>
+	<div class="grid gap-4 lg:grid-cols-2">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Subscription</Card.Title>
+				<Card.Description>Plan and suspension state for this organization.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<dl class="grid gap-3">
+					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+						<dt class="text-xs font-medium text-muted-foreground">Tier</dt>
 						<dd>
-							<Badge
-								label={formatAdminLabel(data.org.giftTier)}
-								color={ADMIN_TIER_COLORS[data.org.giftTier] ?? 'var(--ink-35)'}
-							/>
+							<Badge variant={adminBadgeVariant(data.org.effectiveTier)}
+								>{formatAdminLabel(data.org.effectiveTier)}</Badge
+							>
 						</dd>
 					</div>
-					<div>
-						<dt>Gift Expires</dt>
-						<dd>{data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'Never'}</dd>
+					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+						<dt class="text-xs font-medium text-muted-foreground">Base Tier</dt>
+						<dd>{formatAdminLabel(data.org.subscriptionTier)}</dd>
 					</div>
-				{/if}
-				{#if data.org.isSuspended}
-					<div>
-						<dt>Suspended At</dt>
-						<dd class="text-error">{formatDisplayDateTime(data.org.suspendedAt)}</dd>
+					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+						<dt class="text-xs font-medium text-muted-foreground">Personnel Count</dt>
+						<dd>{data.personnelCount} / {formatPersonnelCap(data.org.effectiveTier)}</dd>
 					</div>
-				{/if}
-			</dl>
-		</section>
+					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+						<dt class="text-xs font-medium text-muted-foreground">Member Since</dt>
+						<dd>{formatDisplayDate(data.org.createdAt)}</dd>
+					</div>
+					{#if data.org.giftTier}
+						<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+							<dt class="text-xs font-medium text-muted-foreground">Gift Tier</dt>
+							<dd>
+								<Badge variant={adminBadgeVariant(data.org.giftTier)}>{formatAdminLabel(data.org.giftTier)}</Badge>
+							</dd>
+						</div>
+						<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+							<dt class="text-xs font-medium text-muted-foreground">Gift Expires</dt>
+							<dd>{data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'Never'}</dd>
+						</div>
+					{/if}
+					{#if data.org.isSuspended}
+						<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+							<dt class="text-xs font-medium text-muted-foreground">Suspended At</dt>
+							<dd class="text-destructive">{formatDisplayDateTime(data.org.suspendedAt)}</dd>
+						</div>
+					{/if}
+				</dl>
+			</Card.Content>
+		</Card.Root>
 
-		<section class="admin-panel">
-			<div class="admin-panel__header">
-				<div>
-					<h2 class="admin-panel__title">Members</h2>
-					<p class="admin-panel__meta">Current membership roster for this organization.</p>
-				</div>
-			</div>
-			<div class="member-stack">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Members</Card.Title>
+				<Card.Description>Current membership roster for this organization.</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-3">
 				{#each data.members as member (member.userId)}
-					<div class="member-row">
-						<a href="/admin/users/{member.userId}" class="member-row__email">{member.email}</a>
-						<Badge label={formatAdminLabel(member.role)} color={ADMIN_ROLE_COLORS[member.role] ?? 'var(--ink-35)'} />
+					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
+						<a
+							href="/admin/users/{member.userId}"
+							class="break-words text-sm font-medium underline-offset-4 hover:underline"
+						>
+							{member.email}
+						</a>
+						<Badge variant={adminBadgeVariant(member.role)}>{formatAdminLabel(member.role)}</Badge>
 					</div>
 				{:else}
-					<div class="admin-empty">No members found.</div>
+					<Empty.Root>No members found.</Empty.Root>
 				{/each}
-			</div>
-		</section>
+			</Card.Content>
+		</Card.Root>
 	</div>
 
-	<section class="admin-panel">
-		<div class="admin-panel__header">
-			<div>
-				<h2 class="admin-panel__title">Recent Audit Events</h2>
-				<p class="admin-panel__meta">Latest platform activity recorded against this organization.</p>
-			</div>
-		</div>
-		<div class="admin-table-shell admin-table-shell--scroll embedded-table">
-			<table class="admin-table">
-				<thead>
-					<tr>
-						<th>Timestamp</th>
-						<th>Action</th>
-						<th>Resource</th>
-						<th>Severity</th>
-					</tr>
-				</thead>
-				<tbody>
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Recent Audit Events</Card.Title>
+			<Card.Description>Latest platform activity recorded against this organization.</Card.Description>
+		</Card.Header>
+		<Card.Content class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Timestamp</Table.Head>
+						<Table.Head>Action</Table.Head>
+						<Table.Head>Resource</Table.Head>
+						<Table.Head>Severity</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
 					{#each data.auditEvents as evt (evt.id)}
-						<tr>
-							<td class="timestamp-cell">{formatDisplayDateTime(evt.timestamp)}</td>
-							<td><span class="admin-code">{evt.action}</span></td>
-							<td
-								>{evt.resourceType ?? ''}{#if evt.resourceId}<span class="resource-id">
-										• {evt.resourceId.slice(0, 8)}…</span
-									>{/if}</td
+						<Table.Row>
+							<Table.Cell class="font-mono text-xs text-muted-foreground"
+								>{formatDisplayDateTime(evt.timestamp)}</Table.Cell
 							>
-							<td
-								><Badge
-									label={formatAdminLabel(evt.severity)}
-									color={ADMIN_STATUS_COLORS[evt.severity] ?? 'var(--ink-35)'}
-								/></td
+							<Table.Cell><span class="font-mono text-xs">{evt.action}</span></Table.Cell>
+							<Table.Cell>
+								{evt.resourceType ?? ''}{#if evt.resourceId}
+									<span class="text-muted-foreground"> - {evt.resourceId.slice(0, 8)}...</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell
+								><Badge variant={adminBadgeVariant(evt.severity)}>{formatAdminLabel(evt.severity)}</Badge></Table.Cell
 							>
-						</tr>
+						</Table.Row>
 					{:else}
-						<tr><td colspan="4" class="admin-empty">No audit events recorded for this organization.</td></tr>
+						<Table.Row>
+							<Table.Cell colspan={4}>
+								<Empty.Root class="border-0">No audit events recorded for this organization.</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
 					{/each}
-				</tbody>
-			</table>
-		</div>
-	</section>
-</div>
+				</Table.Body>
+			</Table.Root>
+		</Card.Content>
+	</Card.Root>
+</PageShell.Root>
 
 {#if showSuspendModal}
 	<SuspendModal
@@ -251,89 +239,3 @@
 		onComplete={handleGiftComplete}
 	/>
 {/if}
-
-<style>
-	.back-link {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.action-strip {
-		display: flex;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
-	}
-
-	.detail-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-	}
-
-	.detail-list,
-	.member-stack {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-	}
-
-	.detail-list div,
-	.member-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding-top: var(--sp-3);
-		border-top: var(--border-rule);
-	}
-
-	.detail-list div:first-child,
-	.member-row:first-child {
-		padding-top: 0;
-		border-top: none;
-	}
-
-	.detail-list dt {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-	}
-
-	.detail-list dd {
-		margin: 0;
-		text-align: right;
-	}
-
-	.member-row__email {
-		font-size: var(--text-sm);
-		font-weight: 600;
-		word-break: break-word;
-	}
-
-	.embedded-table {
-		border: none;
-		border-radius: 0;
-	}
-
-	.timestamp-cell {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.resource-id {
-		color: var(--text-tertiary);
-	}
-
-	@media (max-width: 800px) {
-		.detail-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

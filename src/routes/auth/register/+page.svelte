@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { form, data } = $props();
 	let loading = $state(false);
@@ -27,6 +30,8 @@
 	panelDescription={form?.confirmEmail
 		? 'One more step remains before you can sign in.'
 		: 'Enter the invite code you received and choose a password that meets policy.'}
+	imageSrc="/auth/auth-create-account-invite.png"
+	imageAlt="A military invite packet with an envelope, map, notebook, and blank dog tag."
 	supportLabel="Joining an organization"
 	supportTitle="This page is for invited users."
 	supportDescription="If an organization invited you by email, use the invite code from that email to create your account."
@@ -36,16 +41,16 @@
 		'If you already have an account, sign in instead of creating a new one.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if form?.confirmEmail}
 			<AuthNotice tone="success" title="Confirm your email" centered>
 				<p>We sent a confirmation link to <strong>{form.email}</strong>.</p>
 				<p>Open that message, confirm the account, then return here to sign in.</p>
 			</AuthNotice>
 
-			<div class="auth-actions">
-				<a href="/auth/login" class="btn btn-primary">Back to sign in</a>
-				<a href="/auth/register" class="btn btn-secondary">Start over</a>
+			<div class="flex flex-col gap-3">
+				<Button href="/auth/login" class="w-full">Back to sign in</Button>
+				<Button href="/auth/register" variant="outline" class="w-full">Start over</Button>
 			</div>
 		{:else}
 			{#if form?.error}
@@ -61,9 +66,9 @@
 						await update();
 					};
 				}}
-				class="auth-stack"
+				class="flex flex-col gap-5"
 			>
-				<FormField
+				<AuthField
 					label="Invite Code"
 					id="inviteCode"
 					name="inviteCode"
@@ -73,7 +78,7 @@
 					hint="Registration is by invitation only."
 				/>
 
-				<FormField
+				<AuthField
 					label="Email Address"
 					id="email"
 					name="email"
@@ -83,7 +88,7 @@
 					placeholder="you@example.com"
 				/>
 
-				<FormField
+				<AuthField
 					label="Password"
 					id="password"
 					name="password"
@@ -93,42 +98,11 @@
 					hint="Use at least 12 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
-						<button
-							type="button"
-							class="field-action"
-							onclick={() => (showPassword = !showPassword)}
-							aria-label={showPassword ? 'Hide password' : 'Show password'}
-						>
-							{#if showPassword}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path
-										d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-									/><line x1="1" y1="1" x2="23" y2="23" /></svg
-								>
-							{:else}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg
-								>
-							{/if}
-						</button>
+						<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
 					{/snippet}
-				</FormField>
+				</AuthField>
 
-				<FormField
+				<AuthField
 					label="Confirm Password"
 					id="confirmPassword"
 					name="confirmPassword"
@@ -137,44 +111,18 @@
 					placeholder="Re-enter your password"
 				>
 					{#snippet action()}
-						<button
-							type="button"
-							class="field-action"
+						<AuthPasswordToggle
+							visible={showConfirmPassword}
 							onclick={() => (showConfirmPassword = !showConfirmPassword)}
-							aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-						>
-							{#if showConfirmPassword}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path
-										d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-									/><line x1="1" y1="1" x2="23" y2="23" /></svg
-								>
-							{:else}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg
-								>
-							{/if}
-						</button>
+						/>
 					{/snippet}
-				</FormField>
+				</AuthField>
 
-				<div class="auth-checkbox">
-					<label class="checkbox-label">
-						<input type="checkbox" name="agreeTerms" required />
+				<div
+					class="rounded-lg border border-border/80 bg-muted/25 p-4 shadow-[0_8px_24px_-22px_oklch(0.147_0.004_49.25/0.4),0_1px_2px_oklch(0.147_0.004_49.25/0.06)]"
+				>
+					<label class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
+						<Checkbox name="agreeTerms" required class="mt-0.5" />
 						<span>
 							I have read and agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Use</a> and
 							<a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
@@ -182,23 +130,27 @@
 					</label>
 				</div>
 
-				<div class="auth-actions">
-					<button type="submit" class="btn btn-primary" disabled={loading}>
+				<div class="flex flex-col gap-3">
+					<Button type="submit" disabled={loading} class="w-full">
 						{#if loading}
 							<Spinner />
 							Creating Account...
 						{:else}
 							Create Account
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</form>
 
-			<div class="auth-divider">
-				<span>Already registered?</span>
+			<div
+				class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
+			>
+				<span class="h-px flex-1 bg-border"></span>
+				<span class="whitespace-nowrap">Already registered?</span>
+				<span class="h-px flex-1 bg-border"></span>
 			</div>
 
-			<div class="auth-link-list">
+			<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 				<p>
 					Already have an account? <a href="/auth/login">Sign in</a>.
 				</p>

@@ -6,7 +6,7 @@
 	import PersonnelTempo from './PersonnelTempo.svelte';
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
-	import { Toolbar, ToolbarFilterSelect, ToolbarNavGroup } from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 
 	interface Props {
 		orgId: string;
@@ -35,21 +35,21 @@
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgId}/calendar` }]);
 </script>
 
-<div class="reports-page">
-	<Toolbar ariaLabel="Calendar report controls" collapse="narrow" leadingMin="20rem">
-		{#snippet leading()}
-			<ToolbarFilterSelect
+<div class="flex flex-col gap-4">
+	<WorkspaceToolbar.Root ariaLabel="Calendar report controls">
+		<WorkspaceToolbar.Group label="Calendar report type" activeCount={selectedReport !== 'status-days' ? 1 : 0}>
+			<WorkspaceToolbar.Select
 				ariaLabel="Report type"
 				options={reportOptions}
-				defaultValue="status-days"
-				mode="full"
-				bind:value={selectedReport}
-				width="wide"
+				value={selectedReport}
+				onValueChange={(value) => (selectedReport = value as ReportType)}
 			/>
-		{/snippet}
+		</WorkspaceToolbar.Group>
 
-		<ToolbarNavGroup ariaLabel="Related calendar pages" items={relatedLinks} />
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
+			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if selectedReport === 'status-days'}
 		<StatusDaysSummary {orgId} {personnel} {statusTypes} {groups} />
@@ -63,11 +63,3 @@
 		<GroupReadiness {orgId} {personnel} {statusTypes} {groups} />
 	{/if}
 </div>
-
-<style>
-	.reports-page {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-	}
-</style>

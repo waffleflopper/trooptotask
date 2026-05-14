@@ -5,21 +5,19 @@ Date: 2026-04-27
 
 ## Context
 
-TroopToTask v1 still contains demo and sandbox compatibility paths: demo cookies can affect org-route handling, sandbox code can manufacture no-op auth contexts, service-role helpers remain for sandbox shell and cleanup paths, and schema/RPC support for sandbox organizations still exists. At the same time, `/demo` now fails closed and `/api/create-demo-sandbox` rejects standalone sandbox creation.
+TroopToTask v1 historically contained demo and sandbox compatibility paths: demo cookies affected org-route handling, sandbox code manufactured no-op auth contexts, service-role helpers supported sandbox shell and cleanup paths, and schema/RPC support for sandbox organizations existed.
 
-The remaining conflict is transitional. Demo and sandbox code exists, but it should no longer shape ordinary auth, organization shell, provider-boundary, or feature-design decisions.
+Issue #868 removed the runtime entrypoints and bypasses. Migration `20260514000100_remove_demo_sandbox_schema.sql` removes the current schema fields and RPCs. Historical migration snapshots still include the old `demo_type` and sandbox RPC support for audit history, but those artifacts should not shape ordinary auth, organization shell, provider-boundary, or feature-design decisions.
 
 ## Decision
 
 Demo and sandbox behavior is deprecated and will be decommissioned in stages rather than revived as a supported v1 trial architecture.
 
-The staged direction is:
+The staged direction was:
 
-- keep public demo entrypoints fail-closed during containment
 - stop standalone sandbox bootstrap from creating new sandbox organizations
-- keep the remaining cookie-driven org-shell bypasses, sandbox auth contexts, service-role cleanup, schema fields, and RPCs explicitly documented as temporary exceptions
-- remove cookie-driven org-shell and auth bypasses before removing schema-level demo/sandbox support
-- remove `demo_type`, sandbox RPCs, and cleanup jobs only after no runtime path depends on them
+- remove public demo/sandbox entrypoints, cookie-driven org-shell bypasses, sandbox auth contexts, and service-role cleanup routes
+- remove `demo_type`, sandbox RPCs, grants, and seed references after no runtime path depends on them, then coordinate production application through the normal release process
 
 Marketing previews, recorded walkthroughs, seeded onboarding, or future trial experiences must be designed as separate product decisions. They must not reuse the deprecated demo/sandbox bypass model by default.
 
@@ -32,7 +30,9 @@ Marketing previews, recorded walkthroughs, seeded onboarding, or future trial ex
 
 ## Consequences
 
-Contributors should preserve or tighten fail-closed behavior when they encounter demo/sandbox code, add deprecation notes when touching remaining exceptions, and avoid expanding demo-only behavior. The presence of demo or sandbox code is not evidence that no-op auth contexts, cookie-driven org access, or public service-role bootstrap paths are acceptable patterns elsewhere.
+Contributors should not reintroduce runtime demo/sandbox routes, cookies, no-op auth contexts, public service-role bootstrap paths, or compatibility shims. Historical demo or sandbox schema residue is not evidence that those patterns are acceptable elsewhere.
+
+Update: issue #868 removed the runtime demo/sandbox entrypoints, cookie-driven org access, no-op auth context, in-memory demo org-shell path, and scheduled sandbox cleanup route. Issue #874 added migration `20260514000100_remove_demo_sandbox_schema.sql` to remove current schema residue; production application still follows the normal migration release process.
 
 ## Links
 

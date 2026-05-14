@@ -26,7 +26,7 @@
 <style>
 	.page-header {
 		position: relative;
-		background: var(--ink);
+		background: var(--foreground);
 		padding: 5rem 2rem 4rem;
 		overflow: hidden;
 		text-align: center;
@@ -41,9 +41,9 @@
 
 	.section-label {
 		margin-bottom: 1rem;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
@@ -51,9 +51,9 @@
 
 	.page-header h1 {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2.8rem, 6vw, 4.75rem);
-		font-weight: var(--font-weight-display);
+		font-weight: 800;
 		color: var(--hero-text);
 		letter-spacing: 0.04em;
 		line-height: 0.94;
@@ -62,7 +62,7 @@
 
 	.page-header h1 :global(em) {
 		font-style: italic;
-		font-weight: var(--font-weight-light);
+		font-weight: 300;
 		color: var(--brass);
 	}
 
@@ -73,7 +73,7 @@
 	.page-header-copy :global(p) {
 		margin: 0 auto;
 		max-width: 560px;
-		font-size: var(--text-lg);
+		font-size: 1.1875rem;
 		line-height: 1.7;
 		color: var(--hero-muted);
 	}
@@ -85,9 +85,9 @@
 	}
 
 	.page-header-copy :global(.page-meta) {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: color-mix(in srgb, var(--hero-muted) 88%, var(--brass) 12%);
@@ -108,7 +108,7 @@
 		}
 
 		.page-header-copy :global(p) {
-			font-size: var(--text-base);
+			font-size: 1rem;
 		}
 	}
 </style>

@@ -4,10 +4,17 @@
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { TrainingStatusBadge } from '$lib/components/ui/requirement-status-badge';
 
 	interface Props {
 		person: Personnel;
@@ -37,13 +44,13 @@
 	const expirationDateOnly = $derived(trainingType.expirationDateOnly);
 	const todayStr = formatDate(new Date());
 
-	// Initialize state
 	let isComplete = $state(false);
 	let completionDate = $state('');
-	// For expiration-date-only types, seed directly from the stored expiration date
 	let directExpirationDate = $state('');
 	let notes = $state('');
 	let certificateUrl = $state('');
+	let isSaving = $state(false);
+	let showRemoveConfirm = $state(false);
 
 	$effect(() => {
 		isComplete = !!existingTraining;
@@ -85,7 +92,6 @@
 	});
 
 	const canSave = $derived(expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate);
-	let isSaving = $state(false);
 
 	function getErrorMessage(error: unknown): string {
 		if (error instanceof Error && error.message.trim()) return error.message;
@@ -115,12 +121,6 @@
 		}
 	}
 
-	let showRemoveConfirm = $state(false);
-
-	function handleRemove() {
-		showRemoveConfirm = true;
-	}
-
 	async function doRemove() {
 		if (existingTraining) {
 			try {
@@ -133,135 +133,127 @@
 	}
 </script>
 
-<Modal
-	title="{existingTraining ? 'Edit' : 'Add'} Training Record"
-	{onClose}
-	width="450px"
-	titleId="training-record-title"
->
-	<div class="person-info">
-		<span class="person-rank">{person.rank}</span>
-		<span class="person-name">{person.lastName}, {person.firstName}</span>
-	</div>
+<AppDialog.Root closeBlocked={isSaving} {onClose}>
+	<AppDialog.Content closeBlocked={isSaving}>
+		<AppDialog.Header>
+			<AppDialog.Title>{existingTraining ? 'Edit' : 'Add'} Training Record</AppDialog.Title>
+			<AppDialog.Description>
+				{person.rank}
+				{person.lastName}, {person.firstName}
+			</AppDialog.Description>
+		</AppDialog.Header>
 
-	<div class="training-info">
-		<Badge label={trainingType.name} color={trainingType.color} />
-		{#if trainingType.description}
-			<p class="training-description">{trainingType.description}</p>
-		{/if}
-		{#if neverExpires}
-			<span class="never-expires-badge">Never Expires</span>
-		{:else if expirationDateOnly}
-			<span class="never-expires-badge">Expiration date per person</span>
-		{/if}
-	</div>
-
-	{#if canBeExempted && onToggleExempt}
-		<div class="exempt-toggle">
-			<button
-				class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm"
-				type="button"
-				onclick={() => onToggleExempt(!isExempt)}
-			>
-				{isExempt ? 'Remove Exemption' : 'Mark as Exempt'}
-			</button>
-			{#if isExempt}
-				<Badge label="Exempt" variant="outlined" />
-			{/if}
-		</div>
-	{/if}
-
-	{#if isExempt}
-		<div class="exempt-notice">
-			<p>This person is exempt from this training requirement.</p>
-		</div>
-	{:else if expirationDateOnly}
-		<!-- Expiration-date-only: enter the expiration date directly -->
-		<FormField
-			label="License / Certification Expiration Date"
-			id="expiration-date"
-			type="date"
-			required
-			hint="Enter the expiration date shown on the license or certificate"
-			bind:value={directExpirationDate}
-		/>
-	{:else if neverExpires}
-		<!-- Never-expires training: checkbox to mark complete, date optional -->
-		<div class="form-group checkbox-group">
-			<label class="checkbox-label">
-				<input type="checkbox" bind:checked={isComplete} />
-				<span class="checkbox-text">Mark as Complete</span>
-			</label>
-		</div>
-
-		<FormField
-			label="Completion Date (Optional)"
-			id="completion-date"
-			type="date"
-			disabled={!isComplete}
-			hint="Record when training was completed for your records"
-			bind:value={completionDate}
-		/>
-	{:else}
-		<!-- Expiring training: completion date required, expiration auto-calculated -->
-		<FormField label="Completion Date" id="completion-date" type="date" required bind:value={completionDate} />
-	{/if}
-
-	{#if !isExempt}
-		<div class="preview-row">
-			<div class="preview-item">
-				<span class="preview-label">Expiration:</span>
-				<span class="preview-value">
-					{#if neverExpires}
-						Never expires
-					{:else}
-						{previewExpirationDate ?? (expirationDateOnly ? 'Enter expiration date' : 'Set completion date')}
+		<AppDialog.Body>
+			<div class="grid gap-4">
+				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<div class="flex flex-wrap items-center gap-2">
+						<Badge style={`background-color: ${trainingType.color}`}>{trainingType.name}</Badge>
+						{#if neverExpires}
+							<Badge variant="outline">Never Expires</Badge>
+						{:else if expirationDateOnly}
+							<Badge variant="outline">Expiration date per person</Badge>
+						{/if}
+					</div>
+					{#if trainingType.description}
+						<p class="text-sm leading-relaxed text-muted-foreground">{trainingType.description}</p>
 					{/if}
-				</span>
+				</section>
+
+				{#if canBeExempted && onToggleExempt}
+					<div class="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+						<Button
+							variant={isExempt ? 'destructive' : 'outline'}
+							size="sm"
+							type="button"
+							onclick={() => onToggleExempt?.(!isExempt)}
+						>
+							{isExempt ? 'Remove Exemption' : 'Mark as Exempt'}
+						</Button>
+						{#if isExempt}
+							<Badge variant="outline">Exempt</Badge>
+						{/if}
+					</div>
+				{/if}
+
+				{#if isExempt}
+					<Alert.Root variant="info">
+						<Alert.Description>This person is exempt from this training requirement.</Alert.Description>
+					</Alert.Root>
+				{:else if expirationDateOnly}
+					<Field.Root>
+						<Field.Label for="expiration-date">License / Certification Expiration Date</Field.Label>
+						<DatePicker id="expiration-date" bind:value={directExpirationDate} />
+						<Field.Description>Enter the expiration date shown on the license or certificate.</Field.Description>
+					</Field.Root>
+				{:else if neverExpires}
+					<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-muted/30 p-3">
+						<Checkbox id="mark-complete" bind:checked={isComplete} />
+						<Field.Label for="mark-complete">Mark as Complete</Field.Label>
+					</Field.Root>
+
+					<Field.Root>
+						<Field.Label for="completion-date">Completion Date (Optional)</Field.Label>
+						<DatePicker id="completion-date" disabled={!isComplete} bind:value={completionDate} />
+						<Field.Description>Record when training was completed for your records.</Field.Description>
+					</Field.Root>
+				{:else}
+					<Field.Root>
+						<Field.Label for="completion-date">Completion Date</Field.Label>
+						<DatePicker id="completion-date" bind:value={completionDate} />
+					</Field.Root>
+				{/if}
+
+				{#if !isExempt}
+					<section class="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2">
+						<div class="grid gap-1">
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Expiration
+							</span>
+							<span class="text-sm font-semibold text-foreground">
+								{#if neverExpires}
+									Never expires
+								{:else}
+									{previewExpirationDate ?? (expirationDateOnly ? 'Enter expiration date' : 'Set completion date')}
+								{/if}
+							</span>
+						</div>
+						<div class="grid gap-1">
+							<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Status
+							</span>
+							<TrainingStatusBadge status={previewStatus.status} />
+						</div>
+					</section>
+
+					<Field.Root>
+						<Field.Label for="notes">Notes (optional)</Field.Label>
+						<Textarea id="notes" placeholder="Any additional notes..." rows={2} bind:value={notes} />
+					</Field.Root>
+
+					<Field.Root>
+						<Field.Label for="certificate-url">Certificate URL (optional)</Field.Label>
+						<Input id="certificate-url" type="url" placeholder="https://..." bind:value={certificateUrl} />
+					</Field.Root>
+				{/if}
 			</div>
-			<div class="preview-item">
-				<span class="preview-label">Status:</span>
-				<Badge label={previewStatus.label} color={previewStatus.color} />
-			</div>
-		</div>
+		</AppDialog.Body>
 
-		<FormField
-			label="Notes (optional)"
-			id="notes"
-			inputElement="textarea"
-			placeholder="Any additional notes..."
-			rows={2}
-			bind:value={notes}
-		/>
-
-		<FormField
-			label="Certificate URL (optional)"
-			id="certificate-url"
-			type="url"
-			placeholder="https://..."
-			bind:value={certificateUrl}
-		/>
-	{/if}
-
-	{#snippet footer()}
-		{#if !isExempt && existingTraining}
-			<button class="btn btn-danger" type="button" onclick={handleRemove}>Delete</button>
-		{/if}
-		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
-		{#if !isExempt}
-			<button
-				class="btn btn-primary"
-				type="button"
-				data-testid="training-save"
-				onclick={handleSave}
-				disabled={!canSave || isSaving}
-			>
-				{isSaving ? 'Saving...' : 'Save'}
-			</button>
-		{/if}
-	{/snippet}
-</Modal>
+		<AppDialog.Footer>
+			{#if !isExempt && existingTraining}
+				<Button variant="destructive" type="button" onclick={() => (showRemoveConfirm = true)}>Delete</Button>
+			{/if}
+			<div class="flex-1"></div>
+			<Button variant="outline" type="button" onclick={onClose} disabled={isSaving}>
+				{isExempt ? 'Close' : 'Cancel'}
+			</Button>
+			{#if !isExempt}
+				<Button type="button" data-testid="training-save" onclick={handleSave} disabled={!canSave || isSaving}>
+					{isSaving ? 'Saving...' : 'Save'}
+				</Button>
+			{/if}
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if showRemoveConfirm}
 	<ConfirmDialog
@@ -273,151 +265,3 @@
 		onCancel={() => (showRemoveConfirm = false)}
 	/>
 {/if}
-
-<style>
-	.person-info {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.person-rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.person-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.training-info {
-		display: flex;
-		flex-direction: column;
-		align-items: start;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	.training-description {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		color: var(--text-secondary);
-	}
-
-	.preview-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-4);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.preview-item {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-	}
-
-	.preview-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.preview-value {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.never-expires-badge {
-		display: inline-block;
-		padding: var(--sp-1) var(--sp-2);
-		background: color-mix(in srgb, var(--surface-subtle) 62%, var(--surface-panel) 38%);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.checkbox-group {
-		margin-bottom: var(--sp-4);
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		cursor: pointer;
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border-radius: var(--radius-lg);
-		border: var(--border-thin);
-	}
-
-	.checkbox-label:hover {
-		border-color: var(--border-strong);
-	}
-
-	.checkbox-label input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--amber);
-		cursor: pointer;
-	}
-
-	.checkbox-text {
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.exempt-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-4);
-		padding: var(--sp-3) var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
-		border-radius: var(--radius-lg);
-		border: var(--border-thin);
-	}
-
-	.exempt-notice {
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		margin-bottom: var(--sp-4);
-	}
-
-	.exempt-notice p {
-		margin: 0;
-		font-size: var(--text-sm);
-		line-height: 1.65;
-		color: var(--text-secondary);
-	}
-</style>

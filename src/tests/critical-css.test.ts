@@ -31,11 +31,17 @@ describe('critical CSS inlining', () => {
 		expect(inlineStyles).toContain('margin: 0');
 	});
 
-	it('app.css no longer carries migration alias definitions', () => {
+	it('app.css keeps legacy aliases out while exporting native shadcn theme tokens', () => {
 		const css = readFileSync(APP_CSS, 'utf-8');
 		expect(css).not.toContain('Migration aliases');
-		expect(css).not.toContain('--color-primary:');
 		expect(css).not.toContain('--color-bg:');
+		expect(css).toContain('@theme inline');
+		expect(css).not.toContain('--font-sans:');
+		expect(css).not.toContain('--font-mono:');
+		expect(css).toContain('--color-primary: var(--primary);');
+		expect(css).toContain('--primary: oklch(14.7% 0.004 49.25);');
+		expect(css).toContain('--accent: oklch(66.6% 0.179 58.318);');
+		expect(css).toContain('--sidebar: oklch(98.5% 0.001 106.423);');
 	});
 });
 

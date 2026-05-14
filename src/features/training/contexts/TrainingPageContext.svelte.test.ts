@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
-import { createOrgContext, type OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType } from '$features/training/training.types';
@@ -31,96 +31,20 @@ vi.mock('$lib/preferences/userPreferences.client', () => ({
 // Minimal stubs
 // ---------------------------------------------------------------------------
 
-function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	const org = createOrgContext({
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
-		userRole: 'member',
-		capabilityMap: {
-			calendar: 'configure',
-			personnel: 'configure',
-			training: 'configure',
-			criticalTasks: 'configure',
-			onboarding: 'configure',
-			ratingScheme: 'configure'
-		},
-		scopeSet: { kind: 'organization' },
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewCriticalTasks: true,
-			canEditCriticalTasks: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
-			canManageMembers: false
-		},
-		scopedGroupId: null,
-		isReadOnly: false
-	});
-
-	return Object.assign({}, org, overrides);
+function makeOrg() {
+	return createTestOrgContext({ userRole: 'member' });
 }
 
-function makeCapabilityMap(training: CapabilityMap['training']): CapabilityMap {
-	return {
-		calendar: 'none',
-		personnel: 'none',
-		training,
-		criticalTasks: 'none',
-		onboarding: 'none',
-		ratingScheme: 'none'
-	};
+function makeModals() {
+	return new ModalRegistry();
 }
 
-function makePolicyOrg(options: { training: CapabilityMap['training']; readOnly?: boolean }): OrgContext {
-	return createOrgContext({
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
+function makePolicyOrg(options: { training: CapabilityMap['training']; readOnly?: boolean }) {
+	return createTestOrgContext({
 		userRole: 'member',
-		capabilityMap: makeCapabilityMap(options.training),
-		scopeSet: { kind: 'organization' },
-		permissions: {
-			canViewCalendar: false,
-			canEditCalendar: false,
-			canViewPersonnel: false,
-			canEditPersonnel: false,
-			canViewTraining: true,
-			canEditTraining: false,
-			canViewCriticalTasks: false,
-			canEditCriticalTasks: false,
-			canViewOnboarding: false,
-			canEditOnboarding: false,
-			canViewLeadersBook: false,
-			canEditLeadersBook: false,
-			canManageMembers: false
-		},
-		scopedGroupId: null,
+		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: options.training },
 		isReadOnly: options.readOnly ?? false
 	});
-}
-
-function makeModals(): ModalRegistry {
-	const opened: Record<string, unknown> = {};
-	return {
-		isOpen: (id: string) => id in opened,
-		open: (id: string, payload?: unknown) => {
-			opened[id] = payload ?? null;
-		},
-		close: (id: string) => {
-			delete opened[id];
-		},
-		closeAll: () => Object.keys(opened).forEach((k) => delete opened[k]),
-		closerFor: (id: string) => () => delete opened[id],
-		payload: <T>(id: string) => opened[id] as T | undefined
-	} as unknown as ModalRegistry;
 }
 
 const mockPerson: Personnel = {

@@ -1,5 +1,5 @@
 import type { TrainingStatusInfo } from './trainingStatus';
-import type { PersonnelTraining } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingStatus } from '$features/training/training.types';
 
 function formatCompactTrainingDate(date: string | null | undefined): string | null {
 	if (!date) return null;
@@ -9,14 +9,27 @@ function formatCompactTrainingDate(date: string | null | undefined): string | nu
 	return `${month}/${year}`;
 }
 
-export function formatTrainingCellText(label: string, date: string | null | undefined): string {
+export function formatTrainingCellText(status: TrainingStatus, label: string, date: string | null | undefined): string {
 	const compactDate = formatCompactTrainingDate(date);
-	return compactDate ? `${label} ${compactDate}` : label;
+	switch (status) {
+		case 'current':
+		case 'warning-yellow':
+		case 'warning-orange':
+			return compactDate ?? label;
+		case 'expired':
+			return 'Expired';
+		case 'exempt':
+			return 'Exempt';
+		case 'not-required':
+			return 'N/A';
+		case 'not-completed':
+			return 'Not Done';
+	}
 }
 
 /**
  * Returns the text to display inside a heatmap cell.
- * Date-based statuses show a compact inline status + date; non-date statuses show short labels.
+ * Current and warning statuses show date-only text; non-date statuses show short labels.
  */
 export function getCellDisplayText(
 	statusInfo: TrainingStatusInfo,
@@ -37,7 +50,7 @@ export function getCellDisplayText(
 			const relevantDate = expirationDateOnly
 				? training?.expirationDate
 				: (training?.expirationDate ?? training?.completionDate);
-			return formatTrainingCellText(statusInfo.label, relevantDate);
+			return formatTrainingCellText(statusInfo.status, statusInfo.label, relevantDate);
 		}
 	}
 }

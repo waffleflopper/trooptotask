@@ -1,7 +1,14 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Card from '$lib/components/ui/card';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data } = $props();
 
@@ -29,141 +36,110 @@
 	<title>Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="admin-page-shell">
-	<header class="admin-page-header">
-		<div class="admin-page-header__copy">
-			<p class="admin-page-eyebrow">Organization Ledger</p>
-			<h1 class="admin-page-title">Organizations</h1>
-			<p class="admin-page-subtitle">
-				Review organization health, ownership, plan state, and suspension status from the central platform index.
-			</p>
-		</div>
-	</header>
+<PageShell.Root width="wide">
+	<PageShell.Header
+		title="Organizations"
+		subtitle="Review organization health, ownership, plan state, and suspension status from the central platform index."
+	/>
 
-	<div class="admin-overview-grid">
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Total Organizations</p>
-			<p class="admin-overview-card__value">{data.organizations.length}</p>
-			<p class="admin-overview-card__meta">Every organization currently attached to the platform.</p>
-		</div>
-		<div class="admin-overview-card">
-			<p class="admin-overview-card__label">Filtered View</p>
-			<p class="admin-overview-card__value">{filteredOrgs.length}</p>
-			<p class="admin-overview-card__meta">Organizations matching the current search and plan filters.</p>
-		</div>
-	</div>
+	<PageShell.FactGrid layout="two">
+		<PageShell.Metric
+			label="Total Organizations"
+			value={data.organizations.length}
+			detail="Every organization attached to the platform."
+		/>
+		<PageShell.Metric
+			label="Filtered View"
+			value={filteredOrgs.length}
+			detail="Organizations matching current filters."
+		/>
+	</PageShell.FactGrid>
 
-	<div class="admin-toolbar">
-		<div class="admin-toolbar__group">
-			<div class="admin-toolbar__field admin-toolbar__field--search">
-				<label class="label" for="org-search">Search</label>
-				<input
-					id="org-search"
-					class="input"
-					type="text"
-					placeholder="Search by name or owner email..."
-					bind:value={searchInput}
-				/>
+	<Card.Root>
+		<Card.Content class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+			<div class="grid flex-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)_minmax(10rem,1fr)]">
+				<Field.Root>
+					<Field.Label for="org-search">Search</Field.Label>
+					<Input id="org-search" type="text" placeholder="Search by name or owner email..." bind:value={searchInput} />
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="tier-filter">Tier</Field.Label>
+					<NativeSelect id="tier-filter" bind:value={tierFilter}>
+						<option value="all">All tiers</option>
+						<option value="free">Free</option>
+						<option value="team">Team</option>
+						<option value="unit">Unit</option>
+					</NativeSelect>
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="status-filter">Status</Field.Label>
+					<NativeSelect id="status-filter" bind:value={statusFilter}>
+						<option value="all">All statuses</option>
+						<option value="active">Active</option>
+						<option value="suspended">Suspended</option>
+					</NativeSelect>
+				</Field.Root>
 			</div>
-			<div class="admin-toolbar__field">
-				<label class="label" for="tier-filter">Tier</label>
-				<select id="tier-filter" bind:value={tierFilter} class="select">
-					<option value="all">All tiers</option>
-					<option value="free">Free</option>
-					<option value="team">Team</option>
-					<option value="unit">Unit</option>
-				</select>
-			</div>
-			<div class="admin-toolbar__field">
-				<label class="label" for="status-filter">Status</label>
-				<select id="status-filter" bind:value={statusFilter} class="select">
-					<option value="all">All statuses</option>
-					<option value="active">Active</option>
-					<option value="suspended">Suspended</option>
-				</select>
-			</div>
+			<span class="text-sm text-muted-foreground">{filteredOrgs.length} matched</span>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="overflow-hidden">
+		<div class="overflow-x-auto">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Name</Table.Head>
+						<Table.Head>Tier</Table.Head>
+						<Table.Head>Members</Table.Head>
+						<Table.Head>Personnel</Table.Head>
+						<Table.Head>Owner</Table.Head>
+						<Table.Head>Status</Table.Head>
+						<Table.Head>Created</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each filteredOrgs as org (org.id)}
+						<Table.Row>
+							<Table.Cell>
+								<div class="grid min-w-48 gap-1">
+									<a href="/admin/organizations/{org.id}" class="font-medium">{org.name}</a>
+									<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+										{org.id.slice(0, 8)}...
+									</code>
+								</div>
+							</Table.Cell>
+							<Table.Cell>
+								<div class="flex flex-wrap gap-2">
+									<Badge variant={adminBadgeVariant(org.effectiveTier)}>{formatAdminLabel(org.effectiveTier)}</Badge>
+									{#if org.gift_tier}
+										<Badge variant="warning">Gift</Badge>
+									{/if}
+								</div>
+							</Table.Cell>
+							<Table.Cell>{org.memberCount}</Table.Cell>
+							<Table.Cell>{org.personnelCount}</Table.Cell>
+							<Table.Cell class="max-w-60 break-words text-muted-foreground">{org.ownerEmail || '-'}</Table.Cell>
+							<Table.Cell>
+								<Badge variant={adminBadgeVariant(org.isSuspended ? 'suspended' : 'active')}>
+									{org.isSuspended ? 'Suspended' : 'Active'}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell>{formatDisplayDate(org.created_at)}</Table.Cell>
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={7}>
+								<Empty.Root>
+									<Empty.Header>
+										<Empty.Title>No organizations found.</Empty.Title>
+									</Empty.Header>
+								</Empty.Root>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
 		</div>
-		<div class="admin-toolbar__meta">
-			<span>{filteredOrgs.length} matched</span>
-		</div>
-	</div>
-
-	<div class="admin-table-shell admin-table-shell--scroll">
-		<table class="admin-table orgs-table">
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Tier</th>
-					<th>Members</th>
-					<th>Personnel</th>
-					<th>Owner</th>
-					<th>Status</th>
-					<th>Created</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each filteredOrgs as org (org.id)}
-					<tr>
-						<td>
-							<div class="entity-cell">
-								<a href="/admin/organizations/{org.id}" class="entity-link">{org.name}</a>
-								<span class="admin-code">{org.id.slice(0, 8)}...</span>
-							</div>
-						</td>
-						<td>
-							<div class="tier-cell">
-								<Badge
-									label={formatAdminLabel(org.effectiveTier)}
-									color={ADMIN_TIER_COLORS[org.effectiveTier] ?? 'var(--ink-35)'}
-								/>
-								{#if org.gift_tier}
-									<Badge label="Gift" color={ADMIN_STATUS_COLORS.gifted} />
-								{/if}
-							</div>
-						</td>
-						<td>{org.memberCount}</td>
-						<td>{org.personnelCount}</td>
-						<td class="owner-cell">{org.ownerEmail || '—'}</td>
-						<td>
-							<Badge
-								label={org.isSuspended ? 'Suspended' : 'Active'}
-								color={org.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
-							/>
-						</td>
-						<td>{formatDisplayDate(org.created_at)}</td>
-					</tr>
-				{:else}
-					<tr>
-						<td colspan="7" class="admin-empty">No organizations found.</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-</div>
-
-<style>
-	.entity-cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-	}
-
-	.entity-link {
-		font-size: var(--text-sm);
-		font-weight: 600;
-	}
-
-	.tier-cell {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.owner-cell {
-		max-width: 240px;
-		word-break: break-word;
-		color: var(--text-secondary);
-	}
-</style>
+	</Card.Root>
+</PageShell.Root>

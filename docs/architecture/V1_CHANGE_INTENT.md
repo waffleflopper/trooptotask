@@ -182,20 +182,19 @@ Focus entries:
 ## C-06 Demo And Sandbox Decommissioning
 
 - Current-state truth:
-  - `/demo` already redirects to login with `demo_unavailable`, and `/api/create-demo-sandbox` now rejects requests instead of minting sandboxes
-  - the repo still keeps demo cookies, cookie-driven org-shell bypass, and cleanup paths alive
-  - sandbox requests can still switch to service-role plus no-op auth contexts instead of a real membership row
+  - `/demo`, `/api/create-demo-sandbox`, and `/api/cleanup-demo-sandboxes` have been removed from runtime routing
+  - demo cookies no longer influence org-route access, org-shell loading, API context creation, Supabase client selection, or auth-context creation
+  - migration `20260514000100_remove_demo_sandbox_schema.sql` removes `demo_type`, `demo_expires_at`, and sandbox RPCs from the current schema
+  - historical migration snapshots still contain the old demo/sandbox objects for audit history only
 - Why this is unsatisfying:
-  - these deprecated exceptions still shape how contributors reason about auth, org shells, and provider ownership
-  - the runtime still carries cookie-driven bypasses and no-op auth contexts that imply "re-enable demo later" instead of "contain and remove"
+  - applying the schema cleanup still needs production migration coordination
 - Intended v1 direction:
-  - stage 1: keep the remaining exception files explicit in governance and disable standalone sandbox bootstrap entirely
-  - stage 2: remove cookie-driven org-shell and auth bypasses and retire `/demo` as a product path rather than rebuilding it
-  - stage 3: remove `demo_type`, sandbox RPCs, and cleanup jobs after no runtime route depends on them
+  - keep runtime auth and org access membership-backed only
+  - apply `20260514000100_remove_demo_sandbox_schema.sql` through the normal production release process
 - Constraints to preserve:
   - do not expand demo/sandbox behavior or invent a new v1 trial architecture
   - keep current production auth, org, billing, and membership behavior outside the deprecated demo paths
-  - accept that demo may remain unavailable during the decommission transition
+  - do not reintroduce fail-closed marker routes or compatibility shims for the removed runtime system
 - Open questions:
   - whether any remaining stakeholder need justifies a later non-demo replacement such as seeded org setup or recorded walkthroughs
   - when schema and RPC cleanup can land without blocking support or ops workflows

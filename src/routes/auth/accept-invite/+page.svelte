@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import FormField from '$lib/components/ui/FormField.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
 
 	const hasSession = $derived($page.data.hasSession);
@@ -167,7 +169,7 @@
 		'After this step, sign in with your email and password as usual.'
 	]}
 >
-	<div class="auth-stack">
+	<div class="flex flex-col gap-5">
 		{#if success}
 			<AuthNotice tone="success" title="Account activated" centered>
 				<p>Your password has been set successfully.</p>
@@ -179,17 +181,17 @@
 				<p><a href="/auth/renew-invite">Need a fresh invite? Renew it here.</a></p>
 			</AuthNotice>
 		{:else if !sessionReady}
-			<div class="auth-loading">
-				<Spinner color="var(--amber)" />
-				<p class="auth-note">Verifying invite link...</p>
+			<div class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+				<Spinner class="text-primary" />
+				<p class="m-0 text-sm leading-relaxed">Verifying invite link...</p>
 			</div>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />
 			{/if}
 
-			<form onsubmit={handleSubmit} class="auth-stack">
-				<FormField
+			<form onsubmit={handleSubmit} class="flex flex-col gap-5">
+				<AuthField
 					label="Password"
 					id="password"
 					name="password"
@@ -199,49 +201,18 @@
 					placeholder="At least 12 characters"
 				>
 					{#snippet action()}
-						<button
-							type="button"
-							class="field-action"
-							onclick={() => (showPassword = !showPassword)}
-							aria-label={showPassword ? 'Hide password' : 'Show password'}
-						>
-							{#if showPassword}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path
-										d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-									/><line x1="1" y1="1" x2="23" y2="23" /></svg
-								>
-							{:else}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg
-								>
-							{/if}
-						</button>
+						<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
 					{/snippet}
-				</FormField>
+				</AuthField>
 
-				<ul class="auth-password-checklist" aria-live="polite">
-					<li class:is-met={hasMinLength}>At least 12 characters</li>
-					<li class:is-met={hasUppercase}>One uppercase letter</li>
-					<li class:is-met={hasLowercase}>One lowercase letter</li>
-					<li class:is-met={hasDigit}>One number</li>
+				<ul class="grid gap-2 text-xs leading-normal text-muted-foreground" aria-live="polite">
+					<li class={hasMinLength ? 'text-success' : undefined}>At least 12 characters</li>
+					<li class={hasUppercase ? 'text-success' : undefined}>One uppercase letter</li>
+					<li class={hasLowercase ? 'text-success' : undefined}>One lowercase letter</li>
+					<li class={hasDigit ? 'text-success' : undefined}>One number</li>
 				</ul>
 
-				<FormField
+				<AuthField
 					label="Confirm Password"
 					id="confirmPassword"
 					name="confirmPassword"
@@ -252,59 +223,35 @@
 					hint={passwordsMatch ? 'Passwords match.' : undefined}
 				>
 					{#snippet action()}
-						<button
-							type="button"
-							class="field-action"
+						<AuthPasswordToggle
+							visible={showConfirmPassword}
 							onclick={() => (showConfirmPassword = !showConfirmPassword)}
-							aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-						>
-							{#if showConfirmPassword}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path
-										d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-									/><line x1="1" y1="1" x2="23" y2="23" /></svg
-								>
-							{:else}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-									><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg
-								>
-							{/if}
-						</button>
+						/>
 					{/snippet}
-				</FormField>
+				</AuthField>
 
-				<div class="auth-actions">
-					<button type="submit" class="btn btn-primary" disabled={!canSubmit}>
+				<div class="flex flex-col gap-3">
+					<Button type="submit" disabled={!canSubmit} class="w-full">
 						{#if loading}
 							<Spinner />
 							Setting Password...
 						{:else}
 							Set Password
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</form>
 		{/if}
 
-		<div class="auth-divider">
-			<span>Need to exit?</span>
+		<div
+			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
+		>
+			<span class="h-px flex-1 bg-border"></span>
+			<span class="whitespace-nowrap">Need to exit?</span>
+			<span class="h-px flex-1 bg-border"></span>
 		</div>
 
-		<div class="auth-link-list">
+		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>
 				Leave this invite flow and <a href="/auth/logout">sign out</a>.
 			</p>

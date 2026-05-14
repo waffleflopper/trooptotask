@@ -1,4 +1,4 @@
-import type { ToolbarActionConfig } from '$lib/components/ui/toolbar';
+import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 
 export interface CalendarToolbarInput {
 	orgId: string;
@@ -20,7 +20,7 @@ export interface CalendarToolbarInput {
 	onExportPDF: () => void;
 }
 
-function overflowToggle(id: string, label: string, active: boolean, onclick: () => void): ToolbarActionConfig {
+function overflowToggle(id: string, label: string, active: boolean, onclick: () => void): WorkspaceToolbarAction {
 	return {
 		id,
 		label,
@@ -32,8 +32,8 @@ function overflowToggle(id: string, label: string, active: boolean, onclick: () 
 	};
 }
 
-export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarActionConfig[] {
-	const items: ToolbarActionConfig[] = [];
+export function buildCalendarToolbarItems(input: CalendarToolbarInput): WorkspaceToolbarAction[] {
+	const items: WorkspaceToolbarAction[] = [];
 	const readOnlyReason = input.readOnly ? 'Read-only mode' : undefined;
 
 	if (input.canManageAvailability) {
@@ -68,7 +68,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): ToolbarA
 	}
 
 	if (input.canManageAssignments) {
-		const planningItems: NonNullable<ToolbarActionConfig['menuItems']> = [];
+		const planningItems: NonNullable<WorkspaceToolbarAction['menuItems']> = [];
 		if (input.canManageConfig) {
 			planningItems.push({
 				label: 'Duty Rosters (alpha)',

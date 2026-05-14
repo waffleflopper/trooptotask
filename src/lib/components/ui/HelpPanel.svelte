@@ -1,144 +1,137 @@
 <script lang="ts">
+	import ArrowUpRightIcon from '@lucide/svelte/icons/arrow-up-right';
+	import * as Sheet from '$lib/components/ui/sheet';
+	import { Button } from '$lib/components/ui/button';
 	import { helpStore } from '$lib/stores/help.svelte';
-	import { helpContent } from '$lib/help-content';
 
-	const topic = $derived(helpStore.activeTopic ? helpContent[helpStore.activeTopic] : null);
+	type HelpTopic = {
+		id: string;
+		title: string;
+		description: string;
+		items: string[];
+	};
 
-	function handleBackdropClick() {
-		helpStore.close();
-	}
+	const topics: HelpTopic[] = [
+		{
+			id: 'dashboard',
+			title: 'Dashboard help',
+			description: 'Use the dashboard for unit-level readiness, upcoming losses, and daily work cues.',
+			items: [
+				'Review the top summary first.',
+				'Use pinned groups to narrow repeated checks.',
+				'Open detail pages for action work.'
+			]
+		},
+		{
+			id: 'personnel',
+			title: 'Personnel help',
+			description: 'Manage personnel records, groups, and basic duty information.',
+			items: [
+				'Keep rank, name, MOS, and group current.',
+				'Archive records instead of deleting routine departures.',
+				'Use bulk tools for roster cleanup.'
+			]
+		},
+		{
+			id: 'calendar',
+			title: 'Calendar help',
+			description: 'Track availability, holidays, daily assignments, and calendar reporting.',
+			items: [
+				'Use assignment types for repeatable duties.',
+				'Apply bulk status changes for ranges.',
+				'Review reports before publishing coverage decisions.'
+			]
+		},
+		{
+			id: 'training',
+			title: 'Training help',
+			description: 'Track training requirements, completions, imports, and readiness reports.',
+			items: [
+				'Filter the matrix before large updates.',
+				'Use imports for large completion batches.',
+				'Review reports for expiring or missing records.'
+			]
+		},
+		{
+			id: 'onboarding',
+			title: 'Onboarding help',
+			description: 'Start packets, assign steps, and track new personnel progress.',
+			items: [
+				'Start from a configured template.',
+				'Assign step owners when work needs follow-up.',
+				'Complete packets only after active steps are done.'
+			]
+		},
+		{
+			id: 'critical-tasks',
+			title: 'Critical Tasks help',
+			description: 'Maintain ICTL tasks, log completions, and monitor annual proficiency.',
+			items: [
+				'Keep the task library scoped to the unit.',
+				'Log completions from the matrix or detail view.',
+				'Use reports to find risk before expiration.'
+			]
+		},
+		{
+			id: 'duty-roster',
+			title: 'Duty Roster help',
+			description: 'Configure rosters, generate previews, review warnings, and accept duty runs.',
+			items: [
+				'Confirm pool and exclusion settings first.',
+				'Review warnings before accepting a run.',
+				'Use history corrections when actual duty differs from planned duty.'
+			]
+		},
+		{
+			id: 'settings',
+			title: 'Settings help',
+			description: 'Manage organization settings, access, policies, billing, and data exports.',
+			items: [
+				'Review access roles before changing members.',
+				'Keep policy settings explicit.',
+				'Use exports for audit and handoff workflows.'
+			]
+		}
+	];
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') helpStore.close();
-	}
+	const fallbackTopic: HelpTopic = {
+		id: 'general',
+		title: 'Platform help',
+		description: 'Quick guidance for common Troop to Task workflows.',
+		items: [
+			'Use the main navigation to move between workspaces.',
+			'Most changes save inside feature-specific dialogs.',
+			'Press Escape to close sheets and dialogs.'
+		]
+	};
+
+	const activeTopic = $derived(topics.find((topic) => topic.id === helpStore.activeTopic) ?? fallbackTopic);
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<Sheet.Root bind:open={() => Boolean(helpStore.activeTopic), (open) => !open && helpStore.close()}>
+	<Sheet.Content side="right" class="w-full overflow-y-auto sm:max-w-lg">
+		<Sheet.Header class="border-b border-border px-4 pb-4">
+			<Sheet.Title>{activeTopic.title}</Sheet.Title>
+			<Sheet.Description>{activeTopic.description}</Sheet.Description>
+		</Sheet.Header>
 
-{#if topic}
-	<aside class="help-panel" aria-label="Help">
-		<div class="help-header">
-			<h2 class="help-title">{topic.title}</h2>
-			<button type="button" class="help-close" onclick={() => helpStore.close()} aria-label="Close help">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M18 6L6 18M6 6l12 12" />
-				</svg>
-			</button>
+		<div class="grid gap-4 px-4 pb-5">
+			<section class="grid gap-3 rounded-lg border bg-card p-4">
+				<p class="font-mono text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Quick checks</p>
+				<ul class="grid gap-2 text-sm text-foreground">
+					{#each activeTopic.items as item (item)}
+						<li class="flex gap-2">
+							<span class="mt-2 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true"></span>
+							<span>{item}</span>
+						</li>
+					{/each}
+				</ul>
+			</section>
+
+			<Button href="/help" variant="outline" class="w-full justify-between">
+				Open full platform guide
+				<ArrowUpRightIcon />
+			</Button>
 		</div>
-		<div class="help-body">
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- developer-controlled static help content, not user input -->
-			{@html topic.content}
-		</div>
-	</aside>
-	<button type="button" class="help-backdrop" onclick={handleBackdropClick} aria-label="Close help panel"></button>
-{/if}
-
-<style>
-	.help-backdrop {
-		position: fixed;
-		inset: 0;
-		border: none;
-		padding: 0;
-		background: rgba(0, 0, 0, 0.3);
-		z-index: 999;
-	}
-
-	.help-panel {
-		position: fixed;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		width: 380px;
-		max-width: 90vw;
-		background: var(--surface-panel);
-		box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
-		z-index: 1000;
-		display: flex;
-		flex-direction: column;
-		animation: slideIn 0.2s ease-out;
-	}
-
-	@keyframes slideIn {
-		from {
-			transform: translateX(100%);
-		}
-		to {
-			transform: translateX(0);
-		}
-	}
-
-	.help-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--sp-4) var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		flex-shrink: 0;
-	}
-
-	.help-title {
-		font-size: var(--text-base);
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.help-close {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border: none;
-		background: transparent;
-		color: var(--text-tertiary);
-		cursor: pointer;
-		border-radius: var(--radius-sm);
-		padding: 0;
-	}
-
-	.help-close:hover {
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-	}
-
-	.help-close:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-		box-shadow: var(--focus-ring);
-	}
-
-	.help-close svg {
-		width: 18px;
-		height: 18px;
-	}
-
-	.help-body {
-		padding: var(--sp-6);
-		overflow-y: auto;
-		flex: 1;
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
-		line-height: 1.6;
-	}
-
-	.help-body :global(h4) {
-		font-size: var(--text-ui-sm);
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: var(--sp-4) 0 var(--sp-2);
-	}
-
-	.help-body :global(p) {
-		margin: 0 0 var(--sp-2);
-	}
-
-	.help-body :global(ul) {
-		margin: 0 0 var(--sp-2);
-		padding-left: var(--sp-6);
-	}
-
-	.help-body :global(li) {
-		margin-bottom: var(--sp-1);
-	}
-</style>
+	</Sheet.Content>
+</Sheet.Root>

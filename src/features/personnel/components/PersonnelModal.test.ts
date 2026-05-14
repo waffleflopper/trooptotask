@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelModal from './PersonnelModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 
-afterEach(() => {
+afterEach(async () => {
 	cleanup();
+	// bits-ui schedules dialog body-scroll cleanup with a 24ms delay.
+	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
 });
 
@@ -37,7 +39,7 @@ describe('PersonnelModal', () => {
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));
-		const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => {});
+		const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(PersonnelModal, {
 			props: {
@@ -64,16 +66,24 @@ describe('PersonnelModal', () => {
 
 		render(PersonnelModal, {
 			props: {
+				personnel: {
+					id: 'person-1',
+					rank: 'SPC',
+					firstName: 'Jane',
+					lastName: 'Smith',
+					mos: '',
+					clinicRole: '',
+					ets: '2027-05-01',
+					deros: '2026-11-30',
+					groupId: null,
+					groupName: ''
+				},
 				groups: [],
 				onSubmit,
 				onClose
 			}
 		});
 
-		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
-		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
-		await fireEvent.input(screen.getByLabelText('ETS'), { target: { value: '2027-05-01' } });
-		await fireEvent.input(screen.getByLabelText('PCS / DEROS'), { target: { value: '2026-11-30' } });
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 
 		await waitFor(() => {

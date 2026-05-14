@@ -28,7 +28,7 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		const orgId = ctx.auth.orgId;
 		const userId = ctx.auth.userId;
 
-		if (!userId) fail(403, 'Not available in sandbox');
+		if (!userId) fail(403, 'Authenticated user required');
 		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		if (isBillingEnabled) {

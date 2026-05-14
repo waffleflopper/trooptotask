@@ -1,7 +1,7 @@
 <script lang="ts">
-	import DutyRosterRoutePage from './DutyRosterRoutePage.svelte';
+	import DutyRosterTemplateWorkspace from '$features/duty-roster/components/DutyRosterTemplateWorkspace.svelte';
 
 	let { data, form } = $props();
 </script>
 
-<DutyRosterRoutePage {data} {form} />
+<DutyRosterTemplateWorkspace {data} {form} />

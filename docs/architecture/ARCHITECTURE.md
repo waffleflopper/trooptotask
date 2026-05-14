@@ -64,15 +64,15 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
   - admin/platform utilities
   - some org layout settings fetches
   - auth, billing, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
-- Service-role Supabase usage also exists for platform admin, audit writes, notifications, cleanup jobs, demo/sandbox paths, and webhook processing.
+- Service-role Supabase usage also exists for platform admin, audit writes, notifications, cleanup jobs, and webhook processing.
 
 ### Product surface reality
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
 - `Leaders Book` still exists conceptually and in permissions, help content, exports, and plans, but is hidden from primary nav while redesign work is pending.
 - `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
-- Demo and sandbox flows still exist in schema, routes, and bootstrap logic, but are already marked as deprecated for future removal.
-- The live `/demo` entry and `/api/create-demo-sandbox` both fail closed now, but cookie-driven org-route bypasses and sandbox cleanup paths still remain as contained exceptions.
+- Deprecated demo and sandbox runtime flows have been removed from routes, org-shell loading, API context construction, and auth-context creation.
+- Migration `20260514000100_remove_demo_sandbox_schema.sql` removes demo/sandbox fields and RPCs from the current schema. Historical migration snapshots still show the old model for audit history only.
 
 ## Intended Guardrails Going Forward
 
@@ -115,8 +115,8 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 
 ### Deprecated or unstable areas
 
-- Do not deepen demo/sandbox behavior.
-- Treat cookie-driven demo/sandbox access and no-op sandbox auth contexts as deprecated exceptions slated for staged removal, not as architecture options.
+- Do not reintroduce demo/sandbox behavior.
+- Treat cookie-driven access, public service-role bootstrap, no-op auth contexts, and in-memory owner shells as rejected architecture options.
 - Do not treat hidden or transitional surfaces as stable precedent just because code still exists for them.
 - When you touch contradictory or transitional areas, document the contradiction instead of smoothing it over.
 
@@ -128,8 +128,7 @@ This is a v1 document. It should describe the current SvelteKit repo honestly in
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is around the future `Leader's Book` remake, not Rating Scheme placement or permission ownership.
 - `clinicRole` and other clinic-era names still appear in schema and code.
 - Leaders Book remains hidden from primary nav while related data and permissions remain live.
-- Demo/sandbox bypass logic still exists and uses service-role access paths.
-- The highest-risk remaining demo/sandbox exceptions are the hook-level org-route bypass, in-memory demo org shell/no-op auth contexts, and cleanup path.
+- Demo/sandbox runtime bypass logic has been removed; remaining demo/sandbox residue is schema-history cleanup work.
 
 ## Not Precedent
 
@@ -140,8 +139,8 @@ The following patterns are tolerated current-state, not patterns to copy:
 - new feature permissions borrowing another feature's lane
 - clinic-specific naming in new domain language
 - treating UI permission presets as if they were persisted auth roles
-- using demo/sandbox behavior as a model for new product work
-- cookie-driven auth or org-shell bypass for deprecated demo/sandbox access
+- using historical demo/sandbox behavior as a model for new product work
+- cookie-driven auth or org-shell bypasses
 - no-op auth contexts or in-memory owner shells that stand in for a real membership row
 
 ## When To Update This Document

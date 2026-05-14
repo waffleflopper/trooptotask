@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
 
@@ -30,6 +30,7 @@ afterEach(() => {
 	cleanup();
 	orgReadOnly = false;
 	canConfigure = true;
+	vi.unstubAllGlobals();
 });
 
 function renderTemplatesPage({
@@ -72,16 +73,6 @@ function renderTemplatesPage({
 }
 
 describe('onboarding templates page', () => {
-	it('uses a floating toolbar for navigation and template creation', () => {
-		renderTemplatesPage();
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
-		const nav = within(toolbar).getByRole('navigation', { name: 'Onboarding sections' });
-		expect(within(nav).getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
-		expect(within(toolbar).getByRole('button', { name: 'Add Template' })).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: 'Manage Templates' })).toBeNull();
-	});
-
 	it('preserves add template disabled state while adding', async () => {
 		renderTemplatesPage();
 
@@ -116,5 +107,60 @@ describe('onboarding templates page', () => {
 
 		expect(screen.queryByText('Reusable onboarding packet definitions')).toBeNull();
 		expect(screen.queryByText('Template steps currently configured')).toBeNull();
+	});
+
+	it('keeps template-level step and delete actions in the detail footer', () => {
+		renderTemplatesPage();
+
+		const detail = screen.getByRole('region', { name: 'Onboarding template management workspace' });
+		expect(within(detail).getByRole('button', { name: 'Add Step' })).toBeTruthy();
+		expect(within(detail).getByRole('button', { name: 'Duplicate Template' })).toBeTruthy();
+		expect(within(detail).getByRole('button', { name: 'Delete Template' })).toBeTruthy();
+	});
+
+	it('keeps the initial template detail in the flex layout before manual selection', () => {
+		renderTemplatesPage();
+
+		const detail = document.querySelector('[data-slot="type-management-workspace-detail"]');
+		expect(detail?.className).toContain('flex');
+		expect(detail?.className).not.toContain('lg:block');
+	});
+
+	it('duplicates a template and selects the returned copy', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					template: {
+						id: 'template-copy',
+						orgId: 'org-1',
+						name: 'Standard Arrival Copy',
+						description: 'Default packet',
+						createdAt: '2026-01-02T00:00:00.000Z'
+					},
+					templateSteps: [
+						{
+							id: 'step-copy',
+							templateId: 'template-copy',
+							name: 'Initial counseling',
+							description: null,
+							stepType: 'checkbox',
+							trainingTypeId: null,
+							stages: null,
+							sortOrder: 0
+						}
+					]
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		renderTemplatesPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate Template' }));
+
+		await waitFor(() => expect(screen.getByText('Standard Arrival Copy')).toBeTruthy());
+		expect(screen.getByRole('button', { name: 'Duplicate Standard Arrival Copy' })).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/onboarding-templates/template-1/duplicate', {
+			method: 'POST'
+		});
 	});
 });

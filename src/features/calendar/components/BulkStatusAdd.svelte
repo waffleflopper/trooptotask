@@ -2,10 +2,16 @@
 	import type { Personnel, StatusType } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
-	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { Badge as UiBadge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
@@ -141,12 +147,6 @@
 		return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 	}
 
-	function handleGroupHeaderKeydown(event: KeyboardEvent, groupKey: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		table.toggleGroup(groupKey);
-	}
-
 	function handleReview() {
 		if (!isValid) return;
 		step = 'confirm';
@@ -184,72 +184,60 @@
 					</div>
 
 					<div class="config-grid">
-						<div class="form-group">
-							<label class="label" for="statusType">Status Type</label>
-							<select id="statusType" class="select" bind:value={selectedStatusId}>
+						<Field.Root>
+							<Field.Label for="statusType">Status Type</Field.Label>
+							<NativeSelect id="statusType" bind:value={selectedStatusId}>
 								{#each statusTypes as status (status.id)}
 									<option value={status.id}>{status.name}</option>
 								{/each}
-							</select>
+							</NativeSelect>
 							{#if selectedStatus}
-								<div class="field-support">
-									<Badge
-										label={selectedStatus.name}
-										color={selectedStatus.color}
-										textColor={selectedStatus.textColor}
-									/>
-									<span class="field-hint">Selected status</span>
+								<div class="status-summary-support">
+									<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
+									<span class="status-summary-hint">Selected status</span>
 								</div>
 							{/if}
-						</div>
+						</Field.Root>
 
 						<div class="date-grid">
-							<div class="form-group">
-								<label class="label" for="startDate">Start Date</label>
-								<input id="startDate" type="date" class="input" bind:value={startDate} />
-							</div>
+							<Field.Root>
+								<Field.Label for="startDate">Start Date</Field.Label>
+								<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
+							</Field.Root>
 
-							<div class="form-group">
-								<label class="label" for="endDate">End Date</label>
-								<input
-									id="endDate"
-									type="date"
-									class="input"
-									bind:value={endDate}
-									aria-describedby={dateError ? 'date-error' : undefined}
-									aria-invalid={dateError ? true : undefined}
-								/>
+							<Field.Root>
+								<Field.Label for="endDate">End Date</Field.Label>
+								<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
 								{#if dayCount > 0}
-									<div class="field-support">
+									<div class="status-summary-support">
 										<span class="day-count-number">{dayCount}</span>
-										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
+										<span class="status-summary-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
 									</div>
 								{/if}
-							</div>
+							</Field.Root>
 						</div>
 
 						{#if dateError}
 							<div id="date-error" class="date-error" role="alert">{dateError}</div>
 						{/if}
 
-						<div class="form-group">
-							<label class="label" for="bulkNote">Note</label>
-							<input
+						<Field.Root>
+							<Field.Label for="bulkNote">Note</Field.Label>
+							<Input
 								id="bulkNote"
 								type="text"
-								class="input"
 								bind:value={note}
 								maxlength={200}
 								placeholder="Optional note (e.g., JRTC rotation)"
 							/>
-						</div>
+						</Field.Root>
 					</div>
 
 					<div class="summary-card" aria-live="polite">
 						<h3 class="summary-heading">Ready to apply</h3>
 						{#if selectedIds.size > 0 && selectedStatus && !dateError}
 							<div class="summary-line">
-								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+								<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 								<span class="summary-copy">
 									<strong>{selectedIds.size}</strong>
 									{selectedIds.size === 1 ? 'person' : 'people'}
@@ -270,9 +258,7 @@
 						{/if}
 					</div>
 
-					<button class="btn btn-primary btn-lg apply-button" disabled={!isValid} onclick={handleReview}>
-						Review & Confirm
-					</button>
+					<Button class="apply-button" disabled={!isValid} onclick={handleReview}>Review & Confirm</Button>
 				</section>
 			</aside>
 
@@ -285,7 +271,7 @@
 					</div>
 
 					<div class="personnel-section">
-						<DataTable
+						<DataTable.DataTable
 							{columns}
 							{table}
 							compact
@@ -294,62 +280,40 @@
 							emptyMessage="No personnel available"
 							onRowClick={(person) => togglePerson(person.id)}
 						>
-							{#snippet toolbar(_state)}
-								<div class="selection-toolbar">
-									<div class="selection-stats">
-										<Badge label={`${selectedIds.size} selected`} variant="outlined" />
-										<Badge label={`${table.totalRows} shown`} variant="outlined" />
-									</div>
-									<div class="selection-actions">
-										<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
-										<button class="btn btn-secondary btn-sm" onclick={selectNone}>Clear</button>
-									</div>
-								</div>
+							{#snippet toolbar()}
+								<DataTable.BulkActions selectedCount={selectedIds.size} totalCount={table.totalRows}>
+									<Button type="button" variant="outline" size="sm" onclick={selectVisible}>Select shown</Button>
+									<Button type="button" variant="outline" size="sm" onclick={selectNone}>Clear</Button>
+								</DataTable.BulkActions>
 							{/snippet}
 
 							{#snippet groupHeader(ctx)}
 								{@const selState = getGroupSelectionState(ctx.key)}
-								<div
-									class="group-header-content"
-									role="button"
-									tabindex="0"
-									onclick={() => ctx.toggle()}
-									onkeydown={(event) => handleGroupHeaderKeydown(event, ctx.key)}
-								>
-									<input
-										type="checkbox"
-										checked={selState === 'all'}
-										indeterminate={selState === 'some'}
-										onchange={() => toggleGroup(ctx.key)}
-										onclick={(e) => e.stopPropagation()}
-									/>
-									<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-										<path
-											fill-rule="evenodd"
-											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-									<span class="group-label">{ctx.label}</span>
-									<span class="group-count">({ctx.count})</span>
-								</div>
+								<DataTable.SelectionCheckbox
+									checked={selState === 'all'}
+									indeterminate={selState === 'some'}
+									ariaLabel={`Select ${ctx.label} group`}
+									onCheckedChange={() => toggleGroup(ctx.key)}
+								/>
+								<Button type="button" variant="ghost" onclick={ctx.toggle}>
+									{ctx.collapsed ? 'Expand' : 'Collapse'}
+									{ctx.label}
+									<UiBadge variant="outline">{ctx.count}</UiBadge>
+								</Button>
 							{/snippet}
 
 							{#snippet cell(row, col)}
 								{#if col.key === 'select'}
-									<input
-										type="checkbox"
+									<DataTable.SelectionCheckbox
 										checked={selectedIds.has(row.id)}
-										onchange={() => togglePerson(row.id)}
-										onclick={(e) => e.stopPropagation()}
+										ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
+										onCheckedChange={() => togglePerson(row.id)}
 									/>
-								{:else if col.key === 'rank'}
-									<span class="rank-cell">{row.rank}</span>
 								{:else}
 									{String(col.value(row) ?? '')}
 								{/if}
 							{/snippet}
-						</DataTable>
+						</DataTable.DataTable>
 					</div>
 				</div>
 			</section>
@@ -367,17 +331,16 @@
 
 				<div class="confirm-criteria">
 					{#if selectedStatus}
-						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+						<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 					{/if}
-					<Badge label={`${selectedIds.size} ${selectedIds.size === 1 ? 'person' : 'people'}`} variant="outlined" />
-					<Badge
-						label={startDate === endDate
+					<UiBadge variant="outline">{selectedIds.size} {selectedIds.size === 1 ? 'person' : 'people'}</UiBadge>
+					<UiBadge variant="outline">
+						{startDate === endDate
 							? formatDateDisplay(startDate)
 							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
-						variant="outlined"
-					/>
+					</UiBadge>
 					{#if note.trim()}
-						<Badge label={`Note: ${note.trim()}`} variant="outlined" />
+						<UiBadge variant="outline">Note: {note.trim()}</UiBadge>
 					{/if}
 				</div>
 
@@ -385,7 +348,7 @@
 					<div class="personnel-list">
 						{#each selectedPersonnel as person (person.id)}
 							<div class="personnel-item">
-								<span class="rank-cell">{person.rank}</span>
+								<span class="person-rank">{person.rank}</span>
 								<span class="person-name">{person.lastName}, {person.firstName}</span>
 								{#if person.groupName}
 									<span class="person-group">{person.groupName}</span>
@@ -396,16 +359,16 @@
 				</div>
 
 				<div class="confirm-footer">
-					<button class="btn btn-secondary" onclick={handleBack} disabled={isSubmitting}>Back</button>
-					<div class="spacer"></div>
-					<button class="btn btn-primary" disabled={isSubmitting} onclick={handleSubmit}>
+					<Button variant="outline" onclick={handleBack} disabled={isSubmitting}>Back</Button>
+					<div class="confirm-footer-fill"></div>
+					<Button disabled={isSubmitting} onclick={handleSubmit}>
 						{#if isSubmitting}
 							<Spinner />
 							Applying...
 						{:else}
 							Confirm Apply
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</section>
 		</div>
@@ -420,7 +383,7 @@
 	.bulk-workspace {
 		display: grid;
 		grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-		gap: var(--sp-6);
+		gap: 1.5rem;
 		align-items: start;
 	}
 
@@ -432,21 +395,21 @@
 	.controls-column {
 		align-self: start;
 		position: sticky;
-		top: calc(var(--header-height, 56px) + var(--sp-6));
+		top: calc(var(--app-shell-header-height, 56px) + 1.5rem);
 	}
 
 	.controls-card,
 	.selection-card {
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
 	}
 
 	.controls-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-6);
-		padding: var(--sp-6);
+		gap: 1.5rem;
+		padding: 1.5rem;
 	}
 
 	.selection-card {
@@ -457,220 +420,159 @@
 	.pane-heading {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.selection-heading {
-		padding: var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		padding: 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
 	}
 
 	.pane-eyebrow {
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-bold);
+		font-size: 0.6875rem;
+		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	.pane-title {
-		font-family: var(--font-display);
-		font-size: var(--text-ui-xl);
+		font-family: 'Barlow Condensed', sans-serif;
+		font-size: 1.25rem;
 		font-weight: 400;
 		line-height: 1.1;
 	}
 
 	.pane-copy {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.config-grid {
 		display: grid;
-		gap: var(--sp-4);
-	}
-
-	.config-grid .form-group {
-		margin-bottom: 0;
+		gap: 1rem;
 	}
 
 	.date-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
+		gap: 1rem;
 		align-items: start;
 	}
 
 	.day-count-number {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	.date-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-1) var(--sp-2);
-		background: var(--danger-tint);
-		border-radius: var(--radius-sm);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 12%, transparent);
+		border-radius: var(--radius);
 	}
 
 	.summary-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
-		padding: var(--sp-4);
-		border-radius: var(--radius-lg);
-		background: var(--surface-subtle);
-		border: 1px solid var(--border-default);
+		gap: 0.5rem;
+		padding: 1rem;
+		border-radius: var(--radius);
+		background: var(--muted);
+		border: 1px solid var(--border);
 	}
 
 	.summary-heading {
-		font-size: var(--text-ui-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--muted-foreground);
 	}
 
-	.summary-line,
-	.selection-stats,
-	.selection-toolbar {
+	.summary-line {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 	}
 
 	.summary-copy {
-		font-size: var(--text-ui-sm);
-		color: var(--text-primary);
+		font-size: 0.75rem;
+		color: var(--foreground);
 	}
 
 	.summary-copy strong {
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 	}
 
 	.summary-copy.muted {
-		color: var(--text-tertiary);
+		color: var(--muted-foreground);
 	}
 
 	.summary-copy.error {
-		color: var(--danger);
-	}
-
-	.apply-button {
-		width: 100%;
+		color: var(--destructive);
 	}
 
 	.personnel-section {
 		padding: 0;
 	}
 
-	.personnel-section :global(.data-table) {
-		border: none;
-		border-radius: 0;
-		overflow: visible;
-	}
-
-	.selection-toolbar {
-		justify-content: space-between;
-		padding: var(--sp-2) var(--sp-4);
-		border-bottom: 1px solid var(--divider-color);
-		background: var(--surface-panel);
-	}
-
-	.selection-actions {
-		display: flex;
-		gap: var(--sp-1);
-		flex-wrap: wrap;
-	}
-
-	.group-header-content {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		cursor: pointer;
-	}
-
-	.group-header-content input[type='checkbox'] {
-		cursor: pointer;
-		accent-color: var(--amber);
-	}
-
-	.chevron-icon {
-		width: 16px;
-		height: 16px;
-		transition: transform 0.15s ease;
-		flex-shrink: 0;
-	}
-
-	.chevron-icon.collapsed {
-		transform: rotate(-90deg);
-	}
-
-	.group-label {
+	.person-rank {
 		font-weight: 600;
-	}
-
-	.group-count {
-		color: var(--text-tertiary);
-		font-weight: 400;
-	}
-
-	.rank-cell {
-		font-weight: 600;
-		color: var(--amber);
+		color: var(--accent);
 	}
 
 	/* Confirm stage */
 	.confirm-stage {
-		padding: var(--sp-2) 0;
+		padding: 0.5rem 0;
 	}
 
 	.confirm-card {
 		max-width: 980px;
 		margin: 0 auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--card);
 		overflow: hidden;
 	}
 
 	.confirm-heading {
-		padding: var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		padding: 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
 	}
 
 	.confirm-criteria {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
-		padding: var(--sp-4) var(--sp-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
+		gap: 0.5rem;
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
 	}
 
 	.confirm-content {
-		padding: var(--sp-6);
+		padding: 1.5rem;
 		min-height: 120px;
 	}
 
 	.personnel-list {
 		max-height: 320px;
 		overflow-y: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	.personnel-item {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-3);
-		padding: var(--sp-2) var(--sp-4);
-		font-size: var(--text-ui-sm);
-		border-bottom: 1px solid var(--border-default);
+		gap: 0.75rem;
+		padding: 0.5rem 1rem;
+		font-size: 0.75rem;
+		border-bottom: 1px solid var(--border);
 	}
 
 	.personnel-item:last-child {
@@ -683,9 +585,9 @@
 	}
 
 	.person-group {
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		color: var(--muted-foreground);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}
@@ -694,12 +596,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--sp-4) var(--sp-6);
-		border-top: 1px solid var(--border-default);
-		background: var(--surface-panel);
+		padding: 1rem 1.5rem;
+		border-top: 1px solid var(--border);
+		background: var(--card);
 	}
 
-	.spacer {
+	.confirm-footer-fill {
 		flex: 1;
 	}
 
@@ -720,23 +622,19 @@
 	@media (max-width: 640px) {
 		.controls-card,
 		.selection-heading {
-			padding: var(--sp-4);
+			padding: 1rem;
 		}
 
 		.date-grid {
 			grid-template-columns: 1fr;
 		}
 
-		.selection-toolbar {
-			align-items: flex-start;
-		}
-
 		.confirm-heading,
 		.confirm-content,
 		.confirm-criteria,
 		.confirm-footer {
-			padding-left: var(--sp-4);
-			padding-right: var(--sp-4);
+			padding-left: 1rem;
+			padding-right: 1rem;
 		}
 
 		.confirm-footer {
@@ -745,7 +643,7 @@
 
 		.personnel-item {
 			flex-wrap: wrap;
-			gap: var(--sp-1);
+			gap: 0.25rem;
 		}
 	}
 </style>

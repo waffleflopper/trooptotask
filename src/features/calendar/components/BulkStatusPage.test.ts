@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
 const { gotoMock, orgContextMock } = vi.hoisted(() => ({
@@ -80,23 +80,6 @@ describe('BulkStatusPage', () => {
 		orgContextMock.isFullEditor = true;
 		orgContextMock.readOnly = false;
 		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
-	});
-
-	it('uses shared toolbar controls for tab navigation and related calendar link', async () => {
-		renderPage();
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Bulk status controls' });
-		expect(screen.getByRole('group', { name: 'Bulk status sections' })).toBeTruthy();
-		expect(screen.getByRole('navigation', { name: 'Related calendar pages' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-
-		expect(toolbar).toBeTruthy();
-		expect(gotoMock).toHaveBeenCalledWith('http://localhost/org/org-1/calendar/bulk?tab=remove', {
-			replaceState: true,
-			noScroll: true
-		});
 	});
 
 	it('preserves the permission gate for read-only users', () => {

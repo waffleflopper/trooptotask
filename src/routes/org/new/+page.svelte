@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 
 	let { form } = $props();
 	let loading = $state(false);
@@ -31,9 +33,9 @@
 				<div class="error-message">{form.error}</div>
 			{/if}
 
-			<div class="form-group">
-				<label class="label" for="name">Organization Name</label>
-				<input id="name" name="name" type="text" class="input" placeholder="e.g., Ft. Hood TMC" required />
+			<div class="grid gap-2">
+				<label class="field-label" for="name">Organization Name</label>
+				<Input id="name" name="name" type="text" placeholder="e.g., Ft. Hood TMC" required />
 			</div>
 
 			<div class="seed-info">
@@ -45,10 +47,10 @@
 			</div>
 
 			<div class="actions">
-				<a href="/" class="btn btn-secondary">Cancel</a>
-				<button type="submit" class="btn btn-primary" disabled={loading}>
+				<Button href="/" variant="outline">Cancel</Button>
+				<Button type="submit" disabled={loading}>
 					{loading ? 'Creating...' : 'Create Organization'}
-				</button>
+				</Button>
 			</div>
 		</form>
 	</div>
@@ -61,79 +63,86 @@
 		align-items: center;
 		justify-content: center;
 		min-height: 100vh;
-		background: var(--surface-page);
-		padding: var(--sp-6);
+		background: var(--background);
+		padding: 1.5rem;
 	}
 
 	.create-card {
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-lg);
-		padding: var(--sp-6);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		box-shadow:
+			0 4px 20px rgb(0 0 0 / 0.12),
+			0 2px 6px rgb(0 0 0 / 0.07);
+		padding: 1.5rem;
 		width: 100%;
 		max-width: 520px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-5);
+		gap: 1.25rem;
 	}
 
 	.card-intro {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
-		padding-bottom: var(--sp-4);
-		border-bottom: var(--border-thin);
+		gap: 0.5rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid var(--border);
 	}
 
 	.eyebrow,
-	.seed-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+	.seed-label,
+	.field-label {
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--amber);
+		color: var(--accent);
+	}
+
+	.field-label {
+		color: var(--muted-foreground);
 	}
 
 	.create-card h1 {
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2.4rem, 5vw, 3.4rem);
 		line-height: 0.94;
 		font-weight: 800;
 		text-transform: uppercase;
 		margin: 0;
-		color: var(--text-strong);
+		color: var(--foreground);
 	}
 
 	.subtitle {
 		margin: 0;
-		color: var(--text-secondary);
-		font-size: var(--text-base);
+		color: var(--muted-foreground);
+		font-size: 1rem;
 		line-height: 1.55;
 	}
 
 	.error-message {
-		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
-		border: var(--border-thin);
-		color: var(--danger);
-		padding: var(--sp-3) var(--sp-4);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-		margin-bottom: var(--sp-4);
+		background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+		border: 1px solid var(--border);
+		color: var(--destructive);
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.8125rem;
+		margin-bottom: 1rem;
 	}
 
 	.seed-info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-2);
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
-		padding: var(--sp-4);
-		border-radius: var(--radius-md);
-		margin: var(--sp-4) 0 0;
-		border: var(--border-thin);
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
+		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
+		padding: 1rem;
+		border-radius: var(--radius);
+		margin: 1rem 0 0;
+		border: 1px solid var(--border);
 	}
 
 	.seed-info p {
@@ -143,27 +152,27 @@
 
 	.actions {
 		display: flex;
-		gap: var(--sp-3);
+		gap: 0.75rem;
 		justify-content: flex-end;
-		margin-top: var(--sp-5);
-		padding-top: var(--sp-5);
-		border-top: var(--border-thin);
+		margin-top: 1.25rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border);
 	}
 
 	@media (max-width: 640px) {
 		.create-page {
-			padding: var(--sp-4);
+			padding: 1rem;
 		}
 
 		.create-card {
-			padding: var(--sp-5);
+			padding: 1.25rem;
 		}
 
 		.actions {
 			flex-direction: column-reverse;
 		}
 
-		.actions :global(.btn) {
+		.actions :global([data-slot='button']) {
 			width: 100%;
 		}
 	}

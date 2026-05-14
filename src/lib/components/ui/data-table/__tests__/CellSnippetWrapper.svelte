@@ -1,19 +1,19 @@
 <script lang="ts">
 	import DataTable from '../DataTable.svelte';
-	import type { ColumnDef } from '../../data-table/useDataTable.svelte';
+	import type { ColumnDef } from '../types.js';
 
-	interface TestRow {
+	type Row = {
 		id: string;
 		name: string;
 		age: number;
 		group: string;
-	}
+	};
 
-	let { data, columns }: { data: TestRow[]; columns: ColumnDef<TestRow>[] } = $props();
+	let { data, columns }: { data: Row[]; columns: ColumnDef<Row>[] } = $props();
 </script>
 
 <DataTable {data} {columns}>
-	{#snippet cell(row: TestRow, col: ColumnDef<TestRow>)}
-		<span data-testid="custom-cell">{col.key}:{String(col.value(row))}</span>
+	{#snippet cell(row: Row, column: ColumnDef<Row>)}
+		<span data-testid="custom-cell">{column.key}:{String(column.value(row))}</span>
 	{/snippet}
 </DataTable>

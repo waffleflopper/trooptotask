@@ -52,7 +52,7 @@ This document separates what v1 authorization and provider ownership look like t
 - The largest route-level drift clusters today are:
   - admin/platform operations
   - some critical-tasks and settings layout helpers
-- Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, webhooks, and demo/sandbox flows.
+- Service-role usage also exists in app-level utilities such as notifications, audit logging, cleanup, and webhooks.
 
 ## Intended Direction
 

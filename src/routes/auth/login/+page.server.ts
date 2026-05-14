@@ -5,13 +5,7 @@ import { auditLog } from '$lib/server/auditLog';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	// Check for demo unavailable error from redirect
-	const demoError = url.searchParams.get('error');
-	if (demoError === 'demo_unavailable') {
-		return { demoError: 'Demo is not available. Please try again later.' };
-	}
-
-	if (demoError === 'auth_link_invalid') {
+	if (url.searchParams.get('error') === 'auth_link_invalid') {
 		return {
 			authLinkError:
 				'This email link is invalid or has expired. Request a fresh invite or password reset email and try again.'
@@ -62,11 +56,5 @@ export const actions: Actions = {
 			console.error('Login error:', err);
 			return fail(500, { error: 'An unexpected error occurred. Please try again.', email: '' });
 		}
-	},
-
-	demo: async () => {
-		// Deprecated demo entrypoint. `/demo` currently fails closed while the
-		// remaining demo/sandbox exceptions are decommissioned.
-		redirect(303, '/demo');
 	}
 };

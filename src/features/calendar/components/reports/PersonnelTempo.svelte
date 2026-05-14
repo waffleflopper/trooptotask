@@ -3,10 +3,15 @@
 	import type { StatusType } from '$lib/types';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { useDataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -170,8 +175,7 @@
 		return value;
 	}
 
-	// --- useDataTable for sorting ---
-	const tableColumns: ColumnDef<TempoRow>[] = [
+	const tableColumns = $derived.by<ColumnDef<TempoRow>[]>(() => [
 		{
 			key: 'rank',
 			header: 'Rank',
@@ -183,23 +187,33 @@
 			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
 			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
 		},
+		...displayColumns.map((statusType) => ({
+			key: `status:${statusType.id}`,
+			header: statusType.name,
+			value: (r: TempoRow) => r.awayByStatus.get(statusType.id) ?? 0,
+			searchable: false,
+			sortable: false,
+			align: 'center' as const
+		})),
 		{
 			key: 'totalAway',
 			header: 'Total Away',
 			value: (r) => r.totalAwayDays,
-			compare: (a, b) => a.totalAwayDays - b.totalAwayDays
+			compare: (a, b) => a.totalAwayDays - b.totalAwayDays,
+			align: 'center'
 		},
 		{
 			key: 'percentAway',
 			header: '% Away',
 			value: (r) => r.percentAway,
-			compare: (a, b) => a.percentAway - b.percentAway
+			compare: (a, b) => a.percentAway - b.percentAway,
+			align: 'center'
 		}
-	];
+	]);
 
 	const table = useDataTable({
 		data: () => result?.rows ?? [],
-		columns: tableColumns,
+		columns: () => tableColumns,
 		initialSortKey: 'name'
 	});
 </script>
@@ -208,28 +222,24 @@
 	<div class="config-section">
 		<h3>Period</h3>
 		<div class="date-row">
-			<label class="form-group">
-				<span class="label">Range</span>
-				<select
-					class="select"
-					value={periodOption}
-					onchange={(e) => handlePeriodChange(e.currentTarget.value as PeriodOption)}
-				>
+			<Field.Root>
+				<Field.Label>Range</Field.Label>
+				<NativeSelect value={periodOption} onchange={(e) => handlePeriodChange(e.currentTarget.value as PeriodOption)}>
 					<option value="90">Past 90 Days</option>
 					<option value="180">Past 180 Days</option>
 					<option value="365">Past 365 Days</option>
 					<option value="custom">Custom</option>
-				</select>
-			</label>
+				</NativeSelect>
+			</Field.Root>
 			{#if periodOption === 'custom'}
-				<label class="form-group">
-					<span class="label">Start</span>
-					<input type="date" class="input" bind:value={startDate} />
-				</label>
-				<label class="form-group">
-					<span class="label">End</span>
-					<input type="date" class="input" bind:value={endDate} />
-				</label>
+				<Field.Root>
+					<Field.Label>Start</Field.Label>
+					<DatePicker bind:value={startDate} placeholder="Select start date" />
+				</Field.Root>
+				<Field.Root>
+					<Field.Label>End</Field.Label>
+					<DatePicker bind:value={endDate} placeholder="Select end date" />
+				</Field.Root>
 			{/if}
 		</div>
 	</div>
@@ -237,9 +247,9 @@
 	<div class="config-section">
 		<h3>"Away" Status Types</h3>
 		<div class="status-filter-header">
-			<button class="btn btn-sm btn-secondary" onclick={toggleAllStatuses}>
+			<Button variant="outline" size="sm" onclick={toggleAllStatuses}>
 				{awayStatusTypeIds.size === statusTypes.length ? 'Deselect All' : 'Select All'}
-			</button>
+			</Button>
 			<span class="personnel-count">
 				{awayStatusTypeIds.size} of {statusTypes.length} selected
 			</span>
@@ -261,21 +271,17 @@
 
 	<div class="config-section">
 		<h3>Flag Threshold</h3>
-		<label class="form-group threshold-group">
-			<span class="label">Flag threshold (days)</span>
-			<input type="number" class="input threshold-input" bind:value={threshold} min={1} />
-		</label>
+		<Field.Root class="threshold-group">
+			<Field.Label>Flag threshold (days)</Field.Label>
+			<Input type="number" class="threshold-input" bind:value={threshold} min={1} />
+		</Field.Root>
 	</div>
 
 	<div class="config-actions">
-		<button
-			class="btn btn-primary"
-			onclick={runReport}
-			disabled={loading || !startDate || !endDate || awayStatusTypeIds.size === 0}
-		>
+		<Button onclick={runReport} disabled={loading || !startDate || !endDate || awayStatusTypeIds.size === 0}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
-		</button>
+		</Button>
 	</div>
 </div>
 
@@ -289,114 +295,92 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate} &middot; {result.totalDaysInPeriod} days in period
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="data-table compact">
-				<table aria-label="Personnel tempo report">
-					<thead>
-						<tr>
-							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
-							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
-							{#each displayColumns as st (st.id)}
-								<th class="col-status">
-									<Badge label={st.name} color={st.color} textColor={st.textColor} />
-								</th>
-							{/each}
-							<th class="col-total" onclick={() => table.toggleSort('totalAway')}>Total Away</th>
-							<th class="col-percent" onclick={() => table.toggleSort('percentAway')}>% Away</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each table.rows as row (row.person.id)}
-							<tr class:flagged={row.flagged}>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								{#each displayColumns as st (st.id)}
-									<td class="col-status">
-										{(row.awayByStatus.get(st.id) ?? 0) > 0 ? row.awayByStatus.get(st.id) : ''}
-									</td>
-								{/each}
-								<td class="col-total">{row.totalAwayDays > 0 ? row.totalAwayDays : ''}</td>
-								<td class="col-percent">{row.percentAway > 0 ? `${row.percentAway}%` : ''}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			<DataTable.DataTable
+				{table}
+				columns={tableColumns}
+				ariaLabel="Personnel tempo report"
+				compact
+				emptyMessage="No data found for the selected criteria."
+			>
+				{#snippet cell(row, column)}
+					{#if column.key === 'rank'}
+						{row.person.rank}
+					{:else if column.key === 'name'}
+						{row.person.lastName}, {row.person.firstName}
+					{:else if column.key.startsWith('status:')}
+						{Number(column.value(row)) > 0 ? column.value(row) : ''}
+					{:else if column.key === 'totalAway'}
+						{row.totalAwayDays > 0 ? row.totalAwayDays : ''}
+					{:else if column.key === 'percentAway'}
+						{row.percentAway > 0 ? `${row.percentAway}%` : ''}
+					{:else}
+						{String(column.value(row) ?? '')}
+					{/if}
+				{/snippet}
+			</DataTable.DataTable>
 		{/if}
 	</div>
 {/if}
 
 <style>
 	.report-config {
-		background: var(--surface-panel);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		padding: var(--sp-4);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-4);
+		gap: 1rem;
 	}
 
 	.config-section h3 {
-		font-size: var(--text-ui-sm);
+		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0 0 var(--sp-2) 0;
+		margin: 0 0 0.5rem 0;
 	}
 
 	.date-row {
 		display: flex;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		align-items: flex-end;
 		flex-wrap: wrap;
-	}
-
-	.date-row .form-group {
-		flex: 1;
-		min-width: 120px;
-	}
-
-	.threshold-group {
-		max-width: 200px;
-	}
-
-	.threshold-input {
-		width: 100px;
 	}
 
 	.status-filter-header {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-2);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.personnel-count {
-		font-size: var(--text-ui-sm);
-		color: var(--text-tertiary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.status-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-1);
+		gap: 0.25rem;
 	}
 
 	.status-chip {
-		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--radius-pill);
-		font-size: var(--text-ui-sm);
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
 		cursor: pointer;
 		border: 2px solid var(--chip-color);
 		background: transparent;
-		color: var(--text-primary);
+		color: var(--foreground);
 		transition: all 0.15s ease;
 	}
 
@@ -411,139 +395,40 @@
 	}
 
 	.report-error {
-		color: var(--danger);
-		font-size: var(--text-ui-sm);
-		padding: var(--sp-2);
-		background: color-mix(in srgb, var(--danger) 10%, transparent);
-		border-radius: var(--radius-sm);
-		margin-top: var(--sp-2);
+		color: var(--destructive);
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		background: color-mix(in srgb, var(--destructive) 10%, transparent);
+		border-radius: var(--radius);
+		margin-top: 0.5rem;
 	}
 
 	.report-output {
-		margin-top: var(--sp-4);
+		margin-top: 1rem;
 	}
 
 	.report-toolbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--sp-2);
+		margin-bottom: 0.5rem;
 	}
 
 	.report-summary {
-		font-size: var(--text-ui-sm);
-		color: var(--text-secondary);
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	.no-data {
 		text-align: center;
-		color: var(--text-tertiary);
-		padding: var(--sp-8);
+		color: var(--muted-foreground);
+		padding: 2rem;
 		font-style: italic;
-	}
-
-	/* DataTable-compatible table styles */
-	.data-table {
-		overflow-x: auto;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-ui-sm);
-	}
-
-	thead {
-		background: var(--surface-subtle);
-	}
-
-	th {
-		padding: var(--sp-1) var(--sp-2);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--border-default);
-		cursor: pointer;
-		user-select: none;
-		white-space: nowrap;
-		background: var(--surface-subtle);
-		text-align: center;
-	}
-
-	th:hover {
-		color: var(--text-primary);
-	}
-
-	td {
-		padding: var(--sp-1) var(--sp-2);
-		border-bottom: 1px solid var(--divider-color);
-		color: var(--text-primary);
-		text-align: center;
-	}
-
-	tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	tbody tr:hover {
-		background: var(--surface-page);
-	}
-
-	tbody tr.flagged {
-		background: color-mix(in srgb, var(--danger) 8%, transparent);
-	}
-
-	tbody tr.flagged:hover {
-		background: color-mix(in srgb, var(--danger) 12%, transparent);
-	}
-
-	.col-rank {
-		width: 60px;
-		font-weight: 600;
-		color: var(--amber);
-		text-align: left;
-	}
-
-	.col-name {
-		min-width: 150px;
-		text-align: left;
-	}
-
-	.col-status {
-		text-align: center;
-		min-width: 80px;
-	}
-
-	.col-total {
-		text-align: center;
-		font-weight: 600;
-		min-width: 80px;
-	}
-
-	.col-percent {
-		text-align: center;
-		font-weight: 600;
-		min-width: 70px;
 	}
 
 	@media (max-width: 640px) {
 		.date-row {
 			flex-direction: column;
-		}
-
-		.date-row .form-group {
-			min-width: unset;
-		}
-
-		th,
-		td {
-			padding: var(--sp-1) var(--sp-2);
-			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

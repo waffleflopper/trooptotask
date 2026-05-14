@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { StatusType } from '$lib/types';
-	import TypeManager from '$lib/components/ui/TypeManager.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { TypeManager } from '$lib/components/ui/type-manager';
+	import { Button } from '$lib/components/ui/button';
+	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { Input } from '$lib/components/ui/input';
+	import { NativeSelect } from '$lib/components/ui/native-select';
 	import {
 		DA6_AVAILABILITY_HELP,
 		DA6_AVAILABILITY_TREATMENT_OPTIONS,
@@ -77,192 +80,85 @@
 		`Remove "${s.name}"? All schedule entries using this status will also be removed. This cannot be undone.`}
 >
 	{#snippet addForm()}
-		<div class="inline-form">
-			<input
-				type="text"
-				class="input"
-				bind:value={newName}
-				placeholder="Status name (e.g., Leave, TDY)"
-				aria-label="Status name"
-			/>
-			<div class="color-pickers">
-				<label class="color-picker">
+		<div class="flex flex-wrap items-center gap-2 [&_.input]:min-w-[150px] [&_.input]:flex-1">
+			<Input type="text" bind:value={newName} placeholder="Status name (e.g., Leave, TDY)" aria-label="Status name" />
+			<div class="flex gap-2">
+				<label class="text-muted-foreground flex flex-col items-center gap-0.5 text-[10px] uppercase">
 					<span>Background</span>
-					<input type="color" bind:value={newColor} />
+					<input type="color" bind:value={newColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 				</label>
-				<label class="color-picker">
+				<label class="text-muted-foreground flex flex-col items-center gap-0.5 text-[10px] uppercase">
 					<span>Text</span>
-					<input type="color" bind:value={newTextColor} />
+					<input type="color" bind:value={newTextColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 				</label>
 			</div>
 			{#if newName.trim()}
-				<Badge label={newName} color={newColor} textColor={newTextColor} />
+				<CalendarStatusBadge statusType={{ id: 'new-status', name: newName, color: newColor, textColor: newTextColor }}>
+					{newName}
+				</CalendarStatusBadge>
 			{/if}
-			<div class="treatment-field">
-				<label class="treatment-label" for="new-da6-treatment">
+			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
+				<label
+					class="text-muted-foreground inline-flex items-center gap-1 text-xs font-semibold uppercase"
+					for="new-da6-treatment"
+				>
 					<span>Duty roster treatment</span>
-					<span class="help-wrapper">
-						<button class="help-icon" type="button" aria-label="Duty roster treatment help">
+					<span class="group relative inline-flex">
+						<Button variant="outline" size="icon-xs" type="button" aria-label="Duty roster treatment help">
 							<span aria-hidden="true">?</span>
-						</button>
-						<span class="help-tooltip" role="tooltip">{DA6_AVAILABILITY_HELP}</span>
+						</Button>
+						<span
+							class="bg-popover text-popover-foreground pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-50 w-[min(18rem,80vw)] -translate-x-1/2 rounded-md border p-2 text-xs leading-snug font-medium normal-case opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+							role="tooltip">{DA6_AVAILABILITY_HELP}</span
+						>
 					</span>
 				</label>
-				<select id="new-da6-treatment" class="select" bind:value={newDa6Treatment}>
+				<NativeSelect id="new-da6-treatment" bind:value={newDa6Treatment} class="w-full">
 					{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
 						<option value={option.value} disabled={option.disabled}>{option.label}</option>
 					{/each}
-				</select>
+				</NativeSelect>
 			</div>
 		</div>
 	{/snippet}
 
 	{#snippet itemDisplay(status)}
-		<div class="status-display">
-			<Badge label={status.name} color={status.color} textColor={status.textColor} />
-			<span class="treatment-summary">{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span>
+		<div class="flex flex-wrap items-center gap-2">
+			<CalendarStatusBadge statusType={status}>{status.name}</CalendarStatusBadge>
+			<span class="text-muted-foreground text-xs"
+				>{formatDa6AvailabilityTreatment(status.da6AvailabilityTreatment)}</span
+			>
 		</div>
 	{/snippet}
 
 	{#snippet editForm()}
-		<div class="inline-form">
-			<input type="text" class="input" bind:value={editName} placeholder="Status name" aria-label="Status name" />
-			<div class="color-pickers">
-				<label class="color-picker">
+		<div class="flex flex-wrap items-center gap-2 [&_.input]:min-w-[150px] [&_.input]:flex-1">
+			<Input type="text" bind:value={editName} placeholder="Status name" aria-label="Status name" />
+			<div class="flex gap-2">
+				<label class="text-muted-foreground flex flex-col items-center gap-0.5 text-[10px] uppercase">
 					<span>BG</span>
-					<input type="color" bind:value={editColor} />
+					<input type="color" bind:value={editColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 				</label>
-				<label class="color-picker">
+				<label class="text-muted-foreground flex flex-col items-center gap-0.5 text-[10px] uppercase">
 					<span>Text</span>
-					<input type="color" bind:value={editTextColor} />
+					<input type="color" bind:value={editTextColor} class="h-8 w-8 cursor-pointer rounded-md border p-0" />
 				</label>
 			</div>
-			<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
-			<div class="treatment-field">
-				<label class="treatment-label" for="edit-da6-treatment">Duty roster treatment</label>
-				<select id="edit-da6-treatment" class="select" bind:value={editDa6Treatment}>
+			<CalendarStatusBadge
+				statusType={{ id: 'edit-status', name: editName || 'Preview', color: editColor, textColor: editTextColor }}
+			>
+				{editName || 'Preview'}
+			</CalendarStatusBadge>
+			<div class="flex min-w-full flex-col gap-1 sm:min-w-[18rem]">
+				<label class="text-muted-foreground text-xs font-semibold uppercase" for="edit-da6-treatment"
+					>Duty roster treatment</label
+				>
+				<NativeSelect id="edit-da6-treatment" bind:value={editDa6Treatment} class="w-full">
 					{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
 						<option value={option.value} disabled={option.disabled}>{option.label}</option>
 					{/each}
-				</select>
+				</NativeSelect>
 			</div>
 		</div>
 	{/snippet}
 </TypeManager>
-
-<style>
-	.inline-form {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.inline-form .input {
-		flex: 1;
-		min-width: 150px;
-	}
-
-	.status-display {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		flex-wrap: wrap;
-	}
-
-	.treatment-summary {
-		color: var(--text-tertiary);
-		font-size: var(--text-xs);
-	}
-
-	.treatment-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: min(100%, 18rem);
-	}
-
-	.treatment-label {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-1);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-	}
-
-	.help-wrapper {
-		position: relative;
-		display: inline-flex;
-	}
-
-	.help-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.15rem;
-		height: 1.15rem;
-		padding: 0;
-		border: 1px solid var(--border-default);
-		border-radius: 999px;
-		background: var(--surface-panel);
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		font-size: 0.68rem;
-		font-weight: var(--font-weight-semibold);
-		line-height: 1;
-		cursor: help;
-	}
-
-	.help-tooltip {
-		position: absolute;
-		left: 50%;
-		bottom: calc(100% + var(--sp-2));
-		z-index: var(--z-tooltip);
-		width: min(18rem, 80vw);
-		padding: var(--sp-2);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		box-shadow: var(--shadow-md);
-		color: var(--text-primary);
-		font-size: var(--text-xs);
-		font-weight: 500;
-		line-height: 1.35;
-		text-transform: none;
-		transform: translateX(-50%);
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity var(--transition-fast);
-	}
-
-	.help-wrapper:hover .help-tooltip,
-	.help-wrapper:focus-within .help-tooltip {
-		opacity: 1;
-	}
-
-	.color-pickers {
-		display: flex;
-		gap: var(--sp-2);
-	}
-
-	.color-picker {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-		font-size: 10px;
-		color: var(--text-tertiary);
-		text-transform: uppercase;
-	}
-
-	.color-picker input[type='color'] {
-		width: 32px;
-		height: 32px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		padding: 0;
-	}
-</style>

@@ -59,13 +59,6 @@ const SUPPORT_ROUTE_BREADCRUMBS: Record<string, string> = {
 	billing: 'Billing'
 };
 
-const SETTINGS_CHILD_BREADCRUMBS: Record<string, string> = {
-	approvals: 'Approvals',
-	archived: 'Archived Personnel',
-	audit: 'Audit',
-	policies: 'Policies'
-};
-
 const BILLING_CHILD_BREADCRUMBS: Record<string, string> = {
 	success: 'Success',
 	canceled: 'Canceled'
@@ -258,12 +251,7 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 	}
 
 	const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: primaryLabel }];
-	const childLabel =
-		primarySegment === 'billing'
-			? BILLING_CHILD_BREADCRUMBS[childSegment]
-			: primarySegment === 'settings'
-				? SETTINGS_CHILD_BREADCRUMBS[childSegment]
-				: undefined;
+	const childLabel = primarySegment === 'billing' ? BILLING_CHILD_BREADCRUMBS[childSegment] : undefined;
 
 	if (childLabel) {
 		breadcrumbs[1].href = `${orgBasePath}/${primarySegment}`;

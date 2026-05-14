@@ -241,4 +241,98 @@ describe('SignInRosterModal', () => {
 		});
 		expect(postCalls).toHaveLength(0);
 	});
+
+	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {
+		let resolveUpload: ((response: Response) => void) | undefined;
+		const uploadResponse = new Promise<Response>((resolve) => {
+			resolveUpload = resolve;
+		});
+		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			if (String(input).endsWith('/upload') && init?.method === 'POST') {
+				return uploadResponse;
+			}
+
+			return jsonResponse({ rosters: [makeRoster()], total: 1 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal();
+
+		await waitFor(() => expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: /Morning Formation/i }));
+		const input = screen.getByLabelText('Signed Scan') as HTMLInputElement;
+		const file = new File(['signed roster'], 'signed-roster.pdf', { type: 'application/pdf' });
+
+		await fireEvent.change(input, { target: { files: [file] } });
+
+		expect(screen.getByText('Uploading signed-roster.pdf...')).toBeTruthy();
+
+		resolveUpload?.(jsonResponse({ filePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' }));
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'signed-roster.pdf' })).toBeTruthy();
+		});
+
+		const uploadCall = fetchMock.mock.calls.find(
+			([input, init]) => String(input).endsWith('/upload') && init?.method === 'POST'
+		);
+		expect(uploadCall?.[0]).toBe('/org/org-1/api/sign-in-rosters/roster-1/upload');
+		expect(uploadCall?.[1]?.body).toBeInstanceOf(FormData);
+	});
+
+	it('validates signed roster scan type before upload', async () => {
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+			jsonResponse({ rosters: [makeRoster()], total: 1 })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal();
+
+		await waitFor(() => expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: /Morning Formation/i }));
+		const input = screen.getByLabelText('Signed Scan') as HTMLInputElement;
+		const file = new File(['not a pdf'], 'signed-roster.txt', { type: 'text/plain' });
+
+		await fireEvent.change(input, { target: { files: [file] } });
+
+		expect(screen.getByRole('alert').textContent).toBe('Only PDF files are allowed.');
+		expect(
+			fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/upload') && init?.method === 'POST')
+		).toBe(false);
+	});
+
+	it('removes an uploaded signed roster scan', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			if (String(input).endsWith('/upload') && init?.method === 'DELETE') {
+				return jsonResponse({});
+			}
+
+			return jsonResponse({
+				rosters: [makeRoster({ signedFilePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' })],
+				total: 1
+			});
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal();
+
+		await waitFor(() => expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: /Morning Formation/i }));
+		expect(screen.getByRole('button', { name: 'signed-roster.pdf' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+		await waitFor(() => {
+			expect(screen.queryByRole('button', { name: 'signed-roster.pdf' })).toBeNull();
+			expect(screen.getByLabelText('Signed Scan')).toBeTruthy();
+		});
+
+		const deleteCall = fetchMock.mock.calls.find(
+			([input, init]) => String(input).endsWith('/upload') && init?.method === 'DELETE'
+		);
+		expect(deleteCall?.[0]).toBe('/org/org-1/api/sign-in-rosters/roster-1/upload');
+	});
 });

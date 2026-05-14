@@ -5,15 +5,9 @@
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
-	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
-	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarSearchItem
-	} from '$lib/components/ui/toolbar';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -89,76 +83,63 @@
 	<title>{data.orgName} - Troop to Task</title>
 </svelte:head>
 
-<div class="page">
+<div class="flex h-full flex-col bg-background">
 	{#if !ctx.canViewCalendar}
-		<div class="no-permission">
-			<h2>Access Restricted</h2>
-			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
-		</div>
+		<Empty.Root class="m-4 min-h-80 border bg-card p-6 text-card-foreground sm:m-6 sm:p-8">
+			<Empty.Header>
+				<Empty.Title>Access Restricted</Empty.Title>
+				<Empty.Description>
+					You don't have permission to view this area. Contact your organization admin for access.
+				</Empty.Description>
+			</Empty.Header>
+		</Empty.Root>
 	{:else if ctx.isHydrating}
-		<main class="page-content" aria-busy="true">
-			<section class="calendar-section calendar-section--loading" aria-live="polite" role="status">
-				<p class="loading-kicker">Loading calendar data</p>
+		<main class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5" aria-busy="true">
+			<section class="flex w-full flex-col gap-3 overflow-visible sm:gap-4" aria-live="polite" role="status">
+				<p class="font-mono text-xs font-semibold tracking-widest text-primary uppercase">Loading calendar data</p>
 
 				{#if ctx.viewMode === '3-month'}
-					<SkeletonBlock height="820px" />
+					<Skeleton class="h-[min(820px,calc(100dvh-10rem))] w-full rounded-lg" />
 				{:else}
-					<SkeletonGrid rows={7} columns={7} cellWidth="minmax(0, 1fr)" cellHeight="82px" />
+					<div class="grid grid-cols-7 gap-1">
+						{#each { length: 49 }, index (index)}
+							<Skeleton class="h-20 rounded-md" data-testid="skeleton-grid-cell" />
+						{/each}
+					</div>
 				{/if}
 			</section>
 		</main>
 	{:else}
-		<main class="page-content">
-			<section class="calendar-section">
-				<Toolbar ariaLabel="Calendar controls" leadingMin="29rem" searchCompactAt={1180}>
-					{#snippet leading()}
-						<ToolbarGroup label="Calendar filters" activeCount={activeCalendarFilterCount} testId="calendar-filters">
-							{#snippet full()}
-								<ToolbarFilterSelect
-									ariaLabel="Calendar group filter"
-									options={groupFilterOptions}
-									value={ctx.calendarGroupFilter}
-									defaultValue=""
-									mode="full"
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-								/>
-								<ToolbarSearchItem
-									ariaLabel="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									value={ctx.calendarPersonnelSearch}
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-								/>
-							{/snippet}
-							{#snippet panel()}
-								<ToolbarFilterSelect
-									ariaLabel="Calendar group filter"
-									options={groupFilterOptions}
-									value={ctx.calendarGroupFilter}
-									defaultValue=""
-									mode="full"
-									width="wide"
-									onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-								/>
-								<ToolbarSearchItem
-									ariaLabel="Search by name, rank, MOS, role, or group"
-									placeholder="Search name, rank, MOS, role, or group..."
-									value={ctx.calendarPersonnelSearch}
-									width="wide"
-									mode="full"
-									onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-								/>
-							{/snippet}
-						</ToolbarGroup>
-					{/snippet}
+		<main class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5">
+			<section class="flex h-full w-full flex-col gap-3 overflow-hidden sm:gap-4">
+				<WorkspaceToolbar.Root ariaLabel="Calendar controls">
+					<WorkspaceToolbar.Group
+						label="Calendar filters"
+						activeCount={activeCalendarFilterCount}
+						data-testid="calendar-filters"
+					>
+						<WorkspaceToolbar.Select
+							ariaLabel="Calendar group filter"
+							options={groupFilterOptions}
+							value={ctx.calendarGroupFilter}
+							onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
+						/>
+						<WorkspaceToolbar.Search
+							ariaLabel="Search by name, rank, MOS, role, or group"
+							placeholder="Search name, rank, MOS, role, or group..."
+							value={ctx.calendarPersonnelSearch}
+							onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
+						/>
+					</WorkspaceToolbar.Group>
 
-					<ToolbarActions
-						actions={toolbarItems}
-						ariaLabel="Calendar actions"
-						overflowAriaLabel="More Calendar actions"
-					/>
-				</Toolbar>
+					<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
+						<WorkspaceToolbar.Actions
+							actions={toolbarItems}
+							ariaLabel="Calendar actions"
+							overflowAriaLabel="More Calendar actions"
+						/>
+					</WorkspaceToolbar.Group>
+				</WorkspaceToolbar.Root>
 
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
@@ -242,86 +223,3 @@
 		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
 	/>
 {/if}
-
-<style>
-	.page {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		background: color-mix(in srgb, var(--surface-page) 92%, var(--surface-panel) 8%);
-		--personnel-column-width: 250px;
-		--cell-height: 30px;
-	}
-
-	.page-content {
-		flex: 1;
-		display: flex;
-		overflow: hidden;
-		padding: var(--sp-4) var(--sp-6) var(--sp-5);
-	}
-
-	.calendar-section {
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-4);
-		width: 100%;
-		overflow: hidden;
-	}
-
-	.calendar-section--loading {
-		overflow: visible;
-	}
-
-	.loading-kicker {
-		margin: 0;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--amber);
-	}
-
-	.no-permission {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 320px;
-		margin: var(--sp-6);
-		padding: var(--sp-8);
-		text-align: center;
-		color: var(--text-secondary);
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-lg);
-	}
-
-	.no-permission h2 {
-		margin: 0 0 var(--sp-2);
-		font-family: var(--font-display);
-		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.no-permission p {
-		margin: 0;
-		max-width: 44ch;
-		font-family: var(--font-body);
-		line-height: var(--line-height-copy);
-	}
-
-	@media (max-width: 640px) {
-		.page-content {
-			padding: var(--sp-3);
-		}
-
-		.no-permission {
-			margin: var(--sp-4);
-			padding: var(--sp-6) var(--sp-4);
-		}
-	}
-</style>

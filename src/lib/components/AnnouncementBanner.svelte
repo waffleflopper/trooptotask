@@ -1,4 +1,8 @@
 <script lang="ts">
+	import XIcon from '@lucide/svelte/icons/x';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+
 	interface Announcement {
 		id: string;
 		title: string;
@@ -23,123 +27,40 @@
 			body: JSON.stringify({ announcementId: id })
 		});
 	}
+
+	function variantFor(type: Announcement['type']) {
+		return type === 'maintenance' ? 'destructive' : type;
+	}
 </script>
 
 {#if visibleAnnouncements.length > 0}
 	{#each visibleAnnouncements as announcement (announcement.id)}
-		<div class="announcement-banner announcement-{announcement.type}" role="alert">
-			<div class="banner-content">
-				<span class="banner-text">
-					<strong>{announcement.title}</strong>
-					<span class="banner-separator">—</span>
-					{announcement.message}
-				</span>
-				<button class="dismiss-btn" onclick={() => dismiss(announcement.id)} aria-label="Dismiss announcement"
-					>Dismiss</button
+		<Alert.Root variant={variantFor(announcement.type)} class="rounded-none border-x-0 border-t-0 px-0 py-0">
+			<div
+				class="mx-auto flex w-full max-w-[1680px] flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap sm:items-center sm:px-6"
+			>
+				<span class="mt-1 h-auto w-0.5 self-stretch rounded-full bg-current opacity-70 sm:mt-0"></span>
+				<div class="min-w-0 flex-1 text-sm leading-6">
+					<Alert.Title class="inline font-mono text-xs font-semibold tracking-wide uppercase">
+						{announcement.title}
+					</Alert.Title>
+					<span class="mx-1 text-muted-foreground">-</span>
+					<Alert.Description class="inline text-sm text-current">
+						{announcement.message}
+					</Alert.Description>
+				</div>
+				<Button
+					type="button"
+					variant="ghost"
+					size="xs"
+					class="shrink-0"
+					onclick={() => dismiss(announcement.id)}
+					aria-label="Dismiss announcement"
 				>
+					<XIcon aria-hidden="true" class="size-3" />
+					Dismiss
+				</Button>
 			</div>
-		</div>
+		</Alert.Root>
 	{/each}
 {/if}
-
-<style>
-	.announcement-banner {
-		width: 100%;
-		padding: 0;
-		box-sizing: border-box;
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-panel);
-	}
-
-	.banner-content {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-4);
-		max-width: 1680px;
-		margin: 0 auto;
-		padding: 0.75rem clamp(var(--sp-4), 2vw, var(--sp-6));
-	}
-
-	.banner-content::before {
-		content: '';
-		width: 3px;
-		align-self: stretch;
-		border-radius: 999px;
-		background: var(--info);
-		flex-shrink: 0;
-	}
-
-	.banner-text {
-		flex: 1;
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-		line-height: 1.5;
-	}
-
-	.banner-text strong {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-	}
-
-	.banner-separator {
-		margin: 0 var(--sp-1);
-		color: var(--text-tertiary);
-	}
-
-	.dismiss-btn {
-		padding: 0;
-		background: none;
-		border: none;
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		cursor: pointer;
-		transition: color var(--transition-fast);
-		flex-shrink: 0;
-	}
-
-	.dismiss-btn:hover {
-		color: var(--text-primary);
-	}
-
-	.announcement-info {
-		background: color-mix(in srgb, var(--info-bg) 55%, var(--surface-panel));
-	}
-
-	.announcement-info .banner-content::before {
-		background: var(--info);
-	}
-
-	.announcement-warning {
-		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel));
-	}
-
-	.announcement-warning .banner-content::before {
-		background: var(--amber);
-	}
-
-	.announcement-maintenance {
-		background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-panel));
-	}
-
-	.announcement-maintenance .banner-content::before {
-		background: var(--danger);
-	}
-
-	@media (max-width: 640px) {
-		.banner-content {
-			align-items: flex-start;
-			flex-wrap: wrap;
-		}
-
-		.dismiss-btn {
-			padding-left: calc(3px + var(--sp-4));
-		}
-	}
-</style>

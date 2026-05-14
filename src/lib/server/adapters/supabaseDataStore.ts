@@ -38,8 +38,15 @@ function formatPostgrestFilterValue(value: unknown): string {
 
 function buildPostgrestAndFilter(filters: Record<string, unknown>): string {
 	return `and(${Object.entries(filters)
-		.map(([key, value]) => `${key}.eq.${formatPostgrestFilterValue(value)}`)
+		.map(([key, value]) => `${key}.${value === null ? 'is' : 'eq'}.${formatPostgrestFilterValue(value)}`)
 		.join(',')})`;
+}
+
+// PostgREST treats `eq.null` as the literal string "null" for typed columns.
+// Null comparisons must use `is.null`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyEqualityFilter(query: any, key: string, value: unknown) {
+	return value === null ? query.is(key, null) : query.eq(key, value);
 }
 
 /**
@@ -56,13 +63,13 @@ function buildPostgrestAndFilter(filters: Record<string, unknown>): string {
 function applyFindOptions(query: any, filters?: Record<string, unknown>, options?: FindOptions) {
 	if (filters) {
 		for (const [key, value] of Object.entries(filters)) {
-			query = query.eq(key, value);
+			query = applyEqualityFilter(query, key, value);
 		}
 	}
 
 	if (options?.filters) {
 		for (const [key, value] of Object.entries(options.filters)) {
-			query = query.eq(key, value);
+			query = applyEqualityFilter(query, key, value);
 		}
 	}
 
@@ -137,7 +144,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 				.eq(orgColumn, orgId);
 
 			for (const [key, value] of Object.entries(filters)) {
-				query = query.eq(key, value);
+				query = applyEqualityFilter(query, key, value);
 			}
 
 			const { data, error } = await query.single();
@@ -301,7 +308,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			let query = supabase.from(table).delete().eq(orgColumn, orgId);
 
 			for (const [key, value] of Object.entries(filters)) {
-				query = query.eq(key, value);
+				query = applyEqualityFilter(query, key, value);
 			}
 
 			const { error } = await query;

@@ -1,7 +1,11 @@
 <script lang="ts">
-	import Modal from './Modal.svelte';
-	import Spinner from './ui/Spinner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { Textarea } from '$lib/components/ui/textarea';
 
 	interface Props {
 		onClose: () => void;
@@ -17,6 +21,9 @@
 	let submitting = $state(false);
 
 	const canSubmit = $derived(message.trim().length > 0);
+	const categoryLabel = $derived(
+		category === 'bug' ? 'Bug Report' : category === 'feature' ? 'Feature Request' : 'General Feedback'
+	);
 
 	async function handleSubmit() {
 		if (!canSubmit || submitting) return;
@@ -49,45 +56,49 @@
 	}
 </script>
 
-<Modal title="Send Feedback" {onClose} width="480px" titleId="feedback-modal-title" canClose={!submitting}>
-	<div class="form-group">
-		<label class="label" for="feedback-category">Category</label>
-		<select id="feedback-category" class="select" bind:value={category}>
-			<option value="general">General Feedback</option>
-			<option value="bug">Bug Report</option>
-			<option value="feature">Feature Request</option>
-		</select>
-	</div>
+<AppDialog.Root closeBlocked={submitting} {onClose}>
+	<AppDialog.Content closeBlocked={submitting}>
+		<AppDialog.Header>
+			<AppDialog.Title>Send Feedback</AppDialog.Title>
+			<AppDialog.Description>Share feedback about the current page or workflow.</AppDialog.Description>
+		</AppDialog.Header>
 
-	<div class="form-group">
-		<label class="label" for="feedback-message">Message</label>
-		<textarea
-			id="feedback-message"
-			class="input"
-			bind:value={message}
-			rows="5"
-			placeholder={category === 'bug'
-				? 'Describe the bug: what happened, what you expected, and steps to reproduce...'
-				: category === 'feature'
-					? "Describe the feature you'd like to see..."
-					: 'Share your thoughts, suggestions, or feedback...'}
-			required
-		></textarea>
-	</div>
+		<AppDialog.Body class="grid gap-4">
+			<div class="grid gap-2">
+				<Label for="feedback-category">Category</Label>
+				<Select.Root type="single" bind:value={category}>
+					<Select.Trigger id="feedback-category" class="w-full">{categoryLabel}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="general" label="General Feedback" />
+						<Select.Item value="bug" label="Bug Report" />
+						<Select.Item value="feature" label="Feature Request" />
+					</Select.Content>
+				</Select.Root>
+			</div>
 
-	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose} disabled={submitting}>Cancel</button>
-		<button class="btn btn-primary" onclick={handleSubmit} disabled={!canSubmit || submitting}>
-			{#if submitting}<Spinner />{/if}
-			{submitting ? 'Submitting...' : 'Submit'}
-		</button>
-	{/snippet}
-</Modal>
+			<div class="grid gap-2">
+				<Label for="feedback-message">Message</Label>
+				<Textarea
+					id="feedback-message"
+					bind:value={message}
+					rows={5}
+					class="min-h-28 resize-y"
+					placeholder={category === 'bug'
+						? 'Describe the bug: what happened, what you expected, and steps to reproduce...'
+						: category === 'feature'
+							? "Describe the feature you'd like to see..."
+							: 'Share your thoughts, suggestions, or feedback...'}
+					required
+				/>
+			</div>
+		</AppDialog.Body>
 
-<style>
-	textarea.input {
-		resize: vertical;
-		min-height: 100px;
-		font-family: inherit;
-	}
-</style>
+		<AppDialog.Footer>
+			<Button type="button" variant="outline" onclick={onClose} disabled={submitting}>Cancel</Button>
+			<Button type="button" onclick={handleSubmit} disabled={!canSubmit || submitting}>
+				{#if submitting}<Spinner />{/if}
+				{submitting ? 'Submitting...' : 'Submit'}
+			</Button>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>

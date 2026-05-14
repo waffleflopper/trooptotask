@@ -1,21 +1,18 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import {
-		Toolbar,
-		ToolbarActions,
-		ToolbarFilterSelect,
-		ToolbarGroup,
-		ToolbarMultiSelectFilter,
-		type ToolbarActionConfig
-	} from '$lib/components/ui/toolbar';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Card from '$lib/components/ui/card';
+	import * as Progress from '$lib/components/ui/progress';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as Separator from '$lib/components/ui/separator';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
-	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
 	import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
 	import IctReadinessMatrixTable from './IctReadinessMatrixTable.svelte';
 	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
@@ -80,8 +77,31 @@
 	const activeFilterCount = $derived(
 		(filterGroupId ? 1 : 0) + filterMosValues.length + (filterRole ? 1 : 0) + (filterRank ? 1 : 0)
 	);
-	const toolbarActionItems = $derived.by<ToolbarActionConfig[]>(() => {
-		const items: ToolbarActionConfig[] = [];
+	const filteredPersonnelCount = $derived(
+		personnel.filter((person) => {
+			if (filterGroupId && person.groupId !== filterGroupId) return false;
+			if (filterMosValues.length > 0 && !filterMosValues.includes(person.mos)) return false;
+			if (filterRole && person.clinicRole !== filterRole) return false;
+			if (filterRank && person.rank !== filterRank) return false;
+			return true;
+		}).length
+	);
+	const reportMeta = $derived([
+		{ label: 'Filters', value: activeFilterCount },
+		{ label: 'Population', value: filteredPersonnelCount }
+	]);
+	const readinessVariant = $derived.by(() => {
+		const percent = dashboard.kpis.overallReadiness.percent;
+		if (percent >= 80) return 'success';
+		if (percent >= 70) return 'warning';
+		return 'destructive';
+	});
+	const readinessDeltaLabel = $derived(formatDelta(dashboard.kpis.overallReadiness.deltaPercent));
+	const readinessProgress = $derived(Math.max(0, Math.min(100, dashboard.kpis.overallReadiness.percent)));
+	const topTasksBelowThreshold = $derived(dashboard.tasksBelowThreshold.rows.slice(0, 4));
+	const topAtRiskSoldiers = $derived(dashboard.atRiskSoldiers.rows.slice(0, 5));
+	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
+		const items: WorkspaceToolbarAction[] = [];
 
 		if (hasActiveFilters) {
 			items.push({
@@ -112,6 +132,19 @@
 		filterMosValues = [];
 		filterRole = '';
 		filterRank = '';
+	}
+
+	function formatDelta(delta: number): string {
+		if (delta > 0) return `+${delta}% over 30 days`;
+		if (delta < 0) return `${delta}% over 30 days`;
+		return 'Flat over 30 days';
+	}
+
+	function readinessBadgeVariant(percent: number | null): 'success' | 'warning' | 'destructive' | 'secondary' {
+		if (percent === null) return 'secondary';
+		if (percent >= 80) return 'success';
+		if (percent >= 70) return 'warning';
+		return 'destructive';
 	}
 
 	$effect(() => {
@@ -156,161 +189,219 @@
 	});
 </script>
 
-<div class="reports-page-shell">
-	<Toolbar ariaLabel="Critical task report controls" collapse="wide" leadingMin="52rem">
-		{#snippet leading()}
-			<ToolbarGroup label="Critical task report filters" activeCount={activeFilterCount} testId="ict-report-filters">
-				{#snippet full()}
-					<ToolbarFilterSelect
-						options={groupOptions}
-						value={filterGroupId}
-						ariaLabel="Filter by group"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterGroupId = value)}
-					/>
+<div class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
+	<WorkspaceToolbar.Root ariaLabel="Critical task report controls">
+		<WorkspaceToolbar.Group
+			label="Critical task report filters"
+			activeCount={activeFilterCount}
+			data-testid="ict-report-filters"
+		>
+			<WorkspaceToolbar.Select
+				options={groupOptions}
+				value={filterGroupId}
+				ariaLabel="Filter by group"
+				disabled={loading}
+				onValueChange={(value) => (filterGroupId = value)}
+			/>
 
-					<ToolbarFilterSelect
-						options={rankOptions}
-						value={filterRank}
-						ariaLabel="Filter by rank"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterRank = value)}
-					/>
+			<WorkspaceToolbar.Select
+				options={rankOptions}
+				value={filterRank}
+				ariaLabel="Filter by rank"
+				disabled={loading}
+				onValueChange={(value) => (filterRank = value)}
+			/>
 
-					<ToolbarMultiSelectFilter
-						options={availableMosOptions}
-						value={filterMosValues}
-						label="MOS"
-						placeholder="All MOS"
-						ariaLabel="Filter by MOS"
-						disabled={loading}
-						mode="full"
-						onChange={(values) => (filterMosValues = values)}
-					/>
+			<WorkspaceToolbar.MultiSelect
+				options={availableMosOptions}
+				value={filterMosValues}
+				label="MOS"
+				ariaLabel="Filter by MOS"
+				disabled={loading}
+				onChange={(values) => (filterMosValues = values)}
+			/>
 
-					<ToolbarFilterSelect
-						options={roleOptions}
-						value={filterRole}
-						ariaLabel="Filter by duty role"
-						defaultValue=""
-						width="wide"
-						mode="full"
-						disabled={loading}
-						onValueChange={(value) => (filterRole = value)}
-					/>
-				{/snippet}
-			</ToolbarGroup>
-		{/snippet}
+			<WorkspaceToolbar.Select
+				options={roleOptions}
+				value={filterRole}
+				ariaLabel="Filter by duty role"
+				disabled={loading}
+				onValueChange={(value) => (filterRole = value)}
+			/>
+		</WorkspaceToolbar.Group>
 
-		<ToolbarActions
-			actions={toolbarActionItems}
-			ariaLabel="Critical task report actions"
-			overflowAriaLabel="More critical task report actions"
-		/>
-	</Toolbar>
+		<WorkspaceToolbar.Group label="Critical task report actions" zone="actions">
+			<WorkspaceToolbar.Actions
+				actions={toolbarActionItems}
+				ariaLabel="Critical task report actions"
+				overflowAriaLabel="More critical task report actions"
+			/>
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
 	{#if dashboardError}
-		<p class="report-error" role="alert">{dashboardError}</p>
+		<ReportWorkspace.State
+			state="error"
+			title="Unable to update critical task reports"
+			description={dashboardError}
+			role="alert"
+		/>
 	{/if}
 
 	{#if loading}
-		<section class="report-state" aria-busy="true" aria-live="polite" role="status">
-			Loading critical task reports...
-		</section>
+		<ReportWorkspace.State state="loading" title="Loading critical task reports..." />
 	{:else if !hasActiveTasks}
-		<EmptyState message="No active critical tasks configured." />
-	{:else}
-		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
-		<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} />
-		<div class="report-visual-grid">
-			<IctReadinessTrendChart trend={dashboard.readinessTrend} loading={dashboardLoading} />
-			<IctTasksBelowThresholdTable
-				rows={dashboard.tasksBelowThreshold.rows}
-				thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
-				loading={dashboardLoading}
-			/>
-		</div>
-		<div class="report-followup-grid">
-			<IctExpirationCliffChart
-				cliff={dashboard.expirationCliff}
-				currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
-				loading={dashboardLoading}
-			/>
-			<IctAtRiskSoldiersTable
-				rows={dashboard.atRiskSoldiers.rows}
-				expiringSoonWindowDays={dashboard.kpis.tasksExpiringSoon.windowDays}
-				loading={dashboardLoading}
-			/>
-		</div>
-		<IctReadinessDistributionHistogram
-			distribution={dashboard.readinessDistribution}
-			selectedPageMos={filterMosValues}
-			loading={dashboardLoading}
+		<ReportWorkspace.State
+			state="no-data"
+			title="No active critical tasks configured."
+			description="Add active critical tasks before running readiness reports."
 		/>
+	{:else}
+		<ReportWorkspace.Root ariaLabel="Critical task analysis console">
+			<div class="border-b border-border pb-4">
+				<dl class="flex flex-wrap gap-x-4 gap-y-1" aria-label="Critical task report scope">
+					{#each reportMeta as item (`${item.label}-${item.value}`)}
+						<div class="flex items-center gap-1.5 text-xs">
+							<dt class="font-mono font-semibold uppercase tracking-[0.08em] text-muted-foreground">{item.label}</dt>
+							<dd class="text-foreground">{item.value}</dd>
+						</div>
+					{/each}
+				</dl>
+			</div>
+
+			<div class="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+				<aside class="space-y-4">
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>Readiness summary</Card.Title>
+							<Card.Description>{dashboardLoading ? 'Updating' : 'Current filtered population'}</Card.Description>
+						</Card.Header>
+						<Card.Content class="space-y-4">
+							<div>
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-sm text-muted-foreground">Overall</span>
+									<Badge variant={readinessVariant}>{dashboard.kpis.overallReadiness.percent}%</Badge>
+								</div>
+								<Progress.Progress class="mt-2" value={readinessProgress} aria-label="Overall readiness" />
+							</div>
+							<Separator.Separator />
+							<div class="grid gap-3 text-sm">
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">Ready</span>
+									<span class="font-medium">{dashboard.kpis.overallReadiness.readyCount}</span>
+								</div>
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">Applicable</span>
+									<span class="font-medium">{dashboard.kpis.overallReadiness.applicableCount}</span>
+								</div>
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">30-day delta</span>
+									<span class="font-medium">{readinessDeltaLabel}</span>
+								</div>
+							</div>
+						</Card.Content>
+					</Card.Root>
+
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>Immediate risk</Card.Title>
+							<Card.Description>Top rows from the active filter set.</Card.Description>
+						</Card.Header>
+						<Card.Content class="space-y-4">
+							<div class="space-y-2">
+								<p class="text-sm font-medium">Tasks</p>
+								{#each topTasksBelowThreshold as task (task.taskId)}
+									<div class="rounded-lg border bg-background p-3">
+										<div class="flex items-start justify-between gap-3">
+											<p class="text-sm font-medium">{task.taskCode}</p>
+											<Badge variant={readinessBadgeVariant(task.percentComplete)}>{task.percentComplete}%</Badge>
+										</div>
+										<p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.taskName}</p>
+									</div>
+								{:else}
+									<p class="text-sm text-muted-foreground">No tasks below threshold.</p>
+								{/each}
+							</div>
+
+							<Separator.Separator />
+
+							<div class="space-y-2">
+								<p class="text-sm font-medium">Soldiers</p>
+								{#each topAtRiskSoldiers as soldier (soldier.personnelId)}
+									<div class="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+										<div class="min-w-0">
+											<p class="truncate text-sm font-medium">{soldier.soldierName}</p>
+											<p class="text-xs text-muted-foreground">{soldier.rank} / {soldier.mos}</p>
+										</div>
+										<Badge variant={readinessBadgeVariant(soldier.readinessPercent)}>{soldier.readinessPercent}%</Badge>
+									</div>
+								{:else}
+									<p class="text-sm text-muted-foreground">No at-risk Soldiers.</p>
+								{/each}
+							</div>
+						</Card.Content>
+					</Card.Root>
+				</aside>
+
+				<div class="min-w-0 space-y-4">
+					<IctReadinessMatrixTable matrix={dashboard.readinessMatrix} loading={dashboardLoading} compact />
+					<ReportWorkspace.Content layout="split">
+						<IctReadinessTrendChart
+							trend={dashboard.readinessTrend}
+							loading={dashboardLoading}
+							heightClass="h-[190px]"
+						/>
+						<IctExpirationCliffChart
+							cliff={dashboard.expirationCliff}
+							currentReadinessPercent={dashboard.kpis.overallReadiness.percent}
+							loading={dashboardLoading}
+							heightClass="h-[190px]"
+						/>
+					</ReportWorkspace.Content>
+					<ReportWorkspace.Content layout="split">
+						<IctTasksBelowThresholdTable
+							rows={dashboard.tasksBelowThreshold.rows}
+							thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
+							loading={dashboardLoading}
+						/>
+						<IctAtRiskSoldiersTable
+							rows={dashboard.atRiskSoldiers.rows}
+							expiringSoonWindowDays={dashboard.kpis.tasksExpiringSoon.windowDays}
+							loading={dashboardLoading}
+						/>
+					</ReportWorkspace.Content>
+					<div class="grid gap-4 xl:grid-cols-[minmax(0,0.72fr)_minmax(18rem,0.28fr)]">
+						<IctReadinessDistributionHistogram
+							distribution={dashboard.readinessDistribution}
+							selectedPageMos={filterMosValues}
+							loading={dashboardLoading}
+							heightClass="h-[190px]"
+						/>
+						<Card.Root>
+							<Card.Header>
+								<Card.Title>Distribution readout</Card.Title>
+								<Card.Description
+									>Use this with the selected MOS filter before choosing drill-down targets.</Card.Description
+								>
+							</Card.Header>
+							<Card.Content class="space-y-3 text-sm">
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">Default MOS</span>
+									<span class="font-medium">{dashboard.readinessDistribution.defaultMos ?? 'None'}</span>
+								</div>
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">Series</span>
+									<span class="font-medium">{dashboard.readinessDistribution.series.length}</span>
+								</div>
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-muted-foreground">Bands</span>
+									<span class="font-medium">{dashboard.readinessDistribution.bins.length}</span>
+								</div>
+							</Card.Content>
+						</Card.Root>
+					</div>
+				</div>
+			</div>
+		</ReportWorkspace.Root>
 	{/if}
 </div>
-
-<style>
-	.reports-page-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-5);
-		padding: var(--sp-4);
-	}
-
-	.report-visual-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: var(--sp-4);
-		align-items: start;
-	}
-
-	.report-followup-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: var(--sp-4);
-		align-items: start;
-	}
-
-	.report-state {
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-sm);
-	}
-
-	.report-error {
-		margin: 0;
-		color: var(--danger);
-	}
-
-	.report-state {
-		background: var(--surface-panel);
-		min-height: 8.5rem;
-		display: grid;
-		place-items: center;
-		padding: var(--sp-4);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	@media (max-width: 1024px) {
-		.report-visual-grid,
-		.report-followup-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.reports-page-shell {
-			padding: var(--sp-2);
-		}
-	}
-</style>

@@ -66,12 +66,12 @@
 <style>
 	.feature-band {
 		padding: clamp(3.5rem, 7vw, 5.5rem) 2rem;
-		border-bottom: 1px solid var(--border-default);
-		background: var(--paper);
+		border-bottom: 1px solid var(--border);
+		background: var(--card);
 	}
 
 	.feature-band.alternate {
-		background: var(--paper-warm);
+		background: var(--public-paper-warm);
 	}
 
 	.feature-band__inner {
@@ -101,9 +101,9 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-wrap: wrap;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
@@ -111,37 +111,37 @@
 
 	.feature-band__badge {
 		padding: 0.18rem 0.45rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius);
 		border: 1px solid color-mix(in srgb, var(--brass) 26%, transparent);
 		background: var(--brass-muted);
-		color: var(--text-primary);
+		color: var(--foreground);
 		font-size: 0.55rem;
 		letter-spacing: 0.14em;
 	}
 
 	.feature-band__title {
 		margin: 0;
-		font-family: var(--font-display);
+		font-family: 'Barlow Condensed', sans-serif;
 		font-size: clamp(2rem, 4vw, 3.4rem);
-		font-weight: var(--font-weight-bold);
+		font-weight: 700;
 		line-height: 0.98;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
-		color: var(--text-primary);
+		color: var(--foreground);
 	}
 
 	.feature-band__title em {
 		font-style: italic;
-		font-weight: var(--font-weight-light);
+		font-weight: 300;
 		color: var(--brass);
 	}
 
 	.feature-band__description {
 		margin: 0;
 		max-width: 34rem;
-		font-size: var(--text-lg);
+		font-size: 1.1875rem;
 		line-height: 1.75;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.feature-band__list {
@@ -155,9 +155,9 @@
 	.feature-band__list li {
 		position: relative;
 		padding-left: 1.25rem;
-		font-size: var(--text-base);
+		font-size: 1rem;
 		line-height: 1.65;
-		color: var(--text-secondary);
+		color: var(--muted-foreground);
 	}
 
 	.feature-band__list li::before {
@@ -192,7 +192,7 @@
 		}
 
 		.feature-band__description {
-			font-size: var(--text-base);
+			font-size: 1rem;
 		}
 	}
 </style>

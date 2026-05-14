@@ -35,9 +35,12 @@
 <style>
 	.group-header {
 		display: grid;
-		grid-template-columns: var(--personnel-column-width) minmax(calc(var(--cell-width) * var(--dates-count, 31)), 1fr);
+		grid-template-columns: var(--calendar-personnel-column-width) minmax(
+				calc(var(--calendar-cell-width) * var(--dates-count, 31)),
+				1fr
+			);
 		width: 100%;
-		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count, 31)));
+		min-width: calc(var(--calendar-personnel-column-width) + (var(--calendar-cell-width) * var(--dates-count, 31)));
 		background: var(--color-chrome);
 		color: var(--color-chrome-text);
 		border-bottom: 1px solid var(--color-chrome-border);
@@ -57,17 +60,17 @@
 		appearance: none;
 		border: none;
 		flex: 1;
-		padding: var(--sp-2) var(--sp-3);
+		padding: 0.5rem 0.75rem;
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 0.5rem;
 		background: transparent;
 		color: var(--color-chrome-text);
 		text-align: left;
 		cursor: pointer;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 	}
@@ -96,7 +99,7 @@
 		align-items: center;
 		justify-content: center;
 		min-width: 58px;
-		padding: 0 var(--sp-2);
+		padding: 0 0.5rem;
 		background: transparent;
 		color: var(--color-chrome-text);
 		border-left: 1px solid var(--color-chrome-border);
@@ -114,21 +117,21 @@
 
 	.pin-btn.pinned {
 		opacity: 1;
-		color: var(--amber-dark);
+		color: var(--accent);
 		background: rgba(229, 160, 0, 0.12);
 	}
 
 	.pin-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 500;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 	}
 
 	.group-header-spacer {
 		flex: 1;
-		min-width: calc(var(--cell-width) * var(--dates-count, 31));
+		min-width: calc(var(--calendar-cell-width) * var(--dates-count, 31));
 		background: var(--color-chrome);
 	}
 </style>

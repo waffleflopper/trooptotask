@@ -5,9 +5,14 @@ import { fileURLToPath } from 'url';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const LANDING_PAGE = resolve(currentDir, '+page.svelte');
+const PUBLIC_NAV = resolve(currentDir, '../lib/components/public/PublicSiteNav.svelte');
 
 function readLandingPage() {
 	return readFileSync(LANDING_PAGE, 'utf-8');
+}
+
+function readPublicNav() {
+	return readFileSync(PUBLIC_NAV, 'utf-8');
 }
 
 function getBlock(source: string, selector: string) {
@@ -32,31 +37,42 @@ function getBlock(source: string, selector: string) {
 }
 
 describe('landing page CSS regressions', () => {
-	it('keeps proof section text on dark chrome-safe tokens across themes', () => {
+	it('keeps dark landing sections on public chrome-safe tokens across themes', () => {
 		const source = readLandingPage();
-		const proofStyles = [
-			getBlock(source, '.section-proof'),
-			getBlock(source, '.proof__quote'),
-			getBlock(source, '.proof__attribution'),
-			getBlock(source, '.proof__point'),
-			getBlock(source, '.proof__point:first-child'),
-			getBlock(source, '.proof__point-text'),
-			getBlock(source, '.proof__point-text strong')
+		const darkSectionStyles = [
+			getBlock(source, '.hero'),
+			getBlock(source, '.cta-final'),
+			getBlock(source, '.hero__body'),
+			getBlock(source, '.hero__meta'),
+			getBlock(source, '.cta-final__body'),
+			getBlock(source, '.cta-final__meta')
 		].join('\n');
 
-		expect(proofStyles).toContain('background: var(--color-chrome)');
-		expect(proofStyles).toContain('color: var(--color-chrome-text)');
-		expect(proofStyles).toContain('var(--color-chrome-text-muted)');
-		expect(proofStyles).toContain('var(--color-chrome-border)');
-		expect(proofStyles).not.toContain('var(--background)');
+		expect(darkSectionStyles).toContain('background: var(--hero-bg)');
+		expect(darkSectionStyles).toContain('color: var(--hero-text)');
+		expect(darkSectionStyles).toContain('color: var(--hero-muted)');
+		expect(darkSectionStyles).not.toContain('#12110f');
+		expect(darkSectionStyles).not.toContain('#f0efe9');
+		expect(darkSectionStyles).not.toContain('#b0afa8');
 	});
 
-	it('turns off the sticky questions sidebar after the mobile layout collapses', () => {
+	it('keeps amber CTA text readable when global link hover styles apply', () => {
 		const source = readLandingPage();
-		const mobileLayoutStyles = getBlock(source, '@media (max-width: 900px)');
+		const navSource = readPublicNav();
+		const buttonHoverStyles = [
+			getBlock(source, 'a.btn-amber:hover'),
+			getBlock(navSource, '.nav-button.nav-button-amber:hover')
+		].join('\n');
 
-		expect(mobileLayoutStyles).toContain('.solves__sidebar');
-		expect(mobileLayoutStyles).toContain('position: static');
-		expect(mobileLayoutStyles).toContain('top: auto');
+		expect(buttonHoverStyles).toContain('color: var(--color-chrome)');
+	});
+
+	it('stacks landing actions after the mobile layout collapses', () => {
+		const source = readLandingPage();
+		const mobileLayoutStyles = getBlock(source, '@media (max-width: 640px)');
+
+		expect(mobileLayoutStyles).toContain('.hero__actions');
+		expect(mobileLayoutStyles).toContain('.cta-final__actions');
+		expect(mobileLayoutStyles).toContain('flex-direction: column');
 	});
 });

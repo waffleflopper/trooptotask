@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
 
 	let { data } = $props();
@@ -101,8 +102,8 @@
 	{navScrolled}
 	showCta={false}
 	showFaqLink
-	faqHref="#faq"
-	roadmapHref="#cta"
+	faqHref="/#faq"
+	roadmapHref="/#cta"
 >
 	<!-- ───────────────────────── HERO ───────────────────────── -->
 	<section class="hero">
@@ -117,8 +118,8 @@
 					readiness, training compliance, and daily accountability.
 				</p>
 				<div class="hero__actions">
-					<a href="/auth/request-access" class="btn-amber">Request Access</a>
-					<a href="/features" class="btn-ghost">View Features</a>
+					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
+					<a href={resolve('/features')} class="btn-ghost">View Features</a>
 				</div>
 				<div class="hero__meta">
 					<span>Free during beta</span>
@@ -354,11 +355,11 @@
 			</p>
 			<div class="cta-final__actions">
 				{#if data.user}
-					<a href="/dashboard?show=all" class="btn-amber">Go to Dashboard</a>
+					<a href={resolve('/dashboard?show=all')} class="btn-amber">Go to Dashboard</a>
 				{:else}
-					<a href="/auth/request-access" class="btn-amber">Request Access</a>
+					<a href={resolve('/auth/request-access')} class="btn-amber">Request Access</a>
 				{/if}
-				<a href="/pricing" class="btn-ghost">View Pricing</a>
+				<a href={resolve('/pricing')} class="btn-ghost">View Pricing</a>
 			</div>
 			<div class="cta-final__meta">Free during beta · Paid plans later</div>
 		</div>
@@ -400,7 +401,7 @@
 	}
 
 	.section-label--light {
-		color: oklch(76.9% 0.188 70.08);
+		color: var(--public-accent-strong);
 	}
 
 	/* ── Buttons ── */
@@ -410,8 +411,8 @@
 		justify-content: center;
 		padding: 0.8rem 1.75rem;
 		border-radius: var(--radius-lg, 6px);
-		background: oklch(76.9% 0.188 70.08);
-		color: #12110f;
+		background: var(--public-accent-strong);
+		color: var(--color-chrome);
 		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 1.0625rem;
 		font-weight: 600;
@@ -424,8 +425,9 @@
 			transform 120ms cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.btn-amber:hover {
-		background: oklch(82% 0.17 70);
+	a.btn-amber:hover {
+		background: var(--public-accent-hover);
+		color: var(--color-chrome);
 	}
 
 	.btn-amber:active {
@@ -438,9 +440,9 @@
 		justify-content: center;
 		padding: 0.8rem 1.75rem;
 		border-radius: var(--radius-lg, 6px);
-		border: 1px solid oklch(100% 0 0 / 0.15);
+		border: 1px solid var(--hero-border);
 		background: transparent;
-		color: #f0efe9;
+		color: var(--hero-text);
 		font-family: 'Barlow Condensed', sans-serif;
 		font-size: 1.0625rem;
 		font-weight: 600;
@@ -452,22 +454,23 @@
 			border-color 120ms cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.btn-ghost:hover {
-		background: oklch(100% 0 0 / 0.06);
-		border-color: oklch(100% 0 0 / 0.3);
+	a.btn-ghost:hover {
+		background: var(--hero-hover);
+		color: var(--hero-text);
+		border-color: color-mix(in srgb, var(--hero-text) 30%, transparent);
 	}
 
 	.btn-amber:focus-visible,
 	.btn-ghost:focus-visible {
-		outline: 2px solid oklch(76.9% 0.188 70.08);
+		outline: var(--focus-outline);
 		outline-offset: 2px;
 	}
 
 	/* ── Hero ── */
 	.hero {
 		position: relative;
-		background: #12110f;
-		color: #f0efe9;
+		background: var(--hero-bg);
+		color: var(--hero-text);
 		padding: calc(56px + clamp(4rem, 9vh, 8rem)) 0 clamp(4rem, 9vh, 8rem);
 		overflow: hidden;
 	}
@@ -476,7 +479,7 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background-image: radial-gradient(oklch(100% 0 0 / 0.035) 1px, transparent 1px);
+		background-image: radial-gradient(var(--color-chrome-grid) 1px, transparent 1px);
 		background-size: 32px 32px;
 		pointer-events: none;
 	}
@@ -498,7 +501,7 @@
 		font-weight: 500;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: oklch(76.9% 0.188 70.08);
+		color: var(--public-accent-strong);
 		margin-bottom: 1.25rem;
 	}
 
@@ -516,14 +519,14 @@
 	.hero__heading em {
 		font-style: italic;
 		font-weight: 300;
-		color: oklch(76.9% 0.188 70.08);
+		color: var(--public-accent-strong);
 	}
 
 	.hero__body {
 		margin-top: 1.5rem;
 		font-size: 1.125rem;
 		line-height: 1.65;
-		color: #b0afa8;
+		color: var(--hero-muted);
 		max-width: 44ch;
 	}
 
@@ -544,7 +547,7 @@
 		font-size: 0.6875rem;
 		font-weight: 400;
 		letter-spacing: 0.04em;
-		color: #b0afa8;
+		color: var(--hero-muted);
 	}
 
 	.hero__meta-sep {
@@ -552,16 +555,16 @@
 		width: 3px;
 		height: 3px;
 		border-radius: 50%;
-		background: oklch(76.9% 0.188 70.08 / 0.5);
+		background: color-mix(in srgb, var(--public-accent-strong) 50%, transparent);
 	}
 
 	.hero__frame {
-		border-radius: 10px;
+		border-radius: var(--radius-lg, 6px);
 		overflow: hidden;
-		border: 1px solid oklch(100% 0 0 / 0.07);
+		border: 1px solid color-mix(in srgb, var(--hero-text) 7%, transparent);
 		box-shadow:
-			0 0 80px oklch(66.6% 0.179 58.318 / 0.06),
-			0 25px 60px oklch(0% 0 0 / 0.45);
+			0 0 80px var(--color-public-frame-glow),
+			0 25px 60px var(--color-public-frame-shadow);
 	}
 
 	.hero__frame-bar {
@@ -569,15 +572,15 @@
 		align-items: center;
 		gap: 6px;
 		padding: 10px 14px;
-		background: oklch(18% 0.004 49);
-		border-bottom: 1px solid oklch(100% 0 0 / 0.04);
+		background: var(--color-chrome-surface);
+		border-bottom: 1px solid color-mix(in srgb, var(--hero-text) 4%, transparent);
 	}
 
 	.hero__frame-bar span {
 		width: 10px;
 		height: 10px;
 		border-radius: 50%;
-		background: oklch(28% 0.005 49);
+		background: var(--color-chrome-surface-muted);
 	}
 
 	.hero__frame img {
@@ -623,10 +626,10 @@
 	}
 
 	.showcase__frame {
-		border-radius: 10px;
+		border-radius: var(--radius-lg, 6px);
 		overflow: hidden;
 		border: 1px solid var(--border);
-		box-shadow: 0 8px 40px oklch(0% 0 0 / 0.06);
+		box-shadow: 0 8px 40px var(--color-chrome-shadow);
 	}
 
 	.showcase__frame img {
@@ -687,10 +690,10 @@
 	}
 
 	.feature__frame {
-		border-radius: 8px;
+		border-radius: var(--radius-lg, 6px);
 		overflow: hidden;
 		border: 1px solid var(--border);
-		box-shadow: 0 4px 24px oklch(0% 0 0 / 0.04);
+		box-shadow: 0 4px 24px var(--color-chrome-shadow);
 	}
 
 	.feature__frame img {
@@ -874,8 +877,8 @@
 
 	/* ── CTA Final ── */
 	.cta-final {
-		background: #12110f;
-		color: #f0efe9;
+		background: var(--hero-bg);
+		color: var(--hero-text);
 		padding: clamp(5rem, 12vh, 9rem) 0;
 		text-align: center;
 	}
@@ -899,14 +902,14 @@
 	.cta-final__heading em {
 		font-style: italic;
 		font-weight: 300;
-		color: oklch(76.9% 0.188 70.08);
+		color: var(--public-accent-strong);
 	}
 
 	.cta-final__body {
 		margin-top: 1.5rem;
 		font-size: 1.125rem;
 		line-height: 1.65;
-		color: #b0afa8;
+		color: var(--hero-muted);
 	}
 
 	.cta-final__actions {
@@ -923,7 +926,7 @@
 		font-size: 0.6875rem;
 		font-weight: 400;
 		letter-spacing: 0.06em;
-		color: #b0afa8;
+		color: var(--hero-muted);
 	}
 
 	/* ── Responsive ── */

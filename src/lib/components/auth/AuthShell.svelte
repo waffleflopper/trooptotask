@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
+	import PublicBrandMark from '$lib/components/public/PublicBrandMark.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { cn } from '$lib/utils';
@@ -53,16 +54,9 @@
 		<header class="flex items-center justify-between gap-4">
 			<a
 				href={resolve('/')}
-				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				class="auth-brand inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
-				<span
-					class="[font-family:'Barlow Condensed', sans-serif] text-xl leading-none font-extrabold tracking-[0.03em] uppercase sm:text-2xl"
-				>
-					Troop<span class="text-primary">To</span>Task
-				</span>
-				<span class="font-mono text-[0.625rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-					Unit Readiness Platform
-				</span>
+				<PublicBrandMark />
 			</a>
 
 			<div class="flex items-center gap-2">
@@ -158,3 +152,10 @@
 		</footer>
 	</div>
 </div>
+
+<style>
+	.auth-brand {
+		--public-brand-accent: var(--accent);
+		--public-brand-subtitle-color: var(--muted-foreground);
+	}
+</style>

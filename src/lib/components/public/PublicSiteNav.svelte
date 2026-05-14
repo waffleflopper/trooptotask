@@ -1,11 +1,15 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import PublicBrandMark from './PublicBrandMark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+
+	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
 
 	interface Props {
 		user?: unknown;
 		active?: 'features' | 'pricing' | 'security';
-		roadmapHref?: string;
-		faqHref?: string;
+		roadmapHref?: PublicAnchorHref;
+		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		overlay?: boolean;
 		scrolled?: boolean;
@@ -22,21 +26,18 @@
 	}: Props = $props();
 </script>
 
-<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
+<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled} data-roadmap-href={roadmapHref}>
 	<div class="nav-container">
-		<a href="/" class="nav-brand">
-			<div>
-				<div class="nav-wordmark">Troop<span>To</span>Task</div>
-				<div class="nav-subtitle">Unit Readiness Platform</div>
-			</div>
+		<a href={resolve('/')} class="nav-brand">
+			<PublicBrandMark hideSubtitleOnMobile />
 		</a>
 
 		<div class="nav-links">
-			<a href="/features" class="nav-link" class:active={active === 'features'}>Features</a>
-			<a href="/pricing" class="nav-link" class:active={active === 'pricing'}>Pricing</a>
-			<a href="/security" class="nav-link" class:active={active === 'security'}>Security</a>
+			<a href={resolve('/features')} class="nav-link" class:active={active === 'features'}>Features</a>
+			<a href={resolve('/pricing')} class="nav-link" class:active={active === 'pricing'}>Pricing</a>
+			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}
-				<a href={faqHref} class="nav-link">FAQ</a>
+				<a href={resolve(faqHref)} class="nav-link">FAQ</a>
 			{/if}
 		</div>
 
@@ -70,10 +71,10 @@
 				{/if}
 			</button>
 			{#if user}
-				<a href="/dashboard?show=all" class="nav-button nav-button-outline">Dashboard</a>
+				<a href={resolve('/dashboard?show=all')} class="nav-button nav-button-outline">Dashboard</a>
 			{:else}
-				<a href="/auth/login" class="nav-button nav-button-outline">Sign In</a>
-				<a href="/auth/request-access" class="nav-button nav-button-amber">Request Access</a>
+				<a href={resolve('/auth/login')} class="nav-button nav-button-outline">Sign In</a>
+				<a href={resolve('/auth/request-access')} class="nav-button nav-button-amber">Request Access</a>
 			{/if}
 		</div>
 	</div>
@@ -102,14 +103,14 @@
 		position: fixed;
 		left: 0;
 		right: 0;
-		--_fg: #f0efe9;
-		--_muted: #b0afa8;
+		--_fg: var(--hero-text);
+		--_muted: var(--hero-muted);
 		--_border: transparent;
-		--_bg: oklch(7% 0.005 49 / 0.85);
+		--_bg: var(--color-chrome-overlay);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
-		--_hover-bg: oklch(100% 0 0 / 0.08);
-		--_btn-border: oklch(100% 0 0 / 0.2);
+		--_hover-bg: var(--hero-hover);
+		--_btn-border: var(--hero-border);
 	}
 
 	.public-nav.overlay.scrolled {
@@ -121,7 +122,7 @@
 		--_btn-border: var(--border);
 		backdrop-filter: none;
 		-webkit-backdrop-filter: none;
-		box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
+		box-shadow: 0 1px 3px var(--color-chrome-shadow);
 	}
 
 	.nav-container {
@@ -143,26 +144,9 @@
 		flex-shrink: 0;
 	}
 
-	.nav-wordmark {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 22px;
-		font-weight: 800;
-		letter-spacing: 0.02em;
-		line-height: 1;
-	}
-
-	.nav-wordmark span {
-		color: var(--brass);
-	}
-
-	.nav-subtitle {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 10px;
-		font-weight: 500;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: var(--_muted);
-		margin-top: 0.25rem;
+	.nav-brand :global(.public-brand-mark) {
+		--public-brand-accent: var(--brass);
+		--public-brand-subtitle-color: var(--_muted);
 	}
 
 	.nav-links {
@@ -259,12 +243,13 @@
 	.nav-button-amber {
 		background: var(--brass);
 		border-color: var(--brass);
-		color: var(--background);
+		color: var(--color-chrome);
 	}
 
-	.nav-button-amber:hover {
+	.nav-button.nav-button-amber:hover {
 		background: var(--brass-light);
 		border-color: var(--brass-light);
+		color: var(--color-chrome);
 	}
 
 	.nav-brand:focus-visible,
@@ -285,14 +270,6 @@
 		.nav-container {
 			padding: 0 1rem;
 			gap: 1rem;
-		}
-
-		.nav-wordmark {
-			font-size: 18px;
-		}
-
-		.nav-subtitle {
-			display: none;
 		}
 
 		.nav-button {

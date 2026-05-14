@@ -4,12 +4,14 @@
 	import PublicFooter from './PublicFooter.svelte';
 	import PublicSiteNav from './PublicSiteNav.svelte';
 
+	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
+
 	interface Props {
 		user?: unknown;
 		active?: 'features' | 'pricing' | 'security';
 		bodyClass?: string;
-		roadmapHref?: string;
-		faqHref?: string;
+		roadmapHref?: PublicAnchorHref;
+		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		showClassificationBar?: boolean;
 		showCta?: boolean;
@@ -76,6 +78,9 @@
 		--brass: var(--accent);
 		--brass-light: var(--accent);
 		--brass-muted: color-mix(in srgb, var(--accent) 14%, transparent);
+		--public-accent: var(--accent);
+		--public-accent-strong: var(--ring);
+		--public-accent-hover: color-mix(in srgb, var(--ring) 82%, var(--color-chrome-text) 18%);
 		--font-family: 'Source Serif 4', serif;
 		--font-size-base: 1rem;
 		--public-ink: var(--color-chrome);
@@ -83,9 +88,11 @@
 		--public-ink-border: var(--color-chrome-border);
 		--public-paper: var(--card);
 		--public-paper-warm: color-mix(in srgb, var(--card) 78%, var(--muted) 22%);
-		--hero-bg: var(--foreground);
+		--hero-bg: var(--color-chrome);
 		--hero-text: var(--color-chrome-text);
 		--hero-muted: var(--color-chrome-text-muted);
+		--hero-border: var(--color-chrome-border-subtle);
+		--hero-hover: var(--color-chrome-hover);
 		--classification-bg: color-mix(in srgb, var(--muted) 88%, var(--background) 12%);
 		--classification-text: var(--muted-foreground);
 		--classification-border: var(--border);

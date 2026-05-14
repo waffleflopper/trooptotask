@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _putConfig } from './+server';
+import { _postConfig, _putConfig } from './+server';
+
+describe('POST /api/special-days', () => {
+	it('creates a special day through the mixed-action route config', async () => {
+		const ctx = createTestContext();
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			date: '2026-02-13',
+			name: 'Training Stand-down',
+			type: 'org-closure'
+		});
+
+		expect(result).toMatchObject({
+			date: '2026-02-13',
+			name: 'Training Stand-down',
+			type: 'org-closure'
+		});
+
+		const stored = await ctx.store.findMany('special_days', 'test-org', {
+			type: 'org-closure'
+		});
+		expect(stored).toHaveLength(1);
+	});
+});
 
 describe('PUT /api/special-days', () => {
 	it('exports a calendar mutation route config', () => {

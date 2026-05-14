@@ -235,11 +235,11 @@
 
 	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
 	let showResetConfirm = $state(false);
-	let filterYear = $state(new Date().getFullYear());
+	let filterYear = $state(String(new Date().getFullYear()));
 
 	const yearOptions = $derived.by(() => {
 		const y = new Date().getFullYear();
-		return [y - 1, y, y + 1, y + 2];
+		return [y - 1, y, y + 1, y + 2].map(String);
 	});
 
 	const filteredDays = $derived(
@@ -314,6 +314,13 @@
 	function handleEditDa6TreatmentChange(event: Event) {
 		editStatusDa6Treatment = (event.currentTarget as HTMLSelectElement).value as Da6AvailabilityTreatmentOption;
 	}
+
+	function handleFilterYearChange(event: Event) {
+		const selectedYear = (event.currentTarget as HTMLSelectElement).value;
+		if (yearOptions.includes(selectedYear)) {
+			filterYear = selectedYear;
+		}
+	}
 </script>
 
 {#if !canManageConfig}
@@ -337,7 +344,7 @@
 			</div>
 
 			<nav class="flex flex-1 flex-col gap-0.5 p-2" aria-label="Calendar settings controls">
-				{#each sectionDefs as section}
+				{#each sectionDefs as section (section.key)}
 					<button
 						class="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors {activeSection ===
 						section.key
@@ -579,8 +586,18 @@
 					<!-- ===== CLOSURES ===== -->
 				{:else if activeSection === 'closures'}
 					<div class="mb-4 flex flex-wrap items-center gap-3">
-						<span class="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">Year</span>
-						<NativeSelect class="w-25" bind:value={filterYear}>
+						<Label
+							for="calendar-settings-filter-year"
+							class="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+						>
+							Year
+						</Label>
+						<NativeSelect
+							id="calendar-settings-filter-year"
+							class="w-[6.5rem]"
+							value={filterYear}
+							onchange={handleFilterYearChange}
+						>
 							{#each yearOptions as year (year)}
 								<option value={year}>{year}</option>
 							{/each}
@@ -656,7 +673,7 @@
 		if (!open) resetAddStatusForm();
 	}}
 >
-	<Dialog.Content>
+	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>Add Status Type</Dialog.Title>
 			<Dialog.Description>Create a new personnel availability status for the calendar.</Dialog.Description>
@@ -666,7 +683,7 @@
 				<Label for="add-status-name">Status name</Label>
 				<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
 			</div>
-			<div class="flex items-end gap-4">
+			<div class="flex flex-wrap items-end gap-4">
 				<div class="grid gap-2">
 					<Label for="add-status-bg">Background</Label>
 					<input
@@ -686,7 +703,7 @@
 					/>
 				</div>
 				{#if newStatusName.trim()}
-					<div class="flex-1">
+					<div class="min-w-0 flex-1">
 						<Label>Preview</Label>
 						<div class="mt-2">
 							<CalendarStatusBadge
@@ -705,23 +722,21 @@
 			</div>
 			<div class="grid gap-2">
 				<Label for="add-status-da6">Duty roster treatment</Label>
-				<div class="flex items-center gap-3">
-					<NativeSelect
-						id="add-status-da6"
-						value={newStatusDa6Treatment}
-						onchange={handleNewDa6TreatmentChange}
-						class="w-auto shrink-0"
-					>
-						{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
-							<option value={option.value} disabled={option.disabled}>{option.label}</option>
-						{/each}
-					</NativeSelect>
-					{#if newStatusDa6Treatment === 'authorized-absence'}
-						<span class="text-xs text-muted-foreground">DA6 rotation count pauses during absence</span>
-					{:else if newStatusDa6Treatment === 'other-duty'}
-						<span class="text-xs text-muted-foreground">DA6 rotation count continues while on duty</span>
-					{/if}
-				</div>
+				<NativeSelect
+					id="add-status-da6"
+					value={newStatusDa6Treatment}
+					onchange={handleNewDa6TreatmentChange}
+					class="w-full min-w-0"
+				>
+					{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+						<option value={option.value} disabled={option.disabled}>{option.label}</option>
+					{/each}
+				</NativeSelect>
+				{#if newStatusDa6Treatment === 'authorized-absence'}
+					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count pauses during absence.</p>
+				{:else if newStatusDa6Treatment === 'other-duty'}
+					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count continues while on duty.</p>
+				{/if}
 			</div>
 		</div>
 		<Dialog.Footer>
@@ -733,7 +748,7 @@
 
 <!-- ===== EDIT STATUS TYPE DIALOG ===== -->
 <Dialog.Root bind:open={editStatusOpen}>
-	<Dialog.Content>
+	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>Edit Status Type</Dialog.Title>
 			<Dialog.Description>Update this personnel availability status.</Dialog.Description>
@@ -743,7 +758,7 @@
 				<Label for="edit-status-name">Status name</Label>
 				<Input id="edit-status-name" type="text" bind:value={editStatusName} />
 			</div>
-			<div class="flex items-end gap-4">
+			<div class="flex flex-wrap items-end gap-4">
 				<div class="grid gap-2">
 					<Label for="edit-status-bg">Background</Label>
 					<input
@@ -763,7 +778,7 @@
 					/>
 				</div>
 				{#if editStatusName.trim()}
-					<div class="flex-1">
+					<div class="min-w-0 flex-1">
 						<Label>Preview</Label>
 						<div class="mt-2">
 							<CalendarStatusBadge
@@ -782,23 +797,21 @@
 			</div>
 			<div class="grid gap-2">
 				<Label for="edit-status-da6">Duty roster treatment</Label>
-				<div class="flex items-center gap-3">
-					<NativeSelect
-						id="edit-status-da6"
-						value={editStatusDa6Treatment}
-						onchange={handleEditDa6TreatmentChange}
-						class="w-auto shrink-0"
-					>
-						{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
-							<option value={option.value} disabled={option.disabled}>{option.label}</option>
-						{/each}
-					</NativeSelect>
-					{#if editStatusDa6Treatment === 'authorized-absence'}
-						<span class="text-xs text-muted-foreground">DA6 rotation count pauses during absence</span>
-					{:else if editStatusDa6Treatment === 'other-duty'}
-						<span class="text-xs text-muted-foreground">DA6 rotation count continues while on duty</span>
-					{/if}
-				</div>
+				<NativeSelect
+					id="edit-status-da6"
+					value={editStatusDa6Treatment}
+					onchange={handleEditDa6TreatmentChange}
+					class="w-full min-w-0"
+				>
+					{#each DA6_AVAILABILITY_TREATMENT_OPTIONS as option (option.value)}
+						<option value={option.value} disabled={option.disabled}>{option.label}</option>
+					{/each}
+				</NativeSelect>
+				{#if editStatusDa6Treatment === 'authorized-absence'}
+					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count pauses during absence.</p>
+				{:else if editStatusDa6Treatment === 'other-duty'}
+					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count continues while on duty.</p>
+				{/if}
 			</div>
 		</div>
 		<Dialog.Footer>

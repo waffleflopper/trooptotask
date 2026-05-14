@@ -75,7 +75,7 @@
 		"layerchart": "^1.0.13",
 		"mode-watcher": "^1.1.0",
 		"paneforge": "^1.0.0-next.6",
-		"stripe": "^22.1.0",
+		"stripe": "^22.1.1",
 		"svelte-dnd-action": "^0.9.69",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-merge": "^3.5.0",

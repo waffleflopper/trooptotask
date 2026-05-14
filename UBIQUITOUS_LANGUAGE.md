@@ -137,13 +137,18 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 | **Training**          | The feature for training types, training records, matrix views, and training reports.                                                                                                                    | Certification tracker only                 |
 | **Critical Tasks**    | The feature for ICT task libraries, completions, readiness reporting, and related reporting views.                                                                                                       | Training when discussing feature ownership |
 | **Onboarding**        | The feature for template-driven in-processing workflows and onboarding progress.                                                                                                                         | Checklist feature                          |
-| **Leader's Book**     | The transitional compatibility surface for counseling records, development goals, and the future remade per-Soldier leader-reference or administrative workflows while its shape is still being rebuilt. | Durable future default lane                |
+| **Leader's Book**     | Retired. Formerly the transitional compatibility surface for counseling records, development goals, and per-Soldier admin workflows. Surviving content absorbed by **Personnel** (ADR 0008). | Any new feature, route, or lane under this name |
+| **Follow-Up**         | A leader-created action item tied to a **Soldier** on the Personnel detail page, covering counseling reminders, award recommendations, developmental goals, and other working-list items. | Development goal, task, to-do |
+| **Leader Note**       | A leader-authored observation, accomplishment, or assessment recorded against a **Soldier**. Used for NCOER bullets, award justifications, and general context — distinct from action-oriented **Follow-Ups**. | Follow-up when no action is needed |
+| **Personnel Slug** | A human-readable route key for one **Personnel Record**, derived from `lastName-firstName`, unique inside its **Organization**. Collisions get a numeric suffix. Auto-regenerates on name change; no stale slug redirects. Internal personnel id remains stable identity. | UUID in URL, rank in slug |
+| **Soldier Data Sheet** | The expanded extended info section on the Personnel detail page: emergency contact, spouse, vehicle, address, personal contact, blood type, BASD, date of rank, marital status, dependents/children, civilian and military education. | Leaders Book data sheet |
 | **Rating Scheme**     | The active v1 surface for evaluation-tracking records and workflows for rated individuals, exposed through the Evals route with its own durable lane ownership.                                          | Personnel metadata, leaders-book-only data |
 | **Evals**             | The primary navigation label and route surface for **Rating Scheme** workflows.                                                                                                                          | Separate domain from Rating Scheme         |
 | **Evaluation**        | The military evaluation context that **Rating Scheme** supports by identifying rated people and rating relationships.                                                                                    | Training, counseling                       |
 | **Rated Individual**  | The **Personnel Record** whose evaluation relationship is tracked by a **Rating Scheme** entry.                                                                                                          | Subject, evaluatee, assignee               |
 | **Rater**             | The **Personnel Record** or leader recorded as responsible for evaluating a **Rated Individual**.                                                                                                        | Reviewer when referring to evaluation duty |
-| **Counseling Record** | A stored counseling entry tied to a person.                                                                                                                                                              | Note, eval                                 |
+| **Counseling Record** | A stored record of a completed counseling session tied to a **Soldier**: uploaded PDF, date conducted, title, optional summary, and uploaded-by metadata. Not a workflow tool.                           | Note, eval, counseling workflow             |
+| **Document** | A general-purpose file uploaded to a **Soldier**'s Personnel record for leader reference (certificates, inspection forms, scanned data sheets, BLS cards). Accepted: PDF, JPEG, PNG, HEIC. Max 10MB/file, per-Soldier cap (default 100MB) configurable at **Organization** level. | Attachment, upload |
 | **Training Type**     | An organization-defined training requirement with applicability and expiration behavior.                                                                                                                 | Certification row                          |
 | **Critical Task**     | An organization-defined ICT requirement tracked by the Critical Tasks feature.                                                                                                                           | Training type                              |
 
@@ -175,9 +180,11 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
 - The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
-- **Leader's Book** remains a **Compatibility Lane** and not part of the durable first-class lane map.
+- **Leader's Book** is retired and fully removed. It is no longer a **Compatibility Lane** or part of any lane taxonomy (ADR 0008).
+- **Counseling Records**, **Documents**, **Follow-Ups**, **Leader Notes**, and the **Soldier Data Sheet** are owned by the **Personnel** lane.
+- The Personnel detail page requires `operate` capability on **Personnel**; view-only users use the roster list.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
-- **Rating Scheme** and **Leader's Book** are independently grantable feature surfaces.
+- **Rating Scheme** is independently grantable from **Personnel**.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
 - Governance, billing, member-management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Policy Overlay** can still block or gate an action even when a member's **Capability Map** would otherwise allow it.
@@ -358,13 +365,11 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or a platform/admin role. Prefer **Duty Role** for personnel position data.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
-- **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending, not as a durable first-class lane.
-- That current taxonomy does not pre-decide the rebuilt **Leader's Book** forever; a later explicit decision can revisit whether the remade surface returns to the durable lane map.
-- A hidden or redirected route does not mean the underlying feature surface is already gone during this transition.
+- **Leader's Book** is retired and removed from the platform. Its surviving content is owned by **Personnel** (ADR 0008).
 - **Lane Ownership** is not the same thing as route placement or nav treatment. **Rating Scheme** owns its lane whether surfaced as Evals or through a temporary compatibility path.
 - **Feature Lane** and **Organization Governance Action** are different concepts. Billing, member management, org settings, and platform concerns are not part of the durable feature-lane map.
 - **Personnel** owns roster administration, but another feature can still read roster reference data without inheriting the **Personnel** lane.
-- **Rating Scheme** and **Leader's Book** are separate feature surfaces; current compatibility wiring must not be misread as intended coupling.
+- **Leader's Book** is retired. Do not create new features, routes, or permission surfaces under this name. Its content has been absorbed by **Personnel** (ADR 0008).
 - **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows, and #627 moved runtime access onto its own lane while the Evals route now owns the primary UI surface.
 - **Evals** is a navigation and route label, not the canonical domain term for the records; use **Rating Scheme** for the feature surface and persistence boundary.
 - **Page Toolbar**, **Command Strip**, and **Breadcrumb** are product-surface terms, not domain ownership boundaries.

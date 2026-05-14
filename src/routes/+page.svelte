@@ -1,11 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
+	import LandingPagePrototype from './LandingPagePrototype.svelte';
 
 	let { data } = $props();
 
 	let previewDate = $state('MON 0600 — MORNING ACCOUNTABILITY');
 	let rosterDate = $state('Loading...');
+	type LandingPrototypeVariant = 'A' | 'B' | 'C';
+	const landingPrototypeVariants: LandingPrototypeVariant[] = ['A', 'B', 'C'];
+	const landingPrototypeVariant = $derived.by<LandingPrototypeVariant | null>(() => {
+		const variant = page.url.searchParams.get('variant');
+		if (landingPrototypeVariants.includes(variant as LandingPrototypeVariant)) {
+			return variant as LandingPrototypeVariant;
+		}
+
+		return null;
+	});
 
 	const faqs = [
 		{
@@ -136,665 +148,669 @@
 	showFaqLink
 	showCta={false}
 >
-	<section class="hero">
-		<div class="container">
-			<div class="hero__grid">
-				<div>
-					<div class="hero__eyebrow anim-fade-up">
-						<div class="hero__eyebrow-line"></div>
-						<span class="label-amber">Unit Management Software</span>
+	{#if landingPrototypeVariant}
+		<LandingPagePrototype variant={landingPrototypeVariant} />
+	{:else}
+		<section class="hero">
+			<div class="container">
+				<div class="hero__grid">
+					<div>
+						<div class="hero__eyebrow anim-fade-up">
+							<div class="hero__eyebrow-line"></div>
+							<span class="label-amber">Unit Management Software</span>
+						</div>
+
+						<h1 class="hero__heading anim-fade-up anim-delay-1">
+							Command<br />
+							<em>clarity,</em><br />
+							every<br />
+							formation.
+						</h1>
+
+						<p class="hero__body anim-fade-up anim-delay-2">
+							TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital
+							workspace built for how units actually operate — from morning accountability to end-of-cycle reporting.
+						</p>
+
+						<div class="hero__actions anim-fade-up anim-delay-3">
+							<a href="/auth/request-access" class="landing-btn landing-btn--amber">Join Free Beta</a>
+						</div>
+
+						<div class="hero__beta anim-fade-up anim-delay-4">
+							<p>Help us tighten the product around real-world use and earn free time when we go live.</p>
+						</div>
+
+						<div class="hero__meta anim-fade-up anim-delay-5">
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">Free</div>
+								<div class="hero__meta-label">During Beta</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">DoD</div>
+								<div class="hero__meta-label">Focused Design</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">Multi</div>
+								<div class="hero__meta-label">Org Support</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">Role</div>
+								<div class="hero__meta-label">Based Permissions</div>
+							</div>
+						</div>
 					</div>
 
-					<h1 class="hero__heading anim-fade-up anim-delay-1">
-						Command<br />
-						<em>clarity,</em><br />
-						every<br />
-						formation.
-					</h1>
+					<div class="anim-fade-up anim-delay-3">
+						<div class="hero__preview">
+							<div class="preview__topbar">
+								<div class="preview__topbar-title">1st Platoon — Alpha Company</div>
+								<div class="preview__topbar-date">{previewDate}</div>
+							</div>
 
-					<p class="hero__body anim-fade-up anim-delay-2">
-						TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital
-						workspace built for how units actually operate — from morning accountability to end-of-cycle reporting.
-					</p>
+							<div class="preview__summary">
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--chart-2)">31</div>
+									<div class="preview__summary-lbl">Present</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--accent)">4</div>
+									<div class="preview__summary-lbl">Leave</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--chart-3)">2</div>
+									<div class="preview__summary-lbl">TDY</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--destructive)">1</div>
+									<div class="preview__summary-lbl">Unavail</div>
+								</div>
+							</div>
 
-					<div class="hero__actions anim-fade-up anim-delay-3">
-						<a href="/auth/request-access" class="landing-btn landing-btn--amber">Join Free Beta</a>
-					</div>
+							<table class="data-table">
+								<thead>
+									<tr>
+										<th>Name</th>
+										<th>Rank</th>
+										<th>Position</th>
+										<th>Status</th>
+										<th>Returns</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td class="td-name">Mitchell, A.</td>
+										<td class="td-rank">SSG</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Plt Sgt</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
+									</tr>
+									<tr>
+										<td class="td-name">Torres, R.</td>
+										<td class="td-rank">SGT</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Tm Ldr</td>
+										<td><span class="status status--leave">Leave</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
+											>12 JAN</td
+										>
+									</tr>
+									<tr>
+										<td class="td-name">Okafor, D.</td>
+										<td class="td-rank">SPC</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Rifleman</td>
+										<td><span class="status status--tdy">TDY</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
+											>18 JAN</td
+										>
+									</tr>
+									<tr>
+										<td class="td-name">Vasquez, M.</td>
+										<td class="td-rank">PFC</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Driver</td>
+										<td><span class="status status--school">School</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
+											>03 FEB</td
+										>
+									</tr>
+									<tr>
+										<td class="td-name">Reinhart, J.</td>
+										<td class="td-rank">SPC</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Gunner</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
+									</tr>
+									<tr>
+										<td class="td-name">Huang, L.</td>
+										<td class="td-rank">CPL</td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">Tm Ldr</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
+									</tr>
+								</tbody>
+							</table>
 
-					<div class="hero__beta anim-fade-up anim-delay-4">
-						<p>Help us tighten the product around real-world use and earn free time when we go live.</p>
-					</div>
-
-					<div class="hero__meta anim-fade-up anim-delay-5">
-						<div class="hero__meta-item">
-							<div class="hero__meta-value">Free</div>
-							<div class="hero__meta-label">During Beta</div>
-						</div>
-						<div class="hero__meta-item">
-							<div class="hero__meta-value">DoD</div>
-							<div class="hero__meta-label">Focused Design</div>
-						</div>
-						<div class="hero__meta-item">
-							<div class="hero__meta-value">Multi</div>
-							<div class="hero__meta-label">Org Support</div>
-						</div>
-						<div class="hero__meta-item">
-							<div class="hero__meta-value">Role</div>
-							<div class="hero__meta-label">Based Permissions</div>
+							<div class="preview__footer">
+								<div class="preview__footer-meta">
+									<div>STRENGTH: 38</div>
+									<div>
+										PRES RATE: <span style="color: var(--chart-2); font-weight: 600">81.6%</span>
+									</div>
+								</div>
+								<div class="preview__footer-actions">
+									<span class="badge">Export</span>
+									<span class="badge">Print DA Form</span>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
+			</div>
+		</section>
 
-				<div class="anim-fade-up anim-delay-3">
-					<div class="hero__preview">
-						<div class="preview__topbar">
-							<div class="preview__topbar-title">1st Platoon — Alpha Company</div>
-							<div class="preview__topbar-date">{previewDate}</div>
+		<section class="section-solves">
+			<div class="container">
+				<div class="solves__grid">
+					<div class="solves__sidebar">
+						<div class="label-amber">The Questions That Matter</div>
+						<h2 class="solves__sidebar-heading">
+							Answer<br />
+							<em>faster.</em><br />Brief<br />
+							<em>better.</em>
+						</h2>
+						<p class="solves__sidebar-copy">
+							Every formation, every brief, every handoff — the same questions come up. TroopToTask puts the answers one
+							click away, not buried in four different spreadsheets.
+						</p>
+					</div>
+
+					<div class="solves__questions">
+						<div class="question-row observe-in">
+							<div class="question-num">01</div>
+							<div>
+								<div class="question-text">Who is here today?</div>
+								<div class="question-detail">
+									Real-time accountability view. Sorted by platoon, section, or unit. Updated when statuses change — not
+									when someone remembers to update a spreadsheet.
+								</div>
+							</div>
 						</div>
-
-						<div class="preview__summary">
-							<div class="preview__summary-cell">
-								<div class="preview__summary-num" style="color: var(--chart-2)">31</div>
-								<div class="preview__summary-lbl">Present</div>
-							</div>
-							<div class="preview__summary-cell">
-								<div class="preview__summary-num" style="color: var(--accent)">4</div>
-								<div class="preview__summary-lbl">Leave</div>
-							</div>
-							<div class="preview__summary-cell">
-								<div class="preview__summary-num" style="color: var(--chart-3)">2</div>
-								<div class="preview__summary-lbl">TDY</div>
-							</div>
-							<div class="preview__summary-cell">
-								<div class="preview__summary-num" style="color: var(--destructive)">1</div>
-								<div class="preview__summary-lbl">Unavail</div>
+						<div class="question-row observe-in">
+							<div class="question-num">02</div>
+							<div>
+								<div class="question-text">Who is unavailable and why?</div>
+								<div class="question-detail">
+									Leave, TDY, medical, school, profile, appointment, custom — each tracked with expected return date and
+									authorized reason visible to leaders with access.
+								</div>
 							</div>
 						</div>
+						<div class="question-row observe-in">
+							<div class="question-num">03</div>
+							<div>
+								<div class="question-text">What duties are filled or uncovered?</div>
+								<div class="question-detail">
+									Daily duty assignment board shows every position — CQ, SDO, details — alongside who is assigned, gaps
+									flagged, and the next scheduled rotation.
+								</div>
+							</div>
+						</div>
+						<div class="question-row observe-in">
+							<div class="question-num">04</div>
+							<div>
+								<div class="question-text">What training is coming due?</div>
+								<div class="question-detail">
+									Track certifications, recurring training requirements, and readiness deadlines. See what expires this
+									week, this month, or for a specific individual.
+								</div>
+							</div>
+						</div>
+						<div class="question-row observe-in">
+							<div class="question-num">05</div>
+							<div>
+								<div class="question-text">Where are the personnel gaps?</div>
+								<div class="question-detail">
+									Readiness summary surfaces availability rate by element, understrength billets, and personnel pending
+									action — at a glance, not a data pull.
+								</div>
+							</div>
+						</div>
+						<div class="question-row observe-in">
+							<div class="question-num">06</div>
+							<div>
+								<div class="question-text">What needs action before the next brief?</div>
+								<div class="question-detail">
+									Expiring evals, pending counselings, open onboarding tasks, and unfiled documents — consolidated into
+									a prioritized action queue for each leader.
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-						<table class="data-table">
+		<section class="section-capabilities" id="capabilities">
+			<div class="container">
+				<div class="caps__header">
+					<div>
+						<div class="label-amber caps__label">Platform Capabilities</div>
+						<h2 class="caps__heading">Built for<br />unit work.</h2>
+					</div>
+					<p class="caps__intro">
+						Not adapted from a corporate project management tool. Not a generic HR system repurposed for military use.
+						TroopToTask is built around the actual workflows of unit leadership — from roster management to rating
+						scheme tracking.
+					</p>
+				</div>
+
+				<div class="caps__grid">
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 01</div>
+						<div class="cap-card__title">Personnel Roster</div>
+						<div class="cap-card__body">
+							Manage personnel organized by platoon, section, or custom group. Track assignment, position, and contact
+							data. Export to standard formats on demand.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 02</div>
+						<div class="cap-card__title">Availability Calendar</div>
+						<div class="cap-card__body">
+							Visual unit calendar showing who is present, on leave, TDY, at school, or on profile. Navigate by date
+							range or filter by element to answer accountability questions immediately.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 03</div>
+						<div class="cap-card__title">Status Tracking</div>
+						<div class="cap-card__body">
+							Structured statuses — present, leave, TDY, school, appointment, profile, and custom — each with start
+							date, expected return, authorizing leader, and remarks.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 04</div>
+						<div class="cap-card__title">Duty Assignment</div>
+						<div class="cap-card__body">
+							Plan and assign daily duties: CQ, SDO, details, and any custom position. See today&apos;s roster against
+							available personnel, flag gaps, and maintain a duty history log.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 05</div>
+						<div class="cap-card__title">Training &amp; Readiness</div>
+						<div class="cap-card__body">
+							Track certifications, recurring training requirements, and readiness deadlines by individual. Get
+							visibility on what is current, expiring, or overdue across the unit.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 06</div>
+						<div class="cap-card__title">Counseling Records</div>
+						<div class="cap-card__body">
+							Maintain counseling and leader&apos;s book entries by Soldier. Track initial, periodic, and event-driven
+							counselings. Flag overdue requirements. Exportable for continuity.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 07</div>
+						<div class="cap-card__title">In-Processing &amp; Onboarding</div>
+						<div class="cap-card__body">
+							Structured workflows for in-processing new arrivals. Checklist-driven tasks assigned across sections.
+							Track completion status and hold leaders accountable to deadlines.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 08</div>
+						<div class="cap-card__title">Rating Scheme Tracking</div>
+						<div class="cap-card__body">
+							Monitor OER, NCOER, and WOER timelines. Track rating chain assignments, scheduled dates, and submission
+							status. Surface upcoming and overdue evaluations by unit.
+						</div>
+					</div>
+
+					<div class="cap-card observe-in">
+						<div class="cap-card__index">CAP 09</div>
+						<div class="cap-card__title">Permissions &amp; Audit</div>
+						<div class="cap-card__body">
+							Role-based access controls align with unit structure. Full audit log tracks who made what change and when.
+							Multi-organization support for higher and adjacent units.
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="section-roster" id="roster">
+			<div class="container--wide">
+				<div class="roster__header">
+					<div>
+						<div class="label-amber roster__label">Roster &amp; Accountability</div>
+						<h2 class="roster__heading">Morning accountability.<br />Any formation. Instantly.</h2>
+					</div>
+					<div class="roster__header-copy">
+						<p>
+							The roster is the source of truth. Every status update flows back to it. Print a DA Form 1594 or export
+							for the S1 — no reformatting required.
+						</p>
+					</div>
+				</div>
+
+				<div class="roster__panel">
+					<div class="roster__toolbar">
+						<div class="roster__toolbar-left">
+							<div class="roster__unit-label">Bravo Company — 2-87 IN</div>
+							<div class="roster__date">{rosterDate}</div>
+							<span class="badge badge--amber badge--dot">Live View</span>
+						</div>
+						<div class="roster__availability">
+							<div class="avail-stat">
+								<div class="avail-stat__num">142</div>
+								<div class="avail-stat__lbl">Assigned</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--chart-2)">127</div>
+								<div class="avail-stat__lbl">Present</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--accent)">9</div>
+								<div class="avail-stat__lbl">Leave / TDY</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--destructive)">6</div>
+								<div class="avail-stat__lbl">Unavail</div>
+							</div>
+							<div class="roster__divider"></div>
+							<div class="avail-stat">
+								<div class="avail-stat__num">89.4%</div>
+								<div class="avail-stat__lbl">Pres Rate</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="roster__table-wrap">
+						<table class="data-table roster__table">
 							<thead>
 								<tr>
+									<th style="width: 28px">#</th>
 									<th>Name</th>
 									<th>Rank</th>
+									<th>MOS</th>
+									<th>Element</th>
 									<th>Position</th>
 									<th>Status</th>
+									<th>BASD</th>
+									<th>ETS</th>
 									<th>Returns</th>
+									<th>Counseled</th>
 								</tr>
 							</thead>
 							<tbody>
 								<tr>
-									<td class="td-name">Mitchell, A.</td>
+									<td class="row-count">01</td>
+									<td class="td-name">Anderson, K.L.</td>
+									<td class="td-rank">CPT</td>
+									<td class="table-mono">11A</td>
+									<td class="table-mono">HHC</td>
+									<td class="table-mono">CO CDR</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td class="table-date">15 MAR 19</td>
+									<td class="table-date">14 MAR 27</td>
+									<td class="table-muted">—</td>
+									<td><span class="badge badge-success">Current</span></td>
+								</tr>
+								<tr>
+									<td class="row-count">02</td>
+									<td class="td-name">Williams, D.J.</td>
+									<td class="td-rank">1SG</td>
+									<td class="table-mono">11Z</td>
+									<td class="table-mono">HHC</td>
+									<td class="table-mono">First Sgt</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td class="table-date">03 JUN 10</td>
+									<td class="table-date">02 JUN 28</td>
+									<td class="table-muted">—</td>
+									<td><span class="badge badge-success">Current</span></td>
+								</tr>
+								<tr>
+									<td class="row-count">03</td>
+									<td class="td-name">Patel, S.R.</td>
 									<td class="td-rank">SSG</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Plt Sgt</td>
-									<td><span class="status status--present">● Present</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
-								</tr>
-								<tr>
-									<td class="td-name">Torres, R.</td>
-									<td class="td-rank">SGT</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Tm Ldr</td>
+									<td class="table-mono">11B</td>
+									<td class="table-mono">1st PLT</td>
+									<td class="table-mono">Plt Sgt</td>
 									<td><span class="status status--leave">Leave</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
-										>12 JAN</td
-									>
+									<td class="table-date">17 SEP 16</td>
+									<td class="table-date">16 SEP 25</td>
+									<td class="table-date table-date-amber">05 APR</td>
+									<td><span class="badge badge-success">Current</span></td>
 								</tr>
 								<tr>
-									<td class="td-name">Okafor, D.</td>
+									<td class="row-count">04</td>
+									<td class="td-name">Jackson, T.M.</td>
+									<td class="td-rank">SGT</td>
+									<td class="table-mono">11B</td>
+									<td class="table-mono">1st PLT</td>
+									<td class="table-mono">Tm Ldr</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td class="table-date">22 JAN 20</td>
+									<td class="table-date">21 JAN 26</td>
+									<td class="table-muted">—</td>
+									<td><span class="badge badge-warning">Due Soon</span></td>
+								</tr>
+								<tr>
+									<td class="row-count">05</td>
+									<td class="td-name">Kowalski, B.A.</td>
 									<td class="td-rank">SPC</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Rifleman</td>
+									<td class="table-mono">11B</td>
+									<td class="table-mono">1st PLT</td>
+									<td class="table-mono">Rifleman</td>
 									<td><span class="status status--tdy">TDY</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
-										>18 JAN</td
-									>
+									<td class="table-date">08 AUG 22</td>
+									<td class="table-date">07 AUG 26</td>
+									<td class="table-date">14 APR</td>
+									<td><span class="badge badge-success">Current</span></td>
 								</tr>
 								<tr>
-									<td class="td-name">Vasquez, M.</td>
+									<td class="row-count">06</td>
+									<td class="td-name">Reyes, C.F.</td>
 									<td class="td-rank">PFC</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Driver</td>
+									<td class="table-mono">11C</td>
+									<td class="table-mono">2nd PLT</td>
+									<td class="table-mono">Mortarman</td>
 									<td><span class="status status--school">School</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground); font-family: 'IBM Plex Mono', monospace"
-										>03 FEB</td
-									>
+									<td class="table-date">11 MAR 24</td>
+									<td class="table-date">10 MAR 27</td>
+									<td class="table-date">30 MAY</td>
+									<td><span class="badge badge-success">Current</span></td>
 								</tr>
 								<tr>
-									<td class="td-name">Reinhart, J.</td>
+									<td class="row-count">07</td>
+									<td class="td-name">Okonkwo, E.N.</td>
 									<td class="td-rank">SPC</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Gunner</td>
-									<td><span class="status status--present">● Present</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
-								</tr>
-								<tr>
-									<td class="td-name">Huang, L.</td>
-									<td class="td-rank">CPL</td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">Tm Ldr</td>
-									<td><span class="status status--present">● Present</span></td>
-									<td style="font-size: 11px; color: var(--muted-foreground)">—</td>
+									<td class="table-mono">11B</td>
+									<td class="table-mono">2nd PLT</td>
+									<td class="table-mono">Gunner</td>
+									<td><span class="status status--unavail">Unavail</span></td>
+									<td class="table-date">29 NOV 21</td>
+									<td class="table-date">28 NOV 25</td>
+									<td class="table-date table-date-danger">See Remarks</td>
+									<td><span class="badge badge-danger">Overdue</span></td>
 								</tr>
 							</tbody>
 						</table>
+					</div>
 
-						<div class="preview__footer">
-							<div class="preview__footer-meta">
-								<div>STRENGTH: 38</div>
-								<div>
-									PRES RATE: <span style="color: var(--chart-2); font-weight: 600">81.6%</span>
-								</div>
+					<div class="roster__table-footer">
+						<div class="roster__table-status">Showing 7 of 142 personnel · Sorted: Rank ↑</div>
+						<div class="roster__table-actions">
+							<span class="badge">Filter</span>
+							<span class="badge">Sort</span>
+							<span class="badge badge--amber">Export Roster</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="section-audience">
+			<div class="container">
+				<div class="audience__grid">
+					<div>
+						<div class="label-amber audience__label">Designed For Leadership</div>
+						<h2 class="audience__heading">
+							Built for<br />
+							the people<br />
+							<em>running</em><br />
+							the unit.
+						</h2>
+						<p class="audience__copy">
+							TroopToTask is designed around actual military leader roles — not abstract organizational charts. Access
+							and visibility are scoped to your level of responsibility.
+						</p>
+					</div>
+
+					<div class="audience__roles">
+						<div class="role-row observe-in">
+							<div class="role-name">Commander / XO</div>
+							<span class="role-badge">Full Unit Visibility</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">First Sergeant</div>
+							<span class="role-badge">Enlisted Oversight</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">Platoon Leader / PSG</div>
+							<span class="role-badge">Platoon Scope</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">Section Leader</div>
+							<span class="role-badge">Section Scope</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">Training Room NCO</div>
+							<span class="role-badge">Training Admin Access</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">S1 / Admin Staff</div>
+							<span class="role-badge">Readiness Admin</span>
+						</div>
+						<div class="role-row observe-in">
+							<div class="role-name">Higher Headquarters</div>
+							<span class="role-badge">Multi-Org Read Access</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="section-proof">
+			<div class="container">
+				<div class="proof__inner">
+					<div>
+						<div class="proof__rule"></div>
+						<p class="proof__quote">
+							&quot;The whiteboard gets erased. The shared drive is a mess. Someone always has
+							<strong>a different version</strong> of the roster. TroopToTask is the one place every leader looks.&quot;
+						</p>
+						<div class="proof__attribution">— Company Commander, Active Duty Infantry Unit</div>
+					</div>
+
+					<div class="proof__points">
+						<div class="proof__point observe-in">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces the whiteboard.</strong> Statuses update in the system. No marker, no erasing, no confusion
+								about what&apos;s current.
 							</div>
-							<div class="preview__footer-actions">
-								<span class="badge">Export</span>
-								<span class="badge">Print DA Form</span>
+						</div>
+						<div class="proof__point observe-in">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces the spreadsheet.</strong> Roster data lives in one structured system. Exports are format-ready.
+								No reformatting for the S1.
+							</div>
+						</div>
+						<div class="proof__point observe-in">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces scattered shared drives.</strong> Counselings, training records, and onboarding checklists
+								in one permission-controlled location.
+							</div>
+						</div>
+						<div class="proof__point observe-in">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Built for leader transitions.</strong> Full audit log and continuity records mean incoming leaders
+								have context from day one.
 							</div>
 						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	</section>
+		</section>
 
-	<section class="section-solves">
-		<div class="container">
-			<div class="solves__grid">
-				<div class="solves__sidebar">
-					<div class="label-amber">The Questions That Matter</div>
-					<h2 class="solves__sidebar-heading">
-						Answer<br />
-						<em>faster.</em><br />Brief<br />
-						<em>better.</em>
+		<section class="section-faq" id="faq">
+			<div class="container">
+				<div class="faq__header">
+					<div class="label-amber faq__label">Frequently Asked Questions</div>
+					<h2 class="faq__heading">
+						The questions people ask
+						<br />
+						<em>before they hand over the roster.</em>
 					</h2>
-					<p class="solves__sidebar-copy">
-						Every formation, every brief, every handoff — the same questions come up. TroopToTask puts the answers one
-						click away, not buried in four different spreadsheets.
-					</p>
 				</div>
 
-				<div class="solves__questions">
-					<div class="question-row observe-in">
-						<div class="question-num">01</div>
-						<div>
-							<div class="question-text">Who is here today?</div>
-							<div class="question-detail">
-								Real-time accountability view. Sorted by platoon, section, or unit. Updated when statuses change — not
-								when someone remembers to update a spreadsheet.
+				<div class="faq__list">
+					{#each faqs as item (item.question)}
+						<details class="faq-item">
+							<summary class="faq-question">
+								<span>{item.question}</span>
+								<span class="faq-icon" aria-hidden="true"></span>
+							</summary>
+							<div class="faq-answer">
+								<p>{item.answer}</p>
 							</div>
-						</div>
+						</details>
+					{/each}
+				</div>
+			</div>
+		</section>
+
+		<section class="section-cta" id="roadmap">
+			<div class="container">
+				<div class="cta__inner">
+					<div>
+						<div class="label-amber cta__label">Get Started</div>
+						<h2 class="cta__heading">Ready to run<br />a tighter unit?</h2>
+						<p class="cta__subtext">
+							Request free beta access for your unit. TroopToTask is onboarded by organization — we work with you to
+							configure your structure, import your roster, and train your team leads before broader paid rollout.
+						</p>
 					</div>
-					<div class="question-row observe-in">
-						<div class="question-num">02</div>
-						<div>
-							<div class="question-text">Who is unavailable and why?</div>
-							<div class="question-detail">
-								Leave, TDY, medical, school, profile, appointment, custom — each tracked with expected return date and
-								authorized reason visible to leaders with access.
-							</div>
-						</div>
-					</div>
-					<div class="question-row observe-in">
-						<div class="question-num">03</div>
-						<div>
-							<div class="question-text">What duties are filled or uncovered?</div>
-							<div class="question-detail">
-								Daily duty assignment board shows every position — CQ, SDO, details — alongside who is assigned, gaps
-								flagged, and the next scheduled rotation.
-							</div>
-						</div>
-					</div>
-					<div class="question-row observe-in">
-						<div class="question-num">04</div>
-						<div>
-							<div class="question-text">What training is coming due?</div>
-							<div class="question-detail">
-								Track certifications, recurring training requirements, and readiness deadlines. See what expires this
-								week, this month, or for a specific individual.
-							</div>
-						</div>
-					</div>
-					<div class="question-row observe-in">
-						<div class="question-num">05</div>
-						<div>
-							<div class="question-text">Where are the personnel gaps?</div>
-							<div class="question-detail">
-								Readiness summary surfaces availability rate by element, understrength billets, and personnel pending
-								action — at a glance, not a data pull.
-							</div>
-						</div>
-					</div>
-					<div class="question-row observe-in">
-						<div class="question-num">06</div>
-						<div>
-							<div class="question-text">What needs action before the next brief?</div>
-							<div class="question-detail">
-								Expiring evals, pending counselings, open onboarding tasks, and unfiled documents — consolidated into a
-								prioritized action queue for each leader.
-							</div>
-						</div>
+					<div class="cta__actions">
+						<a href="/auth/request-access" class="landing-btn landing-btn--amber cta__action-primary">Join Free Beta</a>
+						<a href="/pricing" class="landing-btn landing-btn--outline">View Pricing</a>
+						<div class="cta__note">Free during beta · paid plans later</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	</section>
-
-	<section class="section-capabilities" id="capabilities">
-		<div class="container">
-			<div class="caps__header">
-				<div>
-					<div class="label-amber caps__label">Platform Capabilities</div>
-					<h2 class="caps__heading">Built for<br />unit work.</h2>
-				</div>
-				<p class="caps__intro">
-					Not adapted from a corporate project management tool. Not a generic HR system repurposed for military use.
-					TroopToTask is built around the actual workflows of unit leadership — from roster management to rating scheme
-					tracking.
-				</p>
-			</div>
-
-			<div class="caps__grid">
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 01</div>
-					<div class="cap-card__title">Personnel Roster</div>
-					<div class="cap-card__body">
-						Manage personnel organized by platoon, section, or custom group. Track assignment, position, and contact
-						data. Export to standard formats on demand.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 02</div>
-					<div class="cap-card__title">Availability Calendar</div>
-					<div class="cap-card__body">
-						Visual unit calendar showing who is present, on leave, TDY, at school, or on profile. Navigate by date range
-						or filter by element to answer accountability questions immediately.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 03</div>
-					<div class="cap-card__title">Status Tracking</div>
-					<div class="cap-card__body">
-						Structured statuses — present, leave, TDY, school, appointment, profile, and custom — each with start date,
-						expected return, authorizing leader, and remarks.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 04</div>
-					<div class="cap-card__title">Duty Assignment</div>
-					<div class="cap-card__body">
-						Plan and assign daily duties: CQ, SDO, details, and any custom position. See today&apos;s roster against
-						available personnel, flag gaps, and maintain a duty history log.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 05</div>
-					<div class="cap-card__title">Training &amp; Readiness</div>
-					<div class="cap-card__body">
-						Track certifications, recurring training requirements, and readiness deadlines by individual. Get visibility
-						on what is current, expiring, or overdue across the unit.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 06</div>
-					<div class="cap-card__title">Counseling Records</div>
-					<div class="cap-card__body">
-						Maintain counseling and leader&apos;s book entries by Soldier. Track initial, periodic, and event-driven
-						counselings. Flag overdue requirements. Exportable for continuity.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 07</div>
-					<div class="cap-card__title">In-Processing &amp; Onboarding</div>
-					<div class="cap-card__body">
-						Structured workflows for in-processing new arrivals. Checklist-driven tasks assigned across sections. Track
-						completion status and hold leaders accountable to deadlines.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 08</div>
-					<div class="cap-card__title">Rating Scheme Tracking</div>
-					<div class="cap-card__body">
-						Monitor OER, NCOER, and WOER timelines. Track rating chain assignments, scheduled dates, and submission
-						status. Surface upcoming and overdue evaluations by unit.
-					</div>
-				</div>
-
-				<div class="cap-card observe-in">
-					<div class="cap-card__index">CAP 09</div>
-					<div class="cap-card__title">Permissions &amp; Audit</div>
-					<div class="cap-card__body">
-						Role-based access controls align with unit structure. Full audit log tracks who made what change and when.
-						Multi-organization support for higher and adjacent units.
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="section-roster" id="roster">
-		<div class="container--wide">
-			<div class="roster__header">
-				<div>
-					<div class="label-amber roster__label">Roster &amp; Accountability</div>
-					<h2 class="roster__heading">Morning accountability.<br />Any formation. Instantly.</h2>
-				</div>
-				<div class="roster__header-copy">
-					<p>
-						The roster is the source of truth. Every status update flows back to it. Print a DA Form 1594 or export for
-						the S1 — no reformatting required.
-					</p>
-				</div>
-			</div>
-
-			<div class="roster__panel">
-				<div class="roster__toolbar">
-					<div class="roster__toolbar-left">
-						<div class="roster__unit-label">Bravo Company — 2-87 IN</div>
-						<div class="roster__date">{rosterDate}</div>
-						<span class="badge badge--amber badge--dot">Live View</span>
-					</div>
-					<div class="roster__availability">
-						<div class="avail-stat">
-							<div class="avail-stat__num">142</div>
-							<div class="avail-stat__lbl">Assigned</div>
-						</div>
-						<div class="avail-stat">
-							<div class="avail-stat__num" style="color: var(--chart-2)">127</div>
-							<div class="avail-stat__lbl">Present</div>
-						</div>
-						<div class="avail-stat">
-							<div class="avail-stat__num" style="color: var(--accent)">9</div>
-							<div class="avail-stat__lbl">Leave / TDY</div>
-						</div>
-						<div class="avail-stat">
-							<div class="avail-stat__num" style="color: var(--destructive)">6</div>
-							<div class="avail-stat__lbl">Unavail</div>
-						</div>
-						<div class="roster__divider"></div>
-						<div class="avail-stat">
-							<div class="avail-stat__num">89.4%</div>
-							<div class="avail-stat__lbl">Pres Rate</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="roster__table-wrap">
-					<table class="data-table roster__table">
-						<thead>
-							<tr>
-								<th style="width: 28px">#</th>
-								<th>Name</th>
-								<th>Rank</th>
-								<th>MOS</th>
-								<th>Element</th>
-								<th>Position</th>
-								<th>Status</th>
-								<th>BASD</th>
-								<th>ETS</th>
-								<th>Returns</th>
-								<th>Counseled</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td class="row-count">01</td>
-								<td class="td-name">Anderson, K.L.</td>
-								<td class="td-rank">CPT</td>
-								<td class="table-mono">11A</td>
-								<td class="table-mono">HHC</td>
-								<td class="table-mono">CO CDR</td>
-								<td><span class="status status--present">● Present</span></td>
-								<td class="table-date">15 MAR 19</td>
-								<td class="table-date">14 MAR 27</td>
-								<td class="table-muted">—</td>
-								<td><span class="badge badge-success">Current</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">02</td>
-								<td class="td-name">Williams, D.J.</td>
-								<td class="td-rank">1SG</td>
-								<td class="table-mono">11Z</td>
-								<td class="table-mono">HHC</td>
-								<td class="table-mono">First Sgt</td>
-								<td><span class="status status--present">● Present</span></td>
-								<td class="table-date">03 JUN 10</td>
-								<td class="table-date">02 JUN 28</td>
-								<td class="table-muted">—</td>
-								<td><span class="badge badge-success">Current</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">03</td>
-								<td class="td-name">Patel, S.R.</td>
-								<td class="td-rank">SSG</td>
-								<td class="table-mono">11B</td>
-								<td class="table-mono">1st PLT</td>
-								<td class="table-mono">Plt Sgt</td>
-								<td><span class="status status--leave">Leave</span></td>
-								<td class="table-date">17 SEP 16</td>
-								<td class="table-date">16 SEP 25</td>
-								<td class="table-date table-date-amber">05 APR</td>
-								<td><span class="badge badge-success">Current</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">04</td>
-								<td class="td-name">Jackson, T.M.</td>
-								<td class="td-rank">SGT</td>
-								<td class="table-mono">11B</td>
-								<td class="table-mono">1st PLT</td>
-								<td class="table-mono">Tm Ldr</td>
-								<td><span class="status status--present">● Present</span></td>
-								<td class="table-date">22 JAN 20</td>
-								<td class="table-date">21 JAN 26</td>
-								<td class="table-muted">—</td>
-								<td><span class="badge badge-warning">Due Soon</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">05</td>
-								<td class="td-name">Kowalski, B.A.</td>
-								<td class="td-rank">SPC</td>
-								<td class="table-mono">11B</td>
-								<td class="table-mono">1st PLT</td>
-								<td class="table-mono">Rifleman</td>
-								<td><span class="status status--tdy">TDY</span></td>
-								<td class="table-date">08 AUG 22</td>
-								<td class="table-date">07 AUG 26</td>
-								<td class="table-date">14 APR</td>
-								<td><span class="badge badge-success">Current</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">06</td>
-								<td class="td-name">Reyes, C.F.</td>
-								<td class="td-rank">PFC</td>
-								<td class="table-mono">11C</td>
-								<td class="table-mono">2nd PLT</td>
-								<td class="table-mono">Mortarman</td>
-								<td><span class="status status--school">School</span></td>
-								<td class="table-date">11 MAR 24</td>
-								<td class="table-date">10 MAR 27</td>
-								<td class="table-date">30 MAY</td>
-								<td><span class="badge badge-success">Current</span></td>
-							</tr>
-							<tr>
-								<td class="row-count">07</td>
-								<td class="td-name">Okonkwo, E.N.</td>
-								<td class="td-rank">SPC</td>
-								<td class="table-mono">11B</td>
-								<td class="table-mono">2nd PLT</td>
-								<td class="table-mono">Gunner</td>
-								<td><span class="status status--unavail">Unavail</span></td>
-								<td class="table-date">29 NOV 21</td>
-								<td class="table-date">28 NOV 25</td>
-								<td class="table-date table-date-danger">See Remarks</td>
-								<td><span class="badge badge-danger">Overdue</span></td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-
-				<div class="roster__table-footer">
-					<div class="roster__table-status">Showing 7 of 142 personnel · Sorted: Rank ↑</div>
-					<div class="roster__table-actions">
-						<span class="badge">Filter</span>
-						<span class="badge">Sort</span>
-						<span class="badge badge--amber">Export Roster</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="section-audience">
-		<div class="container">
-			<div class="audience__grid">
-				<div>
-					<div class="label-amber audience__label">Designed For Leadership</div>
-					<h2 class="audience__heading">
-						Built for<br />
-						the people<br />
-						<em>running</em><br />
-						the unit.
-					</h2>
-					<p class="audience__copy">
-						TroopToTask is designed around actual military leader roles — not abstract organizational charts. Access and
-						visibility are scoped to your level of responsibility.
-					</p>
-				</div>
-
-				<div class="audience__roles">
-					<div class="role-row observe-in">
-						<div class="role-name">Commander / XO</div>
-						<span class="role-badge">Full Unit Visibility</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">First Sergeant</div>
-						<span class="role-badge">Enlisted Oversight</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">Platoon Leader / PSG</div>
-						<span class="role-badge">Platoon Scope</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">Section Leader</div>
-						<span class="role-badge">Section Scope</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">Training Room NCO</div>
-						<span class="role-badge">Training Admin Access</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">S1 / Admin Staff</div>
-						<span class="role-badge">Readiness Admin</span>
-					</div>
-					<div class="role-row observe-in">
-						<div class="role-name">Higher Headquarters</div>
-						<span class="role-badge">Multi-Org Read Access</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="section-proof">
-		<div class="container">
-			<div class="proof__inner">
-				<div>
-					<div class="proof__rule"></div>
-					<p class="proof__quote">
-						&quot;The whiteboard gets erased. The shared drive is a mess. Someone always has
-						<strong>a different version</strong> of the roster. TroopToTask is the one place every leader looks.&quot;
-					</p>
-					<div class="proof__attribution">— Company Commander, Active Duty Infantry Unit</div>
-				</div>
-
-				<div class="proof__points">
-					<div class="proof__point observe-in">
-						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-							<polyline points="4 10 8 14 16 6"></polyline>
-						</svg>
-						<div class="proof__point-text">
-							<strong>Replaces the whiteboard.</strong> Statuses update in the system. No marker, no erasing, no confusion
-							about what&apos;s current.
-						</div>
-					</div>
-					<div class="proof__point observe-in">
-						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-							<polyline points="4 10 8 14 16 6"></polyline>
-						</svg>
-						<div class="proof__point-text">
-							<strong>Replaces the spreadsheet.</strong> Roster data lives in one structured system. Exports are format-ready.
-							No reformatting for the S1.
-						</div>
-					</div>
-					<div class="proof__point observe-in">
-						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-							<polyline points="4 10 8 14 16 6"></polyline>
-						</svg>
-						<div class="proof__point-text">
-							<strong>Replaces scattered shared drives.</strong> Counselings, training records, and onboarding checklists
-							in one permission-controlled location.
-						</div>
-					</div>
-					<div class="proof__point observe-in">
-						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-							<polyline points="4 10 8 14 16 6"></polyline>
-						</svg>
-						<div class="proof__point-text">
-							<strong>Built for leader transitions.</strong> Full audit log and continuity records mean incoming leaders have
-							context from day one.
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="section-faq" id="faq">
-		<div class="container">
-			<div class="faq__header">
-				<div class="label-amber faq__label">Frequently Asked Questions</div>
-				<h2 class="faq__heading">
-					The questions people ask
-					<br />
-					<em>before they hand over the roster.</em>
-				</h2>
-			</div>
-
-			<div class="faq__list">
-				{#each faqs as item (item.question)}
-					<details class="faq-item">
-						<summary class="faq-question">
-							<span>{item.question}</span>
-							<span class="faq-icon" aria-hidden="true"></span>
-						</summary>
-						<div class="faq-answer">
-							<p>{item.answer}</p>
-						</div>
-					</details>
-				{/each}
-			</div>
-		</div>
-	</section>
-
-	<section class="section-cta" id="roadmap">
-		<div class="container">
-			<div class="cta__inner">
-				<div>
-					<div class="label-amber cta__label">Get Started</div>
-					<h2 class="cta__heading">Ready to run<br />a tighter unit?</h2>
-					<p class="cta__subtext">
-						Request free beta access for your unit. TroopToTask is onboarded by organization — we work with you to
-						configure your structure, import your roster, and train your team leads before broader paid rollout.
-					</p>
-				</div>
-				<div class="cta__actions">
-					<a href="/auth/request-access" class="landing-btn landing-btn--amber cta__action-primary">Join Free Beta</a>
-					<a href="/pricing" class="landing-btn landing-btn--outline">View Pricing</a>
-					<div class="cta__note">Free during beta · paid plans later</div>
-				</div>
-			</div>
-		</div>
-	</section>
+		</section>
+	{/if}
 </PublicShell>
 
 <style>

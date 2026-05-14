@@ -2,20 +2,20 @@
 name: TroopToTask
 description: Military unit management SaaS for personnel readiness and operations
 colors:
-  command-charcoal: "oklch(14.7% 0.004 49.25)"
-  formation-ivory: "oklch(98.5% 0.001 106.423)"
-  ops-amber: "oklch(66.6% 0.179 58.318)"
-  ops-amber-dark: "oklch(76.9% 0.188 70.08)"
-  muster-ash: "oklch(97% 0.001 106.424)"
-  standing-stone: "oklch(44.4% 0.011 73.639)"
-  parade-line: "oklch(92.3% 0.003 48.717)"
-  alert-red: "oklch(57.7% 0.245 27.325)"
-  readiness-green: "oklch(62.7% 0.194 149.214)"
-  intel-blue: "oklch(58.8% 0.158 241.966)"
-  bunker-black: "#12110f"
-  bunker-text: "#f0efe9"
-  bunker-muted: "#b0afa8"
-  bunker-border: "#2a2825"
+  command-charcoal: 'oklch(14.7% 0.004 49.25)'
+  formation-ivory: 'oklch(98.5% 0.001 106.423)'
+  ops-amber: 'oklch(66.6% 0.179 58.318)'
+  ops-amber-dark: 'oklch(76.9% 0.188 70.08)'
+  muster-ash: 'oklch(97% 0.001 106.424)'
+  standing-stone: 'oklch(44.4% 0.011 73.639)'
+  parade-line: 'oklch(92.3% 0.003 48.717)'
+  alert-red: 'oklch(57.7% 0.245 27.325)'
+  readiness-green: 'oklch(62.7% 0.194 149.214)'
+  intel-blue: 'oklch(58.8% 0.158 241.966)'
+  bunker-black: '#12110f'
+  bunker-text: '#f0efe9'
+  bunker-muted: '#b0afa8'
+  bunker-border: '#2a2825'
 typography:
   display:
     fontFamily: "'Barlow Condensed', sans-serif"
@@ -23,63 +23,63 @@ typography:
     lineHeight: 1.1
   body:
     fontFamily: "'Source Serif 4', serif"
-    fontSize: "1rem"
+    fontSize: '1rem'
     fontWeight: 400
     lineHeight: 1.5
   label:
     fontFamily: "'IBM Plex Mono', monospace"
-    fontSize: "0.6875rem"
+    fontSize: '0.6875rem'
     fontWeight: 500
-    letterSpacing: "0.08em"
+    letterSpacing: '0.08em'
 rounded:
-  sm: "2px"
-  md: "4px"
-  lg: "6px"
+  sm: '2px'
+  md: '4px'
+  lg: '6px'
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
+  xs: '4px'
+  sm: '8px'
+  md: '16px'
+  lg: '24px'
 components:
   button-primary:
-    backgroundColor: "{colors.command-charcoal}"
-    textColor: "{colors.formation-ivory}"
-    rounded: "{rounded.lg}"
-    padding: "0 10px"
+    backgroundColor: '{colors.command-charcoal}'
+    textColor: '{colors.formation-ivory}'
+    rounded: '{rounded.lg}'
+    padding: '0 10px'
   button-outline:
-    backgroundColor: "{colors.formation-ivory}"
-    textColor: "{colors.command-charcoal}"
-    rounded: "{rounded.lg}"
-    padding: "0 10px"
+    backgroundColor: '{colors.formation-ivory}'
+    textColor: '{colors.command-charcoal}'
+    rounded: '{rounded.lg}'
+    padding: '0 10px'
   button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.command-charcoal}"
-    rounded: "{rounded.lg}"
-    padding: "0 10px"
+    backgroundColor: 'transparent'
+    textColor: '{colors.command-charcoal}'
+    rounded: '{rounded.lg}'
+    padding: '0 10px'
   button-destructive:
-    backgroundColor: "oklch(57.7% 0.245 27.325 / 0.1)"
-    textColor: "{colors.alert-red}"
-    rounded: "{rounded.lg}"
-    padding: "0 10px"
+    backgroundColor: 'oklch(57.7% 0.245 27.325 / 0.1)'
+    textColor: '{colors.alert-red}'
+    rounded: '{rounded.lg}'
+    padding: '0 10px'
   input-default:
-    backgroundColor: "transparent"
-    textColor: "{colors.command-charcoal}"
-    rounded: "{rounded.lg}"
-    padding: "4px 10px"
+    backgroundColor: 'transparent'
+    textColor: '{colors.command-charcoal}'
+    rounded: '{rounded.lg}'
+    padding: '4px 10px'
   card-default:
-    backgroundColor: "{colors.formation-ivory}"
-    textColor: "{colors.command-charcoal}"
-    rounded: "{rounded.md}"
+    backgroundColor: '{colors.formation-ivory}'
+    textColor: '{colors.command-charcoal}'
+    rounded: '{rounded.md}'
   chip-default:
-    backgroundColor: "{colors.muster-ash}"
-    textColor: "{colors.standing-stone}"
-    rounded: "9999px"
-    padding: "4px 12px"
+    backgroundColor: '{colors.muster-ash}'
+    textColor: '{colors.standing-stone}'
+    rounded: '9999px'
+    padding: '4px 12px'
   chip-primary:
-    backgroundColor: "oklch(66.6% 0.179 58.318 / 0.12)"
-    textColor: "{colors.ops-amber}"
-    rounded: "9999px"
-    padding: "4px 12px"
+    backgroundColor: 'oklch(66.6% 0.179 58.318 / 0.12)'
+    textColor: '{colors.ops-amber}'
+    rounded: '9999px'
+    padding: '4px 12px'
 ---
 
 # Design System: TroopToTask
@@ -95,6 +95,7 @@ The system is restrained by conviction, not by timidity. Color is deployed with 
 This is not consumer software dressed up in olive drab. It does not borrow startup aesthetics (pastel gradients, playful illustrations, bouncy micro-interactions) or repeat the mistakes of legacy military systems (green-on-gray brutalism, 12px system fonts, modal-driven workflows). It occupies its own lane: modern professional tooling built for people who manage formations, not features.
 
 **Key Characteristics:**
+
 - Restrained color palette with a single warm accent
 - Tight radii and flat surfaces; depth comes from borders and background tints, not shadows
 - Condensed headings for density; serif body for sustained reading; mono for data

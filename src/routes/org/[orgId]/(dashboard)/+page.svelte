@@ -133,7 +133,7 @@
 	}
 
 	function shouldLoadWorkspaceSupport(ctx: DashboardContext): boolean {
-		return (ctx.userRole === 'owner' || ctx.userRole === 'admin') && !ctx.isDemoSandbox && !ctx.isDemoReadOnly;
+		return ctx.userRole === 'owner' || ctx.userRole === 'admin';
 	}
 
 	async function loadSupportData(ctx: DashboardContext): Promise<void> {

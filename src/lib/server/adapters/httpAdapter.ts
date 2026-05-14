@@ -26,7 +26,7 @@ import { cacheRequestMembership, getOrLoadRequestMembership } from '$lib/server/
 import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
-import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './supabaseAuthContext';
+import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
@@ -52,7 +52,6 @@ import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entit
 interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
-	isSandbox: boolean;
 }
 
 function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
@@ -62,16 +61,11 @@ function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
 async function createRequestAuthContext(config: {
 	locals: App.Locals;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
-	userId: string | null;
+	userId: string;
 	orgId: string;
-	isSandbox: boolean;
 }) {
-	if (config.isSandbox) {
-		return createSandboxAuthContext(config.orgId);
-	}
-
 	const membership = await getOrLoadRequestMembership(config.locals, config.userId, config.orgId, () =>
-		getMembershipRow(config.supabase, config.userId!, config.orgId)
+		getMembershipRow(config.supabase, config.userId, config.orgId)
 	);
 
 	const permCtx = createPermissionContextFromMembership(membership);
@@ -85,7 +79,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		throw error(400, 'Invalid organization ID');
 	}
 
-	const { supabase, userId, isSandbox } = getApiContext(event.locals, event.cookies, orgId);
+	const { supabase, userId } = getApiContext(event.locals, event.cookies, orgId);
 	const requestInfo = getRequestInfo(event);
 
 	const store = createSupabaseDataStore(supabase);
@@ -96,8 +90,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		locals: event.locals,
 		supabase,
 		userId,
-		orgId,
-		isSandbox
+		orgId
 	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
@@ -122,14 +115,13 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			ratingSchemePersonnelLookup,
 			rawStore: store
 		},
-		supabase,
-		isSandbox
+		supabase
 	};
 }
 
 /**
  * Provides the raw Supabase client and user info for org layout servers.
- * Org layouts need pre-auth data (org lookup, suspension check, demo mode)
+ * Org layouts need pre-auth data (org lookup, suspension check)
  * before building a full UseCaseContext. This keeps getApiContext/getSupabaseClient
  * behind the adapter boundary.
  */
@@ -152,7 +144,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		throw error(400, 'Invalid organization ID');
 	}
 
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+	const { supabase, userId } = getApiContext(locals, cookies, orgId);
 
 	const store = createSupabaseDataStore(supabase);
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
@@ -162,8 +154,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		locals,
 		supabase,
 		userId,
-		orgId,
-		isSandbox
+		orgId
 	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
@@ -204,20 +195,15 @@ export async function buildLayoutContextFromMembership(
 		throw error(400, 'Invalid organization ID');
 	}
 
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+	const { supabase, userId } = getApiContext(locals, cookies, orgId);
 
 	const store = createSupabaseDataStore(supabase);
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = { log() {} };
 
-	let auth;
-	if (isSandbox) {
-		auth = createSandboxAuthContext(orgId);
-	} else {
-		cacheRequestMembership(locals, userId, orgId, membership);
-		const permCtx = createPermissionContextFromMembership(membership);
-		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
-	}
+	cacheRequestMembership(locals, userId, orgId, membership);
+	const permCtx = createPermissionContextFromMembership(membership);
+	const auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();

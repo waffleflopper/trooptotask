@@ -53,8 +53,6 @@ export interface OrgShellData {
 	unreadNotificationCount: number;
 	activeAnnouncements: Announcement[];
 	allOrgs: Array<{ id: string; name: string; role: string }>;
-	isDemoReadOnly: boolean;
-	isDemoSandbox: boolean;
 	orgSuspended?: boolean;
 }
 
@@ -163,8 +161,6 @@ export interface MembershipInfo {
 
 export interface OrgState {
 	orgName: string;
-	isDemoReadOnly: boolean;
-	isDemoSandbox: boolean;
 	effectiveTier: EffectiveTier;
 }
 

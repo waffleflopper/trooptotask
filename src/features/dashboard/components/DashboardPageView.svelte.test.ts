@@ -27,8 +27,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 			orgMemberCount: 0
 		},
 		userRole: 'member',
-		isDemoSandbox: false,
-		isDemoReadOnly: false,
 		hasSupportData: true,
 		gettingStartedDismissed: true,
 		isHydrating: false,

@@ -2,14 +2,12 @@
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
-	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
@@ -58,11 +56,6 @@
 			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
 		}
 	}
-
-	// Initialize demo mode store with server data
-	$effect(() => {
-		demoModeStore.load(data.isDemoReadOnly ?? false, data.isDemoSandbox ?? false);
-	});
 
 	// Load subscription tier into store (reacts to org navigation changes)
 	$effect(() => {
@@ -131,11 +124,6 @@
 	</div>
 {:else}
 	<BannerStack>
-		{#if demoModeStore.hasBanner}
-			{#await import('$lib/components/DemoBanner.svelte') then { default: DemoBanner }}
-				<DemoBanner />
-			{/await}
-		{/if}
 		<SubscriptionBanner orgId={data.orgId} />
 		{#if data.activeAnnouncements?.length}
 			<AnnouncementBanner announcements={data.activeAnnouncements} />
@@ -152,7 +140,7 @@
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
 		unreadNotificationCount={data.unreadNotificationCount ?? 0}
-		onFeedback={!demoModeStore.hasBanner ? () => (showFeedback = true) : undefined}
+		onFeedback={() => (showFeedback = true)}
 		onWhatsNew={() => whatsNewStore.show()}
 	>
 		{@render children()}
@@ -167,10 +155,6 @@
 				pageUrl={$page.url.pathname}
 			/>
 		{/await}
-	{/if}
-
-	{#if demoModeStore.showSandboxModal}
-		<DemoSandboxModal onClose={() => demoModeStore.closeSandboxModal()} />
 	{/if}
 
 	{#if whatsNewStore.open}

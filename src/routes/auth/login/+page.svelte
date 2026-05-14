@@ -97,10 +97,6 @@
 			</div>
 		</form>
 
-		{#if data.demoError}
-			<AuthNotice tone="warning" message={data.demoError} />
-		{/if}
-
 		<div
 			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
 		>

@@ -105,11 +105,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		cachedSession = { session: { ...session, user }, user };
 		return cachedSession;
 	};
-	// Deprecated demo/sandbox cookie bypass. Keep this contained to the legacy
-	// decommission path; do not copy or expand it into ordinary auth handling.
-	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
-	const isOrgRoute = event.url.pathname.startsWith('/org/');
-
 	// Always attempt to get the session — public routes need user info for conditional rendering
 	const { session, user } = await event.locals.safeGetSession();
 	event.locals.session = session;
@@ -146,8 +141,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	// Protect routes — redirect unauthenticated users to login (skip public routes and demo mode)
-	if (!event.locals.session && !isPublicRoute(event.url.pathname) && !(isDemoMode && isOrgRoute)) {
+	// Protect routes — redirect unauthenticated users to login
+	if (!event.locals.session && !isPublicRoute(event.url.pathname)) {
 		redirect(303, '/auth/login');
 	}
 

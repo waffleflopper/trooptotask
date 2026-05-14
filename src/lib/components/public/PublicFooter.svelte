@@ -17,7 +17,6 @@
 				<div class="footer__links-col">
 					<div class="footer__link-heading">Access</div>
 					<a href="/auth/request-access" class="footer__link">Request Access</a>
-					<a href="/demo" class="footer__link">Schedule Demo</a>
 					<a href="/auth/login" class="footer__link">Sign In</a>
 				</div>
 				<div class="footer__links-col">

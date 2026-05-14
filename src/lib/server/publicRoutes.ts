@@ -6,8 +6,6 @@ const PUBLIC_ROUTE_PREFIXES = [
 	'/api/auth/update-password',
 	'/api/auth/mfa/verify',
 	'/api/webhooks',
-	'/demo',
-	'/api/create-demo-sandbox',
 	'/api/access-requests',
 	'/features',
 	'/pricing',

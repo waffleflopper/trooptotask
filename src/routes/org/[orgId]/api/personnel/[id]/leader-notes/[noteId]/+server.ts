@@ -24,7 +24,9 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
 			return restorePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
-		return archivePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
+		if (input.action === 'archive')
+			return archivePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
+		fail(400, 'Unsupported leader note action.');
 	}
 };
 

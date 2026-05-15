@@ -32,6 +32,10 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 		if (input.status !== undefined && hasEditFields) {
 			fail(400, 'Update status separately from follow-up details');
 		}
+		if (input.action !== undefined && input.action !== 'restore') fail(400, 'Unsupported follow-up action.');
+		if (input.status !== undefined && !['open', 'completed', 'archived'].includes(String(input.status))) {
+			fail(400, 'Unsupported follow-up status.');
+		}
 		if (input.action === 'restore') return restorePersonnelFollowUp(ctx, input);
 		if (input.status === 'archived') return archivePersonnelFollowUp(ctx, input);
 		if (input.status === 'open' || input.status === 'completed') return setPersonnelFollowUpStatus(ctx, input);

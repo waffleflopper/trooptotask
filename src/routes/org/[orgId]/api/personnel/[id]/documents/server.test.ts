@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
+import { _patchConfig } from './[documentId]/+server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
@@ -51,5 +52,56 @@ describe('/api/personnel/[id]/documents', () => {
 			personnelId: 'person-1',
 			title: 'Inspection Worksheet'
 		});
+	});
+
+	it('validates document archive and restore actions explicitly', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('personnel_documents', [
+			{
+				id: 'document-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'BLS Card',
+				file_path: 'test-org/personnel/person-1/documents/bls.pdf',
+				file_size_bytes: 5,
+				content_type: 'application/pdf',
+				uploaded_by: 'test-user',
+				created_at: '2026-05-01T10:00:00Z',
+				archived_at: null
+			}
+		]);
+
+		const archived = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			documentId: 'document-1',
+			action: 'archive'
+		});
+		expect(archived.archivedAt).toBeTruthy();
+		const restored = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			documentId: 'document-1',
+			action: 'restore'
+		});
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, {
+				personnelId: 'person-1',
+				documentId: 'document-1',
+				action: 'publish'
+			})
+		).rejects.toMatchObject({ status: 400 });
 	});
 });

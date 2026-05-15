@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
+import { _patchConfig } from './[recordId]/+server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
@@ -54,5 +55,55 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			title: 'Route id counseling',
 			summary: 'Short summary'
 		});
+	});
+
+	it('validates counseling archive and restore actions explicitly', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('counseling_records', [
+			{
+				id: 'record-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				date_conducted: '2026-05-01',
+				title: 'Event-oriented counseling',
+				uploaded_by: 'test-user',
+				file_path: 'test-org/counseling-records/person-1/event.pdf',
+				created_at: '2026-05-01T10:00:00Z',
+				archived_at: null
+			}
+		]);
+
+		const archived = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			recordId: 'record-1',
+			action: 'archive'
+		});
+		expect(archived.archivedAt).toBeTruthy();
+		const restored = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			recordId: 'record-1',
+			action: 'restore'
+		});
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, {
+				personnelId: 'person-1',
+				recordId: 'record-1',
+				action: 'publish'
+			})
+		).rejects.toMatchObject({ status: 400 });
 	});
 });

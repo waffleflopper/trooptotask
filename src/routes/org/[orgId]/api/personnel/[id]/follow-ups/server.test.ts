@@ -54,6 +54,11 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			followUpId: created.id,
 			status: 'archived'
 		})) as PersonnelFollowUp;
+		const restored = (await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			followUpId: created.id,
+			action: 'restore'
+		})) as PersonnelFollowUp;
 
 		expect(created).toMatchObject({ title: 'Complete BLC packet', status: 'open' });
 		expect(completed).toMatchObject({ id: created.id, status: 'completed' });
@@ -65,6 +70,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 		});
 		expect(followUps).toHaveLength(1);
 		expect(archived.status).toBe('archived');
+		expect(restored.status).toBe('open');
 	});
 
 	it('derives the Personnel id from the route param and rejects mismatched bodies', async () => {
@@ -116,6 +122,42 @@ describe('/api/personnel/[id]/follow-ups', () => {
 				followUpId: created.id,
 				title: 'Updated packet follow-up',
 				status: 'open'
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('rejects unknown follow-up action and status payloads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+		const created = (await handleUseCaseRequest(_postConfig, ctx, {
+			personnelId: 'person-1',
+			title: 'Complete BLC packet'
+		})) as PersonnelFollowUp;
+
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, {
+				personnelId: 'person-1',
+				followUpId: created.id,
+				action: 'publish'
+			})
+		).rejects.toMatchObject({ status: 400 });
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, {
+				personnelId: 'person-1',
+				followUpId: created.id,
+				status: 'pending'
 			})
 		).rejects.toMatchObject({ status: 400 });
 	});

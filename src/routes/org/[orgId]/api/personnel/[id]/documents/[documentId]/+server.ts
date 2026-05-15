@@ -24,7 +24,9 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
 			return restorePersonnelDocument(ctx, input as { personnelId: string; documentId: string });
-		return archivePersonnelDocument(ctx, input as { personnelId: string; documentId: string });
+		if (input.action === 'archive')
+			return archivePersonnelDocument(ctx, input as { personnelId: string; documentId: string });
+		fail(400, 'Unsupported document action.');
 	}
 };
 

@@ -24,7 +24,9 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
 			return restorePersonnelCounselingRecord(ctx, input as { personnelId: string; recordId: string });
-		return archivePersonnelCounselingRecord(ctx, input as { personnelId: string; recordId: string });
+		if (input.action === 'archive')
+			return archivePersonnelCounselingRecord(ctx, input as { personnelId: string; recordId: string });
+		fail(400, 'Unsupported counseling record action.');
 	}
 };
 

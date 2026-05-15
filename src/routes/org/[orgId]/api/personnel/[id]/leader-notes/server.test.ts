@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
+import { _patchConfig } from './[noteId]/+server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
@@ -84,5 +85,53 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
 			status: 403
 		});
+	});
+
+	it('validates leader-note archive and restore actions explicitly', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				author: 'test-user',
+				text: 'Observation',
+				created_at: '2026-05-01T10:00:00Z',
+				archived_at: null
+			}
+		]);
+
+		const archived = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			noteId: 'note-1',
+			action: 'archive'
+		});
+		expect(archived.archivedAt).toBeTruthy();
+		const restored = await handleUseCaseRequest(_patchConfig, ctx, {
+			personnelId: 'person-1',
+			noteId: 'note-1',
+			action: 'restore'
+		});
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, {
+				personnelId: 'person-1',
+				noteId: 'note-1',
+				action: 'publish'
+			})
+		).rejects.toMatchObject({ status: 400 });
 	});
 });

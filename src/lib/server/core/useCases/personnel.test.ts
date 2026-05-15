@@ -86,6 +86,29 @@ describe('Personnel — create', () => {
 		expect(duplicate.slug).toBe('smith-john-2');
 	});
 
+	it('retries slug generation when a concurrent create claims the same slug first', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+		const insert = ctx.store.insert.bind(ctx.store);
+		let injectedCollision = false;
+
+		ctx.store.insert = async (table, orgId, data, select) => {
+			if (table === 'personnel' && data.slug === 'smith-john' && !injectedCollision) {
+				injectedCollision = true;
+				await insert(table, orgId, { ...data, id: 'p-concurrent', slug: 'smith-john' }, select);
+				throw new Error('duplicate key value violates unique constraint "personnel_org_slug_key"');
+			}
+			return insert(table, orgId, data, select);
+		};
+
+		const created = (await create(ctx, { ...validInput, lastName: 'Smith', firstName: 'John' })) as Record<
+			string,
+			unknown
+		>;
+
+		expect(created.slug).toBe('smith-john-2');
+	});
+
 	it('rejects create when subscription cap exceeded', async () => {
 		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
 		const { create } = createPersonnelUseCases();

@@ -1,6 +1,9 @@
 ALTER TABLE "public"."personnel"
   ADD COLUMN IF NOT EXISTS "slug" "text";
 
+-- SQL backfill intentionally uses the database's ASCII-only regex behavior.
+-- Application writes normalize Unicode with NFKD before stripping combining marks.
+-- Both paths converge on lowercase ASCII slugs and the organization-scoped unique index below.
 WITH "source" AS (
   SELECT
     "id",

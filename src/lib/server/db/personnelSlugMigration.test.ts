@@ -21,6 +21,7 @@ describe('Personnel Slug migration', () => {
 	it('backfills existing Personnel Records from last name and first name with collision suffixes', () => {
 		const normalized = normalizedSql();
 
+		expect(normalized).toContain('application writes normalize unicode with nfkd');
 		expect(normalized).toContain('row_number() over (partition by "organization_id", "base_slug"');
 		expect(normalized).toContain(`when "ranked"."ordinal" = 1 then "ranked"."base_slug"`);
 		expect(normalized).toContain(`else "ranked"."base_slug" || '-' || "ranked"."ordinal"::"text"`);

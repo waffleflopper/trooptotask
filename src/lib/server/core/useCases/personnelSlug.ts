@@ -51,3 +51,15 @@ export async function buildUniquePersonnelSlug(input: UniquePersonnelSlugInput):
 
 	return buildAvailablePersonnelSlug(base, used);
 }
+
+export function isPersonnelSlugUniqueConstraintError(error: unknown): boolean {
+	const maybeError = error as { code?: unknown; message?: unknown; details?: unknown; constraint?: unknown };
+	const haystack = [maybeError.code, maybeError.message, maybeError.details, maybeError.constraint]
+		.filter((value): value is string => typeof value === 'string')
+		.join(' ')
+		.toLowerCase();
+
+	return (
+		haystack.includes('personnel_org_slug_key') || (haystack.includes('duplicate key') && haystack.includes('slug'))
+	);
+}

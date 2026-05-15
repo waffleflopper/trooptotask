@@ -13,10 +13,11 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
-import { buildUniquePersonnelSlug } from './personnelSlug';
+import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
+const SLUG_RETRY_LIMIT = 3;
 
 export interface PersonnelUseCases {
 	create(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
@@ -42,14 +43,24 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			const validated = entity.createSchema.parse(data);
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
-			dbData.slug = await buildUniquePersonnelSlug({
-				store: ctx.store,
-				orgId: ctx.auth.orgId,
-				lastName: validated.lastName as string,
-				firstName: validated.firstName as string
-			});
+			let row: Record<string, unknown> | null = null;
+			for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
+				dbData.slug = await buildUniquePersonnelSlug({
+					store: ctx.store,
+					orgId: ctx.auth.orgId,
+					lastName: validated.lastName as string,
+					firstName: validated.firstName as string
+				});
 
-			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
+				try {
+					row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
+					break;
+				} catch (error) {
+					if (attempt === SLUG_RETRY_LIMIT || !isPersonnelSlugUniqueConstraintError(error)) throw error;
+				}
+			}
+
+			if (!row) fail(500, 'Unable to create personnel record.');
 
 			ctx.subscription.invalidateTierCache();
 
@@ -93,23 +104,36 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			if (nextGroupId !== undefined) {
 				dbData.group_id = nextGroupId || null;
 			}
-			if (validated.lastName !== undefined || validated.firstName !== undefined) {
-				dbData.slug = await buildUniquePersonnelSlug({
-					store: ctx.store,
-					orgId: ctx.auth.orgId,
-					excludePersonnelId: id,
-					lastName: (validated.lastName as string | undefined) ?? currentRecord?.last_name ?? '',
-					firstName: (validated.firstName as string | undefined) ?? currentRecord?.first_name ?? ''
-				});
+			const shouldRegenerateSlug = validated.lastName !== undefined || validated.firstName !== undefined;
+			let row: Record<string, unknown> | null = null;
+			for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
+				if (shouldRegenerateSlug) {
+					dbData.slug = await buildUniquePersonnelSlug({
+						store: ctx.store,
+						orgId: ctx.auth.orgId,
+						excludePersonnelId: id,
+						lastName: (validated.lastName as string | undefined) ?? currentRecord?.last_name ?? '',
+						firstName: (validated.firstName as string | undefined) ?? currentRecord?.first_name ?? ''
+					});
+				}
+
+				try {
+					row = await ctx.store.update<Record<string, unknown>>(
+						entity.table,
+						ctx.auth.orgId,
+						id,
+						dbData,
+						entity.select
+					);
+					break;
+				} catch (error) {
+					if (!shouldRegenerateSlug || attempt === SLUG_RETRY_LIMIT || !isPersonnelSlugUniqueConstraintError(error)) {
+						throw error;
+					}
+				}
 			}
 
-			const row = await ctx.store.update<Record<string, unknown>>(
-				entity.table,
-				ctx.auth.orgId,
-				id,
-				dbData,
-				entity.select
-			);
+			if (!row) fail(500, 'Unable to update personnel record.');
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.updated`,

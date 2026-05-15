@@ -1,4 +1,11 @@
-import type { PersonnelArchivedArtifact, PersonnelArtifactKind } from '$features/personnel/personnel-detail.types';
+import type {
+	PersonnelArchivedArtifact,
+	PersonnelArtifactKind,
+	PersonnelCounselingRecord,
+	PersonnelDocument,
+	PersonnelFollowUp,
+	PersonnelLeaderNote
+} from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -13,6 +20,12 @@ import {
 	listPersonnelLeaderNotes,
 	restorePersonnelLeaderNote
 } from './personnelLeaderNotes';
+
+export type RestoredPersonnelArchivedArtifact =
+	| ({ kind: 'follow-up' } & PersonnelFollowUp)
+	| ({ kind: 'counseling' } & PersonnelCounselingRecord)
+	| ({ kind: 'document' } & PersonnelDocument)
+	| ({ kind: 'note' } & PersonnelLeaderNote);
 
 export async function listPersonnelArchivedArtifacts(
 	ctx: UseCaseContext,
@@ -41,16 +54,28 @@ function artifactArchivedAt(record: PersonnelArchivedArtifact): string {
 export async function restorePersonnelArchivedArtifact(
 	ctx: UseCaseContext,
 	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
-): Promise<unknown> {
+): Promise<RestoredPersonnelArchivedArtifact> {
 	switch (input.kind) {
 		case 'follow-up':
-			return restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id });
+			return {
+				kind: 'follow-up',
+				...(await restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }))
+			};
 		case 'counseling':
-			return restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id });
+			return {
+				kind: 'counseling',
+				...(await restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }))
+			};
 		case 'document':
-			return restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id });
+			return {
+				kind: 'document',
+				...(await restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }))
+			};
 		case 'note':
-			return restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id });
+			return {
+				kind: 'note',
+				...(await restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id }))
+			};
 		default:
 			fail(400, 'Unknown archived item type');
 	}

@@ -69,7 +69,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>Click <strong>Add Person</strong> to create a new entry. Fill in rank, name, MOS, duty role, and assign them to a group. You can also use <strong>Bulk Import</strong> (Pro feature) to paste CSV data for multiple people at once.</p>
 
 			<h4>Editing & Deleting</h4>
-			<p>Click any person's card to edit their details or remove them. Changes take effect immediately across the calendar, training, and leader's book.</p>
+			<p>Click any person's card to edit their details or remove them. Changes take effect immediately across the calendar, training, and Personnel detail workflows.</p>
 
 			<h4>Views</h4>
 			<ul>
@@ -79,7 +79,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>Use the search bar to filter by name, rank, or duty role.</p>
 
 			<h4>Groups</h4>
-			<p>Open <strong>Manage Groups</strong> from the overflow menu to create, rename, or remove groups. Groups are used throughout the app to organize the calendar, reports, and leader's book.</p>
+			<p>Open <strong>Manage Groups</strong> from the overflow menu to create, rename, or remove groups. Groups are used throughout the app to organize the calendar, reports, and Personnel detail pages.</p>
 		`
 	},
 	'training-records': {

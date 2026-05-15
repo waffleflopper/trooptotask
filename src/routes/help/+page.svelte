@@ -327,7 +327,7 @@
 				{
 					title: 'Deletion Approvals',
 					content:
-						'Members without the required delete policy access must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
+						'Members without the required delete policy access must request approval to delete personnel, counseling records, training records, and Personnel follow-ups. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from Organization Settings.'
 				},
 				{
 					content:

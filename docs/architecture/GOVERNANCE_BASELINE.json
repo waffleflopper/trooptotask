@@ -158,7 +158,7 @@
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data; #765 keeps Leader's Book compatibility explicit through a separate policy lane map.",
+			"reason": "Member access shape still translates legacy flags and single-Group scope into replacement access data; historical compatibility translation is retained for auditability while current per-Soldier workflows live under Personnel.",
 			"driftIds": [
 				"D-01"
 			]
@@ -314,7 +314,7 @@
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Client org context derives new advisory affordances from Capability Map, Scope Set, and the #765 Leader's Book compatibility policy lane while retaining full-editor and single-Group compatibility fields for transitional callers.",
+			"reason": "Client org context derives new advisory affordances from Capability Map, Scope Set, and the historical compatibility policy data while retaining full-editor and single-Group compatibility fields for transitional callers.",
 			"driftIds": [
 				"D-01"
 			]
@@ -580,7 +580,7 @@
 				"can_edit_*"
 			],
 			"ownerIssue": "#891",
-			"reason": "Leaders Book retirement redefines the existing sensitive-file storage helper API so counseling attachment reads and writes dispatch to Personnel helpers before the old Leaders Book helpers are dropped.",
+			"reason": "Leader's Book retirement migration historically redefines the existing sensitive-file storage helper API so counseling attachment reads and writes dispatch to Personnel helpers before the old Leaders Book helpers are dropped.",
 			"driftIds": [
 				"D-01"
 			]
@@ -592,7 +592,7 @@
 				"can_view_*"
 			],
 			"ownerIssue": "#891",
-			"reason": "Leaders Book retirement repair redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
+			"reason": "Leader's Book retirement repair migration historically redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
 			"driftIds": [
 				"D-01"
 			]

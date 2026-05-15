@@ -317,7 +317,7 @@
 											</div>
 										{/if}
 										<p class="text-xs text-muted-foreground">
-											Columns: Rank, Last Name, First Name, MOS, Duty Role, Group
+											Columns: Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS
 										</p>
 									</section>
 

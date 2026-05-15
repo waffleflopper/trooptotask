@@ -39,11 +39,10 @@ describe('Rating Scheme permission-lane migration', () => {
 		expect(normalized).toContain('alter column "can_edit_rating_scheme" set not null');
 	});
 
-	it('retires the Rating Scheme edit fallback to Personnel only before dropping the old lane', () => {
+	it('does not broaden Rating Scheme edit access while dropping the old lane', () => {
 		const normalized = normalizedRetirementSql();
 
-		expect(normalized).toContain('set "can_edit_rating_scheme" = "can_edit_personnel"');
-		expect(normalized).toContain('where "can_edit_personnel" = true and "can_edit_rating_scheme" = false');
+		expect(normalized).not.toContain('set "can_edit_rating_scheme" = "can_edit_personnel"');
 		expect(normalized).toContain('drop column if exists "can_edit_leaders_book"');
 	});
 

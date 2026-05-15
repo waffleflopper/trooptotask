@@ -38,6 +38,26 @@ SELECT
 FROM "public"."personnel_extended_info"
 WHERE "leader_notes" IS NOT NULL AND length(trim("leader_notes")) > 0;
 
+DO $$
+DECLARE
+    "source_count" integer;
+    "migrated_count" integer;
+BEGIN
+    SELECT count(*)
+    INTO "source_count"
+    FROM "public"."personnel_extended_info"
+    WHERE "leader_notes" IS NOT NULL AND length(trim("leader_notes")) > 0;
+
+    SELECT count(*)
+    INTO "migrated_count"
+    FROM "public"."leader_notes"
+    WHERE "author" = 'Migrated leader note';
+
+    IF "migrated_count" < "source_count" THEN
+        RAISE EXCEPTION 'leader note migration incomplete: expected at least %, migrated %', "source_count", "migrated_count";
+    END IF;
+END $$;
+
 ALTER TABLE "public"."personnel_extended_info"
     DROP COLUMN IF EXISTS "leader_notes";
 

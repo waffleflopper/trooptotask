@@ -14,6 +14,14 @@ export interface PersonnelDetailSubpageData {
 	records: [];
 }
 
+export interface PersonnelNotesPageData {
+	orgId: string;
+	personnelId: string;
+	title: string;
+	emptyState: string;
+	notes: PersonnelLeaderNote[];
+}
+
 export interface PersonnelExtendedInfo {
 	bloodType: string;
 	basd: string;
@@ -38,7 +46,6 @@ export interface PersonnelExtendedInfo {
 	addressState: string;
 	addressZip: string;
 	address: string;
-	leaderNotes: string;
 }
 
 export interface PersonnelChild {
@@ -56,9 +63,12 @@ export interface PersonnelCounselingRecord {
 }
 
 export interface PersonnelLeaderNote {
+	id: string;
+	personnelId: string;
 	author: string;
 	date: string;
 	text: string;
+	createdAt: string;
 }
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';

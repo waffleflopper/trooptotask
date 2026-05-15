@@ -30,7 +30,6 @@ interface ExtendedInfoRow {
 	address_city: string | null;
 	address_state: string | null;
 	address_zip: string | null;
-	leader_notes: string | null;
 }
 
 const childSchema = z.object({
@@ -122,8 +121,7 @@ function mapExtendedInfoRow(row: ExtendedInfoRow): PersonnelExtendedInfo {
 		addressCity: row.address_city ?? '',
 		addressState: row.address_state ?? '',
 		addressZip: row.address_zip ?? '',
-		address: toAddress(row),
-		leaderNotes: row.leader_notes ?? ''
+		address: toAddress(row)
 	};
 }
 

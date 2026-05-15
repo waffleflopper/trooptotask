@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { load as counselingLoad } from './counselings/+page.server';
 import { load as documentsLoad } from './documents/+page.server';
 import { load as followUpsLoad } from './follow-ups/+page.server';
-import { load as notesLoad } from './notes/+page.server';
 
 function makeEvent() {
 	return {
@@ -53,18 +52,5 @@ describe('personnel detail subpage server loads', () => {
 			title: 'Documents'
 		});
 		expect(event.depends).toHaveBeenCalledWith('app:personnel-detail-documents');
-	});
-
-	it('loads notes as an isolated personnel detail sub-page', async () => {
-		const event = makeEvent();
-
-		const result = await notesLoad(event as never);
-
-		expect(result).toMatchObject({
-			personnelId: 'person-1',
-			section: 'notes',
-			title: 'Notes'
-		});
-		expect(event.depends).toHaveBeenCalledWith('app:personnel-detail-notes');
 	});
 });

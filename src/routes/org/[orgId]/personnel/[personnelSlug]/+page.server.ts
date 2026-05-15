@@ -4,8 +4,7 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import type {
 	PersonnelCounselingRecord,
 	PersonnelDetailHeader,
-	PersonnelDetailStreams,
-	PersonnelLeaderNote
+	PersonnelDetailStreams
 } from '$features/personnel/personnel-detail.types';
 import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
 import {
@@ -17,6 +16,7 @@ import {
 	loadRatingSchemeReadinessLane,
 	loadTrainingReadinessLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
+import { listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
 
 interface CounselingRecordRow {
 	id: string;
@@ -46,21 +46,6 @@ async function loadCounselingRecords(ctx: UseCaseContext, personnelId: string): 
 	}));
 }
 
-async function loadLeaderNotes(
-	extendedInfo: Promise<Awaited<ReturnType<typeof readPersonnelExtendedInfo>>>
-): Promise<PersonnelLeaderNote[]> {
-	const info = await extendedInfo;
-	if (!info?.leaderNotes) return [];
-
-	return [
-		{
-			author: 'Leader notes',
-			date: new Date().toISOString().slice(0, 10),
-			text: info.leaderNotes
-		}
-	];
-}
-
 async function loadDerivedFollowUps() {
 	return [
 		'Review board packet checklist with 1SG.',
@@ -84,7 +69,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 		},
 		extendedInfo,
 		counselingRecords: loadCounselingRecords(ctx, personnelId),
-		leaderNotes: loadLeaderNotes(extendedInfo),
+		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
 		followUps: loadDerivedFollowUps()
 	};
 }

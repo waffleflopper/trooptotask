@@ -41,8 +41,7 @@ describe('personnel extended info use case', () => {
 				address_street: '1128 Arctic Valley Rd',
 				address_city: 'Anchorage',
 				address_state: 'AK',
-				address_zip: '99505',
-				leader_notes: 'Strong performer'
+				address_zip: '99505'
 			}
 		]);
 
@@ -111,40 +110,6 @@ describe('personnel extended info use case', () => {
 			blood_type: 'A-',
 			military_education: ['BLC'],
 			emergency_contact_name: 'Taylor Rivera'
-		});
-	});
-
-	it('preserves leader notes when updating Soldier Data Sheet fields', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-1',
-				organization_id: ctx.auth.orgId,
-				group_id: null,
-				rank: 'SGT',
-				last_name: 'Rivera',
-				first_name: 'Monica'
-			}
-		]);
-		ctx.store.seed('personnel_extended_info', [
-			{
-				id: 'info-1',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
-				leader_notes: 'Protect this note'
-			}
-		]);
-
-		await updatePersonnelExtendedInfo(ctx, {
-			personnelId: 'person-1',
-			bloodType: 'B+'
-		});
-
-		await expect(
-			ctx.store.findOne('personnel_extended_info', ctx.auth.orgId, { personnel_id: 'person-1' })
-		).resolves.toMatchObject({
-			blood_type: 'B+',
-			leader_notes: 'Protect this note'
 		});
 	});
 

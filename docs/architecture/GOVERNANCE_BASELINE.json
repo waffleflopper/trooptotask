@@ -560,6 +560,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260515000100_create_leader_notes.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#887",
+			"reason": "Leader Notes RLS uses the existing Personnel helper API for table-level read/write protection while route and service behavior is enforced through Personnel Policy Decisions and group-scope checks.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

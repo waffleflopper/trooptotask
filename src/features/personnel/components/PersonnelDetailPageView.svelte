@@ -38,6 +38,10 @@
 
 	let { orgId, person, roster, orgName, detail }: Props = $props();
 	let showDataSheet = $state(false);
+	let leaderNoteText = $state('');
+	let leaderNoteSaving = $state(false);
+	let leaderNoteError = $state('');
+	let createdLeaderNotes = $state<PersonnelLeaderNote[]>([]);
 
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
@@ -65,8 +69,7 @@
 		addressCity: '',
 		addressState: '',
 		addressZip: '',
-		address: '',
-		leaderNotes: ''
+		address: ''
 	};
 
 	const readinessLaneEntries = $derived<ReadinessLaneEntry[]>([
@@ -129,19 +132,6 @@
 		}
 	];
 
-	const fallbackLeaderNotes: PersonnelLeaderNote[] = [
-		{
-			author: 'SFC N. Carter',
-			date: '2026-05-03',
-			text: 'Follow up on board packet after Thursday clinic huddle. Soldier has all source documents except latest ACFT card.'
-		},
-		{
-			author: '1SG M. Alvarez',
-			date: '2026-04-29',
-			text: 'Good candidate for extra duty leadership during June field prep if training suspense is cleared.'
-		}
-	];
-
 	const adminRows = $derived([
 		['Rank', person.rank || 'Not set'],
 		['Name', `${person.lastName}, ${person.firstName}`],
@@ -193,6 +183,32 @@
 			['Spouse', info.spouseName ? `${info.spouseName}, ${info.spousePhone || 'phone not set'}` : 'Not set'],
 			['Vehicle', [info.vehicleColor, info.vehicleMakeModel, info.vehiclePlate].filter(Boolean).join(', ') || 'Not set']
 		];
+	}
+
+	async function submitLeaderNote() {
+		leaderNoteError = '';
+		const text = leaderNoteText.trim();
+		if (!text) {
+			leaderNoteError = 'Enter a leader note before saving.';
+			return;
+		}
+
+		leaderNoteSaving = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/leader-notes`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text })
+			});
+			if (!response.ok) throw new Error('Unable to save leader note.');
+			const note = (await response.json()) as PersonnelLeaderNote;
+			createdLeaderNotes = [note, ...createdLeaderNotes];
+			leaderNoteText = '';
+		} catch (caught) {
+			leaderNoteError = caught instanceof Error ? caught.message : 'Unable to save leader note.';
+		} finally {
+			leaderNoteSaving = false;
+		}
 	}
 </script>
 
@@ -337,6 +353,24 @@
 						</div>
 						<Button href={`${detailBasePath}/notes`} variant="outline" size="sm">Show all</Button>
 					</div>
+					<form class="mt-4 space-y-2" onsubmit={(event) => (event.preventDefault(), submitLeaderNote())}>
+						<Textarea
+							bind:value={leaderNoteText}
+							placeholder="Add an observation or accomplishment"
+							aria-label="New leader note"
+							rows={3}
+						/>
+						<div class="flex items-center justify-between gap-3">
+							{#if leaderNoteError}
+								<p class="text-xs text-destructive">{leaderNoteError}</p>
+							{:else}
+								<p class="text-xs text-muted-foreground">Observation journal</p>
+							{/if}
+							<Button type="submit" size="sm" disabled={leaderNoteSaving}>
+								{leaderNoteSaving ? 'Saving...' : 'Add note'}
+							</Button>
+						</div>
+					</form>
 					{#await detail.leaderNotes}
 						<div class="mt-4 space-y-3">
 							<Skeleton class="h-4 w-3/4" />
@@ -344,10 +378,14 @@
 							<Skeleton class="h-3 w-5/6" />
 						</div>
 					{:then leaderNotes}
-						{@const notes = leaderNotes.length ? leaderNotes : fallbackLeaderNotes}
-						<p class="mt-3 text-sm leading-relaxed text-muted-foreground">{notes[0].text}</p>
-						<Textarea class="mt-4 min-h-28" value={notes[0].text} aria-label="Draft leader note" />
-						<Button class="mt-3 w-full" variant="outline">Save draft note</Button>
+						{@const notes = [...createdLeaderNotes, ...leaderNotes]}
+						{#if notes.length === 0}
+							<p class="mt-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+								No leader notes have been added for this Soldier yet.
+							</p>
+						{:else}
+							<p class="mt-3 text-sm leading-relaxed text-muted-foreground">{notes[0].text}</p>
+						{/if}
 					{:catch}
 						<p class="mt-3 text-sm text-muted-foreground">Leader notes could not be loaded.</p>
 					{/await}

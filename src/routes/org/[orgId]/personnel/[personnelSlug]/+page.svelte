@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import PersonnelDetailPageView from '$features/personnel/components/PersonnelDetailPageView.svelte';
-	import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 	import type { Personnel } from '$lib/types';
 
 	interface PersonnelLayoutData {
 		orgId: string;
 		orgName: string;
+		personnelDetailHeader: PersonnelDetailHeader;
 		personnelDetail: PersonnelDetailStreams;
 		personnel?: {
 			data?: {
@@ -17,15 +17,8 @@
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
-	const personnelSlug = $derived(page.params.personnelSlug ?? '');
 	const roster = $derived(data.personnel?.data?.personnel ?? []);
-	const person = $derived(roster.find((item) => item.slug === personnelSlug));
+	const person = $derived(data.personnelDetailHeader.person);
 </script>
 
-{#if person}
-	<PersonnelDetailPageView orgId={data.orgId} {person} {roster} orgName={data.orgName} detail={data.personnelDetail} />
-{:else}
-	<section class="m-6 rounded-lg border bg-card p-8">
-		<p class="text-sm font-medium text-muted-foreground">Personnel record not found.</p>
-	</section>
-{/if}
+<PersonnelDetailPageView orgId={data.orgId} {person} {roster} orgName={data.orgName} detail={data.personnelDetail} />

@@ -18,10 +18,13 @@ const operateAuth = {
 };
 
 describe('personnel detail page server load', () => {
-	it('resolves the Personnel Slug to the internal personnel id before loading detail streams', async () => {
+	it('loads detail streams for the layout-resolved personnel id without resolving the slug again', async () => {
 		const ctx = {
 			store: {
-				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
+				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) => {
+					if (filters.id === 'person-1') return { id: 'person-1', group_id: null };
+					return null;
+				}),
 				findMany: vi.fn(async () => [])
 			},
 			auth: { ...operateAuth },
@@ -36,12 +39,17 @@ describe('personnel detail page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: {} as never,
-			depends
+			depends,
+			parent: vi.fn(async () => ({
+				personnelDetailHeader: {
+					person: { id: 'person-1' }
+				}
+			}))
 		} as never);
 
 		await result.personnelDetail.extendedInfo;
 		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
-		expect(ctx.store.findOne).toHaveBeenCalledWith('personnel', 'org-1', { slug: 'rivera-monica' }, 'id');
+		expect(ctx.store.findOne).not.toHaveBeenCalledWith('personnel', 'org-1', { slug: 'rivera-monica' }, 'id');
 		expect(ctx.store.findMany).toHaveBeenCalledWith('personnel_extended_info', 'org-1', {
 			personnel_id: 'person-1'
 		});
@@ -51,7 +59,7 @@ describe('personnel detail page server load', () => {
 		const ctx = {
 			store: {
 				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) => {
-					if (filters.slug === 'rivera-monica' || filters.id === 'person-1') return { id: 'person-1', group_id: null };
+					if (filters.id === 'person-1') return { id: 'person-1', group_id: null };
 					return null;
 				}),
 				findMany: vi.fn(async (table: string) => {
@@ -98,7 +106,12 @@ describe('personnel detail page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: {} as never,
-			depends: vi.fn()
+			depends: vi.fn(),
+			parent: vi.fn(async () => ({
+				personnelDetailHeader: {
+					person: { id: 'person-1' }
+				}
+			}))
 		} as never);
 
 		await expect(result.personnelDetail.extendedInfo).resolves.toMatchObject({
@@ -113,10 +126,10 @@ describe('personnel detail page server load', () => {
 		});
 	});
 
-	it('returns 404 for stale Personnel Slugs without loading detail data', async () => {
+	it('uses the parent personnel id for all dashboard streams', async () => {
 		const ctx = {
 			store: {
-				findOne: vi.fn(async () => null),
+				findOne: vi.fn(async () => ({ id: 'person-9', group_id: null })),
 				findMany: vi.fn(async () => [])
 			},
 			auth: { ...operateAuth, requireGroupAccess: vi.fn(async () => {}) },
@@ -125,16 +138,27 @@ describe('personnel detail page server load', () => {
 		};
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
+		const parent = vi.fn(async () => ({
+			personnelDetailHeader: {
+				person: { id: 'person-9' }
+			}
+		}));
 
-		await expect(
-			load({
-				params: { orgId: 'org-1', personnelSlug: 'old-rivera-monica' },
-				locals: {} as App.Locals,
-				cookies: {} as never,
-				depends: vi.fn()
-			} as never)
-		).rejects.toMatchObject({ status: 404 });
+		const result = await load({
+			params: { orgId: 'org-1', personnelSlug: 'old-rivera-monica' },
+			locals: {} as App.Locals,
+			cookies: {} as never,
+			depends: vi.fn(),
+			parent
+		} as never);
 
-		expect(ctx.store.findMany).not.toHaveBeenCalled();
+		await result.personnelDetail.counselingRecords;
+		expect(parent).toHaveBeenCalled();
+		expect(ctx.store.findMany).toHaveBeenCalledWith(
+			'counseling_records',
+			'org-1',
+			{ personnel_id: 'person-9' },
+			expect.any(Object)
+		);
 	});
 });

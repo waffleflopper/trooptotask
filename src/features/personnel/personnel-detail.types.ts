@@ -1,3 +1,19 @@
+import type { Personnel } from '$lib/types';
+
+export interface PersonnelDetailHeader {
+	person: Personnel;
+}
+
+export type PersonnelDetailSubpageKey = 'follow-ups' | 'counselings' | 'documents' | 'notes';
+
+export interface PersonnelDetailSubpageData {
+	personnelId: string;
+	section: PersonnelDetailSubpageKey;
+	title: string;
+	emptyState: string;
+	records: [];
+}
+
 export interface PersonnelExtendedInfo {
 	bloodType: string;
 	basd: string;

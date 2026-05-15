@@ -15,9 +15,7 @@
 	} from '$features/personnel/personnel-detail.types';
 	import type { Personnel } from '$lib/types';
 	import { cn } from '$lib/utils';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
-	import FilePlus2Icon from '@lucide/svelte/icons/file-plus-2';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
@@ -42,8 +40,8 @@
 	let showDataSheet = $state(false);
 
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
-	const initials = $derived(`${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase());
 	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
+	const detailBasePath = $derived(`/org/${orgId}/personnel/${person.slug}`);
 	const emptyExtendedInfo: PersonnelExtendedInfo = {
 		bloodType: '',
 		basd: '',
@@ -204,7 +202,6 @@
 
 <main class="min-h-full bg-background text-foreground">
 	<section class="flex min-h-full flex-col">
-		{@render SoldierHeader()}
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
@@ -233,7 +230,10 @@
 								<ClipboardListIcon aria-hidden="true" size={18} />
 								<h2 class="font-semibold">Leader follow-ups</h2>
 							</div>
-							<Badge variant="warning">{openFollowUps.length} open</Badge>
+							<div class="flex items-center gap-2">
+								<Badge variant="warning">{openFollowUps.length} open</Badge>
+								<Button href={`${detailBasePath}/follow-ups`} variant="outline" size="sm">Show all</Button>
+							</div>
 						</div>
 						<div class="divide-y">
 							{#each openFollowUps as item, index (item)}
@@ -258,7 +258,10 @@
 								<FileTextIcon aria-hidden="true" size={18} />
 								<h2 class="font-semibold">Recent counseling and uploads</h2>
 							</div>
-							<Button variant="outline" size="sm">New counseling</Button>
+							<div class="flex items-center gap-2">
+								<Button href={`${detailBasePath}/counselings`} variant="outline" size="sm">Show all</Button>
+								<Button variant="outline" size="sm">New counseling</Button>
+							</div>
 						</div>
 						<div class="divide-y">
 							{#each counselingRecords.length ? counselingRecords : fallbackCounselingRecords as record (record.filePath)}
@@ -327,9 +330,12 @@
 				{/await}
 
 				<section class="rounded-md border bg-card p-4">
-					<div class="flex items-center gap-2">
-						<UserRoundIcon aria-hidden="true" size={18} />
-						<h2 class="font-semibold">Leader notes</h2>
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2">
+							<UserRoundIcon aria-hidden="true" size={18} />
+							<h2 class="font-semibold">Leader notes</h2>
+						</div>
+						<Button href={`${detailBasePath}/notes`} variant="outline" size="sm">Show all</Button>
 					</div>
 					{#await detail.leaderNotes}
 						<div class="mt-4 space-y-3">
@@ -350,32 +356,6 @@
 		</div>
 	</section>
 </main>
-
-{#snippet HeaderActions()}
-	<div class="flex flex-wrap items-center gap-2">
-		<Button href="../" variant="outline" size="sm">
-			<ArrowLeftIcon aria-hidden="true" size={15} />
-			Roster
-		</Button>
-		<Button variant="outline" size="sm">
-			<FilePlus2Icon aria-hidden="true" size={15} />
-			Upload PDF
-		</Button>
-		<Button size="sm">Add note</Button>
-	</div>
-{/snippet}
-
-{#snippet SoldierMark(size: 'sm' | 'lg' = 'lg')}
-	<div
-		class={cn(
-			'grid shrink-0 place-items-center rounded-md border bg-muted font-semibold',
-			size === 'lg' ? 'size-20 text-2xl' : 'size-11 text-sm'
-		)}
-		aria-hidden="true"
-	>
-		{initials}
-	</div>
-{/snippet}
 
 {#snippet ToneBadge(tone: Tone, label: string)}
 	<span
@@ -409,24 +389,6 @@
 			<Skeleton class="h-3 w-4/5" />
 		</div>
 	</article>
-{/snippet}
-
-{#snippet SoldierHeader()}
-	<header class="border-b px-6 py-5">
-		<div class="flex flex-wrap items-start justify-between gap-4">
-			<div class="flex min-w-0 items-center gap-4">
-				{@render SoldierMark('lg')}
-				<div class="min-w-0">
-					<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Personnel view</p>
-					<h1 class="mt-1 text-3xl font-semibold tracking-tight text-foreground">{displayName}</h1>
-					<p class="mt-1 text-sm text-muted-foreground">
-						{person.groupName || orgName} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
-					</p>
-				</div>
-			</div>
-			{@render HeaderActions()}
-		</div>
-	</header>
 {/snippet}
 
 {#snippet FactList(rows: string[][])}

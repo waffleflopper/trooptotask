@@ -1,10 +1,9 @@
-import { error } from '@sveltejs/kit';
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type {
 	PersonnelCounselingRecord,
+	PersonnelDetailHeader,
 	PersonnelDetailStreams,
 	PersonnelLeaderNote
 } from '$features/personnel/personnel-detail.types';
@@ -96,30 +95,22 @@ export interface PersonnelDetailPageLoadDeps {
 	loadWithContext?: LoadWithContext;
 }
 
-async function resolvePersonnelId(ctx: UseCaseContext, personnelSlug: string): Promise<string> {
-	const person = await ctx.store.findOne<{ id: string }>('personnel', ctx.auth.orgId, { slug: personnelSlug }, 'id');
-	if (!person) {
-		error(404, 'Personnel record not found');
-	}
-	await ctx.auth.requireGroupAccess(person.id);
-	return person.id;
+interface PersonnelDetailParentData {
+	personnelDetailHeader: PersonnelDetailHeader;
 }
 
 export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps = {}) {
 	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
 
-	return async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
+	return async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 		depends('app:personnel-detail');
-		const { orgId, personnelSlug } = params;
+		const { orgId } = params;
+		const parentData = (await parent()) as PersonnelDetailParentData;
+		const personnelId = parentData.personnelDetailHeader.person.id;
 
 		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
-			permission: 'personnel',
-			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
-			policyResource: { kind: 'unscoped' },
-			fn: async (ctx) => {
-				const personnelId = await resolvePersonnelId(ctx, personnelSlug);
-				return createPersonnelDetailStreams(ctx, personnelId);
-			}
+			permission: 'none',
+			fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId)
 		});
 
 		return {

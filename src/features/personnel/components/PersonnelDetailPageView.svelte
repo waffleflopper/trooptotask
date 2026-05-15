@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 	import type {
 		PersonnelCounselingRecord,
 		PersonnelDetailStreams,
@@ -19,6 +20,7 @@
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
 
 	interface Props {
+		orgId: string;
 		person: Personnel;
 		roster: Personnel[];
 		orgName: string;
@@ -34,26 +36,38 @@
 		tone: Tone;
 	}
 
-	let { person, roster, orgName, detail }: Props = $props();
+	let { orgId, person, roster, orgName, detail }: Props = $props();
+	let showDataSheet = $state(false);
 
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const initials = $derived(`${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase());
 	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
-	const mockExtendedInfo = $derived<PersonnelExtendedInfo>({
-		emergencyContactName: 'Monica Rivera',
-		emergencyContactRelationship: 'Spouse',
-		emergencyContactPhone: '(907) 555-0194',
-		spouseName: 'Monica Rivera',
-		spousePhone: '(907) 555-0194',
-		vehicleMakeModel: '2021 Toyota Tacoma',
-		vehiclePlate: 'JBER-482',
-		vehicleColor: 'Gray',
-		personalEmail: `${person.firstName.toLowerCase()}.${person.lastName.toLowerCase()}@example.com`,
-		personalPhone: '(907) 555-0148',
-		address: '1128 Arctic Valley Rd, Anchorage, AK 99505',
-		leaderNotes:
-			'Strong performer. Track upcoming board packet, EFMP appointment coordination, and follow-up on SFL-TAP timeline before summer block leave.'
-	});
+	const emptyExtendedInfo: PersonnelExtendedInfo = {
+		bloodType: '',
+		basd: '',
+		dateOfRank: '',
+		maritalStatus: '',
+		numberOfDependents: null,
+		children: [],
+		civilianEducation: '',
+		militaryEducation: [],
+		emergencyContactName: '',
+		emergencyContactRelationship: '',
+		emergencyContactPhone: '',
+		spouseName: '',
+		spousePhone: '',
+		vehicleMakeModel: '',
+		vehiclePlate: '',
+		vehicleColor: '',
+		personalEmail: '',
+		personalPhone: '',
+		addressStreet: '',
+		addressCity: '',
+		addressState: '',
+		addressZip: '',
+		address: '',
+		leaderNotes: ''
+	};
 
 	const readinessLanes = $derived<ReadinessLane[]>([
 		{
@@ -171,6 +185,9 @@
 
 	function getContactRows(info: PersonnelExtendedInfo): string[][] {
 		return [
+			['Blood type', info.bloodType || 'Not set'],
+			['BASD', info.basd ? formatDate(info.basd) : 'Not set'],
+			['Date of rank', info.dateOfRank ? formatDate(info.dateOfRank) : 'Not set'],
 			['Personal phone', info.personalPhone || 'Not set'],
 			['Personal email', info.personalEmail || 'Not set'],
 			['Address', info.address || 'Not set'],
@@ -281,13 +298,32 @@
 				{#await detail.extendedInfo}
 					{@render PanelSkeleton('Extended info')}
 				{:then loadedExtendedInfo}
-					{@const extendedInfo = loadedExtendedInfo ?? mockExtendedInfo}
+					{@const extendedInfo = loadedExtendedInfo ?? emptyExtendedInfo}
 					<section class="rounded-md border bg-card">
-						<div class="flex items-center gap-2 border-b p-4">
+						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+							<div class="flex items-center gap-2">
+								<PhoneIcon aria-hidden="true" size={18} />
+								<h2 class="font-semibold">Extended info</h2>
+							</div>
+							<Button variant="outline" size="sm" onclick={() => (showDataSheet = true)}>More info</Button>
+						</div>
+						{@render FactList(getContactRows(extendedInfo))}
+					</section>
+					{#if showDataSheet}
+						<SoldierDataSheetModal
+							{orgId}
+							personnelId={person.id}
+							initialInfo={extendedInfo}
+							onClose={() => (showDataSheet = false)}
+						/>
+					{/if}
+				{:catch}
+					<section class="rounded-md border bg-card p-4">
+						<div class="flex items-center gap-2">
 							<PhoneIcon aria-hidden="true" size={18} />
 							<h2 class="font-semibold">Extended info</h2>
 						</div>
-						{@render FactList(getContactRows(extendedInfo))}
+						<p class="mt-3 text-sm text-muted-foreground">Extended info could not be loaded.</p>
 					</section>
 				{/await}
 
@@ -307,6 +343,8 @@
 						<p class="mt-3 text-sm leading-relaxed text-muted-foreground">{notes[0].text}</p>
 						<Textarea class="mt-4 min-h-28" value={notes[0].text} aria-label="Draft leader note" />
 						<Button class="mt-3 w-full" variant="outline">Save draft note</Button>
+					{:catch}
+						<p class="mt-3 text-sm text-muted-foreground">Leader notes could not be loaded.</p>
 					{/await}
 				</section>
 			</aside>

@@ -6,27 +6,9 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import type {
 	PersonnelCounselingRecord,
 	PersonnelDetailStreams,
-	PersonnelExtendedInfo,
 	PersonnelLeaderNote
 } from '$features/personnel/personnel-detail.types';
-
-interface ExtendedInfoRow {
-	emergency_contact_name: string | null;
-	emergency_contact_relationship: string | null;
-	emergency_contact_phone: string | null;
-	spouse_name: string | null;
-	spouse_phone: string | null;
-	vehicle_make_model: string | null;
-	vehicle_plate: string | null;
-	vehicle_color: string | null;
-	personal_email: string | null;
-	personal_phone: string | null;
-	address_street: string | null;
-	address_city: string | null;
-	address_state: string | null;
-	address_zip: string | null;
-	leader_notes: string | null;
-}
+import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
 
 interface CounselingRecordRow {
 	id: string;
@@ -34,33 +16,6 @@ interface CounselingRecordRow {
 	subject: string | null;
 	notes: string | null;
 	file_path: string | null;
-}
-
-function toAddress(row: ExtendedInfoRow): string {
-	return [row.address_street, row.address_city, row.address_state, row.address_zip].filter(Boolean).join(', ');
-}
-
-async function loadExtendedInfo(ctx: UseCaseContext, personnelId: string): Promise<PersonnelExtendedInfo | null> {
-	const rows = await ctx.store.findMany<ExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
-		personnel_id: personnelId
-	});
-	const row = rows[0];
-	if (!row) return null;
-
-	return {
-		emergencyContactName: row.emergency_contact_name ?? '',
-		emergencyContactRelationship: row.emergency_contact_relationship ?? '',
-		emergencyContactPhone: row.emergency_contact_phone ?? '',
-		spouseName: row.spouse_name ?? '',
-		spousePhone: row.spouse_phone ?? '',
-		vehicleMakeModel: row.vehicle_make_model ?? '',
-		vehiclePlate: row.vehicle_plate ?? '',
-		vehicleColor: row.vehicle_color ?? '',
-		personalEmail: row.personal_email ?? '',
-		personalPhone: row.personal_phone ?? '',
-		address: toAddress(row),
-		leaderNotes: row.leader_notes ?? ''
-	};
 }
 
 async function loadCounselingRecords(ctx: UseCaseContext, personnelId: string): Promise<PersonnelCounselingRecord[]> {
@@ -83,8 +38,10 @@ async function loadCounselingRecords(ctx: UseCaseContext, personnelId: string): 
 	}));
 }
 
-async function loadLeaderNotes(ctx: UseCaseContext, personnelId: string): Promise<PersonnelLeaderNote[]> {
-	const info = await loadExtendedInfo(ctx, personnelId);
+async function loadLeaderNotes(
+	extendedInfo: Promise<Awaited<ReturnType<typeof readPersonnelExtendedInfo>>>
+): Promise<PersonnelLeaderNote[]> {
+	const info = await extendedInfo;
 	if (!info?.leaderNotes) return [];
 
 	return [
@@ -106,10 +63,11 @@ async function loadDerivedFollowUps() {
 }
 
 function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string): PersonnelDetailStreams {
+	const extendedInfo = readPersonnelExtendedInfo(ctx, personnelId);
 	return {
-		extendedInfo: loadExtendedInfo(ctx, personnelId),
+		extendedInfo,
 		counselingRecords: loadCounselingRecords(ctx, personnelId),
-		leaderNotes: loadLeaderNotes(ctx, personnelId),
+		leaderNotes: loadLeaderNotes(extendedInfo),
 		followUps: loadDerivedFollowUps()
 	};
 }

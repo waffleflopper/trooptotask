@@ -23,7 +23,7 @@
 </script>
 
 {#if person}
-	<PersonnelDetailPageView {person} {roster} orgName={data.orgName} detail={data.personnelDetail} />
+	<PersonnelDetailPageView orgId={data.orgId} {person} {roster} orgName={data.orgName} detail={data.personnelDetail} />
 {:else}
 	<section class="m-6 rounded-lg border bg-card p-8">
 		<p class="text-sm font-medium text-muted-foreground">Personnel record not found.</p>

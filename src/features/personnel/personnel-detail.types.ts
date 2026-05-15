@@ -1,4 +1,12 @@
 export interface PersonnelExtendedInfo {
+	bloodType: string;
+	basd: string;
+	dateOfRank: string;
+	maritalStatus: string;
+	numberOfDependents: number | null;
+	children: PersonnelChild[];
+	civilianEducation: string;
+	militaryEducation: string[];
 	emergencyContactName: string;
 	emergencyContactRelationship: string;
 	emergencyContactPhone: string;
@@ -9,8 +17,17 @@ export interface PersonnelExtendedInfo {
 	vehicleColor: string;
 	personalEmail: string;
 	personalPhone: string;
+	addressStreet: string;
+	addressCity: string;
+	addressState: string;
+	addressZip: string;
 	address: string;
 	leaderNotes: string;
+}
+
+export interface PersonnelChild {
+	name: string;
+	age: number | null;
 }
 
 export interface PersonnelCounselingRecord {

@@ -48,13 +48,17 @@ function mapDocumentRow(row: PersonnelDocumentRow, contributorLabels = new Map<s
 		id: row.id,
 		personnelId: row.personnel_id,
 		title: row.title,
-		filePath: row.file_path,
+		fileName: fileNameFromPath(row.file_path),
 		fileSizeBytes: row.file_size_bytes,
 		contentType: row.content_type,
 		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by),
 		createdAt: row.created_at ?? new Date().toISOString(),
 		archivedAt: row.archived_at ?? null
 	};
+}
+
+function fileNameFromPath(path: string): string {
+	return path.split(/[\\/]/).pop() ?? 'document';
 }
 
 function hasPdfSignature(bytes: Uint8Array): boolean {

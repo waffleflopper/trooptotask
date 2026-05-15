@@ -86,10 +86,6 @@
 		if (Number.isNaN(date.getTime())) return value;
 		return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 	}
-
-	function fileNameFromPath(path: string) {
-		return path.split(/[\\/]/).pop() ?? path;
-	}
 </script>
 
 <main class="p-6">
@@ -128,7 +124,7 @@
 								{#if record.summary}
 									<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{record.summary}</p>
 								{/if}
-								<p class="mt-2 text-xs text-muted-foreground">File: {fileNameFromPath(record.filePath)}</p>
+								<p class="mt-2 text-xs text-muted-foreground">File: {record.fileName}</p>
 							</div>
 							<Button
 								type="button"

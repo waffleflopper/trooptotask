@@ -124,7 +124,7 @@ describe('PersonnelDetailPageView', () => {
 							id: 'document-1',
 							personnelId: 'person-1',
 							title: 'BLS Card',
-							filePath: 'org-1/personnel/person-1/documents/bls.pdf',
+							fileName: 'bls.pdf',
 							fileSizeBytes: 2048,
 							contentType: 'application/pdf',
 							uploadedBy: 'test-user',

@@ -80,9 +80,10 @@ describe('personnel counseling records', () => {
 			title: 'Monthly counseling',
 			summary: 'Reviewed performance and board prep.',
 			uploadedBy: 'leader@example.com',
+			fileName: expect.stringMatching(/monthly-counseling\.pdf$/),
 			status: 'uploaded'
 		});
-		expect(created.filePath).toMatch(/test-org\/counseling-records\/person-1\/.+monthly-counseling\.pdf$/);
+		expect(created).not.toHaveProperty('filePath');
 		expect((ctx.storage as typeof ctx.storage & { files: unknown[] }).files).toHaveLength(1);
 		expect(records.map((record) => record.id)).toEqual([created.id, 'old-record']);
 	});

@@ -194,10 +194,6 @@
 		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
 	}
 
-	function fileNameFromPath(path: string) {
-		return path.split(/[\\/]/).pop() ?? path;
-	}
-
 	function mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
 		const updatedById = new Map(updatedFollowUps.map((item) => [item.id, item]));
 		const merged = loaded.map((item) => updatedById.get(item.id) ?? item);
@@ -615,7 +611,7 @@
 										{#if record.summary}
 											<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{record.summary}</p>
 										{/if}
-										<p class="mt-2 text-xs text-muted-foreground">File: {fileNameFromPath(record.filePath)}</p>
+										<p class="mt-2 text-xs text-muted-foreground">File: {record.fileName}</p>
 									</div>
 								</article>
 							{/each}

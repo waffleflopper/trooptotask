@@ -87,7 +87,7 @@ export interface PersonnelCounselingRecord {
 	summary?: string;
 	status: 'uploaded' | 'needs-title' | 'archived';
 	uploadedBy: string;
-	filePath: string;
+	fileName: string;
 	createdAt: string;
 	archivedAt?: string | null;
 }
@@ -96,7 +96,7 @@ export interface PersonnelDocument {
 	id: string;
 	personnelId: string;
 	title: string;
-	filePath: string;
+	fileName: string;
 	fileSizeBytes: number;
 	contentType: string;
 	uploadedBy: string;

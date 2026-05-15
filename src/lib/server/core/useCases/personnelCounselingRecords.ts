@@ -56,10 +56,14 @@ function mapCounselingRow(
 		summary: summary || undefined,
 		status: row.archived_at ? 'archived' : row.file_path ? 'uploaded' : 'needs-title',
 		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by ?? 'Leader upload'),
-		filePath: row.file_path ?? `pending-upload/${row.id}.pdf`,
+		fileName: row.file_path ? fileNameFromPath(row.file_path) : `${row.id}.pdf`,
 		createdAt,
 		archivedAt: row.archived_at ?? null
 	};
+}
+
+function fileNameFromPath(path: string): string {
+	return path.split(/[\\/]/).pop() ?? 'counseling-record.pdf';
 }
 
 function hasPdfSignature(bytes: Uint8Array): boolean {

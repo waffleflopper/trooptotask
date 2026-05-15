@@ -69,11 +69,12 @@ describe('personnel documents', () => {
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
 			title: 'inspection worksheet 2026',
+			fileName: expect.stringMatching(/inspection-worksheet_2026\.pdf$/),
 			fileSizeBytes: PDF_BYTES.byteLength,
 			contentType: 'application/pdf',
 			uploadedBy: 'test-user'
 		});
-		expect(created.filePath).toMatch(/person-1\/documents\/.+inspection-worksheet_2026\.pdf$/);
+		expect(created).not.toHaveProperty('filePath');
 		expect((ctx.storage as typeof ctx.storage & { files: unknown[] }).files).toHaveLength(1);
 		expect(records.map((record) => record.id)).toEqual([created.id, 'old-document']);
 	});

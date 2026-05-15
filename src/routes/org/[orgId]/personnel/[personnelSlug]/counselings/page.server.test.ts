@@ -63,7 +63,7 @@ describe('personnel counselings page server load', () => {
 				summary: 'Reviewed board prep.',
 				status: 'uploaded',
 				uploadedBy: 'test-user',
-				filePath: 'test-org/personnel/person-1/counseling-records/monthly.pdf',
+				fileName: 'monthly.pdf',
 				createdAt: '2026-05-02T10:00:00Z',
 				archivedAt: null
 			}

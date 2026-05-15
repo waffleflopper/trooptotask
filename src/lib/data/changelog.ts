@@ -15,6 +15,7 @@ export const changelog: ChangelogEntry[] = [
 			'Org Settings has moved to the top-left organization area so it is easier to find alongside organization-level controls',
 			'Training and Critical Task reports have been improved so readiness details are easier to scan and act on',
 			'The organization dashboard has been refined to make unit-level information clearer at a glance',
+			'Personnel rows now open a full Soldier detail page with readiness lanes, notes, counseling records, follow-ups, documents, and archived items in one place',
 			'Onboarding has been revamped with a smoother experience for tracking packets, progress, and next steps',
 			'Please report any bugs or issues you run into with the feedback button, or use it to share your thoughts on the new look',
 			'Several other quality-of-life updates are included throughout the app to make day-to-day work feel more polished'

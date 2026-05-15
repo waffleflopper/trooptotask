@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -36,10 +37,6 @@
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	const canImportPersonnel = $derived(ctx.canImportPersonnel);
 	const canManageGroups = $derived(ctx.canManageGroups);
-	const canManageAnyRosterRecord = $derived.by(() =>
-		personnelStore.items.some((person) => ctx.canManagePersonnelRecord(person))
-	);
-
 	const hasPersonnelActions = $derived(canImportPersonnel || canManageGroups || canAddPersonnel);
 
 	// Personnel DataTable setup
@@ -57,7 +54,7 @@
 			{ key: 'group', header: 'Group', value: (p) => p.groupName }
 		];
 
-		if (canManageAnyRosterRecord) {
+		if (canViewRoster) {
 			columns.push({
 				key: 'actions',
 				header: 'Actions',
@@ -100,9 +97,11 @@
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
 
-	const handleRowClick = $derived.by(
-		() => (person: Personnel) => (ctx.canManagePersonnelRecord(person) ? ctx.handleEdit(person) : undefined)
-	);
+	const handleRowClick = $derived.by(() => (person: Personnel) => openPersonnelDetail(person));
+
+	function openPersonnelDetail(person: Personnel): void {
+		void goto(`/org/${ctx.orgId}/personnel/${person.slug ?? person.id}`);
+	}
 
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
@@ -115,7 +114,7 @@
 	}
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
-		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
+		return `Open ${person.rank} ${person.lastName}, ${person.firstName}`;
 	}
 </script>
 
@@ -232,8 +231,7 @@
 						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 						columns={personnelColumns}
 						onRowClick={handleRowClick}
-						rowActionLabel={(person) =>
-							ctx.canManagePersonnelRecord(person) ? getPersonnelRowActionLabel(person) : ''}
+						rowActionLabel={getPersonnelRowActionLabel}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
 						maxHeight="100%"
@@ -254,9 +252,14 @@
 									</Badge>
 								{/if}
 							{:else if col.key === 'actions'}
-								{#if ctx.canManagePersonnelRecord(row)}
-									<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
-								{/if}
+								<div class="flex items-center justify-end gap-2">
+									{#if ctx.canManagePersonnelRecord(row)}
+										<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
+									{/if}
+									<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
+										>Details</Button
+									>
+								</div>
 							{:else}
 								{String(col.value(row) ?? '')}
 							{/if}

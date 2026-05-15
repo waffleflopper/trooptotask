@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import PersonnelPageView from './PersonnelPageView.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -9,6 +8,16 @@ import type { OrganizationMemberPermissions, Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
+
+const { gotoMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock
+}));
+
+import PersonnelPageView from './PersonnelPageView.svelte';
 
 const editablePermissions: OrganizationMemberPermissions = {
 	canViewCalendar: true,
@@ -43,7 +52,8 @@ const personnel: Personnel[] = [
 		groupName: 'Alpha',
 		archivedAt: null,
 		ets: null,
-		deros: null
+		deros: null,
+		slug: 'smith-jane'
 	}
 ];
 
@@ -116,6 +126,7 @@ describe('PersonnelPageView', () => {
 		pinnedGroupsStore.load([], 'org-1');
 		subscriptionStore.clear();
 		vi.stubGlobal('fetch', vi.fn());
+		gotoMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -192,6 +203,7 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
 	});
 
 	it('filters the roster from the toolbar search item', async () => {
@@ -356,13 +368,44 @@ describe('PersonnelPageView', () => {
 			permissions: editablePermissions
 		});
 
-		expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
+		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
 
 		const row = screen.getByText('Smith, Jane').closest('tr');
 		expect(row).toBeTruthy();
 		await fireEvent.click(row!);
 
 		expect(handleEdit).not.toHaveBeenCalled();
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/smith-jane');
+	});
+
+	it('opens the personnel detail page from row clicks and keeps edit as a modal action', async () => {
+		const handleEdit = vi.fn();
+		const ctx = {
+			...makeCtx(handleEdit),
+			canManagePersonnelRecord: () => true,
+			personnelRecordAffordance: () => allowedAffordance()
+		} as unknown as PersonnelPageContext;
+
+		render(PersonnelPageView, {
+			props: { ctx, permissions: editablePermissions }
+		});
+
+		const row = screen.getByText('Smith, Jane').closest('tr');
+		expect(row).toBeTruthy();
+		await fireEvent.click(row!);
+
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/smith-jane');
+		expect(handleEdit).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		expect(handleEdit).toHaveBeenCalledWith(personnel[0]);
+		expect(gotoMock).toHaveBeenCalledTimes(1);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+		expect(gotoMock).toHaveBeenCalledTimes(2);
+		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 	});
 
 	it('uses per-record policy affordances instead of legacy canEditPersonnel for edit actions', () => {

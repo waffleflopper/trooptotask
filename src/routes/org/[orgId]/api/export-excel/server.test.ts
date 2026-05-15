@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
@@ -18,39 +17,6 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('POST /api/export-excel', () => {
-	it("requires Leader's Book view policy before exporting counseling and goals worksheets", async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'configure',
-					personnel: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
-				},
-				compatibilityLanes: createCompatibilityLaneMap('none'),
-				requireManageMembers() {}
-			}
-		});
-
-		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'leader@example.com' })).rejects.toMatchObject({
-			status: 403
-		});
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'leadersBook.viewRecords',
-				details: expect.objectContaining({
-					policyAction: 'leadersBook.viewRecords',
-					reasonCode: 'denied:missing-capability'
-				})
-			})
-		);
-	});
-
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

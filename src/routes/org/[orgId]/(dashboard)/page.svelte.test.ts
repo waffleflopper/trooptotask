@@ -33,8 +33,6 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 			canEditTraining: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		},
 		dashboard: {

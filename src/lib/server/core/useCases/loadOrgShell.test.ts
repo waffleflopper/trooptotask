@@ -30,8 +30,6 @@ const baseMembership: MembershipInfo = {
 		canEditCriticalTasks: false,
 		canViewOnboarding: false,
 		canEditOnboarding: false,
-		canViewLeadersBook: false,
-		canEditLeadersBook: false,
 		canManageMembers: false
 	}
 };
@@ -67,8 +65,6 @@ const fullEditorPermissions: MembershipInfo['permissions'] = {
 	canEditCriticalTasks: true,
 	canViewOnboarding: true,
 	canEditOnboarding: true,
-	canViewLeadersBook: true,
-	canEditLeadersBook: true,
 	canManageMembers: true
 };
 

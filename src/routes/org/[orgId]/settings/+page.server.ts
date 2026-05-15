@@ -99,11 +99,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				canViewOnboarding: m.can_view_onboarding as boolean,
 				canEditOnboarding: m.can_edit_onboarding as boolean,
 				canViewRatingScheme: (m.can_view_rating_scheme as boolean | undefined) ?? (m.can_view_personnel as boolean),
-				canEditRatingScheme:
-					(m.can_edit_rating_scheme as boolean | undefined) ??
-					((m.can_edit_personnel as boolean) && (m.can_edit_leaders_book as boolean)),
-				canViewLeadersBook: m.can_view_leaders_book as boolean,
-				canEditLeadersBook: m.can_edit_leaders_book as boolean,
+				canEditRatingScheme: (m.can_edit_rating_scheme as boolean | undefined) ?? (m.can_edit_personnel as boolean),
 				canManageMembers: m.can_manage_members as boolean
 			})) as OrganizationMember[];
 
@@ -128,11 +124,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				canViewOnboarding: inv.can_view_onboarding as boolean,
 				canEditOnboarding: inv.can_edit_onboarding as boolean,
 				canViewRatingScheme: (inv.can_view_rating_scheme as boolean | undefined) ?? (inv.can_view_personnel as boolean),
-				canEditRatingScheme:
-					(inv.can_edit_rating_scheme as boolean | undefined) ??
-					((inv.can_edit_personnel as boolean) && (inv.can_edit_leaders_book as boolean)),
-				canViewLeadersBook: inv.can_view_leaders_book as boolean,
-				canEditLeadersBook: inv.can_edit_leaders_book as boolean,
+				canEditRatingScheme: (inv.can_edit_rating_scheme as boolean | undefined) ?? (inv.can_edit_personnel as boolean),
 				canManageMembers: inv.can_manage_members as boolean
 			}));
 
@@ -403,8 +395,6 @@ function parseCustomPermissions(formData: FormData): OrganizationMemberPermissio
 		canEditOnboarding: formData.get('canEditOnboarding') === 'on',
 		canViewRatingScheme: formData.get('canViewRatingScheme') === 'on',
 		canEditRatingScheme: formData.get('canEditRatingScheme') === 'on',
-		canViewLeadersBook: formData.get('canViewLeadersBook') === 'on',
-		canEditLeadersBook: formData.get('canEditLeadersBook') === 'on',
 		canManageMembers: formData.get('canManageMembers') === 'on'
 	};
 }

@@ -164,11 +164,7 @@ export function createSupabaseOrgAccessPort(config: {
 				canViewOnboarding: isPrivileged || membership.can_view_onboarding,
 				canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
 				canViewRatingScheme: isPrivileged || (membership.can_view_rating_scheme ?? membership.can_view_personnel),
-				canEditRatingScheme:
-					isPrivileged ||
-					(membership.can_edit_rating_scheme ?? (membership.can_edit_personnel && membership.can_edit_leaders_book)),
-				canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
-				canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
+				canEditRatingScheme: isPrivileged || (membership.can_edit_rating_scheme ?? membership.can_edit_personnel),
 				canManageMembers: isPrivileged || membership.can_manage_members
 			};
 			const accessShape = resolveMembershipClientAccessShape(membership, permissions, isPrivileged);
@@ -205,7 +201,7 @@ async function loadMembershipRow(config: {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
 		.select(
-			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)

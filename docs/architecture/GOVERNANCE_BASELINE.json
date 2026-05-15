@@ -573,6 +573,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260515000500_retire_leaders_book.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#891",
+			"reason": "Leaders Book retirement redefines the existing sensitive-file storage helper API so counseling attachment reads and writes dispatch to Personnel helpers before the old Leaders Book helpers are dropped.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

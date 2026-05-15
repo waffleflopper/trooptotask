@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -254,31 +255,6 @@
 			]
 		},
 		{
-			id: 'leaders-book',
-			title: 'Leaders Book',
-			icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20m0-12H6.5A2.5 2.5 0 0 0 4 7.5v9m0 0V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2.5 2.5 0 0 1-2.5-2.5z',
-			items: [
-				{
-					title: 'Counseling Records',
-					content:
-						"Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Leader's Book is temporarily hidden from the main navigation while that area is being redesigned."
-				},
-				{
-					title: 'Development Goals',
-					content:
-						'Set development goals for personnel and track progress over time. Goals can be linked to counseling records.'
-				},
-				{
-					content: 'You only see records for personnel in your assigned group.',
-					role: 'team-leader'
-				},
-				{
-					content: "Counseling type management uses Leader's Book policy access. Admins and owners retain full access.",
-					role: 'admin'
-				}
-			]
-		},
-		{
 			id: 'settings',
 			title: 'Settings & Members',
 			icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
@@ -450,7 +426,7 @@
 
 	<main class="help-container">
 		<header class="help-header">
-			<a href="/dashboard" class="back-link">
+			<a href={resolve('/dashboard')} class="back-link">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<line x1="19" y1="12" x2="5" y2="12" />
 					<polyline points="12 19 5 12 12 5" />

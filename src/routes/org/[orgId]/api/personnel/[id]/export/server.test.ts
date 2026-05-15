@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
@@ -64,39 +63,6 @@ describe('GET /api/personnel/[id]/export', () => {
 
 		expect(result._filename).toContain('SGT_Smith_Jamie-export');
 		expect(requirePrivileged).not.toHaveBeenCalled();
-	});
-
-	it("requires Leader's Book view policy before including counseling and development goals", async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'configure',
-					personnel: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
-				},
-				compatibilityLanes: createCompatibilityLaneMap('none'),
-				requirePrivileged() {}
-			}
-		});
-
-		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'p-1' })).rejects.toMatchObject({
-			status: 403
-		});
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'leadersBook.viewRecords',
-				details: expect.objectContaining({
-					policyAction: 'leadersBook.viewRecords',
-					reasonCode: 'denied:missing-capability'
-				})
-			})
-		);
 	});
 
 	it('includes ETS and PCS / DEROS in the personnel info worksheet', async () => {

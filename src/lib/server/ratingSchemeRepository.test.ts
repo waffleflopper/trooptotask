@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { CounselingRecordEntity } from './entities/counselingRecord';
-import { DevelopmentGoalEntity } from './entities/developmentGoal';
 import { RatingSchemeEntryEntity } from './entities/ratingSchemeEntry';
 
 describe('RatingSchemeEntryEntity.fromDbArray', () => {
@@ -148,62 +147,5 @@ describe('CounselingRecordEntity.fromDbArray', () => {
 
 	it('returns empty array for empty input', () => {
 		expect(CounselingRecordEntity.fromDbArray([])).toEqual([]);
-	});
-});
-
-describe('DevelopmentGoalEntity.fromDbArray', () => {
-	it('maps simplified development goal fields', () => {
-		const dbRows = [
-			{
-				id: 'dg-1',
-				personnel_id: 'p-1',
-				organization_id: 'org-1',
-				title: 'Complete BLC',
-				term_type: 'short',
-				is_completed: false,
-				notes: 'Target next FY quarter',
-				created_at: '2025-01-15T10:00:00Z',
-				updated_at: '2025-01-15T10:00:00Z'
-			}
-		];
-
-		const result = DevelopmentGoalEntity.fromDbArray(dbRows);
-
-		expect(result).toMatchObject([
-			{
-				id: 'dg-1',
-				personnelId: 'p-1',
-				title: 'Complete BLC',
-				termType: 'short',
-				isCompleted: false,
-				notes: 'Target next FY quarter'
-			}
-		]);
-	});
-
-	it('handles completed goal with null notes', () => {
-		const dbRows = [
-			{
-				id: 'dg-2',
-				personnel_id: 'p-1',
-				organization_id: 'org-1',
-				title: 'Earn college degree',
-				term_type: 'long',
-				is_completed: true,
-				notes: null,
-				created_at: '2025-01-15T10:00:00Z',
-				updated_at: '2025-06-15T10:00:00Z'
-			}
-		];
-
-		const result = DevelopmentGoalEntity.fromDbArray(dbRows);
-
-		expect(result[0].isCompleted).toBe(true);
-		expect(result[0].termType).toBe('long');
-		expect(result[0].notes).toBeNull();
-	});
-
-	it('returns empty array for empty input', () => {
-		expect(DevelopmentGoalEntity.fromDbArray([])).toEqual([]);
 	});
 });

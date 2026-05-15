@@ -118,16 +118,6 @@ export const helpContent: Record<string, HelpTopic> = {
 			</ul>
 		`
 	},
-	'leaders-book': {
-		title: "Leader's Book",
-		content: `
-			<p>The Leader's Book is currently being redesigned from the ground up. We're rebuilding it to be more intuitive, more powerful, and better integrated with the rest of the app.</p>
-
-			<p>When it returns, it will include counseling records, development goals, extended personnel info, and everything you'd expect from a digital leader's book — just done right this time.</p>
-
-			<p>In the meantime, the <strong>Rating Scheme</strong> is fully available from <strong>Evals</strong>.</p>
-		`
-	},
 	onboarding: {
 		title: 'Onboarding',
 		content: `

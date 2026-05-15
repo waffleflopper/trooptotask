@@ -16,8 +16,6 @@ const orgContextMock = vi.hoisted(() => {
 		canEditTraining: true,
 		canViewOnboarding: true,
 		canEditOnboarding: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
 		canManageMembers: true
 	};
 	const ownerContext = () => ({

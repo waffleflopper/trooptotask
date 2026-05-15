@@ -293,8 +293,6 @@
 				canEditOnboarding: invite.canEditOnboarding,
 				canViewRatingScheme: invite.canViewRatingScheme,
 				canEditRatingScheme: invite.canEditRatingScheme,
-				canViewLeadersBook: invite.canViewLeadersBook,
-				canEditLeadersBook: invite.canEditLeadersBook,
 				canManageMembers: invite.canManageMembers
 			},
 			invite.scopedGroupId

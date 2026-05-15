@@ -68,8 +68,6 @@ describe('buildLayoutContext', () => {
 				can_edit_training: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
@@ -93,8 +91,6 @@ describe('buildLayoutContext', () => {
 				can_edit_training: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
@@ -118,8 +114,6 @@ describe('buildLayoutContext', () => {
 				can_edit_training: false,
 				can_view_onboarding: true,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
@@ -142,8 +136,6 @@ describe('buildLayoutContext', () => {
 				can_edit_training: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false
 			} satisfies MembershipRow,
 			assertAuth: (ctx: Awaited<ReturnType<typeof buildLayoutContext>>) => {
@@ -182,8 +174,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(membership);
@@ -215,8 +205,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const { supabase, query } = createMembershipSupabase(membership);
@@ -248,8 +236,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const deferred = createDeferred<{ data: MembershipRow }>();
@@ -293,8 +279,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const query = {
@@ -345,8 +329,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const queriedMembership = {
@@ -360,8 +342,6 @@ describe('buildLayoutContext', () => {
 			can_edit_training: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(queriedMembership);

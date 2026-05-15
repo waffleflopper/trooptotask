@@ -30,8 +30,6 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		},
 		readOnly: false,

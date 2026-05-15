@@ -62,8 +62,5 @@
 		<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
 		<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
 		<path d="M9 14l2 2 4-4" />
-	{:else if icon === 'leaders-book'}
-		<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-		<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
 	{/if}
 </svg>

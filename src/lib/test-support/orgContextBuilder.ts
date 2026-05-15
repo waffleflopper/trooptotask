@@ -47,8 +47,6 @@ function deriveTestPermissions(
 		canEditOnboarding: capabilityMeets(capabilityMap.onboarding, 'operate'),
 		canViewRatingScheme: capabilityMeets(capabilityMap.ratingScheme, 'view'),
 		canEditRatingScheme: capabilityMeets(capabilityMap.ratingScheme, 'operate'),
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
 		canManageMembers: role === 'owner' || role === 'admin'
 	};
 }

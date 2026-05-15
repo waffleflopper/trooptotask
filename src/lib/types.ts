@@ -37,8 +37,6 @@ export interface OrganizationMemberPermissions {
 	canEditOnboarding: boolean;
 	canViewRatingScheme?: boolean;
 	canEditRatingScheme?: boolean;
-	canViewLeadersBook: boolean;
-	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 }
 

@@ -481,11 +481,6 @@ INSERT INTO "public"."beta_feedback" ("id", "user_id", "user_email", "organizati
 	('0e9df453-f472-4329-a9ce-196fbcde1f2a', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'seed-owner@example.test', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'LocalDev', 'general', 'The advanced duty rosters need to have a DA6 matrix audit trail that can be viewed and downloaded. The simple generator has one that you can view and the advanced one needs one also. It would need to have one for each slot that the template has (i.e. one of the NCO and a separate one for the runner).', '/org/58b4ca31-634e-4525-be67-5a5a80c8d6e2/duty-rosters', 'new', NULL, '2026-04-15 02:26:06.350928+00', '2026-04-15 02:26:06.350928+00', 591, 'https://github.com/example/trooptotask/issues/591', 'duty-rosters');
 
 
---
--- Data for Name: counseling_types; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-
 
 --
 -- Data for Name: counseling_records; Type: TABLE DATA; Schema: public; Owner: postgres
@@ -540,11 +535,6 @@ INSERT INTO "public"."dashboard_configs" ("id", "user_id", "org_id", "config", "
 -- Data for Name: deletion_requests; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-
-
---
--- Data for Name: development_goals; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 
 
@@ -804,8 +794,8 @@ INSERT INTO "public"."onboarding_step_progress" ("id", "onboarding_id", "step_na
 -- Data for Name: organization_memberships; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."organization_memberships" ("id", "organization_id", "user_id", "role", "invited_by", "created_at", "can_view_calendar", "can_edit_calendar", "can_view_personnel", "can_edit_personnel", "can_view_training", "can_edit_training", "can_manage_members", "email", "scoped_group_id", "can_view_onboarding", "can_edit_onboarding", "can_view_leaders_book", "can_edit_leaders_book") VALUES
-	('b3f7f96e-6be5-4978-9540-8f11a9fcbd48', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'owner', NULL, '2026-04-13 00:26:28.693345+00', true, true, true, true, true, true, true, 'seed-owner@example.test', NULL, true, true, true, true);
+INSERT INTO "public"."organization_memberships" ("id", "organization_id", "user_id", "role", "invited_by", "created_at", "can_view_calendar", "can_edit_calendar", "can_view_personnel", "can_edit_personnel", "can_view_training", "can_edit_training", "can_manage_members", "email", "scoped_group_id", "can_view_onboarding", "can_edit_onboarding") VALUES
+	('b3f7f96e-6be5-4978-9540-8f11a9fcbd48', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', 'owner', NULL, '2026-04-13 00:26:28.693345+00', true, true, true, true, true, true, true, 'seed-owner@example.test', NULL, true, true);
 
 
 --

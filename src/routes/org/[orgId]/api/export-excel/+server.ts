@@ -5,8 +5,6 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -30,7 +28,6 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		const userId = ctx.auth.userId;
 
 		if (!userId) fail(403, 'Authenticated user required');
-		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		if (isBillingEnabled) {
 			const tier = await ctx.subscription.getEffectiveTier();
@@ -56,13 +53,11 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				statusTypes,
 				assignmentTypes,
 				dailyAssignments,
-				counselingTypes,
 				counselingRecords,
 				specialDays,
 				onboardingTemplateSteps,
 				personnelOnboardings,
 				ratingSchemeEntries,
-				developmentGoals,
 				personnelExtendedInfo
 			] = await Promise.all([
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
@@ -75,13 +70,11 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('assignment_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('counseling_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('counseling_records', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('special_days', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('development_goals', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId)
 			]);
 
@@ -99,8 +92,6 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			for (const s of statusTypes as { id: string; name: string }[]) statusTypeMap.set(s.id, s.name);
 			const assignmentTypeMap = new Map<string, string>();
 			for (const a of assignmentTypes as { id: string; name: string }[]) assignmentTypeMap.set(a.id, a.name);
-			const counselingTypeMap = new Map<string, string>();
-			for (const c of counselingTypes as { id: string; name: string }[]) counselingTypeMap.set(c.id, c.name);
 			const extendedMap = new Map<string, Record<string, unknown>>();
 			for (const e of personnelExtendedInfo as (Record<string, unknown> & {
 				personnel_id: string;
@@ -238,22 +229,12 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					assignment_type: assignmentTypeMap.get(d.assignment_type_id) ?? d.assignment_type_id
 				})
 			);
-			addSimpleSheet(
-				workbook,
-				'Counseling Types',
-				[
-					{ header: 'Name', key: 'name', width: 25 },
-					{ header: 'Color', key: 'color', width: 12 }
-				],
-				counselingTypes
-			);
 			addMappedSheet(
 				workbook,
 				'Counseling Records',
 				counselingRecords,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Type', key: 'type', width: 20 },
 					{ header: 'Date', key: 'date_conducted', width: 14 },
 					{ header: 'Subject', key: 'subject', width: 35 },
 					{ header: 'Key Points', key: 'key_points', width: 40 },
@@ -263,7 +244,6 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				],
 				(c) => ({
 					person: personnelMap.get(c.personnel_id) ?? c.personnel_id,
-					type: counselingTypeMap.get(c.counseling_type_id) ?? c.counseling_type_id,
 					date_conducted: c.date_conducted,
 					subject: c.subject,
 					key_points: c.key_points,
@@ -340,32 +320,6 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					notes: r.notes
 				})
 			);
-			addMappedSheet(
-				workbook,
-				'Development Goals',
-				developmentGoals,
-				[
-					{ header: 'Person', key: 'person', width: 25 },
-					{ header: 'Title', key: 'title', width: 30 },
-					{ header: 'Description', key: 'description', width: 40 },
-					{ header: 'Category', key: 'category', width: 14 },
-					{ header: 'Priority', key: 'priority', width: 12 },
-					{ header: 'Status', key: 'status', width: 14 },
-					{ header: 'Target Date', key: 'target_date', width: 14 },
-					{ header: 'Progress Notes', key: 'progress_notes', width: 30 }
-				],
-				(d) => ({
-					person: personnelMap.get(d.personnel_id) ?? d.personnel_id,
-					title: d.title,
-					description: d.description,
-					category: d.category,
-					priority: d.priority,
-					status: d.status,
-					target_date: d.target_date,
-					progress_notes: d.progress_notes
-				})
-			);
-
 			const buffer = await workbook.xlsx.writeBuffer();
 
 			await completeDataExport(

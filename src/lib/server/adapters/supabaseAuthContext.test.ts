@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import type { PermissionContext } from '$lib/server/permissionContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -11,8 +10,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 		training: true,
 		'critical-tasks': true,
 		onboarding: true,
-		'rating-scheme': true,
-		'leaders-book': true
+		'rating-scheme': true
 	};
 
 	return {
@@ -28,7 +26,7 @@ function makePermissionContext(overrides?: Partial<PermissionContext>): Permissi
 			onboarding: 'configure',
 			ratingScheme: 'configure'
 		},
-		compatibilityLanes: createCompatibilityLaneMap('configure'),
+		compatibilityLanes: {},
 		scopeSet: { kind: 'organization' },
 		canView: { ...allTrue },
 		canEdit: { ...allTrue },

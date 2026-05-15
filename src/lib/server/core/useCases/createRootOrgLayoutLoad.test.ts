@@ -27,8 +27,6 @@ describe('createRootOrgLayoutLoad', () => {
 				canEditTraining: false,
 				canViewOnboarding: false,
 				canEditOnboarding: false,
-				canViewLeadersBook: false,
-				canEditLeadersBook: false,
 				canManageMembers: false
 			},
 			isOwner: false,
@@ -51,8 +49,6 @@ describe('createRootOrgLayoutLoad', () => {
 					canEditTraining: false,
 					canViewOnboarding: false,
 					canEditOnboarding: false,
-					canViewLeadersBook: false,
-					canEditLeadersBook: false,
 					canManageMembers: false
 				},
 				isOwner: false,

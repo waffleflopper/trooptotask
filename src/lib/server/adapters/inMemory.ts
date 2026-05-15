@@ -59,7 +59,7 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
-const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
+const FULL_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap();
 
 type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 

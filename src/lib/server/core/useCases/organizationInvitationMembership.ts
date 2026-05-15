@@ -14,8 +14,6 @@ export interface OrganizationInvitationAccessShape {
 	canEditOnboarding: boolean | null;
 	canViewRatingScheme?: boolean | null;
 	canEditRatingScheme?: boolean | null;
-	canViewLeadersBook: boolean | null;
-	canEditLeadersBook: boolean | null;
 	canManageMembers: boolean | null;
 	scopedGroupId?: string | null;
 	memberPreset?: StoredMemberPreset | null;
@@ -41,8 +39,6 @@ export interface OrganizationMembershipDraft {
 	canEditOnboarding: boolean;
 	canViewRatingScheme: boolean;
 	canEditRatingScheme: boolean;
-	canViewLeadersBook: boolean;
-	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 	scopedGroupId: string | null;
 	memberPreset: StoredMemberPreset | null;
@@ -58,9 +54,7 @@ export function deriveMembershipFromInvitation(input: {
 }): OrganizationMembershipDraft {
 	const { invitation, userId, email } = input;
 	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
-	const canEditRatingScheme =
-		invitation.canEditRatingScheme ??
-		((invitation.canEditPersonnel ?? true) && (invitation.canEditLeadersBook ?? true));
+	const canEditRatingScheme = invitation.canEditRatingScheme ?? invitation.canEditPersonnel ?? true;
 
 	return {
 		organizationId: invitation.organizationId,
@@ -79,8 +73,6 @@ export function deriveMembershipFromInvitation(input: {
 		canEditOnboarding: invitation.canEditOnboarding ?? true,
 		canViewRatingScheme,
 		canEditRatingScheme,
-		canViewLeadersBook: invitation.canViewLeadersBook ?? true,
-		canEditLeadersBook: invitation.canEditLeadersBook ?? true,
 		canManageMembers: invitation.canManageMembers ?? false,
 		scopedGroupId: invitation.scopedGroupId ?? null,
 		memberPreset: invitation.memberPreset ?? null,
@@ -92,9 +84,7 @@ export function deriveMembershipFromInvitation(input: {
 
 export function isAdminInvitation(invitation: OrganizationInvitationAccessShape): boolean {
 	const canViewRatingScheme = invitation.canViewRatingScheme ?? invitation.canViewPersonnel ?? true;
-	const canEditRatingScheme =
-		invitation.canEditRatingScheme ??
-		((invitation.canEditPersonnel ?? true) && (invitation.canEditLeadersBook ?? true));
+	const canEditRatingScheme = invitation.canEditRatingScheme ?? invitation.canEditPersonnel ?? true;
 
 	return (
 		!!invitation.canViewCalendar &&
@@ -109,8 +99,6 @@ export function isAdminInvitation(invitation: OrganizationInvitationAccessShape)
 		!!invitation.canEditOnboarding &&
 		!!canViewRatingScheme &&
 		!!canEditRatingScheme &&
-		!!invitation.canViewLeadersBook &&
-		!!invitation.canEditLeadersBook &&
 		!!invitation.canManageMembers
 	);
 }

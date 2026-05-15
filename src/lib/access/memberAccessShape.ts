@@ -12,10 +12,9 @@ export type DurableFeatureLane =
 	| 'criticalTasks'
 	| 'onboarding'
 	| 'ratingScheme';
-export type CompatibilityFeatureLane = 'leadersBook';
 
 export type CapabilityMap = Record<DurableFeatureLane, CapabilityLevel>;
-export type CompatibilityLaneMap = Record<CompatibilityFeatureLane, CapabilityLevel>;
+export type CompatibilityLaneMap = Record<string, never>;
 export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, CapabilityLevel>>;
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
@@ -99,8 +98,6 @@ export const PERMISSION_PRESETS: Record<
 		canEditOnboarding: true,
 		canViewRatingScheme: true,
 		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
 		canManageMembers: true
 	},
 	'full-editor': {
@@ -116,8 +113,6 @@ export const PERMISSION_PRESETS: Record<
 		canEditOnboarding: true,
 		canViewRatingScheme: true,
 		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
 		canManageMembers: false
 	},
 	'team-leader': {
@@ -133,8 +128,6 @@ export const PERMISSION_PRESETS: Record<
 		canEditOnboarding: true,
 		canViewRatingScheme: true,
 		canEditRatingScheme: true,
-		canViewLeadersBook: true,
-		canEditLeadersBook: true,
 		canManageMembers: false
 	},
 	viewer: {
@@ -150,8 +143,6 @@ export const PERMISSION_PRESETS: Record<
 		canEditOnboarding: false,
 		canViewRatingScheme: true,
 		canEditRatingScheme: false,
-		canViewLeadersBook: true,
-		canEditLeadersBook: false,
 		canManageMembers: false
 	}
 };
@@ -183,9 +174,7 @@ export function toMemberAccessShape(input: CurrentMemberAccessInput): MemberAcce
 			onboarding: toCapabilityLevel(permissions.canViewOnboarding, permissions.canEditOnboarding),
 			ratingScheme: toCapabilityLevel(permissions.canViewRatingScheme, permissions.canEditRatingScheme)
 		},
-		compatibilityLanes: createCompatibilityLaneMap(
-			toCapabilityLevel(permissions.canViewLeadersBook, permissions.canEditLeadersBook)
-		),
+		compatibilityLanes: createCompatibilityLaneMap(),
 		scopeSet: input.scopedGroupId ? { kind: 'groups', groupIds: [input.scopedGroupId] } : { kind: 'organization' },
 		canManageMembers: permissions.canManageMembers || membershipRole === 'owner' || membershipRole === 'admin'
 	};
@@ -227,7 +216,7 @@ export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): 
 		membershipRole: input.membershipRole,
 		memberPreset,
 		capabilityMap,
-		compatibilityLanes: createCompatibilityLaneMap(capabilityMap.personnel),
+		compatibilityLanes: createCompatibilityLaneMap(),
 		scopeSet: normalizeScopeSet(input.scopeSet),
 		canManageMembers:
 			input.membershipRole === 'owner' || input.membershipRole === 'admin' || input.canManageMembers === true
@@ -329,10 +318,8 @@ export function createCapabilityMap(level: CapabilityLevel): CapabilityMap {
 	};
 }
 
-export function createCompatibilityLaneMap(level: CapabilityLevel): CompatibilityLaneMap {
-	return {
-		leadersBook: level
-	};
+export function createCompatibilityLaneMap(): CompatibilityLaneMap {
+	return {};
 }
 
 export function capabilityMeets(actual: CapabilityLevel, required: Exclude<CapabilityLevel, 'none'>): boolean {
@@ -357,13 +344,12 @@ export function resolveCurrentUpdatePermissions(
 export function resolveRatingSchemePermissions(
 	permissions: Pick<
 		OrganizationMemberPermissions,
-		'canViewPersonnel' | 'canEditPersonnel' | 'canViewRatingScheme' | 'canEditRatingScheme' | 'canEditLeadersBook'
+		'canViewPersonnel' | 'canEditPersonnel' | 'canViewRatingScheme' | 'canEditRatingScheme'
 	>
 ): { canViewRatingScheme: boolean; canEditRatingScheme: boolean } {
 	return {
 		canViewRatingScheme: permissions.canViewRatingScheme ?? permissions.canViewPersonnel,
-		canEditRatingScheme:
-			permissions.canEditRatingScheme ?? (permissions.canEditPersonnel && permissions.canEditLeadersBook)
+		canEditRatingScheme: permissions.canEditRatingScheme ?? permissions.canEditPersonnel
 	};
 }
 
@@ -389,10 +375,7 @@ export function getPermissionPreset(
 
 export function isFullEditor(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): boolean {
 	const shape = toMemberAccessShape({ permissions, scopedGroupId });
-	return (
-		hasOrganizationWideConfigureAccess(shape.capabilityMap, shape.scopeSet) &&
-		shape.compatibilityLanes.leadersBook === 'configure'
-	);
+	return hasOrganizationWideConfigureAccess(shape.capabilityMap, shape.scopeSet);
 }
 
 function toMemberPreset(preset: CurrentPermissionPreset): MemberPreset {
@@ -544,13 +527,13 @@ function fromCapabilityMap(
 	capabilityMap: CapabilityMap,
 	compatibilityLanes: CompatibilityLaneMap
 ): OrganizationMemberPermissions {
+	void compatibilityLanes;
 	const calendar = toPermissionFlags(capabilityMap.calendar);
 	const personnel = toPermissionFlags(capabilityMap.personnel);
 	const training = toPermissionFlags(capabilityMap.training);
 	const criticalTasks = toPermissionFlags(capabilityMap.criticalTasks);
 	const onboarding = toPermissionFlags(capabilityMap.onboarding);
 	const ratingScheme = toPermissionFlags(capabilityMap.ratingScheme);
-	const leadersBook = toPermissionFlags(compatibilityLanes.leadersBook);
 
 	return {
 		canViewCalendar: calendar.canView,
@@ -565,8 +548,6 @@ function fromCapabilityMap(
 		canEditOnboarding: onboarding.canEdit,
 		canViewRatingScheme: ratingScheme.canView,
 		canEditRatingScheme: ratingScheme.canEdit,
-		canViewLeadersBook: leadersBook.canView,
-		canEditLeadersBook: leadersBook.canEdit,
 		canManageMembers: false
 	};
 }
@@ -604,8 +585,6 @@ function normalizeCustomPermissions(
 		canEditOnboarding: !!customPermissions?.canEditOnboarding,
 		canViewRatingScheme: !!customPermissions?.canViewRatingScheme,
 		canEditRatingScheme: !!customPermissions?.canEditRatingScheme,
-		canViewLeadersBook: !!customPermissions?.canViewLeadersBook,
-		canEditLeadersBook: !!customPermissions?.canEditLeadersBook,
 		canManageMembers: !!customPermissions?.canManageMembers
 	};
 }
@@ -639,8 +618,6 @@ function matchesPermissionPreset(
 		permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
 		permissions.canViewRatingScheme === presetRatingScheme.canViewRatingScheme &&
 		permissions.canEditRatingScheme === presetRatingScheme.canEditRatingScheme &&
-		permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
-		permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
 		permissions.canManageMembers === presetPermissions.canManageMembers
 	);
 }

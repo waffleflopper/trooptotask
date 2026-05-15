@@ -9,8 +9,7 @@ export type OrgNavIcon =
 	| 'rating-scheme'
 	| 'training'
 	| 'critical-tasks'
-	| 'onboarding'
-	| 'leaders-book';
+	| 'onboarding';
 
 export interface OrgNavItem {
 	id: string;
@@ -155,16 +154,6 @@ export function getOrgNavigation(orgId: string, access: OrganizationMemberPermis
 			compactLabel: 'Onboard',
 			icon: 'onboarding',
 			visible: canView('onboarding'),
-			exactMatch: false
-		},
-		// Leaders Book temporarily hidden during redesign.
-		{
-			id: 'leaders-book',
-			href: `/org/${orgId}/leaders-book`,
-			label: "Leader's Book",
-			compactLabel: 'LB',
-			icon: 'leaders-book',
-			visible: false,
 			exactMatch: false
 		}
 	];

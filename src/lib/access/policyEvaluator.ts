@@ -2,7 +2,6 @@ import {
 	capabilityMeets,
 	type CapabilityLevel,
 	type CapabilityMap,
-	type CompatibilityFeatureLane,
 	type CompatibilityLaneMap,
 	type DurableFeatureLane,
 	type MembershipRole,
@@ -38,15 +37,10 @@ export const POLICY_REASON_CODES = {
 	deniedNotResourceOwner: 'denied:not-resource-owner'
 } as const satisfies Record<string, PolicyReasonCode>;
 
-type FeatureLanePolicyActionOwner =
-	| {
-			kind: 'feature-lane';
-			lane: DurableFeatureLane;
-	  }
-	| {
-			kind: 'compatibility-feature-lane';
-			lane: CompatibilityFeatureLane;
-	  };
+type FeatureLanePolicyActionOwner = {
+	kind: 'feature-lane';
+	lane: DurableFeatureLane;
+};
 
 export interface FeatureLanePolicyAction {
 	id: string;
@@ -106,7 +100,7 @@ export interface PolicyEvaluationInput {
 }
 
 export interface MatchedCapability {
-	lane: DurableFeatureLane | CompatibilityFeatureLane;
+	lane: DurableFeatureLane;
 	actual: CapabilityLevel;
 	required: Exclude<CapabilityLevel, 'none'>;
 }
@@ -387,22 +381,6 @@ export const POLICY_ACTION_CATALOG = {
 			requiredCapability: 'view'
 		})
 	},
-	leadersBook: {
-		viewRecords: compatibilityFeatureAction({
-			id: 'leadersBook.viewRecords',
-			label: "View Leader's Book records",
-			lane: 'leadersBook',
-			accessMode: 'read',
-			requiredCapability: 'view'
-		}),
-		updateRecords: compatibilityFeatureAction({
-			id: 'leadersBook.updateRecords',
-			label: "Update Leader's Book records",
-			lane: 'leadersBook',
-			accessMode: 'write',
-			requiredCapability: 'operate'
-		})
-	},
 	organization: {
 		accessGovernance: governanceAction({
 			id: 'organization.accessGovernance',
@@ -511,22 +489,6 @@ function featureAction(input: {
 		label: input.label,
 		accessMode: input.accessMode,
 		owner: { kind: 'feature-lane', lane: input.lane },
-		requiredCapability: input.requiredCapability
-	};
-}
-
-function compatibilityFeatureAction(input: {
-	id: string;
-	label: string;
-	lane: CompatibilityFeatureLane;
-	accessMode: FeatureLanePolicyAction['accessMode'];
-	requiredCapability: FeatureLanePolicyAction['requiredCapability'];
-}): FeatureLanePolicyAction {
-	return {
-		id: input.id,
-		label: input.label,
-		accessMode: input.accessMode,
-		owner: { kind: 'compatibility-feature-lane', lane: input.lane },
 		requiredCapability: input.requiredCapability
 	};
 }
@@ -722,13 +684,7 @@ function matchCapability(
 	compatibilityLanes: CompatibilityLaneMap | undefined,
 	action: FeatureLanePolicyAction
 ): MatchedCapability {
-	if (action.owner.kind === 'compatibility-feature-lane') {
-		return {
-			lane: action.owner.lane,
-			actual: compatibilityLanes?.[action.owner.lane] ?? 'none',
-			required: action.requiredCapability
-		};
-	}
+	void compatibilityLanes;
 
 	return {
 		lane: action.owner.lane,

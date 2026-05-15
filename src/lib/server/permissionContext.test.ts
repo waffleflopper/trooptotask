@@ -15,8 +15,6 @@ describe('createPermissionContextFromMembership', () => {
 		can_edit_critical_tasks: false,
 		can_view_onboarding: true,
 		can_edit_onboarding: false,
-		can_view_leaders_book: true,
-		can_edit_leaders_book: false,
 		can_manage_members: false
 	};
 
@@ -57,16 +55,15 @@ describe('createPermissionContextFromMembership', () => {
 		expect(ctx.canView['critical-tasks']).toBe(false);
 		expect(ctx.canEdit['critical-tasks']).toBe(false);
 		expect(ctx.canView['rating-scheme']).toBe(true);
-		expect(ctx.canEdit['rating-scheme']).toBe(false);
+		expect(ctx.canEdit['rating-scheme']).toBe(true);
 		expect(ctx.canManageMembers).toBe(false);
 	});
 
-	it('prefers explicit rating scheme flags over the legacy fallback shape', () => {
+	it('prefers explicit rating scheme flags over the personnel fallback shape', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
 			can_view_rating_scheme: false,
-			can_edit_rating_scheme: false,
-			can_edit_leaders_book: true
+			can_edit_rating_scheme: false
 		});
 
 		expect(ctx.canView['rating-scheme']).toBe(false);
@@ -106,24 +103,20 @@ describe('createPermissionContextFromMembership', () => {
 		});
 
 		expect(ctx.capabilityMap.personnel).toBe('operate');
-		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
+		expect(ctx.compatibilityLanes).toEqual({});
 		expect(ctx.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 	});
 
-	it("keeps Leader's Book compatibility capability separate from the durable capability map", () => {
+	it('keeps retired compatibility lanes out of the permission context', () => {
 		const ctx = createPermissionContextFromMembership({
 			...baseMembership,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			member_preset: 'viewer',
 			capability_overrides: { personnel: 'operate' },
 			access_scope_kind: 'organization',
 			access_scope_group_ids: []
 		});
 
-		expect(Object.keys(ctx.capabilityMap)).not.toContain('leadersBook');
-		expect(ctx.compatibilityLanes.leadersBook).toBe('operate');
-		expect(ctx.canView['leaders-book']).toBe(false);
+		expect(ctx.compatibilityLanes).toEqual({});
 	});
 
 	it('does not let legacy flags or scoped_group_id override stored member access', () => {
@@ -166,8 +159,6 @@ describe('createPermissionContextFromMembership', () => {
 			can_edit_critical_tasks: true,
 			can_view_onboarding: true,
 			can_edit_onboarding: true,
-			can_view_leaders_book: true,
-			can_edit_leaders_book: true,
 			can_manage_members: true
 		});
 
@@ -194,8 +185,6 @@ describe('createPermissionContextFromMembership', () => {
 			can_edit_critical_tasks: false,
 			can_view_onboarding: true,
 			can_edit_onboarding: true,
-			can_view_leaders_book: true,
-			can_edit_leaders_book: true,
 			can_manage_members: true
 		});
 

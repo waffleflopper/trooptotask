@@ -145,8 +145,6 @@ describe('org settings page server actions', () => {
 									can_edit_onboarding: true,
 									can_view_rating_scheme: true,
 									can_edit_rating_scheme: true,
-									can_view_leaders_book: true,
-									can_edit_leaders_book: true,
 									can_manage_members: true
 								}
 							];
@@ -585,8 +583,6 @@ describe('org settings page server actions', () => {
 					canEditOnboarding: false,
 					canViewRatingScheme: false,
 					canEditRatingScheme: false,
-					canViewLeadersBook: false,
-					canEditLeadersBook: false,
 					canManageMembers: true
 				},
 				capabilityOverrides: {},

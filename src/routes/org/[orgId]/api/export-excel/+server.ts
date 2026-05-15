@@ -58,7 +58,10 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				onboardingTemplateSteps,
 				personnelOnboardings,
 				ratingSchemeEntries,
-				personnelExtendedInfo
+				personnelExtendedInfo,
+				leaderNotes,
+				personnelFollowUps,
+				personnelDocuments
 			] = await Promise.all([
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 					isNull: { archived_at: true }
@@ -75,7 +78,10 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId)
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('leader_notes', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_follow_ups', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_documents', orgId)
 			]);
 
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -250,6 +256,78 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					plan_of_action: c.plan_of_action,
 					status: c.status,
 					notes: c.notes
+				})
+			);
+			addMappedSheet(
+				workbook,
+				'Leader Notes',
+				leaderNotes,
+				[
+					{ header: 'Person', key: 'person', width: 25 },
+					{ header: 'Author', key: 'author', width: 25 },
+					{ header: 'Note', key: 'text', width: 45 },
+					{ header: 'Created At', key: 'created_at', width: 20 },
+					{ header: 'Archived At', key: 'archived_at', width: 20 }
+				],
+				(note) => ({
+					person: personnelMap.get(note.personnel_id) ?? note.personnel_id,
+					author: note.author,
+					text: note.text,
+					created_at: note.created_at,
+					archived_at: note.archived_at
+				})
+			);
+			addMappedSheet(
+				workbook,
+				'Personnel Follow-ups',
+				personnelFollowUps,
+				[
+					{ header: 'Person', key: 'person', width: 25 },
+					{ header: 'Title', key: 'title', width: 35 },
+					{ header: 'Notes', key: 'notes', width: 40 },
+					{ header: 'Due Date', key: 'due_date', width: 14 },
+					{ header: 'Status', key: 'status', width: 14 },
+					{ header: 'Created At', key: 'created_at', width: 20 },
+					{ header: 'Completed At', key: 'completed_at', width: 20 },
+					{ header: 'Archived At', key: 'archived_at', width: 20 }
+				],
+				(followUp) => ({
+					person: personnelMap.get(followUp.personnel_id) ?? followUp.personnel_id,
+					title: followUp.title,
+					notes: followUp.notes,
+					due_date: followUp.due_date,
+					status: followUp.status,
+					created_at: followUp.created_at,
+					completed_at: followUp.completed_at,
+					archived_at: followUp.archived_at
+				})
+			);
+			addMappedSheet(
+				workbook,
+				'Personnel Documents',
+				personnelDocuments,
+				[
+					{ header: 'Person', key: 'person', width: 25 },
+					{ header: 'Title', key: 'title', width: 35 },
+					{ header: 'File Name', key: 'file_name', width: 35 },
+					{ header: 'File Size Bytes', key: 'file_size_bytes', width: 18 },
+					{ header: 'Content Type', key: 'content_type', width: 18 },
+					{ header: 'Uploaded By', key: 'uploaded_by', width: 25 },
+					{ header: 'Created At', key: 'created_at', width: 20 },
+					{ header: 'Archived At', key: 'archived_at', width: 20 }
+				],
+				(document) => ({
+					person: personnelMap.get(document.personnel_id) ?? document.personnel_id,
+					title: document.title,
+					file_name:
+						String(document.file_path ?? '')
+							.split(/[\\/]/)
+							.pop() ?? '',
+					file_size_bytes: document.file_size_bytes,
+					content_type: document.content_type,
+					uploaded_by: document.uploaded_by,
+					created_at: document.created_at,
+					archived_at: document.archived_at
 				})
 			);
 			addSimpleSheet(

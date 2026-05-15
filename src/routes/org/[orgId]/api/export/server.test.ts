@@ -45,6 +45,62 @@ describe('POST /api/export', () => {
 		]);
 	});
 
+	it('includes personnel detail artifact tables in the organization export payload', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				group_id: null,
+				archived_at: null
+			}
+		]);
+		ctx.rawStore.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				author: ctx.auth.userId,
+				text: 'Follow up after range week'
+			}
+		]);
+		ctx.rawStore.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Review packet',
+				status: 'open'
+			}
+		]);
+		ctx.rawStore.seed('personnel_documents', [
+			{
+				id: 'document-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Orders',
+				file_path: `${ctx.auth.orgId}/personnel/p-1/documents/orders.pdf`
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const payload = JSON.parse(result._json as string) as {
+			leaderNotes: Array<Record<string, unknown>>;
+			personnelFollowUps: Array<Record<string, unknown>>;
+			personnelDocuments: Array<Record<string, unknown>>;
+		};
+
+		expect(payload.leaderNotes).toEqual([expect.objectContaining({ id: 'note-1' })]);
+		expect(payload.personnelFollowUps).toEqual([expect.objectContaining({ id: 'follow-up-1' })]);
+		expect(payload.personnelDocuments).toEqual([expect.objectContaining({ id: 'document-1' })]);
+	});
+
 	it('still returns the export payload when the export status write fails', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

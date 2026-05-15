@@ -86,6 +86,26 @@ describe('Personnel — create', () => {
 		expect(duplicate.slug).toBe('smith-john-2');
 	});
 
+	it('checks slug collisions against the whole organization for group-scoped creators', async () => {
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const { create } = createPersonnelUseCases();
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-other-group',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: 'group-b',
+				slug: 'smith-john'
+			}
+		]);
+
+		const created = (await create(ctx, { ...validInput, groupId: 'group-a' })) as Record<string, unknown>;
+
+		expect(created.slug).toBe('smith-john-2');
+	});
+
 	it('retries slug generation when a concurrent create claims the same slug first', async () => {
 		const ctx = buildContext();
 		const { create } = createPersonnelUseCases();

@@ -58,6 +58,9 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				personnelOnboardings,
 				ratingSchemeEntries,
 				personnelExtendedInfo,
+				leaderNotes,
+				personnelFollowUps,
+				personnelDocuments,
 				dutyRosterHistory
 			] = await Promise.all([
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
@@ -76,6 +79,9 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('leader_notes', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_follow_ups', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_documents', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('duty_roster_history', orgId)
 			]);
 
@@ -105,6 +111,9 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				onboardingStepProgress,
 				ratingSchemeEntries,
 				personnelExtendedInfo,
+				leaderNotes,
+				personnelFollowUps,
+				personnelDocuments,
 				dutyRosterHistory
 			};
 

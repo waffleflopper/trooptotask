@@ -46,7 +46,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			let row: Record<string, unknown> | null = null;
 			for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 				dbData.slug = await buildUniquePersonnelSlug({
-					store: ctx.store,
+					store: ctx.rawStore ?? ctx.store,
 					orgId: ctx.auth.orgId,
 					lastName: validated.lastName as string,
 					firstName: validated.firstName as string
@@ -109,7 +109,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 				if (shouldRegenerateSlug) {
 					dbData.slug = await buildUniquePersonnelSlug({
-						store: ctx.store,
+						store: ctx.rawStore ?? ctx.store,
 						orgId: ctx.auth.orgId,
 						excludePersonnelId: id,
 						lastName: (validated.lastName as string | undefined) ?? currentRecord?.last_name ?? '',

@@ -598,6 +598,19 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260515001200_counseling_records_scope_and_document_cap.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#893",
+			"reason": "Counseling record scope repair migration redefines the existing sensitive-file storage helper API so counseling attachment reads and writes keep the historical function names while enforcing Personnel capability and group-scope checks.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

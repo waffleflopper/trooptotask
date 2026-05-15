@@ -586,6 +586,18 @@
 			]
 		},
 		{
+			"path": "supabase/migrations/20260515000600_repair_groups_access_after_leaders_book_retirement.sql",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"can_view_*"
+			],
+			"ownerIssue": "#891",
+			"reason": "Leaders Book retirement repair redefines the existing Groups RLS helper API so Personnel bootstrap can read groups through durable member-access capabilities instead of dropped Leaders Book flags.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "supabase/seed.sql",
 			"classification": "local-seed-fixture",
 			"patterns": [

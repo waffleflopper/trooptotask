@@ -33,7 +33,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
 		documents: listPersonnelDocuments(ctx, personnelId, 5),
 		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
-		followUps: listPersonnelFollowUps(ctx, personnelId, 5)
+		followUps: listPersonnelFollowUps(ctx, personnelId)
 	};
 }
 

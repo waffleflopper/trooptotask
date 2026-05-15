@@ -249,6 +249,35 @@ describe('PersonnelDetailPageView', () => {
 		expect(screen.getByText('1 open')).toBeTruthy();
 	});
 
+	it('counts all open dashboard follow-ups while rendering a short preview', async () => {
+		const followUps = Array.from({ length: 7 }, (_, index) => ({
+			id: `follow-up-${index + 1}`,
+			personnelId: 'person-1',
+			title: `Follow-up ${index + 1}`,
+			notes: '',
+			dueDate: null,
+			status: 'open' as const,
+			createdBy: 'leader-1',
+			createdAt: `2026-05-0${index + 1}T10:00:00Z`,
+			updatedAt: `2026-05-0${index + 1}T10:00:00Z`,
+			completedAt: null
+		}));
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail({ followUps: Promise.resolve(followUps) })
+			}
+		});
+
+		expect(await screen.findByText('7 open')).toBeTruthy();
+		expect(screen.getByText('Follow-up 7')).toBeTruthy();
+		expect(screen.queryByText('Follow-up 2')).toBeNull();
+	});
+
 	it('saves basic personnel info from the dashboard sidebar', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,

@@ -461,6 +461,7 @@
 					{@render PanelSkeleton('Leader follow-ups')}
 				{:then openFollowUps}
 					{@const followUps = mergeUpdatedFollowUps(openFollowUps)}
+					{@const visibleFollowUps = followUps.slice(0, 5)}
 					{@const openCount = followUps.filter((item) => item.status === 'open').length}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
@@ -490,7 +491,7 @@
 							{#if followUps.length === 0}
 								<p class="p-4 text-sm text-muted-foreground">No follow-ups have been added for this Soldier yet.</p>
 							{:else}
-								{#each followUps as item, index (item.id)}
+								{#each visibleFollowUps as item, index (item.id)}
 									<div class="grid gap-3 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
 										<div class="grid size-7 place-items-center rounded-full border bg-muted text-xs font-semibold">
 											{index + 1}

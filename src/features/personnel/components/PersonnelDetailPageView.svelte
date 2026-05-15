@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
@@ -42,6 +43,13 @@
 	let leaderNoteSaving = $state(false);
 	let leaderNoteError = $state('');
 	let createdLeaderNotes = $state<PersonnelLeaderNote[]>([]);
+	let counselingDate = $state(new Date().toISOString().slice(0, 10));
+	let counselingTitle = $state('');
+	let counselingSummary = $state('');
+	let counselingFile = $state<File | null>(null);
+	let counselingSaving = $state(false);
+	let counselingError = $state('');
+	let createdCounselingRecords = $state<PersonnelCounselingRecord[]>([]);
 
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
@@ -104,33 +112,6 @@
 			promise: detail.readinessLanes.lossTracking
 		}
 	]);
-
-	const fallbackCounselingRecords: PersonnelCounselingRecord[] = [
-		{
-			dateConducted: '2026-04-08',
-			title: 'Q2 performance counseling',
-			summary: 'Board prep, clinic coverage, and tracker habits reviewed.',
-			status: 'uploaded',
-			uploadedBy: 'SFC N. Carter',
-			filePath: 'org-1/counseling-records/cr-102/q2-performance-counseling.pdf'
-		},
-		{
-			dateConducted: '2026-04-22',
-			title: 'Supply turn-in follow-up',
-			summary: 'Missed initial suspense, self-reported, corrected within 24 hours.',
-			status: 'uploaded',
-			uploadedBy: 'SFC N. Carter',
-			filePath: 'org-1/counseling-records/cr-117/supply-turn-in-follow-up.pdf'
-		},
-		{
-			dateConducted: '2026-01-15',
-			title: 'Initial counseling',
-			summary: 'Duty standards, communication expectations, and training priorities.',
-			status: 'uploaded',
-			uploadedBy: 'SSG L. Owens',
-			filePath: 'org-1/counseling-records/cr-051/initial-counseling.pdf'
-		}
-	];
 
 	const adminRows = $derived([
 		['Rank', person.rank || 'Not set'],
@@ -210,6 +191,47 @@
 			leaderNoteSaving = false;
 		}
 	}
+
+	function updateCounselingFile(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		counselingFile = input.files?.[0] ?? null;
+	}
+
+	async function submitCounselingRecord() {
+		counselingError = '';
+		if (!counselingFile) {
+			counselingError = 'Choose a signed counseling PDF.';
+			return;
+		}
+		if (!counselingTitle.trim()) {
+			counselingError = 'Enter a counseling title.';
+			return;
+		}
+
+		const formData = new FormData();
+		formData.set('dateConducted', counselingDate);
+		formData.set('title', counselingTitle.trim());
+		formData.set('summary', counselingSummary.trim());
+		formData.set('file', counselingFile);
+
+		counselingSaving = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/counseling-records`, {
+				method: 'POST',
+				body: formData
+			});
+			if (!response.ok) throw new Error('Unable to upload counseling PDF.');
+			const record = (await response.json()) as PersonnelCounselingRecord;
+			createdCounselingRecords = [record, ...createdCounselingRecords];
+			counselingTitle = '';
+			counselingSummary = '';
+			counselingFile = null;
+		} catch (caught) {
+			counselingError = caught instanceof Error ? caught.message : 'Unable to upload counseling PDF.';
+		} finally {
+			counselingSaving = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -268,6 +290,7 @@
 				{#await detail.counselingRecords}
 					{@render PanelSkeleton('Recent counseling and uploads')}
 				{:then counselingRecords}
+					{@const records = [...createdCounselingRecords, ...counselingRecords]}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
 							<div class="flex items-center gap-2">
@@ -276,12 +299,45 @@
 							</div>
 							<div class="flex items-center gap-2">
 								<Button href={`${detailBasePath}/counselings`} variant="outline" size="sm">Show all</Button>
-								<Button variant="outline" size="sm">New counseling</Button>
 							</div>
 						</div>
+						<form
+							class="grid gap-3 border-b p-4"
+							onsubmit={(event) => (event.preventDefault(), submitCounselingRecord())}
+						>
+							<div class="grid gap-3 md:grid-cols-[9rem_1fr]">
+								<Input bind:value={counselingDate} type="date" aria-label="Counseling date conducted" />
+								<Input bind:value={counselingTitle} aria-label="Counseling title" placeholder="Counseling title" />
+							</div>
+							<Textarea
+								bind:value={counselingSummary}
+								rows={2}
+								aria-label="Counseling summary"
+								placeholder="Optional summary"
+							/>
+							<div class="flex flex-wrap items-center justify-between gap-3">
+								<Input
+									type="file"
+									accept="application/pdf,.pdf"
+									aria-label="Counseling PDF"
+									onchange={updateCounselingFile}
+								/>
+								<Button type="submit" size="sm" disabled={counselingSaving}>
+									{counselingSaving ? 'Uploading...' : 'Upload PDF'}
+								</Button>
+							</div>
+							{#if counselingError}
+								<p class="text-sm text-destructive">{counselingError}</p>
+							{/if}
+						</form>
 						<div class="divide-y">
-							{#each counselingRecords.length ? counselingRecords : fallbackCounselingRecords as record (record.filePath)}
-								<article class="grid gap-3 p-4 lg:grid-cols-[12rem_minmax(0,1fr)_auto]">
+							{#if records.length === 0}
+								<p class="p-4 text-sm text-muted-foreground">
+									No counseling records have been added for this Soldier yet.
+								</p>
+							{/if}
+							{#each records.slice(0, 5) as record (record.id)}
+								<article class="grid gap-3 p-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
 									<div>
 										<p class="text-sm font-medium">{formatDate(record.dateConducted)}</p>
 										<p class="text-xs text-muted-foreground">Uploaded by {record.uploadedBy}</p>
@@ -296,7 +352,6 @@
 										{/if}
 										<p class="mt-2 text-xs text-muted-foreground">{record.filePath}</p>
 									</div>
-									<Button variant="outline" size="sm">Open PDF</Button>
 								</article>
 							{/each}
 						</div>

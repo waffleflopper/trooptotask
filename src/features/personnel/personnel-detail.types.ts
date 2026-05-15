@@ -22,6 +22,14 @@ export interface PersonnelNotesPageData {
 	notes: PersonnelLeaderNote[];
 }
 
+export interface PersonnelCounselingsPageData {
+	orgId: string;
+	personnelId: string;
+	title: string;
+	emptyState: string;
+	records: PersonnelCounselingRecord[];
+}
+
 export interface PersonnelExtendedInfo {
 	bloodType: string;
 	basd: string;
@@ -54,12 +62,15 @@ export interface PersonnelChild {
 }
 
 export interface PersonnelCounselingRecord {
+	id: string;
+	personnelId: string;
 	dateConducted: string;
 	title: string;
 	summary?: string;
 	status: 'uploaded' | 'needs-title' | 'archived';
 	uploadedBy: string;
 	filePath: string;
+	createdAt: string;
 }
 
 export interface PersonnelLeaderNote {

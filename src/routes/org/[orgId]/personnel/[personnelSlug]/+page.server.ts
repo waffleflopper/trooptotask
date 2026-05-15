@@ -1,11 +1,7 @@
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type {
-	PersonnelCounselingRecord,
-	PersonnelDetailHeader,
-	PersonnelDetailStreams
-} from '$features/personnel/personnel-detail.types';
+import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
 import {
 	currentPersonnelReadinessDate,
@@ -17,34 +13,7 @@ import {
 	loadTrainingReadinessLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
 import { listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
-
-interface CounselingRecordRow {
-	id: string;
-	date_conducted: string;
-	subject: string | null;
-	notes: string | null;
-	file_path: string | null;
-}
-
-async function loadCounselingRecords(ctx: UseCaseContext, personnelId: string): Promise<PersonnelCounselingRecord[]> {
-	const rows = await ctx.store.findMany<CounselingRecordRow>(
-		'counseling_records',
-		ctx.auth.orgId,
-		{ personnel_id: personnelId },
-		{
-			orderBy: [{ column: 'date_conducted', ascending: false }]
-		}
-	);
-
-	return rows.map((row) => ({
-		dateConducted: row.date_conducted,
-		title: row.subject || 'Uploaded counseling PDF',
-		summary: row.notes || undefined,
-		status: row.file_path ? ('uploaded' as const) : ('needs-title' as const),
-		uploadedBy: 'Leader upload',
-		filePath: row.file_path ?? `pending-upload/${row.id}.pdf`
-	}));
-}
+import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 
 async function loadDerivedFollowUps() {
 	return [
@@ -68,7 +37,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
 		},
 		extendedInfo,
-		counselingRecords: loadCounselingRecords(ctx, personnelId),
+		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
 		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
 		followUps: loadDerivedFollowUps()
 	};

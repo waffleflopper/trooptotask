@@ -326,6 +326,44 @@ describe('PersonnelDetailPageView', () => {
 		await waitFor(() => expect(document.title).toBe('SSG Rivera-Jones, Monica - Personnel'));
 	});
 
+	it('offers canonical Organization groups when editing basic personnel info', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					...person,
+					groupId: 'group-empty',
+					groupName: 'Bravo'
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				groups: [
+					{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
+					{ id: 'group-empty', name: 'Bravo', sortOrder: 1 }
+				],
+				orgName: 'Test Org',
+				detail: makeDetail()
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'Bravo' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: expect.stringContaining('"groupId":"group-empty"')
+		});
+	});
+
 	it('shows inline errors when quick actions fail', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({ ok: false });
 		vi.stubGlobal('fetch', fetchMock);

@@ -19,6 +19,7 @@
 		PersonnelReadinessLaneTone
 	} from '$features/personnel/personnel-detail.types';
 	import type { Personnel } from '$lib/types';
+	import type { Group } from '$lib/stores/groups.svelte';
 	import { cn } from '$lib/utils';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
@@ -31,6 +32,7 @@
 		orgId: string;
 		person: Personnel;
 		roster: Personnel[];
+		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;
 	}
@@ -43,7 +45,7 @@
 		promise: Promise<PersonnelReadinessLane>;
 	}
 
-	let { orgId, person, roster, orgName, detail }: Props = $props();
+	let { orgId, person, roster, groups = [], orgName, detail }: Props = $props();
 	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
 	let editingBasicInfo = $state(false);
@@ -87,9 +89,7 @@
 	const detailBasePath = $derived(`/org/${orgId}/personnel/${currentPerson.slug}`);
 	const groupOptions = $derived([
 		{ value: '', label: 'No Group Assigned' },
-		...Array.from(
-			new Map(roster.filter((item) => item.groupId).map((item) => [item.groupId, item.groupName])).entries()
-		).map(([value, label]) => ({ value: value ?? '', label: label || 'Unnamed group' }))
+		...groups.map((group) => ({ value: group.id, label: group.name || 'Unnamed group' }))
 	]);
 	const emptyExtendedInfo: PersonnelExtendedInfo = {
 		bloodType: '',

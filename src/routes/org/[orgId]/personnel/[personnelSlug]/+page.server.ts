@@ -29,6 +29,9 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
 		},
+		// Artifact use cases keep their own authorization boundary. The shared helper caches
+		// the repeated Personnel access check per request context so these dashboard panels
+		// do not each reload the same Personnel row.
 		extendedInfo,
 		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
 		documents: listPersonnelDocuments(ctx, personnelId, 5),

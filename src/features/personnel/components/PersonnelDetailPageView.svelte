@@ -8,7 +8,10 @@
 		PersonnelCounselingRecord,
 		PersonnelDetailStreams,
 		PersonnelExtendedInfo,
-		PersonnelLeaderNote
+		PersonnelLeaderNote,
+		PersonnelReadinessLane,
+		PersonnelReadinessLaneKey,
+		PersonnelReadinessLaneTone
 	} from '$features/personnel/personnel-detail.types';
 	import type { Personnel } from '$lib/types';
 	import { cn } from '$lib/utils';
@@ -27,13 +30,12 @@
 		detail: PersonnelDetailStreams;
 	}
 
-	type Tone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
+	type Tone = PersonnelReadinessLaneTone;
 
-	interface ReadinessLane {
+	interface ReadinessLaneEntry {
+		key: PersonnelReadinessLaneKey;
 		label: string;
-		value: string;
-		detail: string;
-		tone: Tone;
+		promise: Promise<PersonnelReadinessLane>;
 	}
 
 	let { orgId, person, roster, orgName, detail }: Props = $props();
@@ -69,44 +71,36 @@
 		leaderNotes: ''
 	};
 
-	const readinessLanes = $derived<ReadinessLane[]>([
+	const readinessLaneEntries = $derived<ReadinessLaneEntry[]>([
 		{
+			key: 'availability',
 			label: 'Availability',
-			value: 'Present',
-			detail: 'No active leave, pass, quarters, TDY, or other duty conflict today.',
-			tone: 'good'
+			promise: detail.readinessLanes.availability
 		},
 		{
+			key: 'training',
 			label: 'Training',
-			value: '2 due',
-			detail: 'HIPAA due in 12 days. Cyber Awareness due in 28 days.',
-			tone: 'watch'
+			promise: detail.readinessLanes.training
 		},
 		{
+			key: 'criticalTasks',
 			label: 'Critical Tasks',
-			value: '84%',
-			detail: '7 of 8 required ICT tasks current. IV validation needs renewal.',
-			tone: 'watch'
+			promise: detail.readinessLanes.criticalTasks
 		},
 		{
+			key: 'dutyRoster',
 			label: 'Duty Roster',
-			value: 'Eligible',
-			detail: 'No DA6 exemption. Last duty was 21 days ago.',
-			tone: 'good'
+			promise: detail.readinessLanes.dutyRoster
 		},
 		{
+			key: 'ratingScheme',
 			label: 'Rating Scheme',
-			value: 'Aligned',
-			detail: 'Rater and senior rater assigned. Evaluation lane is aligned.',
-			tone: 'info'
+			promise: detail.readinessLanes.ratingScheme
 		},
 		{
+			key: 'lossTracking',
 			label: 'Loss Tracking',
-			value: person.ets ? 'Action needed' : 'Missing ETS',
-			detail: person.ets
-				? `ETS ${formatDate(person.ets)}. Award tracking needs leader acknowledgment.`
-				: 'No ETS date is set on the personnel record.',
-			tone: person.ets ? 'watch' : 'bad'
+			promise: detail.readinessLanes.lossTracking
 		}
 	]);
 
@@ -214,14 +208,19 @@
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
-					{#each readinessLanes as lane (lane.label)}
-						<article class="rounded-md border bg-card p-4">
-							<div class="flex items-start justify-between gap-3">
-								<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{lane.label}</p>
-								{@render ToneBadge(lane.tone, lane.value)}
-							</div>
-							<p class="mt-4 text-sm leading-relaxed text-muted-foreground">{lane.detail}</p>
-						</article>
+					{#each readinessLaneEntries as lane (lane.key)}
+						{#await lane.promise}
+							{@render ReadinessLaneSkeleton(lane.label)}
+						{:then loadedLane}
+							{@render ReadinessLaneCard(loadedLane)}
+						{:catch}
+							{@render ReadinessLaneCard({
+								label: lane.label,
+								value: 'Unavailable',
+								detail: `${lane.label} could not be loaded.`,
+								tone: 'neutral'
+							})}
+						{/await}
 					{/each}
 				</section>
 
@@ -387,6 +386,29 @@
 	>
 		{label}
 	</span>
+{/snippet}
+
+{#snippet ReadinessLaneCard(lane: PersonnelReadinessLane)}
+	<article class="rounded-md border bg-card p-4">
+		<div class="flex items-start justify-between gap-3">
+			<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{lane.label}</p>
+			{@render ToneBadge(lane.tone, lane.value)}
+		</div>
+		<p class="mt-4 text-sm leading-relaxed text-muted-foreground">{lane.detail}</p>
+	</article>
+{/snippet}
+
+{#snippet ReadinessLaneSkeleton(label: string)}
+	<article class="rounded-md border bg-card p-4" aria-label={`${label} loading`}>
+		<div class="flex items-start justify-between gap-3">
+			<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{label}</p>
+			<Skeleton class="h-5 w-20" />
+		</div>
+		<div class="mt-4 space-y-2">
+			<Skeleton class="h-3 w-full" />
+			<Skeleton class="h-3 w-4/5" />
+		</div>
+	</article>
 {/snippet}
 
 {#snippet SoldierHeader()}

@@ -9,6 +9,15 @@ import type {
 	PersonnelLeaderNote
 } from '$features/personnel/personnel-detail.types';
 import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
+import {
+	currentPersonnelReadinessDate,
+	loadAvailabilityReadinessLane,
+	loadCriticalTasksReadinessLane,
+	loadDutyRosterReadinessLane,
+	loadLossTrackingReadinessLane,
+	loadRatingSchemeReadinessLane,
+	loadTrainingReadinessLane
+} from '$lib/server/core/useCases/personnelReadinessLanes';
 
 interface CounselingRecordRow {
 	id: string;
@@ -64,7 +73,16 @@ async function loadDerivedFollowUps() {
 
 function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string): PersonnelDetailStreams {
 	const extendedInfo = readPersonnelExtendedInfo(ctx, personnelId);
+	const readinessAsOf = currentPersonnelReadinessDate();
 	return {
+		readinessLanes: {
+			availability: loadAvailabilityReadinessLane(ctx, personnelId, readinessAsOf),
+			training: loadTrainingReadinessLane(ctx, personnelId, readinessAsOf),
+			criticalTasks: loadCriticalTasksReadinessLane(ctx, personnelId, readinessAsOf),
+			dutyRoster: loadDutyRosterReadinessLane(ctx, personnelId, readinessAsOf),
+			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
+			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
+		},
 		extendedInfo,
 		counselingRecords: loadCounselingRecords(ctx, personnelId),
 		leaderNotes: loadLeaderNotes(extendedInfo),

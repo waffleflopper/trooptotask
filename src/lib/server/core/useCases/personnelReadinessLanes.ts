@@ -1,0 +1,441 @@
+import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { fail } from '$lib/server/core/errors';
+import type { AvailabilityEntry, Personnel, StatusType, Da6AvailabilityTreatment } from '$lib/types';
+import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import { IctTaskEntity } from '$lib/server/entities/ictTask';
+import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
+import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
+import { isTrainingApplicable } from '$features/training/utils/applicability';
+import { isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
+import { getIctStatus, normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+
+interface PersonnelPolicyRow extends Record<string, unknown> {
+	id: string;
+	group_id: string | null;
+}
+
+interface OrgSettingsRow {
+	critical_tasks_default_expiration_months?: number | null;
+	critical_tasks_expiring_soon_warning_days?: number | null;
+	loss_warning_window_days?: number | null;
+}
+
+interface DutyTemplateRow {
+	id: string;
+	status?: string | null;
+	exempt_personnel_ids?: unknown;
+}
+
+interface DutyRosterHistoryRow {
+	roster?: unknown;
+}
+
+interface DutyRosterAssignmentRow {
+	date?: unknown;
+	assigneeId?: unknown;
+	assignee_id?: unknown;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function loadPersonnelForLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	action: FeatureLanePolicyAction,
+	resourceType: string
+): Promise<Personnel> {
+	const lookupStore = ctx.rawStore ?? ctx.store;
+	const row = await lookupStore.findOne<PersonnelPolicyRow>(
+		'personnel',
+		ctx.auth.orgId,
+		{ id: personnelId },
+		PersonnelEntity.select
+	);
+	if (!row) fail(404, 'Personnel record not found');
+
+	await ctx.auth.requireGroupAccess(personnelId);
+	await requireFeaturePolicy(ctx, action, policyResourceForGroup(row.group_id), resourceType, personnelId);
+	return PersonnelEntity.fromDb(row);
+}
+
+function asOfDate(value?: string | Date): Date {
+	if (!value) return parseDate(formatDate(new Date()));
+	return typeof value === 'string' ? parseDate(value) : parseDate(formatDate(value));
+}
+
+function daysBetween(from: Date, to: Date): number {
+	return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
+}
+
+function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
+	return `${count} ${count === 1 ? singular : pluralLabel}`;
+}
+
+function sentenceList(items: string[], fallback: string): string {
+	return items.length > 0 ? `${items.join('. ')}.` : fallback;
+}
+
+function formatDueLabel(name: string, expirationDate: string | null, today: Date): string {
+	if (!expirationDate) return `${name} not completed`;
+	const days = daysBetween(today, parseDate(expirationDate));
+	if (days < 0) return `${name} expired ${Math.abs(days)}d ago`;
+	if (days === 0) return `${name} due today`;
+	return `${name} ${days}d left`;
+}
+
+function dateRangeDetail(entry: AvailabilityEntry): string {
+	if (entry.startDate === entry.endDate) return formatDisplayDate(entry.startDate);
+	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
+}
+
+function isUnavailableTreatment(treatment: Da6AvailabilityTreatment | null | undefined): boolean {
+	return treatment === 'other-duty' || treatment === 'misconduct-unavailable';
+}
+
+export async function loadAvailabilityReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
+	const today = formatDate(asOfDate(asOf));
+	const [availabilityRows, statusRows] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>(
+			'availability_entries',
+			ctx.auth.orgId,
+			{ personnel_id: personnelId },
+			{
+				select: AvailabilityEntryEntity.select,
+				rangeFilters: [
+					{ column: 'start_date', op: 'lte', value: today },
+					{ column: 'end_date', op: 'gte', value: today }
+				],
+				orderBy: [{ column: 'end_date', ascending: true }]
+			}
+		),
+		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
+			select: StatusTypeEntity.select
+		})
+	]);
+	const entries = AvailabilityEntryEntity.fromDbArray(availabilityRows);
+	const statusById = new Map(StatusTypeEntity.fromDbArray(statusRows).map((status) => [status.id, status]));
+	const current = entries[0];
+	if (!current) {
+		return {
+			label: 'Availability',
+			value: 'Present',
+			detail: 'No active Calendar status for today.',
+			tone: 'good'
+		};
+	}
+
+	const status: StatusType | undefined = statusById.get(current.statusTypeId);
+	const statusName = status?.name ?? 'Unavailable';
+	const note = current.note ? ` ${current.note}` : '';
+	return {
+		label: 'Availability',
+		value: statusName,
+		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
+		tone: isUnavailableTreatment(status?.da6AvailabilityTreatment) ? 'bad' : 'watch'
+	};
+}
+
+export async function loadTrainingReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	const person = await loadPersonnelForLane(
+		ctx,
+		personnelId,
+		POLICY_ACTION_CATALOG.training.viewRecords,
+		'training_record'
+	);
+	const today = asOfDate(asOf);
+	const [typeRows, trainingRows] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('training_types', ctx.auth.orgId, undefined, {
+			select: TrainingTypeEntity.select,
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>(
+			'personnel_trainings',
+			ctx.auth.orgId,
+			{ personnel_id: personnelId },
+			{
+				select: PersonnelTrainingEntity.select
+			}
+		)
+	]);
+	const types = TrainingTypeEntity.fromDbArray(typeRows);
+	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);
+	const trainingByType = new Map(trainings.map((training) => [training.trainingTypeId, training]));
+	const issues = types
+		.filter((type) => isRequiredTrainingForPerson(type, person))
+		.map((type) => trainingIssueForType(type, trainingByType.get(type.id), today))
+		.filter((issue): issue is { name: string; expired: boolean; label: string } => Boolean(issue));
+
+	if (issues.length === 0) {
+		return {
+			label: 'Training',
+			value: 'Current',
+			detail: 'No due or overdue Training requirements.',
+			tone: 'good'
+		};
+	}
+
+	return {
+		label: 'Training',
+		value: `${issues.length} due`,
+		detail: sentenceList(
+			issues.slice(0, 2).map((issue) => issue.label),
+			'Training requirements need attention.'
+		),
+		tone: issues.some((issue) => issue.expired) ? 'bad' : 'watch'
+	};
+}
+
+function isRequiredTrainingForPerson(type: TrainingType, person: Personnel): boolean {
+	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) return false;
+	return isTrainingApplicable(type, person);
+}
+
+function trainingIssueForType(type: TrainingType, training: PersonnelTraining | undefined, today: Date) {
+	if (!training) {
+		return { name: type.name, expired: true, label: `${type.name} not completed` };
+	}
+	if (!training.expirationDate) return null;
+
+	const days = daysBetween(today, parseDate(training.expirationDate));
+	if (days > type.warningDaysYellow) return null;
+
+	return {
+		name: type.name,
+		expired: days < 0,
+		label: formatDueLabel(type.name, training.expirationDate, today)
+	};
+}
+
+export async function loadCriticalTasksReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	const person = await loadPersonnelForLane(
+		ctx,
+		personnelId,
+		POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+		'personnel_ict_completion'
+	);
+	const [taskRows, completionRows, settingsRow] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
+			select: IctTaskEntity.select,
+			isNull: { archived_at: true },
+			orderBy: [
+				{ column: 'sort_order', ascending: true },
+				{ column: 'task_code', ascending: true }
+			]
+		}),
+		ctx.store.findMany<Record<string, unknown>>(
+			'personnel_ict_completions',
+			ctx.auth.orgId,
+			{ personnel_id: personnelId },
+			{ select: PersonnelIctCompletionEntity.select }
+		),
+		ctx.store.findOne<OrgSettingsRow>(
+			'organizations',
+			ctx.auth.orgId,
+			{ id: ctx.auth.orgId },
+			'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+		)
+	]);
+	const tasks = IctTaskEntity.fromDbArray(taskRows).filter((task) => isIctTaskApplicableToMos(task, person.mos));
+	const completions = latestIctCompletionsByTask(PersonnelIctCompletionEntity.fromDbArray(completionRows));
+	const settings = normalizeCriticalTasksSettings({
+		defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
+		expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
+	});
+
+	if (tasks.length === 0) {
+		return {
+			label: 'Critical Tasks',
+			value: 'No tasks',
+			detail: 'No applicable ICT tasks for this Soldier.',
+			tone: 'neutral'
+		};
+	}
+
+	let current = 0;
+	let attention = 0;
+	for (const task of tasks) {
+		const status = getIctStatus(completions.get(task.id)?.completedAt ?? null, task, settings, asOf);
+		if (status.status === 'current') current += 1;
+		else attention += 1;
+	}
+	const percent = Math.round((current / tasks.length) * 100);
+	return {
+		label: 'Critical Tasks',
+		value: `${percent}%`,
+		detail: `${current} of ${tasks.length} applicable ICT tasks current. ${plural(attention, 'task')} needs attention.`,
+		tone: percent >= 90 ? 'good' : percent >= 70 ? 'watch' : 'bad'
+	};
+}
+
+function latestIctCompletionsByTask(completions: PersonnelIctCompletion[]): Map<string, PersonnelIctCompletion> {
+	const latest = new Map<string, PersonnelIctCompletion>();
+	for (const completion of completions) {
+		const existing = latest.get(completion.ictTaskId);
+		if (!existing || completion.completedAt > existing.completedAt) {
+			latest.set(completion.ictTaskId, completion);
+		}
+	}
+	return latest;
+}
+
+export async function loadDutyRosterReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'duty_roster_history');
+	const today = asOfDate(asOf);
+	const [templateRows, historyRows] = await Promise.all([
+		ctx.store.findMany<DutyTemplateRow>('duty_templates', ctx.auth.orgId, undefined, {
+			select: 'id, status, exempt_personnel_ids'
+		}),
+		ctx.store.findMany<DutyRosterHistoryRow>('duty_roster_history', ctx.auth.orgId, undefined, {
+			select: 'roster',
+			orderBy: [{ column: 'end_date', ascending: false }]
+		})
+	]);
+
+	const exemptTemplateCount = templateRows.filter(
+		(row) => row.status === 'active' && jsonArrayIncludes(row.exempt_personnel_ids, personnelId)
+	).length;
+	const lastDutyDate = latestDutyDate(historyRows, personnelId);
+	const lastDutyDetail = lastDutyDate
+		? `Last duty was ${daysBetween(parseDate(lastDutyDate), today)} days ago.`
+		: 'No accepted Duty Roster history found.';
+	const exemptionDetail =
+		exemptTemplateCount > 0 ? `Exempt from ${plural(exemptTemplateCount, 'active template')}.` : 'No DA6 exemption.';
+
+	return {
+		label: 'Duty Roster',
+		value: exemptTemplateCount > 0 ? 'Exempt' : 'Eligible',
+		detail: `${exemptionDetail} ${lastDutyDetail}`,
+		tone: exemptTemplateCount > 0 ? 'info' : 'good'
+	};
+}
+
+function jsonArrayIncludes(value: unknown, expected: string): boolean {
+	return Array.isArray(value) && value.some((item) => item === expected);
+}
+
+function latestDutyDate(rows: DutyRosterHistoryRow[], personnelId: string): string | null {
+	let latest: string | null = null;
+	for (const row of rows) {
+		if (!Array.isArray(row.roster)) continue;
+		for (const assignment of row.roster as DutyRosterAssignmentRow[]) {
+			const assigneeId = assignment.assigneeId ?? assignment.assignee_id;
+			const date = typeof assignment.date === 'string' ? assignment.date : null;
+			if (assigneeId !== personnelId || !date) continue;
+			if (!latest || date > latest) latest = date;
+		}
+	}
+	return latest;
+}
+
+export async function loadRatingSchemeReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	_asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry');
+	const rows = await ctx.store.findMany<Record<string, unknown>>(
+		'rating_scheme_entries',
+		ctx.auth.orgId,
+		{ rated_person_id: personnelId },
+		{
+			select: RatingSchemeEntryEntity.select,
+			orderBy: [{ column: 'rating_period_end', ascending: false }]
+		}
+	);
+	const active = RatingSchemeEntryEntity.fromDbArray(rows).find((entry) => entry.status !== 'completed');
+	if (!active) {
+		return {
+			label: 'Rating Scheme',
+			value: 'Not assigned',
+			detail: 'No active Rating Scheme entry for this Soldier.',
+			tone: 'bad'
+		};
+	}
+
+	const hasRater = hasRatingPerson(active.raterPersonId, active.raterName);
+	const hasSeniorRater = hasRatingPerson(active.seniorRaterPersonId, active.seniorRaterName);
+	if (hasRater && hasSeniorRater) {
+		return {
+			label: 'Rating Scheme',
+			value: 'Aligned',
+			detail: 'Rater and senior rater assigned.',
+			tone: 'info'
+		};
+	}
+
+	return {
+		label: 'Rating Scheme',
+		value: hasRater ? 'Senior rater needed' : 'Rater needed',
+		detail: `${hasRater ? 'Rater assigned' : 'Rater missing'}. ${hasSeniorRater ? 'Senior rater assigned' : 'Senior rater missing'}.`,
+		tone: 'watch'
+	};
+}
+
+function hasRatingPerson(id: string | null, name: string | null): boolean {
+	return Boolean(id || name?.trim());
+}
+
+export async function loadLossTrackingReadinessLane(
+	ctx: UseCaseContext,
+	personnelId: string,
+	asOf?: string | Date
+): Promise<PersonnelReadinessLane> {
+	const person = await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
+	if (!person.ets) {
+		return {
+			label: 'Loss Tracking',
+			value: 'Missing ETS',
+			detail: 'No ETS date is set on the personnel record.',
+			tone: 'bad'
+		};
+	}
+
+	const today = asOfDate(asOf);
+	const daysUntilEts = daysBetween(today, parseDate(person.ets));
+	const settings = await ctx.store
+		.findOne<OrgSettingsRow>('organizations', ctx.auth.orgId, { id: ctx.auth.orgId }, 'loss_warning_window_days')
+		.catch(() => null);
+	const warningWindowDays = settings?.loss_warning_window_days ?? 180;
+	const detail =
+		daysUntilEts < 0
+			? `ETS ${formatDisplayDate(person.ets)} was ${Math.abs(daysUntilEts)} days ago.`
+			: `ETS ${formatDisplayDate(person.ets)} is ${daysUntilEts} days away.`;
+
+	return {
+		label: 'Loss Tracking',
+		value: daysUntilEts <= warningWindowDays ? 'Action needed' : 'No loss risk',
+		detail,
+		tone: daysUntilEts < 0 ? 'bad' : daysUntilEts <= warningWindowDays ? 'watch' : 'good'
+	};
+}
+
+export function currentPersonnelReadinessDate(): string {
+	return formatDate(new Date());
+}

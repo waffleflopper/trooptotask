@@ -45,7 +45,27 @@ export interface PersonnelLeaderNote {
 	text: string;
 }
 
+export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
+
+export type PersonnelReadinessLaneKey =
+	| 'availability'
+	| 'training'
+	| 'criticalTasks'
+	| 'dutyRoster'
+	| 'ratingScheme'
+	| 'lossTracking';
+
+export interface PersonnelReadinessLane {
+	label: string;
+	value: string;
+	detail: string;
+	tone: PersonnelReadinessLaneTone;
+}
+
+export type PersonnelReadinessLaneStreams = Record<PersonnelReadinessLaneKey, Promise<PersonnelReadinessLane>>;
+
 export interface PersonnelDetailStreams {
+	readinessLanes: PersonnelReadinessLaneStreams;
 	extendedInfo: Promise<PersonnelExtendedInfo | null>;
 	counselingRecords: Promise<PersonnelCounselingRecord[]>;
 	leaderNotes: Promise<PersonnelLeaderNote[]>;

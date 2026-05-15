@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 interface FollowUpRow {
@@ -55,25 +54,6 @@ function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, st
 	};
 }
 
-async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
-	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string }>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'id'
-	);
-	if (!person) fail(404, 'Personnel record not found');
-
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		await policyResourceForPersonnel(ctx, personnelId),
-		'personnel',
-		personnelId
-	);
-	await ctx.auth.requireGroupAccess(personnelId);
-}
-
 function requireUserId(ctx: UseCaseContext): string {
 	if (!ctx.auth.userId) fail(401, 'Authenticated user required');
 	return ctx.auth.userId;
@@ -85,7 +65,7 @@ export async function listPersonnelFollowUps(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelFollowUp[]> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 
 	const rows = await ctx.store.findMany<FollowUpRow>(
 		'personnel_follow_ups',
@@ -116,7 +96,7 @@ export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 	}
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 	const now = new Date().toISOString();
 
 	const row = await ctx.store.insert<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
@@ -147,7 +127,7 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 	}
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 
 	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
 		id: input.followUpId,
@@ -182,7 +162,7 @@ export async function updatePersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 	}
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 
 	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
 		id: input.followUpId,
@@ -227,7 +207,7 @@ export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: un
 	}
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
 		id: input.followUpId,
 		personnel_id: input.personnelId
@@ -254,7 +234,7 @@ export async function deletePersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	}
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
 		id: input.followUpId,
 		personnel_id: input.personnelId

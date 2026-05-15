@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelLeaderNote } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 interface LeaderNoteRow {
@@ -34,32 +33,13 @@ function mapLeaderNoteRow(row: LeaderNoteRow, contributorLabels = new Map<string
 	};
 }
 
-async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
-	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string }>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'id'
-	);
-	if (!person) fail(404, 'Personnel record not found');
-
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		await policyResourceForPersonnel(ctx, personnelId),
-		'personnel',
-		personnelId
-	);
-	await ctx.auth.requireGroupAccess(personnelId);
-}
-
 export async function listPersonnelLeaderNotes(
 	ctx: UseCaseContext,
 	personnelId: string,
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelLeaderNote[]> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 
 	const rows = await ctx.store.findMany<LeaderNoteRow>(
 		'leader_notes',
@@ -86,7 +66,7 @@ export async function createPersonnelLeaderNote(ctx: UseCaseContext, rawInput: u
 	}
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 
 	const row = await ctx.store.insert<LeaderNoteRow>('leader_notes', ctx.auth.orgId, {
 		personnel_id: input.personnelId,
@@ -106,7 +86,7 @@ export async function createPersonnelLeaderNote(ctx: UseCaseContext, rawInput: u
 }
 
 async function loadLeaderNote(ctx: UseCaseContext, personnelId: string, noteId: string): Promise<LeaderNoteRow> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 	const row = await ctx.store.findOne<LeaderNoteRow>('leader_notes', ctx.auth.orgId, {
 		id: noteId,
 		personnel_id: personnelId

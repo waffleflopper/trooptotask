@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 export const PERSONNEL_DOCUMENTS_BUCKET = 'personnel-documents';
@@ -56,25 +55,6 @@ function mapDocumentRow(row: PersonnelDocumentRow, contributorLabels = new Map<s
 		createdAt: row.created_at ?? new Date().toISOString(),
 		archivedAt: row.archived_at ?? null
 	};
-}
-
-async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
-	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string }>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'id'
-	);
-	if (!person) fail(404, 'Personnel record not found');
-
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		await policyResourceForPersonnel(ctx, personnelId),
-		'personnel',
-		personnelId
-	);
-	await ctx.auth.requireGroupAccess(personnelId);
 }
 
 function hasPdfSignature(bytes: Uint8Array): boolean {
@@ -179,7 +159,7 @@ export async function listPersonnelDocuments(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelDocument[]> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 	const rows = await ctx.store.findMany<PersonnelDocumentRow>(
 		'personnel_documents',
 		ctx.auth.orgId,
@@ -208,7 +188,7 @@ export async function createPersonnelDocument(
 	await assertAcceptedDocumentFile(rawInput.file);
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 	await assertStorageCap(ctx, input.personnelId, rawInput.file.size);
 
 	const filename = safeFilename(rawInput.file.name);
@@ -245,7 +225,7 @@ export async function createPersonnelDocumentDownloadUrl(
 	ctx: UseCaseContext,
 	input: PersonnelDocumentDownloadInput
 ): Promise<{ url: string }> {
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 	const document = await ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
 		id: input.documentId,
 		personnel_id: input.personnelId
@@ -262,7 +242,7 @@ async function loadDocument(
 	personnelId: string,
 	documentId: string
 ): Promise<PersonnelDocumentRow> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 	const row = await ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
 		id: documentId,
 		personnel_id: personnelId

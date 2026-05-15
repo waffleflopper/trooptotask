@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelCounselingRecord } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
@@ -8,7 +7,7 @@ import {
 	SENSITIVE_FILE_BUCKET,
 	validateSensitiveFileSelection
 } from '$lib/storage/sensitiveFiles';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 export const COUNSELING_RECORDS_BUCKET = SENSITIVE_FILE_BUCKET;
@@ -63,25 +62,6 @@ function mapCounselingRow(
 	};
 }
 
-async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
-	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string }>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'id'
-	);
-	if (!person) fail(404, 'Personnel record not found');
-
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		await policyResourceForPersonnel(ctx, personnelId),
-		'personnel',
-		personnelId
-	);
-	await ctx.auth.requireGroupAccess(personnelId);
-}
-
 function hasPdfSignature(bytes: Uint8Array): boolean {
 	return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
 }
@@ -111,7 +91,7 @@ export async function listPersonnelCounselingRecords(
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelCounselingRecord[]> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 	const rows = await ctx.store.findMany<CounselingRecordRow>(
 		'counseling_records',
 		ctx.auth.orgId,
@@ -144,7 +124,7 @@ export async function createPersonnelCounselingRecord(
 	await assertPdf(rawInput.file);
 
 	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelArtifactAccess(ctx, input.personnelId);
 
 	const filename = safeFilename(rawInput.file.name);
 	const filePath = buildSensitiveFilePath({
@@ -189,7 +169,7 @@ async function loadCounselingRecord(
 	personnelId: string,
 	recordId: string
 ): Promise<CounselingRecordRow> {
-	await requirePersonnelOperate(ctx, personnelId);
+	await requirePersonnelArtifactAccess(ctx, personnelId);
 	const row = await ctx.store.findOne<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
 		id: recordId,
 		personnel_id: personnelId

@@ -8,6 +8,7 @@
 	import type {
 		PersonnelCounselingRecord,
 		PersonnelDetailStreams,
+		PersonnelDocument,
 		PersonnelExtendedInfo,
 		PersonnelLeaderNote,
 		PersonnelReadinessLane,
@@ -50,6 +51,12 @@
 	let counselingSaving = $state(false);
 	let counselingError = $state('');
 	let createdCounselingRecords = $state<PersonnelCounselingRecord[]>([]);
+	let documentTitle = $state('');
+	let documentFile = $state<File | null>(null);
+	let documentSaving = $state(false);
+	let documentError = $state('');
+	let openingDocumentId = $state('');
+	let createdDocuments = $state<PersonnelDocument[]>([]);
 
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
@@ -146,6 +153,18 @@
 		return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 	}
 
+	function formatBytes(bytes: number) {
+		if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+		return `${bytes} B`;
+	}
+
+	function documentTitleFromFilename(filename: string) {
+		const name = filename.split(/[\\/]/).pop() ?? '';
+		const base = name.replace(/\.[^.]+$/, '');
+		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
+	}
+
 	function getContactRows(info: PersonnelExtendedInfo): string[][] {
 		return [
 			['Blood type', info.bloodType || 'Not set'],
@@ -195,6 +214,62 @@
 	function updateCounselingFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		counselingFile = input.files?.[0] ?? null;
+	}
+
+	function updateDocumentFile(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		documentFile = input.files?.[0] ?? null;
+		if (documentFile && !documentTitle.trim()) {
+			documentTitle = documentTitleFromFilename(documentFile.name);
+		}
+	}
+
+	async function submitDocument() {
+		documentError = '';
+		if (!documentFile) {
+			documentError = 'Choose a PDF, JPEG, PNG, or HEIC file.';
+			return;
+		}
+		if (!documentTitle.trim()) {
+			documentError = 'Enter a document title.';
+			return;
+		}
+
+		const formData = new FormData();
+		formData.set('title', documentTitle.trim());
+		formData.set('file', documentFile);
+
+		documentSaving = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/documents`, {
+				method: 'POST',
+				body: formData
+			});
+			if (!response.ok) throw new Error('Unable to upload document.');
+			const record = (await response.json()) as PersonnelDocument;
+			createdDocuments = [record, ...createdDocuments];
+			documentTitle = '';
+			documentFile = null;
+		} catch (caught) {
+			documentError = caught instanceof Error ? caught.message : 'Unable to upload document.';
+		} finally {
+			documentSaving = false;
+		}
+	}
+
+	async function openDocument(documentId: string) {
+		documentError = '';
+		openingDocumentId = documentId;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/documents/${documentId}/download`);
+			if (!response.ok) throw new Error('Unable to open document.');
+			const { url } = (await response.json()) as { url: string };
+			window.open(url, '_blank', 'noopener,noreferrer');
+		} catch (caught) {
+			documentError = caught instanceof Error ? caught.message : 'Unable to open document.';
+		} finally {
+			openingDocumentId = '';
+		}
 	}
 
 	async function submitCounselingRecord() {
@@ -351,6 +426,66 @@
 											<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{record.summary}</p>
 										{/if}
 										<p class="mt-2 text-xs text-muted-foreground">{record.filePath}</p>
+									</div>
+								</article>
+							{/each}
+						</div>
+					</section>
+				{/await}
+
+				{#await detail.documents}
+					{@render PanelSkeleton('Recent documents')}
+				{:then loadedDocuments}
+					{@const documents = [...createdDocuments, ...loadedDocuments]}
+					<section class="rounded-md border bg-card">
+						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+							<div class="flex items-center gap-2">
+								<FileTextIcon aria-hidden="true" size={18} />
+								<h2 class="font-semibold">Recent documents</h2>
+							</div>
+							<Button href={`${detailBasePath}/documents`} variant="outline" size="sm">Show all</Button>
+						</div>
+						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitDocument())}>
+							<div class="grid gap-3 md:grid-cols-[1fr_auto]">
+								<Input bind:value={documentTitle} aria-label="Document title" placeholder="Document title" />
+								<Button type="submit" size="sm" disabled={documentSaving}>
+									{documentSaving ? 'Uploading...' : 'Upload'}
+								</Button>
+							</div>
+							<Input
+								type="file"
+								accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
+								aria-label="Document file"
+								onchange={updateDocumentFile}
+							/>
+							{#if documentError}
+								<p class="text-sm text-destructive">{documentError}</p>
+							{/if}
+						</form>
+						<div class="divide-y">
+							{#if documents.length === 0}
+								<p class="p-4 text-sm text-muted-foreground">No documents have been uploaded for this Soldier yet.</p>
+							{/if}
+							{#each documents.slice(0, 5) as document (document.id)}
+								<article class="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_9rem]">
+									<div>
+										<p class="font-medium">{document.title}</p>
+										<p class="mt-1 text-xs text-muted-foreground">Uploaded by {document.uploadedBy}</p>
+									</div>
+									<div class="grid gap-2 text-sm text-muted-foreground lg:justify-items-end lg:text-right">
+										<div>
+											<p>{formatBytes(document.fileSizeBytes)}</p>
+											<p>{formatDate(document.createdAt.slice(0, 10))}</p>
+										</div>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={openingDocumentId === document.id}
+											onclick={() => openDocument(document.id)}
+										>
+											{openingDocumentId === document.id ? 'Opening...' : 'Open'}
+										</Button>
 									</div>
 								</article>
 							{/each}

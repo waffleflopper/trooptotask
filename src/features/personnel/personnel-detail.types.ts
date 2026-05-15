@@ -30,6 +30,14 @@ export interface PersonnelCounselingsPageData {
 	records: PersonnelCounselingRecord[];
 }
 
+export interface PersonnelDocumentsPageData {
+	orgId: string;
+	personnelId: string;
+	title: string;
+	emptyState: string;
+	records: PersonnelDocument[];
+}
+
 export interface PersonnelExtendedInfo {
 	bloodType: string;
 	basd: string;
@@ -73,6 +81,17 @@ export interface PersonnelCounselingRecord {
 	createdAt: string;
 }
 
+export interface PersonnelDocument {
+	id: string;
+	personnelId: string;
+	title: string;
+	filePath: string;
+	fileSizeBytes: number;
+	contentType: string;
+	uploadedBy: string;
+	createdAt: string;
+}
+
 export interface PersonnelLeaderNote {
 	id: string;
 	personnelId: string;
@@ -105,6 +124,7 @@ export interface PersonnelDetailStreams {
 	readinessLanes: PersonnelReadinessLaneStreams;
 	extendedInfo: Promise<PersonnelExtendedInfo | null>;
 	counselingRecords: Promise<PersonnelCounselingRecord[]>;
+	documents: Promise<PersonnelDocument[]>;
 	leaderNotes: Promise<PersonnelLeaderNote[]>;
 	followUps: Promise<string[]>;
 }

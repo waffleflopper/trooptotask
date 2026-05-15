@@ -66,6 +66,7 @@ function makeDetail(overrides: Partial<PersonnelDetailStreams> = {}): PersonnelD
 		},
 		extendedInfo: Promise.resolve(null),
 		counselingRecords: Promise.resolve([]),
+		documents: Promise.resolve([]),
 		leaderNotes: Promise.resolve([]),
 		followUps: Promise.resolve([]),
 		...overrides
@@ -107,5 +108,39 @@ describe('PersonnelDetailPageView', () => {
 		});
 
 		expect(screen.getByLabelText('Availability loading')).toBeTruthy();
+	});
+
+	it('shows recent document uploads with upload and show-all actions', async () => {
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail({
+					documents: Promise.resolve([
+						{
+							id: 'document-1',
+							personnelId: 'person-1',
+							title: 'BLS Card',
+							filePath: 'org-1/personnel/person-1/documents/bls.pdf',
+							fileSizeBytes: 2048,
+							contentType: 'application/pdf',
+							uploadedBy: 'test-user',
+							createdAt: '2026-05-01T10:00:00Z'
+						}
+					])
+				})
+			}
+		});
+
+		expect(await screen.findByText('Recent documents')).toBeTruthy();
+		expect(screen.getByText('BLS Card')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Upload' })).toBeTruthy();
+		expect(
+			screen
+				.getAllByRole('link', { name: 'Show all' })
+				.some((link) => link.getAttribute('href')?.endsWith('/documents'))
+		).toBe(true);
 	});
 });

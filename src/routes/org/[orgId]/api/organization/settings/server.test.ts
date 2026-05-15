@@ -18,7 +18,8 @@ describe('/api/organization/settings', () => {
 				archive_retention_months: 36,
 				loss_warning_window_days: 180,
 				critical_tasks_default_expiration_months: null,
-				critical_tasks_expiring_soon_warning_days: null
+				critical_tasks_expiring_soon_warning_days: null,
+				personnel_document_storage_cap_bytes: 104857600
 			}
 		]);
 
@@ -26,7 +27,8 @@ describe('/api/organization/settings', () => {
 			archiveRetentionMonths: 48,
 			lossWarningWindowDays: 90,
 			criticalTasksDefaultExpirationMonths: 18,
-			criticalTasksExpiringSoonWarningDays: 45
+			criticalTasksExpiringSoonWarningDays: 45,
+			personnelDocumentStorageCapMb: 256
 		});
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
 			id: ctx.auth.orgId
@@ -37,7 +39,8 @@ describe('/api/organization/settings', () => {
 			archive_retention_months: 48,
 			loss_warning_window_days: 90,
 			critical_tasks_default_expiration_months: 18,
-			critical_tasks_expiring_soon_warning_days: 45
+			critical_tasks_expiring_soon_warning_days: 45,
+			personnel_document_storage_cap_bytes: 268435456
 		});
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -48,7 +51,8 @@ describe('/api/organization/settings', () => {
 					archive_retention_months: 48,
 					loss_warning_window_days: 90,
 					critical_tasks_default_expiration_months: 18,
-					critical_tasks_expiring_soon_warning_days: 45
+					critical_tasks_expiring_soon_warning_days: 45,
+					personnel_document_storage_cap_bytes: 268435456
 				}
 			})
 		]);
@@ -63,7 +67,8 @@ describe('/api/organization/settings', () => {
 				archive_retention_months: 36,
 				loss_warning_window_days: 180,
 				critical_tasks_default_expiration_months: 12,
-				critical_tasks_expiring_soon_warning_days: 60
+				critical_tasks_expiring_soon_warning_days: 60,
+				personnel_document_storage_cap_bytes: 104857600
 			}
 		]);
 
@@ -77,7 +82,8 @@ describe('/api/organization/settings', () => {
 			archive_retention_months: 36,
 			loss_warning_window_days: 90,
 			critical_tasks_default_expiration_months: 12,
-			critical_tasks_expiring_soon_warning_days: 60
+			critical_tasks_expiring_soon_warning_days: 60,
+			personnel_document_storage_cap_bytes: 104857600
 		});
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -95,6 +101,16 @@ describe('/api/organization/settings', () => {
 
 		await expect(handleUseCaseRequest(_postConfig, ctx, { lossWarningWindowDays: 0 })).rejects.toThrow(
 			'Warning window must be between 1 and 365 days'
+		);
+		expect(updateById).not.toHaveBeenCalled();
+	});
+
+	it('rejects invalid personnel document cap values before writing', async () => {
+		const ctx = createTestContext();
+		const updateById = vi.spyOn(ctx.rawStore, 'updateById');
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, { personnelDocumentStorageCapMb: 9 })).rejects.toThrow(
+			'Personnel document storage cap must be between 10 and 1024 MB'
 		);
 		expect(updateById).not.toHaveBeenCalled();
 	});

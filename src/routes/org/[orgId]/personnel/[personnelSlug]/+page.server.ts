@@ -14,6 +14,7 @@ import {
 } from '$lib/server/core/useCases/personnelReadinessLanes';
 import { listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
+import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
 
 async function loadDerivedFollowUps() {
 	return [
@@ -38,6 +39,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 		},
 		extendedInfo,
 		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
+		documents: listPersonnelDocuments(ctx, personnelId, 5),
 		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
 		followUps: loadDerivedFollowUps()
 	};

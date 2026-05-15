@@ -84,17 +84,17 @@ describe('/api/personnel/[id]/documents', () => {
 			}
 		]);
 
-		const archived = await handleUseCaseRequest(_patchConfig, ctx, {
+		const archived = (await handleUseCaseRequest(_patchConfig, ctx, {
 			personnelId: 'person-1',
 			documentId: 'document-1',
 			action: 'archive'
-		});
+		})) as { archivedAt: string | null };
 		expect(archived.archivedAt).toBeTruthy();
-		const restored = await handleUseCaseRequest(_patchConfig, ctx, {
+		const restored = (await handleUseCaseRequest(_patchConfig, ctx, {
 			personnelId: 'person-1',
 			documentId: 'document-1',
 			action: 'restore'
-		});
+		})) as { archivedAt: string | null };
 		expect(restored.archivedAt).toBeNull();
 		await expect(
 			handleUseCaseRequest(_patchConfig, ctx, {

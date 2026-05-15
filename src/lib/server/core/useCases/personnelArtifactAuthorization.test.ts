@@ -29,7 +29,7 @@ describe('personnel artifact authorization', () => {
 		const ctx = operateContext();
 		const findOne = ctx.rawStore.findOne.bind(ctx.rawStore);
 		const findOneSpy = vi.fn(findOne);
-		ctx.rawStore.findOne = findOneSpy;
+		ctx.rawStore.findOne = findOneSpy as unknown as typeof ctx.rawStore.findOne;
 
 		await Promise.all([
 			listPersonnelCounselingRecords(ctx, 'person-1', 5),

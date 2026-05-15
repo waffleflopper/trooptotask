@@ -1,6 +1,6 @@
 export interface Personnel {
 	id: string;
-	slug: string;
+	slug?: string;
 	rank: string;
 	lastName: string;
 	firstName: string;

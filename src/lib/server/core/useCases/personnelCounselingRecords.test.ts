@@ -9,6 +9,7 @@ import {
 } from './personnelCounselingRecords';
 
 const LEADER_USER_ID = '11111111-1111-4111-8111-111111111111';
+const VALID_PDF_BYTES = ['%PDF-1.7\nsigned counseling'];
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: string | null = null) {
 	ctx.store.seed('personnel', [
@@ -62,7 +63,7 @@ describe('personnel counseling records', () => {
 				email: 'leader@example.com'
 			}
 		]);
-		const file = new File(['pdf-bytes'], 'monthly-counseling.pdf', { type: 'application/pdf' });
+		const file = new File(VALID_PDF_BYTES, 'monthly-counseling.pdf', { type: 'application/pdf' });
 
 		const created = await createPersonnelCounselingRecord(ctx, {
 			personnelId: 'person-1',
@@ -149,6 +150,61 @@ describe('personnel counseling records', () => {
 				file: new File(['image'], 'renamed.pdf', { type: 'image/png' })
 			})
 		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('rejects MIME-spoofed PDFs by checking file contents', async () => {
+		const ctx = operateContext();
+		seedPersonnel(ctx);
+
+		await expect(
+			createPersonnelCounselingRecord(ctx, {
+				personnelId: 'person-1',
+				dateConducted: '2026-05-10',
+				title: 'Spoofed PDF',
+				file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		expect(ctx.storagePort.files).toHaveLength(0);
+	});
+
+	it('rejects oversize PDF uploads before writing storage', async () => {
+		const ctx = operateContext();
+		seedPersonnel(ctx);
+		const oversizeBytes = new Uint8Array(10 * 1024 * 1024 + 1);
+		oversizeBytes.set([0x25, 0x50, 0x44, 0x46], 0);
+
+		await expect(
+			createPersonnelCounselingRecord(ctx, {
+				personnelId: 'person-1',
+				dateConducted: '2026-05-10',
+				title: 'Oversize PDF',
+				file: new File([oversizeBytes], 'oversize.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		expect(ctx.storagePort.files).toHaveLength(0);
+	});
+
+	it('removes the uploaded counseling file if record creation fails', async () => {
+		const ctx = operateContext();
+		seedPersonnel(ctx);
+		const insert = ctx.store.insert.bind(ctx.store);
+		ctx.store.insert = async (table, orgId, data, select) => {
+			if (table === 'counseling_records') throw new Error('insert failed');
+			return insert(table, orgId, data, select);
+		};
+
+		await expect(
+			createPersonnelCounselingRecord(ctx, {
+				personnelId: 'person-1',
+				dateConducted: '2026-05-10',
+				title: 'Cleanup PDF',
+				file: new File(VALID_PDF_BYTES, 'cleanup.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toThrow('insert failed');
+
+		expect(ctx.storagePort.files).toHaveLength(0);
 	});
 
 	it('requires Personnel operate capability and group scope', async () => {

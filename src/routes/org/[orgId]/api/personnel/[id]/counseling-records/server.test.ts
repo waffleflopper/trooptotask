@@ -29,7 +29,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			dateConducted: '2026-05-01',
 			title: 'Event-oriented counseling',
 			summary: '',
-			file: new File(['pdf'], 'event.pdf', { type: 'application/pdf' })
+			file: new File(['%PDF-1.7\napi upload'], 'event.pdf', { type: 'application/pdf' })
 		});
 		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' });
 
@@ -42,7 +42,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 		formData.set('dateConducted', '2026-05-01');
 		formData.set('title', 'Route id counseling');
 		formData.set('summary', 'Short summary');
-		formData.set('file', new File(['pdf'], 'route.pdf', { type: 'application/pdf' }));
+		formData.set('file', new File(['%PDF-1.7\nroute upload'], 'route.pdf', { type: 'application/pdf' }));
 
 		await expect(
 			_postConfig.parseInput?.({

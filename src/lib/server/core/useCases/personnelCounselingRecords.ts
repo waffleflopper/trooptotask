@@ -82,10 +82,16 @@ async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string)
 	await ctx.auth.requireGroupAccess(personnelId);
 }
 
-function assertPdf(file: File): void {
+function hasPdfSignature(bytes: Uint8Array): boolean {
+	return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+}
+
+async function assertPdf(file: File): Promise<void> {
 	if (!(file instanceof File)) fail(400, 'A signed counseling PDF is required.');
 	const validationError = validateSensitiveFileSelection(file);
 	if (validationError) fail(400, validationError);
+	const bytes = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+	if (!hasPdfSignature(bytes)) fail(400, 'Counseling upload contents must be a PDF file.');
 }
 
 function safeFilename(filename: string): string {
@@ -135,7 +141,7 @@ export async function createPersonnelCounselingRecord(
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	}
 	if (!rawInput.file) fail(400, 'A signed counseling PDF is required.');
-	assertPdf(rawInput.file);
+	await assertPdf(rawInput.file);
 
 	const input = parsed.data;
 	await requirePersonnelOperate(ctx, input.personnelId);
@@ -149,18 +155,24 @@ export async function createPersonnelCounselingRecord(
 	});
 	await ctx.storage.upload(COUNSELING_RECORDS_BUCKET, filePath, rawInput.file);
 
-	const row = await ctx.store.insert<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
-		personnel_id: input.personnelId,
-		date_conducted: input.dateConducted,
-		title: input.title,
-		subject: input.title,
-		summary: input.summary || null,
-		notes: input.summary || null,
-		uploaded_by: ctx.auth.userId ?? 'Unknown leader',
-		file_path: filePath,
-		status: 'completed',
-		created_at: new Date().toISOString()
-	});
+	let row: CounselingRecordRow;
+	try {
+		row = await ctx.store.insert<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
+			personnel_id: input.personnelId,
+			date_conducted: input.dateConducted,
+			title: input.title,
+			subject: input.title,
+			summary: input.summary || null,
+			notes: input.summary || null,
+			uploaded_by: ctx.auth.userId ?? 'Unknown leader',
+			file_path: filePath,
+			status: 'completed',
+			created_at: new Date().toISOString()
+		});
+	} catch (error) {
+		await ctx.storage.remove(COUNSELING_RECORDS_BUCKET, [filePath]);
+		throw error;
+	}
 
 	ctx.audit.log({
 		action: 'personnel.counseling_record.created',

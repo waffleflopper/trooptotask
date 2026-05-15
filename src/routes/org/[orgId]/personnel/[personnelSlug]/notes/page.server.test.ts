@@ -57,7 +57,8 @@ describe('personnel notes page server load', () => {
 				author: 'test-user',
 				date: '2026-05-14',
 				text: 'Recent observation',
-				createdAt: '2026-05-14T10:00:00Z'
+				createdAt: '2026-05-14T10:00:00Z',
+				archivedAt: null
 			}
 		]);
 	});

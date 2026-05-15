@@ -9,8 +9,10 @@
 	let saving = $state(false);
 	let error = $state('');
 	let openingDocumentId = $state('');
+	let actionId = $state('');
 	let createdRecords = $state<PersonnelDocument[]>([]);
-	let records = $derived([...createdRecords, ...data.records]);
+	let archivedIds = $state<string[]>([]);
+	let records = $derived([...createdRecords, ...data.records].filter((record) => !archivedIds.includes(record.id)));
 
 	function formatDate(value: string) {
 		const date = new Date(value);
@@ -87,6 +89,25 @@
 			openingDocumentId = '';
 		}
 	}
+
+	async function archiveDocument(record: PersonnelDocument) {
+		error = '';
+		actionId = record.id;
+		try {
+			const response = await fetch(`/org/${data.orgId}/api/personnel/${data.personnelId}/documents/${record.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'archive' })
+			});
+			if (!response.ok) throw new Error('Unable to archive document.');
+			createdRecords = createdRecords.filter((item) => item.id !== record.id);
+			archivedIds = [...archivedIds, record.id];
+		} catch (caught) {
+			error = caught instanceof Error ? caught.message : 'Unable to archive document.';
+		} finally {
+			actionId = '';
+		}
+	}
 </script>
 
 <main class="p-6">
@@ -127,15 +148,26 @@
 									<p>{formatBytes(record.fileSizeBytes)}</p>
 									<p>{formatDate(record.createdAt)}</p>
 								</div>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									disabled={openingDocumentId === record.id}
-									onclick={() => openDocument(record.id)}
-								>
-									{openingDocumentId === record.id ? 'Opening...' : 'Open'}
-								</Button>
+								<div class="flex gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										disabled={openingDocumentId === record.id}
+										onclick={() => openDocument(record.id)}
+									>
+										{openingDocumentId === record.id ? 'Opening...' : 'Open'}
+									</Button>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										disabled={actionId === record.id}
+										onclick={() => archiveDocument(record)}
+									>
+										Archive
+									</Button>
+								</div>
 							</div>
 						</article>
 					{/each}

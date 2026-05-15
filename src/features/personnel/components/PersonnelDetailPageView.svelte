@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Combobox from '$lib/components/ui/combobox';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -48,6 +50,11 @@
 	let basicInfoRank = $state('');
 	let basicInfoFirstName = $state('');
 	let basicInfoLastName = $state('');
+	let basicInfoMos = $state('');
+	let basicInfoClinicRole = $state('');
+	let basicInfoGroupId = $state('');
+	let basicInfoEts = $state('');
+	let basicInfoDeros = $state('');
 	let basicInfoSaving = $state(false);
 	let basicInfoError = $state('');
 	let updatedFollowUps = $state<PersonnelFollowUp[]>([]);
@@ -77,8 +84,13 @@
 
 	const currentPerson = $derived(updatedPerson ?? person);
 	const displayName = $derived(`${currentPerson.rank} ${currentPerson.lastName}, ${currentPerson.firstName}`);
-	const peersInGroup = $derived(roster.filter((item) => item.groupName === currentPerson.groupName).length);
 	const detailBasePath = $derived(`/org/${orgId}/personnel/${currentPerson.slug}`);
+	const groupOptions = $derived([
+		{ value: '', label: 'No Group Assigned' },
+		...Array.from(
+			new Map(roster.filter((item) => item.groupId).map((item) => [item.groupId, item.groupName])).entries()
+		).map(([value, label]) => ({ value: value ?? '', label: label || 'Unnamed group' }))
+	]);
 	const emptyExtendedInfo: PersonnelExtendedInfo = {
 		bloodType: '',
 		basd: '',
@@ -144,7 +156,6 @@
 		['MOS', currentPerson.mos || 'Not set'],
 		['Duty role', currentPerson.clinicRole || 'Not set'],
 		['Group', currentPerson.groupName || orgName],
-		['Group roster count', `${peersInGroup} assigned`],
 		['ETS', currentPerson.ets ? formatDate(currentPerson.ets) : 'Not set'],
 		['PCS / DEROS', currentPerson.deros ? formatDate(currentPerson.deros) : 'Not set']
 	]);
@@ -183,6 +194,10 @@
 		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
 	}
 
+	function fileNameFromPath(path: string) {
+		return path.split(/[\\/]/).pop() ?? path;
+	}
+
 	function mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
 		const updatedById = new Map(updatedFollowUps.map((item) => [item.id, item]));
 		const merged = loaded.map((item) => updatedById.get(item.id) ?? item);
@@ -204,6 +219,11 @@
 		basicInfoRank = currentPerson.rank;
 		basicInfoFirstName = currentPerson.firstName;
 		basicInfoLastName = currentPerson.lastName;
+		basicInfoMos = currentPerson.mos;
+		basicInfoClinicRole = currentPerson.clinicRole;
+		basicInfoGroupId = currentPerson.groupId ?? '';
+		basicInfoEts = currentPerson.ets ?? '';
+		basicInfoDeros = currentPerson.deros ?? '';
 		basicInfoError = '';
 		editingBasicInfo = true;
 	}
@@ -219,7 +239,12 @@
 					id: currentPerson.id,
 					rank: basicInfoRank.trim(),
 					lastName: basicInfoLastName.trim(),
-					firstName: basicInfoFirstName.trim()
+					firstName: basicInfoFirstName.trim(),
+					mos: basicInfoMos.trim(),
+					clinicRole: basicInfoClinicRole.trim(),
+					groupId: basicInfoGroupId || null,
+					ets: basicInfoEts || null,
+					deros: basicInfoDeros || null
 				})
 			});
 			if (!response.ok) throw new Error('Unable to update basic info.');
@@ -318,7 +343,7 @@
 
 		leaderNoteSaving = true;
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/leader-notes`, {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/leader-notes`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ text })
@@ -364,7 +389,7 @@
 
 		documentSaving = true;
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/documents`, {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/documents`, {
 				method: 'POST',
 				body: formData
 			});
@@ -384,7 +409,7 @@
 		documentError = '';
 		openingDocumentId = documentId;
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/documents/${documentId}/download`);
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/documents/${documentId}/download`);
 			if (!response.ok) throw new Error('Unable to open document.');
 			const { url } = (await response.json()) as { url: string };
 			window.open(url, '_blank', 'noopener,noreferrer');
@@ -414,7 +439,7 @@
 
 		counselingSaving = true;
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/${person.id}/counseling-records`, {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/counseling-records`, {
 				method: 'POST',
 				body: formData
 			});
@@ -461,7 +486,7 @@
 					{@render PanelSkeleton('Leader follow-ups')}
 				{:then openFollowUps}
 					{@const followUps = mergeUpdatedFollowUps(openFollowUps)}
-					{@const visibleFollowUps = followUps.slice(0, 5)}
+					{@const visibleFollowUps = followUps.filter((item) => item.status === 'open').slice(0, 5)}
 					{@const openCount = followUps.filter((item) => item.status === 'open').length}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
@@ -480,7 +505,7 @@
 						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitFollowUp())}>
 							<div class="grid gap-3 md:grid-cols-[1fr_10rem_auto]">
 								<Input bind:value={followUpTitle} aria-label="Follow-up title" placeholder="Follow-up title" />
-								<Input bind:value={followUpDueDate} type="date" aria-label="Follow-up due date" />
+								<DatePicker bind:value={followUpDueDate} aria-label="Follow-up due date" placeholder="Due date" />
 								<Button type="submit" size="sm" disabled={followUpSaving}>
 									{followUpSaving ? 'Adding...' : 'Add'}
 								</Button>
@@ -490,6 +515,8 @@
 						<div class="divide-y">
 							{#if followUps.length === 0}
 								<p class="p-4 text-sm text-muted-foreground">No follow-ups have been added for this Soldier yet.</p>
+							{:else if visibleFollowUps.length === 0}
+								<p class="p-4 text-sm text-muted-foreground">No open follow-ups.</p>
 							{:else}
 								{#each visibleFollowUps as item, index (item.id)}
 									<div class="grid gap-3 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
@@ -540,7 +567,11 @@
 							onsubmit={(event) => (event.preventDefault(), submitCounselingRecord())}
 						>
 							<div class="grid gap-3 md:grid-cols-[9rem_1fr]">
-								<Input bind:value={counselingDate} type="date" aria-label="Counseling date conducted" />
+								<DatePicker
+									bind:value={counselingDate}
+									aria-label="Counseling date conducted"
+									placeholder="Date conducted"
+								/>
 								<Input bind:value={counselingTitle} aria-label="Counseling title" placeholder="Counseling title" />
 							</div>
 							<Textarea
@@ -584,7 +615,7 @@
 										{#if record.summary}
 											<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{record.summary}</p>
 										{/if}
-										<p class="mt-2 text-xs text-muted-foreground">{record.filePath}</p>
+										<p class="mt-2 text-xs text-muted-foreground">File: {fileNameFromPath(record.filePath)}</p>
 									</div>
 								</article>
 							{/each}
@@ -670,6 +701,22 @@
 							<div class="grid gap-3 sm:grid-cols-2">
 								<Input bind:value={basicInfoFirstName} aria-label="First name" />
 								<Input bind:value={basicInfoLastName} aria-label="Last name" />
+							</div>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<Input bind:value={basicInfoMos} aria-label="MOS" />
+								<Input bind:value={basicInfoClinicRole} aria-label="Duty role" />
+							</div>
+							<Combobox.Root items={groupOptions} bind:value={basicInfoGroupId} label="Group" autoHighlight>
+								<Combobox.Trigger clearable placeholder="No Group Assigned" aria-label="Group" />
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search groups..." />
+									<Combobox.Empty>No groups found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+							<div class="grid gap-3 sm:grid-cols-2">
+								<DatePicker bind:value={basicInfoEts} aria-label="ETS" placeholder="ETS" />
+								<DatePicker bind:value={basicInfoDeros} aria-label="PCS / DEROS" placeholder="PCS / DEROS" />
 							</div>
 							{#if basicInfoError}
 								<p class="text-sm text-destructive">{basicInfoError}</p>

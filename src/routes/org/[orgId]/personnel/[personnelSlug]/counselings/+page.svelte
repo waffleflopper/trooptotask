@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type {
@@ -8,12 +9,14 @@
 	} from '$features/personnel/personnel-detail.types';
 
 	let { data }: { data: PersonnelCounselingsPageData } = $props();
-	let records = $derived(data.records);
+	let localRecords = $state<PersonnelCounselingRecord[] | null>(null);
+	const records = $derived(localRecords ?? data.records);
 	let dateConducted = $state(new Date().toISOString().slice(0, 10));
 	let title = $state('');
 	let summary = $state('');
 	let file = $state<File | null>(null);
 	let saving = $state(false);
+	let actionId = $state('');
 	let error = $state('');
 
 	function updateFile(event: Event) {
@@ -46,7 +49,7 @@
 			});
 			if (!response.ok) throw new Error('Unable to upload counseling PDF.');
 			const record = (await response.json()) as PersonnelCounselingRecord;
-			records = [record, ...records];
+			localRecords = [record, ...records];
 			title = '';
 			summary = '';
 			file = null;
@@ -57,10 +60,35 @@
 		}
 	}
 
+	async function archiveRecord(record: PersonnelCounselingRecord) {
+		error = '';
+		actionId = record.id;
+		try {
+			const response = await fetch(
+				`/org/${data.orgId}/api/personnel/${data.personnelId}/counseling-records/${record.id}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ action: 'archive' })
+				}
+			);
+			if (!response.ok) throw new Error('Unable to archive counseling record.');
+			localRecords = records.filter((item) => item.id !== record.id);
+		} catch (caught) {
+			error = caught instanceof Error ? caught.message : 'Unable to archive counseling record.';
+		} finally {
+			actionId = '';
+		}
+	}
+
 	function formatDate(value: string) {
 		const date = new Date(`${value}T00:00:00`);
 		if (Number.isNaN(date.getTime())) return value;
 		return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+	}
+
+	function fileNameFromPath(path: string) {
+		return path.split(/[\\/]/).pop() ?? path;
 	}
 </script>
 
@@ -72,7 +100,7 @@
 		<div class="space-y-5 p-6">
 			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitRecord())}>
 				<div class="grid gap-3 md:grid-cols-[10rem_1fr]">
-					<Input bind:value={dateConducted} type="date" aria-label="Counseling date conducted" />
+					<DatePicker bind:value={dateConducted} aria-label="Counseling date conducted" placeholder="Date conducted" />
 					<Input bind:value={title} aria-label="Counseling title" placeholder="Counseling title" />
 				</div>
 				<Textarea bind:value={summary} rows={3} aria-label="Counseling summary" placeholder="Optional summary" />
@@ -90,7 +118,7 @@
 			{:else}
 				<div class="divide-y rounded-md border">
 					{#each records as record (record.id)}
-						<article class="grid gap-3 p-4 md:grid-cols-[11rem_1fr]">
+						<article class="grid gap-3 p-4 md:grid-cols-[11rem_1fr_auto]">
 							<div>
 								<p class="text-sm font-medium">{formatDate(record.dateConducted)}</p>
 								<p class="text-xs text-muted-foreground">Uploaded by {record.uploadedBy}</p>
@@ -100,8 +128,17 @@
 								{#if record.summary}
 									<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{record.summary}</p>
 								{/if}
-								<p class="mt-2 text-xs text-muted-foreground">{record.filePath}</p>
+								<p class="mt-2 text-xs text-muted-foreground">File: {fileNameFromPath(record.filePath)}</p>
 							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								disabled={actionId === record.id}
+								onclick={() => archiveRecord(record)}
+							>
+								Archive
+							</Button>
 						</article>
 					{/each}
 				</div>

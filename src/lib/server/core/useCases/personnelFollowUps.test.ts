@@ -8,6 +8,8 @@ import {
 	updatePersonnelFollowUp
 } from './personnelFollowUps';
 
+const LEADER_USER_ID = '11111111-1111-4111-8111-111111111111';
+
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: string | null = null) {
 	ctx.store.seed('personnel', [
 		{
@@ -33,10 +35,19 @@ describe('personnel follow-ups', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
+				userId: LEADER_USER_ID,
 				scopeSet: { kind: 'organization' }
 			}
 		});
 		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{
+				id: 'membership-1',
+				organization_id: ctx.auth.orgId,
+				user_id: LEADER_USER_ID,
+				email: 'leader@example.com'
+			}
+		]);
 
 		const created = await createPersonnelFollowUp(ctx, {
 			personnelId: 'person-1',
@@ -70,7 +81,7 @@ describe('personnel follow-ups', () => {
 			personnelId: 'person-1',
 			title: 'Complete BLC packet',
 			status: 'open',
-			createdBy: 'test-user'
+			createdBy: 'leader@example.com'
 		});
 		expect(completed.status).toBe('completed');
 		expect(completed.completedAt).toBeTruthy();

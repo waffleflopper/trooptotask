@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from './personnelLeaderNotes';
 
+const LEADER_USER_ID = '11111111-1111-4111-8111-111111111111';
+
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: string | null = null) {
 	ctx.store.seed('personnel', [
 		{
@@ -27,10 +29,19 @@ describe('personnel leader notes', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
+				userId: LEADER_USER_ID,
 				scopeSet: { kind: 'organization' }
 			}
 		});
 		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{
+				id: 'membership-1',
+				organization_id: ctx.auth.orgId,
+				user_id: LEADER_USER_ID,
+				email: 'leader@example.com'
+			}
+		]);
 		ctx.store.seed('leader_notes', [
 			{
 				id: 'note-old',
@@ -50,7 +61,7 @@ describe('personnel leader notes', () => {
 
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
-			author: 'test-user',
+			author: 'leader@example.com',
 			text: 'Completed board prep packet.'
 		});
 		expect(notes.map((note) => note.id)).toEqual([created.id, 'note-old']);

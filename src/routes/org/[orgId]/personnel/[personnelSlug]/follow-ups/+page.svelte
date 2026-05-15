@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelFollowUp, PersonnelFollowUpsPageData } from '$features/personnel/personnel-detail.types';
@@ -104,7 +105,7 @@
 			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitFollowUp())}>
 				<div class="grid gap-3 md:grid-cols-[1fr_12rem_auto]">
 					<Input bind:value={title} aria-label="Follow-up title" placeholder="Follow-up title" />
-					<Input bind:value={dueDate} type="date" aria-label="Follow-up due date" />
+					<DatePicker bind:value={dueDate} aria-label="Follow-up due date" placeholder="Due date" />
 					<Button type="submit" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Save' : 'Add'}</Button>
 				</div>
 				<Textarea bind:value={notes} rows={3} aria-label="Follow-up notes" placeholder="Optional notes" />

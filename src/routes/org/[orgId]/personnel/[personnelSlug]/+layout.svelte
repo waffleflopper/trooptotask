@@ -54,6 +54,7 @@
 			<Button href={`${detailBasePath}/counselings`} variant="ghost" size="sm">Counselings</Button>
 			<Button href={`${detailBasePath}/documents`} variant="ghost" size="sm">Documents</Button>
 			<Button href={`${detailBasePath}/notes`} variant="ghost" size="sm">Notes</Button>
+			<Button href={`${detailBasePath}/archived`} variant="ghost" size="sm">Archived</Button>
 		</nav>
 	</header>
 

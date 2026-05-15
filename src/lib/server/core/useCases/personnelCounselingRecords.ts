@@ -3,8 +3,13 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelCounselingRecord } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { SENSITIVE_FILE_BUCKET, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
+import {
+	buildSensitiveFilePath,
+	SENSITIVE_FILE_BUCKET,
+	validateSensitiveFileSelection
+} from '$lib/storage/sensitiveFiles';
 import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
 export const COUNSELING_RECORDS_BUCKET = SENSITIVE_FILE_BUCKET;
 
@@ -19,6 +24,7 @@ interface CounselingRecordRow {
 	uploaded_by?: string | null;
 	file_path: string | null;
 	created_at?: string | null;
+	archived_at?: string | null;
 }
 
 export interface PersonnelCounselingRecordInput {
@@ -36,7 +42,10 @@ const counselingInputSchema = z.object({
 	summary: z.string().trim().max(500).optional().default('')
 });
 
-function mapCounselingRow(row: CounselingRecordRow): PersonnelCounselingRecord {
+function mapCounselingRow(
+	row: CounselingRecordRow,
+	contributorLabels = new Map<string, string>()
+): PersonnelCounselingRecord {
 	const title = row.title ?? row.subject ?? 'Uploaded counseling PDF';
 	const summary = row.summary ?? row.notes ?? undefined;
 	const createdAt = row.created_at ?? `${row.date_conducted}T00:00:00Z`;
@@ -46,10 +55,11 @@ function mapCounselingRow(row: CounselingRecordRow): PersonnelCounselingRecord {
 		dateConducted: row.date_conducted,
 		title,
 		summary: summary || undefined,
-		status: row.file_path ? 'uploaded' : 'needs-title',
-		uploadedBy: row.uploaded_by ?? 'Leader upload',
+		status: row.archived_at ? 'archived' : row.file_path ? 'uploaded' : 'needs-title',
+		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by ?? 'Leader upload'),
 		filePath: row.file_path ?? `pending-upload/${row.id}.pdf`,
-		createdAt
+		createdAt,
+		archivedAt: row.archived_at ?? null
 	};
 }
 
@@ -92,7 +102,8 @@ function safeFilename(filename: string): string {
 export async function listPersonnelCounselingRecords(
 	ctx: UseCaseContext,
 	personnelId: string,
-	limit?: number
+	limit?: number,
+	options: { archived?: boolean } = {}
 ): Promise<PersonnelCounselingRecord[]> {
 	await requirePersonnelOperate(ctx, personnelId);
 	const rows = await ctx.store.findMany<CounselingRecordRow>(
@@ -104,10 +115,15 @@ export async function listPersonnelCounselingRecords(
 				{ column: 'date_conducted', ascending: false },
 				{ column: 'created_at', ascending: false }
 			],
+			isNull: { archived_at: !options.archived },
 			limit
 		}
 	);
-	return rows.map(mapCounselingRow);
+	const labels = await loadPersonnelContributorLabels(
+		ctx,
+		rows.map((row) => row.uploaded_by)
+	);
+	return rows.map((row) => mapCounselingRow(row, labels));
 }
 
 export async function createPersonnelCounselingRecord(
@@ -125,7 +141,12 @@ export async function createPersonnelCounselingRecord(
 	await requirePersonnelOperate(ctx, input.personnelId);
 
 	const filename = safeFilename(rawInput.file.name);
-	const filePath = `${ctx.auth.orgId}/personnel/${input.personnelId}/counseling-records/${crypto.randomUUID()}-${filename}`;
+	const filePath = buildSensitiveFilePath({
+		orgId: ctx.auth.orgId,
+		scope: 'counseling-records',
+		recordId: input.personnelId,
+		filename: `${crypto.randomUUID()}-${filename}`
+	});
 	await ctx.storage.upload(COUNSELING_RECORDS_BUCKET, filePath, rawInput.file);
 
 	const row = await ctx.store.insert<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
@@ -147,5 +168,70 @@ export async function createPersonnelCounselingRecord(
 		resourceId: input.personnelId
 	});
 
-	return mapCounselingRow(row);
+	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
+	return mapCounselingRow(row, labels);
+}
+
+async function loadCounselingRecord(
+	ctx: UseCaseContext,
+	personnelId: string,
+	recordId: string
+): Promise<CounselingRecordRow> {
+	await requirePersonnelOperate(ctx, personnelId);
+	const row = await ctx.store.findOne<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
+		id: recordId,
+		personnel_id: personnelId
+	});
+	if (!row) fail(404, 'Counseling record not found');
+	return row;
+}
+
+export async function archivePersonnelCounselingRecord(
+	ctx: UseCaseContext,
+	input: { personnelId: string; recordId: string }
+): Promise<PersonnelCounselingRecord> {
+	const existing = await loadCounselingRecord(ctx, input.personnelId, input.recordId);
+	if (existing.archived_at) fail(409, 'Counseling record is already archived');
+	const row = await ctx.store.update<CounselingRecordRow>('counseling_records', ctx.auth.orgId, input.recordId, {
+		archived_at: new Date().toISOString()
+	});
+	ctx.audit.log({
+		action: 'personnel.counseling_record.archived',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
+	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
+	return mapCounselingRow(row, labels);
+}
+
+export async function restorePersonnelCounselingRecord(
+	ctx: UseCaseContext,
+	input: { personnelId: string; recordId: string }
+): Promise<PersonnelCounselingRecord> {
+	await loadCounselingRecord(ctx, input.personnelId, input.recordId);
+	const row = await ctx.store.update<CounselingRecordRow>('counseling_records', ctx.auth.orgId, input.recordId, {
+		archived_at: null
+	});
+	ctx.audit.log({
+		action: 'personnel.counseling_record.restored',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
+	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
+	return mapCounselingRow(row, labels);
+}
+
+export async function deletePersonnelCounselingRecord(
+	ctx: UseCaseContext,
+	input: { personnelId: string; recordId: string }
+): Promise<void> {
+	const row = await loadCounselingRecord(ctx, input.personnelId, input.recordId);
+	if (!row.archived_at) fail(409, 'Archive counseling records before deleting them');
+	await ctx.store.delete('counseling_records', ctx.auth.orgId, input.recordId);
+	if (row.file_path) await ctx.storage.remove(COUNSELING_RECORDS_BUCKET, [row.file_path]);
+	ctx.audit.log({
+		action: 'personnel.counseling_record.deleted',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 }

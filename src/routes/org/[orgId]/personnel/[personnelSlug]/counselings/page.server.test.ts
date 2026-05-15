@@ -64,7 +64,8 @@ describe('personnel counselings page server load', () => {
 				status: 'uploaded',
 				uploadedBy: 'test-user',
 				filePath: 'test-org/personnel/person-1/counseling-records/monthly.pdf',
-				createdAt: '2026-05-02T10:00:00Z'
+				createdAt: '2026-05-02T10:00:00Z',
+				archivedAt: null
 			}
 		]);
 	});

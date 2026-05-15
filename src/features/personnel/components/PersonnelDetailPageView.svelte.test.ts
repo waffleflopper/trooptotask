@@ -197,7 +197,8 @@ describe('PersonnelDetailPageView', () => {
 			body: JSON.stringify({ status: 'completed' })
 		});
 		await waitFor(() => expect(screen.getByText('0 open')).toBeTruthy());
-		expect(screen.getByRole('button', { name: 'Reopen Complete BLC packet' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Reopen Complete BLC packet' })).toBeNull();
+		expect(screen.getByText('No open follow-ups.')).toBeTruthy();
 	});
 
 	it('adds a dashboard follow-up without reloading the page', async () => {
@@ -233,7 +234,7 @@ describe('PersonnelDetailPageView', () => {
 			target: { value: 'Schedule packet review' }
 		});
 		await fireEvent.input(screen.getByLabelText('Follow-up notes'), { target: { value: 'Bring checklist' } });
-		await fireEvent.input(screen.getByLabelText('Follow-up due date'), { target: { value: '2026-06-10' } });
+		expect(screen.getByRole('button', { name: 'Follow-up due date' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups', {
@@ -242,7 +243,7 @@ describe('PersonnelDetailPageView', () => {
 			body: JSON.stringify({
 				title: 'Schedule packet review',
 				notes: 'Bring checklist',
-				dueDate: '2026-06-10'
+				dueDate: null
 			})
 		});
 		await waitFor(() => expect(screen.getByText('Schedule packet review')).toBeTruthy());
@@ -314,7 +315,12 @@ describe('PersonnelDetailPageView', () => {
 				id: 'person-1',
 				rank: 'SSG',
 				lastName: 'Rivera-Jones',
-				firstName: 'Monica'
+				firstName: 'Monica',
+				mos: '68W',
+				clinicRole: 'Medic',
+				groupId: 'group-1',
+				ets: '2026-06-20',
+				deros: null
 			})
 		});
 		await waitFor(() => expect(document.title).toBe('SSG Rivera-Jones, Monica - Personnel'));

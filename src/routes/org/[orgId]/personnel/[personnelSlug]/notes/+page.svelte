@@ -5,8 +5,10 @@
 
 	let { data }: { data: PersonnelNotesPageData } = $props();
 	let noteText = $state('');
-	let notes = $derived(data.notes);
+	let localNotes = $state<PersonnelLeaderNote[] | null>(null);
+	const notes = $derived(localNotes ?? data.notes);
 	let saving = $state(false);
+	let actionId = $state('');
 	let error = $state('');
 
 	async function submitNote() {
@@ -26,12 +28,30 @@
 			});
 			if (!response.ok) throw new Error('Unable to save leader note.');
 			const note = (await response.json()) as PersonnelLeaderNote;
-			notes = [note, ...notes];
+			localNotes = [note, ...notes];
 			noteText = '';
 		} catch (caught) {
 			error = caught instanceof Error ? caught.message : 'Unable to save leader note.';
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function archiveNote(note: PersonnelLeaderNote) {
+		error = '';
+		actionId = note.id;
+		try {
+			const response = await fetch(`/org/${data.orgId}/api/personnel/${data.personnelId}/leader-notes/${note.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'archive' })
+			});
+			if (!response.ok) throw new Error('Unable to archive leader note.');
+			localNotes = notes.filter((item) => item.id !== note.id);
+		} catch (caught) {
+			error = caught instanceof Error ? caught.message : 'Unable to archive leader note.';
+		} finally {
+			actionId = '';
 		}
 	}
 </script>
@@ -64,12 +84,25 @@
 			{:else}
 				<div class="divide-y rounded-md border">
 					{#each notes as note (note.id)}
-						<article class="p-4">
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<p class="text-sm font-medium">{note.author}</p>
-								<p class="text-xs text-muted-foreground">{note.date}</p>
+						<article class="grid gap-3 p-4 md:grid-cols-[1fr_auto]">
+							<div>
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="text-sm font-medium">{note.author}</p>
+									<p class="text-xs text-muted-foreground">{note.date}</p>
+								</div>
+								<p class="mt-2 text-sm leading-relaxed">{note.text}</p>
 							</div>
-							<p class="mt-2 text-sm leading-relaxed">{note.text}</p>
+							<div class="flex items-start justify-end">
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									disabled={actionId === note.id}
+									onclick={() => archiveNote(note)}
+								>
+									Archive
+								</Button>
+							</div>
 						</article>
 					{/each}
 				</div>

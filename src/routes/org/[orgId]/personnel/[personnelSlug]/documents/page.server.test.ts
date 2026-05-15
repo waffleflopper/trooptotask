@@ -63,7 +63,8 @@ describe('personnel documents page server load', () => {
 				fileSizeBytes: 500,
 				contentType: 'application/pdf',
 				uploadedBy: 'test-user',
-				createdAt: '2026-05-01T10:00:00Z'
+				createdAt: '2026-05-01T10:00:00Z',
+				archivedAt: null
 			}
 		]);
 	});

@@ -4,7 +4,9 @@ export interface PersonnelDetailHeader {
 	person: Personnel;
 }
 
-export type PersonnelDetailSubpageKey = 'follow-ups' | 'counselings' | 'documents' | 'notes';
+export type PersonnelDetailSubpageKey = 'follow-ups' | 'counselings' | 'documents' | 'notes' | 'archived';
+
+export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';
 
 export interface PersonnelDetailSubpageData {
 	personnelId: string;
@@ -87,6 +89,7 @@ export interface PersonnelCounselingRecord {
 	uploadedBy: string;
 	filePath: string;
 	createdAt: string;
+	archivedAt?: string | null;
 }
 
 export interface PersonnelDocument {
@@ -98,6 +101,7 @@ export interface PersonnelDocument {
 	contentType: string;
 	uploadedBy: string;
 	createdAt: string;
+	archivedAt?: string | null;
 }
 
 export type PersonnelFollowUpStatus = 'open' | 'completed' | 'archived';
@@ -122,7 +126,22 @@ export interface PersonnelLeaderNote {
 	date: string;
 	text: string;
 	createdAt: string;
+	archivedAt?: string | null;
 }
+
+export interface PersonnelArchivedArtifactsPageData {
+	orgId: string;
+	personnelId: string;
+	title: string;
+	emptyState: string;
+	records: PersonnelArchivedArtifact[];
+}
+
+export type PersonnelArchivedArtifact =
+	| ({ kind: 'follow-up' } & PersonnelFollowUp)
+	| ({ kind: 'counseling' } & PersonnelCounselingRecord & { archivedAt: string | null })
+	| ({ kind: 'document' } & PersonnelDocument & { archivedAt: string | null })
+	| ({ kind: 'note' } & PersonnelLeaderNote & { archivedAt: string | null });
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
 

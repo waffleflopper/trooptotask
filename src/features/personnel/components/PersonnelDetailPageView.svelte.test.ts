@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '$lib/types';
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 });
 
 const person: Personnel = {
@@ -142,5 +143,139 @@ describe('PersonnelDetailPageView', () => {
 				.getAllByRole('link', { name: 'Show all' })
 				.some((link) => link.getAttribute('href')?.endsWith('/documents'))
 		).toBe(true);
+	});
+
+	it('completes a dashboard follow-up without reloading the page', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					id: 'follow-up-1',
+					personnelId: 'person-1',
+					title: 'Complete BLC packet',
+					notes: '',
+					dueDate: null,
+					status: 'completed',
+					createdBy: 'leader-1',
+					createdAt: '2026-05-01T10:00:00Z',
+					updatedAt: '2026-05-02T10:00:00Z',
+					completedAt: '2026-05-02T10:00:00Z'
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail({
+					followUps: Promise.resolve([
+						{
+							id: 'follow-up-1',
+							personnelId: 'person-1',
+							title: 'Complete BLC packet',
+							notes: '',
+							dueDate: null,
+							status: 'open',
+							createdBy: 'leader-1',
+							createdAt: '2026-05-01T10:00:00Z',
+							updatedAt: '2026-05-01T10:00:00Z',
+							completedAt: null
+						}
+					])
+				})
+			}
+		});
+
+		await fireEvent.click(await screen.findByRole('button', { name: 'Complete Complete BLC packet' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups/follow-up-1', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ status: 'completed' })
+		});
+		await waitFor(() => expect(screen.getByText('0 open')).toBeTruthy());
+		expect(screen.getByRole('button', { name: 'Reopen Complete BLC packet' })).toBeTruthy();
+	});
+
+	it('saves basic personnel info from the dashboard sidebar', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					...person,
+					slug: 'rivera-jones-monica',
+					rank: 'SSG',
+					lastName: 'Rivera-Jones',
+					firstName: 'Monica'
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail()
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.input(screen.getByLabelText('Rank'), { target: { value: 'SSG' } });
+		await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: 'Rivera-Jones' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				id: 'person-1',
+				rank: 'SSG',
+				lastName: 'Rivera-Jones',
+				firstName: 'Monica'
+			})
+		});
+		await waitFor(() => expect(document.title).toBe('SSG Rivera-Jones, Monica - Personnel'));
+	});
+
+	it('shows inline errors when quick actions fail', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail({
+					followUps: Promise.resolve([
+						{
+							id: 'follow-up-1',
+							personnelId: 'person-1',
+							title: 'Complete BLC packet',
+							notes: '',
+							dueDate: null,
+							status: 'open',
+							createdBy: 'leader-1',
+							createdAt: '2026-05-01T10:00:00Z',
+							updatedAt: '2026-05-01T10:00:00Z',
+							completedAt: null
+						}
+					])
+				})
+			}
+		});
+
+		await fireEvent.click(await screen.findByRole('button', { name: 'Complete Complete BLC packet' }));
+		expect(await screen.findByText('Unable to update follow-up.')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+		expect(await screen.findByText('Unable to update basic info.')).toBeTruthy();
 	});
 });

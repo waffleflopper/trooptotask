@@ -92,6 +92,21 @@ export interface PersonnelDocument {
 	createdAt: string;
 }
 
+export type PersonnelFollowUpStatus = 'open' | 'completed' | 'archived';
+
+export interface PersonnelFollowUp {
+	id: string;
+	personnelId: string;
+	title: string;
+	notes: string;
+	dueDate: string | null;
+	status: PersonnelFollowUpStatus;
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+	completedAt: string | null;
+}
+
 export interface PersonnelLeaderNote {
 	id: string;
 	personnelId: string;
@@ -126,5 +141,5 @@ export interface PersonnelDetailStreams {
 	counselingRecords: Promise<PersonnelCounselingRecord[]>;
 	documents: Promise<PersonnelDocument[]>;
 	leaderNotes: Promise<PersonnelLeaderNote[]>;
-	followUps: Promise<string[]>;
+	followUps: Promise<PersonnelFollowUp[]>;
 }

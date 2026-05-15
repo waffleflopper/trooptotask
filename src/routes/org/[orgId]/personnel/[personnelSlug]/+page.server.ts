@@ -15,15 +15,7 @@ import {
 import { listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
-
-async function loadDerivedFollowUps() {
-	return [
-		'Review board packet checklist with 1SG.',
-		'Verify HIPAA completion before next staff duty cycle.',
-		'Acknowledge award tracking for upcoming ETS.',
-		'Update leader notes after family care calendar review.'
-	];
-}
+import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';
 
 function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string): PersonnelDetailStreams {
 	const extendedInfo = readPersonnelExtendedInfo(ctx, personnelId);
@@ -41,7 +33,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
 		documents: listPersonnelDocuments(ctx, personnelId, 5),
 		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
-		followUps: loadDerivedFollowUps()
+		followUps: listPersonnelFollowUps(ctx, personnelId, 5)
 	};
 }
 

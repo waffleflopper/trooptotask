@@ -1,0 +1,157 @@
+import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
+import { fail } from '$lib/server/core/errors';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+
+interface FollowUpRow {
+	id: string;
+	personnel_id: string;
+	title: string;
+	notes: string | null;
+	due_date: string | null;
+	status: 'open' | 'completed' | 'archived';
+	created_by: string;
+	created_at: string;
+	updated_at: string;
+	completed_at: string | null;
+}
+
+export const personnelFollowUpInputSchema = z.object({
+	personnelId: z.string().min(1),
+	title: z.string().trim().min(1, 'Follow-up title is required').max(200),
+	notes: z.string().trim().max(2000).optional().default(''),
+	dueDate: z.string().date().nullable().optional().default(null)
+});
+
+export const personnelFollowUpStatusSchema = z.object({
+	personnelId: z.string().min(1),
+	followUpId: z.string().min(1),
+	status: z.enum(['open', 'completed'])
+});
+
+function mapFollowUpRow(row: FollowUpRow): PersonnelFollowUp {
+	return {
+		id: row.id,
+		personnelId: row.personnel_id,
+		title: row.title,
+		notes: row.notes ?? '',
+		dueDate: row.due_date,
+		status: row.status,
+		createdBy: row.created_by,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+		completedAt: row.completed_at
+	};
+}
+
+async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
+	const person = await (ctx.rawStore ?? ctx.store).findOne<{ id: string }>(
+		'personnel',
+		ctx.auth.orgId,
+		{ id: personnelId },
+		'id'
+	);
+	if (!person) fail(404, 'Personnel record not found');
+
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		await policyResourceForPersonnel(ctx, personnelId),
+		'personnel',
+		personnelId
+	);
+	await ctx.auth.requireGroupAccess(personnelId);
+}
+
+function requireUserId(ctx: UseCaseContext): string {
+	if (!ctx.auth.userId) fail(401, 'Authenticated user required');
+	return ctx.auth.userId;
+}
+
+export async function listPersonnelFollowUps(
+	ctx: UseCaseContext,
+	personnelId: string,
+	limit?: number
+): Promise<PersonnelFollowUp[]> {
+	await requirePersonnelOperate(ctx, personnelId);
+
+	const rows = await ctx.store.findMany<FollowUpRow>(
+		'personnel_follow_ups',
+		ctx.auth.orgId,
+		{ personnel_id: personnelId },
+		{
+			// Open sorts after completed lexicographically, so descending keeps active work first while archived is excluded.
+			orderBy: [
+				{ column: 'status', ascending: false },
+				{ column: 'created_at', ascending: false }
+			],
+			notInFilters: { status: ['archived'] },
+			limit
+		}
+	);
+
+	return rows.map(mapFollowUpRow);
+}
+
+export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+	const parsed = personnelFollowUpInputSchema.safeParse(rawInput);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	}
+
+	const input = parsed.data;
+	await requirePersonnelOperate(ctx, input.personnelId);
+	const now = new Date().toISOString();
+
+	const row = await ctx.store.insert<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
+		personnel_id: input.personnelId,
+		title: input.title,
+		notes: input.notes,
+		due_date: input.dueDate,
+		status: 'open',
+		created_by: requireUserId(ctx),
+		created_at: now,
+		updated_at: now
+	});
+
+	ctx.audit.log({
+		action: 'personnel.follow_up.created',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
+
+	return mapFollowUpRow(row);
+}
+
+export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+	const parsed = personnelFollowUpStatusSchema.safeParse(rawInput);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	}
+
+	const input = parsed.data;
+	await requirePersonnelOperate(ctx, input.personnelId);
+
+	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
+		id: input.followUpId,
+		personnel_id: input.personnelId
+	});
+	if (!current) fail(404, 'Follow-up not found');
+
+	const now = new Date().toISOString();
+	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
+		status: input.status,
+		completed_at: input.status === 'completed' ? now : null,
+		updated_at: now
+	});
+
+	ctx.audit.log({
+		action: `personnel.follow_up.${input.status === 'completed' ? 'completed' : 'reopened'}`,
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
+
+	return mapFollowUpRow(row);
+}

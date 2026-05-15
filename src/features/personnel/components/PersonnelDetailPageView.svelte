@@ -10,6 +10,7 @@
 		PersonnelDetailStreams,
 		PersonnelDocument,
 		PersonnelExtendedInfo,
+		PersonnelFollowUp,
 		PersonnelLeaderNote,
 		PersonnelReadinessLane,
 		PersonnelReadinessLaneKey,
@@ -21,6 +22,8 @@
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
+	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		orgId: string;
@@ -39,7 +42,17 @@
 	}
 
 	let { orgId, person, roster, orgName, detail }: Props = $props();
+	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
+	let editingBasicInfo = $state(false);
+	let basicInfoRank = $state('');
+	let basicInfoFirstName = $state('');
+	let basicInfoLastName = $state('');
+	let basicInfoSaving = $state(false);
+	let basicInfoError = $state('');
+	let updatedFollowUps = $state<PersonnelFollowUp[]>([]);
+	let togglingFollowUpId = $state('');
+	let followUpError = $state('');
 	let leaderNoteText = $state('');
 	let leaderNoteSaving = $state(false);
 	let leaderNoteError = $state('');
@@ -58,9 +71,10 @@
 	let openingDocumentId = $state('');
 	let createdDocuments = $state<PersonnelDocument[]>([]);
 
-	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
-	const peersInGroup = $derived(roster.filter((item) => item.groupName === person.groupName).length);
-	const detailBasePath = $derived(`/org/${orgId}/personnel/${person.slug}`);
+	const currentPerson = $derived(updatedPerson ?? person);
+	const displayName = $derived(`${currentPerson.rank} ${currentPerson.lastName}, ${currentPerson.firstName}`);
+	const peersInGroup = $derived(roster.filter((item) => item.groupName === currentPerson.groupName).length);
+	const detailBasePath = $derived(`/org/${orgId}/personnel/${currentPerson.slug}`);
 	const emptyExtendedInfo: PersonnelExtendedInfo = {
 		bloodType: '',
 		basd: '',
@@ -121,14 +135,14 @@
 	]);
 
 	const adminRows = $derived([
-		['Rank', person.rank || 'Not set'],
-		['Name', `${person.lastName}, ${person.firstName}`],
-		['MOS', person.mos || 'Not set'],
-		['Duty role', person.clinicRole || 'Not set'],
-		['Group', person.groupName || orgName],
+		['Rank', currentPerson.rank || 'Not set'],
+		['Name', `${currentPerson.lastName}, ${currentPerson.firstName}`],
+		['MOS', currentPerson.mos || 'Not set'],
+		['Duty role', currentPerson.clinicRole || 'Not set'],
+		['Group', currentPerson.groupName || orgName],
 		['Group roster count', `${peersInGroup} assigned`],
-		['ETS', person.ets ? formatDate(person.ets) : 'Not set'],
-		['PCS / DEROS', person.deros ? formatDate(person.deros) : 'Not set']
+		['ETS', currentPerson.ets ? formatDate(currentPerson.ets) : 'Not set'],
+		['PCS / DEROS', currentPerson.deros ? formatDate(currentPerson.deros) : 'Not set']
 	]);
 
 	function toneClass(tone: Tone) {
@@ -163,6 +177,67 @@
 		const name = filename.split(/[\\/]/).pop() ?? '';
 		const base = name.replace(/\.[^.]+$/, '');
 		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
+	}
+
+	function mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
+		const updatedById = new Map(updatedFollowUps.map((item) => [item.id, item]));
+		return loaded.map((item) => updatedById.get(item.id) ?? item);
+	}
+
+	function startBasicInfoEdit() {
+		basicInfoRank = currentPerson.rank;
+		basicInfoFirstName = currentPerson.firstName;
+		basicInfoLastName = currentPerson.lastName;
+		basicInfoError = '';
+		editingBasicInfo = true;
+	}
+
+	async function saveBasicInfo() {
+		basicInfoError = '';
+		basicInfoSaving = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: currentPerson.id,
+					rank: basicInfoRank.trim(),
+					lastName: basicInfoLastName.trim(),
+					firstName: basicInfoFirstName.trim()
+				})
+			});
+			if (!response.ok) throw new Error('Unable to update basic info.');
+			const previousSlug = currentPerson.slug;
+			const savedPerson = (await response.json()) as Personnel;
+			updatedPerson = savedPerson;
+			if (savedPerson.slug !== previousSlug) {
+				replaceState(resolve(`/org/${orgId}/personnel/${savedPerson.slug}`), {});
+			}
+			editingBasicInfo = false;
+		} catch (caught) {
+			basicInfoError = caught instanceof Error ? caught.message : 'Unable to update basic info.';
+		} finally {
+			basicInfoSaving = false;
+		}
+	}
+
+	async function setFollowUpStatus(followUp: PersonnelFollowUp, status: 'open' | 'completed') {
+		followUpError = '';
+		togglingFollowUpId = followUp.id;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/follow-ups/${followUp.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ status })
+			});
+			if (!response.ok) throw new Error('Unable to update follow-up.');
+			const updated = (await response.json()) as PersonnelFollowUp;
+			updatedFollowUps = [updated, ...updatedFollowUps.filter((item) => item.id !== updated.id)];
+		} catch (caught) {
+			followUpError = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
+		} finally {
+			togglingFollowUpId = '';
+		}
 	}
 
 	function getContactRows(info: PersonnelExtendedInfo): string[][] {
@@ -337,6 +412,8 @@
 				{#await detail.followUps}
 					{@render PanelSkeleton('Leader follow-ups')}
 				{:then openFollowUps}
+					{@const followUps = mergeUpdatedFollowUps(openFollowUps)}
+					{@const openCount = followUps.filter((item) => item.status === 'open').length}
 					<section class="rounded-md border bg-card">
 						<div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
 							<div class="flex items-center gap-2">
@@ -344,18 +421,34 @@
 								<h2 class="font-semibold">Leader follow-ups</h2>
 							</div>
 							<div class="flex items-center gap-2">
-								<Badge variant="warning">{openFollowUps.length} open</Badge>
+								<Badge variant="warning">{openCount} open</Badge>
 								<Button href={`${detailBasePath}/follow-ups`} variant="outline" size="sm">Show all</Button>
 							</div>
 						</div>
+						{#if followUpError}
+							<p class="border-b px-4 py-3 text-sm text-destructive">{followUpError}</p>
+						{/if}
 						<div class="divide-y">
-							{#each openFollowUps as item, index (item)}
+							{#each followUps as item, index (item.id)}
 								<div class="grid gap-3 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
 									<div class="grid size-7 place-items-center rounded-full border bg-muted text-xs font-semibold">
 										{index + 1}
 									</div>
-									<p class="text-sm">{item}</p>
-									<Button variant="outline" size="sm">Track</Button>
+									<div class="min-w-0">
+										<p class="text-sm font-medium">{item.title}</p>
+										{#if item.notes}
+											<p class="mt-1 text-xs text-muted-foreground">{item.notes}</p>
+										{/if}
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={togglingFollowUpId === item.id}
+										aria-label={`${item.status === 'completed' ? 'Reopen' : 'Complete'} ${item.title}`}
+										onclick={() => setFollowUpStatus(item, item.status === 'completed' ? 'open' : 'completed')}
+									>
+										{item.status === 'completed' ? 'Reopen' : 'Complete'}
+									</Button>
 								</div>
 							{/each}
 						</div>
@@ -496,11 +589,37 @@
 
 			<aside class="space-y-5">
 				<section class="rounded-md border bg-card">
-					<div class="flex items-center gap-2 border-b p-4">
-						<UserRoundIcon aria-hidden="true" size={18} />
-						<h2 class="font-semibold">Service details</h2>
+					<div class="flex items-center justify-between gap-3 border-b p-4">
+						<div class="flex items-center gap-2">
+							<UserRoundIcon aria-hidden="true" size={18} />
+							<h2 class="font-semibold">Service details</h2>
+						</div>
+						{#if !editingBasicInfo}
+							<Button type="button" variant="outline" size="sm" onclick={startBasicInfoEdit}>Edit basic info</Button>
+						{/if}
 					</div>
-					{@render FactList(adminRows)}
+					{#if editingBasicInfo}
+						<form class="space-y-3 p-4" onsubmit={(event) => (event.preventDefault(), saveBasicInfo())}>
+							<Input bind:value={basicInfoRank} aria-label="Rank" />
+							<div class="grid gap-3 sm:grid-cols-2">
+								<Input bind:value={basicInfoFirstName} aria-label="First name" />
+								<Input bind:value={basicInfoLastName} aria-label="Last name" />
+							</div>
+							{#if basicInfoError}
+								<p class="text-sm text-destructive">{basicInfoError}</p>
+							{/if}
+							<div class="flex justify-end gap-2">
+								<Button type="button" variant="outline" size="sm" onclick={() => (editingBasicInfo = false)}
+									>Cancel</Button
+								>
+								<Button type="submit" size="sm" disabled={basicInfoSaving}>
+									{basicInfoSaving ? 'Saving...' : 'Save basic info'}
+								</Button>
+							</div>
+						</form>
+					{:else}
+						{@render FactList(adminRows)}
+					{/if}
 				</section>
 
 				{#await detail.extendedInfo}

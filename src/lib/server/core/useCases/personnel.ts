@@ -13,6 +13,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { buildUniquePersonnelSlug } from './personnelSlug';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -41,6 +42,12 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			const validated = entity.createSchema.parse(data);
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
+			dbData.slug = await buildUniquePersonnelSlug({
+				store: ctx.store,
+				orgId: ctx.auth.orgId,
+				lastName: validated.lastName as string,
+				firstName: validated.firstName as string
+			});
 
 			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
 
@@ -58,7 +65,11 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		async update(ctx, data) {
 			const validated = entity.updateSchema.parse(data);
 			const { id, groupId: nextGroupId } = validated as { id: string; groupId?: string | null };
-			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
+			const currentRecord = await ctx.store.findOne<{
+				group_id: string | null;
+				last_name: string;
+				first_name: string;
+			}>(entity.table, ctx.auth.orgId, { id });
 
 			await requireFeaturePolicy(
 				ctx,
@@ -81,6 +92,15 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			const dbData = entity.toDbUpdate(validated);
 			if (nextGroupId !== undefined) {
 				dbData.group_id = nextGroupId || null;
+			}
+			if (validated.lastName !== undefined || validated.firstName !== undefined) {
+				dbData.slug = await buildUniquePersonnelSlug({
+					store: ctx.store,
+					orgId: ctx.auth.orgId,
+					excludePersonnelId: id,
+					lastName: (validated.lastName as string | undefined) ?? currentRecord?.last_name ?? '',
+					firstName: (validated.firstName as string | undefined) ?? currentRecord?.first_name ?? ''
+				});
 			}
 
 			const row = await ctx.store.update<Record<string, unknown>>(

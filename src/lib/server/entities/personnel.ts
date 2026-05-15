@@ -16,6 +16,7 @@ export const PersonnelEntity = defineEntity<Personnel>({
 	select: '*, groups(name)',
 	schema: {
 		id: field(z.string(), { readOnly: true }),
+		slug: field(z.string(), { readOnly: true }),
 		rank: field(z.string()),
 		lastName: field(z.string(), { column: 'last_name' }),
 		firstName: field(z.string(), { column: 'first_name' }),
@@ -28,6 +29,7 @@ export const PersonnelEntity = defineEntity<Personnel>({
 	},
 	customTransform: (row: Record<string, unknown>) => ({
 		id: row.id as string,
+		slug: row.slug as string,
 		rank: row.rank as string,
 		lastName: row.last_name as string,
 		firstName: row.first_name as string,

@@ -17,9 +17,9 @@
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
-	const personnelId = $derived(page.params.personnelId ?? '');
+	const personnelSlug = $derived(page.params.personnelSlug ?? '');
 	const roster = $derived(data.personnel?.data?.personnel ?? []);
-	const person = $derived(roster.find((item) => item.id === personnelId));
+	const person = $derived(roster.find((item) => item.slug === personnelSlug));
 </script>
 
 {#if person}

@@ -1,5 +1,7 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type {
 	PersonnelCounselingRecord,
@@ -112,16 +114,42 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 	};
 }
 
-export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
-	depends('app:personnel-detail');
-	const { orgId, personnelId } = params;
+type LoadWithContext = typeof loadWithContext;
 
-	const personnelDetail = await loadWithContext(locals, cookies, orgId, {
-		permission: 'personnel',
-		fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId)
-	});
+export interface PersonnelDetailPageLoadDeps {
+	loadWithContext?: LoadWithContext;
+}
 
-	return {
-		personnelDetail
+async function resolvePersonnelId(ctx: UseCaseContext, personnelSlug: string): Promise<string> {
+	const person = await ctx.store.findOne<{ id: string }>('personnel', ctx.auth.orgId, { slug: personnelSlug }, 'id');
+	if (!person) {
+		error(404, 'Personnel record not found');
+	}
+	await ctx.auth.requireGroupAccess(person.id);
+	return person.id;
+}
+
+export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps = {}) {
+	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
+
+	return async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
+		depends('app:personnel-detail');
+		const { orgId, personnelSlug } = params;
+
+		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
+			permission: 'personnel',
+			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
+			policyResource: { kind: 'unscoped' },
+			fn: async (ctx) => {
+				const personnelId = await resolvePersonnelId(ctx, personnelSlug);
+				return createPersonnelDetailStreams(ctx, personnelId);
+			}
+		});
+
+		return {
+			personnelDetail
+		};
 	};
-};
+}
+
+export const load = _createPersonnelDetailPageLoad();

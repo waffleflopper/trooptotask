@@ -14,6 +14,14 @@ export interface PersonnelDetailSubpageData {
 	records: [];
 }
 
+export interface PersonnelFollowUpsPageData {
+	orgId: string;
+	personnelId: string;
+	title: string;
+	emptyState: string;
+	records: PersonnelFollowUp[];
+}
+
 export interface PersonnelNotesPageData {
 	orgId: string;
 	personnelId: string;

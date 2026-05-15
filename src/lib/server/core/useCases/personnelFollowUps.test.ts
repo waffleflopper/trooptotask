@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createPersonnelFollowUp, listPersonnelFollowUps, setPersonnelFollowUpStatus } from './personnelFollowUps';
+import {
+	archivePersonnelFollowUp,
+	createPersonnelFollowUp,
+	listPersonnelFollowUps,
+	setPersonnelFollowUpStatus,
+	updatePersonnelFollowUp
+} from './personnelFollowUps';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: string | null = null) {
 	ctx.store.seed('personnel', [
@@ -16,7 +22,7 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: strin
 }
 
 describe('personnel follow-ups', () => {
-	it('creates, lists, completes, and reopens dashboard follow-ups', async () => {
+	it('creates, lists, edits, completes, reopens, and archives dashboard follow-ups', async () => {
 		const ctx = createTestContext({
 			auth: {
 				capabilityMap: {
@@ -48,6 +54,17 @@ describe('personnel follow-ups', () => {
 			followUpId: created.id,
 			status: 'open'
 		});
+		const edited = await updatePersonnelFollowUp(ctx, {
+			personnelId: 'person-1',
+			followUpId: created.id,
+			title: 'Complete BLC packet update',
+			notes: 'Confirm signatures and dates',
+			dueDate: '2026-06-15'
+		});
+		const archived = await archivePersonnelFollowUp(ctx, {
+			personnelId: 'person-1',
+			followUpId: created.id
+		});
 
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
@@ -59,7 +76,27 @@ describe('personnel follow-ups', () => {
 		expect(completed.completedAt).toBeTruthy();
 		expect(reopened.status).toBe('open');
 		expect(reopened.completedAt).toBeNull();
-		await expect(listPersonnelFollowUps(ctx, 'person-1')).resolves.toHaveLength(1);
+		expect(edited).toMatchObject({
+			title: 'Complete BLC packet update',
+			notes: 'Confirm signatures and dates',
+			dueDate: '2026-06-15'
+		});
+		expect(archived.status).toBe('archived');
+		await expect(listPersonnelFollowUps(ctx, 'person-1')).resolves.toHaveLength(0);
+		await expect(
+			setPersonnelFollowUpStatus(ctx, {
+				personnelId: 'person-1',
+				followUpId: created.id,
+				status: 'open'
+			})
+		).rejects.toMatchObject({ status: 409 });
+		await expect(
+			updatePersonnelFollowUp(ctx, {
+				personnelId: 'person-1',
+				followUpId: created.id,
+				title: 'Should not update'
+			})
+		).rejects.toMatchObject({ status: 409 });
 	});
 
 	it('requires Personnel operate capability', async () => {
@@ -82,6 +119,12 @@ describe('personnel follow-ups', () => {
 		await expect(createPersonnelFollowUp(ctx, { personnelId: 'person-1', title: 'Follow up' })).rejects.toMatchObject({
 			status: 403
 		});
+		await expect(
+			updatePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: 'missing', title: 'Follow up' })
+		).rejects.toMatchObject({ status: 403 });
+		await expect(
+			archivePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: 'missing' })
+		).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('delegates Soldier scope enforcement to the auth context', async () => {

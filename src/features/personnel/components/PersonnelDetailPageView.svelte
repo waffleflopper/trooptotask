@@ -53,6 +53,10 @@
 	let updatedFollowUps = $state<PersonnelFollowUp[]>([]);
 	let togglingFollowUpId = $state('');
 	let followUpError = $state('');
+	let followUpTitle = $state('');
+	let followUpNotes = $state('');
+	let followUpDueDate = $state('');
+	let followUpSaving = $state(false);
 	let leaderNoteText = $state('');
 	let leaderNoteSaving = $state(false);
 	let leaderNoteError = $state('');
@@ -181,7 +185,19 @@
 
 	function mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
 		const updatedById = new Map(updatedFollowUps.map((item) => [item.id, item]));
-		return loaded.map((item) => updatedById.get(item.id) ?? item);
+		const merged = loaded.map((item) => updatedById.get(item.id) ?? item);
+		const loadedIds = new Set(loaded.map((item) => item.id));
+		const created = updatedFollowUps.filter((item) => !loadedIds.has(item.id) && item.status !== 'archived');
+		return sortFollowUps([...created, ...merged.filter((item) => item.status !== 'archived')]);
+	}
+
+	function sortFollowUps(items: PersonnelFollowUp[]): PersonnelFollowUp[] {
+		const statusRank: Record<PersonnelFollowUp['status'], number> = { open: 0, completed: 1, archived: 2 };
+		return [...items].sort((a, b) => {
+			const statusDelta = statusRank[a.status] - statusRank[b.status];
+			if (statusDelta !== 0) return statusDelta;
+			return b.createdAt.localeCompare(a.createdAt);
+		});
 	}
 
 	function startBasicInfoEdit() {
@@ -237,6 +253,38 @@
 			followUpError = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
 		} finally {
 			togglingFollowUpId = '';
+		}
+	}
+
+	async function submitFollowUp() {
+		followUpError = '';
+		const title = followUpTitle.trim();
+		if (!title) {
+			followUpError = 'Enter a follow-up title.';
+			return;
+		}
+
+		followUpSaving = true;
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/follow-ups`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					title,
+					notes: followUpNotes.trim(),
+					dueDate: followUpDueDate || null
+				})
+			});
+			if (!response.ok) throw new Error('Unable to add follow-up.');
+			const created = (await response.json()) as PersonnelFollowUp;
+			updatedFollowUps = [created, ...updatedFollowUps.filter((item) => item.id !== created.id)];
+			followUpTitle = '';
+			followUpNotes = '';
+			followUpDueDate = '';
+		} catch (caught) {
+			followUpError = caught instanceof Error ? caught.message : 'Unable to add follow-up.';
+		} finally {
+			followUpSaving = false;
 		}
 	}
 
@@ -428,29 +476,46 @@
 						{#if followUpError}
 							<p class="border-b px-4 py-3 text-sm text-destructive">{followUpError}</p>
 						{/if}
+						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitFollowUp())}>
+							<div class="grid gap-3 md:grid-cols-[1fr_10rem_auto]">
+								<Input bind:value={followUpTitle} aria-label="Follow-up title" placeholder="Follow-up title" />
+								<Input bind:value={followUpDueDate} type="date" aria-label="Follow-up due date" />
+								<Button type="submit" size="sm" disabled={followUpSaving}>
+									{followUpSaving ? 'Adding...' : 'Add'}
+								</Button>
+							</div>
+							<Textarea bind:value={followUpNotes} rows={2} aria-label="Follow-up notes" placeholder="Optional notes" />
+						</form>
 						<div class="divide-y">
-							{#each followUps as item, index (item.id)}
-								<div class="grid gap-3 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
-									<div class="grid size-7 place-items-center rounded-full border bg-muted text-xs font-semibold">
-										{index + 1}
+							{#if followUps.length === 0}
+								<p class="p-4 text-sm text-muted-foreground">No follow-ups have been added for this Soldier yet.</p>
+							{:else}
+								{#each followUps as item, index (item.id)}
+									<div class="grid gap-3 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
+										<div class="grid size-7 place-items-center rounded-full border bg-muted text-xs font-semibold">
+											{index + 1}
+										</div>
+										<div class="min-w-0">
+											<p class="text-sm font-medium">{item.title}</p>
+											{#if item.notes}
+												<p class="mt-1 text-xs text-muted-foreground">{item.notes}</p>
+											{/if}
+											{#if item.dueDate}
+												<p class="mt-1 text-xs text-muted-foreground">Due {formatDate(item.dueDate)}</p>
+											{/if}
+										</div>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={togglingFollowUpId === item.id}
+											aria-label={`${item.status === 'completed' ? 'Reopen' : 'Complete'} ${item.title}`}
+											onclick={() => setFollowUpStatus(item, item.status === 'completed' ? 'open' : 'completed')}
+										>
+											{item.status === 'completed' ? 'Reopen' : 'Complete'}
+										</Button>
 									</div>
-									<div class="min-w-0">
-										<p class="text-sm font-medium">{item.title}</p>
-										{#if item.notes}
-											<p class="mt-1 text-xs text-muted-foreground">{item.notes}</p>
-										{/if}
-									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={togglingFollowUpId === item.id}
-										aria-label={`${item.status === 'completed' ? 'Reopen' : 'Complete'} ${item.title}`}
-										onclick={() => setFollowUpStatus(item, item.status === 'completed' ? 'open' : 'completed')}
-									>
-										{item.status === 'completed' ? 'Reopen' : 'Complete'}
-									</Button>
-								</div>
-							{/each}
+								{/each}
+							{/if}
 						</div>
 					</section>
 				{/await}

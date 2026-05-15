@@ -200,6 +200,55 @@ describe('PersonnelDetailPageView', () => {
 		expect(screen.getByRole('button', { name: 'Reopen Complete BLC packet' })).toBeTruthy();
 	});
 
+	it('adds a dashboard follow-up without reloading the page', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					id: 'follow-up-2',
+					personnelId: 'person-1',
+					title: 'Schedule packet review',
+					notes: 'Bring checklist',
+					dueDate: '2026-06-10',
+					status: 'open',
+					createdBy: 'leader-1',
+					createdAt: '2026-05-01T10:00:00Z',
+					updatedAt: '2026-05-01T10:00:00Z',
+					completedAt: null
+				})
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail({ followUps: Promise.resolve([]) })
+			}
+		});
+
+		await fireEvent.input(await screen.findByLabelText('Follow-up title'), {
+			target: { value: 'Schedule packet review' }
+		});
+		await fireEvent.input(screen.getByLabelText('Follow-up notes'), { target: { value: 'Bring checklist' } });
+		await fireEvent.input(screen.getByLabelText('Follow-up due date'), { target: { value: '2026-06-10' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/follow-ups', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				title: 'Schedule packet review',
+				notes: 'Bring checklist',
+				dueDate: '2026-06-10'
+			})
+		});
+		await waitFor(() => expect(screen.getByText('Schedule packet review')).toBeTruthy());
+		expect(screen.getByText('1 open')).toBeTruthy();
+	});
+
 	it('saves basic personnel info from the dashboard sidebar', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,

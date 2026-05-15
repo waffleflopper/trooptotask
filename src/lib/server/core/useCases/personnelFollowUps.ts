@@ -28,7 +28,15 @@ export const personnelFollowUpInputSchema = z.object({
 export const personnelFollowUpStatusSchema = z.object({
 	personnelId: z.string().min(1),
 	followUpId: z.string().min(1),
-	status: z.enum(['open', 'completed'])
+	status: z.enum(['open', 'completed', 'archived'])
+});
+
+export const personnelFollowUpUpdateSchema = z.object({
+	personnelId: z.string().min(1),
+	followUpId: z.string().min(1),
+	title: z.string().trim().min(1, 'Follow-up title is required').max(200),
+	notes: z.string().trim().max(2000).optional().default(''),
+	dueDate: z.string().date().nullable().optional().default(null)
 });
 
 function mapFollowUpRow(row: FollowUpRow): PersonnelFollowUp {
@@ -139,6 +147,9 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 		personnel_id: input.personnelId
 	});
 	if (!current) fail(404, 'Follow-up not found');
+	if (current.status === 'archived' && input.status !== 'archived') {
+		fail(409, 'Archived follow-ups cannot be reopened');
+	}
 
 	const now = new Date().toISOString();
 	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
@@ -148,10 +159,51 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 	});
 
 	ctx.audit.log({
-		action: `personnel.follow_up.${input.status === 'completed' ? 'completed' : 'reopened'}`,
+		action: `personnel.follow_up.${input.status === 'completed' ? 'completed' : input.status === 'archived' ? 'archived' : 'reopened'}`,
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
 
 	return mapFollowUpRow(row);
+}
+
+export async function updatePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+	const parsed = personnelFollowUpUpdateSchema.safeParse(rawInput);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	}
+
+	const input = parsed.data;
+	await requirePersonnelOperate(ctx, input.personnelId);
+
+	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
+		id: input.followUpId,
+		personnel_id: input.personnelId
+	});
+	if (!current) fail(404, 'Follow-up not found');
+	if (current.status === 'archived') {
+		fail(409, 'Archived follow-ups cannot be edited');
+	}
+
+	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
+		title: input.title,
+		notes: input.notes,
+		due_date: input.dueDate,
+		updated_at: new Date().toISOString()
+	});
+
+	ctx.audit.log({
+		action: 'personnel.follow_up.updated',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
+
+	return mapFollowUpRow(row);
+}
+
+export async function archivePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+	return setPersonnelFollowUpStatus(ctx, {
+		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
+		status: 'archived'
+	});
 }

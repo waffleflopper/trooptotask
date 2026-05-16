@@ -289,7 +289,7 @@ export async function loadCriticalTasksReadinessLane(
 		readiness.expiringSoonCount > 0 ? ` ${plural(readiness.expiringSoonCount, 'task')} expiring soon.` : '';
 	const attentionDetail =
 		readiness.attentionCount > 0
-			? ` ${plural(readiness.attentionCount, 'task')} needs attention.`
+			? ` ${plural(readiness.attentionCount, 'task')} ${readiness.attentionCount === 1 ? 'needs' : 'need'} attention.`
 			: ' No tasks need attention.';
 	const tone =
 		readiness.readinessPercent < 70

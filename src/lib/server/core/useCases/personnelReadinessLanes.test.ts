@@ -196,6 +196,70 @@ describe('personnel readiness lanes', () => {
 		});
 	});
 
+	it('uses plural grammar for multiple Critical Tasks that need attention', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-1',
+				organization_id: ctx.auth.orgId,
+				task_code: 'ICT-1',
+				title: 'Airway',
+				description: null,
+				category: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 1,
+				archived_at: null,
+				created_at: `${AS_OF}T00:00:00Z`
+			},
+			{
+				id: 'task-2',
+				organization_id: ctx.auth.orgId,
+				task_code: 'ICT-2',
+				title: 'IV validation',
+				description: null,
+				category: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 2,
+				archived_at: null,
+				created_at: `${AS_OF}T00:00:00Z`
+			},
+			{
+				id: 'task-3',
+				organization_id: ctx.auth.orgId,
+				task_code: 'ICT-3',
+				title: 'Radio report',
+				description: null,
+				category: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 3,
+				archived_at: null,
+				created_at: `${AS_OF}T00:00:00Z`
+			}
+		]);
+		ctx.store.seed('personnel_ict_completions', [
+			{
+				id: 'completion-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				ict_task_id: 'task-1',
+				completed_at: '2026-05-01',
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null,
+				created_at: `${AS_OF}T00:00:00Z`
+			}
+		]);
+
+		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+			detail: '1 of 3 applicable ICT tasks ready. 2 tasks need attention.'
+		});
+	});
+
 	it('counts expiring-soon Critical Tasks as ready for the Personnel lane', async () => {
 		const ctx = createTestContext();
 		seedPerson(ctx);

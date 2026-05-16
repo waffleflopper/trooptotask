@@ -12,6 +12,7 @@ import type {
 	DutyRosterTemplateAcceptedRun,
 	DutyRosterTemplateRunCorrection
 } from '$features/duty-roster/templates/dutyRosterTemplates';
+import { dutyRosterTodayDate } from '$features/duty-roster/templates/dutyRosterDatePolicy';
 import type { ColumnDef } from '$lib/components/ui/data-table';
 
 export const DUTY_ROSTER_CORRECTION_OVERRIDE_WARNING = 'Outside normal pool. Saved as an override.';
@@ -81,6 +82,7 @@ export type DutyRosterAcceptedRunReviewModel = {
 	isInvalidated: boolean;
 	calendarState: 'apply' | 'applied' | 'reapply';
 	canInvalidate: boolean;
+	invalidateDisabledReason: string | null;
 	calendarStepLabel: 'Closed' | 'Applied' | 'Needs sync' | 'Not applied';
 	rows: DutyRosterAcceptedHistoryTableRow[];
 	matrix: {
@@ -178,11 +180,13 @@ export function buildDutyRosterPreviewReviewModel(input: {
 
 export function buildDutyRosterAcceptedRunReviewModel(input: {
 	run: DutyRosterTemplateAcceptedRun;
-	isLatestRun: boolean;
+	todayDate?: string;
 }): DutyRosterAcceptedRunReviewModel {
 	const snapshot = acceptedSnapshot(input.run);
 	const isInvalidated = input.run.status === 'invalidated';
 	const calendarState = calendarActionState(input.run);
+	const todayDate = input.todayDate ?? dutyRosterTodayDate();
+	const canInvalidate = !isInvalidated && input.run.endDate >= todayDate;
 	const rows = snapshot.finalRows.map((row) => {
 		const correction = latestCorrectionForDate(input.run, row.date);
 		const sourceLabel: DutyRosterAcceptedHistoryTableRow['sourceLabel'] = correction
@@ -232,7 +236,9 @@ export function buildDutyRosterAcceptedRunReviewModel(input: {
 		snapshot,
 		isInvalidated,
 		calendarState,
-		canInvalidate: !isInvalidated && input.isLatestRun,
+		canInvalidate,
+		invalidateDisabledReason:
+			!isInvalidated && !canInvalidate ? 'Runs with end dates before today cannot be invalidated.' : null,
 		calendarStepLabel: isInvalidated
 			? 'Closed'
 			: calendarState === 'applied'

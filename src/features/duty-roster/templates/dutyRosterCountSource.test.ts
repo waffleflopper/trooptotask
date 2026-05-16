@@ -133,11 +133,53 @@ describe('buildDutyRosterCountSource', () => {
 			['bravo', 0, null],
 			['charlie', 1, '2026-06-01']
 		]);
+		expect(countSource.rows.map((row) => [row.personnelId, row.appearedInAcceptedRun])).toEqual([
+			['alpha', false],
+			['bravo', true],
+			['charlie', true]
+		]);
 		expect(countSource.continuationHistory[0].roster).toEqual([
 			expect.objectContaining({
 				date: '2026-06-01',
 				assigneeId: 'charlie',
 				reason: 'Latest correction.'
+			})
+		]);
+	});
+
+	it('uses Manual DA6 Baseline again when all accepted runs are invalidated', () => {
+		const countSource = buildDutyRosterCountSource({
+			template: {
+				...template,
+				manualBaselineCounts: { alpha: 2 }
+			},
+			resolvedPool: pool,
+			runs: [
+				run({
+					id: 'run-1',
+					status: 'invalidated',
+					acceptedAt: '2026-06-01T00:00:00.000Z',
+					assigneeId: 'bravo',
+					date: '2026-06-01'
+				})
+			],
+			baselineStartDate: '2026-06-02'
+		});
+
+		expect(countSource).toMatchObject({
+			source: 'manual-da6-baseline',
+			sourceLabel: 'Manual DA6 Baseline',
+			acceptedRunCount: 0,
+			invalidatedRunCount: 1
+		});
+		expect(countSource.rows.map((row) => [row.personnelId, row.count, row.appearedInAcceptedRun])).toEqual([
+			['alpha', 2, false],
+			['bravo', 0, false],
+			['charlie', 0, false]
+		]);
+		expect(countSource.continuationHistory).toEqual([
+			expect.objectContaining({
+				config: expect.objectContaining({ historySource: 'manual-da6-baseline' })
 			})
 		]);
 	});
@@ -191,6 +233,8 @@ function snapshot(input: { date: string; assigneeId: string; acceptedAt: string 
 			startDate: input.date,
 			endDate: input.date,
 			dutyDuration: 'daily',
+			pattern: 'daily',
+			selectedWeekdays: [],
 			excludedStatusIds: [],
 			excludeWeekends: false,
 			excludeHolidays: false,

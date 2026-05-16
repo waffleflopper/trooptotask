@@ -94,6 +94,7 @@ describe('Duty Roster Template view route', () => {
 		});
 		invalidateLatestDutyRosterTemplateRunMock.mockResolvedValue({
 			invalidatedRun: acceptedRun({ invalidated: true }),
+			invalidatedRuns: [acceptedRun({ invalidated: true })],
 			removedCalendarAssignments: 1,
 			calendarAssignmentsEdited: false
 		});
@@ -227,13 +228,19 @@ describe('Duty Roster Template view route', () => {
 	});
 
 	it('generates a preview through the service layer without redirecting', async () => {
+		const form = new URLSearchParams({
+			templateId: 'template-1',
+			startDate: '2026-06-01',
+			endDate: '2026-06-03',
+			pattern: 'selected-weekdays',
+			skipHolidaysAndDonsas: 'true'
+		});
+		form.append('selectedWeekdays', '1');
+		form.append('selectedWeekdays', '3');
+		form.append('selectedWeekdays', '5');
 		const request = new Request('http://localhost', {
 			method: 'POST',
-			body: new URLSearchParams({
-				templateId: 'template-1',
-				startDate: '2026-06-01',
-				endDate: '2026-06-03'
-			})
+			body: form
 		});
 
 		const result = await actions.generatePreview({
@@ -244,12 +251,18 @@ describe('Duty Roster Template view route', () => {
 		expect(generateDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
 			templateId: 'template-1',
 			startDate: '2026-06-01',
-			endDate: '2026-06-03'
+			endDate: '2026-06-03',
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5],
+			skipHolidaysAndDonsas: true
 		});
 		expect(result).toMatchObject({
 			generateValues: {
 				startDate: '2026-06-01',
-				endDate: '2026-06-03'
+				endDate: '2026-06-03',
+				pattern: 'selected-weekdays',
+				selectedWeekdays: [1, 3, 5],
+				skipHolidaysAndDonsas: true
 			},
 			preview: {
 				rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }]
@@ -437,7 +450,33 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
-			runId: 'run-1'
+			runId: 'run-1',
+			cascade: false
+		});
+	});
+
+	it('passes cascade invalidation intent from the accepted run form', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1',
+				cascade: 'true'
+			})
+		});
+
+		await expect(
+			actions.invalidateAcceptedRun({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
+		});
+
+		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1',
+			cascade: true
 		});
 	});
 

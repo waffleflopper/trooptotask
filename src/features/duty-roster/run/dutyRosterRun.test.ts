@@ -579,6 +579,36 @@ describe('buildDutyRosterRunSnapshot', () => {
 		);
 	});
 
+	it('filters generated duty dates by selected weekdays and skips holidays or DONSAs', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				config: {
+					startDate: '2026-06-01',
+					endDate: '2026-06-07',
+					dutyDuration: 'daily',
+					pattern: 'selected-weekdays',
+					selectedWeekdays: [1, 3, 5],
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: true,
+					excludeOrgClosures: true
+				},
+				specialDays: [
+					{ id: 'holiday', date: '2026-06-03', name: 'Training Holiday', type: 'federal-holiday' },
+					{ id: 'donsa', date: '2026-06-05', name: 'DONSA', type: 'org-closure' }
+				]
+			})
+		);
+
+		expect(snapshot.rosterRows.map((row) => row.date)).toEqual(['2026-06-01']);
+		expect(snapshot.config).toMatchObject({
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5],
+			excludeHolidays: true,
+			excludeOrgClosures: true
+		});
+	});
+
 	it('advances monthly duty dates without drifting from month-end starts', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({

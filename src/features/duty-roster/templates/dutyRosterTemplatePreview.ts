@@ -1,4 +1,5 @@
 import { buildDutyRosterRunSnapshot } from '$features/duty-roster/run/dutyRosterRun';
+import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type {
 	DutyRosterContinuationHistoryItem,
 	DutyRosterRunDuration,
@@ -88,6 +89,9 @@ export interface DutyRosterTemplatePreviewInput {
 	endDate: string;
 	continuationHistory?: DutyRosterContinuationHistoryItem[];
 	dutyDuration?: DutyRosterRunDuration;
+	pattern?: DutyEventSeriesPattern;
+	selectedWeekdays?: number[];
+	skipHolidaysAndDonsas?: boolean;
 	generatedAt?: string;
 }
 
@@ -115,12 +119,14 @@ export function buildDutyRosterTemplatePreview(input: DutyRosterTemplatePreviewI
 			startDate: input.startDate,
 			endDate: input.endDate,
 			dutyDuration: input.dutyDuration ?? 'daily',
+			pattern: input.pattern ?? 'daily',
+			selectedWeekdays: input.selectedWeekdays ?? [],
 			excludedStatusIds: input.statusTypes
 				.filter((statusType) => Boolean(statusType.da6AvailabilityTreatment))
 				.map((statusType) => statusType.id),
 			excludeWeekends: false,
-			excludeHolidays: false,
-			excludeOrgClosures: false,
+			excludeHolidays: input.skipHolidaysAndDonsas ?? false,
+			excludeOrgClosures: input.skipHolidaysAndDonsas ?? false,
 			exemptPersonnelIds: input.template.exemptPersonnelIds
 		},
 		generatedAt: input.generatedAt

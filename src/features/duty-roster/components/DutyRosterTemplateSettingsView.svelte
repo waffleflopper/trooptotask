@@ -38,6 +38,7 @@
 	const templateSettings = $derived(settings.settings);
 	const settingsAction = $derived(settings.settingsAction);
 	const baselineLocked = $derived(settings.baselineLocked);
+	const editableBaselinePersonnelIdSet = $derived(new Set(settings.editableBaselinePersonnelIds));
 	const latestAcceptedRun = $derived(settings.acceptedRuns[0] ?? null);
 	const eligibleCount = $derived(
 		templateSettings ? Math.max(templateSettings.resolvedPool.length - settingsExemptPersonnelIds.length, 0) : 0
@@ -143,6 +144,10 @@
 
 	function removeExemption(personnelId: string): void {
 		settingsExemptPersonnelIds = settingsExemptPersonnelIds.filter((id) => id !== personnelId);
+	}
+
+	function baselineCountLocked(personnelId: string): boolean {
+		return baselineLocked && !editableBaselinePersonnelIdSet.has(personnelId);
 	}
 
 	function rankValuesForSubmit(): string[] {
@@ -394,7 +399,7 @@
 						<WarningSummary
 							tone="warning"
 							title="Baseline is locked"
-							description="This template already has accepted history, so future previews use the accepted runs for DA6 continuity."
+							description="This template already has accepted history. Soldiers who have not appeared in accepted history can still receive baseline counts."
 						/>
 					{/if}
 					{#if templateSettings.baselineRows.length === 0}
@@ -445,7 +450,7 @@
 											>{row.personnel.groupName || 'No Group'}</span
 										>
 										<span class="px-3 py-2" role="cell">
-											{#if baselineLocked}
+											{#if baselineCountLocked(row.personnel.id)}
 												<span class="font-mono text-xs font-semibold text-foreground"
 													>{settingsBaselineCounts[row.personnel.id] || '0'}</span
 												>

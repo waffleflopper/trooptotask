@@ -174,7 +174,10 @@ export async function recordDutyRosterTemplateRunCorrection(
 	return recordDutyRosterTemplateRunCorrectionLifecycle(ctx, input);
 }
 
-export async function invalidateLatestDutyRosterTemplateRun(ctx: WritePorts, input: { runId: string }) {
+export async function invalidateLatestDutyRosterTemplateRun(
+	ctx: WritePorts,
+	input: { runId: string; cascade?: boolean }
+) {
 	await requireTemplateManagement(ctx);
 	return invalidateLatestDutyRosterTemplateRunLifecycle(ctx, input);
 }

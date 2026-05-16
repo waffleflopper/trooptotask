@@ -134,6 +134,7 @@
 						{historyPage}
 						{historyDetailRun}
 						{latestHistoryRunId}
+						todayDate={workspace.todayDate}
 						{historyMode}
 						{applyAcceptedRunAction}
 						{invalidateAcceptedRunAction}

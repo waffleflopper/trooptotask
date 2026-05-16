@@ -1,4 +1,5 @@
 import { fail } from '$lib/server/core/errors';
+import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type { QueryPorts } from '$lib/server/core/ports';
 import type {
 	DutyRosterTemplate,
@@ -78,6 +79,9 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 		template: DutyRosterTemplate;
 		startDate: string;
 		endDate: string;
+		pattern?: DutyEventSeriesPattern;
+		selectedWeekdays?: number[];
+		skipHolidaysAndDonsas?: boolean;
 		generatedAt?: string;
 	}
 ): Promise<DutyRosterTemplatePreview> {
@@ -117,6 +121,9 @@ export async function buildDutyRosterTemplatePreviewFromCurrentState(
 		continuationHistory: countReadModel.continuationHistory,
 		startDate: input.startDate,
 		endDate: input.endDate,
+		pattern: input.pattern,
+		selectedWeekdays: input.selectedWeekdays,
+		skipHolidaysAndDonsas: input.skipHolidaysAndDonsas,
 		generatedAt: input.generatedAt
 	});
 }

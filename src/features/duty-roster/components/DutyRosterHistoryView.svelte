@@ -17,6 +17,7 @@
 		X
 	} from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Field from '$lib/components/ui/field';
@@ -57,6 +58,7 @@
 		historyPage,
 		historyDetailRun,
 		latestHistoryRunId,
+		todayDate,
 		historyMode,
 		applyAcceptedRunAction,
 		invalidateAcceptedRunAction,
@@ -69,6 +71,7 @@
 		historyPage: DutyRosterWorkspaceReadModel['historyPage'];
 		historyDetailRun: DutyRosterTemplateAcceptedRun | null;
 		latestHistoryRunId: string | null;
+		todayDate: string;
 		historyMode: DutyRosterWorkspaceReadModel['historyMode'];
 		applyAcceptedRunAction: string;
 		invalidateAcceptedRunAction: string;
@@ -144,7 +147,7 @@
 		printDutyRosterForBrowser({
 			acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
 				run,
-				isLatestRun: run.id === latestHistoryRunId
+				todayDate
 			}).snapshot,
 			statusLabel: 'Official'
 		});
@@ -261,14 +264,18 @@
 	);
 	const acceptedRunCount = $derived(acceptedRuns.filter((run) => run.status === 'accepted').length);
 	const pendingCorrectionCount = $derived(acceptedRuns.reduce((total, run) => total + run.corrections.length, 0));
+	const canInvalidateAnyRun = $derived(
+		acceptedRuns.some((run) => run.status === 'accepted' && run.endDate >= todayDate)
+	);
 	const detailReview = $derived(
 		historyDetailRun
 			? buildDutyRosterAcceptedRunReviewModel({
 					run: historyDetailRun,
-					isLatestRun: historyDetailRun.id === latestHistoryRunId
+					todayDate
 				})
 			: null
 	);
+	const detailFollowOnRuns = $derived(historyDetailRun ? followOnAcceptedRuns(historyDetailRun) : []);
 	const selectedCorrectionRow = $derived(
 		detailReview?.rows.find((row) => correctionKey(row.run.id, row.date) === selectedCorrectionKey) ?? null
 	);
@@ -347,6 +354,30 @@
 			count: cell.sequenceNumber,
 			reason: cell.reason
 		};
+	}
+
+	function followOnAcceptedRuns(run: DutyRosterTemplateAcceptedRun): DutyRosterTemplateAcceptedRun[] {
+		return acceptedRuns
+			.filter((candidate) => candidate.status === 'accepted' && candidate.id !== run.id && runIsAfter(candidate, run))
+			.sort(compareRunTimeline);
+	}
+
+	function runIsAfter(candidate: DutyRosterTemplateAcceptedRun, selected: DutyRosterTemplateAcceptedRun): boolean {
+		if (candidate.startDate !== selected.startDate) {
+			return candidate.startDate > selected.startDate;
+		}
+		if (candidate.endDate !== selected.endDate) {
+			return candidate.endDate > selected.endDate;
+		}
+		return candidate.acceptedAt > selected.acceptedAt;
+	}
+
+	function compareRunTimeline(left: DutyRosterTemplateAcceptedRun, right: DutyRosterTemplateAcceptedRun): number {
+		return (
+			left.startDate.localeCompare(right.startDate) ||
+			left.endDate.localeCompare(right.endDate) ||
+			left.acceptedAt.localeCompare(right.acceptedAt)
+		);
 	}
 
 	function da6SequenceKind(
@@ -705,31 +736,84 @@
 							</Button>
 						{/if}
 						{#if detailReview.canInvalidate && confirmingInvalidationRunId === historyDetailRun.id}
-							<form
-								class="grid gap-3 rounded-md border border-destructive/50 bg-destructive/5 p-3"
-								method="post"
-								action={invalidateAcceptedRunAction}
-								use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
-							>
-								<h4 class="text-xs font-semibold text-destructive">Remove this official run from Calendar</h4>
-								<p class="text-xs text-muted-foreground">
-									Run {historyDetailRun.startDate} to {historyDetailRun.endDate} will be marked invalidated. Linked Calendar
-									assignments will be removed.
-								</p>
-								<p class="text-xs text-muted-foreground">This action is only available for the latest accepted run.</p>
-								<input type="hidden" name="runId" value={historyDetailRun.id} />
-								<Button variant="destructive" type="submit" disabled={pendingHistoryAction === 'invalidate'}>
-									{pendingHistoryAction === 'invalidate' ? 'Invalidating...' : 'Confirm invalidation'}
-								</Button>
-								<Button variant="outline" type="button" onclick={() => (confirmingInvalidationRunId = null)}
-									>Keep run</Button
-								>
-							</form>
+							<AppDialog.Root open onClose={() => (confirmingInvalidationRunId = null)}>
+								<AppDialog.Content closeBlocked={pendingHistoryAction === 'invalidate'}>
+									<AppDialog.Header>
+										<AppDialog.Title>
+											{detailFollowOnRuns.length > 0
+												? 'Invalidate related Duty Roster runs?'
+												: 'Invalidate Duty Roster run?'}
+										</AppDialog.Title>
+										<AppDialog.Description>
+											Run {historyDetailRun.startDate} to {historyDetailRun.endDate} will be marked invalidated.
+										</AppDialog.Description>
+									</AppDialog.Header>
+									<AppDialog.Body class="grid gap-3 text-sm text-muted-foreground">
+										{#if detailFollowOnRuns.length > 0}
+											<p>
+												{detailFollowOnRuns.length}
+												follow-on accepted {detailFollowOnRuns.length === 1 ? 'run was' : 'runs were'} generated from counts
+												that include this run.
+											</p>
+											<ul class="grid gap-1 pl-4 text-xs">
+												{#each detailFollowOnRuns.slice(0, 4) as run (run.id)}
+													<li>{formatDate(run.startDate)} to {formatDate(run.endDate)}</li>
+												{/each}
+												{#if detailFollowOnRuns.length > 4}
+													<li>and {detailFollowOnRuns.length - 4} more</li>
+												{/if}
+											</ul>
+										{:else}
+											<p>Linked Calendar assignments will be removed. Future previews will ignore this run.</p>
+										{/if}
+									</AppDialog.Body>
+									<AppDialog.Footer>
+										<Button
+											variant="outline"
+											type="button"
+											disabled={pendingHistoryAction === 'invalidate'}
+											onclick={() => (confirmingInvalidationRunId = null)}
+										>
+											Cancel
+										</Button>
+										<form
+											method="post"
+											action={invalidateAcceptedRunAction}
+											use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
+										>
+											<input type="hidden" name="runId" value={historyDetailRun.id} />
+											<input type="hidden" name="cascade" value="false" />
+											<Button variant="destructive" type="submit" disabled={pendingHistoryAction === 'invalidate'}>
+												{pendingHistoryAction === 'invalidate'
+													? 'Invalidating...'
+													: detailFollowOnRuns.length > 0
+														? 'Invalidate this run'
+														: 'Confirm invalidation'}
+											</Button>
+										</form>
+										{#if detailFollowOnRuns.length > 0}
+											<form
+												method="post"
+												action={invalidateAcceptedRunAction}
+												use:enhancePostForm={() => handleHistoryActionEnhance('invalidate')}
+											>
+												<input type="hidden" name="runId" value={historyDetailRun.id} />
+												<input type="hidden" name="cascade" value="true" />
+												<Button type="submit" disabled={pendingHistoryAction === 'invalidate'}>
+													{pendingHistoryAction === 'invalidate' ? 'Invalidating...' : 'Invalidate recommended runs'}
+												</Button>
+											</form>
+										{/if}
+									</AppDialog.Footer>
+								</AppDialog.Content>
+							</AppDialog.Root>
 						{/if}
 						{#if !detailReview.canInvalidate && detailReview.isInvalidated}
 							<p class="text-xs text-muted-foreground">Non-counting because this run is invalidated.</p>
+						{:else if detailReview.invalidateDisabledReason}
+							<p class="text-xs text-muted-foreground">{detailReview.invalidateDisabledReason}</p>
 						{:else if !detailReview.canInvalidate}
-							<p class="text-xs text-muted-foreground">Only the latest accepted run can be invalidated.</p>
+							<p class="text-xs text-muted-foreground">This accepted run cannot be invalidated.</p>
 						{/if}
 					</div>
 				{/if}
@@ -763,7 +847,7 @@
 			<div class="grid gap-1 rounded-md border border-border bg-card p-3">
 				<ShieldCheck size={18} class="text-muted-foreground" aria-hidden="true" />
 				<span class="text-xs text-muted-foreground">Can invalidate</span>
-				<strong class="text-xs font-semibold text-foreground">{latestRun?.status === 'accepted' ? 'Yes' : 'No'}</strong>
+				<strong class="text-xs font-semibold text-foreground">{canInvalidateAnyRun ? 'Yes' : 'No'}</strong>
 			</div>
 		</div>
 

@@ -34,7 +34,7 @@ function createMembershipSupabase(membership: MembershipRow) {
 		from: vi.fn().mockReturnValue(builder)
 	};
 
-	return { supabase, query };
+	return { supabase, query, select };
 }
 
 function createDeferred<T>() {
@@ -195,6 +195,7 @@ describe('buildLayoutContext', () => {
 
 	it('stores a fetched membership row and reuses it on the next layout context build for the same request', async () => {
 		const membership = {
+			id: 'membership-1',
 			role: 'member',
 			scoped_group_id: 'group-123',
 			can_view_calendar: true,
@@ -207,7 +208,7 @@ describe('buildLayoutContext', () => {
 			can_edit_onboarding: false,
 			can_manage_members: false
 		} satisfies MembershipRow;
-		const { supabase, query } = createMembershipSupabase(membership);
+		const { supabase, query, select } = createMembershipSupabase(membership);
 		getApiContextMock.mockReturnValue({
 			supabase,
 			userId: USER_ID
@@ -219,9 +220,13 @@ describe('buildLayoutContext', () => {
 		const second = await buildLayoutContext(locals, {} as never, ORG_ID);
 
 		expect(supabase.from).toHaveBeenCalledTimes(1);
+		expect(select).toHaveBeenCalledWith(expect.stringContaining('id, role'));
 		expect(query.single).toHaveBeenCalledTimes(1);
 		expect(first.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
 		expect(second.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-123'] });
+		await expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)!).resolves.toMatchObject({
+			id: 'membership-1'
+		});
 	});
 
 	it('deduplicates concurrent membership queries within the same request', async () => {

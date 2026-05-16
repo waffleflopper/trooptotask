@@ -9,12 +9,12 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
-	import * as Stepper from '$lib/components/ui/stepper';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import OnboardingPaperworkStageQueue from './OnboardingPaperworkStageQueue.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -71,15 +71,6 @@
 		}
 		return actions;
 	});
-
-	function paperworkSteps(stages: string[], currentStage: string) {
-		const currentIndex = stages.indexOf(currentStage);
-		return stages.map((stage, index) => ({
-			value: stage,
-			label: stage,
-			completed: currentIndex >= 0 && index < currentIndex
-		}));
-	}
 </script>
 
 <div class="flex h-full flex-col bg-background">
@@ -302,29 +293,17 @@
 													{#if !step.completed}
 														<Button href={ctx.trainingPageUrl} variant="outline" size="sm">Record Training</Button>
 													{/if}
-												{:else if step.stepType === 'paperwork'}
-													{@const stages = step.stages ?? []}
-													{@const currentStage = step.currentStage ?? stages[0] ?? ''}
-													<Stepper.Root
-														steps={paperworkSteps(stages, currentStage)}
-														value={currentStage}
-														onValueChange={(stage) => {
-															if (canActOnThisOnboarding) ctx.handleStageClick(step, stage);
-														}}
-													>
-														<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
-															{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
-																<Stepper.Item
-																	value={stage.value}
-																	label={stage.label}
-																	completed={stage.completed}
-																	disabled={!canActOnThisOnboarding}
-																/>
-															{/each}
-														</Stepper.List>
-													</Stepper.Root>
 												{/if}
 											{/snippet}
+
+											{#if step.stepType === 'paperwork' && !isInactive}
+												<OnboardingPaperworkStageQueue
+													{step}
+													canManage={canActOnThisOnboarding}
+													inset={false}
+													onSelect={(stage) => ctx.handleStageClick(step, stage)}
+												/>
+											{/if}
 
 											{#if !isInactive}
 												<OnboardingPacketList.Notes

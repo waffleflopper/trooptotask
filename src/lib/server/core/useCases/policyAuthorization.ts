@@ -35,8 +35,8 @@ export async function requirePolicyDecision(
 		details: policyDenialAuditDetails(decision, {
 			policyActionId: action.id,
 			resource,
-			matchedCapability: { key: 'matchedCapability', value: 'full' },
-			matchedScope: { key: 'matchedScope', value: 'full' }
+			matchedCapability: { key: 'matchedCapability', value: 'object' },
+			matchedScope: { key: 'matchedScope', value: 'object' }
 		}),
 		message: policyDenialMessage(decision.reasonCode, ports.auth.scopeSet)
 	});

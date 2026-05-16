@@ -42,6 +42,39 @@ describe('policy denial', () => {
 		});
 	});
 
+	it('builds audit details with caller-selected object capability and scope shape', async () => {
+		const decision = await evaluateAuthoritativePolicyDecision(
+			{
+				auth: {
+					role: 'member',
+					capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				}
+			},
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			{ kind: 'group', groupId: 'group-bravo' }
+		);
+
+		expect(
+			policyDenialAuditDetails(decision, {
+				matchedCapability: { key: 'matchedCapability', value: 'object' },
+				matchedScope: { key: 'matchedScope', value: 'object' }
+			})
+		).toEqual({
+			policyAction: 'personnel.manageRecords',
+			reasonCode: 'denied:out-of-scope',
+			matchedCapability: {
+				lane: 'personnel',
+				actual: 'operate',
+				required: 'operate'
+			},
+			matchedScope: {
+				kind: 'out-of-scope',
+				resource: { kind: 'group', groupId: 'group-bravo' }
+			}
+		});
+	});
+
 	it('logs denied policy decisions through the shared audit shape', async () => {
 		const audit = auditSpy();
 		const decision = await evaluateAuthoritativePolicyDecision(

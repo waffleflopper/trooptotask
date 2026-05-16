@@ -11,13 +11,13 @@ export interface PolicyDenialAuditDetailsOptions {
 		| false
 		| {
 				key: string;
-				value: 'actual' | 'full';
+				value: 'actual' | 'object';
 		  };
 	matchedScope?:
 		| false
 		| {
 				key: string;
-				value: 'kind' | 'full';
+				value: 'kind' | 'object';
 		  };
 	blockingOverlay?: boolean;
 }

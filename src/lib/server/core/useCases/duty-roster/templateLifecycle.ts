@@ -42,6 +42,7 @@ import {
 	applyAcceptedDutyRosterTemplateRun as applyAcceptedRunLifecycle,
 	hasAcceptedDutyRosterTemplateRun,
 	invalidateLatestDutyRosterTemplateRun as invalidateLatestRunLifecycle,
+	loadAcceptedDutyRosterTemplateRunPersonnelIds,
 	listAcceptedDutyRosterTemplateRunHistory as listAcceptedRunHistoryLifecycle,
 	listAcceptedDutyRosterTemplateRuns as listAcceptedRunsLifecycle,
 	type DutyRosterTemplateRunHistoryPage,
@@ -62,6 +63,7 @@ const MAX_PREVIEW_DAYS = 62;
 const MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH = 2 * 1024 * 1024;
 const PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE = 'Duty Roster preview payload is too large. Generate the preview again.';
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DUTY_ROSTER_GENERATION_PATTERNS = ['daily', 'weekday-only', 'weekend-only', 'selected-weekdays'] as const;
 
 const createTemplateSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
@@ -79,8 +81,15 @@ const generatePreviewSchema = z
 	.object({
 		templateId: z.string().trim().min(1, 'Duty Roster Template is required'),
 		startDate: z.string().refine(isValidDateOnly, 'Start date is required'),
-		endDate: z.string().refine(isValidDateOnly, 'End date is required')
+		endDate: z.string().refine(isValidDateOnly, 'End date is required'),
+		pattern: z.enum(DUTY_ROSTER_GENERATION_PATTERNS).default('daily'),
+		selectedWeekdays: z.array(z.number().int().min(0).max(6)).default([]),
+		skipHolidaysAndDonsas: z.boolean().default(false)
 	})
+	.transform((input) => ({
+		...input,
+		selectedWeekdays: [...new Set(input.selectedWeekdays)].sort((left, right) => left - right)
+	}))
 	.refine((input) => input.endDate >= input.startDate, {
 		message: 'End date must be on or after the start date',
 		path: ['endDate']
@@ -92,6 +101,10 @@ const generatePreviewSchema = z
 	.refine((input) => input.startDate >= dutyRosterTodayDate(), {
 		message: 'Duty Roster previews cannot start in the past',
 		path: ['startDate']
+	})
+	.refine((input) => input.pattern !== 'selected-weekdays' || input.selectedWeekdays.length > 0, {
+		message: 'Select at least one weekday.',
+		path: ['selectedWeekdays']
 	});
 const manualSelectionSchema = z.object({
 	preview: z
@@ -190,12 +203,6 @@ function findInvalidBaselineCountValues(value: Record<string, unknown> | null | 
 		.filter(([, count]) => typeof count !== 'number' || !Number.isInteger(count) || count < 0)
 		.map(([personId]) => personId)
 		.sort((a, b) => a.localeCompare(b));
-}
-
-function baselineCountsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
-	const leftEntries = Object.entries(left).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
-	const rightEntries = Object.entries(right).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
-	return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
 }
 
 function isValidDateOnly(value: string): boolean {
@@ -619,14 +626,30 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 	const manualBaselineCounts = normalizeBaselineCounts(input.manualBaselineCounts);
 	const existingBaselineCounts = normalizeBaselineCounts(existing.manual_baseline_counts);
 	const hasAcceptedRun = await hasAcceptedDutyRosterTemplateRun(ctx, input.templateId);
-	if (hasAcceptedRun && !baselineCountsEqual(manualBaselineCounts, existingBaselineCounts)) {
-		fail(400, 'Manual DA6 Baseline is locked after the first accepted run.');
+	const acceptedRunPersonnelIds = hasAcceptedRun
+		? await loadAcceptedDutyRosterTemplateRunPersonnelIds(ctx, input.templateId)
+		: new Set<string>();
+	const lockedBaselineIds = changedLockedBaselineIds({
+		submittedBaselineCounts: manualBaselineCounts,
+		existingBaselineCounts,
+		lockedPersonnelIds: acceptedRunPersonnelIds
+	});
+	if (lockedBaselineIds.length > 0) {
+		fail(400, 'Manual DA6 Baseline is locked for Soldiers who already appeared in accepted history.');
 	}
+	const editableBaselineCounts = baselineCountsExcludingLockedPersonnel(manualBaselineCounts, acceptedRunPersonnelIds);
+	const nextBaselineCounts = hasAcceptedRun
+		? mergeBaselineCountsForAcceptedHistory({
+				existingBaselineCounts,
+				submittedBaselineCounts: manualBaselineCounts,
+				lockedPersonnelIds: acceptedRunPersonnelIds
+			})
+		: manualBaselineCounts;
 
 	const setup = validateDutyRosterTemplateSetupInput({
 		poolCriteria,
 		exemptPersonnelIds: input.exemptPersonnelIds,
-		manualBaselineCounts: hasAcceptedRun ? {} : manualBaselineCounts,
+		manualBaselineCounts: hasAcceptedRun ? editableBaselineCounts : manualBaselineCounts,
 		resolvedPool
 	});
 
@@ -645,7 +668,7 @@ export async function updateDutyRosterTemplateSettingsLifecycle(
 			short_code: identity.shortCode,
 			pool_criteria: setup.poolCriteria,
 			exempt_personnel_ids: setup.exemptPersonnelIds,
-			manual_baseline_counts: hasAcceptedRun ? existingBaselineCounts : manualBaselineCounts,
+			manual_baseline_counts: nextBaselineCounts,
 			updated_at: new Date().toISOString()
 		});
 	} catch (error) {
@@ -716,9 +739,59 @@ async function assertDutyRosterSettingsInvariantsAtWriteTime(
 	}
 
 	const hasAcceptedRun = await hasAcceptedDutyRosterTemplateRun(ctx, input.templateId);
-	if (hasAcceptedRun && !baselineCountsEqual(input.manualBaselineCounts, input.existingBaselineCounts)) {
-		fail(409, 'Manual DA6 Baseline is locked because this template accepted a run. Refresh settings and try again.');
+	if (hasAcceptedRun) {
+		const acceptedRunPersonnelIds = await loadAcceptedDutyRosterTemplateRunPersonnelIds(ctx, input.templateId);
+		const lockedBaselineIds = changedLockedBaselineIds({
+			submittedBaselineCounts: input.manualBaselineCounts,
+			existingBaselineCounts: input.existingBaselineCounts,
+			lockedPersonnelIds: acceptedRunPersonnelIds
+		});
+		if (lockedBaselineIds.length > 0) {
+			fail(409, 'Manual DA6 Baseline is locked because this template accepted a run. Refresh settings and try again.');
+		}
 	}
+}
+
+function changedLockedBaselineIds(input: {
+	submittedBaselineCounts: Record<string, number>;
+	existingBaselineCounts: Record<string, number>;
+	lockedPersonnelIds: Set<string>;
+}): string[] {
+	return [...input.lockedPersonnelIds]
+		.filter((personnelId) => {
+			const submitted = baselineCount(input.submittedBaselineCounts, personnelId);
+			return submitted !== null && submitted !== baselineCount(input.existingBaselineCounts, personnelId);
+		})
+		.sort((left, right) => left.localeCompare(right));
+}
+
+function baselineCountsExcludingLockedPersonnel(
+	counts: Record<string, number>,
+	lockedPersonnelIds: Set<string>
+): Record<string, number> {
+	return Object.fromEntries(Object.entries(counts).filter(([personnelId]) => !lockedPersonnelIds.has(personnelId)));
+}
+
+function mergeBaselineCountsForAcceptedHistory(input: {
+	existingBaselineCounts: Record<string, number>;
+	submittedBaselineCounts: Record<string, number>;
+	lockedPersonnelIds: Set<string>;
+}): Record<string, number> {
+	return {
+		...baselineCountsForLockedPersonnel(input.existingBaselineCounts, input.lockedPersonnelIds),
+		...baselineCountsExcludingLockedPersonnel(input.submittedBaselineCounts, input.lockedPersonnelIds)
+	};
+}
+
+function baselineCountsForLockedPersonnel(
+	counts: Record<string, number>,
+	lockedPersonnelIds: Set<string>
+): Record<string, number> {
+	return Object.fromEntries(Object.entries(counts).filter(([personnelId]) => lockedPersonnelIds.has(personnelId)));
+}
+
+function baselineCount(counts: Record<string, number>, personnelId: string): number | null {
+	return counts[personnelId] ?? null;
 }
 
 export async function generateDutyRosterTemplatePreviewLifecycle(
@@ -739,6 +812,9 @@ export async function generateDutyRosterTemplatePreviewLifecycle(
 		template,
 		startDate: parsed.startDate,
 		endDate: parsed.endDate,
+		pattern: parsed.pattern,
+		selectedWeekdays: parsed.selectedWeekdays,
+		skipHolidaysAndDonsas: parsed.skipHolidaysAndDonsas,
 		generatedAt: new Date().toISOString()
 	});
 }

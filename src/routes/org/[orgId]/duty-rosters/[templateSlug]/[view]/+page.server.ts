@@ -18,6 +18,7 @@ import {
 	updateDutyRosterTemplateSettings
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { DutyRosterGenerationPattern } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 import {
 	dutyRosterActionError,
 	dutyRosterActionMessage,
@@ -39,7 +40,7 @@ function actionError(
 	input: {
 		key: ActionErrorKey;
 		fallback: string;
-		values?: Record<string, string>;
+		values?: unknown;
 	}
 ) {
 	return dutyRosterActionError(errorValue, {
@@ -107,7 +108,10 @@ export const actions: Actions = {
 		const formData = await event.request.formData();
 		const values = {
 			startDate: String(formData.get('startDate') ?? ''),
-			endDate: String(formData.get('endDate') ?? '')
+			endDate: String(formData.get('endDate') ?? ''),
+			pattern: parseGenerationPattern(formData.get('pattern')),
+			selectedWeekdays: parseSelectedWeekdays(formData),
+			skipHolidaysAndDonsas: String(formData.get('skipHolidaysAndDonsas') ?? '') === 'true'
 		};
 
 		try {
@@ -115,7 +119,10 @@ export const actions: Actions = {
 			const preview = await generateDutyRosterTemplatePreview(ctx, {
 				templateId: String(formData.get('templateId') ?? ''),
 				startDate: values.startDate,
-				endDate: values.endDate
+				endDate: values.endDate,
+				pattern: values.pattern,
+				selectedWeekdays: values.selectedWeekdays,
+				skipHolidaysAndDonsas: values.skipHolidaysAndDonsas
 			});
 
 			return { preview, generateValues: values };
@@ -226,11 +233,13 @@ export const actions: Actions = {
 	invalidateAcceptedRun: async (event) => {
 		const formData = await event.request.formData();
 		const runId = String(formData.get('runId') ?? '');
+		const cascade = String(formData.get('cascade') ?? '') === 'true';
 
 		try {
 			const ctx = await buildRouteContext(event);
 			await invalidateLatestDutyRosterTemplateRun(ctx, {
-				runId
+				runId,
+				cascade
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {
@@ -310,3 +319,21 @@ export const actions: Actions = {
 		throw redirect(303, `/org/${event.params.orgId}/duty-rosters`);
 	}
 };
+
+function parseGenerationPattern(value: FormDataEntryValue | null): DutyRosterGenerationPattern {
+	const pattern = String(value ?? 'daily');
+	return pattern === 'weekday-only' || pattern === 'weekend-only' || pattern === 'selected-weekdays'
+		? pattern
+		: 'daily';
+}
+
+function parseSelectedWeekdays(formData: FormData): number[] {
+	return [
+		...new Set(
+			formData
+				.getAll('selectedWeekdays')
+				.map((value) => Number(value))
+				.filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+		)
+	].sort((left, right) => left - right);
+}

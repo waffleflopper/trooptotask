@@ -1,29 +1,27 @@
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { fetchCriticalTasksReportsPageModel } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import type { CriticalTasksReportsPageModel } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export interface CriticalTasksReportsPageLoadDeps {
 	loadWithContext?: typeof loadWithContext;
-	fetchDashboard?: (ctx: QueryPorts) => Promise<IctReportDashboard>;
+	fetchPageModel?: (ctx: QueryPorts) => Promise<CriticalTasksReportsPageModel>;
 }
 
 export function _createCriticalTasksReportsPageLoad(_deps: CriticalTasksReportsPageLoadDeps = {}) {
 	const loadWithContextFn = _deps.loadWithContext ?? loadWithContext;
-	const fetchDashboardFn = _deps.fetchDashboard ?? ((ctx: QueryPorts) => fetchCriticalTasksReportDashboard(ctx));
+	const fetchPageModelFn = _deps.fetchPageModel ?? ((ctx: QueryPorts) => fetchCriticalTasksReportsPageModel(ctx));
 
 	return async ({ params, depends, locals, cookies }: PageServerLoadEvent) => {
 		depends('app:critical-tasks-reports');
-		return {
-			initialDashboard: await loadWithContextFn(locals, cookies, params.orgId, {
-				permission: 'critical-tasks',
-				policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-				policyResource: { kind: 'unscoped' },
-				fn: (ctx) => fetchDashboardFn(ctx)
-			})
-		};
+		return loadWithContextFn(locals, cookies, params.orgId, {
+			permission: 'critical-tasks',
+			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+			policyResource: { kind: 'unscoped' },
+			fn: (ctx) => fetchPageModelFn(ctx)
+		});
 	};
 }
 

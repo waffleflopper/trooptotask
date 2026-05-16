@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import * as Empty from '$lib/components/ui/empty';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
-	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import { TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -211,10 +210,6 @@
 		{ value: 'expired', label: 'Expired' },
 		{ value: 'not-completed', label: 'Not Done' }
 	];
-	const groupFilterOptions = $derived([
-		{ value: '', label: 'All Groups' },
-		...allGroups.map((group) => ({ value: group.id, label: group.name }))
-	]);
 	const rankFilterOptions = $derived([
 		{ value: '', label: 'All Ranks' },
 		...availableRanks.map((rank) => ({ value: rank, label: rank }))
@@ -363,12 +358,6 @@
 		void reloadFirstReportPage();
 	}
 
-	function readinessVariant(pct: number): 'success' | 'warning' | 'destructive' {
-		if (pct >= 80) return 'success';
-		if (pct >= 60) return 'warning';
-		return 'destructive';
-	}
-
 	function readinessToneClass(pct: number): string {
 		if (pct >= 80) return 'text-success-foreground';
 		if (pct >= 60) return 'text-warning-foreground';
@@ -379,12 +368,6 @@
 		if (pct >= 80) return 'bg-success';
 		if (pct >= 60) return 'bg-warning';
 		return 'bg-destructive';
-	}
-
-	function readinessBgClass(pct: number): string {
-		if (pct >= 80) return 'bg-success-muted';
-		if (pct >= 60) return 'bg-warning-muted';
-		return 'bg-danger-muted';
 	}
 
 	const statusDotClass: Record<string, string> = {

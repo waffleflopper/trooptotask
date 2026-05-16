@@ -45,7 +45,7 @@
 		promise: Promise<PersonnelReadinessLane>;
 	}
 
-	let { orgId, person, roster, groups = [], orgName, detail }: Props = $props();
+	let { orgId, person, groups = [], orgName, detail }: Props = $props();
 	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
 	let editingBasicInfo = $state(false);

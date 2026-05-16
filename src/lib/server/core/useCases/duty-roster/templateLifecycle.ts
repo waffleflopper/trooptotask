@@ -62,6 +62,7 @@ const MAX_PREVIEW_DAYS = 62;
 const MAX_SUBMITTED_PREVIEW_PAYLOAD_LENGTH = 2 * 1024 * 1024;
 const PREVIEW_PAYLOAD_TOO_LARGE_MESSAGE = 'Duty Roster preview payload is too large. Generate the preview again.';
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DUTY_ROSTER_GENERATION_PATTERNS = ['daily', 'weekday-only', 'weekend-only', 'selected-weekdays'] as const;
 
 const createTemplateSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
@@ -79,8 +80,15 @@ const generatePreviewSchema = z
 	.object({
 		templateId: z.string().trim().min(1, 'Duty Roster Template is required'),
 		startDate: z.string().refine(isValidDateOnly, 'Start date is required'),
-		endDate: z.string().refine(isValidDateOnly, 'End date is required')
+		endDate: z.string().refine(isValidDateOnly, 'End date is required'),
+		pattern: z.enum(DUTY_ROSTER_GENERATION_PATTERNS).default('daily'),
+		selectedWeekdays: z.array(z.number().int().min(0).max(6)).default([]),
+		skipHolidaysAndDonsas: z.boolean().default(false)
 	})
+	.transform((input) => ({
+		...input,
+		selectedWeekdays: [...new Set(input.selectedWeekdays)].sort((left, right) => left - right)
+	}))
 	.refine((input) => input.endDate >= input.startDate, {
 		message: 'End date must be on or after the start date',
 		path: ['endDate']
@@ -92,6 +100,10 @@ const generatePreviewSchema = z
 	.refine((input) => input.startDate >= dutyRosterTodayDate(), {
 		message: 'Duty Roster previews cannot start in the past',
 		path: ['startDate']
+	})
+	.refine((input) => input.pattern !== 'selected-weekdays' || input.selectedWeekdays.length > 0, {
+		message: 'Select at least one weekday.',
+		path: ['selectedWeekdays']
 	});
 const manualSelectionSchema = z.object({
 	preview: z
@@ -739,6 +751,9 @@ export async function generateDutyRosterTemplatePreviewLifecycle(
 		template,
 		startDate: parsed.startDate,
 		endDate: parsed.endDate,
+		pattern: parsed.pattern,
+		selectedWeekdays: parsed.selectedWeekdays,
+		skipHolidaysAndDonsas: parsed.skipHolidaysAndDonsas,
 		generatedAt: new Date().toISOString()
 	});
 }

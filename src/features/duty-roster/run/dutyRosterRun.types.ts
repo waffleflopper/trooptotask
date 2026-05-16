@@ -1,4 +1,4 @@
-import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+import type { DutyEvent, DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 
 export type DutyRosterRunDuration = 'daily' | 'weekly' | 'monthly';
@@ -18,6 +18,8 @@ export interface DutyRosterRunConfig {
 	startDate: string;
 	endDate: string;
 	dutyDuration: DutyRosterRunDuration;
+	pattern?: DutyEventSeriesPattern;
+	selectedWeekdays?: number[];
 	excludedStatusIds: string[];
 	excludeWeekends: boolean;
 	excludeHolidays: boolean;

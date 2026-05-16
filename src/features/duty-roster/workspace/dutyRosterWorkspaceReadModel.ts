@@ -11,6 +11,8 @@ import { dutyRosterTodayDate, nextDutyRosterMonthRange } from '$features/duty-ro
 import { ARMY_RANKS } from '$lib/types';
 import { acceptedHistoryColumns } from './dutyRosterPreviewReview';
 
+export type DutyRosterGenerationPattern = 'daily' | 'weekday-only' | 'weekend-only' | 'selected-weekdays';
+
 export type DutyRosterWorkspaceActionForm = {
 	error?: string;
 	generateError?: string;
@@ -25,6 +27,9 @@ export type DutyRosterWorkspaceActionForm = {
 	generateValues?: {
 		startDate?: string;
 		endDate?: string;
+		pattern?: DutyRosterGenerationPattern;
+		selectedWeekdays?: number[];
+		skipHolidaysAndDonsas?: boolean;
 	};
 	values?: {
 		name?: string;
@@ -83,6 +88,9 @@ export type DutyRosterGenerateWorkspaceModel = {
 	todayDate: string;
 	generateStartDate: string;
 	generateEndDate: string;
+	generationPattern: DutyRosterGenerationPattern;
+	selectedWeekdays: number[];
+	skipHolidaysAndDonsas: boolean;
 	canGenerate: boolean;
 };
 
@@ -176,6 +184,9 @@ export function buildDutyRosterWorkspaceReadModel(
 	const defaultDateRange = nextDutyRosterMonthRange(now);
 	const generateStartDate = actionForm?.generateValues?.startDate ?? defaultDateRange.startDate;
 	const generateEndDate = actionForm?.generateValues?.endDate ?? defaultDateRange.endDate;
+	const generationPattern = actionForm?.generateValues?.pattern ?? 'daily';
+	const selectedWeekdays = normalizeSelectedWeekdays(actionForm?.generateValues?.selectedWeekdays ?? [1, 2, 3, 4, 5]);
+	const skipHolidaysAndDonsas = actionForm?.generateValues?.skipHolidaysAndDonsas ?? false;
 	const generateAction = selectedTemplate
 		? `${basePath}/${selectedTemplate.slug}/generate?/generatePreview`
 		: createAction;
@@ -188,7 +199,10 @@ export function buildDutyRosterWorkspaceReadModel(
 	const applyPreviewAction = selectedTemplate
 		? `${basePath}/${selectedTemplate.slug}/generate?/applyPreview`
 		: createAction;
-	const canGenerate = generateStartDate >= todayDate && generateEndDate >= generateStartDate;
+	const canGenerate =
+		generateStartDate >= todayDate &&
+		generateEndDate >= generateStartDate &&
+		(generationPattern !== 'selected-weekdays' || selectedWeekdays.length > 0);
 	const generateWorkspace = selectedTemplate
 		? {
 				selectedTemplate,
@@ -204,6 +218,9 @@ export function buildDutyRosterWorkspaceReadModel(
 				todayDate,
 				generateStartDate,
 				generateEndDate,
+				generationPattern,
+				selectedWeekdays,
+				skipHolidaysAndDonsas,
 				canGenerate
 			}
 		: null;
@@ -306,4 +323,10 @@ export function groupOptionItems(
 	values: Array<{ id: string; label: string }>
 ): Array<{ value: string; label: string }> {
 	return values.map((group) => ({ value: group.id, label: group.label }));
+}
+
+function normalizeSelectedWeekdays(values: number[] | undefined): number[] {
+	return [...new Set((values ?? []).filter((value) => Number.isInteger(value) && value >= 0 && value <= 6))].sort(
+		(left, right) => left - right
+	);
 }

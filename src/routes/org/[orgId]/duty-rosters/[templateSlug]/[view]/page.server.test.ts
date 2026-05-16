@@ -227,13 +227,19 @@ describe('Duty Roster Template view route', () => {
 	});
 
 	it('generates a preview through the service layer without redirecting', async () => {
+		const form = new URLSearchParams({
+			templateId: 'template-1',
+			startDate: '2026-06-01',
+			endDate: '2026-06-03',
+			pattern: 'selected-weekdays',
+			skipHolidaysAndDonsas: 'true'
+		});
+		form.append('selectedWeekdays', '1');
+		form.append('selectedWeekdays', '3');
+		form.append('selectedWeekdays', '5');
 		const request = new Request('http://localhost', {
 			method: 'POST',
-			body: new URLSearchParams({
-				templateId: 'template-1',
-				startDate: '2026-06-01',
-				endDate: '2026-06-03'
-			})
+			body: form
 		});
 
 		const result = await actions.generatePreview({
@@ -244,12 +250,18 @@ describe('Duty Roster Template view route', () => {
 		expect(generateDutyRosterTemplatePreviewMock).toHaveBeenCalledWith(mockCtx, {
 			templateId: 'template-1',
 			startDate: '2026-06-01',
-			endDate: '2026-06-03'
+			endDate: '2026-06-03',
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5],
+			skipHolidaysAndDonsas: true
 		});
 		expect(result).toMatchObject({
 			generateValues: {
 				startDate: '2026-06-01',
-				endDate: '2026-06-03'
+				endDate: '2026-06-03',
+				pattern: 'selected-weekdays',
+				selectedWeekdays: [1, 3, 5],
+				skipHolidaysAndDonsas: true
 			},
 			preview: {
 				rosterRows: [{ date: '2026-06-01', assigneeId: 'person-1' }]

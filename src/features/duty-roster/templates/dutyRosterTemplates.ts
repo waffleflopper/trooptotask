@@ -1,3 +1,5 @@
+import type { DutyEventSeriesPattern } from '$features/duty-roster/duty-roster.types';
+
 export const DUTY_ROSTER_TEMPLATE_VIEWS = ['generate', 'history', 'settings'] as const;
 
 export type DutyRosterTemplateView = (typeof DUTY_ROSTER_TEMPLATE_VIEWS)[number];
@@ -103,6 +105,9 @@ export interface DutyRosterTemplateGenerateInput {
 	templateId: string;
 	startDate: string;
 	endDate: string;
+	pattern?: DutyEventSeriesPattern;
+	selectedWeekdays?: number[];
+	skipHolidaysAndDonsas?: boolean;
 }
 
 export interface DutyRosterTemplateManualSelectionInput {

@@ -32,8 +32,11 @@ interface AvailabilityClassification {
 }
 
 function normalizeConfig(config: DutyRosterRunConfig): DutyRosterRunSnapshot['config'] {
+	const pattern = config.pattern ?? (config.excludeWeekends ? 'weekday-only' : 'daily');
 	return {
 		...config,
+		pattern,
+		selectedWeekdays: normalizeSelectedWeekdays(config.selectedWeekdays),
 		excludedStatusIds: [...config.excludedStatusIds],
 		exemptPersonnelIds: [...(config.exemptPersonnelIds ?? [])],
 		numberingMode: config.numberingMode ?? 'single-sequence',
@@ -44,6 +47,12 @@ function normalizeConfig(config: DutyRosterRunConfig): DutyRosterRunSnapshot['co
 			])
 		)
 	};
+}
+
+function normalizeSelectedWeekdays(values: number[] | undefined): number[] {
+	return [
+		...new Set((values ?? []).map((value) => Math.trunc(value)).filter((value) => value >= 0 && value <= 6))
+	].sort((a, b) => a - b);
 }
 
 function deepFreeze<T>(value: T): T {
@@ -126,7 +135,18 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 		const date = formatDateOnlyUtc(current);
 		const dayOfWeek = current.getUTCDay();
 		const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-		if (!(config.excludeWeekends && isWeekend) && !excludedSpecialDays.has(date)) {
+		if (
+			dateMatchesPattern({
+				date,
+				dayOfWeek,
+				isWeekend,
+				pattern: config.pattern,
+				selectedWeekdays: config.selectedWeekdays,
+				specialDays
+			}) &&
+			!(config.excludeWeekends && isWeekend) &&
+			!excludedSpecialDays.has(date)
+		) {
 			dates.push(date);
 		}
 
@@ -144,6 +164,29 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 	}
 
 	return dates;
+}
+
+function dateMatchesPattern(input: {
+	date: string;
+	dayOfWeek: number;
+	isWeekend: boolean;
+	pattern: DutyRosterRunSnapshot['config']['pattern'];
+	selectedWeekdays: number[];
+	specialDays: SpecialDay[];
+}): boolean {
+	switch (input.pattern) {
+		case 'weekday-only':
+			return !input.isWeekend;
+		case 'weekend-only':
+			return input.isWeekend;
+		case 'selected-weekdays':
+			return input.selectedWeekdays.includes(input.dayOfWeek);
+		case 'holiday-closure-only':
+			return input.specialDays.some((day) => day.date === input.date);
+		case 'custom-dates':
+		case 'daily':
+			return true;
+	}
 }
 
 function classifySequenceKind(date: string, specialDays: SpecialDay[]): DutyRosterSequenceKind {
@@ -461,6 +504,8 @@ export function buildDutyRosterHistoryPayload(snapshot: DutyRosterRunSnapshot): 
 		da6: buildDutyRosterHistoryDa6Data(snapshot),
 		config: {
 			dutyDuration: snapshot.config.dutyDuration,
+			pattern: snapshot.config.pattern,
+			selectedWeekdays: [...snapshot.config.selectedWeekdays],
 			assignmentTypeName: snapshot.assignmentType.name,
 			exemptPersonnelIds: [...snapshot.config.exemptPersonnelIds],
 			excludeStatuses: [...snapshot.config.excludedStatusIds],

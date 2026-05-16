@@ -901,6 +901,48 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
+	it('generates preview dates from selected weekdays while skipping holidays and DONSAs', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'group-1' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'group-1' })
+		);
+		specialDayRows.push(
+			{
+				id: 'holiday',
+				organization_id: 'org-1',
+				date: '2026-06-03',
+				name: 'Training Holiday',
+				type: 'federal-holiday'
+			},
+			{
+				id: 'donsa',
+				organization_id: 'org-1',
+				date: '2026-06-05',
+				name: 'DONSA',
+				type: 'org-closure'
+			}
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-07',
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5],
+			skipHolidaysAndDonsas: true
+		});
+
+		expect(preview.rosterRows.map((row) => row.date)).toEqual(['2026-06-01']);
+		expect(preview.config).toMatchObject({
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5],
+			excludeHolidays: true,
+			excludeOrgClosures: true
+		});
+	});
+
 	it('applies manual preview selections through a permission-checked use case', async () => {
 		const ctx = createCtx();
 		personnelRows.push(

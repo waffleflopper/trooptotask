@@ -55,6 +55,8 @@ function snapshot(): DutyRosterTemplateAcceptedSnapshot {
 			startDate: '2026-06-01',
 			endDate: '2026-06-01',
 			dutyDuration: 'daily',
+			pattern: 'daily',
+			selectedWeekdays: [],
 			excludedStatusIds: [],
 			excludeWeekends: false,
 			excludeHolidays: false,

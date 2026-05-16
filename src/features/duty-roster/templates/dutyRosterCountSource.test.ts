@@ -191,6 +191,8 @@ function snapshot(input: { date: string; assigneeId: string; acceptedAt: string 
 			startDate: input.date,
 			endDate: input.date,
 			dutyDuration: 'daily',
+			pattern: 'daily',
+			selectedWeekdays: [],
 			excludedStatusIds: [],
 			excludeWeekends: false,
 			excludeHolidays: false,

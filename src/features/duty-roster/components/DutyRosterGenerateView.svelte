@@ -5,7 +5,11 @@
 	import { AlertTriangle, Calendar, CheckCircle2, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Combobox from '$lib/components/ui/combobox';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -28,9 +32,33 @@
 	} from '$features/duty-roster/components/shared';
 	import type { DutyRosterTemplateAcceptedRun } from '$features/duty-roster/templates/dutyRosterTemplates';
 	import type { DutyRosterTemplatePreview } from '$features/duty-roster/templates/dutyRosterTemplatePreview';
-	import type { DutyRosterGenerateWorkspaceModel } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
+	import type {
+		DutyRosterGenerateWorkspaceModel,
+		DutyRosterGenerationPattern
+	} from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 
 	let { generate }: { generate: DutyRosterGenerateWorkspaceModel } = $props();
+
+	type PreviewDa6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
+	type GenerationPatternOption = { value: DutyRosterGenerationPattern; label: string };
+
+	const generationPatternOptions: GenerationPatternOption[] = [
+		{ value: 'daily', label: 'Daily' },
+		{ value: 'weekday-only', label: 'Weekdays only' },
+		{ value: 'weekend-only', label: 'Weekends only' },
+		{ value: 'selected-weekdays', label: 'Selected weekdays' }
+	];
+	const weekdayOptions = [
+		{ value: '1', label: 'Mon' },
+		{ value: '2', label: 'Tue' },
+		{ value: '3', label: 'Wed' },
+		{ value: '4', label: 'Thu' },
+		{ value: '5', label: 'Fri' },
+		{ value: '6', label: 'Sat' },
+		{ value: '0', label: 'Sun' }
+	];
+	const weekdayPreset = ['1', '2', '3', '4', '5'];
+	const weekendPreset = ['0', '6'];
 
 	let previewMode = $state<'list' | 'matrix'>('list');
 	let generatingPreview = $state(false);
@@ -38,9 +66,11 @@
 	let selectedPreviewAssignees = $state<Record<string, string>>({});
 	let startDateOverride = $state('');
 	let endDateOverride = $state('');
+	let generationPattern = $state<DutyRosterGenerationPattern>('daily');
+	let selectedWeekdayValues = $state<string[]>([...weekdayPreset]);
+	let skipHolidaysAndDonsas = $state(false);
+	let syncedGenerationSettings = $state('');
 	let pendingOfficialAction = $state<'accept' | 'print' | 'apply' | null>(null);
-
-	type PreviewDa6MatrixCell = NonNullable<DutyRosterPreviewReviewModel['matrix']['rows'][number]['cells'][number]>;
 
 	const selectedTemplate = $derived(generate.selectedTemplate);
 	const actionForm = $derived(generate.actionForm);
@@ -57,6 +87,26 @@
 	const startDateValue = $derived(startDateOverride || generateStartDate);
 	const endDateValue = $derived(endDateOverride || generateEndDate);
 	const canGenerate = $derived(generate.canGenerate);
+	const selectedWeekdaySet = $derived(new Set(selectedWeekdayValues));
+	const canSubmitGenerate = $derived(
+		canGenerate && (generationPattern !== 'selected-weekdays' || selectedWeekdayValues.length > 0)
+	);
+	const generationPatternLabel = $derived(
+		generationPatternOptions.find((option) => option.value === generationPattern)?.label ?? 'Daily'
+	);
+	$effect(() => {
+		const nextSettings = JSON.stringify({
+			pattern: generate.generationPattern,
+			selectedWeekdays: generate.selectedWeekdays,
+			skipHolidaysAndDonsas: generate.skipHolidaysAndDonsas
+		});
+		if (syncedGenerationSettings !== nextSettings) {
+			generationPattern = generate.generationPattern;
+			selectedWeekdayValues = weekdayValuesFromNumbers(generate.selectedWeekdays);
+			skipHolidaysAndDonsas = generate.skipHolidaysAndDonsas;
+			syncedGenerationSettings = nextSettings;
+		}
+	});
 	const previewReview: DutyRosterPreviewReviewModel | null = $derived(
 		preview ? buildDutyRosterPreviewReviewModel({ preview, selectedAssigneeIds: selectedPreviewAssignees }) : null
 	);
@@ -134,6 +184,28 @@
 			await update();
 			generatingPreview = false;
 		};
+	}
+
+	function weekdayValuesFromNumbers(values: number[]): string[] {
+		return values.map((value) => String(value));
+	}
+
+	function setSelectedWeekdayPreset(values: string[]): void {
+		selectedWeekdayValues = [...values];
+	}
+
+	function toggleSelectedWeekday(value: string): void {
+		selectedWeekdayValues = selectedWeekdaySet.has(value)
+			? selectedWeekdayValues.filter((candidate) => candidate !== value)
+			: [...selectedWeekdayValues, value].sort((left, right) => Number(left) - Number(right));
+	}
+
+	function resetGenerationSetup(): void {
+		startDateOverride = '';
+		endDateOverride = '';
+		generationPattern = generate.generationPattern;
+		selectedWeekdayValues = weekdayValuesFromNumbers(generate.selectedWeekdays);
+		skipHolidaysAndDonsas = generate.skipHolidaysAndDonsas;
 	}
 
 	function enhancePostForm(formElement: HTMLFormElement, submit: SubmitFunction) {
@@ -280,6 +352,13 @@
 						<input type="hidden" name="templateId" value={selectedTemplate.id} />
 						<input type="hidden" name="startDate" value={startDateValue} />
 						<input type="hidden" name="endDate" value={endDateValue} />
+						<input type="hidden" name="pattern" value={generationPattern} />
+						<input type="hidden" name="skipHolidaysAndDonsas" value={String(skipHolidaysAndDonsas)} />
+						{#if generationPattern === 'selected-weekdays'}
+							{#each selectedWeekdayValues as weekday (weekday)}
+								<input type="hidden" name="selectedWeekdays" value={weekday} />
+							{/each}
+						{/if}
 						<DateRangeControls
 							startDate={startDateValue}
 							endDate={endDateValue}
@@ -287,6 +366,77 @@
 							onStartDateChange={(value) => (startDateOverride = value)}
 							onEndDateChange={(value) => (endDateOverride = value)}
 						/>
+						<div class="grid gap-4 border-t border-border pt-4">
+							<div class="grid gap-2 sm:max-w-xs">
+								<Label
+									id="generation-pattern-label"
+									class="font-mono text-xs font-semibold uppercase tracking-[0.08em]"
+								>
+									Run pattern
+								</Label>
+								<Select.Root type="single" bind:value={generationPattern}>
+									<Select.Trigger class="w-full" aria-labelledby="generation-pattern-label">
+										{generationPatternLabel}
+									</Select.Trigger>
+									<Select.Content>
+										{#each generationPatternOptions as option (option.value)}
+											<Select.Item value={option.value} label={option.label} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</div>
+							{#if generationPattern === 'selected-weekdays'}
+								<div class="grid gap-2">
+									<div class="flex flex-wrap items-center justify-between gap-2">
+										<Label class="font-mono text-xs font-semibold uppercase tracking-[0.08em]">Selected weekdays</Label>
+										<div class="flex items-center gap-2">
+											<Button
+												variant="outline"
+												size="xs"
+												type="button"
+												onclick={() => setSelectedWeekdayPreset(weekdayPreset)}
+											>
+												Weekdays
+											</Button>
+											<Button
+												variant="outline"
+												size="xs"
+												type="button"
+												onclick={() => setSelectedWeekdayPreset(weekendPreset)}
+											>
+												Weekends
+											</Button>
+										</div>
+									</div>
+									<ButtonGroup.Root class="flex-wrap" aria-label="Selected weekdays">
+										{#each weekdayOptions as day (day.value)}
+											<Button
+												variant={selectedWeekdaySet.has(day.value) ? 'secondary' : 'outline'}
+												size="sm"
+												type="button"
+												aria-pressed={selectedWeekdaySet.has(day.value)}
+												onclick={() => toggleSelectedWeekday(day.value)}
+											>
+												{day.label}
+											</Button>
+										{/each}
+									</ButtonGroup.Root>
+									{#if selectedWeekdayValues.length === 0}
+										<p class="text-sm text-destructive" role="alert">Select at least one weekday.</p>
+									{/if}
+								</div>
+							{/if}
+							<label class="flex items-start gap-3 rounded-md border border-border px-3 py-2 text-sm">
+								<Checkbox
+									checked={skipHolidaysAndDonsas}
+									onCheckedChange={(checked) => (skipHolidaysAndDonsas = Boolean(checked))}
+								/>
+								<span class="grid gap-0.5">
+									<span class="font-medium text-foreground">Do not assign duty on holidays or DONSAs</span>
+									<span class="text-muted-foreground">Skips matching dates in this generated run.</span>
+								</span>
+							</label>
+						</div>
 						<p class="text-sm text-muted-foreground">
 							Start date must be today or later, and the end date must be on or after the start date.
 						</p>
@@ -350,10 +500,16 @@
 				</section>
 
 				<div class="flex items-center gap-3" aria-label="Generation actions">
-					<Button variant="outline" type="reset" form="generate-preview-form" disabled={generatingPreview}>
+					<Button
+						variant="outline"
+						type="reset"
+						form="generate-preview-form"
+						disabled={generatingPreview}
+						onclick={resetGenerationSetup}
+					>
 						Reset
 					</Button>
-					<Button type="submit" form="generate-preview-form" disabled={!canGenerate || generatingPreview}>
+					<Button type="submit" form="generate-preview-form" disabled={!canSubmitGenerate || generatingPreview}>
 						{generatingPreview ? 'Generating...' : 'Generate Preview'}
 					</Button>
 				</div>

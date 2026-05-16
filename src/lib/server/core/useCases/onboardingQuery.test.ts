@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { fetchOnboardingBootstrap } from './onboardingQuery';
+import type { FindOptions } from '$lib/server/core/ports';
 
 const ORG = 'test-org';
 
@@ -333,5 +334,154 @@ describe('fetchOnboardingBootstrap', () => {
 
 		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', ORG, { id: 'sp1' });
 		expect(stored?.completed).toBe(false);
+	});
+
+	it('hydrates multiple active training-backed onboardings through one batched training-record read', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		const findManyCalls: Array<{ table: string; filters?: Record<string, unknown>; options?: FindOptions }> = [];
+		const findOneTables: string[] = [];
+		const updateTables: string[] = [];
+		const originalFindMany: typeof ctx.store.findMany = ctx.store.findMany.bind(ctx.store);
+		const originalFindOne: typeof ctx.store.findOne = ctx.store.findOne.bind(ctx.store);
+		const originalUpdate: typeof ctx.store.update = ctx.store.update.bind(ctx.store);
+
+		ctx.store.findMany = async <T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<T[]> => {
+			findManyCalls.push({ table, filters, options });
+			return originalFindMany<T>(table, orgId, filters, options);
+		};
+		ctx.store.findOne = async <T>(
+			table: string,
+			orgId: string,
+			filters: Record<string, unknown>,
+			select?: string
+		): Promise<T | null> => {
+			findOneTables.push(table);
+			return originalFindOne<T>(table, orgId, filters, select);
+		};
+		ctx.store.update = async <T>(
+			table: string,
+			orgId: string,
+			id: string,
+			data: Record<string, unknown>,
+			select?: string
+		): Promise<T> => {
+			updateTables.push(table);
+			return originalUpdate<T>(table, orgId, id, data, select);
+		};
+
+		ctx.store.seed('personnel_onboardings', [
+			{
+				id: 'ob1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				started_at: '2026-01-01',
+				completed_at: null,
+				cancelled_at: null,
+				status: 'in_progress',
+				template_id: null,
+				onboarding_step_progress: [
+					{
+						id: 'sp1',
+						onboarding_id: 'ob1',
+						organization_id: ORG,
+						step_name: 'CPR',
+						step_type: 'training',
+						training_type_id: 'tt-cpr',
+						stages: null,
+						sort_order: 0,
+						completed: false,
+						current_stage: null,
+						notes: [],
+						template_step_id: null,
+						active: true
+					}
+				]
+			},
+			{
+				id: 'ob2',
+				organization_id: ORG,
+				personnel_id: 'p2',
+				started_at: '2026-01-02',
+				completed_at: null,
+				cancelled_at: null,
+				status: 'in_progress',
+				template_id: null,
+				onboarding_step_progress: [
+					{
+						id: 'sp2',
+						onboarding_id: 'ob2',
+						organization_id: ORG,
+						step_name: 'First Aid',
+						step_type: 'training',
+						training_type_id: 'tt-first-aid',
+						stages: null,
+						sort_order: 0,
+						completed: false,
+						current_stage: null,
+						notes: [],
+						template_step_id: null,
+						active: true
+					},
+					{
+						id: 'sp3',
+						onboarding_id: 'ob2',
+						organization_id: ORG,
+						step_name: 'Inactive CPR',
+						step_type: 'training',
+						training_type_id: 'tt-cpr',
+						stages: null,
+						sort_order: 1,
+						completed: true,
+						current_stage: null,
+						notes: [],
+						template_step_id: null,
+						active: false
+					}
+				]
+			}
+		]);
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				training_type_id: 'tt-cpr',
+				completed_date: '2026-01-01',
+				expiration_date: null,
+				exempted: false
+			},
+			{
+				id: 'pt2',
+				organization_id: ORG,
+				personnel_id: 'p2',
+				training_type_id: 'tt-first-aid',
+				completed_date: '2026-01-02',
+				expiration_date: null,
+				exempted: false
+			}
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+
+		const firstOnboardingStep = result.onboardings.find((onboarding) => onboarding.id === 'ob1')?.steps[0];
+		const secondOnboarding = result.onboardings.find((onboarding) => onboarding.id === 'ob2');
+		expect(firstOnboardingStep?.completed).toBe(true);
+		expect(secondOnboarding?.steps.find((step) => step.id === 'sp2')?.completed).toBe(true);
+		expect(secondOnboarding?.steps.find((step) => step.id === 'sp3')?.completed).toBe(true);
+
+		const trainingRecordCalls = findManyCalls.filter((call) => call.table === 'personnel_trainings');
+		expect(trainingRecordCalls).toHaveLength(1);
+		expect(trainingRecordCalls[0].options?.inFilters).toEqual({
+			personnel_id: ['p1', 'p2'],
+			training_type_id: ['tt-cpr', 'tt-first-aid']
+		});
+		expect(findOneTables.filter((table) => table === 'personnel_onboardings')).toHaveLength(0);
+		expect(findManyCalls.some((call) => call.table === 'onboarding_step_progress')).toBe(false);
+		expect(updateTables).toHaveLength(0);
 	});
 });

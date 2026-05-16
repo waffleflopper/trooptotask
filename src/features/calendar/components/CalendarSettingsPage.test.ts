@@ -128,6 +128,29 @@ describe('CalendarSettingsPage', () => {
 		);
 	});
 
+	it('blocks accidental close affordances once an add-status form is dirty but keeps Cancel explicit', async () => {
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+
+		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
+		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
+
+		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: 'Detail' } });
+
+		expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+		expect(screen.queryByRole('dialog', { name: 'Add Status Type' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const reopenedName = within(screen.getByRole('dialog', { name: 'Add Status Type' })).getByLabelText(
+			'Status name'
+		) as HTMLInputElement;
+		expect(reopenedName.value).toBe('');
+	});
+
 	it('guides admins to review existing status types without a DA6 treatment', () => {
 		statusTypesStoreMock.items = [
 			{

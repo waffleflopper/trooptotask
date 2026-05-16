@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "public"."personnel_follow_ups" (
     "created_at" timestamp with time zone DEFAULT now() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
     "completed_at" timestamp with time zone,
+    "archived_at" timestamp with time zone,
     CONSTRAINT "personnel_follow_ups_status_check" CHECK (("status" = ANY (ARRAY['open'::text, 'completed'::text, 'archived'::text]))),
     CONSTRAINT "personnel_follow_ups_title_check" CHECK ((length(btrim("title")) > 0))
 );
@@ -27,6 +28,9 @@ ALTER TABLE ONLY "public"."personnel_follow_ups"
 
 CREATE INDEX IF NOT EXISTS "idx_personnel_follow_ups_personnel_status_created"
     ON "public"."personnel_follow_ups" USING "btree" ("personnel_id", "status", "created_at" DESC);
+
+CREATE INDEX IF NOT EXISTS "idx_personnel_follow_ups_personnel_status_archived"
+    ON "public"."personnel_follow_ups" USING "btree" ("personnel_id", "status", "archived_at" DESC);
 
 CREATE OR REPLACE TRIGGER "update_personnel_follow_ups_updated_at"
     BEFORE UPDATE ON "public"."personnel_follow_ups"

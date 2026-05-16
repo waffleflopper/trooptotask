@@ -20,6 +20,7 @@
 	} from '$features/personnel/personnel-detail.types';
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
+	import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 	import { cn } from '$lib/utils';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
@@ -186,12 +187,6 @@
 		if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 		if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
 		return `${bytes} B`;
-	}
-
-	function documentTitleFromFilename(filename: string) {
-		const name = filename.split(/[\\/]/).pop() ?? '';
-		const base = name.replace(/\.[^.]+$/, '');
-		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
 	}
 
 	function mergeUpdatedFollowUps(loaded: PersonnelFollowUp[]): PersonnelFollowUp[] {
@@ -367,7 +362,7 @@
 		const input = event.currentTarget as HTMLInputElement;
 		documentFile = input.files?.[0] ?? null;
 		if (documentFile && !documentTitle.trim()) {
-			documentTitle = documentTitleFromFilename(documentFile.name);
+			documentTitle = derivePersonnelDocumentTitle({ filename: documentFile.name });
 		}
 	}
 

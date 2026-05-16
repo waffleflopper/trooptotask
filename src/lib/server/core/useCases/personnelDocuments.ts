@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
+import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
@@ -61,10 +63,6 @@ function fileNameFromPath(path: string): string {
 	return path.split(/[\\/]/).pop() ?? 'document';
 }
 
-function hasPdfSignature(bytes: Uint8Array): boolean {
-	return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-}
-
 function hasJpegSignature(bytes: Uint8Array): boolean {
 	return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 }
@@ -89,7 +87,7 @@ function hasHeicSignature(bytes: Uint8Array): boolean {
 }
 
 function matchesDeclaredType(file: File, bytes: Uint8Array): boolean {
-	if (file.type === 'application/pdf') return hasPdfSignature(bytes);
+	if (file.type === 'application/pdf') return hasPdfFileSignature(bytes);
 	if (file.type === 'image/jpeg') return hasJpegSignature(bytes);
 	if (file.type === 'image/png') return hasPngSignature(bytes);
 	if (file.type === 'image/heic' || file.type === 'image/heif') return hasHeicSignature(bytes);
@@ -119,12 +117,6 @@ function safeFilename(filename: string): string {
 		.replace(/-+/g, '-')
 		.replace(/^-|-$/g, '');
 	return cleaned || fallback;
-}
-
-export function titleFromFilename(filename: string): string {
-	const base = safeFilename(filename).replace(/\.[^.]+$/, '');
-	const title = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-	return title || 'Uploaded document';
 }
 
 async function loadDocumentStorageCapBytes(ctx: UseCaseContext): Promise<number> {
@@ -203,7 +195,7 @@ export async function createPersonnelDocument(
 	try {
 		row = await ctx.store.insert<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
 			personnel_id: input.personnelId,
-			title: input.title?.trim() || titleFromFilename(rawInput.file.name),
+			title: derivePersonnelDocumentTitle({ title: input.title, filename: rawInput.file.name }),
 			file_path: filePath,
 			file_size_bytes: rawInput.file.size,
 			content_type: rawInput.file.type,

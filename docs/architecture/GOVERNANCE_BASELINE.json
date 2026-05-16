@@ -164,6 +164,22 @@
 			]
 		},
 		{
+			"path": "src/lib/access/memberAccessProjection.ts",
+			"classification": "compatibility-adapter",
+			"patterns": [
+				"canEdit*",
+				"scopedGroupId",
+				"scoped_group_id",
+				"can_view_*",
+				"can_edit_*"
+			],
+			"ownerIssue": "#757",
+			"reason": "Member access projection centralizes read-model translation from legacy membership rows into Capability Map, Scope Set, and route-data compatibility fields.",
+			"driftIds": [
+				"D-01"
+			]
+		},
+		{
 			"path": "src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
@@ -199,7 +215,6 @@
 			"path": "src/lib/server/adapters/supabaseOrgShell.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"canEdit*",
 				"scopedGroupId",
 				"scoped_group_id",
 				"can_view_*",
@@ -282,8 +297,6 @@
 			"path": "src/lib/server/permissionContext.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
-				"canEdit*",
-				"scopedGroupId",
 				"scoped_group_id",
 				"can_view_*",
 				"can_edit_*"

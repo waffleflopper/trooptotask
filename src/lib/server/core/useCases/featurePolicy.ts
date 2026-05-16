@@ -1,13 +1,13 @@
-import {
-	evaluatePolicyDecision,
-	type FeatureLanePolicyAction,
-	type PolicyDecision,
-	type PolicyReasonCode,
-	type PolicyResource
+import type {
+	FeatureLanePolicyAction,
+	PolicyDecision,
+	PolicyReasonCode,
+	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
@@ -100,17 +100,7 @@ export async function evaluateFeaturePolicy(
 	action: FeatureLanePolicyAction,
 	resource: PolicyResource
 ): Promise<PolicyDecision> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	return evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
-		action,
-		capabilityMap: ports.auth.capabilityMap,
-		compatibilityLanes: ports.auth.compatibilityLanes,
-		scopeSet: ports.auth.scopeSet,
-		resource,
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+	return evaluateAuthoritativePolicyDecision(ports, action, resource);
 }
 
 function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string): string {

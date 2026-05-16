@@ -1,5 +1,5 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
 import {
 	currentPresetToMemberAccessStorage,
 	DURABLE_FEATURE_LANES,
@@ -16,6 +16,7 @@ import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -373,17 +374,12 @@ async function requireIdentityPolicy(
 	actorUserId: string,
 	resourceUserId: string | null
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role, userId: actorUserId },
-		action: POLICY_ACTION_CATALOG.identity.leaveOrganization,
-		capabilityMap: ports.auth.capabilityMap,
-		compatibilityLanes: ports.auth.compatibilityLanes,
-		scopeSet: ports.auth.scopeSet,
-		resource: resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+	const decision = await evaluateAuthoritativePolicyDecision(
+		ports,
+		POLICY_ACTION_CATALOG.identity.leaveOrganization,
+		resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
+		{ actorUserId }
+	);
 
 	if (decision.allowed) {
 		return;

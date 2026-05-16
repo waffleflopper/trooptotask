@@ -1,10 +1,7 @@
-import {
-	evaluatePolicyDecision,
-	type OrganizationGovernancePolicyAction,
-	type PolicyReasonCode
-} from '$lib/access/policyEvaluator';
+import type { OrganizationGovernancePolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision, NO_FEATURE_CAPABILITIES } from './policyAdapter';
 
 interface GovernancePolicyPorts {
 	auth: AuthContext;
@@ -22,23 +19,16 @@ export async function requireGovernancePolicy(
 	options: GovernancePolicyOptions = {}
 ): Promise<void> {
 	const enforceReadOnlyOverlay = options.enforceReadOnlyOverlay ?? true;
-	const isReadOnly = enforceReadOnlyOverlay ? ((await ports.readOnlyGuard?.check()) ?? false) : false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
+	const decision = await evaluateAuthoritativePolicyDecision(
+		ports,
 		action,
-		capabilityMap: {
-			calendar: 'none',
-			personnel: 'none',
-			training: 'none',
-			criticalTasks: 'none',
-			onboarding: 'none',
-			ratingScheme: 'none'
-		},
-		scopeSet: { kind: 'organization' },
-		resource: { kind: 'organization' },
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+		{ kind: 'organization' },
+		{
+			capabilityMap: NO_FEATURE_CAPABILITIES,
+			scopeSet: { kind: 'organization' },
+			enforceReadOnlyOverlay
+		}
+	);
 
 	if (decision.allowed) {
 		return;

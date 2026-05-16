@@ -1,13 +1,12 @@
 import {
-	evaluatePolicyDecision,
 	POLICY_ACTION_CATALOG,
 	type FeatureLanePolicyAction,
 	type PolicyDecision,
-	type PolicyOverlay,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 
 interface CalendarPolicyPorts {
 	auth: AuthContext;
@@ -70,21 +69,7 @@ async function evaluateCalendarPolicy(
 	action: FeatureLanePolicyAction,
 	resource: PolicyResource
 ): Promise<PolicyDecision> {
-	const overlays: PolicyOverlay[] = [];
-	if ((await ports.readOnlyGuard?.check()) ?? false) {
-		overlays.push({ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' });
-	}
-
-	return evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
-		action,
-		capabilityMap: ports.auth.capabilityMap,
-		compatibilityLanes: ports.auth.compatibilityLanes,
-		scopeSet: ports.auth.scopeSet,
-		resource,
-		overlays
-	});
+	return evaluateAuthoritativePolicyDecision(ports, action, resource);
 }
 
 function logCalendarPolicyDenial(ports: CalendarPolicyPorts, decision: PolicyDecision, resource: PolicyResource): void {

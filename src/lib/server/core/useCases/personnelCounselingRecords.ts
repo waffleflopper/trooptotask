@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PersonnelCounselingRecord } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
 	buildSensitiveFilePath,
 	SENSITIVE_FILE_BUCKET,
@@ -66,16 +67,12 @@ function fileNameFromPath(path: string): string {
 	return path.split(/[\\/]/).pop() ?? 'counseling-record.pdf';
 }
 
-function hasPdfSignature(bytes: Uint8Array): boolean {
-	return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-}
-
 async function assertPdf(file: File): Promise<void> {
 	if (!(file instanceof File)) fail(400, 'A signed counseling PDF is required.');
 	const validationError = validateSensitiveFileSelection(file);
 	if (validationError) fail(400, validationError);
 	const bytes = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-	if (!hasPdfSignature(bytes)) fail(400, 'Counseling upload contents must be a PDF file.');
+	if (!hasPdfFileSignature(bytes)) fail(400, 'Counseling upload contents must be a PDF file.');
 }
 
 function safeFilename(filename: string): string {

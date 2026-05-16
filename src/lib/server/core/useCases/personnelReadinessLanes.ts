@@ -47,6 +47,7 @@ interface DutyRosterAssignmentRow {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DUTY_ROSTER_READINESS_LOOKBACK_DAYS = 365;
 
 async function loadPersonnelForLane(
 	ctx: UseCaseContext,
@@ -75,6 +76,12 @@ function asOfDate(value?: string | Date): Date {
 
 function daysBetween(from: Date, to: Date): number {
 	return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
+}
+
+function subtractDays(date: Date, days: number): Date {
+	const result = new Date(date);
+	result.setDate(result.getDate() - days);
+	return result;
 }
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
@@ -308,12 +315,15 @@ export async function loadDutyRosterReadinessLane(
 ): Promise<PersonnelReadinessLane> {
 	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'duty_roster_history');
 	const today = asOfDate(asOf);
+	const historyCutoff = formatDate(subtractDays(today, DUTY_ROSTER_READINESS_LOOKBACK_DAYS));
 	const [templateRows, historyRows] = await Promise.all([
 		ctx.store.findMany<DutyTemplateRow>('duty_templates', ctx.auth.orgId, undefined, {
 			select: 'id, status, exempt_personnel_ids'
 		}),
 		ctx.store.findMany<DutyRosterHistoryRow>('duty_roster_history', ctx.auth.orgId, undefined, {
 			select: 'roster',
+			// Personnel readiness only needs a recent "last duty" signal; the full archive remains on Duty Rosters.
+			rangeFilters: [{ column: 'end_date', op: 'gte', value: historyCutoff }],
 			orderBy: [{ column: 'end_date', ascending: false }]
 		})
 	]);

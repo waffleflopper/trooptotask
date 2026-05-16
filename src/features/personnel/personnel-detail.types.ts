@@ -117,6 +117,7 @@ export interface PersonnelFollowUp {
 	createdAt: string;
 	updatedAt: string;
 	completedAt: string | null;
+	archivedAt?: string | null;
 }
 
 export interface PersonnelLeaderNote {

@@ -294,10 +294,16 @@ describe('org settings page', () => {
 		expect(screen.getByText('Hand the Owner role to another member. You will become Admin.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Purge Archived/ }).hasAttribute('disabled')).toBe(true);
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Test Org' }));
-		expect(screen.getByRole('dialog')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Delete Permanently' }).hasAttribute('disabled')).toBe(true);
-		await fireEvent.input(screen.getByLabelText('Type Test Org to confirm'), { target: { value: 'Test Org' } });
-		expect(screen.getByRole('button', { name: 'Delete Permanently' }).hasAttribute('disabled')).toBe(false);
+		const dialog = screen.getByRole('dialog', { name: 'Delete Organization' });
+		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Delete Permanently' }).hasAttribute('disabled')).toBe(true);
+		await fireEvent.input(within(dialog).getByLabelText('Type Test Org to confirm'), { target: { value: 'Test Org' } });
+		expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
+		expect(within(dialog).getByRole('button', { name: 'Delete Permanently' }).hasAttribute('disabled')).toBe(false);
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+		expect(screen.queryByRole('dialog', { name: 'Delete Organization' })).toBeNull();
 	});
 
 	it('shows billing access when billing is enabled', () => {

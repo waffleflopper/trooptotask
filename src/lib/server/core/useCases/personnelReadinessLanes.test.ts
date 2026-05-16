@@ -233,6 +233,39 @@ describe('personnel readiness lanes', () => {
 		});
 	});
 
+	it('bounds Duty Roster history to the one-year readiness lookback', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx);
+		const findMany = vi.spyOn(ctx.store, 'findMany');
+		ctx.store.seed('duty_templates', []);
+		ctx.store.seed('duty_roster_history', [
+			{
+				id: 'history-old',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: 'assignment-1',
+				name: 'Staff Duty',
+				start_date: '2025-05-12',
+				end_date: '2025-05-13',
+				roster: [{ date: '2025-05-13', assigneeId: 'person-1' }],
+				config: {},
+				created_at: '2025-05-13T00:00:00Z'
+			}
+		]);
+
+		await expect(loadDutyRosterReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+			label: 'Duty Roster',
+			value: 'Eligible',
+			detail: 'No DA6 exemption. No accepted Duty Roster history found.',
+			tone: 'good'
+		});
+
+		const historyCall = findMany.mock.calls.find(([table]) => table === 'duty_roster_history');
+		expect(historyCall?.[3]).toMatchObject({
+			rangeFilters: [{ column: 'end_date', op: 'gte', value: '2025-05-14' }],
+			orderBy: [{ column: 'end_date', ascending: false }]
+		});
+	});
+
 	it('reports whether Rating Scheme raters are assigned', async () => {
 		const ctx = createTestContext();
 		seedPerson(ctx);

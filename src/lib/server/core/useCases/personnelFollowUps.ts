@@ -16,6 +16,7 @@ interface FollowUpRow {
 	created_at: string;
 	updated_at: string;
 	completed_at: string | null;
+	archived_at?: string | null;
 }
 
 export const personnelFollowUpInputSchema = z.object({
@@ -52,7 +53,8 @@ function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, st
 		createdBy: resolveContributorLabel(contributorLabels, row.created_by),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
-		completedAt: row.completed_at
+		completedAt: row.completed_at,
+		archivedAt: row.archived_at ?? null
 	};
 }
 
@@ -77,6 +79,7 @@ export async function listPersonnelFollowUps(
 			// Open sorts after completed lexicographically, so descending keeps active work first while archived is excluded.
 			orderBy: [
 				{ column: 'status', ascending: false },
+				...(options.archived ? [{ column: 'archived_at', ascending: false }] : []),
 				{ column: 'created_at', ascending: false }
 			],
 			...(options.archived ? { filters: { status: 'archived' } } : { notInFilters: { status: ['archived'] } }),
@@ -144,6 +147,7 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
 		status: input.status,
 		completed_at: input.status === 'completed' ? now : null,
+		archived_at: input.status === 'archived' ? now : null,
 		updated_at: now
 	});
 
@@ -220,6 +224,7 @@ export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: un
 	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
 		status: 'open',
 		completed_at: null,
+		archived_at: null,
 		updated_at: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });

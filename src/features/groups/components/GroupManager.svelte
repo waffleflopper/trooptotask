@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Group } from '$lib/stores/groups.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -21,6 +21,7 @@
 	let newGroupName = $state('');
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
+	const groupDialogDirty = $derived(newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
 
 	async function handleAdd() {
 		if (newGroupName.trim()) {
@@ -66,13 +67,13 @@
 	}
 </script>
 
-<Dialog.Root open onOpenChange={(open) => !open && onClose()}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Manage Groups</Dialog.Title>
-		</Dialog.Header>
+<AppDialog.Root open closeBlocked={groupDialogDirty} {onClose}>
+	<AppDialog.Content closeBlocked={groupDialogDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Manage Groups</AppDialog.Title>
+		</AppDialog.Header>
 
-		<div class="grid gap-4">
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="new-group-name">Organization groups</Label>
 				<div class="flex gap-2">
@@ -124,13 +125,13 @@
 					</div>
 				{/each}
 			</div>
-		</div>
+		</AppDialog.Body>
 
-		<Dialog.Footer>
+		<AppDialog.Footer>
 			<Button type="button" onclick={onClose}>Done</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 {#if confirmRemove}
 	<ConfirmDialog

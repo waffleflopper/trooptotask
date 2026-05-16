@@ -346,7 +346,8 @@ describe('dashboard page server load', () => {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 					body: new URLSearchParams({
-						membershipId: '11111111-1111-4111-8111-111111111111'
+						membershipId: '11111111-1111-4111-8111-111111111111',
+						confirmLeaveOrganization: 'YES'
 					})
 				}),
 				locals: {
@@ -372,6 +373,7 @@ describe('dashboard page server load', () => {
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
+				confirmation: 'YES',
 				actorEmail: 'user@example.com'
 			}
 		);

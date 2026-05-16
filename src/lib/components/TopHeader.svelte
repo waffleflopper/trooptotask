@@ -25,9 +25,12 @@
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -84,6 +87,8 @@
 	let notifications = $state<Notification[]>([]);
 	let notificationsLoaded = $state(false);
 	let notificationsLoading = $state(false);
+	let showLeaveOrganizationDialog = $state(false);
+	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $derived(unreadNotificationCount);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgId}`);
@@ -100,7 +105,11 @@
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
 	const activeOrg = $derived(allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole });
 	const isMultiOrg = $derived(allOrgs.length > 1);
-	const canLeaveOrganization = $derived(userRole !== 'owner' && Boolean(membershipId));
+	const normalizedUserRole = $derived(userRole.toLowerCase());
+	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
+	const canSubmitLeaveOrganization = $derived(
+		canLeaveOrganization && Boolean(membershipId) && leaveOrganizationConfirmText === 'YES'
+	);
 	const accountInitials = $derived('ME');
 
 	onMount(() => {
@@ -116,6 +125,16 @@
 			.slice(0, 2)
 			.map((word) => word[0]?.toUpperCase() ?? '')
 			.join('');
+	}
+
+	function openLeaveOrganizationDialog() {
+		leaveOrganizationConfirmText = '';
+		showLeaveOrganizationDialog = true;
+	}
+
+	function closeLeaveOrganizationDialog() {
+		leaveOrganizationConfirmText = '';
+		showLeaveOrganizationDialog = false;
 	}
 
 	function switchOrg(targetOrgId: string) {
@@ -341,13 +360,10 @@
 								</DropdownMenu.Group>
 								<DropdownMenu.Separator />
 								{#if canLeaveOrganization}
-									<form method="POST" action={resolve(`/org/${orgId}?/leaveOrganization`)} class="m-0">
-										<input type="hidden" name="membershipId" value={membershipId ?? ''} />
-										<Button type="submit" variant="destructive" class="h-8 w-full justify-start rounded-md px-1.5">
-											<Building2 />
-											Leave Organization
-										</Button>
-									</form>
+									<DropdownMenu.Item variant="destructive" onclick={openLeaveOrganizationDialog}>
+										<Building2 />
+										Leave Organization
+									</DropdownMenu.Item>
 									<DropdownMenu.Separator />
 								{/if}
 								<DropdownMenu.Item variant="destructive" onclick={() => goto(resolve('/auth/logout'))}>
@@ -466,4 +482,64 @@
 			</main>
 		</Sidebar.Inset>
 	</Sidebar.Provider>
+
+	{#if canLeaveOrganization}
+		<AppDialog.Root bind:open={showLeaveOrganizationDialog} onClose={closeLeaveOrganizationDialog}>
+			<AppDialog.Content>
+				<AppDialog.Header>
+					<AppDialog.Title>Leave Organization</AppDialog.Title>
+					<AppDialog.Description>
+						Are you sure you wish to leave {orgName}? You will lose access to this organization's workspace unless you
+						are invited again.
+					</AppDialog.Description>
+				</AppDialog.Header>
+
+				<AppDialog.Body>
+					<form
+						id="leave-organization-form"
+						method="POST"
+						action={resolve(`/org/${orgId}?/leaveOrganization`)}
+						class="grid gap-3"
+						onsubmit={(event) => {
+							if (!canSubmitLeaveOrganization) event.preventDefault();
+						}}
+					>
+						<input type="hidden" name="membershipId" value={membershipId ?? ''} />
+						<div class="grid gap-2">
+							<Label for="leave-organization-confirm">Type YES to confirm</Label>
+							<Input
+								id="leave-organization-confirm"
+								name="confirmLeaveOrganization"
+								type="text"
+								bind:value={leaveOrganizationConfirmText}
+								autocomplete="off"
+								placeholder="YES"
+								aria-describedby="leave-organization-help"
+							/>
+							<p id="leave-organization-help" class="text-sm text-muted-foreground">
+								This confirms you understand the action applies to {orgName}.
+							</p>
+						</div>
+						{#if !membershipId}
+							<p class="text-sm text-destructive">
+								We could not identify your organization membership. Refresh the page and try again.
+							</p>
+						{/if}
+					</form>
+				</AppDialog.Body>
+
+				<AppDialog.Footer>
+					<Button type="button" variant="outline" onclick={closeLeaveOrganizationDialog}>Cancel</Button>
+					<Button
+						type="submit"
+						form="leave-organization-form"
+						variant="destructive"
+						disabled={!canSubmitLeaveOrganization}
+					>
+						Leave Organization
+					</Button>
+				</AppDialog.Footer>
+			</AppDialog.Content>
+		</AppDialog.Root>
+	{/if}
 </Tooltip.Provider>

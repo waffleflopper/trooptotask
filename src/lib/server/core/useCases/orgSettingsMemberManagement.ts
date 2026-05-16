@@ -95,6 +95,7 @@ interface RemoveOrganizationMemberInput {
 
 interface LeaveOrganizationInput {
 	membershipId: string;
+	confirmation: string;
 	actorEmail?: string | null;
 }
 
@@ -254,6 +255,10 @@ export async function leaveOrganization(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: LeaveOrganizationInput
 ): Promise<{ success: true }> {
+	if (input.confirmation !== 'YES') {
+		fail(400, 'Type YES to confirm leaving the organization');
+	}
+
 	if (!validateUUID(input.membershipId)) {
 		fail(400, 'Invalid membership ID');
 	}

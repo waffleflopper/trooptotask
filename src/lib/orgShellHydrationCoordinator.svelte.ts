@@ -6,7 +6,7 @@ import { trainingViewsStore } from '$features/training/stores/trainingViews.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -31,7 +31,7 @@ import type {
 export type { HydrationStores } from '$lib/orgShellCoordinator';
 
 const defaultStores: HydrationStores = {
-	personnelStore,
+	personnelStore: rosterStore,
 	groupsStore,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,

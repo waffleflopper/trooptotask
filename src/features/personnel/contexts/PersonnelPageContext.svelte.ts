@@ -1,11 +1,11 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
-import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
-import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
+import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
+import type { PersonnelGroup } from '$lib/domain/rosterGrouping';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 // ---------------------------------------------------------------------------
 // Data shape expected from the page server / layout

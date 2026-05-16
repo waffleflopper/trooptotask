@@ -8,7 +8,7 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
@@ -130,7 +130,7 @@ describe('TrainingPageContext', () => {
 		modals = makeModals();
 		queueUserPreferencesPatchMock.mockReset();
 		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
-		personnelStore.load([mockPerson, mockPerson2], 'org-1');
+		rosterStore.load([mockPerson, mockPerson2], 'org-1');
 		groupsStore.load(mockGroups, 'org-1');
 		trainingViewsStore.load([], 'org-1');
 	});
@@ -209,7 +209,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('returns empty array when no roles', () => {
-			personnelStore.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
+			rosterStore.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
 			const data = makeData();
 			const ctx = new TrainingPageContext(data, modals, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
@@ -218,7 +218,7 @@ describe('TrainingPageContext', () => {
 
 	it('reads personnel from the hydrated personnel store', () => {
 		const workspacePerson = { ...mockPerson, id: 'workspace-person', lastName: 'Workspace' };
-		personnelStore.load([workspacePerson], 'org-1');
+		rosterStore.load([workspacePerson], 'org-1');
 		const data = makeData();
 
 		const ctx = new TrainingPageContext(data, modals, makeOrg());

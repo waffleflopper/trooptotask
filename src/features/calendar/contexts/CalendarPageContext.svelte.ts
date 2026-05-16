@@ -7,7 +7,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
-import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
@@ -21,7 +21,7 @@ import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 export interface CalendarRosterFilterOption {
 	value: string;

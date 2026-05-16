@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
@@ -136,7 +136,7 @@ function makeServerReport(
 
 describe('TrainingReportsPage', () => {
 	beforeEach(() => {
-		personnelStore.load(personnel, 'org-1');
+		rosterStore.load(personnel, 'org-1');
 		groupsStore.load(groups, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 		personnelTrainingsStore.load([], 'org-1');
@@ -146,7 +146,7 @@ describe('TrainingReportsPage', () => {
 		cleanup();
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');

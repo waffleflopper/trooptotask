@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -8,7 +8,7 @@ import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveBadgeColor, deriveShortName } from '$features/calendar/utils/dutyEventBadges';
 import { formatDate, parseDate } from '$lib/utils/dates';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
 import type {
@@ -772,7 +772,7 @@ export class DashboardScreenModel {
 
 function createDefaultDashboardStoreSources(): DashboardStoreSources {
 	return {
-		personnel: personnelStore,
+		personnel: rosterStore,
 		statusTypes: statusTypesStore,
 		availability: availabilityStore,
 		dailyAssignments: dailyAssignmentsStore,

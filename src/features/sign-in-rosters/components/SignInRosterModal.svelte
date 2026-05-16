@@ -2,7 +2,7 @@
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
-	import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
+	import { RANK_ORDER } from '$lib/domain/rosterGrouping';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';

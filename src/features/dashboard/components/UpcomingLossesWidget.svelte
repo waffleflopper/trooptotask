@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import type { BadgeVariant } from '$lib/components/ui/badge/badge.svelte';
-	import type { UpcomingLossRecord } from '../utils/evaluateUpcomingLosses';
+	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 	interface Props {
 		losses: UpcomingLossRecord[];

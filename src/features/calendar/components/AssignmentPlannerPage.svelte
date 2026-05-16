@@ -6,7 +6,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+	import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';

@@ -48,6 +48,10 @@ _Avoid_: Personnel record when talking about the person in the workflow
 The working collection of **Personnel Records** shown for an **Organization** or filtered **Group**.
 _Avoid_: Personnel page data, list of users
 
+**Roster Read Model**:
+The shared app-side read seam for the current **Roster**, including loaded **Personnel Records**, group membership, and roster ordering helpers used across feature surfaces. **Personnel** still owns roster administration and write workflows.
+_Avoid_: Personnel store when cross-feature read access is meant, write-side personnel workflow
+
 **Duty Role**:
 The canonical military-facing term for a person's local functional role, billet, or position title.
 _Avoid_: Clinic role, bare role
@@ -363,6 +367,8 @@ _Avoid_: Training type
 - Governance, billing, member management, and platform concerns stay outside the durable **Feature Lane** map.
 - A **Personnel Record** may belong to one **Group**.
 - A **Roster** is composed of **Personnel Records** and may be narrowed by **Group**, **Personnel Record**, or typed search.
+- The **Roster Read Model** is shared infrastructure for reading roster data across feature surfaces.
+- **Personnel** owns roster administration and write workflows even when other features consume the **Roster Read Model**.
 - **Duty Role** is stored today through the legacy **Clinic Role** field and may still be accepted through compatibility labels in import paths.
 - **Rating Scheme** may read roster reference data to resolve rated people and raters without inheriting **Personnel** lane ownership.
 - **Rating Scheme** is independently grantable from **Personnel**.

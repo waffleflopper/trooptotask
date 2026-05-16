@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
@@ -77,13 +77,13 @@ const trainingType: TrainingType = {
 
 describe('TrainingTypesPage', () => {
 	beforeEach(() => {
-		personnelStore.load(personnel, 'org-1');
+		rosterStore.load(personnel, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
 

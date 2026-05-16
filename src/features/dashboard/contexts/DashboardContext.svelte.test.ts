@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DashboardContext } from './DashboardContext.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 
-const mutablePersonnelStore = personnelStore as unknown as { items: Array<Record<string, unknown>> };
+const mutableRosterStore = rosterStore as unknown as { items: Array<Record<string, unknown>> };
 const mutableStatusTypesStore = statusTypesStore as unknown as { items: Array<Record<string, unknown>> };
 const mutableAvailabilityStore = availabilityStore as unknown as {
 	items: Array<Record<string, unknown>>;
@@ -24,8 +24,8 @@ vi.mock('$lib/data/changelog', () => ({ changelog: [] }));
 vi.mock('$lib/stores/whatsNew.svelte', () => ({ whatsNewStore: { show: vi.fn(), close: vi.fn() } }));
 
 // Stub all stores — each returns a minimal reactive-compatible object
-vi.mock('$features/personnel/stores/personnel.svelte', () => ({
-	personnelStore: { items: [] }
+vi.mock('$lib/stores/roster.svelte', () => ({
+	rosterStore: { items: [] }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
@@ -114,7 +114,7 @@ describe('DashboardContext', () => {
 
 	beforeEach(() => {
 		vi.restoreAllMocks();
-		mutablePersonnelStore.items = [];
+		mutableRosterStore.items = [];
 		mutableStatusTypesStore.items = [];
 		mutableAvailabilityStore.items = [];
 		mutableDailyAssignmentsStore.loading = false;
@@ -168,7 +168,7 @@ describe('DashboardContext', () => {
 		});
 
 		it('reflects streamed store data and ignores availability outside the loaded personnel scope', () => {
-			mutablePersonnelStore.items = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }];
+			mutableRosterStore.items = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }];
 			mutableStatusTypesStore.items = [{ id: 'st1', name: 'Leave', color: '#111111', textColor: '#ffffff' }];
 			mutableAvailabilityStore.items = [
 				{
@@ -272,7 +272,7 @@ describe('DashboardContext', () => {
 		it('assigns unique keys when repeated changes land on the same day', () => {
 			vi.useFakeTimers();
 			vi.setSystemTime(new Date('2098-12-31T12:00:00Z'));
-			mutablePersonnelStore.items = [
+			mutableRosterStore.items = [
 				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
 				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
 			];
@@ -444,7 +444,7 @@ describe('DashboardContext', () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// upcomingLosses (derived from personnelStore + lossWarningWindowDays)
+	// upcomingLosses (derived from rosterStore + lossWarningWindowDays)
 	// -------------------------------------------------------------------------
 	describe('upcomingLosses', () => {
 		/** Builds a personnel item with enough fields to satisfy the Personnel type */
@@ -471,19 +471,19 @@ describe('DashboardContext', () => {
 		}
 
 		it('returns an empty array when no personnel have tracked dates', () => {
-			mutablePersonnelStore.items = [makePerson('p1')];
+			mutableRosterStore.items = [makePerson('p1')];
 			ctx = new DashboardContext(makeData());
 			expect(ctx.upcomingLosses).toEqual([]);
 		});
 
 		it('returns a record for personnel whose ETS is within the warning window', () => {
-			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 60))];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
 			expect(ctx.upcomingLosses).toHaveLength(1);
 			expect(ctx.upcomingLosses[0].triggerType).toBe('ETS');
 		});
 
 		it('returns a record for personnel whose DEROS is within the warning window', () => {
-			mutablePersonnelStore.items = [makePerson('p1', null, daysOut(ctx, 45))];
+			mutableRosterStore.items = [makePerson('p1', null, daysOut(ctx, 45))];
 			expect(ctx.upcomingLosses).toHaveLength(1);
 			expect(ctx.upcomingLosses[0].triggerType).toBe('PCS / DEROS');
 		});
@@ -491,13 +491,13 @@ describe('DashboardContext', () => {
 		it('respects the configured lossWarningWindowDays from the workspace data', () => {
 			// Window = 30 days; person at 60 days should be excluded
 			ctx = new DashboardContext(makeData({}, { lossWarningWindowDays: 30 }));
-			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 60))];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
 			expect(ctx.upcomingLosses).toHaveLength(0);
 		});
 
-		it('only includes personnel that appear in the scoped personnelStore', () => {
+		it('only includes personnel that appear in the scoped rosterStore', () => {
 			// Two personnel in store, one with an in-window ETS
-			mutablePersonnelStore.items = [
+			mutableRosterStore.items = [
 				makePerson('p1', daysOut(ctx, 30)),
 				makePerson('p2') // no dates
 			];
@@ -506,14 +506,14 @@ describe('DashboardContext', () => {
 		});
 
 		it('orders results nearest first', () => {
-			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 90)), makePerson('p2', daysOut(ctx, 30))];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 90)), makePerson('p2', daysOut(ctx, 30))];
 			const result = ctx.upcomingLosses;
 			expect(result[0].personId).toBe('p2');
 			expect(result[1].personId).toBe('p1');
 		});
 
 		it('marks awardDueSoon true for every entry', () => {
-			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 45))];
 			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(true);
 		});
 
@@ -521,7 +521,7 @@ describe('DashboardContext', () => {
 			ctx = new DashboardContext(
 				makeData({}, { awardTrackingAcknowledgedPersonnelIds: ['p1'], lossWarningWindowDays: 180 })
 			);
-			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 45))];
 
 			expect(ctx.upcomingLosses).toHaveLength(1);
 			expect(ctx.upcomingLosses[0].personId).toBe('p1');

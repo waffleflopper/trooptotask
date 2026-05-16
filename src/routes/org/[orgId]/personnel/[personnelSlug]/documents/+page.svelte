@@ -2,6 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import type { PersonnelDocument, PersonnelDocumentsPageData } from '$features/personnel/personnel-detail.types';
+	import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 
 	let { data }: { data: PersonnelDocumentsPageData } = $props();
 	let title = $state('');
@@ -26,17 +27,11 @@
 		return `${bytes} B`;
 	}
 
-	function titleFromFilename(filename: string) {
-		const name = filename.split(/[\\/]/).pop() ?? '';
-		const base = name.replace(/\.[^.]+$/, '');
-		return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded document';
-	}
-
 	function updateFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		file = input.files?.[0] ?? null;
 		if (file && !title.trim()) {
-			title = titleFromFilename(file.name);
+			title = derivePersonnelDocumentTitle({ filename: file.name });
 		}
 	}
 

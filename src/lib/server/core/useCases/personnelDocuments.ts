@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
+import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
@@ -118,12 +119,6 @@ function safeFilename(filename: string): string {
 	return cleaned || fallback;
 }
 
-export function titleFromFilename(filename: string): string {
-	const base = safeFilename(filename).replace(/\.[^.]+$/, '');
-	const title = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-	return title || 'Uploaded document';
-}
-
 async function loadDocumentStorageCapBytes(ctx: UseCaseContext): Promise<number> {
 	const settings = await ctx.store.findOne<OrganizationDocumentSettingsRow>(
 		'organizations',
@@ -200,7 +195,7 @@ export async function createPersonnelDocument(
 	try {
 		row = await ctx.store.insert<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
 			personnel_id: input.personnelId,
-			title: input.title?.trim() || titleFromFilename(rawInput.file.name),
+			title: derivePersonnelDocumentTitle({ title: input.title, filename: rawInput.file.name }),
 			file_path: filePath,
 			file_size_bytes: rawInput.file.size,
 			content_type: rawInput.file.type,

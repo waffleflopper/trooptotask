@@ -1,7 +1,7 @@
 import type { OrganizationGovernancePolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision, NO_FEATURE_CAPABILITIES } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface GovernancePolicyPorts {
 	auth: AuthContext;
@@ -34,18 +34,13 @@ export async function requireGovernancePolicy(
 		return;
 	}
 
-	ports.audit.log({
-		action: 'policy.denied',
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
 		resourceType: 'organization',
-		details: {
-			policyAction: action.id,
-			reasonCode: decision.reasonCode,
-			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-		},
-		severity: 'warning'
+		details: policyDenialAuditDetails(decision, { policyActionId: action.id }),
+		message: policyDenialMessage(decision.reasonCode)
 	});
-
-	fail(403, policyDenialMessage(decision.reasonCode));
 }
 
 function policyDenialMessage(reasonCode: PolicyReasonCode): string {

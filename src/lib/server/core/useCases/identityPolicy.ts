@@ -1,7 +1,7 @@
 import type { IdentityOwnedPolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface IdentityPolicyPorts {
 	auth: Pick<AuthContext, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'>;
@@ -26,21 +26,15 @@ export async function requireIdentityOwnedPolicy(
 		return;
 	}
 
-	if (decision.audit.capture) {
-		ports.audit.log({
-			action: 'policy.denied',
-			resourceType,
-			resourceId,
-			details: {
-				policyAction: action.id,
-				reasonCode: decision.reasonCode,
-				...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-			},
-			severity: 'warning'
-		});
-	}
-
-	fail(denialStatus(decision.reasonCode), identityPolicyDenialMessage(decision.reasonCode));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType,
+		resourceId,
+		details: policyDenialAuditDetails(decision, { policyActionId: action.id }),
+		status: denialStatus(decision.reasonCode),
+		message: identityPolicyDenialMessage(decision.reasonCode)
+	});
 }
 
 function denialStatus(reasonCode: PolicyReasonCode): 401 | 403 {

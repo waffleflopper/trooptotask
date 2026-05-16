@@ -5,9 +5,9 @@ import type {
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface PolicyPorts {
 	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'>;
@@ -28,23 +28,18 @@ export async function requirePolicyDecision(
 		return;
 	}
 
-	if (decision.audit.capture) {
-		ports.audit.log({
-			action: 'policy.denied',
-			resourceType: action.id,
-			details: {
-				policyAction: action.id,
-				reasonCode: decision.reasonCode,
-				resource,
-				...(decision.matchedCapability ? { matchedCapability: decision.matchedCapability } : {}),
-				...(decision.matchedScope ? { matchedScope: decision.matchedScope } : {}),
-				...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-			},
-			severity: 'warning'
-		});
-	}
-
-	fail(403, policyDenialMessage(decision.reasonCode, ports.auth.scopeSet));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType: action.id,
+		details: policyDenialAuditDetails(decision, {
+			policyActionId: action.id,
+			resource,
+			matchedCapability: { key: 'matchedCapability', value: 'full' },
+			matchedScope: { key: 'matchedScope', value: 'full' }
+		}),
+		message: policyDenialMessage(decision.reasonCode, ports.auth.scopeSet)
+	});
 }
 
 export function policyDenialMessage(reasonCode: PolicyReasonCode, scopeSet?: ScopeSet): string {

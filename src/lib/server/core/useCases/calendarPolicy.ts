@@ -4,9 +4,9 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface CalendarPolicyPorts {
 	auth: AuthContext;
@@ -26,8 +26,13 @@ export async function requireCalendarPolicy(
 	const decision = await evaluateCalendarPolicy(ports, action, resource);
 	if (decision.allowed) return;
 
-	logCalendarPolicyDenial(ports, decision, resource);
-	fail(403, calendarPolicyDenialMessage(decision));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType: 'calendar',
+		details: policyDenialAuditDetails(decision, { resource }),
+		message: calendarPolicyDenialMessage(decision)
+	});
 }
 
 export async function requireCalendarPersonnelPolicy(
@@ -70,20 +75,6 @@ async function evaluateCalendarPolicy(
 	resource: PolicyResource
 ): Promise<PolicyDecision> {
 	return evaluateAuthoritativePolicyDecision(ports, action, resource);
-}
-
-function logCalendarPolicyDenial(ports: CalendarPolicyPorts, decision: PolicyDecision, resource: PolicyResource): void {
-	ports.audit?.log({
-		action: 'policy.denied',
-		resourceType: 'calendar',
-		details: {
-			policyAction: decision.action.id,
-			reasonCode: decision.reasonCode,
-			resource,
-			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-		},
-		severity: 'warning'
-	});
 }
 
 function calendarPolicyDenialMessage(decision: PolicyDecision): string {

@@ -5,9 +5,9 @@ import type {
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
@@ -76,23 +76,18 @@ export async function requireFeaturePolicy(
 		return;
 	}
 
-	if (decision.audit.capture && ports.audit) {
-		ports.audit.log({
-			action: 'policy.denied',
-			resourceType,
-			resourceId,
-			details: {
-				policyAction: action.id,
-				reasonCode: decision.reasonCode,
-				...(decision.matchedCapability ? { capability: decision.matchedCapability.actual } : {}),
-				...(decision.matchedScope ? { scope: decision.matchedScope.kind } : {}),
-				...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-			},
-			severity: 'warning'
-		});
-	}
-
-	fail(403, featurePolicyDenialMessage(decision.reasonCode, action.owner.lane));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType,
+		resourceId,
+		details: policyDenialAuditDetails(decision, {
+			policyActionId: action.id,
+			matchedCapability: { key: 'capability', value: 'actual' },
+			matchedScope: { key: 'scope', value: 'kind' }
+		}),
+		message: featurePolicyDenialMessage(decision.reasonCode, action.owner.lane)
+	});
 }
 
 export async function evaluateFeaturePolicy(

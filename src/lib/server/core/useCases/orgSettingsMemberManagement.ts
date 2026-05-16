@@ -17,6 +17,7 @@ import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$l
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -385,18 +386,13 @@ async function requireIdentityPolicy(
 		return;
 	}
 
-	ports.audit.log({
-		action: 'policy.denied',
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
 		resourceType: 'organization',
-		details: {
-			policyAction: decision.action.id,
-			reasonCode: decision.reasonCode,
-			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-		},
-		severity: 'warning'
+		details: policyDenialAuditDetails(decision),
+		message: identityPolicyDenialMessage(decision.reasonCode)
 	});
-
-	fail(403, identityPolicyDenialMessage(decision.reasonCode));
 }
 
 function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {

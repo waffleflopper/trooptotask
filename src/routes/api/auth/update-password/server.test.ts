@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { POST } from './+server';
 
 describe('POST /api/auth/update-password', () => {
-	it('updates the current user password when the new password passes policy', async () => {
+	it('updates the current user password after verifying the old password', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
@@ -10,12 +11,18 @@ describe('POST /api/auth/update-password', () => {
 			request: new Request('http://localhost/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password: 'SecurePass12' })
+				body: JSON.stringify({
+					currentPassword: 'OldSecurePass12',
+					password: 'SecurePass12',
+					confirmPassword: 'SecurePass12'
+				})
 			}),
 			locals: {
 				session: { user: { id: 'user-123' } },
+				user: { id: 'user-123', email: 'user@example.test' },
 				supabase: {
 					auth: {
+						signInWithPassword,
 						updateUser
 					}
 				}
@@ -25,8 +32,75 @@ describe('POST /api/auth/update-password', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
+		expect(signInWithPassword).toHaveBeenCalledWith({
+			email: 'user@example.test',
+			password: 'OldSecurePass12'
+		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
 		expect(cookies.delete).not.toHaveBeenCalled();
+	});
+
+	it('rejects in-app password updates when the old password is missing', async () => {
+		const signInWithPassword = vi.fn();
+		const updateUser = vi.fn();
+		const cookies = { delete: vi.fn() };
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password: 'SecurePass12', confirmPassword: 'SecurePass12' })
+			}),
+			locals: {
+				session: { user: { id: 'user-123' } },
+				user: { id: 'user-123', email: 'user@example.test' },
+				supabase: {
+					auth: {
+						signInWithPassword,
+						updateUser
+					}
+				}
+			},
+			cookies
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: 'Current password is required' });
+		expect(signInWithPassword).not.toHaveBeenCalled();
+		expect(updateUser).not.toHaveBeenCalled();
+	});
+
+	it('rejects in-app password updates when the old password is incorrect', async () => {
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+		const updateUser = vi.fn();
+		const cookies = { delete: vi.fn() };
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					currentPassword: 'WrongSecurePass12',
+					password: 'SecurePass12',
+					confirmPassword: 'SecurePass12'
+				})
+			}),
+			locals: {
+				session: { user: { id: 'user-123' } },
+				user: { id: 'user-123', email: 'user@example.test' },
+				supabase: {
+					auth: {
+						signInWithPassword,
+						updateUser
+					}
+				}
+			},
+			cookies
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({ error: 'Current password is incorrect' });
+		expect(updateUser).not.toHaveBeenCalled();
 	});
 
 	it('rejects passwords that do not meet policy', async () => {
@@ -41,6 +115,7 @@ describe('POST /api/auth/update-password', () => {
 			}),
 			locals: {
 				session: { user: { id: 'user-123' } },
+				authFlow: 'recovery',
 				supabase: {
 					auth: {
 						updateUser
@@ -72,6 +147,7 @@ describe('POST /api/auth/update-password', () => {
 			}),
 			locals: {
 				session: { user: { id: 'user-123' } },
+				authFlow: 'recovery',
 				supabase: {
 					auth: {
 						updateUser

@@ -473,6 +473,11 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'identity.listOwnDeletionRequests',
 			label: 'List own deletion requests',
 			accessMode: 'read'
+		}),
+		leaveOrganization: identityAction({
+			id: 'identity.leaveOrganization',
+			label: 'Leave organization',
+			accessMode: 'write'
 		})
 	}
 } as const;

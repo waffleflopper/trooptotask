@@ -132,6 +132,7 @@
 		orgId={data.orgId}
 		orgName={data.orgName}
 		userRole={data.userRole ?? 'member'}
+		membershipId={data.membershipId ?? null}
 		permissions={data.permissions!}
 		capabilityMap={data.capabilityMap}
 		allOrgs={data.allOrgs ?? []}

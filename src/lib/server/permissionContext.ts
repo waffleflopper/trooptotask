@@ -69,6 +69,7 @@ export interface PermissionContext {
 
 /** The shape of a membership row needed to build a PermissionContext (no DB query required) */
 export interface MembershipRow {
+	id?: string;
 	role: 'owner' | 'admin' | 'member';
 	scoped_group_id: string | null;
 	can_view_calendar: boolean;

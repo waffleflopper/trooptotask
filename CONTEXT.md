@@ -18,6 +18,14 @@ _Avoid_: Element, squad, platoon, section, team when naming the product model
 An authenticated app user who belongs to an **Organization**.
 _Avoid_: User when access semantics matter
 
+**User Account**:
+The signed-in person's identity and authentication settings, such as email address, password, MFA, and personal profile details.
+_Avoid_: Organization, workspace, tenant
+
+**User Profile**:
+The personal profile details attached to a **User Account**, such as first name, last name, rank, and future display information. A **User Profile** is not the same as a **Personnel Record** and should not automatically sync to roster data.
+_Avoid_: Personnel Record, Organization Member
+
 **Membership Role**:
 The fixed organization-governance role on an **Organization Member**: `owner`, `admin`, or `member`.
 _Avoid_: Team leader, viewer, editor
@@ -474,6 +482,8 @@ _Avoid_: Training type
 ## Flagged Ambiguities
 
 - **Organization** is the canonical v1 term. Do not use **Account** or **Unit** as if they already describe the current v1 model.
+- **User Account** is personal identity and sign-in settings. It does not own organization data, memberships, billing, or governance settings.
+- **User Profile** is independent from **Personnel Record** data in the first account-settings slice. Keep future linking possible, but do not auto-link or auto-sync profile and roster records without a separate decision.
 - **Group** is the canonical v1 subdivision term. Do not silently replace it with **Element** in current-state v1 docs.
 - **Membership Role**, **Current Permission Preset**, and **Member Preset** are different concepts.
 - **Admin** is a fixed governance role, not a member preset.

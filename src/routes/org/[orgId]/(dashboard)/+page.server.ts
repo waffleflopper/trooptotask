@@ -1,8 +1,11 @@
-import type { PageServerLoadEvent } from './$types';
-import { buildLayoutContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
+import { redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoadEvent } from './$types';
+import { buildLayoutContext, buildRouteContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { leaveOrganization } from '$lib/server/core/useCases/orgSettingsMemberManagement';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
@@ -110,4 +113,29 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	return {
 		summary
 	};
+};
+
+export const actions: Actions = {
+	leaveOrganization: async (event) => {
+		const user = event.locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const formData = await event.request.formData();
+		const ctx = await buildRouteContext(event);
+		await leaveOrganization(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				readOnlyGuard: ctx.readOnlyGuard,
+				settings: createSupabaseOrgSettingsMemberManagementPort(event.locals)
+			},
+			{
+				membershipId: (formData.get('membershipId') as string) ?? '',
+				actorEmail: user.email
+			}
+		);
+
+		throw redirect(303, '/dashboard?show=all');
+	}
 };

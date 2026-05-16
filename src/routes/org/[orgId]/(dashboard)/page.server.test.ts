@@ -4,10 +4,13 @@ import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 
 const {
 	buildLayoutContextMock,
+	buildRouteContextMock,
+	createSupabaseOrgSettingsMemberManagementPortMock,
 	fetchCriticalTasksReportDashboardMock,
 	fetchDashboardTrainingSummaryMock,
 	findManyWithCountMock,
 	findManyMock,
+	leaveOrganizationMock,
 	mockCtx
 } = vi.hoisted(() => {
 	const ORG_ID = '11111111-1111-1111-1111-111111111111';
@@ -16,10 +19,13 @@ const {
 
 	return {
 		buildLayoutContextMock: vi.fn(),
+		buildRouteContextMock: vi.fn(),
+		createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 		fetchCriticalTasksReportDashboardMock: vi.fn(),
 		fetchDashboardTrainingSummaryMock: vi.fn(),
 		findManyWithCountMock,
 		findManyMock,
+		leaveOrganizationMock: vi.fn(),
 		mockCtx: {
 			auth: {
 				orgId: ORG_ID,
@@ -44,7 +50,23 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	);
 	return {
 		...actual,
-		buildLayoutContext: buildLayoutContextMock
+		buildLayoutContext: buildLayoutContextMock,
+		buildRouteContext: buildRouteContextMock
+	};
+});
+
+vi.mock('$lib/server/adapters/supabaseOrgSettingsMemberManagement', () => ({
+	createSupabaseOrgSettingsMemberManagementPort: createSupabaseOrgSettingsMemberManagementPortMock
+}));
+
+vi.mock('$lib/server/core/useCases/orgSettingsMemberManagement', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsMemberManagement')>(
+		'$lib/server/core/useCases/orgSettingsMemberManagement'
+	);
+
+	return {
+		...actual,
+		leaveOrganization: leaveOrganizationMock
 	};
 });
 
@@ -56,7 +78,7 @@ vi.mock('$lib/server/core/useCases/criticalTasksReportsQuery', () => ({
 	fetchCriticalTasksReportDashboard: fetchCriticalTasksReportDashboardMock
 }));
 
-import { load } from './+page.server';
+import { actions, load } from './+page.server';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -64,6 +86,14 @@ describe('dashboard page server load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildLayoutContextMock.mockResolvedValue(mockCtx);
+		buildRouteContextMock.mockResolvedValue({
+			auth: { kind: 'auth' },
+			audit: { kind: 'audit' },
+			notifications: { kind: 'notifications' },
+			readOnlyGuard: { kind: 'read-only' }
+		});
+		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
+		leaveOrganizationMock.mockResolvedValue({ success: true });
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: new Set<string>()
@@ -307,5 +337,43 @@ describe('dashboard page server load', () => {
 			ictlSummary: null
 		});
 		expect(fetchCriticalTasksReportDashboardMock).not.toHaveBeenCalled();
+	});
+
+	it('leaves the organization through the dashboard action and redirects away from the org', async () => {
+		await expect(
+			actions.leaveOrganization({
+				request: new Request(`http://localhost/org/${ORG_ID}?/leaveOrganization`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						membershipId: '11111111-1111-4111-8111-111111111111'
+					})
+				}),
+				locals: {
+					user: { id: 'user-1', email: 'user@example.com' },
+					supabase: {}
+				},
+				params: { orgId: ORG_ID },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard?show=all'
+		});
+
+		expect(leaveOrganizationMock).toHaveBeenCalledWith(
+			{
+				auth: { kind: 'auth' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				readOnlyGuard: { kind: 'read-only' },
+				settings: { kind: 'settings-port' }
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'user@example.com'
+			}
+		);
 	});
 });

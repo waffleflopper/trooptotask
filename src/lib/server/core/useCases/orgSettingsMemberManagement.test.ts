@@ -3,6 +3,7 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { PERMISSION_PRESETS, type OrganizationMemberPermissions } from '$lib/types';
 import {
 	inviteOrganizationMember,
+	leaveOrganization,
 	removeOrganizationMember,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberPermissions,
@@ -504,6 +505,134 @@ describe('removeOrganizationMember', () => {
 			status: 500,
 			message: 'Failed to remove member'
 		});
+	});
+});
+
+describe('leaveOrganization', () => {
+	it('lets a non-owner member remove their own membership and notifies admins', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'actor-1',
+				role: 'member',
+				email: 'actor@example.com'
+			},
+			orgName: 'Alpha Company'
+		});
+
+		const result = await leaveOrganization(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(port.removedMemberships).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.left',
+				resourceType: 'organization',
+				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
+			}
+		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'actor-1',
+				notification: {
+					type: 'member_left',
+					title: 'Member Left Organization',
+					message: '"actor@example.com" left "Alpha Company".',
+					link: '/org/org-1/settings'
+				}
+			}
+		]);
+	});
+
+	it('blocks organization owners before removing their membership', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'owner-1',
+				orgId: 'org-1',
+				role: 'owner'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'owner-1',
+				role: 'owner',
+				email: 'owner@example.com'
+			}
+		});
+
+		await expect(
+			leaveOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'owner@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Organization owners must transfer ownership before leaving the organization'
+		});
+
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('rejects attempts to leave with another member membership id', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'member-2',
+				role: 'member',
+				email: 'member2@example.com'
+			}
+		});
+
+		await expect(
+			leaveOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'You can only leave organizations for your own account'
+		});
+
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'policy.denied',
+				resourceType: 'organization',
+				details: {
+					policyAction: 'identity.leaveOrganization',
+					reasonCode: 'denied:not-resource-owner'
+				},
+				severity: 'warning'
+			}
+		]);
 	});
 });
 

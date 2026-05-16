@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
-import type { UpcomingLossRecord } from '../../utils/evaluateUpcomingLosses';
+import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import UnitReadinessTab from './UnitReadinessTab.svelte';
 
 function makeLoss(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossRecord {

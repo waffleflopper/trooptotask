@@ -6,7 +6,7 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { OrganizationMemberPermissions, Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 
 const { gotoMock } = vi.hoisted(() => ({

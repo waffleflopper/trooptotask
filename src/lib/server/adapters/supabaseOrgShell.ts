@@ -37,7 +37,7 @@ import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoord
 import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchCalendarBootstrap, type CalendarBootstrap, type CalendarDateRange } from '../core/useCases/calendarQuery';
-import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
+import { getActiveOnboardingPersonnelIds } from '../core/useCases/calendarQuery';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
@@ -55,8 +55,7 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
-import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
-import type { CriticalTasksBootstrap } from '../core/useCases/criticalTasksQuery';
+import type { CriticalTasksBootstrap, TrainingBootstrap } from '../core/orgShell';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';

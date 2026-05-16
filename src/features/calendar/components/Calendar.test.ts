@@ -5,7 +5,7 @@ import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 let resizeObserverCallback: ResizeObserverCallback | undefined;
 const resizeObserve = vi.fn();

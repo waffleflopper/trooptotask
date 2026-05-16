@@ -7,7 +7,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 import { getIctStatus } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 

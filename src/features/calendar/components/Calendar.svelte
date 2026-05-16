@@ -8,7 +8,7 @@
 		DailyAssignment
 	} from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';

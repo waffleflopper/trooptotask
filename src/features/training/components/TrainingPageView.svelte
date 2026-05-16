@@ -15,12 +15,12 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { rosterStore } from '$lib/stores/roster.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
 	const storesHydratedForOrg = $derived(
-		personnelStore.orgId === ctx.orgId &&
+		rosterStore.orgId === ctx.orgId &&
 			groupsStore.orgId === ctx.orgId &&
 			trainingTypesStore.orgId === ctx.orgId &&
 			trainingViewsStore.orgId === ctx.orgId &&
@@ -29,7 +29,7 @@
 
 	const loading = $derived(
 		!storesHydratedForOrg ||
-			personnelStore.loading ||
+			rosterStore.loading ||
 			groupsStore.loading ||
 			trainingTypesStore.loading ||
 			trainingViewsStore.loading ||

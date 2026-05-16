@@ -6,7 +6,7 @@ import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 import { _createTrainingLayoutLoad } from './+layout.server';
 
 describe('training layout server load', () => {

@@ -1,5 +1,5 @@
 import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
-import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
+import { RANK_ORDER } from '$lib/domain/rosterGrouping';
 
 // --- Shared helpers ---
 

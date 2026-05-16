@@ -1,5 +1,5 @@
 import type { Personnel } from '$lib/types';
-import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
+import type { PersonnelGroup } from '$lib/domain/rosterGrouping';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 
 export function scopePersonnel(personnel: Personnel[], scopedGroupId: string | null): Personnel[] {

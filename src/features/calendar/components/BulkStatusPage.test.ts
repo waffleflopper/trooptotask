@@ -51,7 +51,7 @@ vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 	pinnedGroupsStore: { list: [] }
 }));
 
-vi.mock('$features/personnel/utils/personnelGrouping', () => ({
+vi.mock('$lib/domain/rosterGrouping', () => ({
 	groupAndSortPersonnel: vi.fn(() => [])
 }));
 

@@ -3,11 +3,11 @@ import { invalidate, goto } from '$app/navigation';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
-import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { groupsStore } from '$lib/stores/groups.svelte';
@@ -105,7 +105,7 @@ export class TrainingPageContext {
 
 	get personnel(): Personnel[] {
 		this.reconcileHydratedSelections();
-		return personnelStore.orgId === this.orgId ? personnelStore.items : [];
+		return rosterStore.orgId === this.orgId ? rosterStore.items : [];
 	}
 
 	get groups(): Group[] {

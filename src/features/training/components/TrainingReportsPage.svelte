@@ -8,7 +8,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingStatus } from '$features/training/training.types';
@@ -74,8 +74,8 @@
 	let expandedTypeId = $state<string | null>(null);
 
 	const allPersonnel = $derived<Personnel[]>(
-		personnelStore.orgId === org.orgId
-			? personnelStore.items
+		rosterStore.orgId === org.orgId
+			? rosterStore.items
 			: Array.isArray(workspaceData?.personnel)
 				? workspaceData.personnel
 				: Array.isArray(data.personnel)

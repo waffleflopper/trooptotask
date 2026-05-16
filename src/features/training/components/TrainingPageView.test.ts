@@ -5,7 +5,7 @@ import TrainingPageView from './TrainingPageView.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { rosterStore } from '$lib/stores/roster.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
@@ -110,7 +110,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 
 describe('TrainingPageView', () => {
 	beforeEach(() => {
-		personnelStore.load(personnel, 'org-1');
+		rosterStore.load(personnel, 'org-1');
 		groupsStore.load(groups, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 		trainingViewsStore.load([], 'org-1');
@@ -120,7 +120,7 @@ describe('TrainingPageView', () => {
 
 	afterEach(() => {
 		cleanup();
-		personnelStore.load([], 'org-test-reset');
+		rosterStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
@@ -140,7 +140,7 @@ describe('TrainingPageView', () => {
 	});
 
 	it('keeps the loading skeleton while another orgs training stores are still on screen', () => {
-		personnelStore.load(personnel, 'org-stale');
+		rosterStore.load(personnel, 'org-stale');
 		groupsStore.load(groups, 'org-stale');
 		trainingTypesStore.load([trainingType], 'org-stale');
 		personnelTrainingsStore.load([], 'org-stale');

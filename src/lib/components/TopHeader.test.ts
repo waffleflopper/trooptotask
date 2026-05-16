@@ -34,6 +34,14 @@ const { pageStore } = vi.hoisted(() => {
 	};
 });
 
+const { goto } = vi.hoisted(() => {
+	return { goto: vi.fn() };
+});
+
+vi.mock('$app/navigation', () => {
+	return { goto };
+});
+
 vi.mock('$app/stores', () => {
 	return {
 		page: {
@@ -69,6 +77,7 @@ function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {})
 			orgId: 'org-1',
 			orgName: 'Test Org',
 			userRole: 'admin',
+			membershipId: 'membership-1',
 			permissions: basePermissions,
 			allOrgs: [],
 			onToggleTheme: vi.fn(),
@@ -108,6 +117,34 @@ describe('TopHeader', () => {
 		renderHeader();
 
 		expect(screen.getByRole('button', { name: /Account menu/i })).toBeTruthy();
+	});
+
+	it('opens the User Account profile from the account menu', async () => {
+		renderHeader();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Account' }));
+
+		expect(goto).toHaveBeenCalledWith('/account/profile');
+	});
+
+	it('shows a leave organization action for non-owner members', async () => {
+		renderHeader({ userRole: 'member' });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+
+		const leaveButton = screen.getByRole('button', { name: 'Leave Organization' });
+		expect(leaveButton).toBeTruthy();
+		expect(leaveButton.closest('form')?.getAttribute('action')).toBe('/org/org-1?/leaveOrganization');
+		expect(screen.getByDisplayValue('membership-1').getAttribute('name')).toBe('membershipId');
+	});
+
+	it('does not show leave organization for owners', async () => {
+		renderHeader({ userRole: 'owner' });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+
+		expect(screen.queryByRole('button', { name: 'Leave Organization' })).toBeNull();
 	});
 
 	it('offsets the app shell below fixed banners while preserving available height', () => {

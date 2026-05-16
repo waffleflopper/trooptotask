@@ -1,5 +1,5 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
 import {
 	currentPresetToMemberAccessStorage,
 	DURABLE_FEATURE_LANES,
@@ -87,6 +87,11 @@ interface RevokeOrganizationInvitationInput {
 }
 
 interface RemoveOrganizationMemberInput {
+	membershipId: string;
+	actorEmail?: string | null;
+}
+
+interface LeaveOrganizationInput {
 	membershipId: string;
 	actorEmail?: string | null;
 }
@@ -243,6 +248,45 @@ export async function removeOrganizationMember(
 	return { success: true };
 }
 
+export async function leaveOrganization(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: LeaveOrganizationInput
+): Promise<{ success: true }> {
+	if (!validateUUID(input.membershipId)) {
+		fail(400, 'Invalid membership ID');
+	}
+
+	const actorUserId = requireActorUserId(ports.auth);
+	const membership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
+
+	await requireIdentityPolicy(ports, actorUserId, membership?.userId ?? null);
+
+	if (membership?.role === 'owner') {
+		fail(400, 'Organization owners must transfer ownership before leaving the organization');
+	}
+
+	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId);
+	if (errorMessage) {
+		fail(500, errorMessage);
+	}
+
+	ports.audit.log({
+		action: 'member.left',
+		resourceType: 'organization',
+		details: { membershipId: input.membershipId }
+	});
+
+	const orgName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'the organization';
+	await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
+		type: 'member_left',
+		title: 'Member Left Organization',
+		message: `"${input.actorEmail ?? ''}" left "${orgName}".`,
+		link: `/org/${ports.auth.orgId}/settings`
+	});
+
+	return { success: true };
+}
+
 export async function updateOrganizationMemberPermissions(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: UpdateOrganizationMemberPermissionsInput
@@ -322,6 +366,49 @@ function requireActorUserId(auth: AuthContext): string {
 	}
 
 	return auth.userId;
+}
+
+async function requireIdentityPolicy(
+	ports: OrganizationSettingsMemberManagementPorts,
+	actorUserId: string,
+	resourceUserId: string | null
+): Promise<void> {
+	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
+	const decision = evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: { membershipRole: ports.auth.role, userId: actorUserId },
+		action: POLICY_ACTION_CATALOG.identity.leaveOrganization,
+		capabilityMap: ports.auth.capabilityMap,
+		compatibilityLanes: ports.auth.compatibilityLanes,
+		scopeSet: ports.auth.scopeSet,
+		resource: resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
+		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
+	});
+
+	if (decision.allowed) {
+		return;
+	}
+
+	ports.audit.log({
+		action: 'policy.denied',
+		resourceType: 'organization',
+		details: {
+			policyAction: decision.action.id,
+			reasonCode: decision.reasonCode,
+			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
+		},
+		severity: 'warning'
+	});
+
+	fail(403, identityPolicyDenialMessage(decision.reasonCode));
+}
+
+function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {
+	if (reasonCode === 'denied:read-only-overlay') {
+		return 'Organization is in read-only mode';
+	}
+
+	return 'You can only leave organizations for your own account';
 }
 
 function normalizeEmail(email: string): string {

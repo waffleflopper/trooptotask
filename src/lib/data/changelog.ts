@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-05-15-account-settings-and-organization-exit',
+		date: '2026-05-15',
+		title: 'Account Settings and Organization Exit',
+		items: [
+			'There is now an Account Settings page for managing account-level options outside of any one organization',
+			'Members can leave an organization from the account menu when they no longer need access',
+			'Organization owners are protected from accidentally leaving an organization they still own'
+		]
+	},
+	{
 		id: '2026-05-13-new-look-and-workflow-refresh',
 		date: '2026-05-13',
 		title: 'A Fresh Look and Smoother Workflows',

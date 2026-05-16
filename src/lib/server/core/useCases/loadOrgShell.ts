@@ -14,6 +14,7 @@ export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort)
 
 	return {
 		orgId: membership.orgId,
+		membershipId: membership.membershipId,
 		orgName: orgState.orgName,
 		userId: membership.userId,
 		userPreferences: chromeData.userPreferences,

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
@@ -7,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { ALL_RANKS } from '$lib/types';
 
 	let { form, data } = $props();
 	let loading = $state(false);
@@ -88,6 +90,27 @@
 					placeholder="you@example.com"
 				/>
 
+				<div class="grid gap-3 sm:grid-cols-2">
+					<AuthField label="First Name" id="firstName" name="firstName" required placeholder="First name" />
+
+					<AuthField label="Last Name" id="lastName" name="lastName" required placeholder="Last name" />
+				</div>
+
+				<div class="grid gap-2">
+					<label class="text-sm font-medium" for="rank">Rank</label>
+					<select
+						id="rank"
+						name="rank"
+						required
+						class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<option value="">Select rank</option>
+						{#each ALL_RANKS as rank (rank)}
+							<option value={rank}>{rank}</option>
+						{/each}
+					</select>
+				</div>
+
 				<AuthField
 					label="Password"
 					id="password"
@@ -124,8 +147,9 @@
 					<label class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
 						<Checkbox name="agreeTerms" required class="mt-0.5" />
 						<span>
-							I have read and agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Use</a> and
-							<a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+							I have read and agree to the <a href={resolve('/terms')} target="_blank" rel="noreferrer">Terms of Use</a>
+							and
+							<a href={resolve('/privacy')} target="_blank" rel="noreferrer">Privacy Policy</a>.
 						</span>
 					</label>
 				</div>
@@ -152,7 +176,7 @@
 
 			<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 				<p>
-					Already have an account? <a href="/auth/login">Sign in</a>.
+					Already have an account? <a href={resolve('/auth/login')}>Sign in</a>.
 				</p>
 			</div>
 		{/if}

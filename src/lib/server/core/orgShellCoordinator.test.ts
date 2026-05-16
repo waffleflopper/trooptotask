@@ -30,6 +30,7 @@ import type { CriticalTasksBootstrap } from './useCases/criticalTasksQuery';
 
 const membership: MembershipInfo = {
 	orgId: 'org-1',
+	membershipId: 'membership-1',
 	userId: 'user-1',
 	role: 'member',
 	capabilityMap: {

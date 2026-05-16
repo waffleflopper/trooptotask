@@ -53,4 +53,25 @@ describe('personnel artifact authorization', () => {
 
 		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
 	});
+
+	it('rejects artifact reads when the caller lacks Personnel operate capability', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' },
+				requireGroupAccess: vi.fn(async () => {})
+			}
+		});
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
+
+		await expect(listPersonnelDocuments(ctx, 'person-1', 5)).rejects.toMatchObject({ status: 403 });
+		expect(ctx.auth.requireGroupAccess).not.toHaveBeenCalled();
+	});
 });

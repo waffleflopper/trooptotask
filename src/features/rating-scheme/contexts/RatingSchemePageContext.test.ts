@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { CreateOrgContextInput } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -102,7 +102,13 @@ function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePa
 }
 
 describe('RatingSchemePageContext', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it('counts only overdue, 60-day, and 30-day stats for the page summary', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
 		const ctx = new RatingSchemePageContext(makeData(), new ModalRegistry(), makeOrg(), entries);
 
 		expect(ctx.ratingStats).toEqual({ overdue: 1, 'due-30': 1, 'due-60': 0 });

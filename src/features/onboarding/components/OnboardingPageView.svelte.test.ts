@@ -102,4 +102,46 @@ describe('OnboardingPageView', () => {
 		).not.toThrow();
 		expect(screen.getByRole('textbox', { name: 'Add a note...' })).toBeTruthy();
 	});
+
+	it('does not render paperwork stage controls for inactive steps', () => {
+		const inactivePaperworkStep: OnboardingStepProgress = {
+			id: 'step-removed',
+			onboardingId: 'onboarding-1',
+			stepName: 'Finance packet',
+			stepType: 'paperwork',
+			trainingTypeId: null,
+			stages: ['Submitted', 'Review', 'Filed'],
+			sortOrder: 1,
+			completed: false,
+			currentStage: 'Review',
+			notes: [],
+			templateStepId: 'template-step-removed',
+			active: false
+		};
+		const onboarding: PersonnelOnboarding = {
+			id: 'onboarding-1',
+			personnelId: 'personnel-1',
+			startedAt: '2026-05-09',
+			completedAt: null,
+			cancelledAt: null,
+			status: 'in_progress',
+			steps: [inactivePaperworkStep],
+			templateId: 'template-1'
+		};
+
+		render(OnboardingPageView, {
+			props: {
+				ctx: makeCtx({
+					filteredOnboardings: [onboarding],
+					onboardings: [onboarding],
+					expandedOnboardingId: onboarding.id,
+					getProgress: vi.fn(() => ({ completed: 0, total: 0 })),
+					getPersonName: vi.fn(() => 'PFC Rivera'),
+					getTemplateName: vi.fn(() => 'Standard Packet')
+				})
+			}
+		});
+
+		expect(screen.queryByRole('group', { name: 'Finance packet paperwork stages' })).toBeNull();
+	});
 });

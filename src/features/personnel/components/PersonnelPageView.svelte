@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -97,10 +98,12 @@
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
 
-	const handleRowClick = $derived.by(() => (person: Personnel) => openPersonnelDetail(person));
+	const handleRowClick = $derived.by(() => (person: Personnel) => {
+		if (ctx.canManagePersonnelRecord(person)) openPersonnelDetail(person);
+	});
 
 	function openPersonnelDetail(person: Personnel): void {
-		void goto(`/org/${ctx.orgId}/personnel/${person.slug ?? person.id}`);
+		void goto(resolve(`/org/${ctx.orgId}/personnel/${person.slug ?? person.id}`));
 	}
 
 	function setRosterSearch(value: string): void {
@@ -255,10 +258,10 @@
 								<div class="flex items-center justify-end gap-2">
 									{#if ctx.canManagePersonnelRecord(row)}
 										<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
+										<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
+											>Details</Button
+										>
 									{/if}
-									<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
-										>Details</Button
-									>
 								</div>
 							{:else}
 								{String(col.value(row) ?? '')}

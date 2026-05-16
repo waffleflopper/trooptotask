@@ -473,6 +473,11 @@ export const POLICY_ACTION_CATALOG = {
 			id: 'identity.listOwnDeletionRequests',
 			label: 'List own deletion requests',
 			accessMode: 'read'
+		}),
+		leaveOrganization: identityAction({
+			id: 'identity.leaveOrganization',
+			label: 'Leave organization',
+			accessMode: 'write'
 		})
 	}
 } as const;
@@ -684,6 +689,7 @@ function matchCapability(
 	compatibilityLanes: CompatibilityLaneMap | undefined,
 	action: FeatureLanePolicyAction
 ): MatchedCapability {
+	// Reserved for legacy lane aliases; v2 policy decisions currently read durable lanes directly.
 	void compatibilityLanes;
 
 	return {

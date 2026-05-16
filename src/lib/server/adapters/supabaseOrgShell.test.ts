@@ -86,6 +86,7 @@ describe('createSupabaseOrgAccessPort', () => {
 
 	it('returns membership info while allowing the membership loader to be wrapped for request-scoped dedupe', async () => {
 		const membershipRow = {
+			id: 'membership-1',
 			role: 'member',
 			scoped_group_id: 'group-123',
 			can_view_calendar: true,
@@ -119,6 +120,7 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(wrapMembershipLoad).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({
 			orgId: 'org-1',
+			membershipId: 'membership-1',
 			userId: 'user-1',
 			role: 'member',
 			capabilityMap: {

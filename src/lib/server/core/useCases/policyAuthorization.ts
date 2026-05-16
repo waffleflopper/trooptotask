@@ -1,13 +1,14 @@
 import type {
 	FeatureLanePolicyAction,
 	OrganizationGovernancePolicyAction,
+	PolicyDecision,
 	PolicyReasonCode,
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
-import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
+import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
 	auth: Pick<AuthContext, 'role' | 'capabilityMap' | 'compatibilityLanes' | 'scopeSet'>;
@@ -16,6 +17,11 @@ interface PolicyPorts {
 }
 
 type ServerPolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction;
+
+const routePolicyAuditDetailShape = {
+	matchedCapability: { key: 'matchedCapability', value: 'object' },
+	matchedScope: { key: 'matchedScope', value: 'object' }
+} satisfies Pick<PolicyDenialAuditDetailsOptions, 'matchedCapability' | 'matchedScope'>;
 
 export async function requirePolicyDecision(
 	ports: PolicyPorts,
@@ -28,21 +34,37 @@ export async function requirePolicyDecision(
 		return;
 	}
 
+	denyRoutePolicyDecision(ports, action, resource, decision);
+}
+
+function denyRoutePolicyDecision(
+	ports: PolicyPorts,
+	action: ServerPolicyAction,
+	resource: PolicyResource,
+	decision: PolicyDecision
+): never {
 	denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType: action.id,
-		details: policyDenialAuditDetails(decision, {
-			policyActionId: action.id,
-			resource,
-			matchedCapability: { key: 'matchedCapability', value: 'object' },
-			matchedScope: { key: 'matchedScope', value: 'object' }
-		}),
-		message: policyDenialMessage(decision.reasonCode, ports.auth.scopeSet)
+		details: routePolicyDenialAuditDetails(decision, action, resource),
+		message: routePolicyDenialMessage(decision.reasonCode, ports.auth.scopeSet)
 	});
 }
 
-export function policyDenialMessage(reasonCode: PolicyReasonCode, scopeSet?: ScopeSet): string {
+function routePolicyDenialAuditDetails(
+	decision: PolicyDecision,
+	action: ServerPolicyAction,
+	resource: PolicyResource
+): Record<string, unknown> {
+	return policyDenialAuditDetails(decision, {
+		policyActionId: action.id,
+		resource,
+		...routePolicyAuditDetailShape
+	});
+}
+
+function routePolicyDenialMessage(reasonCode: PolicyReasonCode, scopeSet?: ScopeSet): string {
 	if (reasonCode === 'denied:read-only-overlay') {
 		return 'Organization is in read-only mode';
 	}

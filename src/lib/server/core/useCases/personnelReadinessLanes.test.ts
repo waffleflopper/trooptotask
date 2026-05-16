@@ -191,8 +191,49 @@ describe('personnel readiness lanes', () => {
 		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
 			label: 'Critical Tasks',
 			value: '50%',
-			detail: '1 of 2 applicable ICT tasks current. 1 task needs attention.',
+			detail: '1 of 2 applicable ICT tasks ready. 1 task needs attention.',
 			tone: 'bad'
+		});
+	});
+
+	it('counts expiring-soon Critical Tasks as ready for the Personnel lane', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-1',
+				organization_id: ctx.auth.orgId,
+				task_code: 'ICT-1',
+				title: 'Airway',
+				description: null,
+				category: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 1,
+				archived_at: null,
+				created_at: `${AS_OF}T00:00:00Z`
+			}
+		]);
+		ctx.store.seed('personnel_ict_completions', [
+			{
+				id: 'completion-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				ict_task_id: 'task-1',
+				completed_at: '2025-06-01',
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null,
+				created_at: '2025-06-01T00:00:00Z'
+			}
+		]);
+
+		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+			label: 'Critical Tasks',
+			value: '100%',
+			detail: '1 of 1 applicable ICT tasks ready. 1 task expiring soon. No tasks need attention.',
+			tone: 'watch'
 		});
 	});
 

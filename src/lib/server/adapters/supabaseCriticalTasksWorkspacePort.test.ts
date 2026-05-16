@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import type { CriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksQuery';
+import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
 
 const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();

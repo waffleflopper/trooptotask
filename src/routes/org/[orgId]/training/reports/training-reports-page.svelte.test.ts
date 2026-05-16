@@ -7,7 +7,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({

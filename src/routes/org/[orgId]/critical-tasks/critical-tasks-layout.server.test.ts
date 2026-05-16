@@ -10,7 +10,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
-import type { CriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksQuery';
+import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
 import { _createCriticalTasksLayoutLoad } from './+layout.server';
 
 describe('critical tasks layout server load', () => {

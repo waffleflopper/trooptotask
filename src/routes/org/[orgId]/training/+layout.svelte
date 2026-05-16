@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { orgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+	import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	const coordinator = orgShellCoordinator;

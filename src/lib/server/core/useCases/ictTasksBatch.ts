@@ -7,7 +7,6 @@ import {
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { stripOrganizationId } from './stripOrganizationId';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -40,6 +39,12 @@ function nextSortOrder(tasks: IctTask[]): number {
 function errorMessage(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
 	return 'Batch import failed';
+}
+
+function stripOrganizationId(row: Record<string, unknown>): Record<string, unknown> {
+	const rest = { ...row };
+	delete rest.organization_id;
+	return rest;
 }
 
 export async function importIctTasksBatch(

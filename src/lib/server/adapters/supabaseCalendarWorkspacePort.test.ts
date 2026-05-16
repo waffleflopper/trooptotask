@@ -23,16 +23,7 @@ vi.mock('../core/useCases/calendarQuery', async () => {
 	);
 	return {
 		...actual,
-		fetchCalendarBootstrap: fetchCalendarBootstrapMock
-	};
-});
-
-vi.mock('../core/useCases/onboardingCalendarQuery', async () => {
-	const actual = await vi.importActual<typeof import('../core/useCases/onboardingCalendarQuery')>(
-		'../core/useCases/onboardingCalendarQuery'
-	);
-	return {
-		...actual,
+		fetchCalendarBootstrap: fetchCalendarBootstrapMock,
 		getActiveOnboardingPersonnelIds: getActiveOnboardingPersonnelIdsMock
 	};
 });

@@ -8,7 +8,6 @@ import type { WritePorts } from '$lib/server/core/ports';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
-import { stripOrganizationId } from './stripOrganizationId';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -34,6 +33,12 @@ export interface IctCompletionBatchImportResult {
 function errorMessage(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
 	return 'Batch import failed';
+}
+
+function stripOrganizationId(row: Record<string, unknown>): Record<string, unknown> {
+	const rest = { ...row };
+	delete rest.organization_id;
+	return rest;
 }
 
 function buildPersonnelName(values: Record<string, string>): string {

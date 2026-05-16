@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
-import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboardingCalendarQuery';
+import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/calendarQuery';
 
 const ORG = 'test-org';
 

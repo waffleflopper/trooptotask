@@ -19,7 +19,7 @@
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -91,6 +91,7 @@
 	let deleteConfirmText = $state('');
 	const normalizedOrgName = $derived(normalizeOrganizationName(data.orgName ?? ''));
 	const deleteConfirmMatches = $derived(normalizeOrganizationName(deleteConfirmText) === normalizedOrgName);
+	const deleteOrganizationCloseBlocked = $derived(loading || deleteConfirmText.trim() !== '');
 
 	let exportingOrgJson = $state(false);
 	let exportingOrgExcel = $state(false);
@@ -372,6 +373,11 @@
 		memberSelectedPreset = remainingPresets;
 		memberSelectedScopeKind = remainingScopeKinds;
 		memberSelectedScopeGroupIds = remainingScopeGroups;
+	}
+
+	function closeDeleteOrganizationDialog() {
+		showDeleteConfirm = false;
+		deleteConfirmText = '';
 	}
 
 	function getMemberAccessBadge(member: OrganizationMember, accessShape: MemberAccessShape): MemberAccessBadge {
@@ -1117,112 +1123,120 @@
 </main>
 
 {#if showDeleteConfirm}
-	<Dialog.Root bind:open={showDeleteConfirm}>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Delete Organization</Dialog.Title>
-				<Dialog.Description>
+	<AppDialog.Root
+		bind:open={showDeleteConfirm}
+		closeBlocked={deleteOrganizationCloseBlocked}
+		onClose={closeDeleteOrganizationDialog}
+	>
+		<AppDialog.Content closeBlocked={deleteOrganizationCloseBlocked}>
+			<AppDialog.Header>
+				<AppDialog.Title>Delete Organization</AppDialog.Title>
+				<AppDialog.Description>
 					This will permanently delete {data.orgName} and all associated data. This action cannot be undone.
-				</Dialog.Description>
-			</Dialog.Header>
+				</AppDialog.Description>
+			</AppDialog.Header>
 
-			<form
-				id="delete-org-form"
-				method="POST"
-				action="?/deleteOrganization"
-				class="grid gap-3"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update();
-					};
-				}}
-				onsubmit={(event) => {
-					if (!deleteConfirmMatches) event.preventDefault();
-				}}
-			>
-				<Label for="confirmDelete">Type {data.orgName} to confirm</Label>
-				<Input
-					id="confirmDelete"
-					name="confirmName"
-					type="text"
-					bind:value={deleteConfirmText}
-					placeholder="Enter organization name"
-					autocomplete="off"
-				/>
-			</form>
+			<AppDialog.Body>
+				<form
+					id="delete-org-form"
+					method="POST"
+					action="?/deleteOrganization"
+					class="grid gap-3"
+					use:enhance={() => {
+						loading = true;
+						return async ({ update }) => {
+							loading = false;
+							await update();
+						};
+					}}
+					onsubmit={(event) => {
+						if (!deleteConfirmMatches) event.preventDefault();
+					}}
+				>
+					<Label for="confirmDelete">Type {data.orgName} to confirm</Label>
+					<Input
+						id="confirmDelete"
+						name="confirmName"
+						type="text"
+						bind:value={deleteConfirmText}
+						placeholder="Enter organization name"
+						autocomplete="off"
+					/>
+				</form>
+			</AppDialog.Body>
 
-			<Dialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
+			<AppDialog.Footer>
+				<Button type="button" variant="outline" onclick={closeDeleteOrganizationDialog}>Cancel</Button>
 				<Button type="submit" form="delete-org-form" variant="destructive" disabled={loading || !deleteConfirmMatches}>
 					{loading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}
 
 {#if showTransferConfirm && transferTargetId}
-	<Dialog.Root bind:open={showTransferConfirm}>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Transfer Ownership</Dialog.Title>
-				<Dialog.Description>
+	<AppDialog.Root bind:open={showTransferConfirm} closeBlocked={loading}>
+		<AppDialog.Content closeBlocked={loading}>
+			<AppDialog.Header>
+				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
+				<AppDialog.Description>
 					You will become an Admin member and lose owner privileges. This action cannot be undone by you.
-				</Dialog.Description>
-			</Dialog.Header>
+				</AppDialog.Description>
+			</AppDialog.Header>
 
-			{#if form?.transferError}<p class="text-sm text-destructive">{form.transferError}</p>{/if}
+			<AppDialog.Body>
+				{#if form?.transferError}<p class="text-sm text-destructive">{form.transferError}</p>{/if}
 
-			<form
-				id="transfer-ownership-form"
-				method="POST"
-				action="?/transferOwnership"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						showTransferConfirm = false;
-						await update();
-					};
-				}}
-			>
-				<input type="hidden" name="newOwnerId" value={transferTargetId} />
-			</form>
+				<form
+					id="transfer-ownership-form"
+					method="POST"
+					action="?/transferOwnership"
+					use:enhance={() => {
+						loading = true;
+						return async ({ update }) => {
+							loading = false;
+							showTransferConfirm = false;
+							await update();
+						};
+					}}
+				>
+					<input type="hidden" name="newOwnerId" value={transferTargetId} />
+				</form>
+			</AppDialog.Body>
 
-			<Dialog.Footer>
+			<AppDialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (showTransferConfirm = false)}>Cancel</Button>
 				<Button type="submit" form="transfer-ownership-form" variant="destructive" disabled={loading}>
 					{loading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}
 
 {#if confirmPermanentDelete}
-	<Dialog.Root open={Boolean(confirmPermanentDelete)} onOpenChange={(open) => !open && (confirmPermanentDelete = null)}>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Permanently Delete Personnel</Dialog.Title>
-				<Dialog.Description>
+	<AppDialog.Root open={Boolean(confirmPermanentDelete)} onClose={() => (confirmPermanentDelete = null)}>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
+				<AppDialog.Description>
 					Are you sure you want to permanently delete {confirmPermanentDelete.name}? This action cannot be undone and
 					all associated records will be lost.
-				</Dialog.Description>
-			</Dialog.Header>
-			<Dialog.Footer>
+				</AppDialog.Description>
+			</AppDialog.Header>
+			<AppDialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (confirmPermanentDelete = null)}>Cancel</Button>
 				<Button type="button" variant="destructive" onclick={() => handlePermanentDelete(confirmPermanentDelete!.id)}>
 					Permanently Delete
 				</Button>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}
 
 {#if pendingRemoveMemberForm}
-	<Dialog.Root
+	<AppDialog.Root
 		open={Boolean(pendingRemoveMemberForm)}
 		onOpenChange={(open) => {
 			if (!open) {
@@ -1231,12 +1245,12 @@
 			}
 		}}
 	>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Remove Member</Dialog.Title>
-				<Dialog.Description>Remove {pendingRemoveMemberEmail} from this organization?</Dialog.Description>
-			</Dialog.Header>
-			<Dialog.Footer>
+		<AppDialog.Content>
+			<AppDialog.Header>
+				<AppDialog.Title>Remove Member</AppDialog.Title>
+				<AppDialog.Description>Remove {pendingRemoveMemberEmail} from this organization?</AppDialog.Description>
+			</AppDialog.Header>
+			<AppDialog.Footer>
 				<Button
 					type="button"
 					variant="outline"
@@ -1254,7 +1268,7 @@
 						pendingRemoveMemberEmail = '';
 					}}>Remove</Button
 				>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
 {/if}

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -65,5 +65,21 @@ describe('GroupManager', () => {
 
 		expect(onRemove).toHaveBeenCalledWith('group-bravo');
 		expect(onRename).not.toHaveBeenCalled();
+	});
+
+	it('blocks accidental close affordances while group edits are in progress', async () => {
+		const onClose = vi.fn();
+		renderGroupManager({ onClose });
+
+		const dialog = screen.getByRole('dialog', { name: 'Manage Groups' });
+		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Organization groups'), { target: { value: 'Charlie Company' } });
+
+		expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });

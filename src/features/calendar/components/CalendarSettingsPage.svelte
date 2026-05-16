@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as Dialog from '$lib/components/ui/dialog';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
@@ -83,12 +83,37 @@
 	let editStatusDa6Treatment = $state<Da6AvailabilityTreatmentOption>(DA6_TREATMENT_NONE);
 
 	let confirmDeleteStatus = $state<StatusType | null>(null);
+	const addStatusDirty = $derived(
+		newStatusName.trim() !== '' ||
+			newStatusColor !== '#4a4a47' ||
+			newStatusTextColor !== '#f8f7f4' ||
+			newStatusDa6Treatment !== DA6_TREATMENT_NONE
+	);
+	const editStatusDirty = $derived(
+		Boolean(
+			editingStatus &&
+			(editStatusName !== editingStatus.name ||
+				editStatusColor !== editingStatus.color ||
+				editStatusTextColor !== editingStatus.textColor ||
+				editStatusDa6Treatment !== (editingStatus.da6AvailabilityTreatment ?? DA6_TREATMENT_NONE))
+		)
+	);
 
 	function resetAddStatusForm() {
 		newStatusName = '';
 		newStatusColor = '#4a4a47';
 		newStatusTextColor = '#f8f7f4';
 		newStatusDa6Treatment = DA6_TREATMENT_NONE;
+	}
+
+	function closeAddStatusDialog() {
+		resetAddStatusForm();
+		addStatusOpen = false;
+	}
+
+	function closeEditStatusDialog() {
+		editStatusOpen = false;
+		editingStatus = null;
 	}
 
 	function openEditStatus(s: StatusType) {
@@ -162,12 +187,37 @@
 	let confirmDeleteAssign = $state<AssignmentType | null>(null);
 
 	const headerTypeId = $derived(dailyAssignmentsStore.types.find((t) => t.showInDateHeader)?.id ?? null);
+	const addAssignmentDirty = $derived(
+		newAssignName.trim() !== '' ||
+			newAssignShortName.trim() !== '' ||
+			newAssignTo !== 'personnel' ||
+			newAssignColor !== '#c47f00'
+	);
+	const editAssignmentDirty = $derived(
+		Boolean(
+			editingAssign &&
+			(editAssignName !== editingAssign.name ||
+				editAssignShortName !== editingAssign.shortName ||
+				editAssignTo !== editingAssign.assignTo ||
+				editAssignColor !== editingAssign.color)
+		)
+	);
 
 	function resetAddAssignForm() {
 		newAssignName = '';
 		newAssignShortName = '';
 		newAssignTo = 'personnel';
 		newAssignColor = '#c47f00';
+	}
+
+	function closeAddAssignmentDialog() {
+		resetAddAssignForm();
+		addAssignmentOpen = false;
+	}
+
+	function closeEditAssignmentDialog() {
+		editAssignmentOpen = false;
+		editingAssign = null;
 	}
 
 	function openEditAssign(t: AssignmentType) {
@@ -236,6 +286,14 @@
 	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
 	let showResetConfirm = $state(false);
 	let filterYear = $state(String(new Date().getFullYear()));
+	const addClosureDirty = $derived(
+		newSpecialDate !== formatDate(new Date()) || newSpecialName.trim() !== '' || newSpecialType !== 'org-closure'
+	);
+	const editClosureDirty = $derived(
+		Boolean(
+			editingSpecialDay && (editSpecialName !== editingSpecialDay.name || editSpecialType !== editingSpecialDay.type)
+		)
+	);
 
 	const yearOptions = $derived.by(() => {
 		const y = new Date().getFullYear();
@@ -252,6 +310,16 @@
 		newSpecialDate = formatDate(new Date());
 		newSpecialName = '';
 		newSpecialType = 'org-closure';
+	}
+
+	function closeAddClosureDialog() {
+		resetAddClosureForm();
+		addClosureOpen = false;
+	}
+
+	function closeEditClosureDialog() {
+		editClosureOpen = false;
+		editingSpecialDay = null;
 	}
 
 	function openEditSpecialDay(d: SpecialDay) {
@@ -667,18 +735,13 @@
 {/if}
 
 <!-- ===== ADD STATUS TYPE DIALOG ===== -->
-<Dialog.Root
-	bind:open={addStatusOpen}
-	onOpenChange={(open) => {
-		if (!open) resetAddStatusForm();
-	}}
->
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Add Status Type</Dialog.Title>
-			<Dialog.Description>Create a new personnel availability status for the calendar.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+<AppDialog.Root bind:open={addStatusOpen} closeBlocked={addStatusDirty} onClose={closeAddStatusDialog}>
+	<AppDialog.Content class="sm:max-w-md" closeBlocked={addStatusDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Add Status Type</AppDialog.Title>
+			<AppDialog.Description>Create a new personnel availability status for the calendar.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="add-status-name">Status name</Label>
 				<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
@@ -738,22 +801,22 @@
 					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count continues while on duty.</p>
 				{/if}
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (addStatusOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeAddStatusDialog}>Cancel</Button>
 			<Button onclick={addStatus} disabled={!newStatusName.trim()}>Add Status Type</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== EDIT STATUS TYPE DIALOG ===== -->
-<Dialog.Root bind:open={editStatusOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Edit Status Type</Dialog.Title>
-			<Dialog.Description>Update this personnel availability status.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+<AppDialog.Root bind:open={editStatusOpen} closeBlocked={editStatusDirty} onClose={closeEditStatusDialog}>
+	<AppDialog.Content class="sm:max-w-md" closeBlocked={editStatusDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Edit Status Type</AppDialog.Title>
+			<AppDialog.Description>Update this personnel availability status.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="edit-status-name">Status name</Label>
 				<Input id="edit-status-name" type="text" bind:value={editStatusName} />
@@ -813,27 +876,22 @@
 					<p class="text-xs leading-5 text-muted-foreground">DA6 rotation count continues while on duty.</p>
 				{/if}
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editStatusOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeEditStatusDialog}>Cancel</Button>
 			<Button onclick={saveEditStatus} disabled={!editStatusName.trim()}>Save Changes</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== ADD ASSIGNMENT TYPE DIALOG ===== -->
-<Dialog.Root
-	bind:open={addAssignmentOpen}
-	onOpenChange={(open) => {
-		if (!open) resetAddAssignForm();
-	}}
->
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Add Assignment Type</Dialog.Title>
-			<Dialog.Description>Create a new duty coverage assignment for daily scheduling.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+<AppDialog.Root bind:open={addAssignmentOpen} closeBlocked={addAssignmentDirty} onClose={closeAddAssignmentDialog}>
+	<AppDialog.Content closeBlocked={addAssignmentDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Add Assignment Type</AppDialog.Title>
+			<AppDialog.Description>Create a new duty coverage assignment for daily scheduling.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="add-assign-name">Full name</Label>
 				<Input id="add-assign-name" type="text" placeholder="e.g., Staff Duty" bind:value={newAssignName} />
@@ -885,24 +943,24 @@
 					<option value="group">Group</option>
 				</NativeSelect>
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (addAssignmentOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeAddAssignmentDialog}>Cancel</Button>
 			<Button onclick={addAssignType} disabled={!newAssignName.trim() || !newAssignShortName.trim()}>
 				Add Assignment Type
 			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== EDIT ASSIGNMENT TYPE DIALOG ===== -->
-<Dialog.Root bind:open={editAssignmentOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Edit Assignment Type</Dialog.Title>
-			<Dialog.Description>Update this duty coverage assignment.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+<AppDialog.Root bind:open={editAssignmentOpen} closeBlocked={editAssignmentDirty} onClose={closeEditAssignmentDialog}>
+	<AppDialog.Content closeBlocked={editAssignmentDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Edit Assignment Type</AppDialog.Title>
+			<AppDialog.Description>Update this duty coverage assignment.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="edit-assign-name">Full name</Label>
 				<Input id="edit-assign-name" type="text" bind:value={editAssignName} />
@@ -947,29 +1005,24 @@
 					<option value="group">Group</option>
 				</NativeSelect>
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editAssignmentOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeEditAssignmentDialog}>Cancel</Button>
 			<Button onclick={saveEditAssign} disabled={!editAssignName.trim() || !editAssignShortName.trim()}>
 				Save Changes
 			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== ADD CLOSURE DIALOG ===== -->
-<Dialog.Root
-	bind:open={addClosureOpen}
-	onOpenChange={(open) => {
-		if (!open) resetAddClosureForm();
-	}}
->
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Add Closure</Dialog.Title>
-			<Dialog.Description>Mark a federal holiday or unit closure on the calendar.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+<AppDialog.Root bind:open={addClosureOpen} closeBlocked={addClosureDirty} onClose={closeAddClosureDialog}>
+	<AppDialog.Content closeBlocked={addClosureDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Add Closure</AppDialog.Title>
+			<AppDialog.Description>Mark a federal holiday or unit closure on the calendar.</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="add-closure-date">Date</Label>
 				<DatePicker bind:value={newSpecialDate} placeholder="Select date" />
@@ -990,26 +1043,26 @@
 					<option value="federal-holiday">Federal Holiday</option>
 				</NativeSelect>
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (addClosureOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeAddClosureDialog}>Cancel</Button>
 			<Button onclick={addSpecialDay} disabled={!newSpecialName.trim()}>Add Closure</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== EDIT CLOSURE DIALOG ===== -->
-<Dialog.Root bind:open={editClosureOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Edit Closure</Dialog.Title>
-			<Dialog.Description>
+<AppDialog.Root bind:open={editClosureOpen} closeBlocked={editClosureDirty} onClose={closeEditClosureDialog}>
+	<AppDialog.Content closeBlocked={editClosureDirty}>
+		<AppDialog.Header>
+			<AppDialog.Title>Edit Closure</AppDialog.Title>
+			<AppDialog.Description>
 				{#if editingSpecialDay}
 					{formatDisplayDate(editingSpecialDay.date)}
 				{/if}
-			</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-4 py-2">
+			</AppDialog.Description>
+		</AppDialog.Header>
+		<AppDialog.Body class="grid gap-4">
 			<div class="grid gap-2">
 				<Label for="edit-closure-name">Name</Label>
 				<Input id="edit-closure-name" type="text" bind:value={editSpecialName} />
@@ -1021,13 +1074,13 @@
 					<option value="federal-holiday">Federal Holiday</option>
 				</NativeSelect>
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editClosureOpen = false)}>Cancel</Button>
+		</AppDialog.Body>
+		<AppDialog.Footer>
+			<Button variant="outline" onclick={closeEditClosureDialog}>Cancel</Button>
 			<Button onclick={saveEditSpecialDay} disabled={!editSpecialName.trim()}>Save Changes</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</AppDialog.Footer>
+	</AppDialog.Content>
+</AppDialog.Root>
 
 <!-- ===== CONFIRM DIALOGS ===== -->
 {#if confirmDeleteStatus}

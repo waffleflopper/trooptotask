@@ -91,8 +91,6 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		},
 		dashboard: { data: makeWorkspaceData(workspaceOverrides), hydration: undefined, workspace: 'dashboard' },

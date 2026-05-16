@@ -26,8 +26,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			canEditTraining: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		},
 		scopedGroupId: null,

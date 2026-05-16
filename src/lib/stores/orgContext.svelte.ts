@@ -105,7 +105,7 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 		if (current.capabilityMap && current.scopeSet) {
 			return {
 				capabilityMap: current.capabilityMap,
-				compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(current.capabilityMap.personnel),
+				compatibilityLanes: current.compatibilityLanes ?? createCompatibilityLaneMap(),
 				scopeSet: current.scopeSet
 			};
 		}

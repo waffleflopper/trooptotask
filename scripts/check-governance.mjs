@@ -72,7 +72,7 @@ function hasFeatureFamilyMatch(filePath, feature) {
 function collectPermissionPatterns(content) {
 	const matches = new Set();
 	const pattern = /permission:\s*'([^']+)'|require(Edit|View)\('([^']+)'\)/g;
-	const featureLanes = new Set(['calendar', 'personnel', 'training', 'onboarding', 'leaders-book']);
+	const featureLanes = new Set(['calendar', 'personnel', 'training', 'onboarding']);
 
 	for (const match of content.matchAll(pattern)) {
 		if (match[1]) {

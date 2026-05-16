@@ -68,8 +68,6 @@ describe('autoAcceptOrgInvites', () => {
 			can_edit_critical_tasks: false,
 			can_view_onboarding: false,
 			can_edit_onboarding: false,
-			can_view_leaders_book: false,
-			can_edit_leaders_book: false,
 			can_manage_members: false,
 			scoped_group_id: null
 		};
@@ -104,8 +102,6 @@ describe('autoAcceptOrgInvites', () => {
 			can_edit_critical_tasks: true,
 			can_view_onboarding: true,
 			can_edit_onboarding: true,
-			can_view_leaders_book: true,
-			can_edit_leaders_book: true,
 			can_manage_members: true,
 			scoped_group_id: null
 		};
@@ -132,8 +128,6 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_critical_tasks: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false,
 				scoped_group_id: 'group-1'
 			},
@@ -149,8 +143,6 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_critical_tasks: true,
 				can_view_onboarding: true,
 				can_edit_onboarding: true,
-				can_view_leaders_book: true,
-				can_edit_leaders_book: true,
 				can_manage_members: true,
 				scoped_group_id: null
 			}
@@ -184,8 +176,6 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_critical_tasks: false,
 				can_view_onboarding: false,
 				can_edit_onboarding: false,
-				can_view_leaders_book: false,
-				can_edit_leaders_book: false,
 				can_manage_members: false,
 				scoped_group_id: null
 			},
@@ -201,8 +191,6 @@ describe('autoAcceptOrgInvites', () => {
 				can_edit_critical_tasks: true,
 				can_view_onboarding: true,
 				can_edit_onboarding: true,
-				can_view_leaders_book: true,
-				can_edit_leaders_book: true,
 				can_manage_members: true,
 				scoped_group_id: null
 			}
@@ -263,8 +251,6 @@ describe('autoAcceptOrgInvites', () => {
 			can_edit_training: null,
 			can_view_onboarding: null,
 			can_edit_onboarding: null,
-			can_view_leaders_book: null,
-			can_edit_leaders_book: null,
 			can_manage_members: null,
 			scoped_group_id: null
 		};

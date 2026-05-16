@@ -1,5 +1,6 @@
 export interface Personnel {
 	id: string;
+	slug?: string;
 	rank: string;
 	lastName: string;
 	firstName: string;
@@ -36,8 +37,6 @@ export interface OrganizationMemberPermissions {
 	canEditOnboarding: boolean;
 	canViewRatingScheme?: boolean;
 	canEditRatingScheme?: boolean;
-	canViewLeadersBook: boolean;
-	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 }
 

@@ -41,8 +41,6 @@ interface OrganizationInvitationRow {
 	can_edit_onboarding: boolean | null;
 	can_view_rating_scheme?: boolean | null;
 	can_edit_rating_scheme?: boolean | null;
-	can_view_leaders_book: boolean | null;
-	can_edit_leaders_book: boolean | null;
 	can_manage_members: boolean | null;
 	scoped_group_id: string | null;
 	member_preset: DashboardInvitationRecord['memberPreset'];
@@ -114,7 +112,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 			const { data, error } = await supabase
 				.from('organization_invitations')
 				.select(
-					'id, organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					'id, organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 				)
 				.eq('id', invitationId)
 				.eq('email', email)
@@ -139,8 +137,6 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				canEditOnboarding: data.can_edit_onboarding,
 				canViewRatingScheme: data.can_view_rating_scheme,
 				canEditRatingScheme: data.can_edit_rating_scheme,
-				canViewLeadersBook: data.can_view_leaders_book,
-				canEditLeadersBook: data.can_edit_leaders_book,
 				canManageMembers: data.can_manage_members,
 				scopedGroupId: data.scoped_group_id,
 				memberPreset: data.member_preset,
@@ -179,8 +175,6 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				can_edit_onboarding: input.canEditOnboarding,
 				can_view_rating_scheme: input.canViewRatingScheme,
 				can_edit_rating_scheme: input.canEditRatingScheme,
-				can_view_leaders_book: input.canViewLeadersBook,
-				can_edit_leaders_book: input.canEditLeadersBook,
 				can_manage_members: input.canManageMembers,
 				scoped_group_id: input.scopedGroupId,
 				member_preset: input.memberPreset,

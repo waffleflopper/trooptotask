@@ -15,8 +15,6 @@ describe('organizationInvitationMembership', () => {
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		};
 
@@ -46,8 +44,6 @@ describe('organizationInvitationMembership', () => {
 				canEditCriticalTasks: null,
 				canViewOnboarding: null,
 				canEditOnboarding: null,
-				canViewLeadersBook: null,
-				canEditLeadersBook: null,
 				canManageMembers: null,
 				scopedGroupId: 'group-1'
 			},
@@ -72,8 +68,6 @@ describe('organizationInvitationMembership', () => {
 			canEditOnboarding: true,
 			canViewRatingScheme: true,
 			canEditRatingScheme: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: false,
 			scopedGroupId: 'group-1',
 			memberPreset: null,
@@ -97,8 +91,6 @@ describe('organizationInvitationMembership', () => {
 				canEditCriticalTasks: false,
 				canViewOnboarding: true,
 				canEditOnboarding: false,
-				canViewLeadersBook: true,
-				canEditLeadersBook: false,
 				canManageMembers: false,
 				memberPreset: 'viewer',
 				capabilityOverrides: { calendar: 'operate' },
@@ -130,8 +122,6 @@ describe('organizationInvitationMembership', () => {
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: false
 		};
 

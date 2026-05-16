@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
@@ -18,39 +17,6 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 }
 
 describe('POST /api/export-excel', () => {
-	it("requires Leader's Book view policy before exporting counseling and goals worksheets", async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'configure',
-					personnel: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
-				},
-				compatibilityLanes: createCompatibilityLaneMap('none'),
-				requireManageMembers() {}
-			}
-		});
-
-		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'leader@example.com' })).rejects.toMatchObject({
-			status: 403
-		});
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'leadersBook.viewRecords',
-				details: expect.objectContaining({
-					policyAction: 'leadersBook.viewRecords',
-					reasonCode: 'denied:missing-capability'
-				})
-			})
-		);
-	});
-
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
@@ -92,6 +58,71 @@ describe('POST /api/export-excel', () => {
 				status: 'completed'
 			})
 		]);
+	});
+
+	it('includes personnel detail artifact worksheets', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				group_id: null,
+				archived_at: null
+			}
+		]);
+		ctx.rawStore.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				author: ctx.auth.userId,
+				text: 'Follow up after range week'
+			}
+		]);
+		ctx.rawStore.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Review packet',
+				status: 'open'
+			}
+		]);
+		ctx.rawStore.seed('personnel_documents', [
+			{
+				id: 'document-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Orders',
+				file_path: `${ctx.auth.orgId}/personnel/p-1/documents/orders.pdf`,
+				file_size_bytes: 1024,
+				content_type: 'application/pdf',
+				uploaded_by: ctx.auth.userId
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
+
+		const leaderNotes = workbook.getWorksheet('Leader Notes');
+		const followUps = workbook.getWorksheet('Personnel Follow-ups');
+		const documents = workbook.getWorksheet('Personnel Documents');
+
+		expect(leaderNotes).toBeDefined();
+		expect(followUps).toBeDefined();
+		expect(documents).toBeDefined();
+		if (!leaderNotes || !followUps || !documents) throw new Error('Personnel artifact worksheets missing');
+
+		expect(rowValues(leaderNotes, 2)).toContain('Follow up after range week');
+		expect(rowValues(followUps, 2)).toContain('Review packet');
+		expect(rowValues(documents, 2)).toContain('orders.pdf');
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {

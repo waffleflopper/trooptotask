@@ -45,9 +45,12 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Track new personnel through customizable checklists
 - Visual progress indicators
 
-### Counseling & Leader's Book
+### Personnel Detail, Counseling & Follow-Ups
 
-- Counseling record management (currently being redesigned)
+- Personnel-owned counseling PDF storage
+- Soldier Data Sheet details and leader notes
+- Follow-ups for counseling reminders, action items, and development tracking
+- General Personnel document uploads
 
 ### Duty Roster & Sign-In Rosters
 
@@ -156,7 +159,7 @@ src/
     training/                # Training types, matrix, reports, bulk import
     personnel/               # Personnel CRUD, bulk import, extended info
     calendar/                # Calendar views, availability, status, assignments
-    counseling/              # Counseling records, rating schemes, leader's book
+    counseling/              # Legacy counseling entity support
     onboarding/              # Onboarding workflows, templates
     dashboard/               # Readiness, people/duty, and training/evaluation overview
     duty-roster/             # Duty roster generation

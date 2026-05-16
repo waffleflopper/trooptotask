@@ -18,7 +18,6 @@ async function globalTeardown() {
 	// 3. Delete org types
 	await adminClient.from('status_types').delete().eq('organization_id', orgId);
 	await adminClient.from('training_types').delete().eq('organization_id', orgId);
-	await adminClient.from('counseling_types').delete().eq('organization_id', orgId);
 
 	// 4. Delete org members
 	await adminClient.from('organization_memberships').delete().eq('organization_id', orgId);

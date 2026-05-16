@@ -4,7 +4,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import ExcelJS from 'exceljs';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface PersonnelExportOutput {
 	_buffer: ArrayBuffer;
@@ -18,34 +17,30 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
 		const id = input.personnelId;
-		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
-		const [person, trainings, counseling, goals, availability, trainingTypes, counselingTypes, statusTypes, groups] =
-			await Promise.all([
-				ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id }),
-				ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: id }),
-				ctx.rawStore.findMany<Record<string, unknown>>(
-					'counseling_records',
-					orgId,
-					{ personnel_id: id },
-					{
-						orderBy: [{ column: 'date_conducted', ascending: false }]
-					}
-				),
-				ctx.rawStore.findMany<Record<string, unknown>>('development_goals', orgId, { personnel_id: id }),
-				ctx.rawStore.findMany<Record<string, unknown>>(
-					'availability_entries',
-					orgId,
-					{ personnel_id: id },
-					{
-						orderBy: [{ column: 'start_date', ascending: false }]
-					}
-				),
-				ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
-				ctx.rawStore.findMany<Record<string, unknown>>('counseling_types', orgId, {}, { select: 'id, name' }),
-				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
-				ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, {}, { select: 'id, name' })
-			]);
+		const [person, trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
+			ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id }),
+			ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: id }),
+			ctx.rawStore.findMany<Record<string, unknown>>(
+				'counseling_records',
+				orgId,
+				{ personnel_id: id },
+				{
+					orderBy: [{ column: 'date_conducted', ascending: false }]
+				}
+			),
+			ctx.rawStore.findMany<Record<string, unknown>>(
+				'availability_entries',
+				orgId,
+				{ personnel_id: id },
+				{
+					orderBy: [{ column: 'start_date', ascending: false }]
+				}
+			),
+			ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
+			ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
+			ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, {}, { select: 'id, name' })
+		]);
 
 		if (!person) fail(404, 'Personnel not found');
 
@@ -65,8 +60,6 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 
 		const trainingTypeMap = new Map<string, string>();
 		for (const t of trainingTypes) trainingTypeMap.set(t.id as string, t.name as string);
-		const counselingTypeMap = new Map<string, string>();
-		for (const c of counselingTypes) counselingTypeMap.set(c.id as string, c.name as string);
 		const statusTypeMap = new Map<string, string>();
 		for (const s of statusTypes) statusTypeMap.set(s.id as string, s.name as string);
 		const groupMap = new Map<string, string>();
@@ -135,7 +128,6 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 			'Counseling Records',
 			counseling,
 			[
-				{ header: 'Type', key: 'type', width: 20 },
 				{ header: 'Date', key: 'date_conducted', width: 14 },
 				{ header: 'Subject', key: 'subject', width: 35 },
 				{ header: 'Key Points', key: 'key_points', width: 40 },
@@ -145,7 +137,6 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 				{ header: 'Notes', key: 'notes', width: 30 }
 			],
 			(c) => ({
-				type: counselingTypeMap.get(c.counseling_type_id as string) ?? c.counseling_type_id,
 				date_conducted: c.date_conducted,
 				subject: c.subject ?? '',
 				key_points: c.key_points ?? '',
@@ -153,30 +144,6 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 				status: c.status ?? '',
 				follow_up_date: c.follow_up_date ?? '',
 				notes: c.notes ?? ''
-			})
-		);
-
-		addMappedSheet(
-			workbook,
-			'Development Goals',
-			goals,
-			[
-				{ header: 'Title', key: 'title', width: 30 },
-				{ header: 'Description', key: 'description', width: 40 },
-				{ header: 'Category', key: 'category', width: 14 },
-				{ header: 'Priority', key: 'priority', width: 12 },
-				{ header: 'Status', key: 'status', width: 14 },
-				{ header: 'Target Date', key: 'target_date', width: 14 },
-				{ header: 'Progress Notes', key: 'progress_notes', width: 40 }
-			],
-			(d) => ({
-				title: d.title ?? '',
-				description: d.description ?? '',
-				category: d.category ?? '',
-				priority: d.priority ?? '',
-				status: d.status ?? '',
-				target_date: d.target_date ?? '',
-				progress_notes: d.progress_notes ?? ''
 			})
 		);
 

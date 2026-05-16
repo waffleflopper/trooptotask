@@ -135,6 +135,22 @@ describe('importPersonnelBatch', () => {
 		});
 	});
 
+	it('generates unique Personnel Slugs for imported records', async () => {
+		const ctx = buildContext();
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
+				{ rank: 'SSG', lastName: 'Smith', firstName: 'John' }
+			]
+		});
+
+		expect(result.inserted).toMatchObject([{ slug: 'smith-john' }, { slug: 'smith-john-2' }]);
+
+		const personnel = (await ctx.store.findMany('personnel', 'test-org')) as Record<string, unknown>[];
+		expect(personnel.map((person) => person.slug)).toEqual(['smith-john', 'smith-john-2']);
+	});
+
 	it('rejects malformed ETS and DEROS date strings during bulk import', async () => {
 		const ctx = buildContext();
 

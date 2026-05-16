@@ -25,8 +25,6 @@ function buildInvitation(overrides: Partial<DashboardInvitationRecord> = {}): Da
 		canEditCriticalTasks: false,
 		canViewOnboarding: false,
 		canEditOnboarding: false,
-		canViewLeadersBook: false,
-		canEditLeadersBook: false,
 		canManageMembers: false,
 		...overrides
 	};
@@ -221,8 +219,6 @@ describe('acceptDashboardInvitation', () => {
 				canEditCriticalTasks: true,
 				canViewOnboarding: true,
 				canEditOnboarding: true,
-				canViewLeadersBook: true,
-				canEditLeadersBook: true,
 				canManageMembers: true
 			})
 		});
@@ -296,8 +292,6 @@ describe('acceptDashboardInvitation', () => {
 				canEditCriticalTasks: null,
 				canViewOnboarding: null,
 				canEditOnboarding: null,
-				canViewLeadersBook: null,
-				canEditLeadersBook: null,
 				canManageMembers: null
 			})
 		});
@@ -326,8 +320,6 @@ describe('acceptDashboardInvitation', () => {
 				canEditOnboarding: true,
 				canViewRatingScheme: true,
 				canEditRatingScheme: true,
-				canViewLeadersBook: true,
-				canEditLeadersBook: true,
 				canManageMembers: false,
 				memberPreset: null,
 				capabilityOverrides: {},

@@ -83,8 +83,6 @@ function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
 			canEditOnboarding: false,
 			canViewRatingScheme: true,
 			canEditRatingScheme: true,
-			canViewLeadersBook: false,
-			canEditLeadersBook: false,
 			canManageMembers: false
 		},
 		ratingSchemeEntries: entries

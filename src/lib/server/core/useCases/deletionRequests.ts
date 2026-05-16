@@ -99,9 +99,7 @@ const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
 	counseling_record: 'counseling_records',
 	personnel_training: 'personnel_trainings',
-	development_goal: 'development_goals',
 	training_type: 'training_types',
-	counseling_type: 'counseling_types',
 	rating_scheme_entry: 'rating_scheme_entries'
 };
 

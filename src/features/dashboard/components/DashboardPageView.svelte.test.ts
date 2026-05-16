@@ -18,7 +18,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 				canViewPersonnel: true,
 				canViewCalendar: true,
 				canViewTraining: true,
-				canViewLeadersBook: true,
 				canViewOnboarding: true,
 				canEditTraining: true
 			},

@@ -7,6 +7,7 @@ interface OrganizationSettingsInput {
 	lossWarningWindowDays?: number;
 	criticalTasksDefaultExpirationMonths?: number | null;
 	criticalTasksExpiringSoonWarningDays?: number | null;
+	personnelDocumentStorageCapMb?: number;
 }
 
 function parseWholeNumber(
@@ -59,6 +60,11 @@ export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true
 			'Critical Tasks expiring-soon warning days must be between 1 and 365',
 			{ min: 1, max: 365 }
 		);
+		const personnelDocumentStorageCapMb = parseWholeNumber(
+			input.personnelDocumentStorageCapMb,
+			'Personnel document storage cap must be between 10 and 1024 MB',
+			{ min: 10, max: 1024 }
+		);
 
 		const updates: Record<string, number | null> = {};
 
@@ -73,6 +79,9 @@ export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true
 		}
 		if (criticalTasksExpiringSoonWarningDays !== undefined) {
 			updates.critical_tasks_expiring_soon_warning_days = criticalTasksExpiringSoonWarningDays;
+		}
+		if (personnelDocumentStorageCapMb !== undefined) {
+			updates.personnel_document_storage_cap_bytes = personnelDocumentStorageCapMb * 1024 * 1024;
 		}
 
 		if (Object.keys(updates).length === 0) {

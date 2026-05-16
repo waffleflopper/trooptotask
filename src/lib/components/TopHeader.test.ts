@@ -53,8 +53,6 @@ const basePermissions: OrganizationMemberPermissions = {
 	canEditCriticalTasks: false,
 	canViewOnboarding: false,
 	canEditOnboarding: false,
-	canViewLeadersBook: false,
-	canEditLeadersBook: false,
 	canManageMembers: false
 };
 

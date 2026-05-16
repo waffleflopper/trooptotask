@@ -19,7 +19,6 @@ describe('entities barrel export', () => {
 		expect(entities.OnboardingTemplateStepEntity).toBeDefined();
 		expect(entities.PersonnelOnboardingEntity).toBeDefined();
 		expect(entities.CounselingRecordEntity).toBeDefined();
-		expect(entities.DevelopmentGoalEntity).toBeDefined();
 		expect(entities.TrainingViewEntity).toBeDefined();
 		expect(entities.IctTaskEntity).toBeDefined();
 		expect(entities.PersonnelIctCompletionEntity).toBeDefined();
@@ -43,7 +42,6 @@ describe('entities barrel export', () => {
 			entities.OnboardingTemplateStepEntity,
 			entities.PersonnelOnboardingEntity,
 			entities.CounselingRecordEntity,
-			entities.DevelopmentGoalEntity,
 			entities.TrainingViewEntity,
 			entities.IctTaskEntity,
 			entities.PersonnelIctCompletionEntity

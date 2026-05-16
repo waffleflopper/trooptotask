@@ -265,8 +265,24 @@ The feature for template-driven in-processing workflows and onboarding progress.
 _Avoid_: Checklist feature
 
 **Leader's Book**:
-The transitional compatibility surface for counseling records, development goals, and the future remade per-Soldier leader-reference or administrative workflows while its shape is still being rebuilt.
-_Avoid_: Durable future default lane
+Retired. Formerly the transitional compatibility surface for counseling records, development goals, and per-Soldier administrative workflows. Its surviving content (counseling records, extended info / Soldier Data Sheet, follow-ups, leader notes) has been absorbed by **Personnel**. See ADR 0008.
+_Avoid_: Any new feature work, route, or permission lane under this name
+
+**Follow-Up**:
+A leader-created action item tied to a **Soldier** on the Personnel detail page. Covers counseling reminders, award recommendations, developmental goals, and any other leader working-list item. Replaces the former development goals concept.
+_Avoid_: Development goal, task, to-do
+
+**Leader Note**:
+A leader-authored observation, accomplishment, or assessment recorded against a **Soldier** on the Personnel detail page. Used for NCOER bullets, award justifications, and general context — distinct from **Follow-Ups**, which are action-oriented.
+_Avoid_: Follow-up when there is no action to take
+
+**Personnel Slug**:
+A human-readable route key for one **Personnel Record**, derived from `lastName-firstName` and unique inside its **Organization**. Collisions get a numeric suffix (`smith-john-2`). The slug auto-regenerates when the Soldier's name changes, with collision suffixes re-evaluated only for the person whose name changed. No stale slug redirects. The internal personnel id remains the stable database identity.
+_Avoid_: UUID in URL, rank in slug
+
+**Soldier Data Sheet**:
+The expanded extended info section on the Personnel detail page containing emergency contact, spouse, vehicle, address, personal contact, blood type, BASD, date of rank, marital status, dependents/children, civilian education, and military education. The digital equivalent of the traditional Army Soldier Data Sheet.
+_Avoid_: Leaders Book data sheet, extended info when discussing the full concept
 
 **Rating Scheme**:
 The active v1 surface for evaluation-tracking records and workflows for rated individuals, exposed through the Evals route with its own durable lane ownership.
@@ -289,8 +305,12 @@ The **Personnel Record** or leader recorded as responsible for evaluating a **Ra
 _Avoid_: Reviewer when referring to evaluation duty
 
 **Counseling Record**:
-A stored counseling entry tied to a person.
-_Avoid_: Note, eval
+A stored record of a completed counseling session tied to a **Soldier**, consisting of an uploaded PDF with date conducted, title, optional summary, and uploaded-by metadata. Not a workflow tool — no signature tracking, status management, or form building.
+_Avoid_: Note, eval, counseling workflow
+
+**Document**:
+A general-purpose file uploaded to a **Soldier**'s Personnel record for leader reference. Covers certificates, inspection forms, scanned data sheets, BLS cards, and anything else that is not a **Counseling Record**. Accepted types: PDF, JPEG, PNG, HEIC. Max 10MB per file, with a per-Soldier storage cap (default 100MB) configurable at the **Organization** level.
+_Avoid_: Attachment, upload when referring to the stored thing
 
 **Training Type**:
 An organization-defined training requirement with applicability and expiration behavior.
@@ -328,7 +348,8 @@ _Avoid_: Training type
 - The **Policy Evaluator** should be pure and provider-agnostic; provider-specific data loading belongs in a **Policy Adapter**.
 - The **Policy Evaluator** should receive already-loaded facts such as actor role, **Capability Map**, **Scope Set**, resource context, and **Policy Overlays**.
 - The durable first-class **Feature Lanes** are **Calendar**, **Personnel**, **Training**, **Critical Tasks**, **Onboarding**, and **Rating Scheme**.
-- **Leader's Book** remains a **Compatibility Lane** and not part of the current durable first-class lane map.
+- **Leader's Book** is retired and fully removed. It is no longer a **Compatibility Lane** or part of any lane taxonomy. See ADR 0008.
+- **Counseling Records**, **Documents**, **Follow-Ups**, **Leader Notes**, and the **Soldier Data Sheet** are owned by the **Personnel** lane.
 - **Lane Ownership** does not change just because a feature is temporarily rendered inside another page or route shell.
 - **Organization Governance Actions** stay with `admin` and `owner`, while ownership transfer and destructive organization-danger actions stay `owner`-only.
 - Governance, billing, member management, and platform concerns stay outside the durable **Feature Lane** map.
@@ -336,7 +357,7 @@ _Avoid_: Training type
 - A **Roster** is composed of **Personnel Records** and may be narrowed by **Group**, **Personnel Record**, or typed search.
 - **Duty Role** is stored today through the legacy **Clinic Role** field and may still be accepted through compatibility labels in import paths.
 - **Rating Scheme** may read roster reference data to resolve rated people and raters without inheriting **Personnel** lane ownership.
-- **Rating Scheme** and **Leader's Book** are independently grantable feature surfaces.
+- **Rating Scheme** is independently grantable from **Personnel**.
 - **Evals** is the route and primary navigation label for **Rating Scheme**; it does not create a separate domain concept.
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**.
@@ -472,9 +493,9 @@ _Avoid_: Training type
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or platform/admin role.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
-- **Leader's Book** still exists in the product model, but it should be treated as a transitional **Compatibility Lane** while the remake is pending.
+- **Leader's Book** is retired. Do not create new features, routes, or permission surfaces under this name. Its content has been absorbed by **Personnel** (see ADR 0008).
 - **Lane Ownership** is not the same thing as route placement or nav treatment.
-- **Rating Scheme** is not just a detail inside **Personnel** or **Leader's Book**; it owns evaluation-tracking records and workflows.
+- **Rating Scheme** is not just a detail inside **Personnel**; it owns evaluation-tracking records and workflows.
 - **Evals** is a navigation and route label, not the canonical domain term for the records.
 - **Sick Call** is unit-dependent: it may have no **DA6 Availability Treatment** when used like an appointment, or **Authorized Absence** when it means unavailable for duty.
 - **Field/Training** is overloaded and should be split before defaulting: training that is an authorized absence belongs under **Authorized Absence**, while another duty/detail that blocks selection belongs under **Other Duty**.

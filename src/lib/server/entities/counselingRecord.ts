@@ -1,5 +1,5 @@
 /**
- * Counseling record entity — maps `counseling_records` (leader's book entries).
+ * Counseling record entity — maps Personnel-owned `counseling_records`.
  * Group-scoped via `personnel_id`. `filePath` stores a Supabase Storage path for
  * any attached document (see `supabaseStorage.ts`); may be null if no file attached.
  */

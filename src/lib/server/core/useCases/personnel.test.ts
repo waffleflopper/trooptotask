@@ -57,6 +57,78 @@ describe('Personnel — create', () => {
 		});
 	});
 
+	it('generates a human-readable slug from the Soldier name on create', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+
+		const result = (await create(ctx, {
+			...validInput,
+			lastName: 'Rivera',
+			firstName: 'Monica'
+		})) as Record<string, unknown>;
+
+		expect(result.slug).toBe('rivera-monica');
+
+		const stored = (await ctx.store.findMany('personnel', 'test-org')) as Record<string, unknown>[];
+		expect(stored[0].slug).toBe('rivera-monica');
+	});
+
+	it('appends a numeric suffix when another Soldier in the same Organization has the same slug', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+
+		await create(ctx, { ...validInput, lastName: 'Smith', firstName: 'John' });
+		const duplicate = (await create(ctx, { ...validInput, lastName: 'Smith', firstName: 'John' })) as Record<
+			string,
+			unknown
+		>;
+
+		expect(duplicate.slug).toBe('smith-john-2');
+	});
+
+	it('checks slug collisions against the whole organization for group-scoped creators', async () => {
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const { create } = createPersonnelUseCases();
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-other-group',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: 'group-b',
+				slug: 'smith-john'
+			}
+		]);
+
+		const created = (await create(ctx, { ...validInput, groupId: 'group-a' })) as Record<string, unknown>;
+
+		expect(created.slug).toBe('smith-john-2');
+	});
+
+	it('retries slug generation when a concurrent create claims the same slug first', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+		const insert = ctx.store.insert.bind(ctx.store);
+		let injectedCollision = false;
+
+		ctx.store.insert = async (table, orgId, data, select) => {
+			if (table === 'personnel' && data.slug === 'smith-john' && !injectedCollision) {
+				injectedCollision = true;
+				await insert(table, orgId, { ...data, id: 'p-concurrent', slug: 'smith-john' }, select);
+				throw new Error('duplicate key value violates unique constraint "personnel_org_slug_key"');
+			}
+			return insert(table, orgId, data, select);
+		};
+
+		const created = (await create(ctx, { ...validInput, lastName: 'Smith', firstName: 'John' })) as Record<
+			string,
+			unknown
+		>;
+
+		expect(created.slug).toBe('smith-john-2');
+	});
+
 	it('rejects create when subscription cap exceeded', async () => {
 		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (20)' });
 		const { create } = createPersonnelUseCases();
@@ -204,6 +276,44 @@ describe('Personnel — update', () => {
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.ets).toBe('2027-05-01');
 		expect(stored.deros).toBeNull();
+	});
+
+	it('regenerates only the renamed Soldier slug on name change', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				rank: 'SGT',
+				last_name: 'Rivera',
+				first_name: 'Monica',
+				slug: 'rivera-monica',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'p-2',
+				rank: 'SSG',
+				last_name: 'Smith',
+				first_name: 'John',
+				slug: 'smith-john',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = (await update(ctx, { id: 'p-1', lastName: 'Smith', firstName: 'John' })) as Record<string, unknown>;
+
+		expect(result.slug).toBe('smith-john-2');
+
+		const unchanged = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-2' })) as Record<string, unknown>;
+		expect(unchanged.slug).toBe('smith-john');
 	});
 
 	it('coerces empty groupId to null on update', async () => {

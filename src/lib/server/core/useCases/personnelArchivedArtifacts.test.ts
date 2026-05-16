@@ -1,6 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { restorePersonnelArchivedArtifact, type RestoredPersonnelArchivedArtifact } from './personnelArchivedArtifacts';
+import {
+	listPersonnelArchivedArtifacts,
+	restorePersonnelArchivedArtifact,
+	type RestoredPersonnelArchivedArtifact
+} from './personnelArchivedArtifacts';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
@@ -16,6 +20,45 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('personnel archived artifacts', () => {
+	it('sorts archived follow-ups by archive timestamp instead of update timestamp', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-old-archive',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'Old archive but recently edited',
+				notes: null,
+				due_date: null,
+				status: 'archived',
+				created_by: 'test-user',
+				created_at: '2026-05-01T00:00:00Z',
+				updated_at: '2026-05-20T00:00:00Z',
+				completed_at: null,
+				archived_at: '2026-05-02T00:00:00Z'
+			},
+			{
+				id: 'follow-up-new-archive',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'New archive',
+				notes: null,
+				due_date: null,
+				status: 'archived',
+				created_by: 'test-user',
+				created_at: '2026-05-01T00:00:00Z',
+				updated_at: '2026-05-03T00:00:00Z',
+				completed_at: null,
+				archived_at: '2026-05-10T00:00:00Z'
+			}
+		]);
+
+		const artifacts = await listPersonnelArchivedArtifacts(ctx, 'person-1');
+
+		expect(artifacts.map((artifact) => artifact.id)).toEqual(['follow-up-new-archive', 'follow-up-old-archive']);
+	});
+
 	it('restores archived artifacts with a typed kind-specific result', async () => {
 		type RestoreResult = Awaited<ReturnType<typeof restorePersonnelArchivedArtifact>>;
 		expectTypeOf<RestoreResult>().toEqualTypeOf<RestoredPersonnelArchivedArtifact>();

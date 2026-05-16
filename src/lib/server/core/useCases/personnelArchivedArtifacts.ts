@@ -47,7 +47,7 @@ export async function listPersonnelArchivedArtifacts(
 }
 
 function artifactArchivedAt(record: PersonnelArchivedArtifact): string {
-	if (record.kind === 'follow-up') return record.updatedAt;
+	if (record.kind === 'follow-up') return record.archivedAt ?? record.updatedAt;
 	return record.archivedAt ?? record.createdAt;
 }
 

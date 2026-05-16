@@ -4,6 +4,7 @@ import {
 	archivePersonnelFollowUp,
 	createPersonnelFollowUp,
 	listPersonnelFollowUps,
+	restorePersonnelFollowUp,
 	setPersonnelFollowUpStatus,
 	updatePersonnelFollowUp
 } from './personnelFollowUps';
@@ -76,6 +77,17 @@ describe('personnel follow-ups', () => {
 			personnelId: 'person-1',
 			followUpId: created.id
 		});
+		const archivedStored = await ctx.store.findOne<Record<string, unknown>>('personnel_follow_ups', ctx.auth.orgId, {
+			id: created.id
+		});
+		const archivedStoredAt = archivedStored?.archived_at;
+		const restored = await restorePersonnelFollowUp(ctx, {
+			personnelId: 'person-1',
+			followUpId: created.id
+		});
+		const restoredStored = await ctx.store.findOne<Record<string, unknown>>('personnel_follow_ups', ctx.auth.orgId, {
+			id: created.id
+		});
 
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
@@ -93,6 +105,17 @@ describe('personnel follow-ups', () => {
 			dueDate: '2026-06-15'
 		});
 		expect(archived.status).toBe('archived');
+		expect(archived.archivedAt).toBeTruthy();
+		expect(archivedStoredAt).toBe(archived.archivedAt);
+		expect(restored.status).toBe('open');
+		expect(restored.archivedAt).toBeNull();
+		expect(restoredStored?.archived_at).toBeNull();
+		await expect(listPersonnelFollowUps(ctx, 'person-1', undefined, { archived: true })).resolves.toHaveLength(0);
+		const rearchived = await archivePersonnelFollowUp(ctx, {
+			personnelId: 'person-1',
+			followUpId: created.id
+		});
+		expect(rearchived.archivedAt).toBeTruthy();
 		await expect(listPersonnelFollowUps(ctx, 'person-1')).resolves.toHaveLength(0);
 		await expect(
 			setPersonnelFollowUpStatus(ctx, {

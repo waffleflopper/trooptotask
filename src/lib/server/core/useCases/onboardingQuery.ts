@@ -12,7 +12,6 @@ import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboard
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { getTrainingStepCompletionStatuses } from './onboardingStepProgress';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireOnboardingViewPolicy } from './onboardingPolicy';
 
@@ -27,18 +26,56 @@ export interface OnboardingBootstrap {
 
 function applyTrainingCompletionStatuses(
 	onboarding: PersonnelOnboarding,
-	completionStatusByStepId: Map<string, boolean>
+	completedTrainingTypeIdsByPersonnelId: Map<string, Set<string>>
 ): PersonnelOnboarding {
+	const completedTrainingTypeIds = completedTrainingTypeIdsByPersonnelId.get(onboarding.personnelId) ?? new Set();
+
 	return {
 		...onboarding,
 		steps: onboarding.steps.map((step) => {
-			if (step.stepType !== 'training' || !completionStatusByStepId.has(step.id)) {
+			if (step.stepType !== 'training' || !step.active || step.trainingTypeId === null) {
 				return step;
 			}
 
-			return { ...step, completed: completionStatusByStepId.get(step.id) === true };
+			return { ...step, completed: completedTrainingTypeIds.has(step.trainingTypeId) };
 		})
 	};
+}
+
+function collectActiveTrainingTypeIds(onboarding: PersonnelOnboarding): string[] {
+	return onboarding.steps
+		.filter((step) => step.stepType === 'training' && step.active && step.trainingTypeId !== null)
+		.map((step) => step.trainingTypeId as string);
+}
+
+async function readCompletedTrainingTypeIdsByPersonnelId(
+	ctx: WritePorts,
+	trainingOnboardings: PersonnelOnboarding[]
+): Promise<Map<string, Set<string>>> {
+	const personnelIds = [...new Set(trainingOnboardings.map((onboarding) => onboarding.personnelId))];
+	const trainingTypeIds = [
+		...new Set(trainingOnboardings.flatMap((onboarding) => collectActiveTrainingTypeIds(onboarding)))
+	];
+
+	if (personnelIds.length === 0 || trainingTypeIds.length === 0) {
+		return new Map();
+	}
+
+	const trainingRecords = await ctx.store.findMany<{ personnel_id: string; training_type_id: string }>(
+		'personnel_trainings',
+		ctx.auth.orgId,
+		undefined,
+		{ inFilters: { personnel_id: personnelIds, training_type_id: trainingTypeIds } }
+	);
+
+	const completedTrainingTypeIdsByPersonnelId = new Map<string, Set<string>>();
+	for (const record of trainingRecords) {
+		const completedTypeIds = completedTrainingTypeIdsByPersonnelId.get(record.personnel_id) ?? new Set<string>();
+		completedTypeIds.add(record.training_type_id);
+		completedTrainingTypeIdsByPersonnelId.set(record.personnel_id, completedTypeIds);
+	}
+
+	return completedTrainingTypeIdsByPersonnelId;
 }
 
 export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<OnboardingBootstrap> {
@@ -93,16 +130,15 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 	);
 
 	if (trainingOnboardings.length > 0) {
-		const completionStatuses = await Promise.all(
-			trainingOnboardings.map((o) => getTrainingStepCompletionStatuses(ctx, { onboardingId: o.id }))
+		const completedTrainingTypeIdsByPersonnelId = await readCompletedTrainingTypeIdsByPersonnelId(
+			ctx,
+			trainingOnboardings
 		);
 		const refreshedOnboardingById = new Map(
-			trainingOnboardings.map((onboarding, index) => {
-				const completionStatusByStepId = new Map(
-					completionStatuses[index].map((result) => [result.id, result.completed])
-				);
-				return [onboarding.id, applyTrainingCompletionStatuses(onboarding, completionStatusByStepId)];
-			})
+			trainingOnboardings.map((onboarding) => [
+				onboarding.id,
+				applyTrainingCompletionStatuses(onboarding, completedTrainingTypeIdsByPersonnelId)
+			])
 		);
 
 		onboardings = onboardings.map((onboarding) => refreshedOnboardingById.get(onboarding.id) ?? onboarding);

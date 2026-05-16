@@ -18,6 +18,7 @@ import {
 	updateDutyRosterTemplateSettings
 } from '$lib/server/core/useCases/dutyRosterTemplates';
 import { isDutyRosterTemplateView } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type { DutyRosterGenerationPattern } from '$features/duty-roster/workspace/dutyRosterWorkspaceReadModel';
 import {
 	dutyRosterActionError,
 	dutyRosterActionMessage,
@@ -25,8 +26,6 @@ import {
 	dutyRosterFormValues,
 	parseDutyRosterBaselineCounts
 } from '../../routeHelpers.server';
-
-type DutyRosterGenerationPattern = 'daily' | 'weekday-only' | 'weekend-only' | 'selected-weekdays';
 
 type ActionErrorKey =
 	| 'generateError'

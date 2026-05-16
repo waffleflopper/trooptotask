@@ -141,8 +141,7 @@ describe('dutyRosterPreviewReview', () => {
 
 	it('shapes accepted history rows from the saved snapshot and latest correction', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run: acceptedRun(),
-			isLatestRun: true
+			run: acceptedRun()
 		});
 
 		expect(model.snapshot.finalRows[0]?.finalAssigneeId).toBe('person-1');
@@ -176,8 +175,7 @@ describe('dutyRosterPreviewReview', () => {
 	it('marks out-of-pool correction options and summaries as overrides', () => {
 		const run = acceptedRun({ poolOverride: true });
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run,
-			isLatestRun: true
+			run
 		});
 
 		expect(model.rows[0]).toMatchObject({
@@ -192,8 +190,7 @@ describe('dutyRosterPreviewReview', () => {
 
 	it('shapes invalidated accepted history as locked non-counting review state', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run: acceptedRun({ invalidated: true }),
-			isLatestRun: true
+			run: acceptedRun({ invalidated: true })
 		});
 
 		expect(model.canInvalidate).toBe(false);
@@ -210,8 +207,7 @@ describe('dutyRosterPreviewReview', () => {
 
 	it('shapes accepted DA6 matrix cells for history with rendered DA6 labels and count context', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
-			run: acceptedRun(),
-			isLatestRun: false
+			run: acceptedRun()
 		});
 
 		expect(model.matrix.rows).toEqual([
@@ -245,7 +241,6 @@ describe('dutyRosterPreviewReview', () => {
 	it('allows non-latest accepted history to be invalidated while its end date is today or later', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
 			run: acceptedRun(),
-			isLatestRun: false,
 			todayDate: '2026-06-01'
 		});
 
@@ -256,7 +251,6 @@ describe('dutyRosterPreviewReview', () => {
 	it('blocks accepted history invalidation after the run end date', () => {
 		const model = buildDutyRosterAcceptedRunReviewModel({
 			run: acceptedRun(),
-			isLatestRun: true,
 			todayDate: '2026-06-03'
 		});
 

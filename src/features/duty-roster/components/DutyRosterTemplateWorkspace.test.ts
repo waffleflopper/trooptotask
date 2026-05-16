@@ -830,7 +830,8 @@ function countReadModel(options: { source: 'manual-da6-baseline' | 'accepted-his
 					groupName: 'Alpha'
 				},
 				count: options.source === 'manual-da6-baseline' ? 1 : 0,
-				lastDutyDate: null
+				lastDutyDate: null,
+				appearedInAcceptedRun: options.source === 'accepted-history'
 			},
 			{
 				personnelId: 'person-2',
@@ -842,7 +843,8 @@ function countReadModel(options: { source: 'manual-da6-baseline' | 'accepted-his
 					groupName: 'Bravo'
 				},
 				count: options.source === 'accepted-history' ? 1 : 0,
-				lastDutyDate: options.source === 'accepted-history' ? '2026-06-01' : null
+				lastDutyDate: options.source === 'accepted-history' ? '2026-06-01' : null,
+				appearedInAcceptedRun: options.source === 'accepted-history'
 			}
 		],
 		acceptedRunCount: options.source === 'accepted-history' ? 1 : 0,

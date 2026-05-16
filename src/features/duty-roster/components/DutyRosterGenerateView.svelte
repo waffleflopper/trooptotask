@@ -235,8 +235,7 @@
 			if (result.type === 'success' && result.data?.printAcceptedRun && result.data.acceptedRun) {
 				printDutyRosterForBrowser({
 					acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
-						run: result.data.acceptedRun,
-						isLatestRun: true
+						run: result.data.acceptedRun
 					}).snapshot,
 					statusLabel: 'Official'
 				});

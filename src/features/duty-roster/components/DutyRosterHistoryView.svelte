@@ -147,7 +147,6 @@
 		printDutyRosterForBrowser({
 			acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
 				run,
-				isLatestRun: run.id === latestHistoryRunId,
 				todayDate
 			}).snapshot,
 			statusLabel: 'Official'
@@ -272,7 +271,6 @@
 		historyDetailRun
 			? buildDutyRosterAcceptedRunReviewModel({
 					run: historyDetailRun,
-					isLatestRun: historyDetailRun.id === latestHistoryRunId,
 					todayDate
 				})
 			: null
@@ -761,6 +759,9 @@
 												{#each detailFollowOnRuns.slice(0, 4) as run (run.id)}
 													<li>{formatDate(run.startDate)} to {formatDate(run.endDate)}</li>
 												{/each}
+												{#if detailFollowOnRuns.length > 4}
+													<li>and {detailFollowOnRuns.length - 4} more</li>
+												{/if}
 											</ul>
 										{:else}
 											<p>Linked Calendar assignments will be removed. Future previews will ignore this run.</p>

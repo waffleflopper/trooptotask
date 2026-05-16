@@ -180,7 +180,6 @@ export function buildDutyRosterPreviewReviewModel(input: {
 
 export function buildDutyRosterAcceptedRunReviewModel(input: {
 	run: DutyRosterTemplateAcceptedRun;
-	isLatestRun: boolean;
 	todayDate?: string;
 }): DutyRosterAcceptedRunReviewModel {
 	const snapshot = acceptedSnapshot(input.run);

@@ -779,6 +779,98 @@ describe('Duty Roster Template use cases', () => {
 		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ charlie: 3 });
 	});
 
+	it('preserves omitted locked Manual DA6 Baseline counts when saving editable rows', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { alpha: 3 }
+		});
+		acceptedRunRows.push(
+			acceptedRunRow({
+				id: 'run-accepted-alpha',
+				template_id: template.id,
+				template_name: template.name,
+				snapshot_payload: acceptedRunSnapshotPayload({
+					templateId: template.id,
+					templateName: template.name,
+					personnelIds: ['alpha']
+				})
+			})
+		);
+
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { charlie: 2 }
+		});
+
+		expect(updated.manualBaselineCounts).toEqual({ alpha: 3, charlie: 2 });
+		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ alpha: 3, charlie: 2 });
+	});
+
+	it('does not lock existing Soldiers who were only selectable in accepted history', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SPC', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: {}
+		});
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		expect(preview.personnel.map((person) => person.id)).toEqual(['alpha']);
+		expect(preview.selectionPersonnel.map((person) => person.id)).toContain('bravo');
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT', 'SPC'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { bravo: 2 }
+		});
+
+		expect(updated.manualBaselineCounts).toEqual({ bravo: 2 });
+		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ bravo: 2 });
+	});
+
 	it('rechecks Manual DA6 Baseline locks immediately before settings writes', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(

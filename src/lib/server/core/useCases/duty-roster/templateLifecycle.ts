@@ -758,11 +758,10 @@ function changedLockedBaselineIds(input: {
 	lockedPersonnelIds: Set<string>;
 }): string[] {
 	return [...input.lockedPersonnelIds]
-		.filter(
-			(personnelId) =>
-				baselineCount(input.submittedBaselineCounts, personnelId) !==
-				baselineCount(input.existingBaselineCounts, personnelId)
-		)
+		.filter((personnelId) => {
+			const submitted = baselineCount(input.submittedBaselineCounts, personnelId);
+			return submitted !== null && submitted !== baselineCount(input.existingBaselineCounts, personnelId);
+		})
 		.sort((left, right) => left.localeCompare(right));
 }
 

@@ -50,9 +50,9 @@ function normalizeConfig(config: DutyRosterRunConfig): DutyRosterRunSnapshot['co
 }
 
 function normalizeSelectedWeekdays(values: number[] | undefined): number[] {
-	return [
-		...new Set((values ?? []).map((value) => Math.trunc(value)).filter((value) => value >= 0 && value <= 6))
-	].sort((a, b) => a - b);
+	return [...new Set((values ?? []).filter((value) => Number.isInteger(value) && value >= 0 && value <= 6))].sort(
+		(a, b) => a - b
+	);
 }
 
 function deepFreeze<T>(value: T): T {

@@ -133,6 +133,11 @@ describe('buildDutyRosterCountSource', () => {
 			['bravo', 0, null],
 			['charlie', 1, '2026-06-01']
 		]);
+		expect(countSource.rows.map((row) => [row.personnelId, row.appearedInAcceptedRun])).toEqual([
+			['alpha', false],
+			['bravo', true],
+			['charlie', true]
+		]);
 		expect(countSource.continuationHistory[0].roster).toEqual([
 			expect.objectContaining({
 				date: '2026-06-01',

@@ -198,7 +198,6 @@ export function dutyRosterAcceptedSnapshotPersonnelIds(snapshot: DutyRosterTempl
 	return [
 		...new Set([
 			...snapshot.resolvedPool.map((person) => person.id),
-			...snapshot.selectionPersonnel.map((person) => person.id),
 			...snapshot.generatedRows.map((row) => row.assigneeId).filter((id): id is string => Boolean(id)),
 			...snapshot.finalRows
 				.flatMap((row) => [row.generatedAssigneeId, row.finalAssigneeId])

@@ -4,6 +4,15 @@ import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { getAdminClient } from '$lib/server/supabase';
 import { markApprovedAccessRequestCompleted } from '$lib/server/accessRequestAuth';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
+
+function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
+	return parseUserProfileForm({
+		firstName: String(metadata?.firstName ?? metadata?.first_name ?? ''),
+		lastName: String(metadata?.lastName ?? metadata?.last_name ?? ''),
+		rank: String(metadata?.rank ?? '')
+	});
+}
 
 export const POST: RequestHandler = async ({ locals, cookies }) => {
 	const user = locals.user;
@@ -19,6 +28,11 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 	}
 
 	try {
+		const profile = parseMetadataProfile((user as { user_metadata?: Record<string, unknown> }).user_metadata);
+		if (!('error' in profile)) {
+			await upsertCurrentUserProfile(locals, profile);
+		}
+
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.id, user.email);
 		const completion = await markApprovedAccessRequestCompleted(getAdminClient(), user.email, user.id);
 		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });

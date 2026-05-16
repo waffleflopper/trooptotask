@@ -689,6 +689,7 @@ function matchCapability(
 	compatibilityLanes: CompatibilityLaneMap | undefined,
 	action: FeatureLanePolicyAction
 ): MatchedCapability {
+	// Reserved for legacy lane aliases; v2 policy decisions currently read durable lanes directly.
 	void compatibilityLanes;
 
 	return {

@@ -73,7 +73,17 @@ export const actions: Actions = {
 			return fail(400, { error: 'This invite code is for a different email address', email, inviteCode });
 		}
 
-		const { data: signUpData, error } = await locals.supabase.auth.signUp({ email, password });
+		const { data: signUpData, error } = await locals.supabase.auth.signUp({
+			email,
+			password,
+			options: {
+				data: {
+					firstName: profile.firstName,
+					lastName: profile.lastName,
+					rank: profile.rank
+				}
+			}
+		});
 
 		if (error) {
 			return fail(400, { error: error.message, email, inviteCode });
@@ -82,6 +92,14 @@ export const actions: Actions = {
 		// Mark invite as used - use the user from signup response
 		const newUser = signUpData.user;
 		if (newUser) {
+			await locals.supabase
+				.from('registration_invites')
+				.update({ used_by: newUser.id, used_at: new Date().toISOString() })
+				.eq('code', inviteCode);
+		}
+
+		// Profile writes and invite acceptance require a confirmed session so RLS runs as the new user.
+		if (newUser && signUpData.session) {
 			try {
 				await upsertUserProfile(locals.supabase, {
 					userId: newUser.id,
@@ -95,14 +113,6 @@ export const actions: Actions = {
 				});
 			}
 
-			await locals.supabase
-				.from('registration_invites')
-				.update({ used_by: newUser.id, used_at: new Date().toISOString() })
-				.eq('code', inviteCode);
-		}
-
-		// After signup, auto-accept any pending organization invitations for this email
-		if (newUser) {
 			await autoAcceptOrgInvites(locals.supabase, newUser.id, email);
 		}
 

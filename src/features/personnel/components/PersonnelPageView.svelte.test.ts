@@ -370,14 +370,14 @@ describe('PersonnelPageView', () => {
 
 		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
 
 		const row = screen.getByText('Smith, Jane').closest('tr');
 		expect(row).toBeTruthy();
 		await fireEvent.click(row!);
 
 		expect(handleEdit).not.toHaveBeenCalled();
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/smith-jane');
+		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
 	it('opens the personnel detail page from row clicks and keeps edit as a modal action', async () => {

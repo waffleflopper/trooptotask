@@ -49,7 +49,7 @@
 
 {#if stageViews.length > 0}
 	<div class={['mt-2 grid gap-1.5', inset && 'pl-7']} role="group" aria-label={`${step.stepName} paperwork stages`}>
-		{#each stageViews as stage (stage.value)}
+		{#each stageViews as stage (stage.index)}
 			<button
 				type="button"
 				disabled={!canManage}

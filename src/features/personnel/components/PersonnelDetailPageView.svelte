@@ -25,7 +25,7 @@
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	interface Props {
@@ -248,7 +248,10 @@
 			const savedPerson = (await response.json()) as Personnel;
 			updatedPerson = savedPerson;
 			if (savedPerson.slug !== previousSlug) {
-				replaceState(resolve(`/org/${orgId}/personnel/${savedPerson.slug}`), {});
+				await goto(resolve(`/org/${orgId}/personnel/${savedPerson.slug}`), {
+					replaceState: true,
+					invalidateAll: true
+				});
 			}
 			editingBasicInfo = false;
 		} catch (caught) {

@@ -2,22 +2,39 @@
 
 Use this file before work that touches architecture, auth/authz, provider boundaries, terminology, cross-feature seams, or governance checks.
 
-## Required Reading
+## Current-State Reading
+
+Read only the docs that match the task. Do not front-load every historical architecture note into ordinary feature or improvement work.
+
+For most architecture or improvement scans, start with:
 
 - [V1 Architecture Contract](../architecture/ARCHITECTURE.md)
-- [Authorization & Provider Boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md)
 - [Feature & Module Conventions](../architecture/MODULE_CONVENTIONS.md)
-- [Definition of Done](../architecture/DEFINITION_OF_DONE.md)
-- [AI Agent Operating Model](../architecture/AI_AGENT_OPERATING_MODEL.md)
 - [Drift Ledger](../architecture/DRIFT_LEDGER.md)
-- [V1 Change Intent](../architecture/V1_CHANGE_INTENT.md)
-- [ADR Backlog](../architecture/ADR_BACKLOG.md)
-- [ADR Guidance](../architecture/ADR_GUIDANCE.md)
 - [Governance Checks](../architecture/GOVERNANCE_CHECKS.md)
-- [V1 Retrofit Skills Guide](../architecture/V1_RETROFIT_SKILLS_GUIDE.md)
+- [ADR Index](../architecture/ADR_INDEX.md)
 - [Ubiquitous Language](../../UBIQUITOUS_LANGUAGE.md)
 
-## Retrofit Guardrails
+For auth, authorization, provider-boundary, or membership work, also read:
+
+- [Authorization & Provider Boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md)
+- [V1 Change Intent](../architecture/V1_CHANGE_INTENT.md)
+- relevant ADRs from [ADR Index](../architecture/ADR_INDEX.md)
+
+For ADR work, also read:
+
+- [ADR Guidance](../architecture/ADR_GUIDANCE.md)
+- [ADR Backlog](../architecture/ADR_BACKLOG.md)
+- [ADR Template](../architecture/adrs/0000-template.md)
+
+For done criteria or workflow governance, also read:
+
+- [Definition of Done](../architecture/DEFINITION_OF_DONE.md)
+- [AI Agent Operating Model](../architecture/AI_AGENT_OPERATING_MODEL.md)
+
+Historical retrofit and migration docs are reference material. Read them only when the task explicitly asks about retrofit history, superseded decisions, or why a current guardrail exists.
+
+## Current Guardrails
 
 - Treat `Organization` and `Group` as canonical v1 domain terms.
 - Do not back-port v2 `Account`, `Unit`, or `Element` terminology into v1 current-state docs or code unless the task is explicitly about migration mapping.

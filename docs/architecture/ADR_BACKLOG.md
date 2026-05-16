@@ -1,80 +1,76 @@
 # ADR Backlog
 
-The repo now has ADR guidance and a template under `docs/architecture/adrs/`, but the decisions below are still the highest-value ADRs to write as v1 remediation work begins.
+This file tracks remaining or emerging architecture decisions that may need a future ADR.
 
-## ADR Candidates
+Accepted and superseded ADRs live in [ADR Index](ADR_INDEX.md). Do not use this file as the status source for decisions that already have ADRs.
 
-### ADR-01 V1 Authorization Replacement Model
+## Open Candidates
 
-- Status:
-  - Accepted in [ADR 0001](adrs/0001-v1-authorization-replacement-model.md)
+### Capability Storage And RLS Rollout
+
+- Status: Open candidate
 - Why:
-  - replace the current role-plus-booleans-plus-scope model with clearer app-owned authz concepts
-- Covers:
-  - roles, member presets, capability levels, shared scope sets, policy decisions, migration constraints, and auditability goals
+  - ADR 0001 accepts the authorization replacement model, but storage and RLS rollout details may still need a dedicated decision once implementation pressure is concrete.
+- Likely covers:
+  - capability-map storage
+  - shared scope-set storage
+  - compatibility with existing membership rows
+  - RLS transition strategy
+  - audit and rollback expectations
 
-### ADR-02 Provider Boundary Contract
+### Platform Admin Provider Boundary
 
-- Status:
-  - Accepted in [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
+- Status: Open candidate
 - Why:
-  - make provider ownership explicit so business logic no longer leaks direct Supabase usage outside approved edges
-- Should cover:
-  - what counts as an adapter
-  - what auth is allowed to remain provider-specific
-  - what code must be provider-agnostic
+  - route-level provider coupling remains concentrated around admin/platform operations.
+- Likely covers:
+  - which platform-admin operations stay provider-adjacent
+  - which operations move behind use cases and adapters
+  - service-role boundaries
+  - audit behavior for privileged platform actions
 
-### ADR-03 Feature Permission Lane Map
+### Legacy Clinic Terminology Runtime Rename
 
-- Status:
-  - Accepted in [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
+- Status: Open candidate
 - Why:
-  - stop feature-permission piggybacking and define intended independent lanes
-- Covers:
-  - calendar
-  - personnel
-  - training
-  - critical tasks
-  - onboarding
-  - rating scheme
-  - Leader's Book as a transitional compatibility lane, not a durable first-class lane
-  - governance and platform concerns outside the feature-lane taxonomy
+  - ADR 0006 sets the compatibility policy, but a runtime/schema rename from clinic-era names to current domain language would be a separate decision.
+- Likely covers:
+  - compatibility aliases
+  - migration sequencing
+  - import/export labels
+  - API and schema naming
+  - user-facing copy
 
-### ADR-04 Leaders Book And Rating Scheme Boundary
+### Remaining Demo/Sandbox Schema Cleanup
 
-- Status:
-  - Accepted in [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
+- Status: Open candidate only if cleanup needs a new architecture decision
 - Why:
-  - this area is active but architecturally blurry
-- Covers:
-  - what belongs to leaders-book
-  - what belongs to rating scheme
-  - nav visibility versus feature existence
-  - permission ownership
-  - future reminder: revisit whether the remade `Leader's Book` re-enters the durable lane taxonomy once its rebuilt shape is real
+  - ADR 0005 accepts demo/sandbox decommissioning, and current runtime paths are removed. Applying or sequencing remaining schema cleanup may be operational rather than architectural.
+- Likely covers:
+  - production migration timing
+  - rollback constraints
+  - historical migration references
+  - whether any compatibility support remains
 
-### ADR-05 Demo And Sandbox Decommissioning
+### Future Feature-Lane Expansion
 
-- Status:
-  - Accepted in [ADR 0005](adrs/0005-demo-and-sandbox-decommissioning.md)
+- Status: Open candidate
 - Why:
-  - demo/sandbox code should stop shaping the main architecture
-- Should cover:
-  - staged removal strategy
-  - temporary containment rules
-  - service-role implications
-  - completed runtime-route removal
-  - when schema, RPC, grant, and seed cleanup can happen after production migration coordination is explicit
+  - current first-class feature lanes are documented. New durable product surfaces may need explicit lane ownership rather than borrowing existing permissions.
+- Likely covers:
+  - new feature lane criteria
+  - governance versus product-feature boundaries
+  - invitation and membership capability mapping
+  - RLS implications
 
-### ADR-06 Legacy Terminology Compatibility Policy
+## Removed From Backlog
 
-- Status:
-  - Accepted in [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
-- Why:
-  - clinic-era names still exist and need a consistent migration policy
-  - issue `#624` applies the first doc-and-copy cleanup wave without renaming runtime or schema fields
-- Should cover:
-  - current compatibility names
-  - preferred canonical language
-  - how and where aliases are tolerated
-  - when the generic label `Role` is too ambiguous and must become `Duty Role`
+These are no longer backlog items because ADRs already exist:
+
+- V1 authorization replacement model: [ADR 0001](adrs/0001-v1-authorization-replacement-model.md)
+- Feature permission lane map: [ADR 0002](adrs/0002-v1-feature-permission-lane-map.md)
+- Leaders Book and Rating Scheme boundary: [ADR 0003](adrs/0003-leaders-book-and-rating-scheme-boundary.md)
+- Provider boundary contract: [ADR 0004](adrs/0004-v1-provider-boundary-contract.md)
+- Demo and sandbox decommissioning: [ADR 0005](adrs/0005-demo-and-sandbox-decommissioning.md)
+- Legacy terminology compatibility policy: [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md)
+- Leaders Book retirement and Personnel absorption: [ADR 0008](adrs/0008-leaders-book-retirement-and-personnel-absorption.md)

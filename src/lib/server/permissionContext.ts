@@ -146,7 +146,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 				scopeSet: { kind: 'organization' } as ScopeSet
 			}
 		: resolveMembershipAccessShape(membership, memberPermissions, scopedGroupId);
-	const scopedGroupAccess = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : null;
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
@@ -197,12 +196,12 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
+			await enforceGroupAccess(resolver, accessShape.scopeSet, personnelId);
 		},
 
 		async requireGroupAccessBatch(supabaseClient: SupabaseClient, personnelIds: string[]): Promise<void> {
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccessBatch(resolver, scopedGroupAccess, personnelIds);
+			await enforceGroupAccessBatch(resolver, accessShape.scopeSet, personnelIds);
 		},
 
 		async requireGroupAccessByRecord(
@@ -212,7 +211,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			orgId: string,
 			personnelIdColumn: string
 		): Promise<void> {
-			if (!scopedGroupAccess) return;
+			if (accessShape.scopeSet.kind === 'organization') return;
 
 			const { data: record } = await supabaseClient
 				.from(table)
@@ -227,7 +226,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 			if (!personnelId) return;
 
 			const resolver = createSupabaseGroupResolver(supabaseClient);
-			await enforceGroupAccess(resolver, scopedGroupAccess, personnelId);
+			await enforceGroupAccess(resolver, accessShape.scopeSet, personnelId);
 		}
 	};
 

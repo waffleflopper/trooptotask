@@ -164,6 +164,7 @@ This glossary captures the canonical v1 language for TroopToTask as it exists to
 - A **Scope Set** applies across all scoped **Feature Lanes**; it does not vary by feature.
 - A **Scope Set** should move toward multiple whole-**Group** grants sooner than later and keep room for future **Personnel Scope** entries across Groups.
 - **Scope Set** grants are positive-only; deny exceptions and "all except" scope semantics require a later explicit decision.
+- A **Personnel Record** without a **Group** is organization-scoped for **Scope Set** decisions; a whole-**Group** grant does not include ungrouped **Personnel Records**.
 - A **Policy Decision** should carry structured explanation fields even when a call site initially only reads the final allow/deny result.
 - Structured **Policy Decisions** should support user-facing explanations and audit capture for denied or suspicious access attempts.
 - Every **Policy Decision** should include a stable **Policy Reason Code**; human-facing copy should be mapped from reason codes outside the evaluator.

@@ -5,6 +5,10 @@ import {
 	enforceGroupAccessBatch,
 	type PersonnelGroupResolver
 } from './groupAccess';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+
+const orgScope: ScopeSet = { kind: 'organization' };
+const groupAScope: ScopeSet = { kind: 'groups', groupIds: ['group-a'] };
 
 function createTestResolver(groups: Record<string, string | null>): PersonnelGroupResolver {
 	return {
@@ -30,33 +34,33 @@ function expectHttpError(e: unknown): { status: number; message: string } {
 }
 
 describe('isGroupAccessAllowed', () => {
-	it('allows when scopedGroupId is null (org-wide user)', () => {
-		expect(isGroupAccessAllowed(null, 'group-a')).toBe(true);
+	it('allows when Scope Set is organization-wide', () => {
+		expect(isGroupAccessAllowed(orgScope, 'group-a')).toBe(true);
 	});
 
-	it('allows when personnelGroupId is null (person has no group)', () => {
-		expect(isGroupAccessAllowed('group-a', null)).toBe(true);
+	it('denies when Personnel Record has no Group and actor is Group-scoped', () => {
+		expect(isGroupAccessAllowed(groupAScope, null)).toBe(false);
 	});
 
 	it('allows when groups match', () => {
-		expect(isGroupAccessAllowed('group-a', 'group-a')).toBe(true);
+		expect(isGroupAccessAllowed(groupAScope, 'group-a')).toBe(true);
 	});
 
 	it('denies when groups differ', () => {
-		expect(isGroupAccessAllowed('group-a', 'group-b')).toBe(false);
+		expect(isGroupAccessAllowed(groupAScope, 'group-b')).toBe(false);
 	});
 });
 
 describe('enforceGroupAccess', () => {
-	it('no-ops when scopedGroupId is null (org-wide user)', async () => {
+	it('no-ops when Scope Set is organization-wide', async () => {
 		const resolver = createTestResolver({ 'person-1': 'group-b' });
-		await expect(enforceGroupAccess(resolver, null, 'person-1')).resolves.toBeUndefined();
+		await expect(enforceGroupAccess(resolver, orgScope, 'person-1')).resolves.toBeUndefined();
 	});
 
 	it('throws 403 when personnel is in a different group', async () => {
 		const resolver = createTestResolver({ 'person-1': 'group-b' });
 		try {
-			await enforceGroupAccess(resolver, 'group-a', 'person-1');
+			await enforceGroupAccess(resolver, groupAScope, 'person-1');
 			expect.unreachable('should have thrown');
 		} catch (e) {
 			const { status, message } = expectHttpError(e);
@@ -65,27 +69,34 @@ describe('enforceGroupAccess', () => {
 		}
 	});
 
-	it('allows when personnel is not found in resolver (graceful)', async () => {
+	it('throws 403 when personnel is ungrouped or not found in resolver', async () => {
 		const resolver = createTestResolver({});
-		await expect(enforceGroupAccess(resolver, 'group-a', 'unknown-person')).resolves.toBeUndefined();
+		try {
+			await enforceGroupAccess(resolver, groupAScope, 'unknown-person');
+			expect.unreachable('should have thrown');
+		} catch (e) {
+			const { status, message } = expectHttpError(e);
+			expect(status).toBe(403);
+			expect(message).toBe('You do not have access to personnel outside your group');
+		}
 	});
 });
 
 describe('enforceGroupAccessBatch', () => {
-	it('no-ops when scopedGroupId is null', async () => {
+	it('no-ops when Scope Set is organization-wide', async () => {
 		const resolver = createTestResolver({ 'p-1': 'group-b', 'p-2': 'group-c' });
-		await expect(enforceGroupAccessBatch(resolver, null, ['p-1', 'p-2'])).resolves.toBeUndefined();
+		await expect(enforceGroupAccessBatch(resolver, orgScope, ['p-1', 'p-2'])).resolves.toBeUndefined();
 	});
 
 	it('passes when all personnel are in the scoped group', async () => {
 		const resolver = createTestResolver({ 'p-1': 'group-a', 'p-2': 'group-a' });
-		await expect(enforceGroupAccessBatch(resolver, 'group-a', ['p-1', 'p-2'])).resolves.toBeUndefined();
+		await expect(enforceGroupAccessBatch(resolver, groupAScope, ['p-1', 'p-2'])).resolves.toBeUndefined();
 	});
 
 	it('throws 403 when any personnel is in a different group', async () => {
 		const resolver = createTestResolver({ 'p-1': 'group-a', 'p-2': 'group-b' });
 		try {
-			await enforceGroupAccessBatch(resolver, 'group-a', ['p-1', 'p-2']);
+			await enforceGroupAccessBatch(resolver, groupAScope, ['p-1', 'p-2']);
 			expect.unreachable('should have thrown');
 		} catch (e) {
 			const { status, message } = expectHttpError(e);

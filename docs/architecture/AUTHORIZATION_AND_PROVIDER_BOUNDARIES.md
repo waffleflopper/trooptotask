@@ -93,6 +93,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 
 - Scope should be a shared member scope set across all scoped feature lanes.
 - The approved target supports org-wide access or `1..n` groups.
+- Ungrouped Personnel Records are organization-scoped resources for scope decisions; a group-scoped member does not receive them through a group grant.
 - Personnel-specific member access is intentionally out of scope for the v1 replacement model. The storage contract must not reserve `access_scope_personnel_ids`; a future personnel-scoped authorization model would need a new ADR or approved slice that defines policy semantics, RLS behavior, UI affordances, and audit behavior together.
 - Multi-group scope should move into the replacement program sooner rather than later. Slices may use temporary translation only as migration scaffolding, but the intended rollout is to retire single-group storage/runtime behavior from each migrated workflow.
 - Per-feature scope matrices are not part of the approved model.

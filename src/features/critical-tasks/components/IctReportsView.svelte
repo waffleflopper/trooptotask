@@ -7,10 +7,7 @@
 	import * as Separator from '$lib/components/ui/separator';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import type { Group } from '$lib/stores/groups.svelte';
-	import type { Personnel } from '$lib/types';
-	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
-	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
 	import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
@@ -20,14 +17,12 @@
 
 	interface Props {
 		orgId: string;
-		personnel: Personnel[];
-		groups: Group[];
-		tasks: IctTask[];
+		reportScope: IctReportScope;
 		initialDashboard: IctReportDashboard;
 		loading?: boolean;
 	}
 
-	let { orgId, personnel, groups, tasks, initialDashboard, loading = false }: Props = $props();
+	let { orgId, reportScope, initialDashboard, loading = false }: Props = $props();
 
 	let filterGroupId = $state('');
 	let filterMosValues = $state<string[]>([]);
@@ -38,23 +33,20 @@
 	let dashboardError = $state<string | null>(null);
 	const dashboard = $derived(fetchedDashboard ?? initialDashboard);
 
-	const availableMos = $derived([...new Set(personnel.map((person) => person.mos).filter(Boolean))].sort());
-	const availableMosOptions = $derived(availableMos.map((mos) => ({ value: mos, label: mos })));
-	const availableRoles = $derived([...new Set(personnel.map((person) => person.clinicRole).filter(Boolean))].sort());
-	const availableRanks = $derived([...new Set(personnel.map((person) => person.rank).filter(Boolean))].sort());
+	const availableMosOptions = $derived(reportScope.filterOptions.mos.map((mos) => ({ value: mos, label: mos })));
 	const groupOptions = $derived([
 		{ value: '', label: 'All Groups' },
-		...groups.map((group) => ({ value: group.id, label: group.name }))
+		...reportScope.groups.map((group) => ({ value: group.id, label: group.name }))
 	]);
 	const rankOptions = $derived([
 		{ value: '', label: 'All Ranks' },
-		...availableRanks.map((rank) => ({ value: rank, label: rank }))
+		...reportScope.filterOptions.ranks.map((rank) => ({ value: rank, label: rank }))
 	]);
 	const roleOptions = $derived([
 		{ value: '', label: 'All Duty Roles' },
-		...availableRoles.map((role) => ({ value: role, label: role }))
+		...reportScope.filterOptions.roles.map((role) => ({ value: role, label: role }))
 	]);
-	const hasActiveTasks = $derived(tasks.some((task) => !task.archivedAt));
+	const hasActiveTasks = $derived(reportScope.hasActiveTasks);
 	const hasActiveFilters = $derived(!!filterGroupId || filterMosValues.length > 0 || !!filterRole || !!filterRank);
 	const reportQuery = $derived.by(() => {
 		const params = new SvelteURLSearchParams();
@@ -78,10 +70,10 @@
 		(filterGroupId ? 1 : 0) + filterMosValues.length + (filterRole ? 1 : 0) + (filterRank ? 1 : 0)
 	);
 	const filteredPersonnelCount = $derived(
-		personnel.filter((person) => {
+		reportScope.personnel.filter((person) => {
 			if (filterGroupId && person.groupId !== filterGroupId) return false;
 			if (filterMosValues.length > 0 && !filterMosValues.includes(person.mos)) return false;
-			if (filterRole && person.clinicRole !== filterRole) return false;
+			if (filterRole && person.dutyRole !== filterRole) return false;
 			if (filterRank && person.rank !== filterRank) return false;
 			return true;
 		}).length

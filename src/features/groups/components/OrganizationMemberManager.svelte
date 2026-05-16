@@ -28,8 +28,6 @@
 		canEditOnboarding: boolean;
 		canViewRatingScheme: boolean;
 		canEditRatingScheme: boolean;
-		canViewLeadersBook: boolean;
-		canEditLeadersBook: boolean;
 		canManageMembers: boolean;
 	}
 
@@ -119,8 +117,6 @@
 				canEditOnboarding: member.canEditOnboarding,
 				canViewRatingScheme: member.canViewRatingScheme,
 				canEditRatingScheme: member.canEditRatingScheme,
-				canViewLeadersBook: member.canViewLeadersBook,
-				canEditLeadersBook: member.canEditLeadersBook,
 				canManageMembers: member.canManageMembers
 			},
 			member.scopedGroupId
@@ -150,8 +146,6 @@
 				canEditOnboarding: invite.canEditOnboarding,
 				canViewRatingScheme: invite.canViewRatingScheme,
 				canEditRatingScheme: invite.canEditRatingScheme,
-				canViewLeadersBook: invite.canViewLeadersBook,
-				canEditLeadersBook: invite.canEditLeadersBook,
 				canManageMembers: invite.canManageMembers
 			},
 			invite.scopedGroupId
@@ -414,21 +408,6 @@
 									</label>
 									<label class="permission-checkbox-label">
 										<input type="checkbox" name="canEditRatingScheme" checked={member.canEditRatingScheme} />
-										Edit
-									</label>
-								</div>
-
-								<div class="permission-section">
-									<h4>Leader's Book</h4>
-									<p class="permission-description">
-										View counseling records and development goals. Edit allows creating and updating counseling entries.
-									</p>
-									<label class="permission-checkbox-label">
-										<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
-										View
-									</label>
-									<label class="permission-checkbox-label">
-										<input type="checkbox" name="canEditLeadersBook" checked={member.canEditLeadersBook} />
 										Edit
 									</label>
 								</div>

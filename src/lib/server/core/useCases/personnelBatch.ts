@@ -14,6 +14,7 @@ import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
+import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -98,6 +99,14 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 	// Validate all records
 	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];
 	const errors: BatchError[] = [];
+	const existingSlugRows = await ctx.store.findMany<{ slug: string | null }>('personnel', ctx.auth.orgId, undefined, {
+		select: 'slug'
+	});
+	const reservedSlugs = new Set(
+		existingSlugRows
+			.map((row) => row.slug)
+			.filter((slug): slug is string => typeof slug === 'string' && slug.length > 0)
+	);
 
 	for (let i = 0; i < records.length; i++) {
 		const rec = records[i];
@@ -143,6 +152,7 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			index: i,
 			row: {
 				organization_id: ctx.auth.orgId,
+				slug: buildAvailablePersonnelSlug(buildPersonnelSlugBase({ lastName, firstName }), reservedSlugs),
 				rank: ALL_RANKS[rankIdx],
 				last_name: lastName,
 				first_name: firstName,
@@ -153,6 +163,7 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 				group_id: groupId
 			}
 		});
+		reservedSlugs.add(validRows[validRows.length - 1].row.slug as string);
 	}
 
 	if (validRows.length === 0) {

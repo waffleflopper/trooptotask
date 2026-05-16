@@ -4,10 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 const migrationFilename = '20260423000100_rating_scheme_permission_lane.sql';
 const migrationPath = join(process.cwd(), 'supabase/migrations', migrationFilename);
+const retirementMigrationPath = join(process.cwd(), 'supabase/migrations', '20260515000500_retire_leaders_book.sql');
 const sql = readFileSync(migrationPath, 'utf8');
+const retirementSql = readFileSync(retirementMigrationPath, 'utf8');
 
 function normalizedSql() {
 	return sql.replace(/\s+/g, ' ').toLowerCase();
+}
+
+function normalizedRetirementSql() {
+	return retirementSql.replace(/\s+/g, ' ').toLowerCase();
 }
 
 describe('Rating Scheme permission-lane migration', () => {
@@ -31,6 +37,13 @@ describe('Rating Scheme permission-lane migration', () => {
 		);
 		expect(normalized).toContain('alter column "can_view_rating_scheme" set not null');
 		expect(normalized).toContain('alter column "can_edit_rating_scheme" set not null');
+	});
+
+	it('does not broaden Rating Scheme edit access while dropping the old lane', () => {
+		const normalized = normalizedRetirementSql();
+
+		expect(normalized).not.toContain('set "can_edit_rating_scheme" = "can_edit_personnel"');
+		expect(normalized).toContain('drop column if exists "can_edit_leaders_book"');
 	});
 
 	it('switches rating-scheme RLS helpers and scoped reference reads onto the dedicated lane', () => {

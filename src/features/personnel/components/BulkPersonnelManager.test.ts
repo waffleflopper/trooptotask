@@ -32,18 +32,22 @@ describe('BulkPersonnelManager', () => {
 
 	afterEach(() => {
 		cleanup();
+		vi.unstubAllGlobals();
 	});
 
 	it('uses uploaded files as the only import input source', async () => {
 		parseFileMock.mockResolvedValue([
-			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group'],
-			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team']
+			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group', 'ETS', 'PCS / DEROS'],
+			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team', '2027-05-01', '2026-11-30']
 		]);
 		renderManager();
 
 		expect(screen.queryByText(/or paste text/i)).toBeNull();
 		expect(screen.queryByText('Paste Data')).toBeNull();
 		expect(screen.queryByLabelText('Personnel Data')).toBeNull();
+		expect(
+			screen.getByText('Columns: Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS')
+		).toBeTruthy();
 
 		const input = document.querySelector<HTMLInputElement>('#fileUpload');
 		expect(input).toBeTruthy();
@@ -53,6 +57,46 @@ describe('BulkPersonnelManager', () => {
 
 		await waitFor(() => expect(screen.getByRole('button', { name: /Preview 1 Rows/i })).toBeTruthy());
 		expect(parseFileMock).toHaveBeenCalledOnce();
+	});
+
+	it('sends ETS and PCS / DEROS through the regular import batch payload', async () => {
+		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group', 'ETS', 'PCS / DEROS'],
+			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team', '2027-05-01', '2026-11-30']
+		]);
+		renderManager();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		expect(input).toBeTruthy();
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await waitFor(() => expect(screen.getByText('2027-05-01')).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import Records' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/batch', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				records: [
+					{
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'John',
+						mos: '68W',
+						clinicRole: 'Medic',
+						groupName: 'Alpha Team',
+						ets: '2027-05-01',
+						deros: '2026-11-30'
+					}
+				]
+			})
+		});
 	});
 
 	it('renders archive personnel rows after switching tabs', async () => {

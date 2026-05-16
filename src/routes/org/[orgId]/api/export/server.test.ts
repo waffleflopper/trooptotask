@@ -1,44 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createCompatibilityLaneMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 describe('POST /api/export', () => {
-	it("requires Leader's Book view policy before exporting counseling and goals", async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'configure',
-					personnel: 'configure',
-					training: 'configure',
-					criticalTasks: 'configure',
-					onboarding: 'configure',
-					ratingScheme: 'configure'
-				},
-				compatibilityLanes: createCompatibilityLaneMap('none'),
-				requireManageMembers() {}
-			}
-		});
-
-		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'leader@example.com' })).rejects.toMatchObject({
-			status: 403,
-			message: 'You do not have permission to perform this action'
-		});
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'leadersBook.viewRecords',
-				details: expect.objectContaining({
-					policyAction: 'leadersBook.viewRecords',
-					reasonCode: 'denied:missing-capability'
-				})
-			})
-		);
-	});
-
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
@@ -78,6 +43,62 @@ describe('POST /api/export', () => {
 				status: 'completed'
 			})
 		]);
+	});
+
+	it('includes personnel detail artifact tables in the organization export payload', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				group_id: null,
+				archived_at: null
+			}
+		]);
+		ctx.rawStore.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				author: ctx.auth.userId,
+				text: 'Follow up after range week'
+			}
+		]);
+		ctx.rawStore.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Review packet',
+				status: 'open'
+			}
+		]);
+		ctx.rawStore.seed('personnel_documents', [
+			{
+				id: 'document-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				title: 'Orders',
+				file_path: `${ctx.auth.orgId}/personnel/p-1/documents/orders.pdf`
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, {
+			email: 'leader@example.com'
+		});
+
+		const payload = JSON.parse(result._json as string) as {
+			leaderNotes: Array<Record<string, unknown>>;
+			personnelFollowUps: Array<Record<string, unknown>>;
+			personnelDocuments: Array<Record<string, unknown>>;
+		};
+
+		expect(payload.leaderNotes).toEqual([expect.objectContaining({ id: 'note-1' })]);
+		expect(payload.personnelFollowUps).toEqual([expect.objectContaining({ id: 'follow-up-1' })]);
+		expect(payload.personnelDocuments).toEqual([expect.objectContaining({ id: 'document-1' })]);
 	});
 
 	it('still returns the export payload when the export status write fails', async () => {

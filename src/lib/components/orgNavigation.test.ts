@@ -15,8 +15,6 @@ const basePermissions: OrganizationMemberPermissions = {
 	canEditOnboarding: false,
 	canViewRatingScheme: false,
 	canEditRatingScheme: false,
-	canViewLeadersBook: false,
-	canEditLeadersBook: false,
 	canManageMembers: false
 };
 

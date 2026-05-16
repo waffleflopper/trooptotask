@@ -17,7 +17,7 @@ describe('createDeletionRequest', () => {
 		resourceType: 'counseling_record',
 		resourceId: 'rec-1',
 		resourceDescription: 'Counseling session with SGT Smith',
-		resourceUrl: '/org/test-org/leaders-book/rec-1',
+		resourceUrl: '/org/test-org/personnel/p-1/counselings',
 		userEmail: 'user@example.com'
 	};
 
@@ -46,7 +46,7 @@ describe('createDeletionRequest', () => {
 			resource_type: 'counseling_record',
 			resource_id: 'rec-1',
 			resource_description: 'Counseling session with SGT Smith',
-			resource_url: '/org/test-org/leaders-book/rec-1',
+			resource_url: '/org/test-org/personnel/p-1/counselings',
 			requested_by: 'test-user',
 			requested_by_email: 'user@example.com',
 			status: 'pending'

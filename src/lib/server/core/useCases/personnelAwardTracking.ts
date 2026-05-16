@@ -47,6 +47,7 @@ export async function setPersonnelAwardTrackingAcknowledged(
 		'personnel',
 		personnelId
 	);
+	await ctx.auth.requireGroupAccess(personnelId);
 
 	const existing = await ctx.rawStore.findOne<PersonnelExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
 		personnel_id: personnelId

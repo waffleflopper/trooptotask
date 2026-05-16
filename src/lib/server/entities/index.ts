@@ -14,10 +14,8 @@ export { OnboardingTemplateEntity } from './onboardingTemplate';
 export { OnboardingTemplateStepEntity } from './onboardingTemplateStep';
 export { PersonnelOnboardingEntity } from './personnelOnboarding';
 export { CounselingRecordEntity } from './counselingRecord';
-export { DevelopmentGoalEntity } from './developmentGoal';
 export { TrainingViewEntity } from './trainingView';
 export { IctTaskEntity } from './ictTask';
 export { PersonnelIctCompletionEntity } from './personnelIctCompletion';
 
 export type { CounselingRecord } from './counselingRecord';
-export type { DevelopmentGoal } from './developmentGoal';

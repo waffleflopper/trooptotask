@@ -30,6 +30,15 @@ function expectPolicyUses(table: string, action: string | null, expectedPredicat
 	expect(getPolicyBlock(table, action, expectedPredicate)).not.toBe('');
 }
 
+function getLatestFunctionBlock(functionName: string): string {
+	const pattern = new RegExp(
+		`CREATE OR REPLACE FUNCTION "public"\\."${escapeRegex(functionName)}"[\\s\\S]*?\\n\\$\\$;`,
+		'g'
+	);
+	const matches = [...sql.matchAll(pattern)];
+	return matches.at(-1)?.[0] ?? '';
+}
+
 describe('core RLS permission hardening migration', () => {
 	it('requires edit-level training permission for sign-in roster inserts', () => {
 		const signInRosterInsertBlock = getPolicyBlock(
@@ -161,6 +170,11 @@ describe('core RLS permission hardening migration', () => {
 		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_manage_groups"');
 		expectPolicyUses('groups', 'SELECT', '"public"."can_view_groups"("organization_id")');
 		expectPolicyUses('groups', null, '"public"."can_manage_groups"("organization_id")');
+
+		const latestCanViewGroups = getLatestFunctionBlock('can_view_groups');
+		expect(latestCanViewGroups).toContain('"public"."member_access_has_capability"');
+		expect(latestCanViewGroups).not.toContain('can_view_leaders_book');
+		expect(latestCanViewGroups).not.toContain('can_edit_leaders_book');
 	});
 
 	it('requires calendar view permission for special-day reads and calendar edit for writes', () => {

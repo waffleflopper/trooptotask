@@ -841,8 +841,6 @@ describe('updateOrganizationMemberPermissions', () => {
 					canEditOnboarding: false,
 					canViewRatingScheme: false,
 					canEditRatingScheme: false,
-					canViewLeadersBook: true,
-					canEditLeadersBook: false,
 					canManageMembers: false
 				},
 				memberPreset: 'operator',

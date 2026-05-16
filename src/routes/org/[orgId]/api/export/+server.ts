@@ -4,8 +4,6 @@ import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 
 interface ExportInput {
 	email: string | undefined;
@@ -29,7 +27,6 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 		const userId = ctx.auth.userId;
 
 		if (!userId) fail(403, 'Authenticated user required');
-		await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.leadersBook.viewRecords, { kind: 'organization' });
 
 		if (isBillingEnabled) {
 			const tier = await ctx.subscription.getEffectiveTier();
@@ -55,14 +52,15 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				statusTypes,
 				assignmentTypes,
 				dailyAssignments,
-				counselingTypes,
 				counselingRecords,
 				specialDays,
 				onboardingTemplateSteps,
 				personnelOnboardings,
 				ratingSchemeEntries,
-				developmentGoals,
 				personnelExtendedInfo,
+				leaderNotes,
+				personnelFollowUps,
+				personnelDocuments,
 				dutyRosterHistory
 			] = await Promise.all([
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
@@ -75,14 +73,15 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('assignment_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('counseling_types', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('counseling_records', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('special_days', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
-				ctx.rawStore.findMany<Record<string, unknown>>('development_goals', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('leader_notes', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_follow_ups', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_documents', orgId),
 				ctx.rawStore.findMany<Record<string, unknown>>('duty_roster_history', orgId)
 			]);
 
@@ -105,15 +104,16 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 				statusTypes,
 				assignmentTypes,
 				dailyAssignments,
-				counselingTypes,
 				counselingRecords,
 				specialDays,
 				onboardingTemplateSteps,
 				personnelOnboardings,
 				onboardingStepProgress,
 				ratingSchemeEntries,
-				developmentGoals,
 				personnelExtendedInfo,
+				leaderNotes,
+				personnelFollowUps,
+				personnelDocuments,
 				dutyRosterHistory
 			};
 

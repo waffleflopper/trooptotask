@@ -37,7 +37,7 @@ const PRIVILEGED_CAPABILITY_MAP: CapabilityMap = {
 	onboarding: 'configure',
 	ratingScheme: 'configure'
 };
-const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap('configure');
+const PRIVILEGED_COMPATIBILITY_LANES: CompatibilityLaneMap = createCompatibilityLaneMap();
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';
@@ -83,8 +83,6 @@ export interface MembershipRow {
 	can_edit_onboarding: boolean;
 	can_view_rating_scheme?: boolean;
 	can_edit_rating_scheme?: boolean;
-	can_view_leaders_book: boolean;
-	can_edit_leaders_book: boolean;
 	can_manage_members: boolean;
 	member_preset?: StoredMemberPreset | null;
 	capability_overrides?: CapabilityOverrideMap | null;
@@ -111,8 +109,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		training: isPrivileged || !!membership.can_view_training,
 		'critical-tasks': isPrivileged || !!membership.can_view_critical_tasks,
 		onboarding: isPrivileged || !!membership.can_view_onboarding,
-		'rating-scheme': isPrivileged || (membership.can_view_rating_scheme ?? !!membership.can_view_personnel),
-		'leaders-book': isPrivileged || !!membership.can_view_leaders_book
+		'rating-scheme': isPrivileged || (membership.can_view_rating_scheme ?? !!membership.can_view_personnel)
 	};
 
 	const canEdit: Record<FeatureArea, boolean> = {
@@ -121,10 +118,7 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		training: isPrivileged || !!membership.can_edit_training,
 		'critical-tasks': isPrivileged || !!membership.can_edit_critical_tasks,
 		onboarding: isPrivileged || !!membership.can_edit_onboarding,
-		'rating-scheme':
-			isPrivileged ||
-			(membership.can_edit_rating_scheme ?? (!!membership.can_edit_personnel && !!membership.can_edit_leaders_book)),
-		'leaders-book': isPrivileged || !!membership.can_edit_leaders_book
+		'rating-scheme': isPrivileged || (membership.can_edit_rating_scheme ?? !!membership.can_edit_personnel)
 	};
 
 	const canManageMembers = isPrivileged || !!membership.can_manage_members;
@@ -141,8 +135,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 		canEditOnboarding: !!membership.can_edit_onboarding,
 		canViewRatingScheme: membership.can_view_rating_scheme,
 		canEditRatingScheme: membership.can_edit_rating_scheme,
-		canViewLeadersBook: !!membership.can_view_leaders_book,
-		canEditLeadersBook: !!membership.can_edit_leaders_book,
 		canManageMembers: !!membership.can_manage_members
 	};
 
@@ -157,8 +149,6 @@ export function createPermissionContextFromMembership(membership: MembershipRow)
 
 	const areaLabel = (area: FeatureArea) => {
 		switch (area) {
-			case 'leaders-book':
-				return 'leaders book';
 			case 'critical-tasks':
 				return 'critical tasks';
 			case 'rating-scheme':
@@ -260,7 +250,7 @@ export async function getMembershipRow(
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_view_leaders_book, can_edit_leaders_book, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)

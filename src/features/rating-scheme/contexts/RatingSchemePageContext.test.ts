@@ -94,8 +94,6 @@ function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePa
 			canEditOnboarding: false,
 			canViewRatingScheme: true,
 			canEditRatingScheme: true,
-			canViewLeadersBook: false,
-			canEditLeadersBook: false,
 			canManageMembers: false
 		},
 		ratingSchemeEntries: entries,
@@ -131,7 +129,7 @@ describe('RatingSchemePageContext', () => {
 		expect(modals.payload<{ entry: RatingSchemeEntry }>('rating-modal')?.entry).toBe(entries[0]);
 	});
 
-	it('uses Rating Scheme advisory policy decisions instead of legacy Personnel or Leaders Book permissions', () => {
+	it('uses Rating Scheme advisory policy decisions instead of legacy Personnel permissions', () => {
 		const ctx = new RatingSchemePageContext(
 			makeData({
 				permissions: {
@@ -139,8 +137,7 @@ describe('RatingSchemePageContext', () => {
 					canViewPersonnel: true,
 					canEditPersonnel: true,
 					canViewRatingScheme: false,
-					canEditRatingScheme: false,
-					canEditLeadersBook: true
+					canEditRatingScheme: false
 				}
 			}),
 			new ModalRegistry(),

@@ -42,8 +42,6 @@ function makeData(overrides: Record<string, unknown> = {}) {
 			canEditCriticalTasks: true,
 			canViewOnboarding: true,
 			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: true
 		},
 		scopedGroupId: null as string | null,

@@ -25,7 +25,6 @@ async function globalSetup() {
 	await adminClient.from('personnel').delete().eq('organization_id', orgId);
 	await adminClient.from('status_types').delete().eq('organization_id', orgId);
 	await adminClient.from('training_types').delete().eq('organization_id', orgId);
-	await adminClient.from('counseling_types').delete().eq('organization_id', orgId);
 	await adminClient.from('organization_memberships').delete().eq('organization_id', orgId);
 	await adminClient.from('groups').delete().eq('organization_id', orgId);
 	await adminClient.from('audit_logs').delete().eq('organization_id', orgId);

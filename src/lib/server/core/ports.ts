@@ -1,14 +1,7 @@
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
 
-export type FeatureArea =
-	| 'calendar'
-	| 'personnel'
-	| 'training'
-	| 'critical-tasks'
-	| 'onboarding'
-	| 'rating-scheme'
-	| 'leaders-book';
+export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'critical-tasks' | 'onboarding' | 'rating-scheme';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {

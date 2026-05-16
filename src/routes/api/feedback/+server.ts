@@ -12,7 +12,6 @@ const SECTION_MAP: Record<string, string> = {
 	'calendar/reports': 'Calendar Reports',
 	training: 'Training',
 	personnel: 'Personnel',
-	'leaders-book': "Leader's Book",
 	onboarding: 'Onboarding',
 	settings: 'Settings',
 	billing: 'Billing',

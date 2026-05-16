@@ -33,7 +33,7 @@ describe('member access shape', () => {
 			onboarding: 'view',
 			ratingScheme: 'view'
 		});
-		expect(shape.compatibilityLanes).toEqual({ leadersBook: 'view' });
+		expect(shape.compatibilityLanes).toEqual({});
 	});
 
 	it('maps current Team Leader to target Operator with a group scope set', () => {
@@ -71,11 +71,10 @@ describe('member access shape', () => {
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.admin);
 	});
 
-	it("keeps Leader's Book outside the durable capability map", () => {
+	it('does not add retired compatibility lanes to the durable capability map', () => {
 		const shape = currentPresetToMemberAccessShape({ preset: 'viewer' });
 
-		expect(Object.keys(shape.capabilityMap)).not.toContain('leadersBook');
-		expect(shape.compatibilityLanes.leadersBook).toBe('view');
+		expect(shape.compatibilityLanes).toEqual({});
 	});
 
 	it('does not emit operate from current boolean compatibility', () => {
@@ -103,7 +102,7 @@ describe('member access shape', () => {
 				onboarding: 'operate',
 				ratingScheme: 'operate'
 			},
-			compatibilityLanes: createCompatibilityLaneMap('operate')
+			compatibilityLanes: createCompatibilityLaneMap()
 		};
 
 		expect(toCurrentPermissionFlags(shape)).toEqual(PERMISSION_PRESETS.viewer);
@@ -208,8 +207,7 @@ describe('member access shape', () => {
 		expect(
 			resolveCurrentUpdatePermissions('custom', {
 				canViewCalendar: true,
-				canEditRatingScheme: true,
-				canEditLeadersBook: true
+				canEditRatingScheme: true
 			})
 		).toEqual({
 			canViewCalendar: true,
@@ -224,8 +222,6 @@ describe('member access shape', () => {
 			canEditOnboarding: false,
 			canViewRatingScheme: true,
 			canEditRatingScheme: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
 			canManageMembers: false
 		});
 	});

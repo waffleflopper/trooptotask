@@ -1,5 +1,6 @@
 import type {
 	CriticalTasksSettingsInput,
+	IctStatus,
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
@@ -52,6 +53,17 @@ export interface CriticalTasksMosReadinessCounts {
 	readinessPercent: number;
 	readyCount: number;
 	applicableCount: number;
+}
+
+export interface CriticalTasksSoldierReadinessSummary {
+	readinessPercent: number;
+	applicableCount: number;
+	readyCount: number;
+	attentionCount: number;
+	currentCount: number;
+	expiringSoonCount: number;
+	expiredCount: number;
+	notRecordedCount: number;
 }
 
 interface TaskReadinessSummary {
@@ -143,6 +155,10 @@ export function computeCriticalTasksReadinessPercent(readyCount: number, applica
 	return Math.round((readyCount / applicableCount) * 100);
 }
 
+export function isCriticalTaskStatusReady(status: IctStatus): boolean {
+	return status === 'current' || status === 'expiring-soon';
+}
+
 export function isCriticalTaskCompletionReady(
 	completionDate: string | null,
 	task: Pick<IctTask, 'expirationMonths'>,
@@ -150,7 +166,60 @@ export function isCriticalTaskCompletionReady(
 	asOf?: string | Date
 ): boolean {
 	const status = getIctStatus(completionDate, task, settings, asOf).status;
-	return status === 'current' || status === 'expiring-soon';
+	return isCriticalTaskStatusReady(status);
+}
+
+export function buildCriticalTasksSoldierReadinessSummary(input: {
+	person: Pick<Personnel, 'id' | 'mos'>;
+	activeTasks: IctTask[];
+	completions?: PersonnelIctCompletion[];
+	latestCompletions?: Map<string, PersonnelIctCompletion>;
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): CriticalTasksSoldierReadinessSummary {
+	const latestCompletions =
+		input.latestCompletions ?? buildLatestIctCompletionLookup(input.completions ?? [], input.asOf);
+	let applicableCount = 0;
+	let readyCount = 0;
+	let currentCount = 0;
+	let expiringSoonCount = 0;
+	let expiredCount = 0;
+	let notRecordedCount = 0;
+
+	for (const task of input.activeTasks) {
+		if (!isIctTaskApplicableToMos(task, input.person.mos)) {
+			continue;
+		}
+
+		applicableCount += 1;
+		const completion = latestCompletions.get(ictCompletionKey(input.person.id, task.id));
+		const status = getIctStatus(completion?.completedAt ?? null, task, input.settings, input.asOf).status;
+		if (status === 'current') {
+			currentCount += 1;
+		} else if (status === 'expiring-soon') {
+			expiringSoonCount += 1;
+		} else if (status === 'expired') {
+			expiredCount += 1;
+		} else {
+			notRecordedCount += 1;
+		}
+
+		if (isCriticalTaskStatusReady(status)) {
+			readyCount += 1;
+		}
+	}
+
+	const attentionCount = applicableCount - readyCount;
+	return {
+		readinessPercent: computeCriticalTasksReadinessPercent(readyCount, applicableCount),
+		applicableCount,
+		readyCount,
+		attentionCount,
+		currentCount,
+		expiringSoonCount,
+		expiredCount,
+		notRecordedCount
+	};
 }
 
 function compareBelowThresholdTaskRows(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {

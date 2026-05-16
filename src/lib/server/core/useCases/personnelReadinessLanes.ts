@@ -3,7 +3,6 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import type { AvailabilityEntry, Personnel, StatusType, Da6AvailabilityTreatment } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
@@ -15,8 +14,7 @@ import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctC
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import { isTrainingApplicable } from '$features/training/utils/applicability';
-import { isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
-import { getIctStatus, normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+import { buildCriticalTasksSoldierReadinessSummary } from '$features/critical-tasks/utils/ictReadinessSnapshot';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 interface PersonnelPolicyRow extends Record<string, unknown> {
@@ -265,14 +263,20 @@ export async function loadCriticalTasksReadinessLane(
 			'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		)
 	]);
-	const tasks = IctTaskEntity.fromDbArray(taskRows).filter((task) => isIctTaskApplicableToMos(task, person.mos));
-	const completions = latestIctCompletionsByTask(PersonnelIctCompletionEntity.fromDbArray(completionRows));
-	const settings = normalizeCriticalTasksSettings({
-		defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
-		expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
+	const tasks = IctTaskEntity.fromDbArray(taskRows);
+	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
+	const readiness = buildCriticalTasksSoldierReadinessSummary({
+		person,
+		activeTasks: tasks,
+		completions,
+		settings: {
+			defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
+			expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
+		},
+		asOf
 	});
 
-	if (tasks.length === 0) {
+	if (readiness.applicableCount === 0) {
 		return {
 			label: 'Critical Tasks',
 			value: 'No tasks',
@@ -281,31 +285,25 @@ export async function loadCriticalTasksReadinessLane(
 		};
 	}
 
-	let current = 0;
-	let attention = 0;
-	for (const task of tasks) {
-		const status = getIctStatus(completions.get(task.id)?.completedAt ?? null, task, settings, asOf);
-		if (status.status === 'current') current += 1;
-		else attention += 1;
-	}
-	const percent = Math.round((current / tasks.length) * 100);
+	const expiringSoonDetail =
+		readiness.expiringSoonCount > 0 ? ` ${plural(readiness.expiringSoonCount, 'task')} expiring soon.` : '';
+	const attentionDetail =
+		readiness.attentionCount > 0
+			? ` ${plural(readiness.attentionCount, 'task')} ${readiness.attentionCount === 1 ? 'needs' : 'need'} attention.`
+			: ' No tasks need attention.';
+	const tone =
+		readiness.readinessPercent < 70
+			? 'bad'
+			: readiness.readinessPercent < 90 || readiness.expiringSoonCount > 0
+				? 'watch'
+				: 'good';
+
 	return {
 		label: 'Critical Tasks',
-		value: `${percent}%`,
-		detail: `${current} of ${tasks.length} applicable ICT tasks current. ${plural(attention, 'task')} needs attention.`,
-		tone: percent >= 90 ? 'good' : percent >= 70 ? 'watch' : 'bad'
+		value: `${readiness.readinessPercent}%`,
+		detail: `${readiness.readyCount} of ${readiness.applicableCount} applicable ICT tasks ready.${expiringSoonDetail}${attentionDetail}`,
+		tone
 	};
-}
-
-function latestIctCompletionsByTask(completions: PersonnelIctCompletion[]): Map<string, PersonnelIctCompletion> {
-	const latest = new Map<string, PersonnelIctCompletion>();
-	for (const completion of completions) {
-		const existing = latest.get(completion.ictTaskId);
-		if (!existing || completion.completedAt > existing.completedAt) {
-			latest.set(completion.ictTaskId, completion);
-		}
-	}
-	return latest;
 }
 
 export async function loadDutyRosterReadinessLane(

@@ -5,6 +5,7 @@ import {
 	type PolicyReasonCode,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
+import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
 
@@ -25,7 +26,7 @@ interface PersonnelPolicyResourceRow {
 }
 
 export function policyResourceForGroup(groupId: unknown): PolicyResource {
-	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
+	return scopeSetResourceForGroupId(groupId);
 }
 
 export async function policyResourceForPersonnel(

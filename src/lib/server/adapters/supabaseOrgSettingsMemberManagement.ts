@@ -2,6 +2,8 @@ import type {
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
+import { getAdminClient } from '$lib/server/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface OrganizationInvitationLookupRow {
 	id: string;
@@ -18,9 +20,11 @@ interface OrganizationRow {
 }
 
 export function createSupabaseOrgSettingsMemberManagementPort(
-	locals: Pick<App.Locals, 'supabase'>
+	locals: Pick<App.Locals, 'supabase'>,
+	deps: { getAdminClient?: () => SupabaseClient } = {}
 ): OrganizationSettingsMemberManagementPort {
 	const supabase = locals.supabase;
+	const getAdminClientFn = deps.getAdminClient ?? getAdminClient;
 
 	return {
 		async findPendingInvitation(orgId, email) {
@@ -97,13 +101,19 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async removeMembership(orgId, membershipId) {
-			const { error } = await supabase
+			const adminSupabase = getAdminClientFn();
+			const { data, error } = await adminSupabase
 				.from('organization_memberships')
 				.delete()
 				.eq('id', membershipId)
-				.eq('organization_id', orgId);
+				.eq('organization_id', orgId)
+				.select('id');
 
-			return error?.message ?? null;
+			if (error) {
+				return error.message;
+			}
+
+			return data?.length === 1 ? null : 'Membership could not be removed';
 		},
 
 		async updateMembership(input) {

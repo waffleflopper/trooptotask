@@ -132,6 +132,7 @@ export const actions: Actions = {
 			},
 			{
 				membershipId: (formData.get('membershipId') as string) ?? '',
+				confirmation: (formData.get('confirmLeaveOrganization') as string) ?? '',
 				actorEmail: user.email
 			}
 		);

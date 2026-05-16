@@ -530,6 +530,7 @@ describe('leaveOrganization', () => {
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
+				confirmation: 'YES',
 				actorEmail: 'actor@example.com'
 			}
 		);
@@ -559,6 +560,40 @@ describe('leaveOrganization', () => {
 		]);
 	});
 
+	it('requires typed confirmation before leaving an organization', async () => {
+		const ctx = createTestContext({
+			auth: {
+				userId: 'actor-1',
+				orgId: 'org-1',
+				role: 'member'
+			}
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: {
+				userId: 'actor-1',
+				role: 'member',
+				email: 'actor@example.com'
+			}
+		});
+
+		await expect(
+			leaveOrganization(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					confirmation: 'yes',
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Type YES to confirm leaving the organization'
+		});
+
+		expect(port.membershipLookups).toEqual([]);
+		expect(port.removedMemberships).toEqual([]);
+	});
+
 	it('blocks organization owners before removing their membership', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -580,6 +615,7 @@ describe('leaveOrganization', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
+					confirmation: 'YES',
 					actorEmail: 'owner@example.com'
 				}
 			)
@@ -613,6 +649,7 @@ describe('leaveOrganization', () => {
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
+					confirmation: 'YES',
 					actorEmail: 'actor@example.com'
 				}
 			)

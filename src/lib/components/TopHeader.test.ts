@@ -133,10 +133,50 @@ describe('TopHeader', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
 
-		const leaveButton = screen.getByRole('button', { name: 'Leave Organization' });
-		expect(leaveButton).toBeTruthy();
-		expect(leaveButton.closest('form')?.getAttribute('action')).toBe('/org/org-1?/leaveOrganization');
+		expect(screen.getByRole('menuitem', { name: 'Leave Organization' })).toBeTruthy();
+	});
+
+	it('requires typed confirmation before a non-owner member can leave an organization', async () => {
+		renderHeader({ userRole: 'member' });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Leave Organization' }));
+
+		expect(await screen.findByRole('dialog', { name: 'Leave Organization' })).toBeTruthy();
+		expect(screen.getByText(/Are you sure you wish to leave Test Org/)).toBeTruthy();
+		const confirmButton = screen.getByRole('button', { name: 'Leave Organization' });
+		expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('textbox', { name: 'Type YES to confirm' })).toBeTruthy();
 		expect(screen.getByDisplayValue('membership-1').getAttribute('name')).toBe('membershipId');
+		expect(screen.getByDisplayValue('membership-1').closest('form')?.getAttribute('action')).toBe(
+			'/org/org-1?/leaveOrganization'
+		);
+
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Type YES to confirm' }), {
+			target: { value: 'YES' }
+		});
+
+		expect((confirmButton as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('shows leave organization for non-owner members even when membership payload is missing', async () => {
+		renderHeader({ userRole: 'member', membershipId: null });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Leave Organization' }));
+
+		expect(
+			screen.getByText('We could not identify your organization membership. Refresh the page and try again.')
+		).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Leave Organization' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('shows a leave organization action for admins', async () => {
+		renderHeader({ userRole: 'admin' });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+
+		expect(screen.getByRole('menuitem', { name: 'Leave Organization' })).toBeTruthy();
 	});
 
 	it('does not show leave organization for owners', async () => {
@@ -144,7 +184,7 @@ describe('TopHeader', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
 
-		expect(screen.queryByRole('button', { name: 'Leave Organization' })).toBeNull();
+		expect(screen.queryByRole('menuitem', { name: 'Leave Organization' })).toBeNull();
 	});
 
 	it('offsets the app shell below fixed banners while preserving available height', () => {

@@ -1,13 +1,12 @@
 import {
-	evaluatePolicyDecision,
 	POLICY_ACTION_CATALOG,
 	type FeatureLanePolicyAction,
 	type PolicyDecision,
-	type PolicyOverlay,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
 import type { AuditPort, AuthContext, DataStore, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface CalendarPolicyPorts {
 	auth: AuthContext;
@@ -27,8 +26,13 @@ export async function requireCalendarPolicy(
 	const decision = await evaluateCalendarPolicy(ports, action, resource);
 	if (decision.allowed) return;
 
-	logCalendarPolicyDenial(ports, decision, resource);
-	fail(403, calendarPolicyDenialMessage(decision));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType: 'calendar',
+		details: policyDenialAuditDetails(decision, { resource }),
+		message: calendarPolicyDenialMessage(decision)
+	});
 }
 
 export async function requireCalendarPersonnelPolicy(
@@ -70,35 +74,7 @@ async function evaluateCalendarPolicy(
 	action: FeatureLanePolicyAction,
 	resource: PolicyResource
 ): Promise<PolicyDecision> {
-	const overlays: PolicyOverlay[] = [];
-	if ((await ports.readOnlyGuard?.check()) ?? false) {
-		overlays.push({ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' });
-	}
-
-	return evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role },
-		action,
-		capabilityMap: ports.auth.capabilityMap,
-		compatibilityLanes: ports.auth.compatibilityLanes,
-		scopeSet: ports.auth.scopeSet,
-		resource,
-		overlays
-	});
-}
-
-function logCalendarPolicyDenial(ports: CalendarPolicyPorts, decision: PolicyDecision, resource: PolicyResource): void {
-	ports.audit?.log({
-		action: 'policy.denied',
-		resourceType: 'calendar',
-		details: {
-			policyAction: decision.action.id,
-			reasonCode: decision.reasonCode,
-			resource,
-			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-		},
-		severity: 'warning'
-	});
+	return evaluateAuthoritativePolicyDecision(ports, action, resource);
 }
 
 function calendarPolicyDenialMessage(decision: PolicyDecision): string {

@@ -38,6 +38,31 @@ describe('/api/personnel/[id]/documents', () => {
 		expect(records).toHaveLength(1);
 	});
 
+	it('rejects PDF uploads without a matching file signature through API configs', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'operate',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				personnelId: 'person-1',
+				title: 'Spoofed PDF',
+				file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
+
 	it('derives the Personnel id from the route param for form submissions', async () => {
 		const formData = new FormData();
 		formData.set('title', 'Inspection Worksheet');

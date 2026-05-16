@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import { requirePersonnelArtifactAccess } from './personnelArtifactAuthorization';
 import { loadPersonnelContributorLabels, resolveContributorLabel } from './personnelContributorLabels';
 
@@ -61,10 +62,6 @@ function fileNameFromPath(path: string): string {
 	return path.split(/[\\/]/).pop() ?? 'document';
 }
 
-function hasPdfSignature(bytes: Uint8Array): boolean {
-	return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-}
-
 function hasJpegSignature(bytes: Uint8Array): boolean {
 	return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 }
@@ -89,7 +86,7 @@ function hasHeicSignature(bytes: Uint8Array): boolean {
 }
 
 function matchesDeclaredType(file: File, bytes: Uint8Array): boolean {
-	if (file.type === 'application/pdf') return hasPdfSignature(bytes);
+	if (file.type === 'application/pdf') return hasPdfFileSignature(bytes);
 	if (file.type === 'image/jpeg') return hasJpegSignature(bytes);
 	if (file.type === 'image/png') return hasPngSignature(bytes);
 	if (file.type === 'image/heic' || file.type === 'image/heif') return hasHeicSignature(bytes);

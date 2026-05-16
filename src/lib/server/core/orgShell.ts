@@ -38,6 +38,7 @@ export interface Announcement {
 
 export interface OrgShellData {
 	orgId: string;
+	membershipId: string | null;
 	orgName: string;
 	userId: string | null;
 	userPreferences: UserOrgPreferences;
@@ -150,6 +151,7 @@ export interface DeferredData<T> {
 
 export interface MembershipInfo {
 	orgId: string;
+	membershipId: string | null;
 	userId: string | null;
 	role: 'owner' | 'admin' | 'member';
 	capabilityMap: CapabilityMap;

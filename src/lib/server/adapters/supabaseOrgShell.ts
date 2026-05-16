@@ -171,6 +171,7 @@ export function createSupabaseOrgAccessPort(config: {
 
 			return {
 				orgId: config.orgId,
+				membershipId: membership.id ?? null,
 				userId: config.userId,
 				role: membership.role,
 				capabilityMap: accessShape.capabilityMap,
@@ -201,7 +202,7 @@ async function loadMembershipRow(config: {
 	const { data, error: membershipError } = await config.userSupabase
 		.from('organization_memberships')
 		.select(
-			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+			'id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_critical_tasks, can_edit_critical_tasks, can_view_onboarding, can_edit_onboarding, can_view_rating_scheme, can_edit_rating_scheme, can_manage_members, scoped_group_id, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 		)
 		.eq('user_id', config.userId)
 		.eq('organization_id', config.orgId)

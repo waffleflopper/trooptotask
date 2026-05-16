@@ -31,6 +31,8 @@ export const personnelFollowUpStatusSchema = z.object({
 	status: z.enum(['open', 'completed', 'archived'])
 });
 
+const personnelFollowUpIdentitySchema = personnelFollowUpStatusSchema.omit({ status: true });
+
 export const personnelFollowUpUpdateSchema = z.object({
 	personnelId: z.string().min(1),
 	followUpId: z.string().min(1),
@@ -226,10 +228,7 @@ export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: un
 }
 
 export async function deletePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<void> {
-	const parsed = personnelFollowUpStatusSchema.safeParse({
-		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
-		status: 'archived'
-	});
+	const parsed = personnelFollowUpIdentitySchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	}

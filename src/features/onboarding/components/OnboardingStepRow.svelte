@@ -5,9 +5,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import * as Stepper from '$lib/components/ui/stepper';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import OnboardingPaperworkStageQueue from './OnboardingPaperworkStageQueue.svelte';
 
 	interface Props {
 		step: OnboardingStepProgress;
@@ -21,15 +21,7 @@
 	let { step, mode, canManage, ctx, expanded = false, onToggleExpand }: Props = $props();
 
 	const isExpandable = $derived(mode === 'completed' && step.stepType === 'paperwork' && canManage);
-
-	function paperworkSteps(stages: string[], currentStage: string) {
-		const currentIndex = stages.indexOf(currentStage);
-		return stages.map((stage, index) => ({
-			value: stage,
-			label: stage,
-			completed: currentIndex >= 0 && index < currentIndex
-		}));
-	}
+	const adjustmentPanelId = $derived(`onboarding-step-${step.id}-stage-adjustment`);
 </script>
 
 {#if mode === 'active'}
@@ -47,23 +39,7 @@
 		</div>
 
 		{#if step.stepType === 'paperwork'}
-			{@const stages = step.stages ?? []}
-			{@const currentStage = step.currentStage ?? stages[0] ?? ''}
-			<div class="mt-2 pl-7">
-				<Stepper.Root
-					steps={paperworkSteps(stages, currentStage)}
-					value={currentStage}
-					onValueChange={(stage) => {
-						if (canManage) ctx.handleStageClick(step, stage);
-					}}
-				>
-					<Stepper.List aria-label="{step.stepName} stages">
-						{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
-							<Stepper.Item value={stage.value} label={stage.label} completed={stage.completed} disabled={!canManage} />
-						{/each}
-					</Stepper.List>
-				</Stepper.Root>
-			</div>
+			<OnboardingPaperworkStageQueue {step} {canManage} onSelect={(stage) => ctx.handleStageClick(step, stage)} />
 		{/if}
 
 		{#if step.stepType === 'training'}
@@ -98,8 +74,14 @@
 				<Checkbox checked={true} onclick={() => ctx.handleToggleCheckbox(step)} />
 			{:else}
 				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-						><path d="M20 6L9 17l-5-5" /></svg
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="3"
+						aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg
 					>
 				</div>
 			{/if}
@@ -114,29 +96,24 @@
 					onclick={onToggleExpand}
 					class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					aria-label={expanded ? 'Collapse' : 'Expand to adjust'}
+					aria-expanded={expanded}
+					aria-controls={adjustmentPanelId}
 				>
 					<ChevronDown class="h-3.5 w-3.5 transition-transform {expanded ? '' : '-rotate-90'}" />
 				</button>
 			{/if}
 		</div>
-		{#if isExpandable && expanded}
-			{@const stages = step.stages ?? []}
-			{@const currentStage = step.currentStage ?? stages[0] ?? ''}
-			<div class="border-t border-border/30 px-3 py-2.5 pl-9">
+		{#if isExpandable}
+			<div id={adjustmentPanelId} hidden={!expanded} class="border-t border-border/30 py-2.5 pl-9 pr-3">
 				<p class="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
 					Adjust stage to mark incomplete
 				</p>
-				<Stepper.Root
-					steps={paperworkSteps(stages, currentStage)}
-					value={currentStage}
-					onValueChange={(stage) => ctx.handleStageClick(step, stage)}
-				>
-					<Stepper.List aria-label="{step.stepName} stages">
-						{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
-							<Stepper.Item value={stage.value} label={stage.label} completed={stage.completed} />
-						{/each}
-					</Stepper.List>
-				</Stepper.Root>
+				<OnboardingPaperworkStageQueue
+					{step}
+					{canManage}
+					inset={false}
+					onSelect={(stage) => ctx.handleStageClick(step, stage)}
+				/>
 			</div>
 		{/if}
 	</div>

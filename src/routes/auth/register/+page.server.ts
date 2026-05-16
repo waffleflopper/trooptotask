@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
+import { parseUserProfileForm, upsertUserProfile } from '$lib/server/userProfile';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
@@ -23,6 +24,11 @@ export const actions: Actions = {
 		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 		const password = formData.get('password') as string;
 		const confirmPassword = formData.get('confirmPassword') as string;
+		const profile = parseUserProfileForm({
+			firstName: formData.get('firstName'),
+			lastName: formData.get('lastName'),
+			rank: formData.get('rank')
+		});
 
 		if (!inviteCode) {
 			return fail(400, { error: 'Invite code is required', email, inviteCode });
@@ -39,6 +45,10 @@ export const actions: Actions = {
 
 		if (password !== confirmPassword) {
 			return fail(400, { error: 'Passwords do not match', email, inviteCode });
+		}
+
+		if ('error' in profile) {
+			return fail(400, { error: profile.error, email, inviteCode });
 		}
 
 		// Validate invite code
@@ -63,7 +73,17 @@ export const actions: Actions = {
 			return fail(400, { error: 'This invite code is for a different email address', email, inviteCode });
 		}
 
-		const { data: signUpData, error } = await locals.supabase.auth.signUp({ email, password });
+		const { data: signUpData, error } = await locals.supabase.auth.signUp({
+			email,
+			password,
+			options: {
+				data: {
+					firstName: profile.firstName,
+					lastName: profile.lastName,
+					rank: profile.rank
+				}
+			}
+		});
 
 		if (error) {
 			return fail(400, { error: error.message, email, inviteCode });
@@ -78,8 +98,21 @@ export const actions: Actions = {
 				.eq('code', inviteCode);
 		}
 
-		// After signup, auto-accept any pending organization invitations for this email
-		if (newUser) {
+		// Profile writes and invite acceptance require a confirmed session so RLS runs as the new user.
+		if (newUser && signUpData.session) {
+			try {
+				await upsertUserProfile(locals.supabase, {
+					userId: newUser.id,
+					...profile
+				});
+			} catch (profileError) {
+				return fail(500, {
+					error: profileError instanceof Error ? profileError.message : 'Could not save profile details',
+					email,
+					inviteCode
+				});
+			}
+
 			await autoAcceptOrgInvites(locals.supabase, newUser.id, email);
 		}
 

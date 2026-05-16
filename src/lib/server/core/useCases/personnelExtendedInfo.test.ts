@@ -171,4 +171,15 @@ describe('personnel extended info use case', () => {
 			})
 		).rejects.toMatchObject({ status: 400 });
 	});
+
+	it('rejects invalid personal email values before they reach the database', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			updatePersonnelExtendedInfo(ctx, {
+				personnelId: 'person-1',
+				personalEmail: 'not-an-email'
+			})
+		).rejects.toMatchObject({ status: 400 });
+	});
 });

@@ -4,8 +4,10 @@ import { validatePassword } from '$lib/server/validation';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-	const { password } = (await request.json()) as {
+	const { currentPassword, password, confirmPassword } = (await request.json()) as {
+		currentPassword?: string;
 		password?: string;
+		confirmPassword?: string;
 	};
 
 	const passwordError = validatePassword(password ?? '');
@@ -25,6 +27,32 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 			},
 			{ status: 401 }
 		);
+	}
+
+	const isRecoveryOrInviteFlow = locals.authFlow === 'recovery' || locals.authFlow === 'invite';
+
+	if (!isRecoveryOrInviteFlow) {
+		if (!currentPassword) {
+			return json({ error: 'Current password is required' }, { status: 400 });
+		}
+
+		if (password !== confirmPassword) {
+			return json({ error: 'New passwords do not match' }, { status: 400 });
+		}
+
+		const email = locals.user?.email;
+		if (!email) {
+			return json({ error: 'Current user email is unavailable' }, { status: 401 });
+		}
+
+		const { error: signInError } = await locals.supabase.auth.signInWithPassword({
+			email,
+			password: currentPassword
+		});
+
+		if (signInError) {
+			return json({ error: 'Current password is incorrect' }, { status: 401 });
+		}
 	}
 
 	const { error } = await locals.supabase.auth.updateUser({ password });

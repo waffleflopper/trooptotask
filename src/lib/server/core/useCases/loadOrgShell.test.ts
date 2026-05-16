@@ -15,6 +15,7 @@ const viewerCapabilityMap: MembershipInfo['capabilityMap'] = {
 
 const baseMembership: MembershipInfo = {
 	orgId: 'org-1',
+	membershipId: 'membership-1',
 	userId: 'user-1',
 	role: 'member',
 	capabilityMap: viewerCapabilityMap,
@@ -95,6 +96,7 @@ describe('loadOrgShell', () => {
 		const result = await loadOrgShell(access, chrome);
 
 		expect(result.orgId).toBe('org-1');
+		expect(result.membershipId).toBe('membership-1');
 		expect(result.orgName).toBe('Test Unit');
 		expect(result.userId).toBe('user-1');
 		expect(result.userPreferences).toEqual(baseChrome.userPreferences);

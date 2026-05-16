@@ -42,6 +42,7 @@
 		orgId: string;
 		orgName: string;
 		userRole: string;
+		membershipId?: string | null;
 		permissions: OrganizationMemberPermissions;
 		capabilityMap?: CapabilityMap;
 		allOrgs: OrgInfo[];
@@ -66,6 +67,7 @@
 		orgId,
 		orgName,
 		userRole,
+		membershipId = null,
 		permissions,
 		capabilityMap,
 		allOrgs,
@@ -98,6 +100,7 @@
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
 	const activeOrg = $derived(allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole });
 	const isMultiOrg = $derived(allOrgs.length > 1);
+	const canLeaveOrganization = $derived(userRole !== 'owner' && Boolean(membershipId));
 	const accountInitials = $derived('ME');
 
 	onMount(() => {
@@ -312,7 +315,7 @@
 										<BadgeCheck />
 										Role: {userRole}
 									</DropdownMenu.Item>
-									<DropdownMenu.Item>
+									<DropdownMenu.Item onclick={() => goto(resolve('/account/profile'))}>
 										<UserCircle />
 										Account
 									</DropdownMenu.Item>
@@ -337,6 +340,16 @@
 									</DropdownMenu.Item>
 								</DropdownMenu.Group>
 								<DropdownMenu.Separator />
+								{#if canLeaveOrganization}
+									<form method="POST" action={resolve(`/org/${orgId}?/leaveOrganization`)} class="m-0">
+										<input type="hidden" name="membershipId" value={membershipId ?? ''} />
+										<Button type="submit" variant="destructive" class="h-8 w-full justify-start rounded-md px-1.5">
+											<Building2 />
+											Leave Organization
+										</Button>
+									</form>
+									<DropdownMenu.Separator />
+								{/if}
 								<DropdownMenu.Item variant="destructive" onclick={() => goto(resolve('/auth/logout'))}>
 									<LogOut />
 									Sign Out

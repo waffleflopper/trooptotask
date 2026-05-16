@@ -54,6 +54,8 @@ const dependentsInputSchema = z
 	.optional()
 	.default(null);
 
+const optionalEmailInputSchema = z.string().email();
+
 export const personnelExtendedInfoInputSchema = z.object({
 	personnelId: z.string().min(1),
 	bloodType: z.string().trim().max(12).optional().default(''),
@@ -72,7 +74,16 @@ export const personnelExtendedInfoInputSchema = z.object({
 	vehicleMakeModel: z.string().trim().max(160).optional().default(''),
 	vehiclePlate: z.string().trim().max(40).optional().default(''),
 	vehicleColor: z.string().trim().max(80).optional().default(''),
-	personalEmail: z.string().trim().max(255).optional().default(''),
+	personalEmail: z
+		.string()
+		.trim()
+		.max(255)
+		.refine(
+			(value) => value === '' || optionalEmailInputSchema.safeParse(value).success,
+			'Enter a valid personal email'
+		)
+		.optional()
+		.default(''),
 	personalPhone: z.string().trim().max(80).optional().default(''),
 	addressStreet: z.string().trim().max(255).optional().default(''),
 	addressCity: z.string().trim().max(120).optional().default(''),

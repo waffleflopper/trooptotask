@@ -1,14 +1,10 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import { isScopeSetMatchAllowed, matchScopeSet, scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 
-export function isGroupAccessAllowed(
-	scopedGroupId: string | string[] | null,
-	personnelGroupId: string | null
-): boolean {
-	if (scopedGroupId === null) return true;
-	if (personnelGroupId === null) return true;
-	const scopedGroupIds = Array.isArray(scopedGroupId) ? scopedGroupId : [scopedGroupId];
-	return scopedGroupIds.includes(personnelGroupId);
+export function isGroupAccessAllowed(scopeSet: ScopeSet, personnelGroupId: string | null): boolean {
+	return isScopeSetMatchAllowed(matchScopeSet(scopeSet, scopeSetResourceForGroupId(personnelGroupId)));
 }
 
 export interface PersonnelGroupResolver {
@@ -37,30 +33,30 @@ export function createSupabaseGroupResolver(supabase: SupabaseClient): Personnel
 
 export async function enforceGroupAccess(
 	resolver: PersonnelGroupResolver,
-	scopedGroupId: string | string[] | null,
+	scopeSet: ScopeSet,
 	personnelId: string
 ): Promise<void> {
-	if (scopedGroupId === null) return;
+	if (scopeSet.kind === 'organization') return;
 
 	const personnelGroupId = await resolver.getGroupId(personnelId);
 
-	if (!isGroupAccessAllowed(scopedGroupId, personnelGroupId)) {
+	if (!isGroupAccessAllowed(scopeSet, personnelGroupId)) {
 		throw error(403, 'You do not have access to personnel outside your group');
 	}
 }
 
 export async function enforceGroupAccessBatch(
 	resolver: PersonnelGroupResolver,
-	scopedGroupId: string | string[] | null,
+	scopeSet: ScopeSet,
 	personnelIds: string[]
 ): Promise<void> {
-	if (scopedGroupId === null) return;
+	if (scopeSet.kind === 'organization') return;
 
 	const groupMap = await resolver.getGroupIds(personnelIds);
 
 	for (const id of personnelIds) {
 		const personnelGroupId = groupMap.get(id) ?? null;
-		if (!isGroupAccessAllowed(scopedGroupId, personnelGroupId)) {
+		if (!isGroupAccessAllowed(scopeSet, personnelGroupId)) {
 			throw error(403, 'You do not have access to personnel outside your group');
 		}
 	}

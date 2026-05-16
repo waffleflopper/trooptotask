@@ -83,6 +83,24 @@ describe('policy evaluator', () => {
 		});
 	});
 
+	it('denies a group-scoped feature action for ungrouped Personnel Records', () => {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: 'member' },
+			action: POLICY_ACTION_CATALOG.personnel.manageRecords,
+			capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			resource: { kind: 'organization' },
+			overlays: []
+		});
+
+		expect(decision).toMatchObject({
+			allowed: false,
+			reasonCode: 'denied:out-of-scope',
+			matchedScope: { kind: 'out-of-scope', resource: { kind: 'organization' } }
+		});
+	});
+
 	it('defines Personnel workflow actions with Personnel lane ownership', () => {
 		expect(POLICY_ACTION_CATALOG.personnel.viewRoster).toMatchObject({
 			id: 'personnel.viewRoster',

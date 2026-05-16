@@ -342,6 +342,7 @@ _Avoid_: Training type
 - A **Scope Set** applies across all scoped **Feature Lanes**; it does not vary by feature.
 - A **Scope Set** should move toward multiple whole-**Group** grants sooner than later and keep room for future **Personnel Scope** entries across Groups.
 - **Scope Set** grants are positive-only in the approved replacement model; do not introduce deny exceptions or "all except" scope semantics without a later explicit decision.
+- A **Personnel Record** without a **Group** is organization-scoped for **Scope Set** decisions; a whole-**Group** grant does not include ungrouped **Personnel Records**.
 - `operate` is for day-to-day feature work; `configure` is for feature-lane configuration; neither implies member management, billing, ownership transfer, or destructive organization-danger authority.
 - A **Policy Decision** should be structured even when a call site initially only uses the final allow/deny result.
 - Structured **Policy Decisions** should support user-facing explanations and audit capture for denied or suspicious access attempts.

@@ -7,6 +7,9 @@ import {
 	type MembershipRole,
 	type ScopeSet
 } from './memberAccessShape';
+import { matchScopeSet, type MatchedScope, type ScopeSetResource } from './scopeSetAccess';
+
+export type { MatchedScope } from './scopeSetAccess';
 
 export type PolicyDecisionKind = 'server-authoritative' | 'client-advisory';
 export type PolicyActionAccessMode = 'read' | 'write' | 'governance';
@@ -71,11 +74,7 @@ export interface IdentityOwnedPolicyAction {
 
 export type PolicyAction = FeatureLanePolicyAction | OrganizationGovernancePolicyAction | IdentityOwnedPolicyAction;
 
-export type PolicyResource =
-	| { kind: 'organization' }
-	| { kind: 'group'; groupId: string }
-	| { kind: 'user'; userId: string }
-	| { kind: 'unscoped' };
+export type PolicyResource = ScopeSetResource;
 
 export interface PolicyOverlay {
 	id: string;
@@ -104,12 +103,6 @@ export interface MatchedCapability {
 	actual: CapabilityLevel;
 	required: Exclude<CapabilityLevel, 'none'>;
 }
-
-export type MatchedScope =
-	| { kind: 'organization' }
-	| { kind: 'group'; groupId: string }
-	| { kind: 'unscoped' }
-	| { kind: 'out-of-scope'; resource: PolicyResource };
 
 export interface PolicyDecision {
 	allowed: boolean;
@@ -548,7 +541,7 @@ export function evaluatePolicyDecision(input: PolicyEvaluationInput): PolicyDeci
 		});
 	}
 
-	const matchedScope = matchScope(input.scopeSet, input.resource);
+	const matchedScope = matchScopeSet(input.scopeSet, input.resource);
 	if (matchedScope.kind === 'out-of-scope') {
 		return buildDecision(input, {
 			allowed: false,
@@ -619,7 +612,7 @@ function evaluateGovernancePolicy(
 	input: PolicyEvaluationInput,
 	action: OrganizationGovernancePolicyAction
 ): PolicyDecision {
-	const matchedScope = matchScope(input.scopeSet, input.resource);
+	const matchedScope = matchScopeSet(input.scopeSet, input.resource);
 
 	if (action.owner.access === 'owner-only' && input.actor.membershipRole !== 'owner') {
 		return buildDecision(input, {
@@ -697,26 +690,6 @@ function matchCapability(
 		actual: capabilityMap[action.owner.lane] ?? 'none',
 		required: action.requiredCapability
 	};
-}
-
-function matchScope(scopeSet: ScopeSet, resource: PolicyResource): MatchedScope {
-	if (resource.kind === 'unscoped') {
-		return { kind: 'unscoped' };
-	}
-
-	if (scopeSet.kind === 'organization') {
-		if (resource.kind === 'group') {
-			return { kind: 'group', groupId: resource.groupId };
-		}
-
-		return { kind: 'organization' };
-	}
-
-	if (resource.kind === 'group' && scopeSet.groupIds.includes(resource.groupId)) {
-		return { kind: 'group', groupId: resource.groupId };
-	}
-
-	return { kind: 'out-of-scope', resource };
 }
 
 function findBlockingOverlay(input: PolicyEvaluationInput): PolicyOverlay | undefined {

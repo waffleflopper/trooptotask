@@ -3,6 +3,7 @@ import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/c
 import type { Personnel } from '$lib/types';
 import {
 	buildCriticalTasksReadinessSnapshot,
+	buildCriticalTasksSoldierReadinessSummary,
 	isCriticalTaskCompletionReady
 } from '$features/critical-tasks/utils/ictReadinessSnapshot';
 
@@ -56,6 +57,42 @@ describe('Critical Task readiness snapshot', () => {
 				'2026-07-01'
 			)
 		).toBe(true);
+	});
+
+	it('builds a Soldier readiness summary that ignores completions after the as-of date', () => {
+		const expiredTask: IctTask = { ...commonTask, id: 'task-expired', taskCode: 'ICT-EXPIRED' };
+		const summary = buildCriticalTasksSoldierReadinessSummary({
+			person: basePerson,
+			activeTasks: [commonTask, expiredTask],
+			completions: [
+				completion({ id: 'completion-expiring', ictTaskId: commonTask.id }),
+				completion({
+					id: 'completion-expired',
+					ictTaskId: expiredTask.id,
+					completedAt: '2025-01-01',
+					createdAt: '2025-01-01T12:00:00Z'
+				}),
+				completion({
+					id: 'completion-future',
+					ictTaskId: expiredTask.id,
+					completedAt: '2026-07-15',
+					createdAt: '2026-07-15T12:00:00Z'
+				})
+			],
+			settings: { defaultExpirationMonths: 12, expiringSoonWarningDays: 60 },
+			asOf: '2026-07-01'
+		});
+
+		expect(summary).toEqual({
+			readinessPercent: 50,
+			applicableCount: 2,
+			readyCount: 1,
+			attentionCount: 1,
+			currentCount: 0,
+			expiringSoonCount: 1,
+			expiredCount: 1,
+			notRecordedCount: 0
+		});
 	});
 
 	it('builds a reusable readiness snapshot for filtered report personnel', () => {

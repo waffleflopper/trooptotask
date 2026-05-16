@@ -34,6 +34,11 @@ export function buildDutyRosterCountSource(input: {
 	baselineStartDate?: string;
 }): DutyRosterCountSourceModel {
 	const runs = [...input.runs].sort((left, right) => left.acceptedAt.localeCompare(right.acceptedAt));
+	const acceptedRunPersonnelIds = new Set(
+		runs
+			.filter((run) => run.status === 'accepted')
+			.flatMap((run) => dutyRosterAcceptedSnapshotPersonnelIds(run.snapshot))
+	);
 	const continuationHistory = runs
 		.filter((run) => run.status === 'accepted')
 		.map((run) => applyDutyRosterCorrectionsToSnapshot(run.snapshot, run.corrections))
@@ -46,9 +51,9 @@ export function buildDutyRosterCountSource(input: {
 	const nonCountingCorrectionCount = runs
 		.filter((run) => run.status === 'invalidated')
 		.reduce((total, run) => total + run.corrections.length, 0);
-	const hasOfficialRunHistory = runs.length > 0;
+	const hasAcceptedOfficialRunHistory = acceptedRunCount > 0;
 	const hasBaselineCounts = Object.values(input.template.manualBaselineCounts).some((count) => count > 0);
-	const source: DutyRosterTemplateCountReadModel['source'] = hasOfficialRunHistory
+	const source: DutyRosterTemplateCountReadModel['source'] = hasAcceptedOfficialRunHistory
 		? 'accepted-history'
 		: hasBaselineCounts
 			? 'manual-da6-baseline'
@@ -61,7 +66,7 @@ export function buildDutyRosterCountSource(input: {
 				: [];
 	const rows =
 		source === 'accepted-history'
-			? countRowsFromHistory(continuationHistory, input.resolvedPool)
+			? countRowsFromHistory(continuationHistory, input.resolvedPool, acceptedRunPersonnelIds)
 			: source === 'manual-da6-baseline'
 				? countRowsFromBaseline(input.template, input.resolvedPool)
 				: zeroCountRows(input.resolvedPool);
@@ -115,7 +120,8 @@ function countSourceText(input: {
 
 function countRowsFromHistory(
 	history: DutyRosterContinuationHistoryItem[],
-	resolvedPool: DutyRosterPoolPersonnel[]
+	resolvedPool: DutyRosterPoolPersonnel[],
+	acceptedRunPersonnelIds: Set<string>
 ): DutyRosterTemplateCountRow[] {
 	const rowsById = new Map<string, DutyRosterTemplateCountRow>(
 		resolvedPool.map((person) => [
@@ -124,7 +130,8 @@ function countRowsFromHistory(
 				personnelId: person.id,
 				display: poolDisplay(person),
 				count: 0,
-				lastDutyDate: null
+				lastDutyDate: null,
+				appearedInAcceptedRun: acceptedRunPersonnelIds.has(person.id)
 			}
 		])
 	);
@@ -145,12 +152,14 @@ function countRowsFromHistory(
 						}
 					: null,
 				count: 0,
-				lastDutyDate: null
+				lastDutyDate: null,
+				appearedInAcceptedRun: acceptedRunPersonnelIds.has(row.assigneeId)
 			};
 			rowsById.set(row.assigneeId, {
 				...existing,
 				count: existing.count + 1,
-				lastDutyDate: !existing.lastDutyDate || row.date > existing.lastDutyDate ? row.date : existing.lastDutyDate
+				lastDutyDate: !existing.lastDutyDate || row.date > existing.lastDutyDate ? row.date : existing.lastDutyDate,
+				appearedInAcceptedRun: true
 			});
 		}
 	}
@@ -167,7 +176,8 @@ function countRowsFromBaseline(
 			personnelId: person.id,
 			display: poolDisplay(person),
 			count: template.manualBaselineCounts[person.id] ?? 0,
-			lastDutyDate: null
+			lastDutyDate: null,
+			appearedInAcceptedRun: false
 		}))
 		.sort(compareCountRows);
 }
@@ -178,9 +188,23 @@ function zeroCountRows(resolvedPool: DutyRosterPoolPersonnel[]): DutyRosterTempl
 			personnelId: person.id,
 			display: poolDisplay(person),
 			count: 0,
-			lastDutyDate: null
+			lastDutyDate: null,
+			appearedInAcceptedRun: false
 		}))
 		.sort(compareCountRows);
+}
+
+export function dutyRosterAcceptedSnapshotPersonnelIds(snapshot: DutyRosterTemplateAcceptedSnapshot): string[] {
+	return [
+		...new Set([
+			...snapshot.resolvedPool.map((person) => person.id),
+			...snapshot.selectionPersonnel.map((person) => person.id),
+			...snapshot.generatedRows.map((row) => row.assigneeId).filter((id): id is string => Boolean(id)),
+			...snapshot.finalRows
+				.flatMap((row) => [row.generatedAssigneeId, row.finalAssigneeId])
+				.filter((id): id is string => Boolean(id))
+		])
+	].sort((left, right) => left.localeCompare(right));
 }
 
 function buildBaselineContinuationHistory(

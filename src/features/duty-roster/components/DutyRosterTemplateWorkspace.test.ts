@@ -484,11 +484,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 		const invalidateButton = screen.getByRole('button', { name: 'Invalidate run' });
 		await fireEvent.click(invalidateButton);
 
-		expect(screen.getByRole('heading', { name: 'Remove this official run from Calendar' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Invalidate Duty Roster run?' })).toBeTruthy();
 		expect(screen.getByText(/Run 2026-06-01 to 2026-06-01 will be marked invalidated/)).toBeTruthy();
-		expect(screen.getByText(/This action is only available for the latest accepted run/)).toBeTruthy();
+		expect(screen.getByText(/Linked Calendar assignments will be removed/)).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Confirm invalidation' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Keep run' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
 		expect(confirm).not.toHaveBeenCalled();
 	});
 

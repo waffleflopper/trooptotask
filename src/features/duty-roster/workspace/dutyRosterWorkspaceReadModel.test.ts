@@ -200,6 +200,49 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(invalidatedOnly.settingsWorkspace?.baselineLocked).toBe(false);
 		expect(activeAccepted.settingsWorkspace?.baselineLocked).toBe(true);
 	});
+
+	it('marks baseline rows editable for personnel who have not appeared in accepted history', () => {
+		const model = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'settings',
+				acceptedRuns: [acceptedRun()],
+				countReadModel: {
+					templateId: template.id,
+					source: 'accepted-history',
+					sourceLabel: 'Accepted history',
+					sourceDescription: 'Future previews use accepted history.',
+					rows: [
+						{
+							personnelId: 'alpha',
+							display: null,
+							count: 1,
+							lastDutyDate: '2026-06-01',
+							appearedInAcceptedRun: true
+						},
+						{
+							personnelId: 'charlie',
+							display: null,
+							count: 0,
+							lastDutyDate: null,
+							appearedInAcceptedRun: false
+						}
+					],
+					acceptedRunCount: 1,
+					invalidatedRunCount: 0,
+					countingCorrectionCount: 0,
+					nonCountingCorrectionCount: 0
+				}
+			},
+			null
+		);
+
+		expect(model.settingsWorkspace?.baselineLocked).toBe(true);
+		expect(model.settingsWorkspace?.editableBaselinePersonnelIds).toEqual(['charlie']);
+	});
 });
 
 function withTimezone<T>(timezone: string, callback: () => T): T {

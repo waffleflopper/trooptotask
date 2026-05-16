@@ -241,6 +241,28 @@ describe('dutyRosterPreviewReview', () => {
 			}
 		]);
 	});
+
+	it('allows non-latest accepted history to be invalidated while its end date is today or later', () => {
+		const model = buildDutyRosterAcceptedRunReviewModel({
+			run: acceptedRun(),
+			isLatestRun: false,
+			todayDate: '2026-06-01'
+		});
+
+		expect(model.canInvalidate).toBe(true);
+		expect(model.invalidateDisabledReason).toBe(null);
+	});
+
+	it('blocks accepted history invalidation after the run end date', () => {
+		const model = buildDutyRosterAcceptedRunReviewModel({
+			run: acceptedRun(),
+			isLatestRun: true,
+			todayDate: '2026-06-03'
+		});
+
+		expect(model.canInvalidate).toBe(false);
+		expect(model.invalidateDisabledReason).toBe('Runs with end dates before today cannot be invalidated.');
+	});
 });
 
 function previewSnapshot(): DutyRosterTemplatePreview {

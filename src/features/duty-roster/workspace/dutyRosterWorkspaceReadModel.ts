@@ -101,6 +101,7 @@ export type DutyRosterTemplateSettingsWorkspaceModel = {
 	settings: DutyRosterTemplateSettingsData | null;
 	settingsAction: string;
 	baselineLocked: boolean;
+	editableBaselinePersonnelIds: string[];
 	acceptedRuns: DutyRosterTemplateAcceptedRun[];
 	countReadModel: DutyRosterTemplateCountReadModel | null;
 	rankOptions: string[];
@@ -232,6 +233,13 @@ export function buildDutyRosterWorkspaceReadModel(
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
 	const baselineLocked = acceptedRuns.some((run) => run.status === 'accepted');
+	const editableBaselinePersonnelIds =
+		baselineLocked && countReadModel
+			? countReadModel.rows
+					.filter((row) => row.appearedInAcceptedRun === false)
+					.map((row) => row.personnelId)
+					.sort((left, right) => left.localeCompare(right))
+			: [];
 	const settingsWorkspace = selectedTemplate
 		? {
 				basePath,
@@ -240,6 +248,7 @@ export function buildDutyRosterWorkspaceReadModel(
 				settings: data.settings ?? null,
 				settingsAction,
 				baselineLocked,
+				editableBaselinePersonnelIds,
 				acceptedRuns,
 				countReadModel,
 				rankOptions,

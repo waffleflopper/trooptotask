@@ -73,6 +73,7 @@ export interface DutyRosterTemplateCountRow {
 	display: DutyRosterPoolPersonnelDisplay | null;
 	count: number;
 	lastDutyDate: string | null;
+	appearedInAcceptedRun?: boolean;
 }
 
 export interface DutyRosterTemplateCountReadModel {

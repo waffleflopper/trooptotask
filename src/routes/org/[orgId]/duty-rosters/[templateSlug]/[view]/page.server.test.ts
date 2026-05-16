@@ -94,6 +94,7 @@ describe('Duty Roster Template view route', () => {
 		});
 		invalidateLatestDutyRosterTemplateRunMock.mockResolvedValue({
 			invalidatedRun: acceptedRun({ invalidated: true }),
+			invalidatedRuns: [acceptedRun({ invalidated: true })],
 			removedCalendarAssignments: 1,
 			calendarAssignmentsEdited: false
 		});
@@ -449,7 +450,33 @@ describe('Duty Roster Template view route', () => {
 		});
 
 		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
-			runId: 'run-1'
+			runId: 'run-1',
+			cascade: false
+		});
+	});
+
+	it('passes cascade invalidation intent from the accepted run form', async () => {
+		const request = new Request('http://localhost', {
+			method: 'POST',
+			body: new URLSearchParams({
+				runId: 'run-1',
+				cascade: 'true'
+			})
+		});
+
+		await expect(
+			actions.invalidateAcceptedRun({
+				request,
+				params: { orgId: 'org-1', templateSlug: 'cq-nco' }
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/duty-rosters/cq-nco/history/run-1'
+		});
+
+		expect(invalidateLatestDutyRosterTemplateRunMock).toHaveBeenCalledWith(mockCtx, {
+			runId: 'run-1',
+			cascade: true
 		});
 	});
 

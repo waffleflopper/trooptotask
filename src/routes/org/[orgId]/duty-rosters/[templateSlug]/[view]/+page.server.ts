@@ -234,11 +234,13 @@ export const actions: Actions = {
 	invalidateAcceptedRun: async (event) => {
 		const formData = await event.request.formData();
 		const runId = String(formData.get('runId') ?? '');
+		const cascade = String(formData.get('cascade') ?? '') === 'true';
 
 		try {
 			const ctx = await buildRouteContext(event);
 			await invalidateLatestDutyRosterTemplateRun(ctx, {
-				runId
+				runId,
+				cascade
 			});
 		} catch (errorValue) {
 			return actionError(errorValue, {

@@ -727,6 +727,58 @@ describe('Duty Roster Template use cases', () => {
 		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ alpha: 2 });
 	});
 
+	it('keeps accepted-run baseline rows locked while allowing newly added pool personnel baseline counts', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		});
+		await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		personnelRows.push(
+			personnelRow({ id: 'charlie', rank: 'SGT', last_name: 'Charlie', first_name: 'Cal', group_id: 'alpha' })
+		);
+
+		await expect(
+			updateDutyRosterTemplateSettings(ctx, {
+				templateId: template.id,
+				poolCriteria: {
+					rankValues: ['SGT'],
+					groupIds: ['alpha'],
+					mosValues: [],
+					dutyRoleValues: []
+				},
+				exemptPersonnelIds: [],
+				manualBaselineCounts: { alpha: 2, charlie: 3 }
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Manual DA6 Baseline is locked for Soldiers who already appeared in accepted history.'
+		});
+
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { charlie: 3 }
+		});
+
+		expect(updated.manualBaselineCounts).toEqual({ charlie: 3 });
+		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ charlie: 3 });
+	});
+
 	it('rechecks Manual DA6 Baseline locks immediately before settings writes', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(
@@ -744,7 +796,12 @@ describe('Duty Roster Template use cases', () => {
 							id: 'run-concurrent',
 							template_id: template.id,
 							template_name: template.name,
-							accepted_at: '2026-05-04T12:01:00.000Z'
+							accepted_at: '2026-05-04T12:01:00.000Z',
+							snapshot_payload: acceptedRunSnapshotPayload({
+								templateId: template.id,
+								templateName: template.name,
+								personnelIds: ['alpha']
+							})
 						})
 					);
 				}
@@ -1886,7 +1943,7 @@ describe('Duty Roster Template use cases', () => {
 		);
 	});
 
-	it('blocks invalidating older accepted runs', async () => {
+	it('invalidates an older future accepted run without invalidating follow-on runs', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
@@ -1912,13 +1969,73 @@ describe('Duty Roster Template use cases', () => {
 		});
 		acceptedRunRows[1].accepted_at = '2026-06-02T00:00:00.000Z';
 
-		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: firstRun.id })).rejects.toMatchObject({
+		const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: firstRun.id });
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+
+		expect(result.invalidatedRun).toMatchObject({
+			id: firstRun.id,
+			status: 'invalidated'
+		});
+		expect(listedRuns.map((run) => ({ id: run.id, status: run.status }))).toEqual([
+			{ id: 'run-2', status: 'accepted' },
+			{ id: firstRun.id, status: 'invalidated' }
+		]);
+	});
+
+	it('invalidates selected and follow-on accepted runs when cascade is requested', async () => {
+		const ctx = createCtx();
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
+			personnelRow({ id: 'bravo', rank: 'SGT', last_name: 'Baker', first_name: 'Ben', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		for (const [index, date] of ['2026-06-01', '2026-06-02', '2026-06-03'].entries()) {
+			const preview = await generateDutyRosterTemplatePreview(ctx, {
+				templateId: template.id,
+				startDate: date,
+				endDate: date
+			});
+			await acceptDutyRosterTemplatePreview(ctx, {
+				preview: JSON.stringify(preview)
+			});
+			acceptedRunRows[index].accepted_at = `2026-06-0${index + 1}T00:00:00.000Z`;
+		}
+
+		const result = await invalidateLatestDutyRosterTemplateRun(ctx, { runId: 'run-1', cascade: true });
+		const listedRuns = await listAcceptedDutyRosterTemplateRuns(ctx, template.id);
+
+		expect(result.invalidatedRuns.map((run) => run.id)).toEqual(['run-1', 'run-2', 'run-3']);
+		expect(listedRuns.map((run) => ({ id: run.id, status: run.status }))).toEqual([
+			{ id: 'run-3', status: 'invalidated' },
+			{ id: 'run-2', status: 'invalidated' },
+			{ id: 'run-1', status: 'invalidated' }
+		]);
+	});
+
+	it('blocks invalidating runs whose end date is before today', async () => {
+		const ctx = createCtx();
+		vi.setSystemTime(new Date('2026-06-02T12:00:00.000Z'));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		const preview = await generateDutyRosterTemplatePreview(ctx, {
+			templateId: template.id,
+			startDate: '2026-06-02',
+			endDate: '2026-06-02'
+		});
+		const run = await acceptDutyRosterTemplatePreview(ctx, {
+			preview: JSON.stringify(preview)
+		});
+		acceptedRunRows[0].end_date = '2026-06-01';
+
+		await expect(invalidateLatestDutyRosterTemplateRun(ctx, { runId: run.id })).rejects.toMatchObject({
 			status: 400,
-			message: 'Only the latest Accepted Duty Roster Run can be invalidated.'
+			message: 'Duty Roster Run has ended and can no longer be invalidated.'
 		});
 	});
 
-	it('rechecks latest-run status immediately before invalidation writes', async () => {
+	it('rechecks selected run status immediately before invalidation writes', async () => {
 		const ctx = createCtx();
 		personnelRows.push(
 			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' }),
@@ -1939,14 +2056,9 @@ describe('Duty Roster Template use cases', () => {
 			if (table === 'duty_roster_template_runs' && filters?.template_id === template.id) {
 				runChecks += 1;
 				if (runChecks === 2) {
-					acceptedRunRows.push(
-						acceptedRunRow({
-							id: 'run-concurrent',
-							template_id: template.id,
-							template_name: template.name,
-							accepted_at: '2026-05-04T12:01:00.000Z'
-						})
-					);
+					acceptedRunRows[0].status = 'invalidated';
+					acceptedRunRows[0].invalidated_at = '2026-05-04T12:01:00.000Z';
+					acceptedRunRows[0].invalidated_by_user_id = 'user-2';
 				}
 			}
 			return originalFindMany(table, orgId, filters, options);
@@ -1958,7 +2070,8 @@ describe('Duty Roster Template use cases', () => {
 		});
 
 		expect(acceptedRunRows.find((row) => row.id === run.id)).toMatchObject({
-			status: 'accepted'
+			status: 'invalidated',
+			invalidated_by_user_id: 'user-2'
 		});
 		expect(auditEvents).not.toContainEqual(
 			expect.objectContaining({
@@ -2260,7 +2373,7 @@ describe('Duty Roster Template use cases', () => {
 			})
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Manual DA6 Baseline is locked after the first accepted run.'
+			message: 'Manual DA6 Baseline is locked for Soldiers who already appeared in accepted history.'
 		});
 	});
 });
@@ -2326,6 +2439,46 @@ function oversizedPreviewPayload(): string {
 	return 'x'.repeat(2 * 1024 * 1024 + 1);
 }
 
+function acceptedRunSnapshotPayload(input: {
+	templateId: string;
+	templateName: string;
+	acceptedAt?: string;
+	personnelIds?: string[];
+}): Record<string, unknown> {
+	const personnel = (input.personnelIds ?? []).map((personnelId) => ({
+		id: personnelId,
+		rank: 'SGT',
+		lastName: personnelId,
+		firstName: 'Soldier',
+		groupId: 'alpha',
+		groupName: 'Alpha'
+	}));
+
+	return {
+		snapshotVersion: 1,
+		template: {
+			id: input.templateId,
+			name: input.templateName,
+			shortCode: 'CQ'
+		},
+		generatedAt: '2026-06-01T00:00:00.000Z',
+		acceptedAt: input.acceptedAt ?? '2026-06-01T12:00:00.000Z',
+		acceptedByUserId: 'user-1',
+		config: {
+			startDate: '2026-06-01',
+			endDate: '2026-06-01'
+		},
+		resolvedPool: personnel,
+		selectionPersonnel: personnel.map((person) => ({ ...person, archivedAt: null })),
+		generatedRows: [],
+		finalRows: [],
+		manualSelections: [],
+		da6: { columns: [], rows: [] },
+		exportModel: { title: 'CQ NCO', sequencePeriods: [], rows: [] },
+		warnings: []
+	};
+}
+
 function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unknown> {
 	return {
 		id: 'run-1',
@@ -2335,29 +2488,11 @@ function acceptedRunRow(overrides: Record<string, unknown>): Record<string, unkn
 		status: 'accepted',
 		start_date: '2026-06-01',
 		end_date: '2026-06-01',
-		snapshot_payload: {
-			snapshotVersion: 1,
-			template: {
-				id: 'template-1',
-				name: 'CQ NCO',
-				shortCode: 'CQ'
-			},
-			generatedAt: '2026-06-01T00:00:00.000Z',
-			acceptedAt: String(overrides.accepted_at ?? '2026-06-01T12:00:00.000Z'),
-			acceptedByUserId: 'user-1',
-			config: {
-				startDate: '2026-06-01',
-				endDate: '2026-06-01'
-			},
-			resolvedPool: [],
-			selectionPersonnel: [],
-			generatedRows: [],
-			finalRows: [],
-			manualSelections: [],
-			da6: { columns: [], rows: [] },
-			exportModel: { title: 'CQ NCO', sequencePeriods: [], rows: [] },
-			warnings: []
-		},
+		snapshot_payload: acceptedRunSnapshotPayload({
+			templateId: 'template-1',
+			templateName: 'CQ NCO',
+			acceptedAt: String(overrides.accepted_at ?? '2026-06-01T12:00:00.000Z')
+		}),
 		accepted_by_user_id: 'user-1',
 		accepted_at: '2026-06-01T12:00:00.000Z',
 		applied_by_user_id: null,

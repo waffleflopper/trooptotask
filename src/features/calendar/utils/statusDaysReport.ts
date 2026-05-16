@@ -1,6 +1,6 @@
 import type { AvailabilityEntry } from '$lib/types';
 import type { Personnel } from '$lib/types';
-import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
+import { RANK_ORDER } from '$lib/domain/rosterGrouping';
 
 export interface StatusDayRow {
 	person: Personnel;

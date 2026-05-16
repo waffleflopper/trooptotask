@@ -4,8 +4,6 @@
  * `fetchCalendarData(ctx, { rangeStart, rangeEnd })` returns availability entries,
  * special days, assignment types, daily assignments, and pinned groups for the given
  * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
- *
- * For onboarding-specific calendar data, see `onboardingCalendarQuery.ts`.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment, Personnel, StatusType } from '$lib/types';
@@ -74,6 +72,14 @@ export interface CalendarBootstrap {
 	activeOnboardingPersonnelIds: string[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
+}
+
+export async function getActiveOnboardingPersonnelIds(ctx: QueryPorts): Promise<string[]> {
+	const rows = await ctx.store.findMany<{ personnel_id: string }>('personnel_onboardings', ctx.auth.orgId, {
+		status: 'in_progress'
+	});
+
+	return [...new Set(rows.map((row) => row.personnel_id))];
 }
 
 export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {

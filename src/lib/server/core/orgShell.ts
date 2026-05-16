@@ -17,9 +17,10 @@ import type {
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { PersonnelTraining } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay } from '$lib/types';
+import type { Group } from '$lib/stores/groups.svelte';
 
 // ---------------------------------------------------------------------------
 // Announcement — defined here as a domain type (not tied to the DB query)
@@ -80,6 +81,22 @@ export type WorkspaceKey =
  */
 export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
+
+export interface TrainingBootstrap {
+	personnelTrainings: HydrationItems<PersonnelTraining>;
+	trainingTypes: HydrationItems<TrainingType>;
+	trainingViews: HydrationItems<TrainingView>;
+	personnel: HydrationItems<Personnel>;
+	groups: HydrationItems<Group>;
+	pinnedGroups: HydrationItems<string>;
+}
+
+export interface CriticalTasksBootstrap {
+	personnelIctCompletions: HydrationItems<PersonnelIctCompletion>;
+	ictTasks: HydrationItems<IctTask>;
+	personnel: HydrationItems<Personnel>;
+	groups: HydrationItems<Group>;
+}
 
 export interface CalendarAssignmentsHydrationItems {
 	types: AssignmentType[];

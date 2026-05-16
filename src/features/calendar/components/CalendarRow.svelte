@@ -8,7 +8,7 @@
 		DailyAssignment
 	} from '$lib/types';
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
-	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
+	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
 	import * as DateCell from '$lib/components/ui/date-cell/index.js';
 	import type { DateCellMarkerData, DateCellStatus } from '$lib/components/ui/date-cell/index.js';

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 
 const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();

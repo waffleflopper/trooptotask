@@ -4,7 +4,8 @@ import type { QueryPorts } from '$lib/server/core/ports';
 import {
 	fetchCalendarData,
 	fetchCalendarBootstrap,
-	fetchCalendarRangeData
+	fetchCalendarRangeData,
+	getActiveOnboardingPersonnelIds
 } from '$lib/server/core/useCases/calendarQuery';
 
 const ORG = 'test-org';
@@ -412,6 +413,54 @@ describe('fetchCalendarData', () => {
 	});
 
 	// roster history limit test moved to rosterHistoryQuery.test.ts
+});
+
+describe('getActiveOnboardingPersonnelIds', () => {
+	it('returns personnel IDs for in_progress onboardings', async () => {
+		const ctx = buildCtx();
+		ctx.store.seed('personnel_onboardings', [
+			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
+			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'in_progress' }
+		]);
+
+		const result = await getActiveOnboardingPersonnelIds(ctx);
+
+		expect(result).toEqual(expect.arrayContaining(['p-1', 'p-2']));
+		expect(result).toHaveLength(2);
+	});
+
+	it('excludes cancelled and completed onboardings', async () => {
+		const ctx = buildCtx();
+		ctx.store.seed('personnel_onboardings', [
+			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
+			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'cancelled' },
+			{ id: 'ob-3', organization_id: ORG, personnel_id: 'p-3', status: 'completed' }
+		]);
+
+		const result = await getActiveOnboardingPersonnelIds(ctx);
+
+		expect(result).toEqual(['p-1']);
+	});
+
+	it('returns empty array when no active onboardings exist', async () => {
+		const ctx = buildCtx();
+
+		const result = await getActiveOnboardingPersonnelIds(ctx);
+
+		expect(result).toEqual([]);
+	});
+
+	it('deduplicates personnel with multiple active onboardings', async () => {
+		const ctx = buildCtx();
+		ctx.store.seed('personnel_onboardings', [
+			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
+			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' }
+		]);
+
+		const result = await getActiveOnboardingPersonnelIds(ctx);
+
+		expect(result).toEqual(['p-1']);
+	});
 });
 
 describe('fetchCalendarBootstrap', () => {

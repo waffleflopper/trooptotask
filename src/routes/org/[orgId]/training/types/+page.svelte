@@ -5,7 +5,7 @@
 	import TrainingTypesPage from '$features/training/components/TrainingTypesPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-	import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+	import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 	import {
 		isPromiseLike,
 		materializeWorkspaceData,

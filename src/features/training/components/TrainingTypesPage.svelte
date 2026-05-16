@@ -13,7 +13,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {
 		getExpirationMode,
@@ -67,8 +67,8 @@
 	);
 
 	const personnel = $derived(
-		personnelStore.orgId === org.orgId
-			? personnelStore.items
+		rosterStore.orgId === org.orgId
+			? rosterStore.items
 			: Array.isArray(workspaceData?.personnel)
 				? workspaceData.personnel
 				: Array.isArray(data.personnel)

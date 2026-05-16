@@ -5,7 +5,7 @@ import Page from './+page.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({

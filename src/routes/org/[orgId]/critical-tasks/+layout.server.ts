@@ -5,7 +5,7 @@ import { createSupabaseCriticalTasksWorkspacePort } from '$lib/server/adapters/s
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { CriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksQuery';
+import type { CriticalTasksBootstrap } from '$lib/server/core/orgShell';
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 

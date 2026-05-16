@@ -4,7 +4,7 @@ import { createSupabaseTrainingWorkspacePort } from '$lib/server/adapters/supaba
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
+import type { TrainingBootstrap } from '$lib/server/core/orgShell';
 
 interface TrainingLayoutRequestContext {
 	locals: App.Locals;

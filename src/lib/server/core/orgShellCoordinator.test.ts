@@ -25,8 +25,8 @@ import type { CalendarBootstrap } from './useCases/calendarQuery';
 import type { DashboardBootstrap } from './useCases/dashboardQuery';
 import type { OnboardingBootstrap } from './useCases/onboardingQuery';
 import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
-import type { TrainingBootstrap } from './useCases/trainingQuery';
-import type { CriticalTasksBootstrap } from './useCases/criticalTasksQuery';
+import type { TrainingBootstrap } from './orgShell';
+import type { CriticalTasksBootstrap } from './orgShell';
 
 const membership: MembershipInfo = {
 	orgId: 'org-1',

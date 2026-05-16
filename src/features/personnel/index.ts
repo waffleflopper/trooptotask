@@ -8,7 +8,7 @@ export {
 	RANK_ORDER,
 	type PersonnelGroup,
 	type GroupSortOptions
-} from './utils/personnelGrouping';
+} from '$lib/domain/rosterGrouping';
 
 // Context
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';

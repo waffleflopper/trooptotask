@@ -3,6 +3,7 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import {
 	fetchCriticalTasksReportDashboard,
+	fetchCriticalTasksReportsPageModel,
 	fetchCriticalTasksReportSummary,
 	formatCriticalTasksReportCsv
 } from './criticalTasksReportsQuery';
@@ -333,6 +334,88 @@ describe('fetchCriticalTasksReportSummary', () => {
 		expect(dashboard.atRiskSoldiers.rows[0]).toMatchObject({
 			personnelId: 'p-rifle',
 			tasksExpiringSoonCount: 1
+		});
+	});
+
+	it('builds the reports page model from one server-shaped report scope', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				critical_tasks_default_expiration_months: 12,
+				critical_tasks_expiring_soon_warning_days: 60
+			}
+		]);
+		ctx.store.seed('groups', [
+			{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-bravo', organization_id: ctx.auth.orgId, name: 'Bravo', sort_order: 1 }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-medic',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Medic',
+				first_name: 'Maya',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-rifle',
+				organization_id: ctx.auth.orgId,
+				rank: 'CPL',
+				last_name: 'Rifle',
+				first_name: 'Ryan',
+				mos: '11B',
+				clinic_role: 'Rifleman',
+				group_id: 'group-bravo',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-common',
+				organization_id: ctx.auth.orgId,
+				task_code: '081-833-0010',
+				title: 'Open airway',
+				description: null,
+				category: 'Medical',
+				mos: [],
+				expiration_months: 12,
+				sort_order: 0,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+
+		const pageModel = await fetchCriticalTasksReportsPageModel(ctx, { asOf: '2026-04-15' });
+
+		expect(pageModel.reportScope).toEqual({
+			personnel: [
+				{ id: 'p-medic', groupId: 'group-alpha', mos: '68W', rank: 'SGT', dutyRole: 'Medic' },
+				{ id: 'p-rifle', groupId: 'group-bravo', mos: '11B', rank: 'CPL', dutyRole: 'Rifleman' }
+			],
+			groups: [
+				{ id: 'group-alpha', name: 'Alpha' },
+				{ id: 'group-bravo', name: 'Bravo' }
+			],
+			hasActiveTasks: true,
+			activeTaskCount: 1,
+			totalPersonnelCount: 2,
+			filterOptions: {
+				mos: ['11B', '68W'],
+				ranks: ['CPL', 'SGT'],
+				roles: ['Medic', 'Rifleman']
+			}
+		});
+		expect(pageModel.initialDashboard.kpis.overallReadiness).toMatchObject({
+			percent: 0,
+			readyCount: 0,
+			applicableCount: 2
 		});
 	});
 

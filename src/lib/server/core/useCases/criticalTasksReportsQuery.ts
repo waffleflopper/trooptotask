@@ -17,8 +17,10 @@ import {
 	filterIctReportPersonnel,
 	type IctReportDashboard,
 	type IctReportFilters,
+	type IctReportScope,
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
+import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
@@ -27,6 +29,11 @@ import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctC
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
 	asOf?: string | Date;
+}
+
+export interface CriticalTasksReportsPageModel {
+	initialDashboard: IctReportDashboard;
+	reportScope: IctReportScope;
 }
 
 export interface CriticalTasksMatrixExportInput {
@@ -83,6 +90,56 @@ function formatDaysSinceLastIctUpdate(days: number | null): string {
 
 function formatApplicableSoldiers(count: number): string {
 	return `${count} applicable ${count === 1 ? 'Soldier' : 'Soldiers'}`;
+}
+
+function uniqueSorted(values: Array<string | null | undefined>): string[] {
+	return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))].sort(
+		(a, b) => a.localeCompare(b)
+	);
+}
+
+function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctReportScope {
+	const activeTasks = getActiveIctTasksForLibrary(source.tasks);
+
+	return {
+		personnel: source.personnel.map((person) => ({
+			id: person.id,
+			groupId: person.groupId,
+			mos: person.mos,
+			rank: person.rank,
+			dutyRole: person.clinicRole
+		})),
+		groups: source.groups.map((group) => ({ id: group.id, name: group.name })),
+		hasActiveTasks: activeTasks.length > 0,
+		activeTaskCount: activeTasks.length,
+		totalPersonnelCount: source.personnel.length,
+		filterOptions: {
+			mos: uniqueSorted(source.personnel.map((person) => person.mos)),
+			ranks: uniqueSorted(source.personnel.map((person) => person.rank)),
+			roles: uniqueSorted(source.personnel.map((person) => person.clinicRole))
+		}
+	};
+}
+
+async function buildDashboardFromSource(
+	ctx: QueryPorts,
+	source: CriticalTasksReportSource,
+	input: CriticalTasksReportInput = {}
+): Promise<IctReportDashboard> {
+	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const completions = await loadReportCompletions(
+		ctx,
+		filteredPersonnel.map((person) => person.id),
+		source.tasks.map((task) => task.id)
+	);
+
+	return buildIctReportDashboard({
+		personnel: filteredPersonnel,
+		tasks: source.tasks,
+		completions,
+		settings: source.settings,
+		asOf: input.asOf
+	});
 }
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
@@ -163,20 +220,19 @@ export async function fetchCriticalTasksReportDashboard(
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
 	const source = await loadCriticalTasksReportSource(ctx);
-	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
-	const completions = await loadReportCompletions(
-		ctx,
-		filteredPersonnel.map((person) => person.id),
-		source.tasks.map((task) => task.id)
-	);
+	return buildDashboardFromSource(ctx, source, input);
+}
 
-	return buildIctReportDashboard({
-		personnel: filteredPersonnel,
-		tasks: source.tasks,
-		completions,
-		settings: source.settings,
-		asOf: input.asOf
-	});
+export async function fetchCriticalTasksReportsPageModel(
+	ctx: QueryPorts,
+	input: CriticalTasksReportInput = {}
+): Promise<CriticalTasksReportsPageModel> {
+	const source = await loadCriticalTasksReportSource(ctx);
+
+	return {
+		initialDashboard: await buildDashboardFromSource(ctx, source, input),
+		reportScope: buildCriticalTasksReportScope(source)
+	};
 }
 
 export async function fetchCriticalTasksReportSummary(

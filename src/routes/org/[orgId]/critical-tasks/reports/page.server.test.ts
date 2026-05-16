@@ -43,9 +43,22 @@ describe('critical tasks reports page server load', () => {
 				series: []
 			}
 		};
-		const fetchDashboard = vi.fn(async () => initialDashboard);
+		const reportScope = {
+			personnel: [],
+			groups: [],
+			hasActiveTasks: false,
+			activeTaskCount: 0,
+			totalPersonnelCount: 0,
+			filterOptions: {
+				mos: [],
+				ranks: [],
+				roles: []
+			}
+		};
+		const pageModel = { initialDashboard, reportScope };
+		const fetchPageModel = vi.fn(async () => pageModel);
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn({} as never));
-		const load = _createCriticalTasksReportsPageLoad({ loadWithContext, fetchDashboard });
+		const load = _createCriticalTasksReportsPageLoad({ loadWithContext, fetchPageModel });
 		const depends = vi.fn();
 
 		const result = await load({
@@ -62,7 +75,7 @@ describe('critical tasks reports page server load', () => {
 			'org-1',
 			expect.objectContaining({ permission: 'critical-tasks' })
 		);
-		expect(fetchDashboard).toHaveBeenCalledWith(expect.anything());
-		expect(result).toEqual({ initialDashboard });
+		expect(fetchPageModel).toHaveBeenCalledWith(expect.anything());
+		expect(result).toEqual(pageModel);
 	});
 });

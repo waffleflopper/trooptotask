@@ -10,7 +10,8 @@ import type {
 	IctReadinessDistribution,
 	IctReadinessMatrix,
 	IctReadinessTrend,
-	IctReportDashboard
+	IctReportDashboard,
+	IctReportScope
 } from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
@@ -58,6 +59,38 @@ const commonTask: IctTask = {
 	title: 'Open airway',
 	mos: []
 };
+
+function makeReportScope(
+	options: {
+		personnel?: Personnel[];
+		groups?: Group[];
+		tasks?: IctTask[];
+	} = {}
+): IctReportScope {
+	const personnel = options.personnel ?? [medic, infantry];
+	const groups = options.groups ?? [alpha, bravo];
+	const tasks = options.tasks ?? [medicTask, commonTask];
+	const uniqueSorted = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+	return {
+		personnel: personnel.map((person) => ({
+			id: person.id,
+			groupId: person.groupId,
+			mos: person.mos,
+			rank: person.rank,
+			dutyRole: person.clinicRole
+		})),
+		groups: groups.map((group) => ({ id: group.id, name: group.name })),
+		hasActiveTasks: tasks.some((task) => !task.archivedAt),
+		activeTaskCount: tasks.filter((task) => !task.archivedAt).length,
+		totalPersonnelCount: personnel.length,
+		filterOptions: {
+			mos: uniqueSorted(personnel.map((person) => person.mos)),
+			ranks: uniqueSorted(personnel.map((person) => person.rank)),
+			roles: uniqueSorted(personnel.map((person) => person.clinicRole))
+		}
+	};
+}
 
 function readinessTrend(percent: number, mos = '11B'): IctReadinessTrend {
 	return {
@@ -356,9 +389,7 @@ describe('IctReportsView', () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
-				personnel: [medic, infantry],
-				groups: [alpha, bravo],
-				tasks: [medicTask, commonTask],
+				reportScope: makeReportScope(),
 				initialDashboard
 			}
 		});
@@ -425,9 +456,7 @@ describe('IctReportsView', () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
-				personnel: [medic],
-				groups: [alpha],
-				tasks: [],
+				reportScope: makeReportScope({ personnel: [medic], groups: [alpha], tasks: [] }),
 				initialDashboard
 			}
 		});
@@ -442,9 +471,11 @@ describe('IctReportsView', () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
-				personnel: [medic],
-				groups: [alpha],
-				tasks: [{ ...medicTask, archivedAt: '2026-04-01T00:00:00Z' }],
+				reportScope: makeReportScope({
+					personnel: [medic],
+					groups: [alpha],
+					tasks: [{ ...medicTask, archivedAt: '2026-04-01T00:00:00Z' }]
+				}),
 				initialDashboard
 			}
 		});

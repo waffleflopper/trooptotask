@@ -37,7 +37,8 @@ Every ADR should include:
 
 When an ADR lands, update the relevant supporting docs:
 
-- `docs/architecture/ADR_BACKLOG.md`
+- `docs/architecture/ADR_INDEX.md`
+- `docs/architecture/ADR_BACKLOG.md` when an open candidate is accepted, removed, or changed
 - `docs/architecture/DRIFT_LEDGER.md` when drift status changes
 - `docs/architecture/V1_CHANGE_INTENT.md` when the intended replacement direction changes
 - `UBIQUITOUS_LANGUAGE.md` when canonical terms change

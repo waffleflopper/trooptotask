@@ -8,11 +8,11 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 ## UI Foundation
 
-This catalog is the active reference for the shadcn-svelte + Tailwind v4 migration foundation. It records the selected shared primitives, compound project wrappers, expected usage, and legacy-to-shadcn replacement decisions now that the development demo routes have been removed.
+This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind v4 UI foundation. It records the selected shared primitives, compound project wrappers, expected usage, and replacement decisions for older local wrappers.
 
-Use it to review the selected foundation set before production route migration work starts: button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+Use it as the current component reference for button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
-Use the replacement notes here to compare current repeated TroopToTask building blocks against the current shadcn-svelte/shared UI target. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before route migration relies on that pattern.
+Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
 Replacement previews:
 
@@ -31,14 +31,14 @@ Rules:
 - Shared components are visually authoritative. Production routes consume shared component appearance as-is.
 - Visual styling comes from `src/app.css`, `components.json`, theme variables, or shared component source files under `src/lib/components/**`.
 - This catalog should stay implementation-focused: no route-local component skinning, no custom variants, and no visual tuning of generated components.
-- The approved migration baseline is the shadcn-svelte visual appearance owned by shared UI and the shared app-shell components. Non-component route layout and legacy CSS should migrate to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
+- The approved visual baseline is the shadcn-svelte appearance owned by shared UI and the shared app-shell components. Non-component route layout and remaining obsolete CSS should move to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
 - Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
 - Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
 - Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.
 - Stop and ask permission before creating a route-specific wrapper around a shared component to change behavior.
 - If a durable visual need appears, add it centrally and document it here before any route consumes it.
 - If a shared component does not fit a route, report the design-system gap and propose a shared component/API extension instead of patching the route locally.
-- Production migrations must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or legacy spinner wrappers when shadcn replacements exist.
+- Production work must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, `MultiTagSelect`, or legacy spinner wrappers when shadcn replacements exist.
 - The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
 
 Foundation files:

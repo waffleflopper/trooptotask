@@ -19,12 +19,13 @@ The root file now keeps only:
 - Database safety rule that applies to every task.
 - Links to task-specific guide files.
 
-## Suggested docs/agents Structure
+## Historical docs/agents Structure
 
-- `docs/agents/operating-rules.md`: communication, completion checks, data safety, demo/sandbox deprecation.
+- `docs/agents/operating-rules.md`: communication, completion checks, data safety, demo/sandbox decommissioning.
 - `docs/agents/svelte.md`: Svelte MCP flow and shadcn-svelte documentation entrypoint.
-- `docs/agents/ui-migration.md`: design-system migration contract, route boundaries, shared-component authority.
-- `docs/agents/architecture-governance.md`: architecture reading list and retrofit guardrails.
+- `docs/agents/ui-system.md`: current UI-system contract, route boundaries, shared-component authority.
+- `docs/agents/ui-migration.md`: compatibility pointer for older prompts.
+- `docs/agents/architecture-governance.md`: task-scoped architecture reading list and current guardrails.
 - `docs/agents/feature-organization.md`: path aliases and feature module conventions.
 - `docs/agents/issue-tracker.md`: GitHub issue tracker operations.
 - `docs/agents/triage-labels.md`: issue triage label mapping.

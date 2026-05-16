@@ -19,6 +19,6 @@ Use this file for rules that affect most implementation tasks.
 
 ## Demo And Sandbox Deprecation
 
-- Demo sandbox and demo-specific access flows are deprecated and being phased out.
+- Demo sandbox and demo-specific access flows are decommissioned from runtime paths. Historical schema and migration references may still exist for audit history.
 - Do not expand or deepen demo/sandbox-specific behavior unless explicitly asked.
 - If touching demo/sandbox-specific code, prefer adding or preserving a clear deprecation note or TODO so future cleanup is easier.

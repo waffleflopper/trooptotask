@@ -40,7 +40,7 @@ This definition of done is for v1 work in this repo. It applies to both implemen
 - The system is less coupled or more explicit afterward than before.
 - Any adjacent seams crossed by the slice are documented.
 - The slice narrows drift; it does not simply move it.
-- If the change implies a lasting architecture decision, the relevant ADR candidate is noted in `docs/architecture/ADR_BACKLOG.md`.
+- If the change implies a lasting architecture decision, update `docs/architecture/ADR_INDEX.md` for accepted decisions or `docs/architecture/ADR_BACKLOG.md` for open candidates.
 - If the remediation establishes or changes a default rule, an ADR is added or queued using `docs/architecture/ADR_GUIDANCE.md`.
 
 ## Required For Docs-Only Slices

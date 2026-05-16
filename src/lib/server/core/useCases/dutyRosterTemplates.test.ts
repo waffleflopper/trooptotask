@@ -694,6 +694,39 @@ describe('Duty Roster Template use cases', () => {
 		});
 	});
 
+	it('allows Manual DA6 Baseline updates when only invalidated accepted history remains', async () => {
+		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
+		personnelRows.push(
+			personnelRow({ id: 'alpha', rank: 'SGT', last_name: 'Able', first_name: 'Ann', group_id: 'alpha' })
+		);
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+		acceptedRunRows.push(
+			acceptedRunRow({
+				id: 'run-invalidated',
+				template_id: template.id,
+				template_name: template.name,
+				status: 'invalidated',
+				invalidated_at: '2026-06-01T13:00:00.000Z',
+				invalidated_by_user_id: 'user-1'
+			})
+		);
+
+		const updated = await updateDutyRosterTemplateSettings(ctx, {
+			templateId: template.id,
+			poolCriteria: {
+				rankValues: ['SGT'],
+				groupIds: ['alpha'],
+				mosValues: [],
+				dutyRoleValues: []
+			},
+			exemptPersonnelIds: [],
+			manualBaselineCounts: { alpha: 2 }
+		});
+
+		expect(updated.manualBaselineCounts).toEqual({ alpha: 2 });
+		expect(rows.find((row) => row.id === template.id)?.manual_baseline_counts).toEqual({ alpha: 2 });
+	});
+
 	it('rechecks Manual DA6 Baseline locks immediately before settings writes', async () => {
 		const ctx = createCtx(createAuth({ scopeSet: { kind: 'groups', groupIds: ['alpha'] } }));
 		personnelRows.push(

@@ -214,7 +214,7 @@ export function buildDutyRosterWorkspaceReadModel(
 	const groupOptions = uniqueGroupOptions(setupPersonnel);
 	const mosOptions = uniqueOptions(setupPersonnel.map((person) => person.mos).filter(Boolean));
 	const dutyRoleOptions = uniqueOptions(setupPersonnel.map((person) => person.dutyRole).filter(Boolean));
-	const baselineLocked = acceptedRuns.length > 0;
+	const baselineLocked = acceptedRuns.some((run) => run.status === 'accepted');
 	const settingsWorkspace = selectedTemplate
 		? {
 				basePath,

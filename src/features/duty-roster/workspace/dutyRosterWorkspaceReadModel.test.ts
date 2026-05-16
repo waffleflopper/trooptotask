@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildDutyRosterWorkspaceReadModel } from './dutyRosterWorkspaceReadModel';
-import type { DutyRosterTemplate } from '$features/duty-roster/templates/dutyRosterTemplates';
+import type {
+	DutyRosterTemplate,
+	DutyRosterTemplateAcceptedRun
+} from '$features/duty-roster/templates/dutyRosterTemplates';
 
 const template: DutyRosterTemplate = {
 	id: 'template-1',
@@ -169,6 +172,34 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		expect(model.mosOptions).toEqual(['11B']);
 		expect(model.dutyRoleOptions).toEqual(['Rifleman']);
 	});
+
+	it('locks Manual DA6 Baseline only when non-invalidated accepted history exists', () => {
+		const invalidatedOnly = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'settings',
+				acceptedRuns: [acceptedRun({ status: 'invalidated' })]
+			},
+			null
+		);
+		const activeAccepted = buildDutyRosterWorkspaceReadModel(
+			{
+				orgId: 'org-1',
+				orgName: 'Able Company',
+				templates: [template],
+				selectedTemplate: template,
+				view: 'settings',
+				acceptedRuns: [acceptedRun({ status: 'invalidated' }), acceptedRun({ id: 'run-active' })]
+			},
+			null
+		);
+
+		expect(invalidatedOnly.settingsWorkspace?.baselineLocked).toBe(false);
+		expect(activeAccepted.settingsWorkspace?.baselineLocked).toBe(true);
+	});
 });
 
 function withTimezone<T>(timezone: string, callback: () => T): T {
@@ -183,4 +214,30 @@ function withTimezone<T>(timezone: string, callback: () => T): T {
 			process.env.TZ = previousTimezone;
 		}
 	}
+}
+
+function acceptedRun(
+	overrides: Partial<Pick<DutyRosterTemplateAcceptedRun, 'id' | 'status'>> = {}
+): DutyRosterTemplateAcceptedRun {
+	const status = overrides.status ?? 'accepted';
+	return {
+		id: overrides.id ?? 'run-1',
+		templateId: template.id,
+		templateName: template.name,
+		status,
+		startDate: '2026-06-01',
+		endDate: '2026-06-01',
+		acceptedAt: '2026-06-01T12:00:00.000Z',
+		acceptedByUserId: 'user-1',
+		acceptedByDisplayName: 'robertbaddeley@gmail.com',
+		appliedAt: null,
+		appliedByUserId: null,
+		invalidatedAt: status === 'invalidated' ? '2026-06-01T13:00:00.000Z' : null,
+		invalidatedByUserId: status === 'invalidated' ? 'user-1' : null,
+		linkedCalendarAssignmentCount: 0,
+		calendarAssignmentsEdited: false,
+		corrections: [],
+		snapshotPayload: {},
+		createdAt: '2026-06-01T12:00:00.000Z'
+	};
 }

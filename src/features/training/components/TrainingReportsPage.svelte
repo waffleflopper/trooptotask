@@ -2,7 +2,6 @@
 	import { tick } from 'svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
-	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
 	import { TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
@@ -12,18 +11,21 @@
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingStatus } from '$features/training/training.types';
-	import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 	import type { Personnel } from '$lib/types';
 	import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 	import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 	import {
-		filterPersonnel,
-		computeReadinessDashboard,
-		buildPivotTable,
-		generatePivotCSV,
-		type ReportFilters,
-		type TypeBreakdown
-	} from '$features/training/utils/reportCalculations';
+		buildTrainingReportExportUrl,
+		buildTrainingReportScreenModel,
+		buildTrainingReportUrl,
+		formatTrainingReportCell,
+		getTrainingReportRowsForType,
+		type TrainingReportColumn,
+		type TrainingReportFilterState,
+		type TrainingReportPivotRow,
+		type TrainingReportSortState
+	} from '$features/training/read-model/trainingReportScreenModel';
+	import { generatePivotCSV } from '$features/training/utils/reportCalculations';
 
 	interface Props {
 		data: {
@@ -39,8 +41,6 @@
 			groups?: Group[];
 		};
 	}
-
-	type PivotRow = ReturnType<typeof buildPivotTable>[number];
 
 	let { data }: Props = $props();
 
@@ -72,8 +72,10 @@
 	let filterStatus = $state<TrainingStatus | ''>('');
 	let filterTypeIds = $state<string[]>([]);
 	let expandedTypeId = $state<string | null>(null);
+	let sortColumn = $state<string>('name');
+	let sortAsc = $state(true);
 
-	const allPersonnel = $derived<Personnel[]>(
+	const sourcePersonnel = $derived<Personnel[]>(
 		rosterStore.orgId === org.orgId
 			? rosterStore.items
 			: Array.isArray(workspaceData?.personnel)
@@ -82,161 +84,45 @@
 					? data.personnel
 					: []
 	);
-	const allGroups = $derived<Group[]>(
-		activeReport?.filterOptions.groups ??
-			(groupsStore.orgId === org.orgId
-				? groupsStore.items
-				: Array.isArray(workspaceData?.groups)
-					? workspaceData.groups
-					: Array.isArray(data.groups)
-						? data.groups
-						: [])
+	const sourceGroups = $derived<Group[]>(
+		groupsStore.orgId === org.orgId
+			? groupsStore.items
+			: Array.isArray(workspaceData?.groups)
+				? workspaceData.groups
+				: Array.isArray(data.groups)
+					? data.groups
+					: []
 	);
-	const allTypes = $derived(activeReport?.trainingTypes ?? trainingTypesStore.items);
+	const sourceTrainingTypes = $derived(trainingTypesStore.items);
 	const localTrainingTypes = $derived(trainingTypesStore.items);
-	const availableTypeFilters = $derived(serverReport?.trainingTypes ?? allTypes);
 	const allTrainings = $derived(personnelTrainingsStore.items);
-
-	const availableMos = $derived(
-		activeReport?.filterOptions.mos ?? [...new Set(allPersonnel.map((p) => p.mos))].filter(Boolean).sort()
-	);
-	const availableRoles = $derived(
-		activeReport?.filterOptions.roles ?? [...new Set(allPersonnel.map((p) => p.clinicRole))].filter(Boolean).sort()
-	);
-	const availableRanks = $derived(
-		activeReport?.filterOptions.ranks ?? [...new Set(allPersonnel.map((p) => p.rank))].filter(Boolean).sort()
-	);
-
-	const filters = $derived<ReportFilters>({
-		groupId: filterGroupId || undefined,
-		mos: filterMos || undefined,
-		role: filterRole || undefined,
-		rank: filterRank || undefined
+	const reportFilters = $derived<TrainingReportFilterState>({
+		groupId: filterGroupId,
+		mos: filterMos,
+		role: filterRole,
+		rank: filterRank,
+		status: filterStatus,
+		trainingTypeIds: filterTypeIds
 	});
-
-	const filteredPersonnel = $derived(filterPersonnel(allPersonnel, filters));
-	const filteredTypes = $derived(
-		filterTypeIds.length > 0 ? allTypes.filter((t) => filterTypeIds.includes(t.id)) : allTypes
-	);
-	const filteredLocalTrainingTypes = $derived(
-		filterTypeIds.length > 0 ? localTrainingTypes.filter((type) => filterTypeIds.includes(type.id)) : localTrainingTypes
-	);
-	const typeFilterOptions = $derived(availableTypeFilters.map((type) => ({ value: type.id, label: type.name })));
-
-	const dashboard = $derived(
-		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, allTrainings)
-	);
-	const serverPivotRows = $derived(
-		(activeReport?.detail.rows ?? []).map((row) => ({
-			person: row.person,
-			cells: new Map(row.cells.map((cell) => [cell.trainingTypeId, cell]))
-		}))
-	);
-	const pivotRows = $derived.by(() => {
-		if (activeReport) return serverPivotRows;
-
-		const rows = buildPivotTable(filteredPersonnel, filteredLocalTrainingTypes, allTrainings);
-		if (!filterStatus) return rows;
-		return rows.filter((row) => {
-			for (const cell of row.cells.values()) {
-				if (cell.status === filterStatus) return true;
-			}
-			return false;
-		});
+	const reportSort = $derived<TrainingReportSortState>({
+		column: sortColumn,
+		ascending: sortAsc
 	});
-
-	let sortColumn = $state<string>('name');
-	let sortAsc = $state(true);
-
-	const statusOrder: Record<TrainingStatus, number> = {
-		expired: 0,
-		'warning-orange': 1,
-		'warning-yellow': 2,
-		'not-completed': 3,
-		current: 4,
-		'not-required': 5,
-		exempt: 6
-	};
-
-	const sortedRows = $derived.by(() => {
-		if (activeReport) return pivotRows;
-
-		const rows = [...pivotRows];
-		rows.sort((a, b) => {
-			let cmp = 0;
-			if (sortColumn === 'name') {
-				cmp =
-					a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
-			} else if (sortColumn === 'rank') {
-				cmp = a.person.rank.localeCompare(b.person.rank);
-			} else if (sortColumn === 'group') {
-				cmp = a.person.groupName.localeCompare(b.person.groupName);
-			} else {
-				const aCell = a.cells.get(sortColumn);
-				const bCell = b.cells.get(sortColumn);
-				const aOrder = aCell ? (statusOrder[aCell.status] ?? 99) : 99;
-				const bOrder = bCell ? (statusOrder[bCell.status] ?? 99) : 99;
-				cmp = aOrder - bOrder;
-			}
-			return sortAsc ? cmp : -cmp;
-		});
-		return rows;
-	});
-
-	const reportColumns = $derived<ColumnDef<PivotRow>[]>([
-		{
-			key: 'name',
-			header: 'Name',
-			value: (row) => `${row.person.lastName}, ${row.person.firstName}`,
-			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
-		},
-		{ key: 'rank', header: 'Rank', value: (row) => row.person.rank },
-		{ key: 'group', header: 'Group', value: (row) => row.person.groupName },
-		...filteredTypes.map((type) => ({
-			key: type.id,
-			header: type.name,
-			value: (row: PivotRow) => {
-				const cell = row.cells.get(type.id);
-				return cell ? formatTrainingCellText(cell.status, cell.label, cell.date) : '';
-			},
-			sortable: false
-		}))
-	]);
-
-	const statusOptions: { value: TrainingStatus; label: string }[] = [
-		{ value: 'current', label: 'Current' },
-		{ value: 'warning-yellow', label: 'Expiring 60d' },
-		{ value: 'warning-orange', label: 'Expiring 30d' },
-		{ value: 'expired', label: 'Expired' },
-		{ value: 'not-completed', label: 'Not Done' }
-	];
-	const rankFilterOptions = $derived([
-		{ value: '', label: 'All Ranks' },
-		...availableRanks.map((rank) => ({ value: rank, label: rank }))
-	]);
-	const mosFilterOptions = $derived([
-		{ value: '', label: 'All MOS' },
-		...availableMos.map((mos) => ({ value: mos, label: mos }))
-	]);
-	const roleFilterOptions = $derived([
-		{ value: '', label: 'All Duty Roles' },
-		...availableRoles.map((role) => ({ value: role, label: role }))
-	]);
-	const statusFilterOptions = [{ value: '', label: 'All Statuses' }, ...statusOptions];
-
-	const hasActiveFilters = $derived(
-		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
+	const screen = $derived(
+		buildTrainingReportScreenModel({
+			activeReport,
+			serverReport,
+			personnel: sourcePersonnel,
+			groups: sourceGroups,
+			trainingTypes: sourceTrainingTypes,
+			localTrainingTypes,
+			trainings: allTrainings,
+			filters: reportFilters,
+			sort: reportSort
+		})
 	);
-	const personnelFilterCount = $derived((filterMos ? 1 : 0) + (filterRole ? 1 : 0) + (filterRank ? 1 : 0));
-	const reportFilterCount = $derived(
-		(filterGroupId ? 1 : 0) + (filterStatus ? 1 : 0) + (filterTypeIds.length > 0 ? 1 : 0)
-	);
-	const detailPersonnelCount = $derived(activeReport?.detail.totalRows ?? filteredPersonnel.length);
-	const currentPage = $derived(activeReport?.detail.page ?? 1);
-	const totalPages = $derived(activeReport?.detail.totalPages ?? 1);
-	const pageSize = $derived(activeReport?.detail.pageSize ?? 25);
-	const canPageBack = $derived(!!activeReport && currentPage > 1 && !reportLoading);
-	const canPageForward = $derived(!!activeReport && currentPage < totalPages && !reportLoading);
+	const canPageBack = $derived(!!activeReport && screen.currentPage > 1 && !reportLoading);
+	const canPageForward = $derived(!!activeReport && screen.currentPage < screen.totalPages && !reportLoading);
 
 	function toggleSort(col: string) {
 		if (sortColumn === col) {
@@ -248,32 +134,22 @@
 		void reloadFirstReportPage();
 	}
 
-	function appendReportParam(params: string[], key: string, value: string): void {
-		params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
-	}
-
-	function buildReportQueryString(): string {
-		const params: string[] = [];
-		if (filterGroupId) appendReportParam(params, 'groupId', filterGroupId);
-		if (filterMos) appendReportParam(params, 'mos', filterMos);
-		if (filterRole) appendReportParam(params, 'role', filterRole);
-		if (filterRank) appendReportParam(params, 'rank', filterRank);
-		if (filterStatus) appendReportParam(params, 'status', filterStatus);
-		for (const typeId of filterTypeIds) {
-			appendReportParam(params, 'trainingTypeId', typeId);
-		}
-		appendReportParam(params, 'sortColumn', sortColumn);
-		appendReportParam(params, 'sortDirection', sortAsc ? 'asc' : 'desc');
-		return params.join('&');
-	}
-
 	function buildReportUrl(page: number): string {
-		const query = buildReportQueryString();
-		return `/org/${org.orgId}/api/training-reports?${query}&page=${page}&pageSize=${pageSize}`;
+		return buildTrainingReportUrl({
+			orgId: org.orgId,
+			filters: reportFilters,
+			sort: reportSort,
+			page,
+			pageSize: screen.pageSize
+		});
 	}
 
 	function buildReportExportUrl(): string {
-		return `/org/${org.orgId}/api/training-reports/export?${buildReportQueryString()}`;
+		return buildTrainingReportExportUrl({
+			orgId: org.orgId,
+			filters: reportFilters,
+			sort: reportSort
+		});
 	}
 
 	async function loadReportPage(page: number): Promise<void> {
@@ -319,8 +195,8 @@
 			return;
 		}
 
-		const rows = pivotRows;
-		const csv = generatePivotCSV(rows, filteredLocalTrainingTypes);
+		const rows = screen.pivotRows;
+		const csv = generatePivotCSV(rows, screen.filteredLocalTrainingTypes);
 		const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement('a');
@@ -396,16 +272,9 @@
 		return 'stroke-destructive';
 	}
 
-	const typeBreakdown = $derived<TypeBreakdown[]>(dashboard.typeBreakdown ?? []);
-
 	function expandedPersonnelForType(typeId: string, status: 'expired' | 'expiring') {
-		const rows = sortedRows.length > 0 ? sortedRows : pivotRows;
-		return rows.filter((row) => {
-			const cell = row.cells.get(typeId);
-			if (!cell) return false;
-			if (status === 'expired') return cell.status === 'expired' || cell.status === 'not-completed';
-			return cell.status === 'warning-yellow' || cell.status === 'warning-orange';
-		});
+		const rows = screen.sortedRows.length > 0 ? screen.sortedRows : screen.pivotRows;
+		return getTrainingReportRowsForType(rows, typeId, status);
 	}
 
 	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
@@ -413,16 +282,16 @@
 			id: 'clear-filters',
 			label: 'Clear filters',
 			onclick: clearFilters,
-			disabled: !hasActiveFilters,
-			disabledReason: !hasActiveFilters ? 'No filters are active' : undefined,
+			disabled: !screen.hasActiveFilters,
+			disabledReason: !screen.hasActiveFilters ? 'No filters are active' : undefined,
 			priority: 'normal'
 		},
 		{
 			id: 'export-csv',
 			label: 'Export',
 			onclick: exportCSV,
-			disabled: pivotRows.length === 0,
-			disabledReason: pivotRows.length === 0 ? 'No report rows to export' : undefined,
+			disabled: screen.pivotRows.length === 0,
+			disabledReason: screen.pivotRows.length === 0 ? 'No report rows to export' : undefined,
 			icon: 'download',
 			priority: 'critical',
 			variant: 'primary'
@@ -430,7 +299,7 @@
 	]);
 </script>
 
-{#snippet reportHeaderCell(column: ColumnDef<PivotRow>)}
+{#snippet reportHeaderCell(column: TrainingReportColumn)}
 	<button
 		type="button"
 		class="-ml-2 inline-flex h-8 items-center justify-start gap-1.5 bg-transparent px-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -444,7 +313,7 @@
 	</button>
 {/snippet}
 
-{#snippet reportCell(row: PivotRow, column: ColumnDef<PivotRow>)}
+{#snippet reportCell(row: TrainingReportPivotRow, column: TrainingReportColumn)}
 	{#if column.key === 'name'}
 		<span>{row.person.lastName}, {row.person.firstName}</span>
 	{:else if column.key === 'rank'}
@@ -456,7 +325,7 @@
 		{#if cell}
 			<TrainingStatusCell
 				status={cell.status}
-				label={formatTrainingCellText(cell.status, cell.label, cell.date)}
+				label={formatTrainingReportCell(cell)}
 				srLabel={cell.label}
 				class="min-w-24"
 			/>
@@ -464,7 +333,7 @@
 	{/if}
 {/snippet}
 
-{#if allTypes.length === 0}
+{#if screen.allTypes.length === 0}
 	<Empty.Root>
 		<Empty.Header>
 			<Empty.Title>No training types configured.</Empty.Title>
@@ -487,22 +356,22 @@
 						fill="none"
 						stroke-width="5"
 						stroke-linecap="round"
-						class={ringStrokeClass(dashboard.readinessPercent)}
-						stroke-dasharray={ringDasharray(dashboard.readinessPercent)}
+						class={ringStrokeClass(screen.dashboard.readinessPercent)}
+						stroke-dasharray={ringDasharray(screen.dashboard.readinessPercent)}
 					/>
 				</svg>
 				<div>
 					<h2 class="text-xl font-semibold tracking-normal text-foreground">Training Readiness</h2>
 					<p class="text-sm text-muted-foreground">
-						<span class="font-semibold {readinessToneClass(dashboard.readinessPercent)}"
-							>{dashboard.readinessPercent}%</span
+						<span class="font-semibold {readinessToneClass(screen.dashboard.readinessPercent)}"
+							>{screen.dashboard.readinessPercent}%</span
 						>
-						across {detailPersonnelCount} personnel
+						across {screen.detailPersonnelCount} personnel
 					</p>
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by training status">
-				{#each [{ status: 'current' as TrainingStatus, count: dashboard.statusCounts.current, label: 'Current' }, { status: 'expired' as TrainingStatus, count: dashboard.statusCounts.expired, label: 'Expired' }, { status: 'warning-orange' as TrainingStatus, count: dashboard.statusCounts.warningOrange + dashboard.statusCounts.warningYellow, label: 'Expiring' }, { status: 'not-completed' as TrainingStatus, count: dashboard.statusCounts.notCompleted, label: 'Not Done' }] as pill (pill.status)}
+				{#each [{ status: 'current' as TrainingStatus, count: screen.dashboard.statusCounts.current, label: 'Current' }, { status: 'expired' as TrainingStatus, count: screen.dashboard.statusCounts.expired, label: 'Expired' }, { status: 'warning-orange' as TrainingStatus, count: screen.dashboard.statusCounts.warningOrange + screen.dashboard.statusCounts.warningYellow, label: 'Expiring' }, { status: 'not-completed' as TrainingStatus, count: screen.dashboard.statusCounts.notCompleted, label: 'Not Done' }] as pill (pill.status)}
 					<button
 						type="button"
 						class="flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors hover:bg-muted/50 {filterStatus ===
@@ -523,7 +392,7 @@
 		<!-- Toolbar: group filter pills + personnel/report filters + actions -->
 		<ReportWorkspace.Toolbar ariaLabel="Training report controls">
 			<WorkspaceToolbar.Group label="Group filter" activeCount={filterGroupId ? 1 : 0}>
-				{#each allGroups as group (group.id)}
+				{#each screen.allGroups as group (group.id)}
 					<Button
 						variant={filterGroupId === group.id ? 'secondary' : 'outline'}
 						size="sm"
@@ -537,12 +406,12 @@
 			</WorkspaceToolbar.Group>
 			<WorkspaceToolbar.Group
 				label="Personnel filters"
-				activeCount={personnelFilterCount}
+				activeCount={screen.personnelFilterCount}
 				data-testid="training-personnel-filters"
 			>
 				<WorkspaceToolbar.Select
 					ariaLabel="Filter by rank"
-					options={rankFilterOptions}
+					options={screen.rankFilterOptions}
 					value={filterRank}
 					onValueChange={(value) => {
 						filterRank = value;
@@ -551,7 +420,7 @@
 				/>
 				<WorkspaceToolbar.Select
 					ariaLabel="Filter by MOS"
-					options={mosFilterOptions}
+					options={screen.mosFilterOptions}
 					value={filterMos}
 					onValueChange={(value) => {
 						filterMos = value;
@@ -560,7 +429,7 @@
 				/>
 				<WorkspaceToolbar.Select
 					ariaLabel="Filter by duty role"
-					options={roleFilterOptions}
+					options={screen.roleFilterOptions}
 					value={filterRole}
 					onValueChange={(value) => {
 						filterRole = value;
@@ -570,21 +439,21 @@
 			</WorkspaceToolbar.Group>
 			<WorkspaceToolbar.Group
 				label="Report filters"
-				activeCount={reportFilterCount}
+				activeCount={screen.reportFilterCount}
 				data-testid="training-report-filters"
 			>
 				<WorkspaceToolbar.Select
 					ariaLabel="Filter by status"
-					options={statusFilterOptions}
+					options={screen.statusFilterOptions}
 					value={filterStatus}
 					onValueChange={(value) => {
 						filterStatus = value as TrainingStatus | '';
 						void reloadFirstReportPage();
 					}}
 				/>
-				{#if typeFilterOptions.length > 1}
+				{#if screen.typeFilterOptions.length > 1}
 					<WorkspaceToolbar.MultiSelect
-						options={typeFilterOptions}
+						options={screen.typeFilterOptions}
 						value={filterTypeIds}
 						ariaLabel="Filter by training type"
 						label="Training types"
@@ -604,10 +473,10 @@
 
 		<ReportWorkspace.Content layout="stack">
 			<!-- Training type cards grid -->
-			{#if typeBreakdown.length > 0}
+			{#if screen.typeBreakdown.length > 0}
 				<section aria-label="Training type breakdown">
 					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-						{#each typeBreakdown as tb (tb.typeId)}
+						{#each screen.typeBreakdown as tb (tb.typeId)}
 							{@const warningTotal = tb.warningYellow + tb.warningOrange}
 							{@const isExpanded = expandedTypeId === tb.typeId}
 							{@const expiredRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expired') : []}
@@ -742,7 +611,7 @@
 			<div class="grid gap-4 lg:grid-cols-2">
 				<ReportWorkspace.Section title="Training Type Compliance" description="Sorted by lowest compliance">
 					<div class="grid gap-2">
-						{#each [...typeBreakdown].sort((a, b) => a.complianceRate - b.complianceRate) as tb (tb.typeId)}
+						{#each [...screen.typeBreakdown].sort((a, b) => a.complianceRate - b.complianceRate) as tb (tb.typeId)}
 							<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
 								<span class="truncate text-sm font-semibold text-foreground">{tb.typeName}</span>
 								<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
@@ -766,10 +635,10 @@
 					</div>
 				</ReportWorkspace.Section>
 
-				{#if dashboard.groupComparison.length > 1}
+				{#if screen.dashboard.groupComparison.length > 1}
 					<ReportWorkspace.Section title="Group Readiness" description="Click to filter by group">
 						<div class="grid gap-2">
-							{#each dashboard.groupComparison as gc (gc.groupId)}
+							{#each screen.dashboard.groupComparison as gc (gc.groupId)}
 								<button
 									type="button"
 									class="grid gap-1 rounded-md px-1 py-1 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center {filterGroupId ===
@@ -802,9 +671,9 @@
 
 			<ReportWorkspace.Table
 				title="Personnel Detail"
-				description="{detailPersonnelCount} of {allPersonnel.length} personnel"
-				data={sortedRows}
-				columns={reportColumns}
+				description="{screen.detailPersonnelCount} of {screen.allPersonnel.length} personnel"
+				data={screen.sortedRows}
+				columns={screen.reportColumns}
 				ariaLabel="Training report detail rows"
 				emptyMessage="No personnel match the current filters."
 				loading={reportLoading}
@@ -818,14 +687,14 @@
 					class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
 				>
 					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-						Page {currentPage} of {totalPages}
+						Page {screen.currentPage} of {screen.totalPages}
 					</span>
 					<div class="flex gap-2">
 						<Button
 							variant="outline"
 							size="sm"
 							type="button"
-							onclick={() => loadReportPage(currentPage - 1)}
+							onclick={() => loadReportPage(screen.currentPage - 1)}
 							disabled={!canPageBack}
 						>
 							Previous page
@@ -834,7 +703,7 @@
 							variant="outline"
 							size="sm"
 							type="button"
-							onclick={() => loadReportPage(currentPage + 1)}
+							onclick={() => loadReportPage(screen.currentPage + 1)}
 							disabled={!canPageForward}
 						>
 							Next page

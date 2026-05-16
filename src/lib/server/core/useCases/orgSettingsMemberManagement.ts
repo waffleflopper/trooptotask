@@ -1,5 +1,5 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
-import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type PolicyReasonCode } from '$lib/access/policyEvaluator';
 import {
 	currentPresetToMemberAccessStorage,
 	DURABLE_FEATURE_LANES,
@@ -16,6 +16,8 @@ import { fail } from '$lib/server/core/errors';
 import type { AuthContext, AuditPort, NotificationPort, ReadOnlyGuard } from '$lib/server/core/ports';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { requireGovernancePolicy } from './governancePolicy';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -93,6 +95,7 @@ interface RemoveOrganizationMemberInput {
 
 interface LeaveOrganizationInput {
 	membershipId: string;
+	confirmation: string;
 	actorEmail?: string | null;
 }
 
@@ -252,6 +255,10 @@ export async function leaveOrganization(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: LeaveOrganizationInput
 ): Promise<{ success: true }> {
+	if (input.confirmation !== 'YES') {
+		fail(400, 'Type YES to confirm leaving the organization');
+	}
+
 	if (!validateUUID(input.membershipId)) {
 		fail(400, 'Invalid membership ID');
 	}
@@ -373,34 +380,24 @@ async function requireIdentityPolicy(
 	actorUserId: string,
 	resourceUserId: string | null
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role, userId: actorUserId },
-		action: POLICY_ACTION_CATALOG.identity.leaveOrganization,
-		capabilityMap: ports.auth.capabilityMap,
-		compatibilityLanes: ports.auth.compatibilityLanes,
-		scopeSet: ports.auth.scopeSet,
-		resource: resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+	const decision = await evaluateAuthoritativePolicyDecision(
+		ports,
+		POLICY_ACTION_CATALOG.identity.leaveOrganization,
+		resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
+		{ actorUserId }
+	);
 
 	if (decision.allowed) {
 		return;
 	}
 
-	ports.audit.log({
-		action: 'policy.denied',
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
 		resourceType: 'organization',
-		details: {
-			policyAction: decision.action.id,
-			reasonCode: decision.reasonCode,
-			...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-		},
-		severity: 'warning'
+		details: policyDenialAuditDetails(decision),
+		message: identityPolicyDenialMessage(decision.reasonCode)
 	});
-
-	fail(403, identityPolicyDenialMessage(decision.reasonCode));
 }
 
 function identityPolicyDenialMessage(reasonCode: PolicyReasonCode): string {

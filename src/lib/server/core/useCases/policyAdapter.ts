@@ -1,0 +1,67 @@
+import {
+	evaluatePolicyDecision,
+	type PolicyAction,
+	type PolicyDecision,
+	type PolicyOverlay,
+	type PolicyResource
+} from '$lib/access/policyEvaluator';
+import type { CapabilityMap, CompatibilityLaneMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
+
+type PolicyAdapterAuth = Pick<AuthContext, 'role' | 'capabilityMap' | 'scopeSet'> &
+	Partial<Pick<AuthContext, 'userId' | 'compatibilityLanes'>>;
+
+export interface PolicyAdapterPorts {
+	auth: PolicyAdapterAuth;
+	readOnlyGuard?: ReadOnlyGuard;
+}
+
+export interface AuthoritativePolicyDecisionOptions {
+	actorUserId?: string | null;
+	capabilityMap?: CapabilityMap;
+	compatibilityLanes?: CompatibilityLaneMap;
+	scopeSet?: ScopeSet;
+	enforceReadOnlyOverlay?: boolean;
+}
+
+export const NO_FEATURE_CAPABILITIES: CapabilityMap = {
+	calendar: 'none',
+	personnel: 'none',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'none',
+	ratingScheme: 'none'
+};
+
+export async function evaluateAuthoritativePolicyDecision(
+	ports: PolicyAdapterPorts,
+	action: PolicyAction,
+	resource: PolicyResource,
+	options: AuthoritativePolicyDecisionOptions = {}
+): Promise<PolicyDecision> {
+	return evaluatePolicyDecision({
+		decisionKind: 'server-authoritative',
+		actor: {
+			membershipRole: ports.auth.role,
+			userId: options.actorUserId ?? ports.auth.userId
+		},
+		action,
+		capabilityMap: options.capabilityMap ?? ports.auth.capabilityMap,
+		compatibilityLanes: options.compatibilityLanes ?? ports.auth.compatibilityLanes,
+		scopeSet: options.scopeSet ?? ports.auth.scopeSet,
+		resource,
+		overlays: await resolveAuthoritativePolicyOverlays(ports.readOnlyGuard, options)
+	});
+}
+
+export async function resolveAuthoritativePolicyOverlays(
+	readOnlyGuard: ReadOnlyGuard | undefined,
+	options: Pick<AuthoritativePolicyDecisionOptions, 'enforceReadOnlyOverlay'> = {}
+): Promise<PolicyOverlay[]> {
+	const enforceReadOnlyOverlay = options.enforceReadOnlyOverlay ?? true;
+	if (!enforceReadOnlyOverlay || !((await readOnlyGuard?.check()) ?? false)) {
+		return [];
+	}
+
+	return [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }];
+}

@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { OrganizationMember, OrganizationMemberPermissions } from '$lib/types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { projectStoredMemberAccessPresentation } from '$lib/access/memberAccessProjection';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -76,57 +77,39 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				fetchAuditLogPreview(ctx, adminStore, { limit: 9 })
 			]);
 
-			const members = membershipRows.map((m) => ({
-				id: m.id as string,
-				organizationId: orgId,
-				userId: m.user_id as string,
-				email: m.email as string,
-				role: m.role as string,
-				scopedGroupId: m.scoped_group_id as string | null,
-				memberPreset: m.member_preset as string | null,
-				capabilityOverrides: (m.capability_overrides as Record<string, unknown> | null) ?? {},
-				accessScopeKind: m.access_scope_kind as string | null,
-				accessScopeGroupIds: (m.access_scope_group_ids as string[] | null) ?? [],
-				createdAt: m.created_at as string,
-				canViewCalendar: m.can_view_calendar as boolean,
-				canEditCalendar: m.can_edit_calendar as boolean,
-				canViewPersonnel: m.can_view_personnel as boolean,
-				canEditPersonnel: m.can_edit_personnel as boolean,
-				canViewTraining: m.can_view_training as boolean,
-				canEditTraining: m.can_edit_training as boolean,
-				canViewCriticalTasks: m.can_view_critical_tasks as boolean,
-				canEditCriticalTasks: m.can_edit_critical_tasks as boolean,
-				canViewOnboarding: m.can_view_onboarding as boolean,
-				canEditOnboarding: m.can_edit_onboarding as boolean,
-				canViewRatingScheme: (m.can_view_rating_scheme as boolean | undefined) ?? (m.can_view_personnel as boolean),
-				canEditRatingScheme: (m.can_edit_rating_scheme as boolean | undefined) ?? (m.can_edit_personnel as boolean),
-				canManageMembers: m.can_manage_members as boolean
-			})) as OrganizationMember[];
+			const members = membershipRows.map((m) => {
+				const access = projectStoredMemberAccessPresentation(toAccessPresentationRow(m));
+				return {
+					id: m.id as string,
+					organizationId: orgId,
+					userId: m.user_id as string,
+					email: m.email as string,
+					role: m.role as string,
+					scopedGroupId: access.scopedGroupId,
+					memberPreset: access.memberPreset,
+					capabilityOverrides: access.capabilityOverrides,
+					accessScopeKind: access.accessScopeKind,
+					accessScopeGroupIds: access.accessScopeGroupIds,
+					createdAt: m.created_at as string,
+					...access.permissions
+				};
+			}) as OrganizationMember[];
 
-			const invitations = invitationRows.map((inv) => ({
-				id: inv.id as string,
-				email: inv.email as string,
-				status: inv.status as string,
-				createdAt: inv.created_at as string,
-				scopedGroupId: inv.scoped_group_id as string | null,
-				memberPreset: inv.member_preset as string | null,
-				capabilityOverrides: (inv.capability_overrides as Record<string, unknown> | null) ?? {},
-				accessScopeKind: inv.access_scope_kind as string | null,
-				accessScopeGroupIds: (inv.access_scope_group_ids as string[] | null) ?? [],
-				canViewCalendar: inv.can_view_calendar as boolean,
-				canEditCalendar: inv.can_edit_calendar as boolean,
-				canViewPersonnel: inv.can_view_personnel as boolean,
-				canEditPersonnel: inv.can_edit_personnel as boolean,
-				canViewTraining: inv.can_view_training as boolean,
-				canEditTraining: inv.can_edit_training as boolean,
-				canViewCriticalTasks: inv.can_view_critical_tasks as boolean,
-				canEditCriticalTasks: inv.can_edit_critical_tasks as boolean,
-				canViewOnboarding: inv.can_view_onboarding as boolean,
-				canEditOnboarding: inv.can_edit_onboarding as boolean,
-				canViewRatingScheme: (inv.can_view_rating_scheme as boolean | undefined) ?? (inv.can_view_personnel as boolean),
-				canEditRatingScheme: (inv.can_edit_rating_scheme as boolean | undefined) ?? (inv.can_edit_personnel as boolean),
-				canManageMembers: inv.can_manage_members as boolean
-			}));
+			const invitations = invitationRows.map((inv) => {
+				const access = projectStoredMemberAccessPresentation(toAccessPresentationRow(inv));
+				return {
+					id: inv.id as string,
+					email: inv.email as string,
+					status: inv.status as string,
+					createdAt: inv.created_at as string,
+					scopedGroupId: access.scopedGroupId,
+					memberPreset: access.memberPreset,
+					capabilityOverrides: access.capabilityOverrides,
+					accessScopeKind: access.accessScopeKind,
+					accessScopeGroupIds: access.accessScopeGroupIds,
+					...access.permissions
+				};
+			});
 
 			let exportInfo: { exportsUsed: number; exportsLimit: number; isLimited: boolean } = {
 				exportsUsed: 0,
@@ -396,6 +379,29 @@ function parseCustomPermissions(formData: FormData): OrganizationMemberPermissio
 		canViewRatingScheme: formData.get('canViewRatingScheme') === 'on',
 		canEditRatingScheme: formData.get('canEditRatingScheme') === 'on',
 		canManageMembers: formData.get('canManageMembers') === 'on'
+	};
+}
+
+function toAccessPresentationRow(row: Record<string, unknown>) {
+	return {
+		scoped_group_id: row.scoped_group_id as string | null,
+		can_view_calendar: row.can_view_calendar as boolean,
+		can_edit_calendar: row.can_edit_calendar as boolean,
+		can_view_personnel: row.can_view_personnel as boolean,
+		can_edit_personnel: row.can_edit_personnel as boolean,
+		can_view_training: row.can_view_training as boolean,
+		can_edit_training: row.can_edit_training as boolean,
+		can_view_critical_tasks: row.can_view_critical_tasks as boolean | null | undefined,
+		can_edit_critical_tasks: row.can_edit_critical_tasks as boolean | null | undefined,
+		can_view_onboarding: row.can_view_onboarding as boolean,
+		can_edit_onboarding: row.can_edit_onboarding as boolean,
+		can_view_rating_scheme: row.can_view_rating_scheme as boolean | null | undefined,
+		can_edit_rating_scheme: row.can_edit_rating_scheme as boolean | null | undefined,
+		can_manage_members: row.can_manage_members as boolean,
+		member_preset: row.member_preset,
+		capability_overrides: row.capability_overrides,
+		access_scope_kind: row.access_scope_kind,
+		access_scope_group_ids: row.access_scope_group_ids
 	};
 }
 

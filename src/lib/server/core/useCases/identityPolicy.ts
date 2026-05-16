@@ -1,10 +1,7 @@
-import {
-	evaluatePolicyDecision,
-	type IdentityOwnedPolicyAction,
-	type PolicyReasonCode
-} from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import type { IdentityOwnedPolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
 import type { AuditPort, AuthContext, ReadOnlyGuard } from '$lib/server/core/ports';
+import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
+import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface IdentityPolicyPorts {
 	auth: Pick<AuthContext, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'>;
@@ -19,36 +16,25 @@ export async function requireIdentityOwnedPolicy(
 	resourceType: string,
 	resourceId?: string
 ): Promise<void> {
-	const isReadOnly = (await ports.readOnlyGuard?.check()) ?? false;
-	const decision = evaluatePolicyDecision({
-		decisionKind: 'server-authoritative',
-		actor: { membershipRole: ports.auth.role, userId: ports.auth.userId },
+	const decision = await evaluateAuthoritativePolicyDecision(
+		ports,
 		action,
-		capabilityMap: ports.auth.capabilityMap,
-		scopeSet: ports.auth.scopeSet,
-		resource: ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' },
-		overlays: isReadOnly ? [{ id: 'read-only-mode', kind: 'read-only-mode', label: 'Organization read-only mode' }] : []
-	});
+		ownerUserId ? { kind: 'user', userId: ownerUserId } : { kind: 'unscoped' }
+	);
 
 	if (decision.allowed) {
 		return;
 	}
 
-	if (decision.audit.capture) {
-		ports.audit.log({
-			action: 'policy.denied',
-			resourceType,
-			resourceId,
-			details: {
-				policyAction: action.id,
-				reasonCode: decision.reasonCode,
-				...(decision.blockingOverlay ? { blockingOverlay: decision.blockingOverlay.kind } : {})
-			},
-			severity: 'warning'
-		});
-	}
-
-	fail(denialStatus(decision.reasonCode), identityPolicyDenialMessage(decision.reasonCode));
+	denyPolicyDecision({
+		audit: ports.audit,
+		decision,
+		resourceType,
+		resourceId,
+		details: policyDenialAuditDetails(decision, { policyActionId: action.id }),
+		status: denialStatus(decision.reasonCode),
+		message: identityPolicyDenialMessage(decision.reasonCode)
+	});
 }
 
 function denialStatus(reasonCode: PolicyReasonCode): 401 | 403 {

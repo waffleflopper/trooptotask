@@ -9,13 +9,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { OrganizationMemberPermissions } from '$lib/types';
-import {
-	createCapabilityMap,
-	resolveMemberAccessShapeFromStoredOrCurrent,
-	type CapabilityMap,
-	type ScopeSet
-} from '$lib/access/memberAccessShape';
+import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -146,37 +140,17 @@ export function createSupabaseOrgAccessPort(config: {
 		async getMembership(): Promise<MembershipInfo> {
 			const membership = await (config.wrapMembershipLoad?.(() => loadMembershipRow(config)) ??
 				loadMembershipRow(config));
-
-			const isOwner = membership.role === 'owner';
-			const isAdmin = membership.role === 'admin';
-			const isPrivileged = isOwner || isAdmin;
-
-			const permissions: OrganizationMemberPermissions = {
-				canViewCalendar: isPrivileged || membership.can_view_calendar,
-				canEditCalendar: isPrivileged || membership.can_edit_calendar,
-				canViewPersonnel: isPrivileged || membership.can_view_personnel,
-				canEditPersonnel: isPrivileged || membership.can_edit_personnel,
-				canViewTraining: isPrivileged || membership.can_view_training,
-				canEditTraining: isPrivileged || membership.can_edit_training,
-				canViewCriticalTasks: isPrivileged || !!membership.can_view_critical_tasks,
-				canEditCriticalTasks: isPrivileged || !!membership.can_edit_critical_tasks,
-				canViewOnboarding: isPrivileged || membership.can_view_onboarding,
-				canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
-				canViewRatingScheme: isPrivileged || (membership.can_view_rating_scheme ?? membership.can_view_personnel),
-				canEditRatingScheme: isPrivileged || (membership.can_edit_rating_scheme ?? membership.can_edit_personnel),
-				canManageMembers: isPrivileged || membership.can_manage_members
-			};
-			const accessShape = resolveMembershipClientAccessShape(membership, permissions, isPrivileged);
+			const access = projectEffectiveMemberAccess(membership);
 
 			return {
 				orgId: config.orgId,
 				membershipId: membership.id ?? null,
 				userId: config.userId,
 				role: membership.role,
-				capabilityMap: accessShape.capabilityMap,
-				scopeSet: accessShape.scopeSet,
-				permissions,
-				scopedGroupId: isPrivileged ? null : (membership.scoped_group_id ?? null),
+				capabilityMap: access.capabilityMap,
+				scopeSet: access.scopeSet,
+				permissions: access.permissions,
+				scopedGroupId: access.scopedGroupId,
 				// orgSuspended is checked and short-circuits before this adapter is ever
 				// instantiated, so we only reach getMembership() for non-suspended orgs.
 				orgSuspended: false
@@ -216,34 +190,6 @@ async function loadMembershipRow(config: {
 	}
 
 	return data as MembershipRow;
-}
-
-function resolveMembershipClientAccessShape(
-	membership: MembershipRow,
-	permissions: OrganizationMemberPermissions,
-	isPrivileged: boolean
-): { capabilityMap: CapabilityMap; scopeSet: ScopeSet } {
-	if (isPrivileged) {
-		return {
-			capabilityMap: createCapabilityMap('configure'),
-			scopeSet: { kind: 'organization' }
-		};
-	}
-
-	const shape = resolveMemberAccessShapeFromStoredOrCurrent({
-		membershipRole: membership.role,
-		permissions,
-		scopedGroupId: membership.scoped_group_id,
-		memberPreset: membership.member_preset,
-		capabilityOverrides: membership.capability_overrides,
-		accessScopeKind: membership.access_scope_kind,
-		accessScopeGroupIds: membership.access_scope_group_ids
-	});
-
-	return {
-		capabilityMap: shape.capabilityMap,
-		scopeSet: shape.scopeSet
-	};
 }
 
 export function createSupabaseOrgChromePort(config: {

@@ -33,6 +33,28 @@ function createMembershipLookupBuilder() {
 	return { builder, calls };
 }
 
+function createMembershipRemovalBuilder(result: { data: unknown[] | null; error: { message: string } | null }) {
+	const calls: Call[] = [];
+
+	function track(method: string) {
+		return (...args: unknown[]) => {
+			calls.push({ method, args });
+			return builder;
+		};
+	}
+
+	const builder: Record<string, unknown> = {
+		delete: track('delete'),
+		eq: track('eq'),
+		select: (...args: unknown[]) => {
+			calls.push({ method: 'select', args });
+			return result;
+		}
+	};
+
+	return { builder, calls };
+}
+
 describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 	it('scopes membership lookups by both membership id and organization id', async () => {
 		const { builder, calls } = createMembershipLookupBuilder();
@@ -53,5 +75,76 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+	});
+
+	it('removes memberships with the admin client and verifies a row was deleted', async () => {
+		const { builder, calls } = createMembershipRemovalBuilder({
+			data: [{ id: 'membership-1' }],
+			error: null
+		});
+		const supabase = {
+			from: vi.fn()
+		};
+		const adminSupabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase
+			} as never,
+			{
+				getAdminClient: () => adminSupabase as never
+			}
+		);
+
+		const result = await port.removeMembership('org-1', 'membership-1');
+
+		expect(result).toBeNull();
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(adminSupabase.from).toHaveBeenCalledWith('organization_memberships');
+		expect(calls).toContainEqual({ method: 'delete', args: [] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
+		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		expect(calls).toContainEqual({ method: 'select', args: ['id'] });
+	});
+
+	it('reports failure when a membership removal deletes no rows', async () => {
+		const { builder } = createMembershipRemovalBuilder({
+			data: [],
+			error: null
+		});
+		const adminSupabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{
+				getAdminClient: () => adminSupabase as never
+			}
+		);
+
+		await expect(port.removeMembership('org-1', 'membership-1')).resolves.toBe('Membership could not be removed');
+	});
+
+	it('reports provider errors when membership removal fails', async () => {
+		const { builder } = createMembershipRemovalBuilder({
+			data: null,
+			error: { message: 'delete blocked' }
+		});
+		const adminSupabase = {
+			from: vi.fn(() => builder)
+		};
+		const port = createSupabaseOrgSettingsMemberManagementPort(
+			{
+				supabase: { from: vi.fn() }
+			} as never,
+			{
+				getAdminClient: () => adminSupabase as never
+			}
+		);
+
+		await expect(port.removeMembership('org-1', 'membership-1')).resolves.toBe('delete blocked');
 	});
 });

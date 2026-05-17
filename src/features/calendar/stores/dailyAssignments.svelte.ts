@@ -17,7 +17,6 @@ import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, DailyAssignment } from '$lib/types';
-import { SvelteSet } from 'svelte/reactivity';
 
 export type { AssignmentType, DailyAssignment } from '$lib/types';
 
@@ -58,7 +57,9 @@ function toAssignmentSlotKey(date: string, assignmentTypeId: string): string {
 }
 
 function duplicateAssignmentBatchSlot(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord | null {
-	const seen = new SvelteSet<string>();
+	// Local duplicate detection is not read by Svelte reactivity; avoid SvelteSet overhead here.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const seen = new Set<string>();
 
 	for (const assignment of assignments) {
 		const key = toAssignmentSlotKey(assignment.date, assignment.assignmentTypeId);

@@ -22,7 +22,6 @@ import {
 	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	generatePivotCSV,
-	type PivotCell,
 	type PivotRow,
 	type ReadinessDashboard,
 	type ReportFilters
@@ -130,10 +129,6 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
 	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
 }
 
-function cellForSort(cells: Map<string, PivotCell>, trainingTypeId: string): PivotCell | undefined {
-	return cells.get(trainingTypeId);
-}
-
 function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 	return {
 		id: type.id,
@@ -203,8 +198,8 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 		} else if (sort.column === 'group') {
 			cmp = a.person.groupName.localeCompare(b.person.groupName);
 		} else {
-			const aCell = cellForSort(a.cells, sort.column);
-			const bCell = cellForSort(b.cells, sort.column);
+			const aCell = a.cells.get(sort.column);
+			const bCell = b.cells.get(sort.column);
 			cmp = (aCell ? (statusOrder[aCell.status] ?? 99) : 99) - (bCell ? (statusOrder[bCell.status] ?? 99) : 99);
 		}
 		return sort.direction === 'asc' ? cmp : -cmp;

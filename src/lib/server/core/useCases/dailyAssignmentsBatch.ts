@@ -68,6 +68,18 @@ function normalizeBatchRecords(records: BatchRecord[]): BatchRecord[] {
 	return records.map((record) => ({ ...record, assigneeId: record.assigneeId.trim() }));
 }
 
+function requireValidBatchRecords(records: BatchRecord[]): void {
+	for (const record of records) {
+		if (
+			typeof record?.date !== 'string' ||
+			typeof record?.assignmentTypeId !== 'string' ||
+			typeof record?.assigneeId !== 'string'
+		) {
+			fail(400, 'Each record must include string date, assignmentTypeId, and assigneeId');
+		}
+	}
+}
+
 function duplicateBatchSlot(records: BatchRecord[]): BatchRecord | null {
 	const seen = new Set<string>();
 
@@ -167,6 +179,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
+	requireValidBatchRecords(inputRecords);
 	const records = normalizeBatchRecords(inputRecords);
 	const duplicateSlot = duplicateBatchSlot(records);
 	if (duplicateSlot) {

@@ -28,6 +28,30 @@ describe('batchDailyAssignments', () => {
 		});
 	});
 
+	it.each([
+		['missing', { date: '2026-03-22', assignmentTypeId: 'type-a' }],
+		['non-string', { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 123 }]
+	])('rejects records with %s assigneeId before persistence and audit side effects', async (_label, record) => {
+		const ctx = buildContext();
+		ctx.store.findMany = vi.fn(ctx.store.findMany.bind(ctx.store)) as typeof ctx.store.findMany;
+		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
+		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
+
+		await expect(
+			batchDailyAssignments(ctx, {
+				records: [record as Parameters<typeof batchDailyAssignments>[1]['records'][number]]
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Each record must include string date, assignmentTypeId, and assigneeId'
+		});
+
+		expect(ctx.store.findMany).not.toHaveBeenCalled();
+		expect(ctx.store.deleteWhereAny).not.toHaveBeenCalled();
+		expect(ctx.store.insertMany).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('blocks when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
 		await expect(

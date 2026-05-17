@@ -59,6 +59,9 @@ describe('IctExpirationCliffChart', () => {
 		expect(within(fallbackTable).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
 		expect(within(fallbackTable).getByRole('cell', { name: 'Jun 2026' })).toBeTruthy();
 		expect(within(fallbackTable).getAllByRole('cell', { name: '2' }).length).toBeGreaterThan(0);
+
+		const aprilRow = within(fallbackTable).getByRole('row', { name: 'Apr 2026 0 0 0' });
+		expect(aprilRow).toBeTruthy();
 	});
 
 	it('shows a clear empty state when no completions expire', () => {

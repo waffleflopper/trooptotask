@@ -17,6 +17,12 @@
 		[key: string]: number | string;
 	}
 
+	type CliffMonth = IctExpirationCliff['months'][number];
+
+	interface CliffMonthWithMosCounts extends CliffMonth {
+		expiringCountsByMos: Map<string, number>;
+	}
+
 	const EXPIRATION_SERIES_COLORS = [
 		'var(--chart-1)',
 		'var(--chart-2)',
@@ -33,16 +39,17 @@
 	);
 	const yMax = $derived(Math.max(1, ...cliff.months.map((month) => month.totalExpiringCount)));
 	const yTicks = $derived.by(() => buildReportCountTicks(yMax, { denseMax: 5 }));
-	const chartData = $derived.by<CliffChartDatum[]>(() =>
+	const monthsWithMosCounts = $derived.by<CliffMonthWithMosCounts[]>(() =>
 		cliff.months.map((month) => ({
+			...month,
+			expiringCountsByMos: new Map(month.mosSegments.map((segment) => [segment.mos, segment.expiringCount]))
+		}))
+	);
+	const chartData = $derived.by<CliffChartDatum[]>(() =>
+		monthsWithMosCounts.map((month) => ({
 			label: (month.label.split(' ')[0] ?? month.label).toUpperCase(),
 			total: month.totalExpiringCount,
-			...Object.fromEntries(
-				cliff.mosSeries.map((mos) => [
-					seriesKey(mos),
-					month.mosSegments.find((segment) => segment.mos === mos)?.expiringCount ?? 0
-				])
-			)
+			...Object.fromEntries(cliff.mosSeries.map((mos) => [seriesKey(mos), expiringCountForMos(month, mos)]))
 		}))
 	);
 	const chartSeries = $derived.by(() =>
@@ -55,6 +62,10 @@
 
 	function seriesKey(mos: string): string {
 		return `mos-${mos}`;
+	}
+
+	function expiringCountForMos(month: CliffMonthWithMosCounts, mos: string): number {
+		return month.expiringCountsByMos.get(mos) ?? 0;
 	}
 
 	function formatProjectionMonth(label: string): string {
@@ -124,12 +135,12 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each cliff.months as month (month.month)}
+				{#each monthsWithMosCounts as month (month.month)}
 					<tr>
 						<td>{month.label}</td>
 						<td>{month.totalExpiringCount}</td>
 						{#each cliff.mosSeries as mos (mos)}
-							<td>{month.mosSegments.find((segment) => segment.mos === mos)?.expiringCount ?? 0}</td>
+							<td>{expiringCountForMos(month, mos)}</td>
 						{/each}
 					</tr>
 				{/each}

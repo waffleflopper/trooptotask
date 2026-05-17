@@ -134,6 +134,31 @@
 		return { available, unavailable };
 	});
 
+	const availablePersonnelByGroup = $derived.by(() => {
+		const grouped = new SvelteMap<
+			string,
+			{ person: Personnel; assignments: { typeId: string; shortName: string }[] }[]
+		>();
+
+		for (const group of personnelByGroup) {
+			grouped.set(group.group, []);
+		}
+
+		for (const entry of personnelBreakdown.available) {
+			const group = grouped.get(entry.person.groupName);
+			if (group) {
+				group.push(entry);
+			}
+		}
+
+		return personnelByGroup
+			.map((group) => ({
+				group: group.group,
+				available: grouped.get(group.group) ?? []
+			}))
+			.filter((group) => group.available.length > 0);
+	});
+
 	// Group unavailable personnel by status
 	const outByStatus = $derived.by(() => {
 		const groups = new SvelteMap<string, { status: StatusType; personnel: Personnel[] }>();
@@ -235,36 +260,33 @@
 					</div>
 				{:else}
 					<div class="grid gap-3">
-						{#each personnelByGroup as grp (grp.group)}
-							{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
-							{#if availableForGroup.length > 0}
-								<div class="grid gap-1">
-									<div class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">
-										{grp.group}
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each availableForGroup as { person, assignments } (person.id)}
-											<div
-												class={[
-													'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm',
-													assignments.length > 0 ? 'bg-secondary text-secondary-foreground' : 'bg-card'
-												]}
-											>
-												<span class="text-muted-foreground font-mono text-xs">{person.rank}</span>
-												<span class="font-medium">{person.lastName}</span>
-												{#if assignments.length > 0}
-													{#each assignments as badge (badge.typeId)}
-														<span
-															class="bg-primary text-primary-foreground rounded px-1 font-mono text-[10px] font-semibold uppercase"
-															>{badge.shortName}</span
-														>
-													{/each}
-												{/if}
-											</div>
-										{/each}
-									</div>
+						{#each availablePersonnelByGroup as group (group.group)}
+							<div class="grid gap-1">
+								<div class="text-muted-foreground font-mono text-xs font-semibold tracking-wide uppercase">
+									{group.group}
 								</div>
-							{/if}
+								<div class="flex flex-wrap gap-1.5">
+									{#each group.available as { person, assignments } (person.id)}
+										<div
+											class={[
+												'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm',
+												assignments.length > 0 ? 'bg-secondary text-secondary-foreground' : 'bg-card'
+											]}
+										>
+											<span class="text-muted-foreground font-mono text-xs">{person.rank}</span>
+											<span class="font-medium">{person.lastName}</span>
+											{#if assignments.length > 0}
+												{#each assignments as badge (badge.typeId)}
+													<span
+														class="bg-primary text-primary-foreground rounded px-1 font-mono text-[10px] font-semibold uppercase"
+														>{badge.shortName}</span
+													>
+												{/each}
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
 						{/each}
 					</div>
 				{/if}

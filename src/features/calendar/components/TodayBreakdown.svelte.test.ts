@@ -100,4 +100,41 @@ describe('TodayBreakdown', () => {
 		expect(within(schoolGroup as HTMLElement).getByText('Clark')).toBeTruthy();
 		expect(screen.queryByText(today)).toBeNull();
 	});
+
+	it('renders available personnel under the existing group order and omits empty groups', () => {
+		render(TodayBreakdown, {
+			props: {
+				personnelByGroup: [
+					{
+						group: 'Bravo',
+						personnel: [person({ id: 'bravo', rank: 'SPC', lastName: 'Bravo', groupId: 'bravo', groupName: 'Bravo' })]
+					},
+					{
+						group: 'Alpha',
+						personnel: [person({ id: 'alpha', rank: 'SGT', lastName: 'Alpha', groupId: 'alpha', groupName: 'Alpha' })]
+					},
+					{
+						group: 'Charlie',
+						personnel: [
+							person({ id: 'charlie', rank: 'SSG', lastName: 'Charlie', groupId: 'charlie', groupName: 'Charlie' })
+						]
+					}
+				],
+				availabilityEntries: [availability({ id: 'charlie-leave', personnelId: 'charlie', statusTypeId: 'leave' })],
+				statusTypes: [statusType({ id: 'leave', name: 'Leave' })],
+				assignmentTypes: [],
+				assignments: [],
+				onClose: () => {}
+			}
+		});
+
+		const availableSection = screen.getByRole('heading', { name: /Available\s+2/ }).closest('section') as HTMLElement;
+		const availableText = availableSection.textContent ?? '';
+
+		expect(availableText).toContain('Bravo');
+		expect(availableText).toContain('Alpha');
+		expect(availableText).not.toContain('Charlie');
+		expect(availableText.indexOf('Bravo')).toBeLessThan(availableText.indexOf('Alpha'));
+		expect(within(availableSection).queryByText('Charlie')).toBeNull();
+	});
 });

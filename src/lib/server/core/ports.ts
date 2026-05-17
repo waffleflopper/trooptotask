@@ -97,6 +97,14 @@ export interface DataStore {
 		filters?: Record<string, unknown>,
 		options?: FindOptions
 	): Promise<FindResult<T>>;
+
+	findDistinctValues(
+		table: string,
+		orgId: string,
+		column: string,
+		filters?: Record<string, unknown>,
+		options?: FindOptions
+	): Promise<string[]>;
 }
 
 export interface AdvancedDutyPersistencePort {

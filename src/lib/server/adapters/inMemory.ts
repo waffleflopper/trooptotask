@@ -227,6 +227,19 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			return { data, count };
 		},
 
+		async findDistinctValues(
+			table: string,
+			orgId: string,
+			column: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<string[]> {
+			const filtered = applyFilters(table, getRows(table), orgId, filters, options);
+			return [
+				...new Set(filtered.map((row) => row[column]).filter((value): value is string => typeof value === 'string'))
+			].sort();
+		},
+
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
 			const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 			getRows(table).push(row);

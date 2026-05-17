@@ -44,6 +44,16 @@ function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 	} as unknown as SupabaseClient;
 }
 
+function createMockSupabaseWithRpc(
+	data: Array<{ action: string | null }> | null,
+	error: { message?: string } | null = null
+): SupabaseClient & { rpc: ReturnType<typeof vi.fn> } {
+	return {
+		from: vi.fn(),
+		rpc: vi.fn(async () => ({ data, error }))
+	} as unknown as SupabaseClient & { rpc: ReturnType<typeof vi.fn> };
+}
+
 function createPagedMockSupabase(results: Array<{ data: unknown; error?: unknown; count?: number | null }>): {
 	supabase: SupabaseClient;
 	calls: Call[];
@@ -476,6 +486,37 @@ describe('SupabaseDataStore', () => {
 			const store = createSupabaseDataStore(supabase);
 
 			await expect(store.insertMany('t', 'org-1', [{ id: 'x' }])).rejects.toThrow('batch insert failed');
+		});
+	});
+
+	describe('findDistinctValues', () => {
+		it('uses the audit-log action distinct RPC with excluded actions', async () => {
+			const supabase = createMockSupabaseWithRpc([
+				{ action: 'training.update' },
+				{ action: 'personnel.create' },
+				{ action: 'personnel.create' }
+			]);
+			const store = createSupabaseDataStore(supabase);
+
+			const result = await store.findDistinctValues('audit_logs', 'org-1', 'action', undefined, {
+				notInFilters: { action: ['auth.login_success'] }
+			});
+
+			expect(result).toEqual(['personnel.create', 'training.update']);
+			expect(supabase.rpc).toHaveBeenCalledWith('list_audit_log_actions', {
+				p_org_id: 'org-1',
+				p_excluded_actions: ['auth.login_success']
+			});
+			expect(supabase.from as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+		});
+
+		it('throws for unsupported distinct lookups', async () => {
+			const supabase = createMockSupabaseWithRpc([]);
+			const store = createSupabaseDataStore(supabase);
+
+			await expect(store.findDistinctValues('personnel', 'org-1', 'rank')).rejects.toThrow(
+				'Distinct value lookup is not supported for personnel.rank'
+			);
 		});
 	});
 });

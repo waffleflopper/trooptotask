@@ -50,6 +50,30 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	getPersonnelAssignmentsForDate: (personnelId: string, date: string) => DailyAssignment[];
 }
 
+type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
+
+function toAssignmentSlotKey(date: string, assignmentTypeId: string): string {
+	return `${date}::${assignmentTypeId}`;
+}
+
+function duplicateAssignmentBatchSlot(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord | null {
+	// Local duplicate detection is not read by Svelte reactivity; avoid SvelteSet overhead here.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const seen = new Set<string>();
+
+	for (const assignment of assignments) {
+		const key = toAssignmentSlotKey(assignment.date, assignment.assignmentTypeId);
+		if (seen.has(key)) return assignment;
+		seen.add(key);
+	}
+
+	return null;
+}
+
+function normalizeAssignmentBatch(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord[] {
+	return assignments.map((assignment) => ({ ...assignment, assigneeId: assignment.assigneeId.trim() }));
+}
+
 function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAssignment>): AssignmentExtensions {
 	function getAssignmentSnapshot(): DailyAssignment[] {
 		return internals.snapshot();
@@ -208,15 +232,28 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		async setAssignmentBatch(
 			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 		): Promise<boolean> {
+			const normalizedAssignments = normalizeAssignmentBatch(assignments);
+			const duplicateSlot = duplicateAssignmentBatchSlot(normalizedAssignments);
+			if (duplicateSlot) {
+				toastStore.error(
+					`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`
+				);
+				return false;
+			}
+
 			const removeMutationIds: string[] = [];
 			const existingIds: string[] = [];
 			const tempIds: string[] = [];
 			const addData: Omit<DailyAssignment, 'id'>[] = [];
+			const existingBySlotKey = new Map(
+				getAssignmentSnapshot().map((assignment) => [
+					toAssignmentSlotKey(assignment.date, assignment.assignmentTypeId),
+					assignment
+				])
+			);
 
-			for (const a of assignments) {
-				const existing = getAssignmentSnapshot().find(
-					(e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId
-				);
+			for (const a of normalizedAssignments) {
+				const existing = existingBySlotKey.get(toAssignmentSlotKey(a.date, a.assignmentTypeId));
 				if (existing) {
 					const rmId = crypto.randomUUID();
 					removeMutationIds.push(rmId);
@@ -244,7 +281,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments/batch`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ records: assignments })
+					body: JSON.stringify({ records: normalizedAssignments })
 				});
 				if (!res.ok) {
 					throw new Error(await readResponseErrorMessage(res, 'Failed to batch update assignments'));

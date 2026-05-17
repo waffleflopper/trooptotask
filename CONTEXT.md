@@ -176,6 +176,10 @@ _Avoid_: Broken permissions
 The feature for availability, assignments, special days, and duty visibility.
 _Avoid_: Leave tracker
 
+**Daily Assignment Slot**:
+One Calendar assignment position for a specific date and **Assignment Type**.
+_Avoid_: Duplicate assignment row, batch row
+
 **DONSA**:
 A day of no scheduled activities, often used for training holidays and similar unit non-duty days. The current schema may still store these as `org-closure` special days, but duty-roster UX copy should prefer **DONSA** over closure language.
 _Avoid_: Closure, org closure in user-facing duty-roster copy
@@ -328,6 +332,10 @@ _Avoid_: Attachment, upload when referring to the stored thing
 An organization-defined training requirement with applicability and expiration behavior.
 _Avoid_: Certification row
 
+**Training Report Matrix**:
+The per-Soldier, per-**Training Type** status grid that a **Training** report uses as the shared source for readiness, detail rows, sorting, pagination, and CSV output.
+_Avoid_: Pivot cache, dashboard cache, report rows only
+
 **Critical Task**:
 An organization-defined ICT requirement tracked by the **Critical Tasks** feature.
 _Avoid_: Training type
@@ -376,6 +384,7 @@ _Avoid_: Training type
 - **Evals** is the route and primary navigation label for **Rating Scheme**; it does not create a separate domain concept.
 - A **Rating Scheme** entry connects one **Rated Individual** to one or more evaluation relationships such as a **Rater**.
 - The **Calendar** displays **Availability Status** values defined by **Status Types**.
+- A **Daily Assignment Slot** is unique by date and **Assignment Type**; duplicate batch inputs for the same slot are invalid rather than order-dependent.
 - **DONSAs** are Calendar special days and may still use `org-closure` as a compatibility storage value while product language phases out clinic-era closure wording.
 - A **Status Type** may have no **DA6 Availability Treatment** when it should not affect duty-roster generation.
 - A **DA6 Availability Treatment** can map a **Status Type** to **Authorized Absence**, **Other Duty**, or future **Misconduct Unavailable** semantics without making the **Status Type** itself a **DA6 Code**.
@@ -510,6 +519,12 @@ _Avoid_: Training type
 - **Duty Role** is the preferred canonical term. **Clinic Role** is legacy compatibility language tied to existing code and schema.
 - **Role** is too ambiguous when it could mean **Duty Role**, **Membership Role**, or platform/admin role.
 - **Critical Tasks** and **Training** are distinct feature surfaces with separate lanes.
+- A **Training Report Matrix** belongs to one **Training** report request and contains one status cell for each included Soldier and **Training Type** pairing, including optional **Training Types** selected for detail or CSV output.
+- Readiness derived from a **Training Report Matrix** ignores optional **Training Types** even when those optional cells remain visible in detail or CSV output.
+- A Training report status filter narrows detail and CSV rows, but readiness derived from the **Training Report Matrix** still reflects the selected Soldiers and **Training Types** before status filtering.
+- Training report CSV export uses the full filtered and sorted **Training Report Matrix** instead of the current paginated detail slice.
+- Training Type column sorting in Training reports preserves the existing status severity order: expired, warning-orange, warning-yellow, not-completed, current, not-required, exempt.
+- **Training Report Matrix** construction belongs in the **Training** report calculation layer, while server queries orchestrate authorization, data loading, filtering, sorting, pagination, and export output.
 - **Leader's Book** is retired. Do not create new features, routes, or permission surfaces under this name. Its content has been absorbed by **Personnel** (see ADR 0008).
 - **Lane Ownership** is not the same thing as route placement or nav treatment.
 - **Rating Scheme** is not just a detail inside **Personnel**; it owns evaluation-tracking records and workflows.

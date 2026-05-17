@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-import { computeReadinessDashboard, filterPersonnel, buildPivotTable, generatePivotCSV } from './reportCalculations';
+import {
+	buildPivotTable,
+	buildPivotTableFromMatrix,
+	buildTrainingReportMatrix,
+	computeReadinessDashboard,
+	computeReadinessDashboardFromMatrix,
+	filterPersonnel,
+	generatePivotCSV
+} from './reportCalculations';
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
@@ -295,6 +303,39 @@ describe('buildPivotTable', () => {
 		const rows = buildPivotTable(personnel, types, trainings);
 		const cell = rows[0].cells.get('type-1');
 		expect(cell?.date).toBe('2027-06-15');
+	});
+});
+
+describe('buildTrainingReportMatrix', () => {
+	it('computes each Soldier and Training Type status cell once per matrix build', () => {
+		let statusCallCount = 0;
+		const personnel = [makePerson({ id: 'p-1' }), makePerson({ id: 'p-2' })];
+		const types = [
+			makeType({ id: 'type-1', name: 'Required' }),
+			makeType({ id: 'type-2', name: 'Optional', isOptional: true })
+		];
+		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
+
+		const matrix = buildTrainingReportMatrix(personnel, types, trainings, {
+			getStatus: (training, type) => {
+				statusCallCount++;
+				return {
+					status: training || type.isOptional ? 'current' : 'not-completed',
+					color: '#22c55e',
+					label: training || type.isOptional ? 'Current' : 'Not Done',
+					daysUntilExpiration: null
+				};
+			}
+		});
+
+		const dashboard = computeReadinessDashboardFromMatrix(matrix);
+		const rows = buildPivotTableFromMatrix(matrix);
+
+		expect(statusCallCount).toBe(4);
+		expect(dashboard.statusCounts.current).toBe(1);
+		expect(dashboard.statusCounts.notCompleted).toBe(1);
+		expect(rows).toHaveLength(2);
+		expect(rows[0].cells.get('type-2')?.status).toBe('current');
 	});
 });
 

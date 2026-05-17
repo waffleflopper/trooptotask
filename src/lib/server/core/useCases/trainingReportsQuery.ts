@@ -17,14 +17,16 @@ import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import {
-	buildPivotTable,
-	computeReadinessDashboard,
+	buildPivotTableFromMatrix,
+	buildTrainingReportMatrix,
+	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	generatePivotCSV,
-	type PivotCell,
 	type PivotRow,
+	type ReadinessDashboard,
 	type ReportFilters
 } from '$features/training/utils/reportCalculations';
+import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import { requireFeaturePolicy } from './featurePolicy';
 
 export interface TrainingReportsData {
@@ -75,7 +77,7 @@ export interface TrainingReportDetail {
 }
 
 export interface TrainingReportData {
-	dashboard: ReturnType<typeof computeReadinessDashboard>;
+	dashboard: ReadinessDashboard;
 	detail: TrainingReportDetail;
 	trainingTypes: TrainingReportTrainingType[];
 	filterOptions: {
@@ -88,16 +90,6 @@ export interface TrainingReportData {
 
 const DEFAULT_REPORT_PAGE_SIZE = 25;
 const MAX_REPORT_PAGE_SIZE = 100;
-
-const statusOrder: Record<TrainingStatus, number> = {
-	expired: 0,
-	'warning-orange': 1,
-	'warning-yellow': 2,
-	'not-completed': 3,
-	current: 4,
-	'not-required': 5,
-	exempt: 6
-};
 
 export async function fetchTrainingReportsData(ctx: QueryPorts): Promise<TrainingReportsData> {
 	await requireTrainingRecordView(ctx);
@@ -128,10 +120,6 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
 	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
 }
 
-function cellForSort(cells: Map<string, PivotCell>, trainingTypeId: string): PivotCell | undefined {
-	return cells.get(trainingTypeId);
-}
-
 function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 	return {
 		id: type.id,
@@ -141,7 +129,7 @@ function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 }
 
 interface BuiltTrainingReport {
-	dashboard: ReturnType<typeof computeReadinessDashboard>;
+	dashboard: ReadinessDashboard;
 	pivotRows: PivotRow[];
 	trainingTypes: TrainingType[];
 	reportTrainingTypes: TrainingReportTrainingType[];
@@ -179,9 +167,10 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	const selectedTypes = filters.trainingTypeIds?.length
 		? trainingTypes.filter((type) => filters.trainingTypeIds?.includes(type.id))
 		: trainingTypes;
-	const dashboard = computeReadinessDashboard(filteredPersonnel, selectedTypes, trainings);
+	const reportMatrix = buildTrainingReportMatrix(filteredPersonnel, selectedTypes, trainings);
+	const dashboard = computeReadinessDashboardFromMatrix(reportMatrix);
 
-	let pivotRows = buildPivotTable(filteredPersonnel, selectedTypes, trainings);
+	let pivotRows = buildPivotTableFromMatrix(reportMatrix);
 	if (filters.status) {
 		pivotRows = pivotRows.filter((row) => {
 			for (const cell of row.cells.values()) {
@@ -200,9 +189,11 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 		} else if (sort.column === 'group') {
 			cmp = a.person.groupName.localeCompare(b.person.groupName);
 		} else {
-			const aCell = cellForSort(a.cells, sort.column);
-			const bCell = cellForSort(b.cells, sort.column);
-			cmp = (aCell ? (statusOrder[aCell.status] ?? 99) : 99) - (bCell ? (statusOrder[bCell.status] ?? 99) : 99);
+			const aCell = a.cells.get(sort.column);
+			const bCell = b.cells.get(sort.column);
+			cmp =
+				(aCell ? (TRAINING_STATUS_SORT_ORDER[aCell.status] ?? 99) : 99) -
+				(bCell ? (TRAINING_STATUS_SORT_ORDER[bCell.status] ?? 99) : 99);
 		}
 		return sort.direction === 'asc' ? cmp : -cmp;
 	});

@@ -2,7 +2,11 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
+	import {
+		getTrainingStatus,
+		TRAINING_STATUS_SORT_ORDER,
+		type TrainingStatusInfo
+	} from '$features/training/utils/trainingStatus';
 	import { getCellDisplayText } from '$features/training/utils/cellDisplayText';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
@@ -52,16 +56,6 @@
 		groupBy
 	}: Props = $props();
 
-	const statusOrder: Record<TrainingStatus, number> = {
-		expired: 0,
-		'warning-orange': 1,
-		'warning-yellow': 2,
-		'not-completed': 3,
-		current: 4,
-		'not-required': 5,
-		exempt: 6
-	};
-
 	const columns: ColumnDef<Personnel>[] = [
 		{
 			key: 'name',
@@ -86,7 +80,7 @@
 				compare: (a: Personnel, b: Personnel) => {
 					const aStatus = getCellMetadata(a, type).statusInfo.status;
 					const bStatus = getCellMetadata(b, type).statusInfo.status;
-					return statusOrder[aStatus] - statusOrder[bStatus];
+					return TRAINING_STATUS_SORT_ORDER[aStatus] - TRAINING_STATUS_SORT_ORDER[bStatus];
 				}
 			};
 		}

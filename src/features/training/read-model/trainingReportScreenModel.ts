@@ -4,9 +4,11 @@ import type { Personnel } from '$lib/types';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
 import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
+import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import {
-	buildPivotTable,
-	computeReadinessDashboard,
+	buildPivotTableFromMatrix,
+	buildTrainingReportMatrix,
+	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	type PivotCell,
 	type PivotRow,
@@ -88,16 +90,6 @@ const STATUS_OPTIONS: Array<{ value: TrainingStatus; label: string }> = [
 	{ value: 'not-completed', label: 'Not Done' }
 ];
 
-const STATUS_ORDER: Record<TrainingStatus, number> = {
-	expired: 0,
-	'warning-orange': 1,
-	'warning-yellow': 2,
-	'not-completed': 3,
-	current: 4,
-	'not-required': 5,
-	exempt: 6
-};
-
 export function createEmptyTrainingReportFilters(): TrainingReportFilterState {
 	return {
 		groupId: '',
@@ -131,15 +123,16 @@ export function buildTrainingReportScreenModel(input: TrainingReportScreenModelI
 			? localTrainingTypes.filter((type) => filters.trainingTypeIds.includes(type.id))
 			: localTrainingTypes;
 	const typeFilterOptions = availableTypeFilters.map((type) => ({ value: type.id, label: type.name }));
-	const dashboard =
-		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, trainings);
-	const pivotRows = buildTrainingReportPivotRows({
-		activeReport,
-		personnel: filteredPersonnel,
-		trainingTypes: filteredLocalTrainingTypes,
-		trainings,
-		status: filters.status
-	});
+	let dashboard: ReadinessDashboard;
+	let pivotRows: TrainingReportPivotRow[];
+	if (activeReport) {
+		dashboard = activeReport.dashboard;
+		pivotRows = buildTrainingReportPivotRows({ activeReport, status: filters.status });
+	} else {
+		const localMatrix = buildTrainingReportMatrix(filteredPersonnel, filteredLocalTrainingTypes, trainings);
+		dashboard = computeReadinessDashboardFromMatrix(localMatrix);
+		pivotRows = buildTrainingReportPivotRows({ activeReport: null, status: filters.status, matrix: localMatrix });
+	}
 	const sortedRows = activeReport ? pivotRows : sortTrainingReportRows(pivotRows, sort);
 	const reportColumns = buildTrainingReportColumns(filteredTypes);
 	const hasActiveFilters =
@@ -233,13 +226,18 @@ function toPersonnelFilters(filters: TrainingReportFilterState): ReportFilters {
 	};
 }
 
-function buildTrainingReportPivotRows(input: {
-	activeReport: TrainingReportData | null;
-	personnel: Personnel[];
-	trainingTypes: TrainingType[];
-	trainings: PersonnelTraining[];
-	status: TrainingStatus | '';
-}): TrainingReportPivotRow[] {
+function buildTrainingReportPivotRows(
+	input:
+		| {
+				activeReport: TrainingReportData;
+				status: TrainingStatus | '';
+		  }
+		| {
+				activeReport: null;
+				status: TrainingStatus | '';
+				matrix: ReturnType<typeof buildTrainingReportMatrix>;
+		  }
+): TrainingReportPivotRow[] {
 	if (input.activeReport) {
 		return input.activeReport.detail.rows.map((row) => ({
 			person: row.person,
@@ -256,7 +254,7 @@ function buildTrainingReportPivotRows(input: {
 		}));
 	}
 
-	const rows = buildPivotTable(input.personnel, input.trainingTypes, input.trainings);
+	const rows = buildPivotTableFromMatrix(input.matrix);
 	if (!input.status) return rows;
 	return rows.filter((row) => {
 		for (const cell of row.cells.values()) {
@@ -282,8 +280,8 @@ function sortTrainingReportRows(
 		} else {
 			const aCell = a.cells.get(sort.column);
 			const bCell = b.cells.get(sort.column);
-			const aOrder = aCell ? (STATUS_ORDER[aCell.status] ?? 99) : 99;
-			const bOrder = bCell ? (STATUS_ORDER[bCell.status] ?? 99) : 99;
+			const aOrder = aCell ? (TRAINING_STATUS_SORT_ORDER[aCell.status] ?? 99) : 99;
+			const bOrder = bCell ? (TRAINING_STATUS_SORT_ORDER[bCell.status] ?? 99) : 99;
 			cmp = aOrder - bOrder;
 		}
 		return sort.ascending ? cmp : -cmp;

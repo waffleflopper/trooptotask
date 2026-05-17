@@ -48,6 +48,25 @@ export interface PivotRow {
 	cells: Map<string, PivotCell>;
 }
 
+export interface TrainingReportMatrixCell extends PivotCell {
+	trainingTypeId: string;
+	isOptional: boolean;
+}
+
+export interface TrainingReportMatrixRow {
+	person: Personnel;
+	cells: Map<string, TrainingReportMatrixCell>;
+}
+
+export interface TrainingReportMatrix {
+	rows: TrainingReportMatrixRow[];
+	trainingTypes: TrainingType[];
+}
+
+interface BuildTrainingReportMatrixOptions {
+	getStatus?: (training: PersonnelTraining | undefined, type: TrainingType, person: Personnel) => TrainingStatusInfo;
+}
+
 function buildTrainingMap(trainings: PersonnelTraining[]): Map<string, PersonnelTraining> {
 	const map = new Map<string, PersonnelTraining>();
 	for (const t of trainings) {
@@ -77,15 +96,37 @@ export function filterPersonnel(personnel: Personnel[], filters: ReportFilters):
 	});
 }
 
-export function computeReadinessDashboard(
+export function buildTrainingReportMatrix(
 	personnel: Personnel[],
 	types: TrainingType[],
-	trainings: PersonnelTraining[]
-): ReadinessDashboard {
+	trainings: PersonnelTraining[],
+	options: BuildTrainingReportMatrixOptions = {}
+): TrainingReportMatrix {
 	const trainingMap = buildTrainingMap(trainings);
+	const getStatus = options.getStatus ?? getTrainingStatus;
 
-	// Exclude optional types from all readiness calculations
-	const requiredTypes = types.filter((type) => !type.isOptional);
+	return {
+		trainingTypes: types,
+		rows: personnel.map((person) => {
+			const cells = new Map<string, TrainingReportMatrixCell>();
+			for (const type of types) {
+				const training = trainingMap.get(`${person.id}-${type.id}`);
+				const statusInfo = getStatus(training, type, person);
+				cells.set(type.id, {
+					trainingTypeId: type.id,
+					isOptional: type.isOptional,
+					status: statusInfo.status,
+					label: statusInfo.label,
+					date: training?.expirationDate ?? training?.completionDate ?? null
+				});
+			}
+			return { person, cells };
+		})
+	};
+}
+
+export function computeReadinessDashboardFromMatrix(matrix: TrainingReportMatrix): ReadinessDashboard {
+	const requiredTypes = matrix.trainingTypes.filter((type) => !type.isOptional);
 
 	const statusCounts = {
 		current: 0,
@@ -96,14 +137,10 @@ export function computeReadinessDashboard(
 	};
 
 	const allStatuses: TrainingStatusInfo[] = [];
-	// Cache statuses keyed by "personId-typeId" to avoid recomputation
-	const statusCache = new Map<string, TrainingStatusInfo>();
-
-	for (const person of personnel) {
-		for (const type of requiredTypes) {
-			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
-			statusCache.set(`${person.id}-${type.id}`, statusInfo);
+	for (const row of matrix.rows) {
+		for (const cell of row.cells.values()) {
+			if (cell.isOptional) continue;
+			const statusInfo = cellToStatusInfo(cell);
 			allStatuses.push(statusInfo);
 
 			switch (statusInfo.status) {
@@ -139,8 +176,10 @@ export function computeReadinessDashboard(
 		let warningOrange = 0;
 		let expired = 0;
 		let notCompleted = 0;
-		for (const person of personnel) {
-			const statusInfo = statusCache.get(`${person.id}-${type.id}`)!;
+		for (const row of matrix.rows) {
+			const cell = row.cells.get(type.id);
+			if (!cell) continue;
+			const statusInfo = cellToStatusInfo(cell);
 			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
 			applicable++;
 			switch (statusInfo.status) {
@@ -186,7 +225,8 @@ export function computeReadinessDashboard(
 
 	// Group comparison (reuse cached statuses)
 	const groupMap = new Map<string, { groupName: string; statuses: TrainingStatusInfo[] }>();
-	for (const person of personnel) {
+	for (const row of matrix.rows) {
+		const person = row.person;
 		const gid = person.groupId ?? 'unassigned';
 		const gname = person.groupName || 'Unassigned';
 		if (!groupMap.has(gid)) {
@@ -194,8 +234,8 @@ export function computeReadinessDashboard(
 		}
 		const group = groupMap.get(gid)!;
 		for (const type of requiredTypes) {
-			const statusInfo = statusCache.get(`${person.id}-${type.id}`)!;
-			group.statuses.push(statusInfo);
+			const cell = row.cells.get(type.id);
+			if (cell) group.statuses.push(cellToStatusInfo(cell));
 		}
 	}
 
@@ -208,26 +248,43 @@ export function computeReadinessDashboard(
 	return { readinessPercent, statusCounts, worstTypes, groupComparison, typeBreakdown };
 }
 
+export function computeReadinessDashboard(
+	personnel: Personnel[],
+	types: TrainingType[],
+	trainings: PersonnelTraining[]
+): ReadinessDashboard {
+	return computeReadinessDashboardFromMatrix(buildTrainingReportMatrix(personnel, types, trainings));
+}
+
+export function buildPivotTableFromMatrix(matrix: TrainingReportMatrix): PivotRow[] {
+	return matrix.rows.map((row) => {
+		const cells = new Map<string, PivotCell>();
+		for (const [typeId, cell] of row.cells) {
+			cells.set(typeId, {
+				status: cell.status,
+				label: cell.label,
+				date: cell.date
+			});
+		}
+		return { person: row.person, cells };
+	});
+}
+
 export function buildPivotTable(
 	personnel: Personnel[],
 	types: TrainingType[],
 	trainings: PersonnelTraining[]
 ): PivotRow[] {
-	const trainingMap = buildTrainingMap(trainings);
+	return buildPivotTableFromMatrix(buildTrainingReportMatrix(personnel, types, trainings));
+}
 
-	return personnel.map((person) => {
-		const cells = new Map<string, PivotCell>();
-		for (const type of types) {
-			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
-			cells.set(type.id, {
-				status: statusInfo.status,
-				label: statusInfo.label,
-				date: training?.expirationDate ?? training?.completionDate ?? null
-			});
-		}
-		return { person, cells };
-	});
+function cellToStatusInfo(cell: TrainingReportMatrixCell): TrainingStatusInfo {
+	return {
+		status: cell.status,
+		color: '',
+		label: cell.label,
+		daysUntilExpiration: null
+	};
 }
 
 function escapeCSV(value: string): string {

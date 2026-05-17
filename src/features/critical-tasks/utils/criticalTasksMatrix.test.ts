@@ -109,6 +109,9 @@ describe('buildCriticalTasksMatrix', () => {
 			['universal', true, 'not-recorded'],
 			['infantry', false, 'not-recorded']
 		]);
+		expect(smith?.cellsByTaskId.get('medic')).toBe(smith?.cells[0]);
+		expect(smith?.cellsByTaskId.get('universal')).toBe(smith?.cells[1]);
+		expect(smith?.cellsByTaskId.get('infantry')).toBe(smith?.cells[2]);
 		expect(smith?.cells.find((cell) => cell.task.id === 'medic')?.completion?.id).toBe('new');
 
 		const jones = matrix.rows.find((row) => row.person.id === 'jones');

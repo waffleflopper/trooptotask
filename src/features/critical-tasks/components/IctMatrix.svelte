@@ -150,7 +150,7 @@
 	function handleCellClick(row: MatrixRow, column: MatrixColumn): void {
 		if (!canEdit) return;
 
-		const cell = row.source.cells.find((candidate) => candidate.task.id === column.source.id);
+		const cell = row.source.cellsByTaskId.get(column.source.id);
 		if (!cell || !cell.applicable) return;
 
 		onSelectCell?.({
@@ -233,7 +233,7 @@
 	<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
 		{@render rowHeader(row)}
 		{#each matrixColumns as column (column.id)}
-			{@const cell = row.source.cells.find((candidate) => candidate.task.id === column.source.id)}
+			{@const cell = row.source.cellsByTaskId.get(column.source.id)}
 			<OperationalMatrix.Cell
 				{row}
 				{column}

@@ -51,27 +51,19 @@ export const load: PageServerLoad = loadWithAdminContext({
 			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
 		]);
 
-		const enrichedOrgs = await Promise.all(
-			(orgs ?? []).map(async (org) => {
-				const ownerMembership = ownerMemberships.get(org.id);
-				let ownerEmail = '';
-				if (ownerMembership) {
-					const {
-						data: { user: ownerUser }
-					} = await adminClient.auth.admin.getUserById(ownerMembership.user_id);
-					ownerEmail = ownerUser?.email ?? '';
-				}
+		const enrichedOrgs = (orgs ?? []).map((org) => {
+			const ownerMembership = ownerMemberships.get(org.id);
+			const ownerEmail = ownerMembership?.email ?? '';
 
-				return {
-					...org,
-					effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
-					memberCount: memberCounts.get(org.id) ?? 0,
-					personnelCount: personnelCounts.get(org.id) ?? 0,
-					ownerEmail,
-					isSuspended: !!org.suspended_at
-				};
-			})
-		);
+			return {
+				...org,
+				effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
+				memberCount: memberCounts.get(org.id) ?? 0,
+				personnelCount: personnelCounts.get(org.id) ?? 0,
+				ownerEmail,
+				isSuspended: !!org.suspended_at
+			};
+		});
 
 		return { organizations: enrichedOrgs };
 	}

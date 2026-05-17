@@ -71,28 +71,36 @@ describe('admin organization metrics batching', () => {
 	it('fetches membership counts and owner memberships in batched organization queries', async () => {
 		const { client, calls } = makeAdminClient({
 			organization_memberships: [
-				{ organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
+				{ organization_id: 'org-1', user_id: 'owner-1', email: 'owner-1@example.mil', role: 'owner' },
 				{ organization_id: 'org-1', user_id: 'member-1', role: 'member' },
-				{ organization_id: 'org-2', user_id: 'owner-2', role: 'owner' },
+				{ organization_id: 'org-2', user_id: 'owner-2', email: 'owner-2@example.mil', role: 'owner' },
 				{ organization_id: 'org-3', user_id: 'owner-3a', role: 'owner' },
-				{ organization_id: 'org-3', user_id: 'owner-3b', role: 'owner' }
+				{ organization_id: 'org-3', user_id: 'owner-3b', role: 'owner' },
+				{ organization_id: 'org-4', user_id: 'owner-4', email: null, role: 'owner' }
 			]
 		});
 
-		const memberCounts = await fetchMembershipCountsByOrganization(client, ['org-1', 'org-2', 'org-3']);
+		const orgIds = ['org-1', 'org-2', 'org-3', 'org-4', 'org-5'];
+		const memberCounts = await fetchMembershipCountsByOrganization(client, orgIds);
 		const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const ownerMemberships = await fetchOwnerMembershipsByOrganization(client, ['org-1', 'org-2', 'org-3']);
+		const ownerMemberships = await fetchOwnerMembershipsByOrganization(client, orgIds);
 
 		expect(memberCounts.get('org-1')).toBe(2);
 		expect(memberCounts.get('org-2')).toBe(1);
-		expect(ownerMemberships.get('org-1')).toMatchObject({ user_id: 'owner-1' });
+		expect(ownerMemberships.get('org-1')).toMatchObject({ user_id: 'owner-1', email: 'owner-1@example.mil' });
+		expect(ownerMemberships.get('org-4')).toMatchObject({ user_id: 'owner-4', email: null });
 		expect(ownerMemberships.has('org-3')).toBe(false);
 		expect(consoleWarn).toHaveBeenCalledWith('[admin] Organization has unexpected owner membership count:', 'org-3', 2);
+		expect(consoleWarn).toHaveBeenCalledWith('[admin] Organization has unexpected owner membership count:', 'org-5', 0);
 		consoleWarn.mockRestore();
 		expect(client.from).toHaveBeenCalledTimes(2);
 		expect(calls).toEqual(
 			expect.arrayContaining([
-				{ table: 'organization_memberships', method: 'in', args: ['organization_id', ['org-1', 'org-2', 'org-3']] },
+				{
+					table: 'organization_memberships',
+					method: 'in',
+					args: ['organization_id', orgIds]
+				},
 				{ table: 'organization_memberships', method: 'eq', args: ['role', 'owner'] }
 			])
 		);

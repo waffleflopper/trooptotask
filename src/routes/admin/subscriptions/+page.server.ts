@@ -58,30 +58,22 @@ export const load: PageServerLoad = loadWithAdminContext({
 			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
 		]);
 
-		const enrichedOrgs = await Promise.all(
-			(orgs ?? []).map(async (org) => {
-				const ownerMembership = ownerMemberships.get(org.id);
-				let ownerEmail = '';
-				if (ownerMembership) {
-					const {
-						data: { user: ownerUser }
-					} = await adminClient.auth.admin.getUserById(ownerMembership.user_id);
-					ownerEmail = ownerUser?.email ?? '';
-				}
+		const enrichedOrgs = (orgs ?? []).map((org) => {
+			const ownerMembership = ownerMemberships.get(org.id);
+			const ownerEmail = ownerMembership?.email ?? '';
 
-				const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
+			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
-				return {
-					...org,
-					effectiveTier,
-					personnelCount: personnelCounts.get(org.id) ?? 0,
-					personnelCap: getPersonnelCapForTier(effectiveTier),
-					ownerEmail,
-					isGifted: !!org.gift_tier,
-					isSuspended: !!org.suspended_at
-				};
-			})
-		);
+			return {
+				...org,
+				effectiveTier,
+				personnelCount: personnelCounts.get(org.id) ?? 0,
+				personnelCap: getPersonnelCapForTier(effectiveTier),
+				ownerEmail,
+				isGifted: !!org.gift_tier,
+				isSuspended: !!org.suspended_at
+			};
+		});
 
 		return { subscriptions: enrichedOrgs };
 	}

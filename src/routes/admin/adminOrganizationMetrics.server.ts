@@ -17,6 +17,7 @@ type SupabaseQuery = {
 export interface OwnerMembershipRow {
 	organization_id: string;
 	user_id: string;
+	email: string | null;
 }
 
 function countByOrganizationId(rows: Array<{ organization_id: string }>): Map<string, number> {
@@ -84,7 +85,7 @@ export async function fetchOwnerMembershipsByOrganization(
 		(from, to) =>
 			adminClient
 				.from('organization_memberships')
-				.select('organization_id, user_id')
+				.select('organization_id, user_id, email')
 				.in('organization_id', orgIds)
 				.eq('role', 'owner')
 				.range(from, to) as unknown as QueryResult<OwnerMembershipRow>
@@ -103,7 +104,8 @@ export async function fetchOwnerMembershipsByOrganization(
 	}
 
 	const ownersByOrg = new Map<string, OwnerMembershipRow>();
-	for (const [orgId, rows] of ownerRowsByOrg) {
+	for (const orgId of orgIds) {
+		const rows = ownerRowsByOrg.get(orgId) ?? [];
 		if (rows.length === 1) {
 			ownersByOrg.set(orgId, rows[0]);
 		} else {

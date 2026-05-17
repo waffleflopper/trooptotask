@@ -17,12 +17,14 @@ import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import {
-	buildPivotTable,
-	computeReadinessDashboard,
+	buildPivotTableFromMatrix,
+	buildTrainingReportMatrix,
+	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	generatePivotCSV,
 	type PivotCell,
 	type PivotRow,
+	type ReadinessDashboard,
 	type ReportFilters
 } from '$features/training/utils/reportCalculations';
 import { requireFeaturePolicy } from './featurePolicy';
@@ -75,7 +77,7 @@ export interface TrainingReportDetail {
 }
 
 export interface TrainingReportData {
-	dashboard: ReturnType<typeof computeReadinessDashboard>;
+	dashboard: ReadinessDashboard;
 	detail: TrainingReportDetail;
 	trainingTypes: TrainingReportTrainingType[];
 	filterOptions: {
@@ -141,7 +143,7 @@ function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 }
 
 interface BuiltTrainingReport {
-	dashboard: ReturnType<typeof computeReadinessDashboard>;
+	dashboard: ReadinessDashboard;
 	pivotRows: PivotRow[];
 	trainingTypes: TrainingType[];
 	reportTrainingTypes: TrainingReportTrainingType[];
@@ -179,9 +181,10 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 	const selectedTypes = filters.trainingTypeIds?.length
 		? trainingTypes.filter((type) => filters.trainingTypeIds?.includes(type.id))
 		: trainingTypes;
-	const dashboard = computeReadinessDashboard(filteredPersonnel, selectedTypes, trainings);
+	const reportMatrix = buildTrainingReportMatrix(filteredPersonnel, selectedTypes, trainings);
+	const dashboard = computeReadinessDashboardFromMatrix(reportMatrix);
 
-	let pivotRows = buildPivotTable(filteredPersonnel, selectedTypes, trainings);
+	let pivotRows = buildPivotTableFromMatrix(reportMatrix);
 	if (filters.status) {
 		pivotRows = pivotRows.filter((row) => {
 			for (const cell of row.cells.values()) {

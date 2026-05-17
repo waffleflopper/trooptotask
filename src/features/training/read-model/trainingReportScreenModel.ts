@@ -6,7 +6,9 @@ import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/
 import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 import {
 	buildPivotTable,
-	computeReadinessDashboard,
+	buildPivotTableFromMatrix,
+	buildTrainingReportMatrix,
+	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	type PivotCell,
 	type PivotRow,
@@ -131,14 +133,21 @@ export function buildTrainingReportScreenModel(input: TrainingReportScreenModelI
 			? localTrainingTypes.filter((type) => filters.trainingTypeIds.includes(type.id))
 			: localTrainingTypes;
 	const typeFilterOptions = availableTypeFilters.map((type) => ({ value: type.id, label: type.name }));
-	const dashboard =
-		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, trainings);
+	let localMatrix: ReturnType<typeof buildTrainingReportMatrix> | null = null;
+	let dashboard: ReadinessDashboard;
+	if (activeReport) {
+		dashboard = activeReport.dashboard;
+	} else {
+		localMatrix = buildTrainingReportMatrix(filteredPersonnel, filteredLocalTrainingTypes, trainings);
+		dashboard = computeReadinessDashboardFromMatrix(localMatrix);
+	}
 	const pivotRows = buildTrainingReportPivotRows({
 		activeReport,
 		personnel: filteredPersonnel,
 		trainingTypes: filteredLocalTrainingTypes,
 		trainings,
-		status: filters.status
+		status: filters.status,
+		matrix: localMatrix
 	});
 	const sortedRows = activeReport ? pivotRows : sortTrainingReportRows(pivotRows, sort);
 	const reportColumns = buildTrainingReportColumns(filteredTypes);
@@ -239,6 +248,7 @@ function buildTrainingReportPivotRows(input: {
 	trainingTypes: TrainingType[];
 	trainings: PersonnelTraining[];
 	status: TrainingStatus | '';
+	matrix: ReturnType<typeof buildTrainingReportMatrix> | null;
 }): TrainingReportPivotRow[] {
 	if (input.activeReport) {
 		return input.activeReport.detail.rows.map((row) => ({
@@ -256,7 +266,9 @@ function buildTrainingReportPivotRows(input: {
 		}));
 	}
 
-	const rows = buildPivotTable(input.personnel, input.trainingTypes, input.trainings);
+	const rows = input.matrix
+		? buildPivotTableFromMatrix(input.matrix)
+		: buildPivotTable(input.personnel, input.trainingTypes, input.trainings);
 	if (!input.status) return rows;
 	return rows.filter((row) => {
 		for (const cell of row.cells.values()) {

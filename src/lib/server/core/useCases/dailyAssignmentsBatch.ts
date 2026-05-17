@@ -64,6 +64,22 @@ interface BatchResult {
 	cleared: number;
 }
 
+function normalizeBatchRecords(records: BatchRecord[]): BatchRecord[] {
+	return records.map((record) => ({ ...record, assigneeId: record.assigneeId.trim() }));
+}
+
+function duplicateBatchSlot(records: BatchRecord[]): BatchRecord | null {
+	const seen = new Set<string>();
+
+	for (const record of records) {
+		const key = toSlotKey(record.date, record.assignmentTypeId);
+		if (seen.has(key)) return record;
+		seen.add(key);
+	}
+
+	return null;
+}
+
 async function requireExistingAssignmentSlotPolicy(
 	ctx: WritePorts,
 	slotFilters: AssignmentSlotFilter[]
@@ -141,14 +157,20 @@ function normalizeBatchCooldownHours(value: number | undefined): number {
 }
 
 export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
-	const { records } = input;
+	const inputRecords = input.records;
 
-	if (!Array.isArray(records) || records.length === 0) {
+	if (!Array.isArray(inputRecords) || inputRecords.length === 0) {
 		fail(400, 'records array is required');
 	}
 
-	if (records.length > MAX_BATCH_SIZE) {
+	if (inputRecords.length > MAX_BATCH_SIZE) {
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	}
+
+	const records = normalizeBatchRecords(inputRecords);
+	const duplicateSlot = duplicateBatchSlot(records);
+	if (duplicateSlot) {
+		fail(400, `Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`);
 	}
 
 	const upserts = records.filter((r) => r.assigneeId);

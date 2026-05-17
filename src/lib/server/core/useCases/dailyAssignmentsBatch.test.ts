@@ -185,6 +185,74 @@ describe('batchDailyAssignments', () => {
 		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe('person-1');
 	});
 
+	it('treats whitespace assignees as clears before persistence and audit details', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'existing-1',
+				organization_id: 'test-org',
+				date: '2026-03-22',
+				assignment_type_id: 'type-a',
+				assignee_id: 'old-person'
+			}
+		]);
+
+		const result = await batchDailyAssignments(ctx, {
+			records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '   ' }]
+		});
+
+		expect(result).toEqual({ inserted: [], cleared: 1 });
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
+		expect(ctx.audit.events[0]).toMatchObject({
+			details: { totalSlots: 1, inserted: 0, cleared: 1 }
+		});
+	});
+
+	it('rejects duplicate set records before policy, persistence, and audit side effects', async () => {
+		const ctx = buildContext();
+		ctx.store.findMany = vi.fn(ctx.store.findMany.bind(ctx.store)) as typeof ctx.store.findMany;
+		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
+		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
+
+		await expect(
+			batchDailyAssignments(ctx, {
+				records: [
+					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
+					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-2' }
+				]
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
+		});
+
+		expect(ctx.store.findMany).not.toHaveBeenCalled();
+		expect(ctx.store.deleteWhereAny).not.toHaveBeenCalled();
+		expect(ctx.store.insertMany).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('rejects duplicate clear records and mixed set clear records with the same invalid-batch rule', async () => {
+		for (const records of [
+			[
+				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' },
+				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: ' ' }
+			],
+			[
+				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
+				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }
+			]
+		]) {
+			const ctx = buildContext();
+
+			await expect(batchDailyAssignments(ctx, { records })).rejects.toMatchObject({
+				status: 400,
+				message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
+			});
+			expect(ctx.audit.events).toEqual([]);
+		}
+	});
+
 	it('preserves Duty Roster Template run lineage on inserted assignments', async () => {
 		const ctx = buildContext();
 

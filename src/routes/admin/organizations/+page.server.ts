@@ -1,6 +1,11 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import {
+	fetchMembershipCountsByOrganization,
+	fetchOwnerMembershipsByOrganization,
+	fetchPersonnelCountsByOrganization
+} from '../adminOrganizationMetrics.server';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
@@ -39,26 +44,16 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin orgs query failed:', orgsError);
 		}
 
+		const orgIds = (orgs ?? []).map((org) => org.id);
+		const [memberCounts, personnelCounts, ownerMemberships] = await Promise.all([
+			fetchMembershipCountsByOrganization(adminClient, orgIds),
+			fetchPersonnelCountsByOrganization(adminClient, orgIds),
+			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
+		]);
+
 		const enrichedOrgs = await Promise.all(
 			(orgs ?? []).map(async (org) => {
-				const { count: memberCount } = await adminClient
-					.from('organization_memberships')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id);
-
-				const { count: personnelCount } = await adminClient
-					.from('personnel')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id)
-					.is('archived_at', null);
-
-				const { data: ownerMembership } = await adminClient
-					.from('organization_memberships')
-					.select('user_id')
-					.eq('organization_id', org.id)
-					.eq('role', 'owner')
-					.single();
-
+				const ownerMembership = ownerMemberships.get(org.id);
 				let ownerEmail = '';
 				if (ownerMembership) {
 					const {
@@ -70,8 +65,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 				return {
 					...org,
 					effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
-					memberCount: memberCount ?? 0,
-					personnelCount: personnelCount ?? 0,
+					memberCount: memberCounts.get(org.id) ?? 0,
+					personnelCount: personnelCounts.get(org.id) ?? 0,
 					ownerEmail,
 					isSuspended: !!org.suspended_at
 				};

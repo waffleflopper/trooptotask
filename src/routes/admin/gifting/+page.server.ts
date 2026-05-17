@@ -5,6 +5,7 @@ import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import type { Tier } from '$lib/types/subscription';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { fetchPersonnelCountsByOrganization } from '../adminOrganizationMetrics.server';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -65,13 +66,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 			emailMap[u.id] = u.email || 'Unknown';
 		});
 
-		const personnelCounts: Record<string, number> = {};
-		for (const org of allOrgs) {
-			const { data: countResult } = await adminClient.rpc('count_org_personnel', {
-				p_org_id: org.id
-			});
-			personnelCounts[org.id] = countResult ?? 0;
-		}
+		const personnelCounts = await fetchPersonnelCountsByOrganization(
+			adminClient,
+			allOrgs.map((org) => org.id)
+		);
 
 		let organizations = allOrgs.map((org) => ({
 			id: org.id,
@@ -81,7 +79,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			giftTier: org.gift_tier as Tier | null,
 			giftExpiresAt: org.gift_expires_at,
 			giftedBy: org.gifted_by,
-			personnelCount: personnelCounts[org.id] || 0,
+			personnelCount: personnelCounts.get(org.id) ?? 0,
 			hasActiveSubscription: !!org.stripe_subscription_id && org.subscription_status === 'active',
 			subscriptionStatus: org.subscription_status,
 			stripeSubscriptionId: org.stripe_subscription_id

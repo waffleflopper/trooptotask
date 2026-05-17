@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { fetchPersonnelCountsByOrganization } from '../../adminOrganizationMetrics.server';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
@@ -42,16 +43,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const orgIds = (orgsResult.data ?? [])
 			.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
-			.filter(Boolean);
-		const personnelCountMap: Record<string, number> = {};
-		for (const oid of orgIds) {
-			const { count } = await adminClient
-				.from('personnel')
-				.select('*', { count: 'exact', head: true })
-				.eq('organization_id', oid as string)
-				.is('archived_at', null);
-			personnelCountMap[oid as string] = count ?? 0;
-		}
+			.filter((id): id is string => typeof id === 'string');
+		const personnelCounts = await fetchPersonnelCountsByOrganization(adminClient, orgIds);
 
 		const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
 			const org = o.organizations as Record<string, unknown> | null;
@@ -60,7 +53,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				name: (org?.name as string) ?? 'Unknown',
 				role: o.role as string,
 				subscriptionTier: (org?.gift_tier ?? org?.tier ?? 'free') as string,
-				personnelCount: personnelCountMap[org?.id as string] ?? 0
+				personnelCount: typeof org?.id === 'string' ? (personnelCounts.get(org.id) ?? 0) : 0
 			};
 		});
 

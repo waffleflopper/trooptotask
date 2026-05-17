@@ -2,6 +2,10 @@ import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
+import {
+	fetchOwnerMembershipsByOrganization,
+	fetchPersonnelCountsByOrganization
+} from '../adminOrganizationMetrics.server';
 
 function getPersonnelCapForTier(tier: string): number | null {
 	const config = TIER_CONFIG[tier as Tier];
@@ -48,21 +52,15 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin subscriptions query failed:', orgsError);
 		}
 
+		const orgIds = (orgs ?? []).map((org) => org.id);
+		const [personnelCounts, ownerMemberships] = await Promise.all([
+			fetchPersonnelCountsByOrganization(adminClient, orgIds),
+			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
+		]);
+
 		const enrichedOrgs = await Promise.all(
 			(orgs ?? []).map(async (org) => {
-				const { count: personnelCount } = await adminClient
-					.from('personnel')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id)
-					.is('archived_at', null);
-
-				const { data: ownerMembership } = await adminClient
-					.from('organization_memberships')
-					.select('user_id')
-					.eq('organization_id', org.id)
-					.eq('role', 'owner')
-					.single();
-
+				const ownerMembership = ownerMemberships.get(org.id);
 				let ownerEmail = '';
 				if (ownerMembership) {
 					const {
@@ -76,7 +74,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				return {
 					...org,
 					effectiveTier,
-					personnelCount: personnelCount ?? 0,
+					personnelCount: personnelCounts.get(org.id) ?? 0,
 					personnelCap: getPersonnelCapForTier(effectiveTier),
 					ownerEmail,
 					isGifted: !!org.gift_tier,

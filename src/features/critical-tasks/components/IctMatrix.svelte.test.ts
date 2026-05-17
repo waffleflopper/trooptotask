@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import IctMatrix from './IctMatrix.svelte';
 import type {
 	CriticalTasksSettings,
@@ -196,5 +196,43 @@ describe('IctMatrix', () => {
 		expect(screen.getByRole('columnheader', { name: /181-105-0018 Task 18/ })).toBeTruthy();
 		expect(bodyRows).toHaveLength(densePersonnel.length + 1);
 		expect(scrollContainer.getAttribute('data-slot')).toBe('operational-matrix-viewport');
+	});
+
+	it('selects editable applicable cells and ignores not-applicable cells', async () => {
+		const onSelectCell = vi.fn();
+		render(IctMatrix, {
+			props: {
+				orgId: 'org-1',
+				personnel: [person({ id: 'smith', mos: '68W' })],
+				tasks: [
+					task({ id: 'medic', taskCode: '181-105-1001', title: 'Medic task', mos: ['68W'], sortOrder: 0 }),
+					task({ id: 'infantry', taskCode: '071-326-0501', title: 'Infantry task', mos: ['11B'], sortOrder: 1 })
+				],
+				completions: [
+					completion({
+						id: 'medic-completion',
+						personnelId: 'smith',
+						ictTaskId: 'medic',
+						completedAt: '2026-04-01'
+					})
+				],
+				groups,
+				settings,
+				canEdit: true,
+				onSelectCell,
+				asOf: '2026-04-15',
+				orgName: 'Test Unit'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Smith 181-105-1001: current/ }));
+		expect(onSelectCell).toHaveBeenCalledWith({
+			person: expect.objectContaining({ id: 'smith' }),
+			task: expect.objectContaining({ id: 'medic' }),
+			completion: expect.objectContaining({ id: 'medic-completion' })
+		});
+
+		await fireEvent.click(screen.getByLabelText('Smith 071-326-0501: not applicable'));
+		expect(onSelectCell).toHaveBeenCalledTimes(1);
 	});
 });

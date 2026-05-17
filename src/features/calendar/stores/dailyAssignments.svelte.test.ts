@@ -494,6 +494,67 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
 		});
 
+		it('clears an existing assignment through batch input with a blank assignee', async () => {
+			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
+			vi.stubGlobal('fetch', mockFetch({ inserted: [] }));
+
+			const result = await dailyAssignmentsStore.setAssignmentBatch([
+				{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: '   ' }
+			]);
+
+			expect(result).toBe(true);
+			expect(dailyAssignmentsStore.assignments).toEqual([]);
+			expect(fetch).toHaveBeenCalledWith(
+				'/org/org-1/api/daily-assignments/batch',
+				expect.objectContaining({
+					body: JSON.stringify({
+						records: [{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: '' }]
+					})
+				})
+			);
+		});
+
+		it('rejects duplicate set records for one daily assignment slot before optimistic changes', async () => {
+			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
+			vi.stubGlobal('fetch', vi.fn());
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+			const result = await dailyAssignmentsStore.setAssignmentBatch([
+				{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-new' },
+				{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-other' }
+			]);
+
+			expect(result).toBe(false);
+			expect(fetch).not.toHaveBeenCalled();
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+			expect(errorToast).toHaveBeenCalledWith('Duplicate daily assignment slot in batch: 2026-03-20 / type-1');
+		});
+
+		it('rejects duplicate clear records and mixed set clear records with the same invalid-batch rule', async () => {
+			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
+			vi.stubGlobal('fetch', vi.fn());
+
+			await expect(
+				dailyAssignmentsStore.setAssignmentBatch([
+					{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: '' },
+					{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: ' ' }
+				])
+			).resolves.toBe(false);
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+
+			await expect(
+				dailyAssignmentsStore.setAssignmentBatch([
+					{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-new' },
+					{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: '' }
+				])
+			).resolves.toBe(false);
+			expect(fetch).not.toHaveBeenCalled();
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+		});
+
 		it('shows the server conflict message when a batch assignment is blocked by duty cooldown', async () => {
 			vi.stubGlobal('fetch', mockFetch({ message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.' }, 409));
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

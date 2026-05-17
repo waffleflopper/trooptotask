@@ -23,6 +23,7 @@ export interface CriticalTasksMatrixCell {
 export interface CriticalTasksMatrixRow {
 	person: Personnel;
 	cells: CriticalTasksMatrixCell[];
+	cellsByTaskId: Map<string, CriticalTasksMatrixCell>;
 	hasGap: boolean;
 	readinessPercent: number;
 	readyCount: number;
@@ -119,6 +120,10 @@ function readinessPercent(readyCount: number, applicableCount: number): number {
 	return applicableCount === 0 ? 0 : Math.round((readyCount / applicableCount) * 100);
 }
 
+function buildCellLookup(cells: CriticalTasksMatrixCell[]): Map<string, CriticalTasksMatrixCell> {
+	return new Map(cells.map((cell) => [cell.task.id, cell]));
+}
+
 function normalizeSearchTerm(value: string): string {
 	return value.trim().toLowerCase();
 }
@@ -200,6 +205,7 @@ export function buildCriticalTasksMatrix({
 				return {
 					person,
 					cells,
+					cellsByTaskId: buildCellLookup(cells),
 					hasGap,
 					readinessPercent: readinessPercent(readyCount, applicableCount),
 					readyCount,
@@ -241,10 +247,14 @@ export function buildCriticalTasksMatrix({
 			.map((group) => {
 				const rows = group.rows
 					.filter((row) => row.hasGap)
-					.map((row) => ({
-						...row,
-						cells: row.cells.filter((cell) => gapTaskIds.has(cell.task.id))
-					}));
+					.map((row) => {
+						const cells = row.cells.filter((cell) => gapTaskIds.has(cell.task.id));
+						return {
+							...row,
+							cells,
+							cellsByTaskId: buildCellLookup(cells)
+						};
+					});
 				const groupReadyCount = rows.reduce((total, row) => total + row.readyCount, 0);
 				const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
 				return {

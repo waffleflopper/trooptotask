@@ -256,7 +256,7 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 	// Day header row with day names and numbers
 	let dateMetaIndex = 0;
 	for (const month of months) {
-		for (const _date of month.dates) {
+		for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
 			const meta = exportIndex.dateMetas[dateMetaIndex++];
 			const dayName = meta.date.toLocaleDateString('en-US', { weekday: 'short' });
 			const dayNum = meta.date.getDate();
@@ -279,7 +279,7 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 
 				let personDateMetaIndex = 0;
 				for (const month of months) {
-					for (const _date of month.dates) {
+					for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
 						const meta = exportIndex.dateMetas[personDateMetaIndex++];
 						const status = exportIndex.getStatus(person.id, meta.dateKey);
 						const personAssignments = exportIndex.getAssignments(person.id, meta.dateKey);

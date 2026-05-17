@@ -6,6 +6,7 @@ import type { Tier } from '$lib/types/subscription';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
+	type AdminMetricsClient,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
 } from '../adminOrganizationMetrics.server';
@@ -52,9 +53,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const allOrgs = (orgs ?? []) as OrgRow[];
 
 		const orgIds = allOrgs.map((org) => org.id);
+		const metricsClient = adminClient as unknown as AdminMetricsClient;
 		const [personnelCounts, ownerMemberships] = await Promise.all([
-			fetchPersonnelCountsByOrganization(adminClient, orgIds),
-			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
+			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
+			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
 		]);
 
 		let organizations = allOrgs.map((org) => ({

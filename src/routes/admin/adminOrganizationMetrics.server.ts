@@ -1,6 +1,6 @@
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
-type AdminClient = {
+export type AdminMetricsClient = {
 	from: (table: string) => {
 		select: (columns: string, options?: Record<string, unknown>) => SupabaseQuery;
 	};
@@ -29,7 +29,7 @@ function countByOrganizationId(rows: Array<{ organization_id: string }>): Map<st
 }
 
 export async function fetchPersonnelCountsByOrganization(
-	adminClient: AdminClient,
+	adminClient: AdminMetricsClient,
 	orgIds: string[]
 ): Promise<Map<string, number>> {
 	if (orgIds.length === 0) return new Map();
@@ -53,7 +53,7 @@ export async function fetchPersonnelCountsByOrganization(
 }
 
 export async function fetchMembershipCountsByOrganization(
-	adminClient: AdminClient,
+	adminClient: AdminMetricsClient,
 	orgIds: string[]
 ): Promise<Map<string, number>> {
 	if (orgIds.length === 0) return new Map();
@@ -76,7 +76,7 @@ export async function fetchMembershipCountsByOrganization(
 }
 
 export async function fetchOwnerMembershipsByOrganization(
-	adminClient: AdminClient,
+	adminClient: AdminMetricsClient,
 	orgIds: string[]
 ): Promise<Map<string, OwnerMembershipRow>> {
 	if (orgIds.length === 0) return new Map();

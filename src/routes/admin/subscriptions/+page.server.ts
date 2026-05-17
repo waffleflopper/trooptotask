@@ -3,6 +3,7 @@ import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 import {
+	type AdminMetricsClient,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
 } from '../adminOrganizationMetrics.server';
@@ -53,9 +54,10 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const orgIds = (orgs ?? []).map((org) => org.id);
+		const metricsClient = adminClient as unknown as AdminMetricsClient;
 		const [personnelCounts, ownerMemberships] = await Promise.all([
-			fetchPersonnelCountsByOrganization(adminClient, orgIds),
-			fetchOwnerMembershipsByOrganization(adminClient, orgIds)
+			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
+			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
 		]);
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {

@@ -4,6 +4,16 @@ import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 import { formatDate } from '$lib/utils/dates';
 import { isTrainingApplicable } from './applicability';
 
+export const TRAINING_STATUS_SORT_ORDER: Record<TrainingStatus, number> = {
+	expired: 0,
+	'warning-orange': 1,
+	'warning-yellow': 2,
+	'not-completed': 3,
+	current: 4,
+	'not-required': 5,
+	exempt: 6
+};
+
 export interface TrainingStatusInfo {
 	status: TrainingStatus;
 	color: string;
@@ -203,19 +213,9 @@ export function getDelinquentTrainings(
 		}
 	}
 
-	// Sort by urgency: expired first (by days since), then orange, yellow, not-completed
-	const statusOrder: Record<TrainingStatus, number> = {
-		expired: 0,
-		'warning-orange': 1,
-		'warning-yellow': 2,
-		'not-completed': 3,
-		current: 4,
-		'not-required': 5,
-		exempt: 6
-	};
-
 	delinquent.sort((a, b) => {
-		const statusDiff = statusOrder[a.statusInfo.status] - statusOrder[b.statusInfo.status];
+		const statusDiff =
+			TRAINING_STATUS_SORT_ORDER[a.statusInfo.status] - TRAINING_STATUS_SORT_ORDER[b.statusInfo.status];
 		if (statusDiff !== 0) return statusDiff;
 
 		// Within same status, sort by days (most urgent first)

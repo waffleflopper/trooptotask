@@ -4,6 +4,7 @@ import type { Personnel } from '$lib/types';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
 import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
+import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import {
 	buildPivotTableFromMatrix,
 	buildTrainingReportMatrix,
@@ -88,16 +89,6 @@ const STATUS_OPTIONS: Array<{ value: TrainingStatus; label: string }> = [
 	{ value: 'expired', label: 'Expired' },
 	{ value: 'not-completed', label: 'Not Done' }
 ];
-
-const STATUS_ORDER: Record<TrainingStatus, number> = {
-	expired: 0,
-	'warning-orange': 1,
-	'warning-yellow': 2,
-	'not-completed': 3,
-	current: 4,
-	'not-required': 5,
-	exempt: 6
-};
 
 export function createEmptyTrainingReportFilters(): TrainingReportFilterState {
 	return {
@@ -289,8 +280,8 @@ function sortTrainingReportRows(
 		} else {
 			const aCell = a.cells.get(sort.column);
 			const bCell = b.cells.get(sort.column);
-			const aOrder = aCell ? (STATUS_ORDER[aCell.status] ?? 99) : 99;
-			const bOrder = bCell ? (STATUS_ORDER[bCell.status] ?? 99) : 99;
+			const aOrder = aCell ? (TRAINING_STATUS_SORT_ORDER[aCell.status] ?? 99) : 99;
+			const bOrder = bCell ? (TRAINING_STATUS_SORT_ORDER[bCell.status] ?? 99) : 99;
 			cmp = aOrder - bOrder;
 		}
 		return sort.ascending ? cmp : -cmp;

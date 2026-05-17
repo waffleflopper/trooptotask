@@ -26,6 +26,7 @@ import {
 	type ReadinessDashboard,
 	type ReportFilters
 } from '$features/training/utils/reportCalculations';
+import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import { requireFeaturePolicy } from './featurePolicy';
 
 export interface TrainingReportsData {
@@ -89,16 +90,6 @@ export interface TrainingReportData {
 
 const DEFAULT_REPORT_PAGE_SIZE = 25;
 const MAX_REPORT_PAGE_SIZE = 100;
-
-const statusOrder: Record<TrainingStatus, number> = {
-	expired: 0,
-	'warning-orange': 1,
-	'warning-yellow': 2,
-	'not-completed': 3,
-	current: 4,
-	'not-required': 5,
-	exempt: 6
-};
 
 export async function fetchTrainingReportsData(ctx: QueryPorts): Promise<TrainingReportsData> {
 	await requireTrainingRecordView(ctx);
@@ -200,7 +191,9 @@ async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput =
 		} else {
 			const aCell = a.cells.get(sort.column);
 			const bCell = b.cells.get(sort.column);
-			cmp = (aCell ? (statusOrder[aCell.status] ?? 99) : 99) - (bCell ? (statusOrder[bCell.status] ?? 99) : 99);
+			cmp =
+				(aCell ? (TRAINING_STATUS_SORT_ORDER[aCell.status] ?? 99) : 99) -
+				(bCell ? (TRAINING_STATUS_SORT_ORDER[bCell.status] ?? 99) : 99);
 		}
 		return sort.direction === 'asc' ? cmp : -cmp;
 	});

@@ -56,6 +56,7 @@
 
 	// Get today's assignments
 	const todayAssignments = $derived(assignments.filter((a) => a.date === selectedDateStr));
+	const statusTypesById = $derived(new SvelteMap(statusTypes.map((status) => [status.id, status])));
 
 	// Find assignment types and their assigned values
 	const assignmentInfo = $derived.by(() => {
@@ -87,16 +88,22 @@
 		});
 	});
 
-	// Get personnel with statuses today
-	function getPersonnelStatuses(personnelId: string): { status: StatusType; entry: AvailabilityEntry }[] {
-		return availabilityEntries
-			.filter((e) => e.personnelId === personnelId && selectedDateStr >= e.startDate && selectedDateStr <= e.endDate)
-			.map((e) => {
-				const status = statusTypes.find((s) => s.id === e.statusTypeId);
-				return status ? { status, entry: e } : null;
-			})
-			.filter((s): s is { status: StatusType; entry: AvailabilityEntry } => s !== null);
-	}
+	const statusesByPersonnelForSelectedDate = $derived.by(() => {
+		const grouped = new SvelteMap<string, { status: StatusType; entry: AvailabilityEntry }[]>();
+
+		for (const entry of availabilityEntries) {
+			if (selectedDateStr < entry.startDate || selectedDateStr > entry.endDate) continue;
+
+			const status = statusTypesById.get(entry.statusTypeId);
+			if (!status) continue;
+
+			const statuses = grouped.get(entry.personnelId) ?? [];
+			statuses.push({ status, entry });
+			grouped.set(entry.personnelId, statuses);
+		}
+
+		return grouped;
+	});
 
 	// Categorize personnel
 	const personnelBreakdown = $derived.by(() => {
@@ -114,7 +121,7 @@
 		}
 
 		for (const person of allPersonnel) {
-			const statuses = getPersonnelStatuses(person.id);
+			const statuses = statusesByPersonnelForSelectedDate.get(person.id) ?? [];
 			const assignments = personnelAssignments.get(person.id) || [];
 
 			if (statuses.length === 0) {

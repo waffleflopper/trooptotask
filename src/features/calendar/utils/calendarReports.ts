@@ -39,6 +39,35 @@ function sortByRank(personnel: Personnel[]): Personnel[] {
 	});
 }
 
+function buildAvailabilityEntryDateIndex(
+	entries: AvailabilityEntry[],
+	startDate: string,
+	endDate: string
+): {
+	getFirstEntry: (personnelId: string, date: string) => AvailabilityEntry | undefined;
+	hasEntry: (personnelId: string, date: string) => boolean;
+} {
+	const entryByPersonnelDate = new Map<string, AvailabilityEntry>();
+
+	for (const entry of entries) {
+		if (entry.endDate < startDate || entry.startDate > endDate) {
+			continue;
+		}
+		const dates = expandDateRange(entry.startDate, entry.endDate, startDate, endDate);
+		for (const date of dates) {
+			const key = `${entry.personnelId}:${date}`;
+			if (!entryByPersonnelDate.has(key)) {
+				entryByPersonnelDate.set(key, entry);
+			}
+		}
+	}
+
+	return {
+		getFirstEntry: (personnelId, date) => entryByPersonnelDate.get(`${personnelId}:${date}`),
+		hasEntry: (personnelId, date) => entryByPersonnelDate.has(`${personnelId}:${date}`)
+	};
+}
+
 // =============================================================
 // 1. Availability Forecast
 // =============================================================
@@ -66,25 +95,13 @@ export function computeAvailabilityForecast(
 	const statusMap = new Map(statusTypes.map((s) => [s.id, s]));
 	const dates = allDatesInRange(startDate, endDate);
 	const total = personnel.length;
-
-	// Index entries by personnelId
-	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
-	for (const entry of entries) {
-		let list = entriesByPerson.get(entry.personnelId);
-		if (!list) {
-			list = [];
-			entriesByPerson.set(entry.personnelId, list);
-		}
-		list.push(entry);
-	}
+	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
 
 	const days: ForecastDay[] = dates.map((dateStr) => {
 		const unavailablePersonnel: ForecastDay['unavailablePersonnel'] = [];
 
 		for (const person of personnel) {
-			const personEntries = entriesByPerson.get(person.id) ?? [];
-			// Check if person has any status on this date
-			const activeEntry = personEntries.find((e) => dateStr >= e.startDate && dateStr <= e.endDate);
+			const activeEntry = availabilityIndex.getFirstEntry(person.id, dateStr);
 			if (activeEntry) {
 				const st = statusMap.get(activeEntry.statusTypeId);
 				unavailablePersonnel.push({
@@ -291,17 +308,7 @@ export function computeGroupReadiness(
 	endDate: string
 ): GroupReadinessResult {
 	const dates = allDatesInRange(startDate, endDate);
-
-	// Index entries by personnelId
-	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
-	for (const entry of entries) {
-		let list = entriesByPerson.get(entry.personnelId);
-		if (!list) {
-			list = [];
-			entriesByPerson.set(entry.personnelId, list);
-		}
-		list.push(entry);
-	}
+	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
 
 	// Group personnel
 	const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.id));
@@ -312,9 +319,7 @@ export function computeGroupReadiness(
 		const cells: ReadinessCell[] = dates.map((dateStr) => {
 			let unavailableCount = 0;
 			for (const person of groupPersonnel) {
-				const personEntries = entriesByPerson.get(person.id) ?? [];
-				const hasStatus = personEntries.some((e) => dateStr >= e.startDate && dateStr <= e.endDate);
-				if (hasStatus) unavailableCount++;
+				if (availabilityIndex.hasEntry(person.id, dateStr)) unavailableCount++;
 			}
 
 			const availableCount = total - unavailableCount;

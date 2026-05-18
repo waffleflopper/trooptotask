@@ -12,7 +12,8 @@ const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
-				userId: 'user-1'
+				userId: 'user-1',
+				orgId: '11111111-1111-1111-1111-111111111111'
 			},
 			store: {
 				findMany: findManyMock
@@ -57,11 +58,7 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 			}
 		});
 
-		const port = createSupabaseTrainingWorkspacePort(
-			{} as App.Locals,
-			{} as Cookies,
-			'11111111-1111-1111-1111-111111111111'
-		);
+		const port = createSupabaseTrainingWorkspacePort({} as App.Locals, {} as Cookies, '1-11-bde');
 		const streamed = await port.streamWorkspaceData<TrainingBootstrap>('training');
 		let bootstrap: TrainingBootstrap | undefined;
 
@@ -74,7 +71,7 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 		expect(loadWithContextMock).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
-			'11111111-1111-1111-1111-111111111111',
+			'1-11-bde',
 			expect.objectContaining({
 				permission: 'training',
 				policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
@@ -89,5 +86,13 @@ describe('createSupabaseTrainingWorkspacePort', () => {
 		expect(bootstrap?.trainingViews).toBeInstanceOf(Promise);
 		expect(bootstrap?.pinnedGroups).toBeInstanceOf(Promise);
 		expect(bootstrap?.personnelTrainings).toBeInstanceOf(Promise);
+		expect(findManyMock).toHaveBeenCalledWith(
+			'training_types',
+			'11111111-1111-1111-1111-111111111111',
+			undefined,
+			expect.objectContaining({
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			})
+		);
 	});
 });

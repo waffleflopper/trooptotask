@@ -397,6 +397,7 @@ export function createSupabaseTrainingWorkspacePort(
 	function getTrainingData(defer: true): Promise<DeferredData<TrainingBootstrap>>;
 	function getTrainingData(defer: boolean = false): Promise<TrainingBootstrap | DeferredData<TrainingBootstrap>> {
 		const fn = async (ctx: UseCaseContext) => {
+			const canonicalOrgId = ctx.auth.orgId;
 			const loadTrainingItems = <T>(
 				label: string,
 				load: Promise<Record<string, unknown>[]>,
@@ -412,7 +413,7 @@ export function createSupabaseTrainingWorkspacePort(
 
 			const personnel = loadTrainingItems(
 				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
 					select: PersonnelEntity.select,
 					isNull: { archived_at: true },
 					orderBy: [{ column: 'last_name', ascending: true }]
@@ -421,21 +422,21 @@ export function createSupabaseTrainingWorkspacePort(
 			);
 			const groups = loadTrainingItems(
 				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => GroupEntity.fromDbArray(rows) as Group[]
 			);
 			const trainingTypes = loadTrainingItems(
 				'training types',
-				ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
 			);
 			const trainingViews = loadTrainingItems(
 				'training views',
-				ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
 					orderBy: [{ column: 'name', ascending: true }]
 				}),
 				(rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
@@ -445,7 +446,7 @@ export function createSupabaseTrainingWorkspacePort(
 						'pinned groups',
 						ctx.store.findMany<Record<string, unknown>>(
 							'user_pinned_groups',
-							orgId,
+							canonicalOrgId,
 							{ user_id: ctx.auth.userId },
 							{
 								orderBy: [{ column: 'sort_order', ascending: true }]
@@ -457,7 +458,7 @@ export function createSupabaseTrainingWorkspacePort(
 
 			const personnelTrainings = loadTrainingItems(
 				'personnel trainings',
-				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
+				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
 				(rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
 			);
 
@@ -520,6 +521,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		defer: boolean = false
 	): Promise<CriticalTasksBootstrap> | Promise<DeferredData<CriticalTasksBootstrap>> {
 		const fn = async (ctx: UseCaseContext) => {
+			const canonicalOrgId = ctx.auth.orgId;
 			const loadCriticalTasksItems = <T>(
 				label: string,
 				load: Promise<Record<string, unknown>[]>,
@@ -535,7 +537,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 			const personnel = loadCriticalTasksItems(
 				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
 					select: PersonnelEntity.select,
 					isNull: { archived_at: true },
 					orderBy: [{ column: 'last_name', ascending: true }]
@@ -544,14 +546,14 @@ export function createSupabaseCriticalTasksWorkspacePort(
 			);
 			const groups = loadCriticalTasksItems(
 				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => GroupEntity.fromDbArray(rows) as Group[]
 			);
 			const ictTasks = loadCriticalTasksItems(
 				'ICT tasks',
-				ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('ict_tasks', canonicalOrgId, undefined, {
 					isNull: { archived_at: true },
 					orderBy: [
 						{ column: 'sort_order', ascending: true },
@@ -562,7 +564,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 			);
 			const personnelIctCompletions = Promise.all([personnel, ictTasks])
 				.then(([loadedPersonnel, loadedTasks]) =>
-					ctx.criticalTasksReadModel.findLatestCompletions(orgId, {
+					ctx.criticalTasksReadModel.findLatestCompletions(canonicalOrgId, {
 						personnelIds: loadedPersonnel.map((person) => person.id),
 						taskIds: loadedTasks.map((task) => task.id)
 					})

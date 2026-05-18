@@ -105,9 +105,11 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('alertdialog')).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Archive template' })).toBeTruthy();
+		expect(screen.getByText('Also archive the Calendar assignment type')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
 		expect(document.querySelector('form[action="/org/org-1/duty-rosters?/archiveTemplate"]')).toBeTruthy();
 		expect(document.querySelector('input[name="templateId"][value="template-1"]')).toBeTruthy();
+		expect(document.querySelector('input[name="archiveAssignmentType"][value="false"]')).toBeTruthy();
 	});
 
 	it('shows New Template wizard validation errors without dropping entered values', () => {

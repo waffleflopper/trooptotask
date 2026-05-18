@@ -11,7 +11,8 @@ const { findManyMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
-				userId: 'user-1'
+				userId: 'user-1',
+				orgId: '11111111-1111-1111-1111-111111111111'
 			},
 			store: {
 				findMany: findManyMock
@@ -54,11 +55,7 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 			}
 		});
 
-		const port = createSupabaseCriticalTasksWorkspacePort(
-			{} as App.Locals,
-			{} as Cookies,
-			'11111111-1111-1111-1111-111111111111'
-		);
+		const port = createSupabaseCriticalTasksWorkspacePort({} as App.Locals, {} as Cookies, '1-11-bde');
 		const streamed = await port.streamWorkspaceData<CriticalTasksBootstrap>('critical-tasks');
 		let bootstrap: CriticalTasksBootstrap | undefined;
 
@@ -71,7 +68,7 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 		expect(loadWithContextMock).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
-			'11111111-1111-1111-1111-111111111111',
+			'1-11-bde',
 			expect.objectContaining({ permission: 'critical-tasks', defer: true })
 		);
 		expect(bootstrap).toBeDefined();

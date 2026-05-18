@@ -57,19 +57,19 @@ export function _createCriticalTasksLayoutLoad(deps: CriticalTasksLayoutLoadDeps
 	const loadCriticalTasksSettingsFn = deps.loadCriticalTasksSettings ?? loadCriticalTasksSettings;
 
 	return async ({
-		params,
 		locals,
 		cookies,
-		depends
+		depends,
+		parent
 	}: {
-		params: { orgId: string };
 		locals: App.Locals;
 		cookies: Cookies;
 		depends: (...deps: string[]) => void;
+		parent: () => Promise<{ orgId: string }>;
 	}) => {
 		depends('app:org-core', 'app:critical-tasks-data');
 
-		const { orgId } = params;
+		const { orgId } = await parent();
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 		const criticalTasksSettings = await loadCriticalTasksSettingsFn({ locals, orgId });

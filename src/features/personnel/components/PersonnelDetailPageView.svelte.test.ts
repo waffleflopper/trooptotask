@@ -1,13 +1,26 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '$lib/types';
+
+const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	invalidateAllMock: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	invalidateAll: invalidateAllMock
+}));
+
+import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	gotoMock.mockReset();
+	invalidateAllMock.mockReset();
 });
 
 const person: Personnel = {
@@ -362,6 +375,36 @@ describe('PersonnelDetailPageView', () => {
 			headers: { 'content-type': 'application/json' },
 			body: expect.stringContaining('"groupId":"group-empty"')
 		});
+	});
+
+	it('archives the personnel record from the detail page and returns to the roster', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ success: true })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail(),
+				canArchivePersonnel: true
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Rivera, Monica' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ id: 'person-1' })
+		});
+		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel');
 	});
 
 	it('shows inline errors when quick actions fail', async () => {

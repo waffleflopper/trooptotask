@@ -122,6 +122,17 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
+	personnelArchiveAffordance(person: Personnel): ClientAffordance {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.archiveRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		);
+	}
+
+	canArchivePersonnelRecord(person: Personnel): boolean {
+		return this.personnelArchiveAffordance(person).allowed;
+	}
+
 	// ---- Derived: filtered personnel ----
 
 	get filteredPersonnel(): Personnel[] {

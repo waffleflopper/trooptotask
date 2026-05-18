@@ -6,7 +6,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
+	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
 	import type {
 		PersonnelCounselingRecord,
 		PersonnelDetailStreams,
@@ -22,11 +24,12 @@
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 	import { cn } from '$lib/utils';
+	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	interface Props {
@@ -36,6 +39,7 @@
 		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;
+		canArchivePersonnel?: boolean;
 	}
 
 	type Tone = PersonnelReadinessLaneTone;
@@ -46,9 +50,11 @@
 		promise: Promise<PersonnelReadinessLane>;
 	}
 
-	let { orgId, person, groups = [], orgName, detail }: Props = $props();
+	let { orgId, person, groups = [], orgName, detail, canArchivePersonnel = false }: Props = $props();
 	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
+	let showArchiveConfirm = $state(false);
+	let archiveSubmitting = $state(false);
 	let editingBasicInfo = $state(false);
 	let basicInfoRank = $state('');
 	let basicInfoFirstName = $state('');
@@ -253,6 +259,26 @@
 			basicInfoError = caught instanceof Error ? caught.message : 'Unable to update basic info.';
 		} finally {
 			basicInfoSaving = false;
+		}
+	}
+
+	async function confirmArchive() {
+		if (archiveSubmitting) return;
+		archiveSubmitting = true;
+		try {
+			const result = await archivePersonnel({
+				orgId,
+				person: currentPerson,
+				resourceUrl: `/org/${orgId}/personnel/${currentPerson.slug ?? currentPerson.id}`
+			});
+			if (result === 'archived') {
+				await invalidateAll();
+				await goto(resolve(`/org/${orgId}/personnel`));
+			} else {
+				showArchiveConfirm = false;
+			}
+		} finally {
+			archiveSubmitting = false;
 		}
 	}
 
@@ -686,7 +712,21 @@
 							<h2 class="font-semibold">Service details</h2>
 						</div>
 						{#if !editingBasicInfo}
-							<Button type="button" variant="outline" size="sm" onclick={startBasicInfoEdit}>Edit basic info</Button>
+							<div class="flex items-center gap-2">
+								{#if canArchivePersonnel}
+									<Button
+										type="button"
+										variant="destructive"
+										size="icon-sm"
+										title="Archive {currentPerson.rank} {currentPerson.lastName}, {currentPerson.firstName}"
+										aria-label="Archive {currentPerson.rank} {currentPerson.lastName}, {currentPerson.firstName}"
+										onclick={() => (showArchiveConfirm = true)}
+									>
+										<ArchiveIcon aria-hidden="true" />
+									</Button>
+								{/if}
+								<Button type="button" variant="outline" size="sm" onclick={startBasicInfoEdit}>Edit basic info</Button>
+							</div>
 						{/if}
 					</div>
 					{#if editingBasicInfo}
@@ -810,6 +850,18 @@
 		</div>
 	</section>
 </main>
+
+{#if showArchiveConfirm}
+	<ConfirmDialog
+		title="Archive Personnel"
+		message="Archive {currentPerson.rank} {currentPerson.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
+		confirmLabel="Archive"
+		variant="warning"
+		loading={archiveSubmitting}
+		onConfirm={confirmArchive}
+		onCancel={() => (showArchiveConfirm = false)}
+	/>
+{/if}
 
 {#snippet ToneBadge(tone: Tone, label: string)}
 	<span

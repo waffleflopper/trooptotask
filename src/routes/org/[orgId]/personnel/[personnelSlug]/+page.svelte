@@ -1,7 +1,9 @@
 <script lang="ts">
 	import PersonnelDetailPageView from '$features/personnel/components/PersonnelDetailPageView.svelte';
 	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
+	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$lib/stores/groups.svelte';
+	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import type { Personnel } from '$lib/types';
 
 	interface PersonnelLayoutData {
@@ -19,9 +21,16 @@
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
+	const org = getOrgContext();
 	const roster = $derived(data.personnel?.data?.personnel ?? []);
 	const groups = $derived(data.personnel?.data?.groups ?? []);
 	const person = $derived(data.personnelDetailHeader.person);
+	const canArchivePersonnel = $derived(
+		org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.archiveRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		).allowed
+	);
 </script>
 
 <PersonnelDetailPageView
@@ -31,4 +40,5 @@
 	{groups}
 	orgName={data.orgName}
 	detail={data.personnelDetail}
+	{canArchivePersonnel}
 />

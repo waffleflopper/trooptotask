@@ -1,0 +1,316 @@
+import { sortMembers } from '$features/groups/utils/sortMembers';
+import {
+	DURABLE_FEATURE_LANES,
+	resolveMemberAccessShapeFromStoredOrCurrent,
+	TARGET_MEMBER_PRESET_CAPABILITIES,
+	type CapabilityLevel,
+	type DurableFeatureLane,
+	type MemberAccessShape,
+	type MemberPreset,
+	type ScopeSet,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
+import type { OrganizationMember, OrganizationMemberPermissions, PermissionPreset } from '$lib/types';
+import { getPermissionPreset } from '$lib/types';
+
+export type EditablePreset = StoredMemberPreset | 'admin';
+export type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
+export type ScopeKind = ScopeSet['kind'];
+export type AccessLaneConfig = { id: DurableFeatureLane; label: string };
+export type AccessOption = { value: EditablePreset; label: string; helper: string };
+export type SettingsInvitationAccessRow = Partial<OrganizationMemberPermissions> & {
+	id: string;
+	email: string;
+	status: string;
+	createdAt: string;
+	scopedGroupId: string | null;
+	permissions?: Partial<OrganizationMemberPermissions>;
+};
+
+export interface SettingsMemberAccessData {
+	members: OrganizationMember[];
+	invitations: SettingsInvitationAccessRow[];
+	groups: Array<{ id: string; name: string }>;
+	isOwner: boolean;
+}
+
+export const SETTINGS_ACCESS_OPTIONS: AccessOption[] = [
+	{ value: 'admin', label: 'Admin', helper: 'Governance role. Can manage organization access.' },
+	{ value: 'editor', label: 'Editor', helper: 'Configure feature lanes without admin governance.' },
+	{ value: 'operator', label: 'Operator', helper: 'Day-to-day work across granted lanes.' },
+	{ value: 'viewer', label: 'Viewer', helper: 'Read-oriented access across granted lanes.' }
+];
+
+const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
+	calendar: 'Calendar',
+	personnel: 'Personnel',
+	training: 'Training',
+	criticalTasks: 'Critical Tasks',
+	onboarding: 'Onboarding',
+	ratingScheme: 'Rating Scheme'
+};
+
+export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({
+	id,
+	label: ACCESS_LANE_LABELS[id]
+}));
+
+export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label: string }> = [
+	{ value: 'none', label: 'None' },
+	{ value: 'view', label: 'View' },
+	{ value: 'operate', label: 'Operate' },
+	{ value: 'configure', label: 'Configure' }
+];
+
+export class SettingsMemberAccessWorkspace {
+	readonly #getData: () => SettingsMemberAccessData;
+
+	memberEditorId = $state<string | null>(null);
+	inviteEmail = $state('');
+	invitePreset = $state<EditablePreset>('editor');
+	inviteScopeKind = $state<ScopeKind>('organization');
+	inviteScopeGroupIds = $state<string[]>([]);
+	memberSelectedPreset = $state<Record<string, EditablePreset>>({});
+	memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
+	memberSelectedScopeGroupIds = $state<Record<string, string[]>>({});
+
+	constructor(data: SettingsMemberAccessData | (() => SettingsMemberAccessData)) {
+		this.#getData = typeof data === 'function' ? data : () => data;
+	}
+
+	get #data(): SettingsMemberAccessData {
+		return this.#getData();
+	}
+
+	get sortedMembers(): OrganizationMember[] {
+		return sortMembers(this.#data.members);
+	}
+
+	get availablePresetOptions(): AccessOption[] {
+		return this.#data.isOwner
+			? SETTINGS_ACCESS_OPTIONS
+			: SETTINGS_ACCESS_OPTIONS.filter((option) => option.value !== 'admin');
+	}
+
+	get accessLanes(): AccessLaneConfig[] {
+		return SETTINGS_ACCESS_LANES;
+	}
+
+	get capabilityOptions(): Array<{ value: CapabilityLevel; label: string }> {
+		return SETTINGS_CAPABILITY_OPTIONS;
+	}
+
+	getMemberInitials(email: string | null | undefined): string {
+		const fallback = email?.trim() || 'Member';
+		return fallback
+			.split(/[^a-zA-Z0-9]+/)
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((part) => part[0]?.toUpperCase())
+			.join('');
+	}
+
+	getGroupName(groupId: string | null | undefined): string | null {
+		if (!groupId) return null;
+		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
+	}
+
+	getInvitePreset(invite: SettingsInvitationAccessRow): PermissionPreset {
+		const permissions = invite.permissions ?? invite;
+		return getPermissionPreset(
+			{
+				canViewCalendar: permissions.canViewCalendar === true,
+				canEditCalendar: permissions.canEditCalendar === true,
+				canViewPersonnel: permissions.canViewPersonnel === true,
+				canEditPersonnel: permissions.canEditPersonnel === true,
+				canViewTraining: permissions.canViewTraining === true,
+				canEditTraining: permissions.canEditTraining === true,
+				canViewCriticalTasks: permissions.canViewCriticalTasks === true,
+				canEditCriticalTasks: permissions.canEditCriticalTasks === true,
+				canViewOnboarding: permissions.canViewOnboarding === true,
+				canEditOnboarding: permissions.canEditOnboarding === true,
+				canViewRatingScheme: permissions.canViewRatingScheme,
+				canEditRatingScheme: permissions.canEditRatingScheme,
+				canManageMembers: permissions.canManageMembers === true
+			},
+			invite.scopedGroupId
+		);
+	}
+
+	getMemberAccessBadge(member: OrganizationMember, accessShape: MemberAccessShape): MemberAccessBadge {
+		if (member.role === 'owner') return 'owner';
+		if (member.role === 'admin') return 'admin';
+		return accessShape.memberPreset;
+	}
+
+	getAccessLabel(memberPreset: MemberAccessBadge): string {
+		switch (memberPreset) {
+			case 'owner':
+				return 'Owner';
+			case 'admin':
+				return 'Admin governance';
+			case 'editor':
+				return 'Editor';
+			case 'operator':
+				return 'Operator';
+			case 'viewer':
+				return 'Viewer';
+			case 'custom':
+				return 'Custom';
+			default:
+				return memberPreset;
+		}
+	}
+
+	getAccessOptionHelper(preset: EditablePreset): string {
+		return SETTINGS_ACCESS_OPTIONS.find((option) => option.value === preset)?.helper ?? '';
+	}
+
+	editablePresetForMemberPreset(memberPreset: MemberPreset): StoredMemberPreset {
+		return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
+			? memberPreset
+			: 'editor';
+	}
+
+	getMemberAccessShape(member: OrganizationMember): MemberAccessShape {
+		return resolveMemberAccessShapeFromStoredOrCurrent({
+			membershipRole: member.role,
+			permissions: member,
+			scopedGroupId: member.scopedGroupId,
+			memberPreset: member.memberPreset,
+			capabilityOverrides: member.capabilityOverrides,
+			accessScopeKind: member.accessScopeKind,
+			accessScopeGroupIds: member.accessScopeGroupIds
+		});
+	}
+
+	formatScopeSet(scopeSet: ScopeSet): string {
+		if (scopeSet.kind === 'organization') return 'All groups';
+		return scopeSet.groupIds.map((groupId) => this.getGroupName(groupId) ?? 'Unknown group').join(', ');
+	}
+
+	formatCapability(level: CapabilityLevel): string {
+		return level[0].toUpperCase() + level.slice(1);
+	}
+
+	overriddenCapabilityLabels(member: OrganizationMember): string[] {
+		const shape = this.getMemberAccessShape(member);
+		const memberPreset = this.editablePresetForMemberPreset(shape.memberPreset);
+		return SETTINGS_ACCESS_LANES.filter(
+			(lane) => shape.capabilityMap[lane.id] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane.id]
+		).map((lane) => `${lane.label}: ${this.formatCapability(shape.capabilityMap[lane.id])}`);
+	}
+
+	getEditorCapabilityValue(
+		member: OrganizationMember,
+		lane: DurableFeatureLane,
+		selectedPreset: EditablePreset
+	): CapabilityLevel {
+		const accessShape = this.getMemberAccessShape(member);
+		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
+
+		const currentPreset = this.editablePresetForMemberPreset(accessShape.memberPreset);
+		if (selectedPreset !== currentPreset) {
+			return TARGET_MEMBER_PRESET_CAPABILITIES[selectedPreset][lane];
+		}
+
+		return accessShape.capabilityMap[lane];
+	}
+
+	getSelectedPreset(member: OrganizationMember): EditablePreset {
+		const accessShape = this.getMemberAccessShape(member);
+		return (
+			this.memberSelectedPreset[member.id] ??
+			(member.role === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset))
+		);
+	}
+
+	getSelectedScopeKind(member: OrganizationMember): ScopeKind {
+		return this.memberSelectedScopeKind[member.id] ?? this.getMemberAccessShape(member).scopeSet.kind;
+	}
+
+	getSelectedScopeGroupIds(member: OrganizationMember): string[] {
+		const current = this.getMemberAccessShape(member).scopeSet;
+		return this.memberSelectedScopeGroupIds[member.id] ?? (current.kind === 'groups' ? current.groupIds : []);
+	}
+
+	openMemberEditor(member: OrganizationMember): void {
+		if (member.role === 'owner') return;
+		const accessShape = this.getMemberAccessShape(member);
+		const scopeGroupIds = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : [];
+		this.memberEditorId = member.id;
+		this.memberSelectedPreset = {
+			...this.memberSelectedPreset,
+			[member.id]: member.role === 'admin' ? 'admin' : this.editablePresetForMemberPreset(accessShape.memberPreset)
+		};
+		this.memberSelectedScopeKind = {
+			...this.memberSelectedScopeKind,
+			[member.id]: accessShape.scopeSet.kind
+		};
+		this.memberSelectedScopeGroupIds = {
+			...this.memberSelectedScopeGroupIds,
+			[member.id]: scopeGroupIds
+		};
+	}
+
+	closeMemberEditor(memberId: string): void {
+		this.memberEditorId = null;
+		const remainingPresets = { ...this.memberSelectedPreset };
+		const remainingScopeKinds = { ...this.memberSelectedScopeKind };
+		const remainingScopeGroups = { ...this.memberSelectedScopeGroupIds };
+		delete remainingPresets[memberId];
+		delete remainingScopeKinds[memberId];
+		delete remainingScopeGroups[memberId];
+		this.memberSelectedPreset = remainingPresets;
+		this.memberSelectedScopeKind = remainingScopeKinds;
+		this.memberSelectedScopeGroupIds = remainingScopeGroups;
+	}
+
+	setMemberPreset(memberId: string, preset: EditablePreset): void {
+		this.memberSelectedPreset = {
+			...this.memberSelectedPreset,
+			[memberId]: preset
+		};
+	}
+
+	setMemberScopeKind(memberId: string, scopeKind: ScopeKind): void {
+		this.memberSelectedScopeKind = {
+			...this.memberSelectedScopeKind,
+			[memberId]: scopeKind
+		};
+	}
+
+	toggleMemberScopeGroup(memberId: string, groupId: string, checked: boolean): void {
+		const current = this.memberSelectedScopeGroupIds[memberId] ?? [];
+		const next = checked
+			? current.includes(groupId)
+				? current
+				: [...current, groupId]
+			: current.filter((id) => id !== groupId);
+		this.memberSelectedScopeGroupIds = { ...this.memberSelectedScopeGroupIds, [memberId]: next };
+	}
+
+	setInviteScopeKind(scopeKind: ScopeKind): void {
+		this.inviteScopeKind = scopeKind;
+	}
+
+	toggleInviteScopeGroup(groupId: string, checked: boolean): void {
+		this.inviteScopeGroupIds = checked
+			? this.inviteScopeGroupIds.includes(groupId)
+				? this.inviteScopeGroupIds
+				: [...this.inviteScopeGroupIds, groupId]
+			: this.inviteScopeGroupIds.filter((id) => id !== groupId);
+	}
+
+	clearInviteEmail(): void {
+		this.inviteEmail = '';
+		this.inviteScopeKind = 'organization';
+		this.inviteScopeGroupIds = [];
+	}
+}
+
+export function createSettingsMemberAccessWorkspace(
+	data: SettingsMemberAccessData | (() => SettingsMemberAccessData)
+): SettingsMemberAccessWorkspace {
+	return new SettingsMemberAccessWorkspace(data);
+}

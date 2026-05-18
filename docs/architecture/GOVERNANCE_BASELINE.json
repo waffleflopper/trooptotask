@@ -376,14 +376,14 @@
 			]
 		},
 		{
-			"path": "src/routes/org/[orgId]/settings/+page.svelte",
+			"path": "src/routes/org/[orgId]/settings/settingsMemberAccessWorkspace.svelte.ts",
 			"classification": "compatibility-adapter",
 			"patterns": [
 				"canEdit*",
 				"scopedGroupId"
 			],
 			"ownerIssue": "#757",
-			"reason": "Settings page passes legacy member access fields only into the member-management compatibility UI.",
+			"reason": "Settings member-access workspace projects legacy member and invite access fields only for the member-management compatibility UI.",
 			"driftIds": [
 				"D-01"
 			]

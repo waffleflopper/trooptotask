@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 function rowValues(sheet: ExcelJS.Worksheet, rowNumber: number): string[] {
 	const values = sheet.getRow(rowNumber).values;
@@ -144,6 +148,7 @@ describe('POST /api/export-excel', () => {
 		]);
 
 		const originalUpdate = ctx.rawStore.update.bind(ctx.rawStore);
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		ctx.rawStore.update = async (...args) => {
 			const [table] = args;
 			if (table === 'data_exports') {
@@ -166,6 +171,10 @@ describe('POST /api/export-excel', () => {
 
 		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');
 		expect(rowValues(personnelSheet, 2)).toContain('2026-11-30');
+		expect(warnSpy).toHaveBeenCalledWith(
+			expect.stringContaining('[data-exports] Failed to mark export'),
+			expect.any(Error)
+		);
 		expect(exportRows).toEqual([
 			expect.objectContaining({
 				requested_by: ctx.auth.userId,

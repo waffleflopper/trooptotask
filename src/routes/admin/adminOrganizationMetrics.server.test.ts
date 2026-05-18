@@ -11,9 +11,39 @@ function makeAdminClient(
 	tableErrors: Record<string, unknown> = {}
 ) {
 	const calls: Array<{ table: string; method: string; args: unknown[] }> = [];
+	const rpc = vi.fn(async (fn: string, params: { p_org_ids?: string[] }) => {
+		calls.push({ table: 'rpc', method: fn, args: [params] });
+		if (fn !== 'count_personnel_by_organization') {
+			return { data: null, error: new Error(`Unsupported RPC: ${fn}`) };
+		}
+		if (tableErrors.personnel) {
+			return { data: null, error: tableErrors.personnel };
+		}
+		const orgIds = params.p_org_ids ?? [];
+		const rows = (tableRows.personnel ?? []).filter(
+			(row) => orgIds.includes(String(row.organization_id)) && row.archived_at === null
+		);
+		const counts = new Map<string, number>();
+		for (const row of rows) {
+			const orgId = String(row.organization_id);
+			counts.set(orgId, (counts.get(orgId) ?? 0) + 1);
+		}
+		return {
+			data: [...counts.entries()].map(([organization_id, personnel_count]) => ({ organization_id, personnel_count })),
+			error: null
+		};
+	});
 	const from = vi.fn((table: string) => ({
-		select: vi.fn((_columns: string) => {
+		select: vi.fn((columns: string) => {
+			calls.push({ table, method: 'select', args: [columns] });
 			const filters: Array<(row: Record<string, unknown>) => boolean> = [];
+			const execute = async () => {
+				if (tableErrors[table]) {
+					return { data: null, error: tableErrors[table] };
+				}
+				const rows = (tableRows[table] ?? []).filter((row) => filters.every((filter) => filter(row)));
+				return { data: rows, error: null };
+			};
 			const query = {
 				in: vi.fn((column: string, values: string[]) => {
 					calls.push({ table, method: 'in', args: [column, values] });
@@ -32,21 +62,20 @@ function makeAdminClient(
 				}),
 				range: vi.fn(async (fromIndex: number, toIndex: number) => {
 					calls.push({ table, method: 'range', args: [fromIndex, toIndex] });
-					if (tableErrors[table]) {
-						return { data: null, error: tableErrors[table] };
-					}
-					const rows = (tableRows[table] ?? []).filter((row) => filters.every((filter) => filter(row)));
+					const { data, error } = await execute();
+					if (error) return { data: null, error };
+					const rows = data ?? [];
 					return { data: rows.slice(fromIndex, toIndex + 1), error: null };
 				})
 			};
 			return query;
 		})
 	}));
-	return { client: { from }, calls };
+	return { client: { from, rpc }, calls };
 }
 
 describe('admin organization metrics batching', () => {
-	it('fetches personnel counts for multiple organizations with one batched table query', async () => {
+	it('fetches personnel counts for multiple organizations with one batched count RPC', async () => {
 		const { client, calls } = makeAdminClient({
 			personnel: [
 				{ organization_id: 'org-1', archived_at: null },
@@ -60,13 +89,18 @@ describe('admin organization metrics batching', () => {
 
 		expect(counts.get('org-1')).toBe(2);
 		expect(counts.get('org-2')).toBe(1);
-		expect(client.from).toHaveBeenCalledTimes(1);
+		expect(client.from).not.toHaveBeenCalled();
+		expect(client.rpc).toHaveBeenCalledWith('count_personnel_by_organization', { p_org_ids: ['org-1', 'org-2'] });
 		expect(calls).toEqual(
 			expect.arrayContaining([
-				{ table: 'personnel', method: 'in', args: ['organization_id', ['org-1', 'org-2']] },
-				{ table: 'personnel', method: 'is', args: ['archived_at', null] }
+				{
+					table: 'rpc',
+					method: 'count_personnel_by_organization',
+					args: [{ p_org_ids: ['org-1', 'org-2'] }]
+				}
 			])
 		);
+		expect(calls.some((call) => call.table === 'personnel' && call.method === 'range')).toBe(false);
 	});
 
 	it('fetches membership counts and owner memberships in batched organization queries', async () => {
@@ -118,19 +152,19 @@ describe('admin organization metrics batching', () => {
 		);
 	});
 
-	it('counts all paginated personnel rows across Supabase pages', async () => {
+	it('counts large personnel sets without paging every matching row', async () => {
 		const personnel = Array.from({ length: 1002 }, () => ({ organization_id: 'org-1', archived_at: null }));
 		const { client, calls } = makeAdminClient({ personnel });
 
 		const counts = await fetchPersonnelCountsByOrganization(client, ['org-1']);
 
 		expect(counts.get('org-1')).toBe(1002);
-		expect(
-			calls.filter((call) => call.table === 'personnel' && call.method === 'range').map((call) => call.args)
-		).toEqual([
-			[0, 999],
-			[1000, 1999]
-		]);
+		expect(calls).toContainEqual({
+			table: 'rpc',
+			method: 'count_personnel_by_organization',
+			args: [{ p_org_ids: ['org-1'] }]
+		});
+		expect(calls.some((call) => call.table === 'personnel' && call.method === 'range')).toBe(false);
 	});
 
 	it('returns an empty map when a batched metrics query fails', async () => {

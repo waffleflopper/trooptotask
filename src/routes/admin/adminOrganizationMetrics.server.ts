@@ -4,6 +4,7 @@ export type AdminMetricsClient = {
 	from: (table: string) => {
 		select: (columns: string, options?: Record<string, unknown>) => SupabaseQuery;
 	};
+	rpc: (fn: 'count_personnel_by_organization', params: { p_org_ids: string[] }) => unknown;
 };
 
 type QueryResult<T> = Promise<{ data: T[] | null; error: unknown }>;
@@ -13,6 +14,7 @@ type SupabaseQuery = {
 	eq: (column: string, value: unknown) => SupabaseQuery;
 	range: (from: number, to: number) => unknown;
 };
+type PersonnelCountRow = { organization_id: string; personnel_count: number | string | null };
 
 export interface OwnerMembershipRow {
 	organization_id: string;
@@ -40,28 +42,31 @@ function countByOrganizationId(rows: Array<{ organization_id: string }>): Map<st
 	return counts;
 }
 
+function countRowsByOrganizationId(rows: PersonnelCountRow[]): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const row of rows) {
+		const count = typeof row.personnel_count === 'number' ? row.personnel_count : Number(row.personnel_count ?? 0);
+		counts.set(row.organization_id, Number.isFinite(count) ? count : 0);
+	}
+	return counts;
+}
+
 export async function fetchPersonnelCountsByOrganization(
 	adminClient: AdminMetricsClient,
 	orgIds: string[]
 ): Promise<Map<string, number>> {
 	if (orgIds.length === 0) return new Map();
 
-	const { data, error } = await selectAllSupabaseRows<{ organization_id: string }>(
-		(from, to) =>
-			adminClient
-				.from('personnel')
-				.select('organization_id')
-				.in('organization_id', orgIds)
-				.is('archived_at', null)
-				.range(from, to) as unknown as QueryResult<{ organization_id: string }>
-	);
+	const { data, error } = (await adminClient.rpc('count_personnel_by_organization', {
+		p_org_ids: orgIds
+	})) as { data: PersonnelCountRow[] | null; error: unknown };
 
 	if (error) {
 		console.error('[admin] Failed to batch personnel counts:', error);
 		return new Map();
 	}
 
-	return countByOrganizationId(data ?? []);
+	return countRowsByOrganizationId(data ?? []);
 }
 
 export async function fetchMembershipCountsByOrganization(

@@ -14,5 +14,10 @@ AS $$
     ORDER BY "audit_logs"."action";
 $$;
 
-GRANT EXECUTE ON FUNCTION "public"."list_audit_log_actions"("uuid", "text"[]) TO "authenticated";
+CREATE INDEX IF NOT EXISTS "idx_audit_logs_org_id_action"
+    ON "public"."audit_logs" USING "btree" ("org_id", "action");
+
+REVOKE ALL ON FUNCTION "public"."list_audit_log_actions"("uuid", "text"[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."list_audit_log_actions"("uuid", "text"[]) FROM "anon";
+REVOKE ALL ON FUNCTION "public"."list_audit_log_actions"("uuid", "text"[]) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."list_audit_log_actions"("uuid", "text"[]) TO "service_role";

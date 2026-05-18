@@ -3,15 +3,23 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Your TroopToTask Legacy Invite</title>
+		<title>Your TroopToTask Invite</title>
 	</head>
-	<body style="margin: 0; padding: 0; background: #f4efe4; color: #1f2937; font-family: Arial, sans-serif">
+	<body
+		style="
+			margin: 0;
+			padding: 0;
+			background: #f4efe4;
+			color: #1f2937;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+		"
+	>
 		<table
 			role="presentation"
 			width="100%"
 			cellspacing="0"
 			cellpadding="0"
-			style="background: #f4efe4; padding: 24px 0"
+			style="background: #f4efe4; padding: 28px 12px"
 		>
 			<tr>
 				<td align="center">
@@ -24,89 +32,132 @@
 							max-width: 640px;
 							background: #fffdf8;
 							border: 1px solid #d6c8ab;
-							border-radius: 18px;
+							border-radius: 14px;
 							overflow: hidden;
 						"
 					>
 						<tr>
-							<td style="padding: 32px 32px 12px; background: #1f2937; color: #f9f5eb">
-								<p
-									style="
-										margin: 0 0 10px;
-										font-size: 12px;
-										letter-spacing: 0.2em;
-										text-transform: uppercase;
-										color: #d6c8ab;
-									"
-								>
-									TroopToTask
-								</p>
-								<h1 style="margin: 0; font-size: 30px; line-height: 1.15">Your legacy invite is ready</h1>
+							<td style="padding: 34px 34px 28px; background: #12110f; color: #f0efe9">
+								<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+									<tr>
+										<td>
+											<p
+												style="
+													margin: 0 0 12px;
+													font-size: 11px;
+													line-height: 1.4;
+													letter-spacing: 0.16em;
+													text-transform: uppercase;
+													color: #c48a3a;
+													font-weight: 700;
+												"
+											>
+												TroopToTask
+											</p>
+											<h1 style="margin: 0; font-size: 30px; line-height: 1.16; font-weight: 760">
+												Your invitation is ready.
+											</h1>
+										</td>
+									</tr>
+								</table>
 							</td>
 						</tr>
 						<tr>
-							<td style="padding: 28px 32px 12px">
-								<p style="margin: 0 0 16px; font-size: 16px; line-height: 1.65">
-									Use the button below only if TroopToTask sent you a legacy Supabase invite for
+							<td style="padding: 30px 34px 8px">
+								<p style="margin: 0 0 16px; font-size: 16px; line-height: 1.65; color: #1f2937">
+									You have been invited to finish setting up TroopToTask for
 									<strong>{{ .Email }}</strong>.
 								</p>
-								<p style="margin: 0 0 22px; font-size: 16px; line-height: 1.65">
-									Beta access approvals now use Account Setup Links that expire after <strong>14 days</strong>. This
-									legacy invite link still follows Supabase's shorter provider window.
+								<p style="margin: 0 0 24px; font-size: 15px; line-height: 1.65; color: #475467">
+									Use this link only if you expected an organization invite or a legacy TroopToTask invite. Beta Access
+									Requests now use Account Setup Links with a 14-day setup window.
 								</p>
-								<p style="margin: 0 0 28px">
-									<a
-										href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}"
-										style="
-											display: inline-block;
-											padding: 14px 22px;
-											border-radius: 999px;
-											background: #c48a3a;
-											color: #101828;
-											text-decoration: none;
-											font-size: 15px;
-											font-weight: 700;
-										"
-									>
-										Continue Legacy Invite
-									</a>
-								</p>
-								<p style="margin: 0 0 12px; font-size: 15px; line-height: 1.65">
-									Need the beta Account Setup Link path instead?
-									<a
-										href="{{ .SiteURL }}/auth/renew-invite?email={{ .Email }}"
-										style="color: #8b5e1a; font-weight: 700"
-									>
-										Request a fresh setup link </a
-									>.
-								</p>
-								<p style="margin: 0 0 28px; font-size: 14px; line-height: 1.65; color: #475467">
-									If you already finished setting up your account, you can ignore this email and sign in normally.
-								</p>
+								<table role="presentation" cellspacing="0" cellpadding="0" style="margin: 0 0 28px">
+									<tr>
+										<td style="border-radius: 8px; background: #c48a3a; border: 1px solid #a96f23; text-align: center">
+											<a
+												href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}"
+												style="
+													display: inline-block;
+													padding: 13px 20px;
+													color: #101828;
+													text-decoration: none;
+													font-size: 15px;
+													line-height: 1.2;
+													font-weight: 800;
+												"
+											>
+												Accept Invitation
+											</a>
+										</td>
+									</tr>
+								</table>
 							</td>
 						</tr>
 						<tr>
-							<td style="padding: 0 32px 28px">
-								<div style="padding: 16px 18px; border-radius: 14px; background: #f9f5eb; border: 1px solid #eadfc8">
-									<p
-										style="
-											margin: 0 0 8px;
-											font-size: 13px;
-											font-weight: 700;
-											letter-spacing: 0.12em;
-											text-transform: uppercase;
-											color: #8b5e1a;
-										"
-									>
-										Heads up
-									</p>
-									<p style="margin: 0; font-size: 14px; line-height: 1.65; color: #475467">
-										If the button above does not work, copy and paste this link into your browser:
-									</p>
-									<p style="margin: 12px 0 0; font-size: 13px; line-height: 1.7; word-break: break-all; color: #1f2937">
-										{{ .RedirectTo }}&token_hash={{ .TokenHash }}
-									</p>
-								</div>
+							<td style="padding: 0 34px 26px">
+								<table
+									role="presentation"
+									width="100%"
+									cellspacing="0"
+									cellpadding="0"
+									style="border: 1px solid #eadfc8; border-radius: 10px; background: #f9f5eb"
+								>
+									<tr>
+										<td style="padding: 18px 18px 16px">
+											<p
+												style="
+													margin: 0 0 8px;
+													font-size: 11px;
+													line-height: 1.4;
+													font-weight: 800;
+													letter-spacing: 0.14em;
+													text-transform: uppercase;
+													color: #8b5e1a;
+												"
+											>
+												Link details
+											</p>
+											<p style="margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: #475467">
+												This invite follows Supabase's provider window. If you were approved through the beta access
+												flow instead, request a fresh Account Setup Link.
+											</p>
+											<p style="margin: 0; font-size: 14px; line-height: 1.6">
+												<a
+													href="{{ .SiteURL }}/auth/renew-invite?email={{ .Email }}"
+													style="color: #8b5e1a; font-weight: 800; text-decoration: underline"
+												>
+													Request a fresh setup link
+												</a>
+											</p>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 0 34px 34px">
+								<p style="margin: 0 0 10px; font-size: 13px; line-height: 1.6; color: #6b7280">
+									If the button does not work, copy and paste this link into your browser:
+								</p>
+								<p
+									style="
+										margin: 0;
+										padding: 14px 16px;
+										border: 1px solid #eadfc8;
+										border-radius: 8px;
+										background: #fffaf0;
+										font-size: 12px;
+										line-height: 1.7;
+										word-break: break-all;
+										color: #1f2937;
+									"
+								>
+									{{ .RedirectTo }}&token_hash={{ .TokenHash }}
+								</p>
+								<p style="margin: 18px 0 0; font-size: 13px; line-height: 1.6; color: #6b7280">
+									If you already finished setup, you can ignore this email and sign in normally.
+								</p>
 							</td>
 						</tr>
 					</table>

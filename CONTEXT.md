@@ -22,6 +22,14 @@ _Avoid_: User when access semantics matter
 The signed-in person's identity and authentication settings, such as email address, password, MFA, and personal profile details.
 _Avoid_: Organization, workspace, tenant
 
+**Access Request**:
+A beta-period request for reviewed entry into TroopToTask before a **User Account** is activated. Approval authorizes an account setup attempt, but it is not itself an **Organization Membership** or an **Organization Invitation**. The flow exists to control beta access and should replace legacy invite-code registration rather than becoming a permanent parallel registration system.
+_Avoid_: Invite, registration invite, organization member, permanent signup queue
+
+**Account Setup Link**:
+An app-owned, time-limited link sent after an **Access Request** is approved so the recipient can activate a **User Account** and choose their own password.
+_Avoid_: Supabase invite, temporary password, magic login
+
 **User Profile**:
 The personal profile details attached to a **User Account**, such as first name, last name, rank, and future display information. A **User Profile** is not the same as a **Personnel Record** and should not automatically sync to roster data.
 _Avoid_: Personnel Record, Organization Member

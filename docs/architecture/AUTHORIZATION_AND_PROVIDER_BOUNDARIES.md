@@ -8,6 +8,7 @@ This document separates what v1 authorization and provider ownership look like t
 
 - Supabase Auth is the current authentication provider.
 - Auth-specific route and server code is expected to remain provider-aware for now.
+- Beta **Access Request** approval should use app-owned **Account Setup Links** rather than Supabase invite emails as the product-level setup window; see ADR 0009.
 - Current auth-provider-specific areas include:
   - login, logout, invite acceptance, password reset, confirm-link flows
   - MFA enrollment, verification, disable, and session-establishment endpoints

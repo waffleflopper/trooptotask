@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
-import { renewApprovedAccessRequestInvite } from '$lib/server/accessRequestAuth';
+import { createSupabaseAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
@@ -30,11 +30,14 @@ export const actions: Actions = {
 		}
 
 		try {
-			await renewApprovedAccessRequestInvite(getAdminClient(), email, url.origin);
+			await createSupabaseAccessRequestSetupDeliveryService(getAdminClient()).requestFreshSetupLink({
+				email,
+				origin: url.origin
+			});
 		} catch (error) {
-			console.error('Failed to renew approved access request invite:', error);
+			console.error('Failed to renew approved access request setup link:', error);
 			return fail(500, {
-				error: 'We could not send a fresh invite right now. Please try again in a few minutes.',
+				error: 'We could not send a fresh Account Setup Link right now. Please try again in a few minutes.',
 				email
 			});
 		}

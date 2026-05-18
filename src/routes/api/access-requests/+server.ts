@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { createSupabaseAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
@@ -18,27 +19,24 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const adminClient = getAdminClient();
+	const service = createSupabaseAccessRequestSetupDeliveryService(adminClient);
 
-	// Check for existing pending request
-	const { data: existing } = await adminClient
-		.from('access_requests')
-		.select('id')
-		.eq('status', 'pending')
-		.ilike('email', email)
-		.maybeSingle();
+	try {
+		const result = await service.submitAccessRequest({
+			email,
+			name,
+			reason: reason || null,
+			origin: new URL(request.url).origin
+		});
 
-	if (existing) {
-		throw error(409, 'A request for this email is already pending');
-	}
-
-	const { error: insertError } = await adminClient.from('access_requests').insert({
-		email: email.toLowerCase(),
-		name,
-		reason: reason || null
-	});
-
-	if (insertError) {
-		console.error('Failed to create access request:', insertError);
+		if (result.status === 'already-pending') {
+			throw error(409, 'A request for this email is already pending');
+		}
+	} catch (submitError) {
+		if (submitError && typeof submitError === 'object' && 'status' in submitError) {
+			throw submitError;
+		}
+		console.error('Failed to submit access request:', submitError);
 		throw error(500, 'Failed to submit request');
 	}
 

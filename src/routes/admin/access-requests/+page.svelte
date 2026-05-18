@@ -10,10 +10,19 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import type { BadgeVariant } from '$lib/components/ui/badge';
 
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
+
+	function setupStateVariant(state: string): BadgeVariant {
+		if (state === 'completed') return 'success';
+		if (state === 'expired') return 'warning';
+		if (state === 'replaced') return 'info';
+		if (state === 'pending') return 'secondary';
+		return 'outline';
+	}
 </script>
 
 <svelte:head>
@@ -134,6 +143,9 @@
 								<div class="flex min-w-0 flex-wrap items-center gap-2">
 									<h2 class="truncate text-lg font-semibold tracking-tight">{req.name}</h2>
 									<Badge variant={adminBadgeVariant(req.status)}>{formatAdminLabel(req.status)}</Badge>
+									{#if req.status === 'approved'}
+										<Badge variant={setupStateVariant(req.setup_state)}>Setup {req.setup_state_label}</Badge>
+									{/if}
 								</div>
 								<p class="truncate text-sm text-muted-foreground">{req.email}</p>
 								{#if req.reason}<p class="text-sm leading-6">{req.reason}</p>{/if}
@@ -142,8 +154,21 @@
 									{#if req.reviewed_at}
 										/ Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
 								</p>
+								{#if req.status === 'approved'}
+									<div class="grid gap-1 text-xs text-muted-foreground">
+										<p>{req.setup_state_detail}</p>
+										{#if req.setup_link_expires_at && req.setup_state !== 'completed'}
+											<p>Current setup link expires {formatDisplayDateTime(req.setup_link_expires_at)}</p>
+										{/if}
+										{#if req.setup_link_replaced_at}
+											<p>Latest known setup link replaced {formatDisplayDateTime(req.setup_link_replaced_at)}</p>
+										{:else if req.has_replaced_setup_link}
+											<p>Older setup links have been replaced.</p>
+										{/if}
+									</div>
+								{/if}
 							</div>
-							{#if req.status === 'approved' && !req.registration_invites?.used_at}
+							{#if req.status === 'approved' && req.setup_state !== 'completed'}
 								<form
 									method="POST"
 									action="?/resend"
@@ -158,12 +183,15 @@
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" variant="outline" disabled={loadingId !== null}>
 										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
-										Resend Invite
+										Resend Setup
 									</Button>
 								</form>
-							{:else if req.status === 'approved' && req.registration_invites?.used_at}
+							{:else if req.status === 'approved' && req.setup_state === 'completed'}
 								<p class="text-xs text-muted-foreground">
-									Account setup completed {formatDisplayDateTime(req.registration_invites.used_at)}
+									Account setup completed
+									{#if req.setup_completed_at_display}
+										{formatDisplayDateTime(req.setup_completed_at_display)}
+									{/if}
 								</p>
 							{/if}
 						</Card.Content>

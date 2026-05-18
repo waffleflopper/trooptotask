@@ -105,6 +105,7 @@ Focus entries:
   - provider swap blast radius is still too large
 - Intended v1 direction:
   - business logic outside auth and adapters should not depend on provider query APIs
+  - beta **Access Request** setup uses app-owned **Account Setup Links** while Supabase Auth remains the authentication provider
 - Constraints to preserve:
   - current auth-provider integration
   - working production flows

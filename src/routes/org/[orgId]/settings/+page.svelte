@@ -4,18 +4,6 @@
 	import { page } from '$app/stores';
 	import { Edit, Trash2, UserPlus } from '@lucide/svelte';
 	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
-	import { sortMembers } from '$features/groups/utils/sortMembers';
-	import {
-		DURABLE_FEATURE_LANES,
-		resolveMemberAccessShapeFromStoredOrCurrent,
-		TARGET_MEMBER_PRESET_CAPABILITIES,
-		type CapabilityLevel,
-		type DurableFeatureLane,
-		type MemberAccessShape,
-		type MemberPreset,
-		type ScopeSet,
-		type StoredMemberPreset
-	} from '$lib/access/memberAccessShape';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -25,8 +13,7 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { OrganizationMember, PermissionPreset } from '$lib/types';
-	import { getPermissionPreset } from '$lib/types';
+	import type { OrganizationMember } from '$lib/types';
 	import { TIER_CONFIG, type EffectiveTier } from '$lib/types/subscription';
 	import { addMonths, formatRelativeDate } from '$lib/utils/dates';
 	import { downloadBlob } from './settingsDownloads';
@@ -45,6 +32,7 @@
 		normalizeOrganizationName,
 		pluralize
 	} from './settingsWorkspaceFormatters';
+	import { createSettingsMemberAccessWorkspace, type EditablePreset } from './settingsMemberAccessWorkspace.svelte';
 
 	let { data, form } = $props();
 	const orgId = $derived($page.params.orgId);
@@ -54,12 +42,7 @@
 	type ApprovalRequest = (typeof data.approvalRequests)[number];
 	type AuditLog = (typeof data.auditLog.logs)[number];
 	type RoleCount = { owner: number; admin: number; member: number };
-	type EditablePreset = StoredMemberPreset | 'admin';
-	type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
-	type ScopeKind = ScopeSet['kind'];
 	type SectionConfig = { id: SectionId; label: string; eyebrow: string; danger?: boolean };
-	type AccessLaneConfig = { id: DurableFeatureLane; label: string };
-	type AccessOption = { value: EditablePreset; label: string; helper: string };
 
 	const standardSections: SectionConfig[] = [
 		{ id: 'organization', label: 'Organization', eyebrow: 'Profile' },
@@ -74,14 +57,6 @@
 	let activeSection = $state<SectionId>('organization');
 	let activityCollapsed = $state(false);
 	let loading = $state(false);
-	let memberEditorId = $state<string | null>(null);
-	let inviteEmail = $state('');
-	let invitePreset = $state<EditablePreset>('editor');
-	let inviteScopeKind = $state<ScopeKind>('organization');
-	let inviteScopeGroupIds = $state<string[]>([]);
-	let memberSelectedPreset = $state<Record<string, EditablePreset>>({});
-	let memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
-	let memberSelectedScopeGroupIds = $state<Record<string, string[]>>({});
 	let showTransferConfirm = $state(false);
 	let transferTargetId = $state<string | null>(null);
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
@@ -132,34 +107,19 @@
 	let exportingPerson = $state<string | null>(null);
 	let confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 
-	const sortedMembers = $derived(sortMembers(data.members));
+	const memberAccess = createSettingsMemberAccessWorkspace(() => ({
+		members: data.members,
+		invitations: data.invitations,
+		groups: data.groups,
+		isOwner: data.isOwner
+	}));
+	const sortedMembers = $derived(memberAccess.sortedMembers);
 	const transferOwnershipCandidates = $derived(
 		sortedMembers.filter((member: OrganizationMember) => data.isOwner && member.role !== 'owner' && member.userId)
 	);
-	const accessOptions: AccessOption[] = [
-		{ value: 'admin', label: 'Admin', helper: 'Governance role. Can manage organization access.' },
-		{ value: 'editor', label: 'Editor', helper: 'Configure feature lanes without admin governance.' },
-		{ value: 'operator', label: 'Operator', helper: 'Day-to-day work across granted lanes.' },
-		{ value: 'viewer', label: 'Viewer', helper: 'Read-oriented access across granted lanes.' }
-	];
-	const availablePresetOptions = $derived(
-		data.isOwner ? accessOptions : accessOptions.filter((option) => option.value !== 'admin')
-	);
-	const accessLaneLabels: Record<DurableFeatureLane, string> = {
-		calendar: 'Calendar',
-		personnel: 'Personnel',
-		training: 'Training',
-		criticalTasks: 'Critical Tasks',
-		onboarding: 'Onboarding',
-		ratingScheme: 'Rating Scheme'
-	};
-	const accessLanes: AccessLaneConfig[] = DURABLE_FEATURE_LANES.map((id) => ({ id, label: accessLaneLabels[id] }));
-	const capabilityOptions: Array<{ value: CapabilityLevel; label: string }> = [
-		{ value: 'none', label: 'None' },
-		{ value: 'view', label: 'View' },
-		{ value: 'operate', label: 'Operate' },
-		{ value: 'configure', label: 'Configure' }
-	];
+	const availablePresetOptions = $derived(memberAccess.availablePresetOptions);
+	const accessLanes = memberAccess.accessLanes;
+	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
 
 	const activeSectionConfig = $derived(sections.find((section) => section.id === activeSection) ?? sections[0]);
@@ -279,42 +239,6 @@
 		syncedPolicySnapshot = serverPolicySnapshot;
 	});
 
-	function getInvitePreset(invite: (typeof data.invitations)[number]): PermissionPreset {
-		return getPermissionPreset(
-			{
-				canViewCalendar: invite.canViewCalendar,
-				canEditCalendar: invite.canEditCalendar,
-				canViewPersonnel: invite.canViewPersonnel,
-				canEditPersonnel: invite.canEditPersonnel,
-				canViewTraining: invite.canViewTraining,
-				canEditTraining: invite.canEditTraining,
-				canViewCriticalTasks: invite.canViewCriticalTasks,
-				canEditCriticalTasks: invite.canEditCriticalTasks,
-				canViewOnboarding: invite.canViewOnboarding,
-				canEditOnboarding: invite.canEditOnboarding,
-				canViewRatingScheme: invite.canViewRatingScheme,
-				canEditRatingScheme: invite.canEditRatingScheme,
-				canManageMembers: invite.canManageMembers
-			},
-			invite.scopedGroupId
-		);
-	}
-
-	function getMemberInitials(email: string | null | undefined): string {
-		const fallback = email?.trim() || 'Member';
-		return fallback
-			.split(/[^a-zA-Z0-9]+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((part) => part[0]?.toUpperCase())
-			.join('');
-	}
-
-	function getGroupName(groupId: string | null | undefined): string | null {
-		if (!groupId) return null;
-		return data.groups.find((group: { id: string; name: string }) => group.id === groupId)?.name ?? 'Unknown group';
-	}
-
 	function getBillingStatus(tier: EffectiveTier): string {
 		if (tier.isReadOnly) return 'Read-only';
 		if (tier.source === 'gift') return 'Gifted access';
@@ -343,142 +267,9 @@
 		return Boolean(data.isOwner && member.role === 'owner');
 	}
 
-	function openMemberEditor(member: OrganizationMember): void {
-		if (member.role === 'owner') return;
-		const accessShape = getMemberAccessShape(member);
-		const scopeGroupIds = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : [];
-		memberEditorId = member.id;
-		memberSelectedPreset = {
-			...memberSelectedPreset,
-			[member.id]: member.role === 'admin' ? 'admin' : editablePresetForMemberPreset(accessShape.memberPreset)
-		};
-		memberSelectedScopeKind = {
-			...memberSelectedScopeKind,
-			[member.id]: accessShape.scopeSet.kind
-		};
-		memberSelectedScopeGroupIds = {
-			...memberSelectedScopeGroupIds,
-			[member.id]: scopeGroupIds
-		};
-	}
-
-	function closeMemberEditor(memberId: string): void {
-		memberEditorId = null;
-		const remainingPresets = { ...memberSelectedPreset };
-		const remainingScopeKinds = { ...memberSelectedScopeKind };
-		const remainingScopeGroups = { ...memberSelectedScopeGroupIds };
-		delete remainingPresets[memberId];
-		delete remainingScopeKinds[memberId];
-		delete remainingScopeGroups[memberId];
-		memberSelectedPreset = remainingPresets;
-		memberSelectedScopeKind = remainingScopeKinds;
-		memberSelectedScopeGroupIds = remainingScopeGroups;
-	}
-
 	function closeDeleteOrganizationDialog() {
 		showDeleteConfirm = false;
 		deleteConfirmText = '';
-	}
-
-	function getMemberAccessBadge(member: OrganizationMember, accessShape: MemberAccessShape): MemberAccessBadge {
-		if (member.role === 'owner') return 'owner';
-		if (member.role === 'admin') return 'admin';
-		return accessShape.memberPreset;
-	}
-
-	function getAccessLabel(memberPreset: MemberAccessBadge): string {
-		switch (memberPreset) {
-			case 'owner':
-				return 'Owner';
-			case 'admin':
-				return 'Admin governance';
-			case 'editor':
-				return 'Editor';
-			case 'operator':
-				return 'Operator';
-			case 'viewer':
-				return 'Viewer';
-			case 'custom':
-				return 'Custom';
-			default:
-				return memberPreset;
-		}
-	}
-
-	function getAccessOptionHelper(preset: EditablePreset): string {
-		return accessOptions.find((option) => option.value === preset)?.helper ?? '';
-	}
-
-	function editablePresetForMemberPreset(memberPreset: MemberPreset): StoredMemberPreset {
-		return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
-			? memberPreset
-			: 'editor';
-	}
-
-	function getMemberAccessShape(member: OrganizationMember) {
-		return resolveMemberAccessShapeFromStoredOrCurrent({
-			membershipRole: member.role,
-			permissions: member,
-			scopedGroupId: member.scopedGroupId,
-			memberPreset: member.memberPreset,
-			capabilityOverrides: member.capabilityOverrides,
-			accessScopeKind: member.accessScopeKind,
-			accessScopeGroupIds: member.accessScopeGroupIds
-		});
-	}
-
-	function formatScopeSet(scopeSet: ScopeSet): string {
-		if (scopeSet.kind === 'organization') return 'All groups';
-		return scopeSet.groupIds.map((groupId) => getGroupName(groupId) ?? 'Unknown group').join(', ');
-	}
-
-	function formatCapability(level: CapabilityLevel): string {
-		return level[0].toUpperCase() + level.slice(1);
-	}
-
-	function overriddenCapabilityLabels(member: OrganizationMember): string[] {
-		const shape = getMemberAccessShape(member);
-		const memberPreset = editablePresetForMemberPreset(shape.memberPreset);
-		return accessLanes
-			.filter((lane) => shape.capabilityMap[lane.id] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane.id])
-			.map((lane) => `${lane.label}: ${formatCapability(shape.capabilityMap[lane.id])}`);
-	}
-
-	function getEditorCapabilityValue(
-		member: OrganizationMember,
-		lane: DurableFeatureLane,
-		selectedPreset: EditablePreset
-	): CapabilityLevel {
-		const accessShape = getMemberAccessShape(member);
-		if (selectedPreset === 'admin') return TARGET_MEMBER_PRESET_CAPABILITIES.editor[lane];
-
-		const currentPreset = editablePresetForMemberPreset(accessShape.memberPreset);
-		if (selectedPreset !== currentPreset) {
-			return TARGET_MEMBER_PRESET_CAPABILITIES[selectedPreset][lane];
-		}
-
-		return accessShape.capabilityMap[lane];
-	}
-
-	function getSelectedScopeKind(member: OrganizationMember): ScopeKind {
-		return memberSelectedScopeKind[member.id] ?? getMemberAccessShape(member).scopeSet.kind;
-	}
-
-	function getSelectedScopeGroupIds(member: OrganizationMember): string[] {
-		const current = getMemberAccessShape(member).scopeSet;
-		return memberSelectedScopeGroupIds[member.id] ?? (current.kind === 'groups' ? current.groupIds : []);
-	}
-
-	function toggleMemberScopeGroup(memberId: string, groupId: string, checked: boolean): void {
-		const current = memberSelectedScopeGroupIds[memberId] ?? [];
-		const next = checked ? Array.from(new Set([...current, groupId])) : current.filter((id) => id !== groupId);
-		memberSelectedScopeGroupIds = { ...memberSelectedScopeGroupIds, [memberId]: next };
-	}
-
-	function toggleInviteScopeGroup(groupId: string, checked: boolean): void {
-		inviteScopeGroupIds = checked
-			? Array.from(new Set([...inviteScopeGroupIds, groupId]))
-			: inviteScopeGroupIds.filter((id) => id !== groupId);
 	}
 
 	async function saveSettings(body: Record<string, number | null>) {
@@ -711,13 +502,12 @@
 
 				<div class="grid gap-3" role="list" aria-label="Organization members">
 					{#each sortedMembers as member (member.id)}
-						{@const accessShape = getMemberAccessShape(member)}
-						{@const accessBadge = getMemberAccessBadge(member, accessShape)}
-						{@const selectedPreset =
-							memberSelectedPreset[member.id] ?? (member.role === 'admin' ? 'admin' : accessShape.memberPreset)}
-						{@const selectedScopeKind = getSelectedScopeKind(member)}
-						{@const selectedScopeGroupIds = getSelectedScopeGroupIds(member)}
-						{@const overrides = overriddenCapabilityLabels(member)}
+						{@const accessShape = memberAccess.getMemberAccessShape(member)}
+						{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
+						{@const selectedPreset = memberAccess.getSelectedPreset(member)}
+						{@const selectedScopeKind = memberAccess.getSelectedScopeKind(member)}
+						{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(member)}
+						{@const overrides = memberAccess.overriddenCapabilityLabels(member)}
 						<div
 							class="grid gap-4 rounded-md border bg-card p-3 md:grid-cols-[auto_minmax(0,1fr)_auto]"
 							role="listitem"
@@ -726,15 +516,15 @@
 								class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"
 								aria-hidden="true"
 							>
-								{getMemberInitials(member.email)}
+								{memberAccess.getMemberInitials(member.email)}
 							</div>
 							<div class="grid gap-2">
 								<div class="grid gap-1">
 									<p class="font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
-									<p class="text-sm text-muted-foreground">{formatScopeSet(accessShape.scopeSet)}</p>
+									<p class="text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
 								</div>
 								<div class="flex flex-wrap gap-2">
-									<Badge variant="secondary">{getAccessLabel(accessBadge)}</Badge>
+									<Badge variant="secondary">{memberAccess.getAccessLabel(accessBadge)}</Badge>
 									{#each overrides as override (override)}
 										<Badge variant="outline">{override}</Badge>
 									{/each}
@@ -747,7 +537,12 @@
 								{#if member.role === 'owner'}
 									{#if isCurrentMember(member)}<Badge>You</Badge>{/if}
 								{:else if data.canManageMembers && (member.role !== 'admin' || data.isOwner)}
-									<Button type="button" variant="outline" size="sm" onclick={() => openMemberEditor(member)}>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onclick={() => memberAccess.openMemberEditor(member)}
+									>
 										<Edit />
 										Manage Access
 									</Button>
@@ -769,7 +564,7 @@
 								{/if}
 							</div>
 
-							{#if memberEditorId === member.id}
+							{#if memberAccess.memberEditorId === member.id}
 								<form
 									method="POST"
 									action="?/updatePermissions"
@@ -778,7 +573,7 @@
 										loading = true;
 										return async ({ update }) => {
 											loading = false;
-											closeMemberEditor(member.id);
+											memberAccess.closeMemberEditor(member.id);
 											await update();
 										};
 									}}
@@ -791,24 +586,25 @@
 												name="preset"
 												class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 												value={selectedPreset}
-												onchange={(event) => {
-													memberSelectedPreset = {
-														...memberSelectedPreset,
-														[member.id]: event.currentTarget.value as EditablePreset
-													};
-												}}
+												onchange={(event) =>
+													memberAccess.setMemberPreset(member.id, event.currentTarget.value as EditablePreset)}
 											>
 												{#each availablePresetOptions as option (option.value)}
 													<option value={option.value}>{option.label}</option>
 												{/each}
 											</select>
-											<p class="text-sm text-muted-foreground">{getAccessOptionHelper(selectedPreset)}</p>
+											<p class="text-sm text-muted-foreground">{memberAccess.getAccessOptionHelper(selectedPreset)}</p>
 										</label>
 										<div class="flex flex-wrap items-end gap-2">
 											<Button type="submit" size="sm" disabled={loading}>
 												{loading ? 'Saving...' : 'Save Access'}
 											</Button>
-											<Button type="button" variant="outline" size="sm" onclick={() => closeMemberEditor(member.id)}>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onclick={() => memberAccess.closeMemberEditor(member.id)}
+											>
 												Cancel
 											</Button>
 											{#if data.isOwner}
@@ -847,7 +643,7 @@
 															<select
 																name="capability:{lane.id}"
 																class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-																value={getEditorCapabilityValue(member, lane.id, selectedPreset)}
+																value={memberAccess.getEditorCapabilityValue(member, lane.id, selectedPreset)}
 																aria-label="{lane.label} capability for {member.email ?? 'member'}"
 															>
 																{#each capabilityOptions as option (option.value)}
@@ -871,9 +667,7 @@
 															type="radio"
 															name="scope-choice-{member.id}"
 															checked={selectedScopeKind === 'organization'}
-															onchange={() => {
-																memberSelectedScopeKind = { ...memberSelectedScopeKind, [member.id]: 'organization' };
-															}}
+															onchange={() => memberAccess.setMemberScopeKind(member.id, 'organization')}
 														/>
 														All groups
 													</label>
@@ -882,9 +676,7 @@
 															type="radio"
 															name="scope-choice-{member.id}"
 															checked={selectedScopeKind === 'groups'}
-															onchange={() => {
-																memberSelectedScopeKind = { ...memberSelectedScopeKind, [member.id]: 'groups' };
-															}}
+															onchange={() => memberAccess.setMemberScopeKind(member.id, 'groups')}
 														/>
 														Selected groups
 													</label>
@@ -899,7 +691,11 @@
 																	value={group.id}
 																	checked={selectedScopeGroupIds.includes(group.id)}
 																	onchange={(event) =>
-																		toggleMemberScopeGroup(member.id, group.id, event.currentTarget.checked)}
+																		memberAccess.toggleMemberScopeGroup(
+																			member.id,
+																			group.id,
+																			event.currentTarget.checked
+																		)}
 																/>
 																{group.name}
 															</label>
@@ -941,7 +737,7 @@
 							return async ({ update }) => {
 								loading = false;
 								await update();
-								if (!form?.inviteError) inviteEmail = '';
+								if (!form?.inviteError) memberAccess.clearInviteEmail();
 							};
 						}}
 					>
@@ -957,7 +753,7 @@
 									name="email"
 									type="email"
 									placeholder="colleague@example.com"
-									bind:value={inviteEmail}
+									bind:value={memberAccess.inviteEmail}
 									required
 								/>
 							</div>
@@ -966,7 +762,7 @@
 								<select
 									name="preset"
 									class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-									bind:value={invitePreset}
+									bind:value={memberAccess.invitePreset}
 									aria-label="Invite member preset"
 								>
 									{#each availablePresetOptions as option (option.value)}
@@ -980,16 +776,16 @@
 								</Button>
 							</div>
 						</div>
-						{#if invitePreset !== 'admin'}
+						{#if memberAccess.invitePreset !== 'admin'}
 							<div class="mt-4 grid gap-3 rounded-md border bg-muted/30 p-3">
-								<input type="hidden" name="accessScopeKind" value={inviteScopeKind} />
+								<input type="hidden" name="accessScopeKind" value={memberAccess.inviteScopeKind} />
 								<div class="flex flex-wrap gap-4">
 									<label class="flex items-center gap-2 text-sm">
 										<input
 											type="radio"
 											name="inviteScopeChoice"
-											checked={inviteScopeKind === 'organization'}
-											onchange={() => (inviteScopeKind = 'organization')}
+											checked={memberAccess.inviteScopeKind === 'organization'}
+											onchange={() => memberAccess.setInviteScopeKind('organization')}
 										/>
 										All groups
 									</label>
@@ -997,13 +793,13 @@
 										<input
 											type="radio"
 											name="inviteScopeChoice"
-											checked={inviteScopeKind === 'groups'}
-											onchange={() => (inviteScopeKind = 'groups')}
+											checked={memberAccess.inviteScopeKind === 'groups'}
+											onchange={() => memberAccess.setInviteScopeKind('groups')}
 										/>
 										Selected groups
 									</label>
 								</div>
-								{#if inviteScopeKind === 'groups'}
+								{#if memberAccess.inviteScopeKind === 'groups'}
 									<div class="grid gap-2">
 										{#each data.groups as group (group.id)}
 											<label class="flex items-center gap-2 text-sm">
@@ -1011,8 +807,9 @@
 													type="checkbox"
 													name="accessScopeGroupIds"
 													value={group.id}
-													checked={inviteScopeGroupIds.includes(group.id)}
-													onchange={(event) => toggleInviteScopeGroup(group.id, event.currentTarget.checked)}
+													checked={memberAccess.inviteScopeGroupIds.includes(group.id)}
+													onchange={(event) =>
+														memberAccess.toggleInviteScopeGroup(group.id, event.currentTarget.checked)}
 												/>
 												{group.name}
 											</label>
@@ -1036,7 +833,7 @@
 					</div>
 					<div class="grid gap-3">
 						{#each data.invitations as invite (invite.id)}
-							{@const invitePermissionPreset = getInvitePreset(invite)}
+							{@const invitePermissionPreset = memberAccess.getInvitePreset(invite)}
 							<div class="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
 								<div>
 									<p class="font-medium">{invite.email}</p>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
@@ -48,7 +49,7 @@
 <AuthShell
 	eyebrow="Beta Access"
 	title="Request access to the beta."
-	description="Submit your information and we'll review your request. Approved users receive an invite link by email."
+	description="Submit your information and we'll review your request. Approved users receive an Account Setup Link by email."
 	panelEyebrow="Beta request"
 	panelTitle={submitted ? 'Request submitted' : 'Request beta access'}
 	panelDescription={submitted ? 'Your beta request is in the queue.' : 'Tell us who you are and how to reach you.'}
@@ -56,19 +57,19 @@
 	imageAlt="A military access packet with folders, a clipboard, and field desk materials."
 	supportLabel="What this is for"
 	supportTitle="Beta access only."
-	supportDescription="If you already have an invite code, use Create Account instead. If you already have an account, sign in."
+	supportDescription="If you are already approved, request a fresh setup link. If you already have an account, sign in."
 	supportPoints={[
 		'Approved users receive a setup link after review.',
-		'That setup link expires after 24 hours for security.',
+		'That setup link expires after 14 days for security.',
 		'Some @army.mil and @health.mil addresses can filter these emails before they reach your inbox.',
-		'If you already have an account or invite code, use the other auth routes instead.'
+		'If your setup link expired or was replaced, request a fresh setup link.'
 	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if submitted}
 			<AuthNotice tone="success" title="We've got your request" centered>
 				<p>We'll review your request and email <strong>{email}</strong> if access is approved.</p>
-				<p>For security, that invite link will only work for 24 hours once it is sent.</p>
+				<p>For security, that Account Setup Link will work for 14 days once it is sent.</p>
 			</AuthNotice>
 
 			<div class="flex flex-col gap-3">
@@ -79,8 +80,8 @@
 				<AuthNotice tone="error" message={errorMsg} />
 			{/if}
 			<AuthNotice tone="warning" title="Important">
-				<p>If your request is approved, the setup link in your email will only be valid for 24 hours.</p>
-				<p>That short window is intentional for security, so plan to open it promptly.</p>
+				<p>If your request is approved, the setup link in your email will be valid for 14 days.</p>
+				<p>If it expires or is replaced, request a fresh setup link and use the newest email.</p>
 			</AuthNotice>
 
 			<form onsubmit={handleSubmit} class="flex flex-col gap-5">
@@ -127,10 +128,10 @@
 
 			<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 				<p>
-					Have an invite code already? <a href="/auth/register">Create your account</a>.
+					Already approved? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.
 				</p>
 				<p>
-					Already active? <a href="/auth/login">Sign in</a>.
+					Already active? <a href={resolve('/auth/login')}>Sign in</a>.
 				</p>
 			</div>
 		{/if}

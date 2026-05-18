@@ -22,3 +22,10 @@ For task-specific guidance, open only the files relevant to the work:
 - [Issue tracker](docs/agents/issue-tracker.md)
 - [Triage labels](docs/agents/triage-labels.md)
 - [Domain docs](docs/agents/domain.md)
+
+When asked about Svelte or SvelteKit topics, use the Svelte MCP documentation flow:
+
+1. Call `list-sections` first to discover relevant documentation sections.
+2. Read the returned `use_cases` and call `get-documentation` for every relevant section.
+3. When writing Svelte code, run `svelte-autofixer` and keep applying fixes until it reports no issues or suggestions.
+4. Ask whether Robert wants a `playground-link` only when code was not written directly to project files.

@@ -21,12 +21,13 @@ This index is the current map of architecture decisions. Use it before reading i
 | [0006: Legacy Terminology Compatibility Policy](adrs/0006-legacy-terminology-compatibility-policy.md) | Accepted | Canonical language and compatibility names | Read before renaming domain fields, UX copy, imports/exports, or docs terminology. |
 | [0007: Advanced Duty Snapshot Custody](adrs/0007-advanced-duty-snapshot-custody.md) | Superseded | Old Advanced Duty Run snapshot custody | Historical only after removal of the old Advanced Duty Run server flow and `/api/duty-events/**` write/revision endpoints. |
 | [0008: Leaders Book Retirement And Personnel Absorption](adrs/0008-leaders-book-retirement-and-personnel-absorption.md) | Accepted | Personnel-owned per-Soldier workflows | Current decision for counseling, notes, follow-ups, documents, and retired Leaders Book surface. |
+| [0009: Beta Access Request Account Setup Links](adrs/0009-beta-access-request-account-setup-links.md) | Accepted | Beta access and account setup | Read before changing access requests, account setup links, Supabase invite replacement, invite-code registration, or setup-link cleanup. |
 
 ## Reading Rules
 
 - For broad architecture scans, read `ARCHITECTURE.md`, `MODULE_CONVENTIONS.md`, `DRIFT_LEDGER.md`, `GOVERNANCE_CHECKS.md`, this index, and only the ADRs relevant to the touched seam.
 - For authz work, ADR 0001, 0002, and 0004 are usually relevant.
+- For beta access, account setup, invite replacement, or `/auth/register` deprecation, read ADR 0009.
 - For Personnel, Leaders Book, or Rating Scheme work, ADR 0002, 0003, and 0008 may be relevant, but ADR 0008 is the current product decision for Leaders Book retirement.
 - For old demo/sandbox residue, read ADR 0005 and `DRIFT_LEDGER.md` D-06.
 - For terminology work, read ADR 0006 and `UBIQUITOUS_LANGUAGE.md`.
-

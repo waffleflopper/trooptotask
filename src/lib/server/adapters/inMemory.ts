@@ -227,6 +227,15 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			return { data, count };
 		},
 
+		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
+			const filtered = applyFilters('audit_logs', getRows('audit_logs'), orgId, undefined, {
+				notInFilters: { action: excludedActions }
+			});
+			return [
+				...new Set(filtered.map((row) => row.action).filter((value): value is string => typeof value === 'string'))
+			].sort();
+		},
+
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
 			const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 			getRows(table).push(row);

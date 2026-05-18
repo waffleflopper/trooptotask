@@ -11,6 +11,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
 import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination';
 
+type DistinctAuditLogActionsRpcClient = {
+	rpc(
+		fn: 'list_audit_log_actions',
+		args: { p_org_id: string; p_excluded_actions: string[] }
+	): Promise<{ data: Array<{ action: string | null }> | null; error: { message?: string } | null }>;
+};
+
 function getOrgColumn(table: string): string {
 	switch (table) {
 		case 'audit_logs':
@@ -240,6 +247,22 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			}
 
 			return { data: result.data ?? [], count: result.count ?? null };
+		},
+
+		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
+			const { data, error } = await (supabase as unknown as DistinctAuditLogActionsRpcClient).rpc(
+				'list_audit_log_actions',
+				{
+					p_org_id: orgId,
+					p_excluded_actions: excludedActions
+				}
+			);
+
+			if (error) {
+				throw new Error(error.message ?? 'Supabase distinct value query failed');
+			}
+
+			return [...new Set((data ?? []).map((row) => row.action).filter((action): action is string => !!action))].sort();
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T> {

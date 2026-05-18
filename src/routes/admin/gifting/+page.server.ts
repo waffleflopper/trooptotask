@@ -5,13 +5,18 @@ import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import type { Tier } from '$lib/types/subscription';
 import { invalidateTierCache } from '$lib/server/subscription';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import {
+	type AdminMetricsClient,
+	displayOwnerMembership,
+	fetchOwnerMembershipsByOrganization,
+	fetchPersonnelCountsByOrganization
+} from '../adminOrganizationMetrics.server';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
 interface OrgRow {
 	id: string;
 	name: string;
-	created_by: string;
 	tier: Tier;
 	gift_tier: string | null;
 	gift_expires_at: string | null;
@@ -32,7 +37,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				adminClient
 					.from('organizations')
 					.select(
-						'id, name, created_by, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id'
+						'id, name, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id'
 					)
 					.order('name')
 					.range(from, to) as unknown as Promise<{
@@ -48,40 +53,22 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const allOrgs = (orgs ?? []) as OrgRow[];
 
-		let authUsers: Array<{ id: string; email?: string | null }> = [];
-		let fetchPage = 1;
-		let hasMoreUsers = true;
-
-		while (hasMoreUsers) {
-			const { data: authResult } = await adminClient.auth.admin.listUsers({ page: fetchPage, perPage: 1000 });
-			const users = authResult?.users ?? [];
-			authUsers = authUsers.concat(users);
-			hasMoreUsers = users.length === 1000;
-			fetchPage += 1;
-		}
-
-		const emailMap: Record<string, string> = {};
-		authUsers.forEach((u) => {
-			emailMap[u.id] = u.email || 'Unknown';
-		});
-
-		const personnelCounts: Record<string, number> = {};
-		for (const org of allOrgs) {
-			const { data: countResult } = await adminClient.rpc('count_org_personnel', {
-				p_org_id: org.id
-			});
-			personnelCounts[org.id] = countResult ?? 0;
-		}
+		const orgIds = allOrgs.map((org) => org.id);
+		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const [personnelCounts, ownerMemberships] = await Promise.all([
+			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
+			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
+		]);
 
 		let organizations = allOrgs.map((org) => ({
 			id: org.id,
 			name: org.name,
-			ownerEmail: emailMap[org.created_by] || 'Unknown',
+			ownerEmail: displayOwnerMembership(ownerMemberships.get(org.id)),
 			tier: org.tier as Tier,
 			giftTier: org.gift_tier as Tier | null,
 			giftExpiresAt: org.gift_expires_at,
 			giftedBy: org.gifted_by,
-			personnelCount: personnelCounts[org.id] || 0,
+			personnelCount: personnelCounts.get(org.id) ?? 0,
 			hasActiveSubscription: !!org.stripe_subscription_id && org.subscription_status === 'active',
 			subscriptionStatus: org.subscription_status,
 			stripeSubscriptionId: org.stripe_subscription_id

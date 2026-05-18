@@ -7,7 +7,7 @@ import {
 } from './dutyRosterRun';
 import type { DutyRosterRunInput } from './dutyRosterRun.types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-import type { AssignmentType, DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel } from '$lib/types';
 
 const assignmentType: AssignmentType = {
 	id: 'staff-duty',
@@ -389,6 +389,52 @@ describe('buildDutyRosterRunSnapshot', () => {
 			code: 'assigned',
 			queuePosition: 3,
 			sequenceNumber: 3
+		});
+	});
+
+	it('prioritizes active advanced duty over cooldown when cooldown appears first', () => {
+		const cooldown = advancedDuty({
+			id: 'cooldown',
+			coverageStart: '2026-04-30T08:00:00',
+			coverageEnd: '2026-04-30T20:00:00',
+			cooldownHours: 12,
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'cooldown-slot', assigneeId: 'alpha' }]
+		});
+		const duty = advancedDuty({
+			id: 'overlap',
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'overlap-slot', assigneeId: 'alpha' }]
+		});
+
+		const snapshot = buildDutyRosterRunSnapshot(baseInput({ advancedDutyEvents: [cooldown, duty] }));
+
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'advanced-duty-overlap',
+			da6Code: 'D',
+			chargeable: true
+		});
+	});
+
+	it('prioritizes active advanced duty over cooldown when duty appears first', () => {
+		const duty = advancedDuty({
+			id: 'overlap',
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'overlap-slot', assigneeId: 'alpha' }]
+		});
+		const cooldown = advancedDuty({
+			id: 'cooldown',
+			coverageStart: '2026-04-30T08:00:00',
+			coverageEnd: '2026-04-30T20:00:00',
+			cooldownHours: 12,
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'cooldown-slot', assigneeId: 'alpha' }]
+		});
+
+		const snapshot = buildDutyRosterRunSnapshot(baseInput({ advancedDutyEvents: [duty, cooldown] }));
+
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'advanced-duty-overlap',
+			da6Code: 'D',
+			chargeable: true
 		});
 	});
 
@@ -881,5 +927,128 @@ describe('buildDutyRosterRunSnapshot', () => {
 			startDate: '2026-05-01',
 			rosterRows: [{ date: '2026-05-01', assigneeId: 'alpha' }]
 		});
+	});
+
+	it('preserves large run assignment order with indexed availability and advanced-duty blocks', () => {
+		const personnel = Array.from({ length: 12 }, (_, index) =>
+			person({
+				id: `soldier-${index + 1}`,
+				rank: index < 4 ? 'SSG' : index < 8 ? 'SGT' : 'SPC',
+				lastName: `Soldier${String(index + 1).padStart(2, '0')}`
+			})
+		);
+		const availabilityEntries: AvailabilityEntry[] = [
+			{
+				id: 'leave-2',
+				personnelId: 'soldier-2',
+				statusTypeId: 'leave',
+				startDate: '2026-05-02',
+				endDate: '2026-05-04'
+			},
+			{
+				id: 'cq-3',
+				personnelId: 'soldier-3',
+				statusTypeId: 'cq',
+				startDate: '2026-05-03',
+				endDate: '2026-05-03'
+			}
+		];
+		availabilityEntries.filter = () => {
+			throw new Error('Duty Roster run generation should use indexed availability lookups');
+		};
+		const advancedDutyEvents = [
+			advancedDuty({
+				id: 'blocking-4',
+				coverageStart: '2026-05-04T00:00:00',
+				coverageEnd: '2026-05-04T23:59:59',
+				slotInstances: [{ ...advancedDuty({}).slotInstances[0], assigneeId: 'soldier-4' }]
+			}),
+			advancedDuty({
+				id: 'cooldown-5',
+				coverageStart: '2026-05-04T08:00:00',
+				coverageEnd: '2026-05-04T20:00:00',
+				cooldownHours: 12,
+				slotInstances: [{ ...advancedDuty({}).slotInstances[0], assigneeId: 'soldier-5' }]
+			})
+		];
+		for (const event of advancedDutyEvents) {
+			event.slotInstances.some = () => {
+				throw new Error('Duty Roster run generation should use indexed advanced-duty lookups');
+			};
+		}
+		const misconductDates = ['2026-05-06'];
+		misconductDates.includes = () => {
+			throw new Error('Duty Roster run generation should use indexed misconduct lookups');
+		};
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel,
+				assignments: [
+					daily({ id: 'recent-1', assigneeId: 'soldier-1', date: '2026-04-28' }),
+					daily({ id: 'older-12', assigneeId: 'soldier-12', date: '2026-03-01' })
+				],
+				statusTypes: [
+					{
+						id: 'leave',
+						name: 'Leave',
+						color: '#008000',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'authorized-absence',
+						da6TreatmentReviewed: true
+					},
+					{
+						id: 'cq',
+						name: 'CQ',
+						color: '#111827',
+						textColor: '#fff',
+						da6AvailabilityTreatment: 'other-duty',
+						da6TreatmentReviewed: true
+					}
+				],
+				availabilityEntries,
+				advancedDutyEvents,
+				config: {
+					startDate: '2026-05-01',
+					endDate: '2026-05-14',
+					dutyDuration: 'daily',
+					excludedStatusIds: ['leave', 'cq'],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false,
+					misconductUnavailablePersonnelDates: { 'soldier-6': misconductDates }
+				}
+			})
+		);
+
+		expect(snapshot.rosterRows.map((row) => row.assigneeId).slice(0, 5)).toEqual([
+			'soldier-2',
+			'soldier-3',
+			'soldier-4',
+			'soldier-6',
+			'soldier-7'
+		]);
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'soldier-2')?.cells[1]).toMatchObject({
+			code: 'authorized-absence',
+			queuePosition: null
+		});
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'soldier-3')?.cells[2]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'other-duty-status'
+		});
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'soldier-4')?.cells[3]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'advanced-duty-overlap'
+		});
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'soldier-5')?.cells[4]).toMatchObject({
+			code: 'blocked-by-cooldown',
+			reasonCode: 'advanced-duty-cooldown'
+		});
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'soldier-6')?.cells[5]).toMatchObject({
+			code: 'misconduct-unavailable',
+			reasonCode: 'misconduct-unavailable'
+		});
+		expect(
+			snapshot.da6.rows.find((row) => row.personnelId === 'soldier-2')?.cells.map((cell) => cell.sequenceNumber)
+		).toEqual([1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1]);
 	});
 });

@@ -2,6 +2,12 @@ import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
+import {
+	type AdminMetricsClient,
+	displayOwnerMembership,
+	fetchOwnerMembershipsByOrganization,
+	fetchPersonnelCountsByOrganization
+} from '../adminOrganizationMetrics.server';
 
 function getPersonnelCapForTier(tier: string): number | null {
 	const config = TIER_CONFIG[tier as Tier];
@@ -48,42 +54,28 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin subscriptions query failed:', orgsError);
 		}
 
-		const enrichedOrgs = await Promise.all(
-			(orgs ?? []).map(async (org) => {
-				const { count: personnelCount } = await adminClient
-					.from('personnel')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id)
-					.is('archived_at', null);
+		const orgIds = (orgs ?? []).map((org) => org.id);
+		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const [personnelCounts, ownerMemberships] = await Promise.all([
+			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
+			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
+		]);
 
-				const { data: ownerMembership } = await adminClient
-					.from('organization_memberships')
-					.select('user_id')
-					.eq('organization_id', org.id)
-					.eq('role', 'owner')
-					.single();
+		const enrichedOrgs = (orgs ?? []).map((org) => {
+			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
 
-				let ownerEmail = '';
-				if (ownerMembership) {
-					const {
-						data: { user: ownerUser }
-					} = await adminClient.auth.admin.getUserById(ownerMembership.user_id);
-					ownerEmail = ownerUser?.email ?? '';
-				}
+			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
-				const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
-
-				return {
-					...org,
-					effectiveTier,
-					personnelCount: personnelCount ?? 0,
-					personnelCap: getPersonnelCapForTier(effectiveTier),
-					ownerEmail,
-					isGifted: !!org.gift_tier,
-					isSuspended: !!org.suspended_at
-				};
-			})
-		);
+			return {
+				...org,
+				effectiveTier,
+				personnelCount: personnelCounts.get(org.id) ?? 0,
+				personnelCap: getPersonnelCapForTier(effectiveTier),
+				ownerEmail,
+				isGifted: !!org.gift_tier,
+				isSuspended: !!org.suspended_at
+			};
+		});
 
 		return { subscriptions: enrichedOrgs };
 	}

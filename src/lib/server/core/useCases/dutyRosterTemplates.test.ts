@@ -248,7 +248,8 @@ const store: DataStore = {
 		}
 		return inserted;
 	},
-	findManyWithCount: vi.fn()
+	findManyWithCount: vi.fn(),
+	listDistinctAuditActions: vi.fn()
 } as DataStore;
 
 const audit: AuditPort = {

@@ -28,8 +28,8 @@ vi.mock('jspdf-autotable', () => ({
 	default: mockAutoTable
 }));
 
-import { printMonthCalendar, printQuarterCalendar } from './calendarExport';
-import type { Personnel } from '$lib/types';
+import { exportMonthToCSV, exportQuarterToCSV, printMonthCalendar, printQuarterCalendar } from './calendarExport';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 
 function makeExportOptions() {
 	return {
@@ -56,6 +56,193 @@ function makeExportOptions() {
 	};
 }
 
+function guardedArray<T>(items: T[], methods: Array<'find' | 'filter'>, mapLimit = Number.POSITIVE_INFINITY): T[] {
+	for (const method of methods) {
+		Object.defineProperty(items, method, {
+			value: () => {
+				throw new Error(`calendar export should not call ${method} in the cell hot path`);
+			}
+		});
+	}
+	let mapCalls = 0;
+	Object.defineProperty(items, 'map', {
+		value: (callback: (value: T, index: number, array: T[]) => unknown) => {
+			mapCalls += 1;
+			if (mapCalls > mapLimit) {
+				throw new Error('calendar export should build lookup maps once per export');
+			}
+			return Array.prototype.map.call(items, callback);
+		}
+	});
+	return items;
+}
+
+function makeIndexedExportOptions() {
+	const personnel = [
+		{
+			id: 'person-1',
+			rank: 'SGT',
+			lastName: 'Smith',
+			firstName: 'John',
+			groupName: 'Alpha',
+			groupId: 'g1'
+		} as Personnel,
+		{
+			id: 'person-2',
+			rank: 'SPC',
+			lastName: 'Jones',
+			firstName: 'Jane',
+			groupName: 'Alpha',
+			groupId: 'g1'
+		} as Personnel
+	];
+	const statusTypes = guardedArray<StatusType>(
+		[
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#fde68a',
+				textColor: '#111827',
+				da6TreatmentReviewed: true
+			},
+			{
+				id: 'school',
+				name: 'School',
+				color: '#16a34a',
+				textColor: '#ffffff',
+				da6TreatmentReviewed: true
+			}
+		],
+		['find'],
+		1
+	);
+	const availabilityEntries = guardedArray<AvailabilityEntry>(
+		[
+			{
+				id: 'leave-person-1',
+				personnelId: 'person-1',
+				statusTypeId: 'leave',
+				startDate: '2026-03-02',
+				endDate: '2026-03-04'
+			},
+			{
+				id: 'overlap-person-1',
+				personnelId: 'person-1',
+				statusTypeId: 'school',
+				startDate: '2026-03-03',
+				endDate: '2026-03-03'
+			}
+		],
+		['find', 'filter']
+	);
+	const specialDays = guardedArray<SpecialDay>(
+		[{ id: 'holiday', date: '2026-03-06', name: 'Training Holiday', type: 'federal-holiday' }],
+		['find']
+	);
+	const assignmentTypes = guardedArray<AssignmentType>(
+		[
+			{
+				id: 'staff-duty',
+				name: 'Staff Duty',
+				shortName: 'SD',
+				assignTo: 'personnel',
+				color: '#111827',
+				exemptPersonnelIds: [],
+				showInDateHeader: true
+			},
+			{
+				id: 'cq',
+				name: 'CQ',
+				shortName: 'CQ',
+				assignTo: 'personnel',
+				color: '#334155',
+				exemptPersonnelIds: [],
+				showInDateHeader: true
+			}
+		],
+		['find'],
+		1
+	);
+	const assignments = guardedArray<DailyAssignment>(
+		[
+			{ id: 'assignment-1', date: '2026-03-03', assignmentTypeId: 'staff-duty', assigneeId: 'person-1' },
+			{ id: 'assignment-2', date: '2026-03-03', assignmentTypeId: 'cq', assigneeId: 'person-1' },
+			{ id: 'assignment-3', date: '2026-03-04', assignmentTypeId: 'staff-duty', assigneeId: 'person-2' }
+		],
+		['filter']
+	);
+
+	return {
+		personnelByGroup: [{ group: 'Alpha', personnel }],
+		availabilityEntries,
+		statusTypes,
+		specialDays,
+		assignmentTypes,
+		assignments
+	};
+}
+
+async function captureDownload(callback: () => void): Promise<{ content: string; filename: string }> {
+	let blob: Blob | null = null;
+	let filename = '';
+	const originalDocument = globalThis.document;
+	const link = { href: '', download: '', click: vi.fn() };
+	Object.defineProperty(globalThis, 'document', {
+		value: {
+			createElement: vi.fn(() => link),
+			body: {
+				appendChild: vi.fn((node: typeof link) => {
+					filename = node.download;
+					return node;
+				}),
+				removeChild: vi.fn()
+			}
+		},
+		configurable: true
+	});
+	const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockImplementation((value) => {
+		blob = value as Blob;
+		return 'blob:calendar-export';
+	});
+	const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+	try {
+		callback();
+		expect(blob).toBeTruthy();
+		return { content: await blob!.text(), filename };
+	} finally {
+		Object.defineProperty(globalThis, 'document', { value: originalDocument, configurable: true });
+		createObjectURL.mockRestore();
+		revokeObjectURL.mockRestore();
+	}
+}
+
+describe('calendar CSV exports', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('renders month cells from pre-indexed status, assignment, and special-day data', async () => {
+		const download = await captureDownload(() => exportMonthToCSV(2026, 2, makeIndexedExportOptions()));
+
+		expect(download.filename).toBe('calendar-March-2026.xls');
+		expect(download.content).toContain('Leave (SD, CQ)');
+		expect(download.content).not.toContain('School (SD, CQ)');
+		expect(download.content).toContain('background-color: #fde68a; color: #111827;');
+		expect(download.content).toContain('background-color: #fef3c7;');
+	});
+
+	it('renders quarter cells from the same pre-indexed data path', async () => {
+		const download = await captureDownload(() => exportQuarterToCSV(new Date(2026, 2, 1), makeIndexedExportOptions()));
+
+		expect(download.filename).toBe('calendar-March-2026-to-May-2026.xls');
+		expect(download.content).toContain('Leave (SD, CQ)');
+		expect(download.content).toContain('SD');
+		expect(download.content).toContain('March 2026');
+		expect(download.content).toContain('background-color: #fef3c7;');
+	});
+});
+
 describe('printMonthCalendar', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -81,6 +268,39 @@ describe('printMonthCalendar', () => {
 		await printMonthCalendar(2026, 2, makeExportOptions());
 
 		expect(mockText).toHaveBeenCalledWith('March 2026', expect.any(Number), expect.any(Number), expect.any(Object));
+	});
+
+	it('builds PDF cell content and styles from pre-indexed export data', async () => {
+		await printMonthCalendar(2026, 2, makeIndexedExportOptions());
+
+		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
+		expect(tableOptions.body).toEqual(
+			expect.arrayContaining([expect.arrayContaining([expect.stringContaining('SGT Smith'), 'Leave', 'Leave\nSD, CQ'])])
+		);
+		const statusCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 1 },
+			column: { index: 2 },
+			cell: statusCell
+		});
+		expect(statusCell.styles).toMatchObject({ fillColor: [253, 230, 138], textColor: [17, 24, 39] });
+		const weekendCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 2 },
+			column: { index: 1 },
+			cell: weekendCell
+		});
+		expect(weekendCell.styles).toMatchObject({ fillColor: [243, 244, 246] });
+		const holidayCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 2 },
+			column: { index: 6 },
+			cell: holidayCell
+		});
+		expect(holidayCell.styles).toMatchObject({ fillColor: [254, 243, 199] });
 	});
 });
 
@@ -115,5 +335,40 @@ describe('printQuarterCalendar', () => {
 			expect.any(Number),
 			expect.any(Object)
 		);
+	});
+
+	it('keeps compact quarter PDF cells indexed and visually styled', async () => {
+		await printQuarterCalendar(new Date(2026, 2, 1), makeIndexedExportOptions());
+
+		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
+		expect(tableOptions.body).toEqual(
+			expect.arrayContaining([expect.arrayContaining([expect.stringContaining('SGT Smith')])])
+		);
+		expect(tableOptions.body.flat()).not.toContain('SD');
+		expect(tableOptions.body.flat()).not.toContain('Leave');
+		const statusCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 1 },
+			column: { index: 2 },
+			cell: statusCell
+		});
+		expect(statusCell.styles).toMatchObject({ fillColor: [253, 230, 138], textColor: [17, 24, 39] });
+		const weekendCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 2 },
+			column: { index: 1 },
+			cell: weekendCell
+		});
+		expect(weekendCell.styles).toMatchObject({ fillColor: [243, 244, 246] });
+		const holidayCell = { styles: {} };
+		tableOptions.didParseCell({
+			section: 'body',
+			row: { index: 2 },
+			column: { index: 6 },
+			cell: holidayCell
+		});
+		expect(holidayCell.styles).toMatchObject({ fillColor: [254, 243, 199] });
 	});
 });

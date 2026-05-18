@@ -1,6 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import {
+	type AdminMetricsClient,
+	displayOwnerMembership,
+	fetchMembershipCountsByOrganization,
+	fetchOwnerMembershipsByOrganization,
+	fetchPersonnelCountsByOrganization
+} from '../adminOrganizationMetrics.server';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'organizations',
@@ -39,44 +46,26 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Admin orgs query failed:', orgsError);
 		}
 
-		const enrichedOrgs = await Promise.all(
-			(orgs ?? []).map(async (org) => {
-				const { count: memberCount } = await adminClient
-					.from('organization_memberships')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id);
+		const orgIds = (orgs ?? []).map((org) => org.id);
+		const metricsClient = adminClient as unknown as AdminMetricsClient;
+		const [memberCounts, personnelCounts, ownerMemberships] = await Promise.all([
+			fetchMembershipCountsByOrganization(metricsClient, orgIds),
+			fetchPersonnelCountsByOrganization(metricsClient, orgIds),
+			fetchOwnerMembershipsByOrganization(metricsClient, orgIds)
+		]);
 
-				const { count: personnelCount } = await adminClient
-					.from('personnel')
-					.select('*', { count: 'exact', head: true })
-					.eq('organization_id', org.id)
-					.is('archived_at', null);
+		const enrichedOrgs = (orgs ?? []).map((org) => {
+			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
 
-				const { data: ownerMembership } = await adminClient
-					.from('organization_memberships')
-					.select('user_id')
-					.eq('organization_id', org.id)
-					.eq('role', 'owner')
-					.single();
-
-				let ownerEmail = '';
-				if (ownerMembership) {
-					const {
-						data: { user: ownerUser }
-					} = await adminClient.auth.admin.getUserById(ownerMembership.user_id);
-					ownerEmail = ownerUser?.email ?? '';
-				}
-
-				return {
-					...org,
-					effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
-					memberCount: memberCount ?? 0,
-					personnelCount: personnelCount ?? 0,
-					ownerEmail,
-					isSuspended: !!org.suspended_at
-				};
-			})
-		);
+			return {
+				...org,
+				effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
+				memberCount: memberCounts.get(org.id) ?? 0,
+				personnelCount: personnelCounts.get(org.id) ?? 0,
+				ownerEmail,
+				isSuspended: !!org.suspended_at
+			};
+		});
 
 		return { organizations: enrichedOrgs };
 	}

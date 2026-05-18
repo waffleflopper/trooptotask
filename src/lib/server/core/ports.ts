@@ -97,6 +97,8 @@ export interface DataStore {
 		filters?: Record<string, unknown>,
 		options?: FindOptions
 	): Promise<FindResult<T>>;
+
+	listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]>;
 }
 
 export interface AdvancedDutyPersistencePort {

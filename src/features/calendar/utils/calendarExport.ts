@@ -1,5 +1,5 @@
 import type { Personnel, AvailabilityEntry, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
-import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
+import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, parseDate } from '$lib/utils/dates';
 import type { RowInput } from 'jspdf-autotable';
 
 interface GroupData {
@@ -23,42 +23,107 @@ interface MonthData {
 	dates: Date[];
 }
 
-function getStatusForDate(
-	personnelId: string,
-	date: Date,
-	availabilityEntries: AvailabilityEntry[],
-	statusTypes: StatusType[]
-): StatusType | null {
-	const dateStr = formatDate(date);
-	const entry = availabilityEntries.find(
-		(e) => e.personnelId === personnelId && dateStr >= e.startDate && dateStr <= e.endDate
-	);
-	if (!entry) return null;
-	return statusTypes.find((s) => s.id === entry.statusTypeId) ?? null;
+interface CalendarExportDateMeta {
+	date: Date;
+	dateKey: string;
+	isWeekend: boolean;
+	specialDay: SpecialDay | undefined;
+	isHoliday: boolean;
 }
 
-function getAssignmentsForDate(
-	date: Date,
-	personnelId: string,
-	assignments: DailyAssignment[],
-	assignmentTypes: AssignmentType[]
-): string[] {
-	const dateStr = formatDate(date);
-	return assignments
-		.filter((a) => a.date === dateStr && a.assigneeId === personnelId)
-		.map((a) => {
-			const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId);
-			return type?.shortName ?? '';
-		})
-		.filter((s) => s);
+interface CalendarExportIndex {
+	dateMetas: CalendarExportDateMeta[];
+	getStatus: (personnelId: string, dateKey: string) => StatusType | undefined;
+	getAssignments: (personnelId: string, dateKey: string) => string[];
+}
+
+function cellKey(personnelId: string, dateKey: string): string {
+	return `${personnelId}:${dateKey}`;
+}
+
+function nextLocalDay(date: Date) {
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
+function buildCalendarExportIndex(dates: Date[], options: ExportOptions): CalendarExportIndex {
+	const dateKeys = dates.map(formatDate);
+	const firstDateKey = dateKeys[0];
+	const lastDateKey = dateKeys.at(-1);
+	const specialDayByDate = new Map<string, SpecialDay>();
+	for (const specialDay of options.specialDays) {
+		if (!specialDayByDate.has(specialDay.date)) {
+			specialDayByDate.set(specialDay.date, specialDay);
+		}
+	}
+	const dateKeySet = new Set(dateKeys);
+	const dateMetas = dates.map((date, index) => {
+		const dateKey = dateKeys[index];
+		const specialDay = specialDayByDate.get(dateKey);
+		return {
+			date,
+			dateKey,
+			isWeekend: isWeekend(date),
+			specialDay,
+			isHoliday: specialDay?.type === 'federal-holiday'
+		};
+	});
+	const statusTypeById = new Map(options.statusTypes.map((statusType) => [statusType.id, statusType]));
+	const statusByPersonDate = new Map<string, StatusType>();
+	if (firstDateKey && lastDateKey) {
+		for (const entry of options.availabilityEntries) {
+			const statusType = statusTypeById.get(entry.statusTypeId);
+			if (!statusType || entry.endDate < firstDateKey || entry.startDate > lastDateKey) {
+				continue;
+			}
+			const startDate = entry.startDate > firstDateKey ? entry.startDate : firstDateKey;
+			const endDate = entry.endDate < lastDateKey ? entry.endDate : lastDateKey;
+			for (let date = parseDate(startDate); ; date = nextLocalDay(date)) {
+				const dateKey = formatDate(date);
+				if (dateKey > endDate) {
+					break;
+				}
+				if (!dateKeySet.has(dateKey)) {
+					continue;
+				}
+				const key = cellKey(entry.personnelId, dateKey);
+				if (!statusByPersonDate.has(key)) {
+					statusByPersonDate.set(key, statusType);
+				}
+			}
+		}
+	}
+	const assignmentTypeById = new Map(
+		options.assignmentTypes.map((assignmentType) => [assignmentType.id, assignmentType])
+	);
+	const assignmentsByPersonDate = new Map<string, string[]>();
+	for (const assignment of options.assignments) {
+		if (!dateKeySet.has(assignment.date)) {
+			continue;
+		}
+		const shortName = assignmentTypeById.get(assignment.assignmentTypeId)?.shortName;
+		if (!shortName) {
+			continue;
+		}
+		const key = cellKey(assignment.assigneeId, assignment.date);
+		const values = assignmentsByPersonDate.get(key) ?? [];
+		values.push(shortName);
+		assignmentsByPersonDate.set(key, values);
+	}
+
+	return {
+		dateMetas,
+		getStatus: (personnelId, dateKey) => statusByPersonDate.get(cellKey(personnelId, dateKey)),
+		getAssignments: (personnelId, dateKey) => assignmentsByPersonDate.get(cellKey(personnelId, dateKey)) ?? []
+	};
 }
 
 /**
  * Export single month calendar to Excel-compatible HTML with colors
  */
 export function exportMonthToCSV(year: number, month: number, options: ExportOptions): void {
-	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
+	const { personnelByGroup } = options;
 	const dates = getMonthDates(year, month);
+	const exportIndex = buildCalendarExportIndex(dates, options);
 	const monthName = getMonthName(month);
 
 	let html = `
@@ -81,12 +146,9 @@ export function exportMonthToCSV(year: number, month: number, options: ExportOpt
 		<th class="name-cell">Personnel</th>`;
 
 	// Header row with dates
-	for (const date of dates) {
+	for (const { date, isWeekend: isWknd, isHoliday } of exportIndex.dateMetas) {
 		const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 		const dayNum = date.getDate();
-		const isWknd = isWeekend(date);
-		const special = specialDays.find((s) => s.date === formatDate(date));
-		const isHoliday = special?.type === 'federal-holiday';
 		const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
 		html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
 	}
@@ -101,12 +163,9 @@ export function exportMonthToCSV(year: number, month: number, options: ExportOpt
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
 
-				for (const date of dates) {
-					const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-					const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
-					const isWknd = isWeekend(date);
-					const special = specialDays.find((s) => s.date === formatDate(date));
-					const isHoliday = special?.type === 'federal-holiday';
+				for (const { dateKey, isWeekend: isWknd, isHoliday } of exportIndex.dateMetas) {
+					const status = exportIndex.getStatus(person.id, dateKey);
+					const personAssignments = exportIndex.getAssignments(person.id, dateKey);
 
 					let cellContent = '';
 					let bgColor = '';
@@ -115,7 +174,7 @@ export function exportMonthToCSV(year: number, month: number, options: ExportOpt
 					if (status) {
 						cellContent = status.name;
 						bgColor = status.color;
-						textColor = 'white';
+						textColor = status.textColor;
 					}
 					if (personAssignments.length > 0) {
 						const assignmentText = personAssignments.join(', ');
@@ -148,7 +207,7 @@ export function exportMonthToCSV(year: number, month: number, options: ExportOpt
  * Export 3-month view to Excel-compatible HTML with colors (same format as single month)
  */
 export function exportQuarterToCSV(startDate: Date, options: ExportOptions): void {
-	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
+	const { personnelByGroup } = options;
 
 	// Get 3 months of data
 	const months: MonthData[] = [];
@@ -163,6 +222,7 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 	}
 
 	const allDates = months.flatMap((m) => m.dates);
+	const exportIndex = buildCalendarExportIndex(allDates, options);
 	const totalDays = allDates.length;
 	const startMonth = months[0];
 	const endMonth = months[2];
@@ -194,13 +254,14 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 	html += '</tr><tr>';
 
 	// Day header row with day names and numbers
+	let dateMetaIndex = 0;
 	for (const month of months) {
-		for (const date of month.dates) {
-			const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-			const dayNum = date.getDate();
-			const isWknd = isWeekend(date);
-			const special = specialDays.find((s) => s.date === formatDate(date));
-			const isHoliday = special?.type === 'federal-holiday';
+		for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
+			const meta = exportIndex.dateMetas[dateMetaIndex++];
+			const dayName = meta.date.toLocaleDateString('en-US', { weekday: 'short' });
+			const dayNum = meta.date.getDate();
+			const isWknd = meta.isWeekend;
+			const isHoliday = meta.isHoliday;
 			const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
 			html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
 		}
@@ -216,13 +277,14 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
 
+				let personDateMetaIndex = 0;
 				for (const month of months) {
-					for (const date of month.dates) {
-						const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-						const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
-						const isWknd = isWeekend(date);
-						const special = specialDays.find((s) => s.date === formatDate(date));
-						const isHoliday = special?.type === 'federal-holiday';
+					for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
+						const meta = exportIndex.dateMetas[personDateMetaIndex++];
+						const status = exportIndex.getStatus(person.id, meta.dateKey);
+						const personAssignments = exportIndex.getAssignments(person.id, meta.dateKey);
+						const isWknd = meta.isWeekend;
+						const isHoliday = meta.isHoliday;
 
 						let cellContent = '';
 						let bgColor = '';
@@ -231,7 +293,7 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 						if (status) {
 							cellContent = status.name;
 							bgColor = status.color;
-							textColor = 'white';
+							textColor = status.textColor;
 						}
 						if (personAssignments.length > 0) {
 							const assignmentText = personAssignments.join(', ');
@@ -283,11 +345,7 @@ function hexToRgb(hex: string): [number, number, number] {
 function buildCalendarTable(
 	dates: Date[],
 	personnelByGroup: GroupData[],
-	availabilityEntries: AvailabilityEntry[],
-	statusTypes: StatusType[],
-	specialDays: SpecialDay[],
-	assignmentTypes: AssignmentType[],
-	assignments: DailyAssignment[],
+	exportIndex: CalendarExportIndex,
 	compact: boolean
 ) {
 	const head = [
@@ -302,14 +360,14 @@ function buildCalendarTable(
 	const weekendCols = new Set<number>();
 	const holidayCols = new Set<number>();
 
-	dates.forEach((d, i) => {
-		if (isWeekend(d)) weekendCols.add(i + 1);
-		const special = specialDays.find((s) => s.date === formatDate(d));
-		if (special?.type === 'federal-holiday') holidayCols.add(i + 1);
+	exportIndex.dateMetas.forEach((meta, i) => {
+		if (meta.isWeekend) weekendCols.add(i + 1);
+		if (meta.isHoliday) holidayCols.add(i + 1);
 	});
 
 	// Track styling per cell: [rowIndex][colIndex] = { fillColor, textColor }
-	const cellStyles: Map<string, { fillColor?: [number, number, number]; textColor?: number }> = new Map();
+	const cellStyles: Map<string, { fillColor?: [number, number, number]; textColor?: [number, number, number] }> =
+		new Map();
 	// Track group header rows
 	const groupRows = new Set<number>();
 
@@ -342,16 +400,16 @@ function buildCalendarTable(
 			const row: any[] = [nameLabel];
 
 			for (let di = 0; di < dates.length; di++) {
-				const date = dates[di];
-				const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-				const personAssignments = compact ? [] : getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+				const meta = exportIndex.dateMetas[di];
+				const status = exportIndex.getStatus(person.id, meta.dateKey);
+				const personAssignments = compact ? [] : exportIndex.getAssignments(person.id, meta.dateKey);
 
 				let cellContent = '';
 				if (status) {
 					cellContent = compact ? '' : status.name;
 					cellStyles.set(`${rowIdx}:${di + 1}`, {
 						fillColor: hexToRgb(status.color),
-						textColor: 255
+						textColor: hexToRgb(status.textColor)
 					});
 				}
 				if (personAssignments.length > 0) {
@@ -373,18 +431,15 @@ function buildCalendarTable(
  * Generate PDF for month calendar using jsPDF
  */
 export async function printMonthCalendar(year: number, month: number, options: ExportOptions): Promise<void> {
-	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
+	const { personnelByGroup } = options;
 	const dates = getMonthDates(year, month);
+	const exportIndex = buildCalendarExportIndex(dates, options);
 	const monthName = getMonthName(month);
 
 	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
 		dates,
 		personnelByGroup,
-		availabilityEntries,
-		statusTypes,
-		specialDays,
-		assignmentTypes,
-		assignments,
+		exportIndex,
 		false
 	);
 
@@ -459,7 +514,7 @@ export async function printMonthCalendar(year: number, month: number, options: E
  * Generate PDF for 3-month calendar view using jsPDF
  */
 export async function printQuarterCalendar(startDate: Date, options: ExportOptions): Promise<void> {
-	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
+	const { personnelByGroup } = options;
 
 	const months: MonthData[] = [];
 	for (let i = 0; i < 3; i++) {
@@ -473,16 +528,13 @@ export async function printQuarterCalendar(startDate: Date, options: ExportOptio
 	}
 
 	const allDates = months.flatMap((m) => m.dates);
+	const exportIndex = buildCalendarExportIndex(allDates, options);
 	const title = `${months[0].name} ${months[0].year} - ${months[2].name} ${months[2].year}`;
 
 	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
 		allDates,
 		personnelByGroup,
-		availabilityEntries,
-		statusTypes,
-		specialDays,
-		assignmentTypes,
-		assignments,
+		exportIndex,
 		true
 	);
 

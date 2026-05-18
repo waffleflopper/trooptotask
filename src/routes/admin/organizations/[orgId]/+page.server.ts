@@ -23,29 +23,24 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		if (orgError || !org) throw error(404, 'Organization not found');
 
-		const { data: memberships } = await selectAllSupabaseRows<{ user_id: string; role: string }>(
+		const { data: memberships } = await selectAllSupabaseRows<{ user_id: string; role: string; email: string | null }>(
 			(from, to) =>
 				adminClient
 					.from('organization_memberships')
-					.select('user_id, role')
+					.select('user_id, role, email')
 					.eq('organization_id', orgId)
 					.order('role')
 					.range(from, to) as unknown as Promise<{
-					data: { user_id: string; role: string }[] | null;
+					data: { user_id: string; role: string; email: string | null }[] | null;
 					error: unknown;
 				}>
 		);
 
-		const members = await Promise.all(
-			(memberships ?? []).map(async (m) => {
-				const { data: authUser } = await adminClient.auth.admin.getUserById(m.user_id);
-				return {
-					userId: m.user_id,
-					email: authUser?.user?.email ?? '(unknown)',
-					role: m.role as string
-				};
-			})
-		);
+		const members = (memberships ?? []).map((m) => ({
+			userId: m.user_id,
+			email: m.email ?? '(unknown)',
+			role: m.role as string
+		}));
 
 		const { count: personnelCount } = await adminClient
 			.from('personnel')

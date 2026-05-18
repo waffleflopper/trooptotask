@@ -1,7 +1,6 @@
 import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
-import { highestPriorityDa6Treatment } from '$features/calendar/utils/da6AvailabilityTreatment';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-import type { Personnel, SpecialDay } from '$lib/types';
+import type { Da6AvailabilityTreatment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
 import type {
 	Da6Cell,
@@ -21,6 +20,11 @@ import type {
 } from './dutyRosterRun.types';
 
 const DEFAULT_GENERATED_AT = '1970-01-01T00:00:00.000Z';
+const DA6_TREATMENT_PRIORITY: Record<Da6AvailabilityTreatment, number> = {
+	'misconduct-unavailable': 3,
+	'authorized-absence': 2,
+	'other-duty': 1
+};
 
 interface AvailabilityClassification {
 	selectable: boolean;
@@ -29,6 +33,14 @@ interface AvailabilityClassification {
 	chargeable: boolean;
 	reason: string | null;
 	reasonCode: string | null;
+}
+
+interface DutyRosterRunIndexes {
+	availabilityByPersonDate: Map<string, Map<string, DutyRosterRunInput['availabilityEntries']>>;
+	advancedDutyBlockByPersonDate: Map<string, Map<string, 'duty' | 'cooldown'>>;
+	misconductUnavailableByPersonDate: Map<string, Set<string>>;
+	statusTypeById: Map<string, StatusType>;
+	specialDaysByDate: Map<string, SpecialDay[]>;
 }
 
 function normalizeConfig(config: DutyRosterRunConfig): DutyRosterRunSnapshot['config'] {
@@ -115,7 +127,11 @@ function addUtcMonthsPreservingAnchor(value: Date, months: number, anchorDay: nu
 	return next;
 }
 
-function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: SpecialDay[]): string[] {
+function buildDutyDates(
+	config: DutyRosterRunSnapshot['config'],
+	specialDays: SpecialDay[],
+	specialDaysByDate: Map<string, SpecialDay[]> = buildSpecialDaysByDate(specialDays)
+): string[] {
 	const dates: string[] = [];
 	const start = dateOnlyUtc(config.startDate);
 	const end = dateOnlyUtc(config.endDate);
@@ -142,7 +158,7 @@ function buildDutyDates(config: DutyRosterRunSnapshot['config'], specialDays: Sp
 				isWeekend,
 				pattern: config.pattern,
 				selectedWeekdays: config.selectedWeekdays,
-				specialDays
+				specialDaysByDate
 			}) &&
 			!(config.excludeWeekends && isWeekend) &&
 			!excludedSpecialDays.has(date)
@@ -172,7 +188,7 @@ function dateMatchesPattern(input: {
 	isWeekend: boolean;
 	pattern: DutyRosterRunSnapshot['config']['pattern'];
 	selectedWeekdays: number[];
-	specialDays: SpecialDay[];
+	specialDaysByDate: Map<string, SpecialDay[]>;
 }): boolean {
 	switch (input.pattern) {
 		case 'weekday-only':
@@ -182,17 +198,27 @@ function dateMatchesPattern(input: {
 		case 'selected-weekdays':
 			return input.selectedWeekdays.includes(input.dayOfWeek);
 		case 'holiday-closure-only':
-			return input.specialDays.some((day) => day.date === input.date);
+			return (input.specialDaysByDate.get(input.date)?.length ?? 0) > 0;
 		case 'custom-dates':
 		case 'daily':
 			return true;
 	}
 }
 
-function classifySequenceKind(date: string, specialDays: SpecialDay[]): DutyRosterSequenceKind {
+function buildSpecialDaysByDate(specialDays: SpecialDay[]): Map<string, SpecialDay[]> {
+	const specialDaysByDate = new Map<string, SpecialDay[]>();
+	for (const specialDay of specialDays) {
+		const days = specialDaysByDate.get(specialDay.date) ?? [];
+		days.push(specialDay);
+		specialDaysByDate.set(specialDay.date, days);
+	}
+	return specialDaysByDate;
+}
+
+function classifySequenceKind(date: string, specialDaysByDate: Map<string, SpecialDay[]>): DutyRosterSequenceKind {
 	const day = dateOnlyUtc(date).getUTCDay();
 	const isWeekend = day === 0 || day === 6;
-	const hasSpecialDay = specialDays.some((specialDay) => specialDay.date === date);
+	const hasSpecialDay = (specialDaysByDate.get(date)?.length ?? 0) > 0;
 
 	if (isWeekend && hasSpecialDay) {
 		return 'weekend-holiday';
@@ -308,53 +334,201 @@ function isPersonInAdvancedDuty(event: DutyEvent, personnelId: string): boolean 
 	});
 }
 
+function getAdvancedDutyBlockFromIndex(
+	indexes: DutyRosterRunIndexes,
+	personnelId: string,
+	date: string
+): 'duty' | 'cooldown' | null {
+	return indexes.advancedDutyBlockByPersonDate.get(personnelId)?.get(date) ?? null;
+}
+
+function getEventAdvancedDutyBlock(event: DutyEvent, date: string): 'duty' | 'cooldown' | null {
+	const dayStart = `${date}T00:00:00`;
+	const dayEnd = `${date}T23:59:59`;
+	const overlaps = event.coverageStart < dayEnd && event.coverageEnd > dayStart;
+	if (overlaps) {
+		return 'duty';
+	}
+	const cooldownBlocks = event.coverageEnd <= dayStart && addHours(event.coverageEnd, event.cooldownHours) > dayStart;
+	return cooldownBlocks ? 'cooldown' : null;
+}
+
+function higherPriorityAdvancedDutyBlock(
+	current: 'duty' | 'cooldown' | null,
+	next: 'duty' | 'cooldown'
+): 'duty' | 'cooldown' {
+	if (next === 'duty' || current === 'duty') return 'duty';
+	return current ?? next;
+}
+
+function collectBlockingPersonnelIds(event: DutyEvent): string[] {
+	const ids = new Set<string>();
+	for (const slot of event.slotInstances) {
+		if (!slot.assigneeId) {
+			continue;
+		}
+		const snapshotSlot = event.rulesSnapshot.slots.find(
+			(candidate) => candidate.templateSlotId === slot.templateSlotId
+		);
+		if (resolveSlotBlockingMode(event.isBlocking, snapshotSlot?.blockingMode)) {
+			ids.add(slot.assigneeId);
+		}
+	}
+	return [...ids];
+}
+
+function buildAdvancedDutyBlockIndex(
+	events: DutyEvent[],
+	dutyDates: string[]
+): DutyRosterRunIndexes['advancedDutyBlockByPersonDate'] {
+	const blockByPersonDate = new Map<string, Map<string, 'duty' | 'cooldown'>>();
+	for (const event of events) {
+		for (const personnelId of collectBlockingPersonnelIds(event)) {
+			let dateBlocks = blockByPersonDate.get(personnelId);
+			if (!dateBlocks) {
+				dateBlocks = new Map();
+				blockByPersonDate.set(personnelId, dateBlocks);
+			}
+			for (const date of dutyDates) {
+				const block = getEventAdvancedDutyBlock(event, date);
+				if (!block) {
+					continue;
+				}
+				dateBlocks.set(date, higherPriorityAdvancedDutyBlock(dateBlocks.get(date) ?? null, block));
+			}
+		}
+	}
+	return blockByPersonDate;
+}
+
+function buildAvailabilityIndex(
+	input: DutyRosterRunInput,
+	dutyDates: string[]
+): DutyRosterRunIndexes['availabilityByPersonDate'] {
+	const byPersonDate = new Map<string, Map<string, DutyRosterRunInput['availabilityEntries']>>();
+	const dutyDateSet = new Set(dutyDates);
+	const firstDutyDate = dutyDates[0];
+	const lastDutyDate = dutyDates.at(-1);
+	for (const entry of input.availabilityEntries) {
+		if (!firstDutyDate || !lastDutyDate || entry.endDate < firstDutyDate || entry.startDate > lastDutyDate) {
+			continue;
+		}
+		const startDate = entry.startDate > firstDutyDate ? entry.startDate : firstDutyDate;
+		const endDate = entry.endDate < lastDutyDate ? entry.endDate : lastDutyDate;
+		const current = dateOnlyUtc(startDate);
+		const end = dateOnlyUtc(endDate);
+		while (current <= end) {
+			const date = formatDateOnlyUtc(current);
+			if (!dutyDateSet.has(date)) {
+				current.setUTCDate(current.getUTCDate() + 1);
+				continue;
+			}
+			let byDate = byPersonDate.get(entry.personnelId);
+			if (!byDate) {
+				byDate = new Map();
+				byPersonDate.set(entry.personnelId, byDate);
+			}
+			const entries = byDate.get(date) ?? [];
+			entries.push(entry);
+			byDate.set(date, entries);
+			current.setUTCDate(current.getUTCDate() + 1);
+		}
+	}
+	return byPersonDate;
+}
+
+function buildMisconductUnavailableIndex(
+	config: DutyRosterRunSnapshot['config']
+): DutyRosterRunIndexes['misconductUnavailableByPersonDate'] {
+	return new Map(
+		Object.entries(config.misconductUnavailablePersonnelDates).map(([personnelId, dates]) => [
+			personnelId,
+			new Set(dates)
+		])
+	);
+}
+
+function buildRunIndexes(
+	input: DutyRosterRunInput,
+	config: DutyRosterRunSnapshot['config'],
+	dutyDates: string[],
+	specialDaysByDate: Map<string, SpecialDay[]>
+): DutyRosterRunIndexes {
+	return {
+		availabilityByPersonDate: buildAvailabilityIndex(input, dutyDates),
+		advancedDutyBlockByPersonDate: buildAdvancedDutyBlockIndex(input.advancedDutyEvents, dutyDates),
+		misconductUnavailableByPersonDate: buildMisconductUnavailableIndex(config),
+		statusTypeById: new Map(input.statusTypes.map((statusType) => [statusType.id, statusType])),
+		specialDaysByDate
+	};
+}
+
+function highestPriorityDa6TreatmentFromIndex(
+	statusTypeById: Map<string, StatusType>,
+	statusTypeIds: Iterable<string>
+): Da6AvailabilityTreatment | null {
+	let selected: Da6AvailabilityTreatment | null = null;
+	for (const statusTypeId of statusTypeIds) {
+		const treatment = statusTypeById.get(statusTypeId)?.da6AvailabilityTreatment ?? null;
+		if (!treatment) {
+			continue;
+		}
+		if (!selected || DA6_TREATMENT_PRIORITY[treatment] > DA6_TREATMENT_PRIORITY[selected]) {
+			selected = treatment;
+		}
+	}
+	return selected;
+}
+
 function getAdvancedDutyBlock(
 	input: DutyRosterRunInput,
 	personnelId: string,
 	date: string
 ): 'duty' | 'cooldown' | null {
-	const dayStart = `${date}T00:00:00`;
-	const dayEnd = `${date}T23:59:59`;
-
+	let selectedBlock: 'duty' | 'cooldown' | null = null;
 	for (const event of input.advancedDutyEvents) {
 		if (!isPersonInAdvancedDuty(event, personnelId)) {
 			continue;
 		}
-		const overlaps = event.coverageStart < dayEnd && event.coverageEnd > dayStart;
-		if (overlaps) {
-			return 'duty';
-		}
-		const cooldownBlocks = event.coverageEnd <= dayStart && addHours(event.coverageEnd, event.cooldownHours) > dayStart;
-		if (cooldownBlocks) {
-			return 'cooldown';
+		const block = getEventAdvancedDutyBlock(event, date);
+		if (block) {
+			selectedBlock = higherPriorityAdvancedDutyBlock(selectedBlock, block);
 		}
 	}
 
-	return null;
+	return selectedBlock;
 }
 
 function classifyAvailability(
 	personnelId: string,
 	date: string,
 	input: DutyRosterRunInput,
-	config: DutyRosterRunSnapshot['config']
+	config: DutyRosterRunSnapshot['config'],
+	indexes?: DutyRosterRunIndexes
 ): AvailabilityClassification {
-	const statusEntries = input.availabilityEntries.filter(
-		(entry) => entry.personnelId === personnelId && date >= entry.startDate && date <= entry.endDate
-	);
-	const statusTreatment = highestPriorityDa6Treatment(
-		input.statusTypes,
+	const statusEntries = indexes
+		? (indexes.availabilityByPersonDate.get(personnelId)?.get(date) ?? [])
+		: input.availabilityEntries.filter(
+				(entry) => entry.personnelId === personnelId && date >= entry.startDate && date <= entry.endDate
+			);
+	const statusTypeById =
+		indexes?.statusTypeById ?? new Map(input.statusTypes.map((statusType) => [statusType.id, statusType]));
+	const statusTreatment = highestPriorityDa6TreatmentFromIndex(
+		statusTypeById,
 		statusEntries.map((entry) => entry.statusTypeId)
 	);
 	const statusNames = statusEntries
 		.filter((entry) => {
-			const statusType = input.statusTypes.find((status) => status.id === entry.statusTypeId);
+			const statusType = statusTypeById.get(entry.statusTypeId);
 			return statusType?.da6AvailabilityTreatment === statusTreatment;
 		})
-		.map((entry) => input.statusTypes.find((status) => status.id === entry.statusTypeId)?.name)
+		.map((entry) => statusTypeById.get(entry.statusTypeId)?.name)
 		.filter((name): name is string => Boolean(name));
 
-	if (config.misconductUnavailablePersonnelDates[personnelId]?.includes(date)) {
+	const isMisconductUnavailable = indexes
+		? (indexes.misconductUnavailableByPersonDate.get(personnelId)?.has(date) ?? false)
+		: (config.misconductUnavailablePersonnelDates[personnelId]?.includes(date) ?? false);
+	if (isMisconductUnavailable) {
 		return {
 			selectable: false,
 			code: 'misconduct-unavailable',
@@ -387,7 +561,9 @@ function classifyAvailability(
 		};
 	}
 
-	const advancedDutyBlock = getAdvancedDutyBlock(input, personnelId, date);
+	const advancedDutyBlock = indexes
+		? getAdvancedDutyBlockFromIndex(indexes, personnelId, date)
+		: getAdvancedDutyBlock(input, personnelId, date);
 	if (advancedDutyBlock) {
 		return {
 			selectable: false,
@@ -527,7 +703,9 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		.filter((person) => !exemptIds.has(person.id))
 		.map(clonePersonnel)
 		.sort(comparePersonnelByRankThenName);
-	const dutyDates = buildDutyDates(config, input.specialDays);
+	const specialDaysByDate = buildSpecialDaysByDate(input.specialDays);
+	const dutyDates = buildDutyDates(config, input.specialDays, specialDaysByDate);
+	const indexes = buildRunIndexes(input, config, dutyDates, specialDaysByDate);
 	const lastDutyDates = getLastDutyDates(personnel, input, config.startDate);
 	const manualBaselineCounts = getManualBaselineCounts(input);
 	const selectionCounts =
@@ -545,10 +723,10 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 	const rosterRows: DutyRosterRunSnapshot['rosterRows'] = [];
 
 	for (const date of dutyDates) {
-		const sequenceKind = classifySequenceKind(date, input.specialDays);
+		const sequenceKind = classifySequenceKind(date, indexes.specialDaysByDate);
 		const sequenceKey = getSequenceKey(config.numberingMode, sequenceKind);
 		const classifications = new Map(
-			personnel.map((person) => [person.id, classifyAvailability(person.id, date, input, config)])
+			personnel.map((person) => [person.id, classifyAvailability(person.id, date, input, config, indexes)])
 		);
 		const rankedPersonnel = [...personnel].sort((a, b) => {
 			if (selectionCounts) {
@@ -569,12 +747,13 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 		const assigned = rankedPersonnel.find((person) => classifications.get(person.id)?.selectable) ?? null;
 		const sequencePeriodIndex = sequencePeriodCounters.get(sequenceKey) ?? 0;
 		const chargeSequenceStart = queue.length > 0 ? sequencePeriodIndex + 1 : null;
+		const queuePositionByPersonnelId = new Map(queue.map((candidate, index) => [candidate.id, index + 1]));
 
 		columns.push({
 			date,
 			sequenceKind,
 			sequenceKey,
-			specialDayIds: input.specialDays.filter((day) => day.date === date).map((day) => day.id),
+			specialDayIds: (indexes.specialDaysByDate.get(date) ?? []).map((day) => day.id),
 			chargeSequenceStart,
 			chargeableCount: queue.length
 		});
@@ -591,8 +770,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 
 		for (const person of personnel) {
 			const classification = classifications.get(person.id)!;
-			const queueIndex = queue.findIndex((candidate) => candidate.id === person.id);
-			const queuePosition = queueIndex === -1 ? null : queueIndex + 1;
+			const queuePosition = queuePositionByPersonnelId.get(person.id) ?? null;
 			const isAssigned = assigned?.id === person.id;
 			const sequenceBaseKey = `${sequenceKey}::${person.id}`;
 			let sequenceNumber = sequenceNumberByPerson.get(sequenceBaseKey);

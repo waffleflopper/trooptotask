@@ -176,6 +176,10 @@ export function createScopedDataStore(
 			return inner.findManyWithCount<T>(table, orgId, scoped.filters, scoped.options);
 		},
 
+		async listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]> {
+			return inner.listDistinctAuditActions(orgId, excludedActions);
+		},
+
 		// Write operations pass through unchanged
 		insert: inner.insert.bind(inner),
 		update: inner.update.bind(inner),

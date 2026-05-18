@@ -227,40 +227,39 @@ export async function fetchAuditLogs(
 ): Promise<AuditLogQueryResult> {
 	const orgId = ctx.auth.orgId;
 	const { page, action = '', limit = 50 } = input;
-	const offset = (page - 1) * limit;
+	const safePage = Math.max(1, page);
+	const offset = (safePage - 1) * limit;
+	const last30DaysCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	const baseOptions = {
+		notInFilters: { action: EXCLUDED_ACTIONS }
+	};
+	const pagedLogOptions = {
+		...baseOptions,
+		select: 'id, user_id, action, resource_type, resource_id, details, timestamp',
+		orderBy: [{ column: 'timestamp', ascending: false }],
+		range: { from: offset, to: offset + limit - 1 },
+		count: 'exact' as const
+	};
+	const actionFilter = action ? { action } : undefined;
 
-	// Trade-off: fetches all logs to compute availableActions (the action filter dropdown).
-	// This is fine for typical orgs but could be optimized with a separate SELECT DISTINCT
-	// query on the action column if audit_logs grows large for long-lived orgs.
-	const allLogs = await adminStore.findMany<Record<string, unknown>>('audit_logs', orgId, undefined, {
-		orderBy: [{ column: 'timestamp', ascending: false }]
-	});
+	const [pagedResult, last30Days, availableActions] = await Promise.all([
+		adminStore.findManyWithCount<Record<string, unknown>>('audit_logs', orgId, actionFilter, pagedLogOptions),
+		adminStore.findManyWithCount<Record<string, unknown>>('audit_logs', orgId, undefined, {
+			...baseOptions,
+			rangeFilters: [{ column: 'timestamp', op: 'gte', value: last30DaysCutoff }],
+			limit: 0,
+			count: 'exact'
+		}),
+		adminStore.listDistinctAuditActions(orgId, EXCLUDED_ACTIONS)
+	]);
 
-	// Filter out excluded actions
-	let filtered = allLogs.filter((log) => !EXCLUDED_ACTIONS.includes(log.action as string));
-
-	// Collect available actions before action filter
-	const availableActions = [...new Set(filtered.map((log) => log.action as string))].sort();
-	const last30DaysCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-	const last30DaysCount = filtered.filter(
-		(log) => new Date(log.timestamp as string).getTime() >= last30DaysCutoff
-	).length;
-
-	// Apply action filter
-	if (action) {
-		filtered = filtered.filter((log) => log.action === action);
-	}
-
-	const totalCount = filtered.length;
-	const paged = filtered.slice(offset, offset + limit);
-
-	const logs = await hydrateAuditLogRows(adminStore, orgId, paged);
+	const logs = await hydrateAuditLogRows(adminStore, orgId, pagedResult.data);
 
 	return {
 		logs,
-		totalCount,
-		last30DaysCount,
-		page,
+		totalCount: pagedResult.count ?? 0,
+		last30DaysCount: last30Days.count ?? 0,
+		page: safePage,
 		limit,
 		actionFilter: action,
 		availableActions

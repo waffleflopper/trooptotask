@@ -46,6 +46,7 @@ export type DutyRosterWorkspaceActionForm = {
 
 export interface DutyRosterWorkspaceData {
 	orgId: string;
+	orgUrlSegment?: string;
 	orgName: string;
 	templates: DutyRosterTemplate[];
 	selectedTemplate?: DutyRosterTemplate | null;
@@ -167,7 +168,7 @@ export function buildDutyRosterWorkspaceReadModel(
 	form: unknown,
 	now = new Date()
 ): DutyRosterWorkspaceReadModel {
-	const basePath = `/org/${data.orgId}/duty-rosters`;
+	const basePath = `/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters`;
 	const createAction = `${basePath}?/createTemplate`;
 	const isNewTemplate = data.view === 'new';
 	const selectedTemplate = isNewTemplate ? null : (data.selectedTemplate ?? null);

@@ -52,4 +52,21 @@ describe('/dashboard page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));
 		expect(screen.getByRole('button', { name: 'Toggle theme' })).toBeTruthy();
 	});
+
+	it('links organization cards to the preferred URL segment', async () => {
+		const { default: Page } = await import('./+page.svelte');
+
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin', urlSegment: '1-11-bde' }],
+					pendingInvitations: []
+				},
+				form: null
+			}
+		});
+
+		expect(screen.getByRole('link', { name: /Alpha Company/ }).getAttribute('href')).toBe('/org/1-11-bde');
+	});
 });

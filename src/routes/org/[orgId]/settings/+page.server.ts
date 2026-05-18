@@ -15,9 +15,11 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { getAdminClient } from '$lib/server/supabase';
 import { fetchAuditLogPreview } from '$lib/server/core/useCases/auditLogQuery';
 import {
+	clearOrganizationUrlSlug,
 	deleteOrganization as deleteOrganizationUseCase,
 	renameOrganization,
-	transferOrganizationOwnership
+	transferOrganizationOwnership,
+	updateOrganizationUrlSlug
 } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
 	inviteOrganizationMember,
@@ -29,10 +31,9 @@ import {
 import { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 import type { DeletionRequestRow, OrganizationSettingsRow } from './settingsRows.server';
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
-	const { orgId } = params;
+export const load: PageServerLoad = async ({ locals, cookies, parent }) => {
 	const parentData = await parent();
-	const { orgName, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
+	const { orgId, orgName, orgUrlSegment, userRole, allOrgs, isAdmin, effectiveTier } = parentData;
 	const permissions = parentData.permissions!;
 
 	return loadWithContext(locals, cookies, orgId, {
@@ -145,6 +146,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 			return {
 				orgId,
+				orgUrlSegment: orgUrlSegment ?? orgId,
+				orgUrlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
 				orgName,
 				effectiveTier,
 				permissions,
@@ -196,6 +199,50 @@ export const actions: Actions = {
 			);
 		} catch (error) {
 			return toActionFailure('error', error);
+		}
+	},
+
+	updateSlug: async (event) => {
+		const { request, locals } = event;
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const formData = await request.formData();
+		try {
+			const ctx = await buildRouteContext(event);
+			return await updateOrganizationUrlSlug(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					readOnlyGuard: ctx.readOnlyGuard,
+					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				},
+				{
+					urlSlug: (formData.get('urlSlug') as string) ?? ''
+				}
+			);
+		} catch (error) {
+			return toActionFailure('slugError', error);
+		}
+	},
+
+	clearSlug: async (event) => {
+		const { locals } = event;
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		try {
+			const ctx = await buildRouteContext(event);
+			return await clearOrganizationUrlSlug({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				readOnlyGuard: ctx.readOnlyGuard,
+				administration: createSupabaseOrgSettingsAdministrationPort(locals)
+			});
+		} catch (error) {
+			return toActionFailure('slugError', error);
 		}
 	},
 

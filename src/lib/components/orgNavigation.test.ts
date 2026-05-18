@@ -19,6 +19,16 @@ const basePermissions: OrganizationMemberPermissions = {
 };
 
 describe('getOrgNavigation', () => {
+	it('builds generated organization links with the provided preferred URL segment', () => {
+		const nav = getOrgNavigation('1-11-bde', {
+			...basePermissions,
+			canViewCalendar: true
+		});
+
+		expect(nav.find((item) => item.id === 'dashboard')?.href).toBe('/org/1-11-bde');
+		expect(nav.find((item) => item.id === 'calendar')?.href).toBe('/org/1-11-bde/calendar');
+	});
+
 	it('uses Capability Map view levels for shell navigation visibility', () => {
 		const nav = getOrgNavigation('org-1', {
 			calendar: 'view',

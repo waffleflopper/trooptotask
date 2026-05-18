@@ -177,12 +177,14 @@ describe('OrgShellCoordinator', () => {
 
 		const result = await coordinator.loadRoot({
 			kind: 'shell',
+			orgUrlSegment: '1-11-bde',
 			access: createInMemoryOrgAccessPort({ membership, orgState }),
 			chrome: createInMemoryOrgChromePort({ chrome })
 		});
 
 		expect(result).toMatchObject({
 			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
 			orgName: 'Test Unit',
 			userId: 'user-1',
 			userPreferences: chrome.userPreferences,
@@ -196,6 +198,7 @@ describe('OrgShellCoordinator', () => {
 			allOrgs: chrome.allOrgs,
 			shell: {
 				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
 				orgName: 'Test Unit',
 				userId: 'user-1',
 				userPreferences: chrome.userPreferences,
@@ -217,13 +220,15 @@ describe('OrgShellCoordinator', () => {
 		const result = await coordinator.loadRoot({
 			kind: 'suspended',
 			orgId: 'org-1',
-			orgName: 'Test Unit'
+			orgName: 'Test Unit',
+			orgUrlSegment: 'org-1'
 		});
 
 		expect(result).toEqual({
 			orgSuspended: true,
 			orgId: 'org-1',
-			orgName: 'Test Unit'
+			orgName: 'Test Unit',
+			orgUrlSegment: 'org-1'
 		});
 	});
 

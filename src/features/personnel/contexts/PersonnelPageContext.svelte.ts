@@ -205,6 +205,10 @@ export class PersonnelPageContext {
 		return this.#data.orgId;
 	}
 
+	get orgUrlSegment(): string {
+		return this.#org.orgUrlSegment ?? this.#data.orgId;
+	}
+
 	get orgName(): string {
 		return this.#data.orgName;
 	}

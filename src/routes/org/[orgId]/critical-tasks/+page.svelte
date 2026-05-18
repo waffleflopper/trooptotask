@@ -30,6 +30,7 @@
 
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
+	const orgUrlSegment = $derived(org.orgUrlSegment ?? orgId);
 	const orgName = $derived(data.orgName ?? org.orgName);
 	let selectedGroupId = $state('');
 	let gapsOnly = $state(false);
@@ -37,8 +38,8 @@
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
 	let showCompletionImportModal = $state(false);
-	const reportsHref = $derived(`/org/${orgId}/critical-tasks/reports`);
-	const taskLibraryHref = $derived(`/org/${orgId}/critical-tasks/library`);
+	const reportsHref = $derived(`/org/${orgUrlSegment}/critical-tasks/reports`);
+	const taskLibraryHref = $derived(`/org/${orgUrlSegment}/critical-tasks/library`);
 
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === orgId &&
@@ -319,7 +320,7 @@
 				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
 					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
 						<IctMatrix
-							{orgId}
+							orgId={orgUrlSegment}
 							personnel={filteredPersonnel}
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}

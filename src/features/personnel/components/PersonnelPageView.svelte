@@ -27,6 +27,7 @@
 	}
 
 	let { ctx, permissions }: Props = $props();
+	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
@@ -108,7 +109,7 @@
 	});
 
 	function openPersonnelDetail(person: Personnel): void {
-		void goto(resolve(`/org/${ctx.orgId}/personnel/${person.slug ?? person.id}`));
+		void goto(resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`));
 	}
 
 	function setRosterSearch(value: string): void {

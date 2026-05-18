@@ -34,6 +34,7 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	const org = getOrgContext();
+	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
 	);
@@ -400,7 +401,7 @@
 		<p class="mb-4 text-sm text-muted-foreground">
 			You can view the calendar, but only organization admins and full editors can manage calendar settings.
 		</p>
-		<Button href={`/org/${org.orgId}/calendar`} size="sm">View calendar</Button>
+		<Button href={`/org/${orgUrlSegment}/calendar`} size="sm">View calendar</Button>
 	</div>
 {:else}
 	<div class="flex min-h-[600px] overflow-hidden rounded-md border border-border bg-background">
@@ -442,7 +443,9 @@
 			</nav>
 
 			<div class="border-t border-border px-4 py-3">
-				<Button variant="outline" size="sm" class="w-full" href={`/org/${org.orgId}/calendar`}>Back to Calendar</Button>
+				<Button variant="outline" size="sm" class="w-full" href={`/org/${orgUrlSegment}/calendar`}>
+					Back to Calendar
+				</Button>
 			</div>
 		</aside>
 

@@ -39,6 +39,7 @@ export interface Announcement {
 
 export interface OrgShellData {
 	orgId: string;
+	orgUrlSegment?: string;
 	membershipId: string | null;
 	orgName: string;
 	userId: string | null;
@@ -54,7 +55,7 @@ export interface OrgShellData {
 	effectiveTier: EffectiveTier;
 	unreadNotificationCount: number;
 	activeAnnouncements: Announcement[];
-	allOrgs: Array<{ id: string; name: string; role: string }>;
+	allOrgs: Array<{ id: string; name: string; role: string; urlSegment?: string }>;
 	orgSuspended?: boolean;
 }
 
@@ -186,7 +187,7 @@ export interface OrgState {
 export interface ChromeData {
 	unreadNotificationCount: number;
 	activeAnnouncements: Announcement[];
-	allOrgs: Array<{ id: string; name: string; role: string }>;
+	allOrgs: Array<{ id: string; name: string; role: string; urlSegment?: string }>;
 	userPreferences: UserOrgPreferences;
 }
 

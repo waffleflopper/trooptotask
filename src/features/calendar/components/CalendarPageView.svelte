@@ -23,6 +23,7 @@
 		ctx: CalendarPageContext;
 		data: {
 			orgId: string;
+			orgUrlSegment?: string;
 			orgName: string;
 		};
 	}
@@ -43,6 +44,7 @@
 	const toolbarItems = $derived(
 		buildCalendarToolbarItems({
 			orgId: data.orgId,
+			orgUrlSegment: data.orgUrlSegment ?? data.orgId,
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
@@ -176,7 +178,7 @@
 						showStatusText={ctx.showStatusText}
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
-						personnelHref={`/org/${data.orgId}/personnel`}
+						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}
 						onGoToToday={() => calendarStore.goToToday()}
@@ -205,7 +207,7 @@
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
+		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
 	/>
 {/if}
 
@@ -220,6 +222,6 @@
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
+		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
 	/>
 {/if}

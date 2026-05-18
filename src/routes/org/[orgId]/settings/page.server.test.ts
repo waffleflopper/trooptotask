@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	buildLayoutContextMock,
 	buildRouteContextMock,
+	clearOrganizationUrlSlugMock,
 	createSupabaseDataStoreMock,
 	createSupabaseOrgSettingsAdministrationPortMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
@@ -15,10 +16,12 @@ const {
 	revokeOrganizationInvitationMock,
 	removeOrganizationMemberMock,
 	transferOrganizationOwnershipMock,
-	updateOrganizationMemberPermissionsMock
+	updateOrganizationMemberPermissionsMock,
+	updateOrganizationUrlSlugMock
 } = vi.hoisted(() => ({
 	buildLayoutContextMock: vi.fn(),
 	buildRouteContextMock: vi.fn(),
+	clearOrganizationUrlSlugMock: vi.fn(),
 	createSupabaseDataStoreMock: vi.fn(),
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
 	createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
@@ -31,7 +34,8 @@ const {
 	revokeOrganizationInvitationMock: vi.fn(),
 	removeOrganizationMemberMock: vi.fn(),
 	transferOrganizationOwnershipMock: vi.fn(),
-	updateOrganizationMemberPermissionsMock: vi.fn()
+	updateOrganizationMemberPermissionsMock: vi.fn(),
+	updateOrganizationUrlSlugMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
@@ -88,8 +92,10 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 
 	return {
 		...actual,
+		clearOrganizationUrlSlug: clearOrganizationUrlSlugMock,
 		renameOrganization: renameOrganizationMock,
 		transferOrganizationOwnership: transferOrganizationOwnershipMock,
+		updateOrganizationUrlSlug: updateOrganizationUrlSlugMock,
 		deleteOrganization: deleteOrganizationUseCaseMock
 	};
 });
@@ -186,6 +192,7 @@ describe('org settings page server actions', () => {
 		);
 		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
+		clearOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: null });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 		inviteOrganizationMemberMock.mockResolvedValue({ inviteSuccess: true });
 		revokeOrganizationInvitationMock.mockResolvedValue({ success: true });
@@ -193,6 +200,7 @@ describe('org settings page server actions', () => {
 		renameOrganizationMock.mockResolvedValue({ nameSuccess: true });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		updateOrganizationMemberPermissionsMock.mockResolvedValue({ permissionSuccess: true });
+		updateOrganizationUrlSlugMock.mockResolvedValue({ slugSuccess: true, orgUrlSlug: '1-11-bde' });
 	});
 
 	it('loads a consolidated admin settings workspace payload', async () => {
@@ -201,6 +209,8 @@ describe('org settings page server actions', () => {
 			locals: {},
 			cookies: {},
 			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: '1-11-bde',
 				orgName: 'Test Org',
 				userRole: 'admin',
 				allOrgs: [],
@@ -226,6 +236,8 @@ describe('org settings page server actions', () => {
 		);
 		expect(result).toMatchObject({
 			orgId: 'org-1',
+			orgUrlSegment: '1-11-bde',
+			orgUrlSlug: '1-11-bde',
 			orgName: 'Test Org',
 			effectiveTier: {
 				tier: 'unit',
@@ -281,6 +293,8 @@ describe('org settings page server actions', () => {
 				locals: {},
 				cookies: {},
 				parent: async () => ({
+					orgId: 'org-1',
+					orgUrlSegment: 'org-1',
 					orgName: 'Test Org',
 					userRole: 'member',
 					allOrgs: [],
@@ -320,6 +334,8 @@ describe('org settings page server actions', () => {
 			locals: {},
 			cookies: {},
 			parent: async () => ({
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
 				orgName: 'Test Org',
 				userRole: 'member',
 				allOrgs: [],
@@ -366,6 +382,61 @@ describe('org settings page server actions', () => {
 			},
 			{ name: 'Renamed Org' }
 		);
+	});
+
+	it('delegates organization URL slug updates to the org administration use case', async () => {
+		const result = await actions.updateSlug({
+			request: new Request('http://localhost/org/1-11-bde/settings?/updateSlug', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ urlSlug: '1-11-bde' })
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: '1-11-bde' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: '1-11-bde' });
+		expect(updateOrganizationUrlSlugMock).toHaveBeenCalledWith(
+			{
+				auth: { kind: 'auth' },
+				audit: { kind: 'audit' },
+				notifications: { kind: 'notifications' },
+				readOnlyGuard: undefined,
+				administration: { kind: 'admin-port' }
+			},
+			{ urlSlug: '1-11-bde' }
+		);
+	});
+
+	it('delegates organization URL slug clearing to the org administration use case', async () => {
+		const result = await actions.clearSlug({
+			request: new Request('http://localhost/org/1-11-bde/settings?/clearSlug', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams()
+			}),
+			locals: {
+				user: { id: 'user-1', email: 'user@example.com' },
+				supabase: {}
+			},
+			params: { orgId: '1-11-bde' },
+			cookies: {},
+			getClientAddress: () => '127.0.0.1'
+		} as never);
+
+		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: null });
+		expect(clearOrganizationUrlSlugMock).toHaveBeenCalledWith({
+			auth: { kind: 'auth' },
+			audit: { kind: 'audit' },
+			notifications: { kind: 'notifications' },
+			readOnlyGuard: undefined,
+			administration: { kind: 'admin-port' }
+		});
 	});
 
 	it('delegates ownership transfer to the org administration use case', async () => {

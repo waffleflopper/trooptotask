@@ -45,7 +45,7 @@ describe('buildCalendarToolbarItems', () => {
 	});
 
 	it('includes Bulk Status dropdown for users with Calendar availability operation access', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canManageAvailability: true }));
+		const items = buildCalendarToolbarItems(makeInput({ orgUrlSegment: '1-11-bde', canManageAvailability: true }));
 		const bulk = items.find((i) => i.label === 'Bulk Status');
 		expect(bulk).toBeDefined();
 		expect(bulk!.icon).toBe('clipboard-list');
@@ -53,7 +53,7 @@ describe('buildCalendarToolbarItems', () => {
 		expect(bulk!.menuItems).toHaveLength(3);
 		const labels = bulk!.menuItems!.map((i) => i.label);
 		expect(labels).toEqual(['Add Bulk', 'Remove Bulk', 'Import CSV']);
-		expect(bulk!.menuItems![0].href).toBe('/org/org1/calendar/bulk?tab=add');
+		expect(bulk!.menuItems![0].href).toBe('/org/1-11-bde/calendar/bulk?tab=add');
 	});
 
 	it('does not include Bulk Status for plain members', () => {

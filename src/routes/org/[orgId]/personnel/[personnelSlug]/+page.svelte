@@ -35,6 +35,7 @@
 
 <PersonnelDetailPageView
 	orgId={data.orgId}
+	orgUrlSegment={org.orgUrlSegment}
 	{person}
 	{roster}
 	{groups}

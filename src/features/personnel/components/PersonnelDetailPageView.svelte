@@ -34,6 +34,7 @@
 
 	interface Props {
 		orgId: string;
+		orgUrlSegment?: string;
 		person: Personnel;
 		roster: Personnel[];
 		groups?: Group[];
@@ -50,7 +51,15 @@
 		promise: Promise<PersonnelReadinessLane>;
 	}
 
-	let { orgId, person, groups = [], orgName, detail, canArchivePersonnel = false }: Props = $props();
+	let {
+		orgId,
+		orgUrlSegment = orgId,
+		person,
+		groups = [],
+		orgName,
+		detail,
+		canArchivePersonnel = false
+	}: Props = $props();
 	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
 	let showArchiveConfirm = $state(false);
@@ -93,7 +102,7 @@
 
 	const currentPerson = $derived(updatedPerson ?? person);
 	const displayName = $derived(`${currentPerson.rank} ${currentPerson.lastName}, ${currentPerson.firstName}`);
-	const detailBasePath = $derived(`/org/${orgId}/personnel/${currentPerson.slug}`);
+	const detailBasePath = $derived(`/org/${orgUrlSegment}/personnel/${currentPerson.slug}`);
 	const groupOptions = $derived([
 		{ value: '', label: 'No Group Assigned' },
 		...groups.map((group) => ({ value: group.id, label: group.name || 'Unnamed group' }))
@@ -249,7 +258,7 @@
 			const savedPerson = (await response.json()) as Personnel;
 			updatedPerson = savedPerson;
 			if (savedPerson.slug !== previousSlug) {
-				await goto(resolve(`/org/${orgId}/personnel/${savedPerson.slug}`), {
+				await goto(resolve(`/org/${orgUrlSegment}/personnel/${savedPerson.slug}`), {
 					replaceState: true,
 					invalidateAll: true
 				});
@@ -273,7 +282,7 @@
 			});
 			if (result === 'archived') {
 				await invalidateAll();
-				await goto(resolve(`/org/${orgId}/personnel`));
+				await goto(resolve(`/org/${orgUrlSegment}/personnel`));
 			} else {
 				showArchiveConfirm = false;
 			}

@@ -11,6 +11,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 	links: AccountSetupLinkRecord[];
 	completions: Array<{ accessRequestId: string; userId: string }>;
 	failCompletion?: boolean;
+	revokeBeforeMarkUsed?: boolean;
 } {
 	const links: AccountSetupLinkRecord[] = [];
 	const completions: Array<{ accessRequestId: string; userId: string }> = [];
@@ -46,6 +47,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		},
 		async markUsed(id, usedAt) {
 			const link = links.find((candidate) => candidate.id === id);
+			if (this.revokeBeforeMarkUsed && link && !link.usedAt && !link.revokedAt) {
+				link.revokedAt = usedAt;
+			}
 			if (!link || link.usedAt || link.revokedAt) return null;
 			link.usedAt = usedAt;
 			return link;
@@ -110,6 +114,23 @@ describe('Account Setup completion', () => {
 			password: 'ValidPassword123!'
 		});
 		expect(store.links[0].usedAt).toBeInstanceOf(Date);
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+	});
+
+	it('still signs in when a setup link is revoked after completion is recorded', async () => {
+		const store = makeStore(approvedRequest);
+		store.revokeBeforeMarkUsed = true;
+		await addSetupToken(store);
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
+		expect(auth.signInWithPassword).toHaveBeenCalledWith({
+			email: 'person@example.com',
+			password: 'ValidPassword123!'
+		});
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 

@@ -127,8 +127,16 @@ function resolveSetupState(
 	};
 }
 
+function getAccountSetupOrigin(origin: string): string {
+	const url = new URL(origin);
+	if (url.hostname === 'admin.trooptotask.org') {
+		return 'https://trooptotask.org';
+	}
+	return origin;
+}
+
 function makeSetupUrl(origin: string, setupPath: string): string {
-	return new URL(setupPath, origin).toString();
+	return new URL(setupPath, getAccountSetupOrigin(origin)).toString();
 }
 
 function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
@@ -267,7 +275,7 @@ export const actions: Actions = {
 	reject: adminAction({
 		page: 'access-requests',
 		fn: async (ctx, event) => {
-			const supabase = event.locals.supabase;
+			const supabase = ctx.adminClient;
 
 			const formData = await event.request.formData();
 			const requestId = formData.get('requestId') as string;

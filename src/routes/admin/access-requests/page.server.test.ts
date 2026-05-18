@@ -48,6 +48,14 @@ function makeUpdateAccessRequest() {
 	return { update, eq };
 }
 
+function makeRejectAccessRequestUpdate() {
+	const eqStatus = vi.fn().mockResolvedValue({ error: null });
+	const eqId = vi.fn(() => ({ eq: eqStatus }));
+	const update = vi.fn(() => ({ eq: eqId }));
+
+	return { update, eqId, eqStatus };
+}
+
 function makeAdminClient(parts: { select?: unknown; update?: unknown; inviteUserByEmail?: unknown } = {}) {
 	const from = vi.fn((table: string) => {
 		if (table === 'access_requests') {
@@ -135,6 +143,41 @@ describe('admin access request account setup delivery', () => {
 		]);
 	});
 
+	it('uses the public app origin for setup links created from the production admin host', async () => {
+		const accessRequest = {
+			id: 'request-1',
+			email: 'Soldier@Example.mil',
+			status: 'pending'
+		};
+		const selectAccessRequest = makeSelectAccessRequest(accessRequest);
+		const updateAccessRequest = makeUpdateAccessRequest();
+		const adminClient = makeAdminClient({
+			select: selectAccessRequest.select,
+			update: updateAccessRequest.update
+		});
+		createServiceMock.mockReturnValue({
+			createForAccessRequest: vi.fn().mockResolvedValue({
+				status: 'created',
+				accessRequestId: 'request-1',
+				setupPath: '/auth/setup-account?token=raw-token',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+				link: { id: 'link-1' }
+			})
+		});
+
+		await actions.approve({
+			__ctx: makeContext(adminClient),
+			request: makeRequest({ requestId: 'request-1' }),
+			url: new URL('https://admin.trooptotask.org/access-requests')
+		} as unknown as Parameters<(typeof actions)['approve']>[0]);
+
+		expect(sendSetupEmailMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				setupUrl: 'https://trooptotask.org/auth/setup-account?token=raw-token'
+			})
+		);
+	});
+
 	it('resending setup for an approved incomplete request replaces older links and sends a fresh setup URL', async () => {
 		const accessRequest = {
 			id: 'request-1',
@@ -203,5 +246,30 @@ describe('admin access request account setup delivery', () => {
 		});
 		expect(createForAccessRequest).not.toHaveBeenCalled();
 		expect(sendSetupEmailMock).not.toHaveBeenCalled();
+	});
+
+	it('rejects pending requests through the admin client instead of the session client', async () => {
+		const rejectUpdate = makeRejectAccessRequestUpdate();
+		const adminClient = makeAdminClient({ update: rejectUpdate.update });
+		const sessionClient = makeAdminClient({ update: vi.fn(() => ({ eq: vi.fn() })) });
+		const ctx = makeContext(adminClient);
+
+		const result = await actions.reject({
+			__ctx: ctx,
+			locals: { supabase: sessionClient },
+			request: makeRequest({ requestId: 'request-1' })
+		} as unknown as Parameters<(typeof actions)['reject']>[0]);
+
+		expect(result).toEqual({ success: true, action: 'reject' });
+		expect(adminClient.from).toHaveBeenCalledWith('access_requests');
+		expect(sessionClient.from).not.toHaveBeenCalled();
+		expect(rejectUpdate.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'rejected',
+				reviewed_by: 'admin-1'
+			})
+		);
+		expect(rejectUpdate.eqId).toHaveBeenCalledWith('id', 'request-1');
+		expect(rejectUpdate.eqStatus).toHaveBeenCalledWith('status', 'pending');
 	});
 });

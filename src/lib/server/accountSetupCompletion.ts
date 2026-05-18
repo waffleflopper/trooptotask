@@ -71,7 +71,7 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
 
 			const consumed = await setupLinks.consumeToken(input.rawToken);
-			if (consumed.status !== 'consumed') {
+			if (consumed.status !== 'consumed' && consumed.status !== 'used' && consumed.status !== 'revoked') {
 				return consumed;
 			}
 

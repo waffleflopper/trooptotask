@@ -25,14 +25,6 @@
 			"reason": "Supabase Auth MFA management remains a provider-specific auth edge in v1."
 		},
 		{
-			"path": "src/routes/admin/access-requests/+page.server.ts",
-			"classification": "legacy-drift",
-			"reason": "Admin access-request orchestration still performs route-level provider work.",
-			"driftIds": [
-				"D-02"
-			]
-		},
-		{
 			"path": "src/routes/api/auth/establish-session/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Session establishment is an auth-provider boundary."

@@ -34,6 +34,7 @@ Date: 2026-05-18
 - **Account Setup Links** expire after 14 days.
 - Approved **Access Requests** remain eligible for fresh setup links for 90 days unless manually rejected or otherwise closed.
 - When a valid **Account Setup Link** is used, the recipient chooses their own password before TroopToTask creates or activates the Supabase **User Account**.
+- If a Supabase **User Account** already exists for the setup email, completing the **Account Setup Link** activates that existing account and replaces its password with the password entered in the setup form. This keeps overlapping beta access and organization-invite paths on one identity, but the setup page must be treated as an account-credential reset for that email.
 - The Supabase **User Account** should be created with the email already confirmed because the one-time setup link sent to that address is the email-control proof.
 - Completing beta account setup creates only a **User Account**. It does not create an **Organization Member**.
 - Existing **Organization Invitation** and membership acceptance behavior remains a separate organization-governance workflow.

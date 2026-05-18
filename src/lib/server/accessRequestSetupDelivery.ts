@@ -5,6 +5,7 @@ import {
 	sendAccountSetupLinkEmail,
 	type AccountSetupLinkStore
 } from './accountSetupLinks';
+import { addUtcDays } from './accountSetupDates';
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
 
@@ -63,12 +64,6 @@ function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
 }
 
-function addDays(date: Date, days: number): Date {
-	const result = new Date(date);
-	result.setUTCDate(result.getUTCDate() + days);
-	return result;
-}
-
 function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 	return {
 		id: row.id,
@@ -94,7 +89,7 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 	}
 
 	const renewalStartedAt = request.reviewedAt ?? request.createdAt;
-	return now < addDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
+	return now < addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
 }
 
 export function createAccessRequestSetupDeliveryService(

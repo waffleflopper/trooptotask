@@ -70,6 +70,7 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			const completedAt = new Date();
 			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
 
+			// After account creation and completion are recorded, token races should not block sign-in.
 			const consumed = await setupLinks.consumeToken(input.rawToken);
 			if (consumed.status !== 'consumed' && consumed.status !== 'used' && consumed.status !== 'revoked') {
 				return consumed;

@@ -2,6 +2,8 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { createSupabaseAccountSetupLinkStore } from '$lib/server/accountSetupLinks';
 import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from '$lib/server/accountSetupCompletion';
 
+const FIND_USER_BY_EMAIL_MAX_PAGES = 20;
+
 function isExistingUserError(error: unknown): boolean {
 	const code =
 		typeof error === 'object' && error && 'code' in error && typeof error.code === 'string'
@@ -30,7 +32,8 @@ async function findUserByEmail(adminClient: SupabaseClient, email: string): Prom
 	const normalizedEmail = normalizeEmail(email);
 	let page = 1;
 
-	while (page < 20) {
+	// Supabase Auth admin lookup is paginated here; the beta setup path is capped to avoid unbounded scans.
+	while (page <= FIND_USER_BY_EMAIL_MAX_PAGES) {
 		const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
 		if (error) {
 			throw error;

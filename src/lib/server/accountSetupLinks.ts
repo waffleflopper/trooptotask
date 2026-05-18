@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
+import { addUtcDays } from './accountSetupDates';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
@@ -108,12 +109,6 @@ interface ResendEmailResponse {
 
 type ResendFetch = (input: string, init: RequestInit) => Promise<ResendEmailResponse>;
 
-function addDays(date: Date, days: number): Date {
-	const result = new Date(date);
-	result.setUTCDate(result.getUTCDate() + days);
-	return result;
-}
-
 function generateSetupToken(): string {
 	return randomBytes(32).toString('base64url');
 }
@@ -137,7 +132,7 @@ function mapSetupLinkRow(row: AccountSetupLinkRow): AccountSetupLinkRecord {
 function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessRequest {
 	return {
 		id: row.id,
-		email: 'email' in row ? (row as AccessRequestRow & { email?: string }).email : undefined,
+		email: row.email,
 		status: row.status,
 		setupCompletedAt: row.setup_completed_at
 	};
@@ -275,7 +270,7 @@ export function createAccountSetupLinkService(
 			const createdAt = now();
 			const rawToken = generateToken();
 			const tokenHash = hashSetupToken(rawToken);
-			const expiresAt = addDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS);
+			const expiresAt = addUtcDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS);
 
 			await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
 			const link = await store.insertSetupLink({

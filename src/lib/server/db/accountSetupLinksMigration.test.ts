@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationPath = join(process.cwd(), 'supabase/migrations/20260518000100_account_setup_links.sql');
-const sql = readFileSync(migrationPath, 'utf8');
+const migrationPaths = [
+	join(process.cwd(), 'supabase/migrations/20260518000100_account_setup_links.sql'),
+	join(process.cwd(), 'supabase/migrations/20260518000200_access_request_setup_user_id.sql')
+];
+const sql = migrationPaths.map((migrationPath) => readFileSync(migrationPath, 'utf8')).join('\n');
 
 function normalizedSql() {
 	return sql.replace(/\s+/g, ' ').toLowerCase();
@@ -15,6 +18,12 @@ describe('Account Setup Links migration', () => {
 
 		expect(normalized).toContain(
 			'alter table "public"."access_requests" add column if not exists "setup_completed_at" timestamp with time zone'
+		);
+		expect(normalized).toContain(
+			'alter table "public"."access_requests" add column if not exists "setup_user_id" "uuid"'
+		);
+		expect(normalized).toContain(
+			'create index if not exists "access_requests_setup_user_id_idx" on "public"."access_requests" using "btree" ("setup_user_id") where ("setup_user_id" is not null)'
 		);
 	});
 

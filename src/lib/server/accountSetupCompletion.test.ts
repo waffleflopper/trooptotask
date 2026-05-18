@@ -10,6 +10,7 @@ import { createAccountSetupLinkService } from './accountSetupLinks';
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];
 	completions: Array<{ accessRequestId: string; userId: string }>;
+	failCompletion?: boolean;
 } {
 	const links: AccountSetupLinkRecord[] = [];
 	const completions: Array<{ accessRequestId: string; userId: string }> = [];
@@ -59,6 +60,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			return 0;
 		},
 		async markAccessRequestSetupCompleted(accessRequestId, userId) {
+			if (this.failCompletion) {
+				throw new Error('completion write failed');
+			}
 			completions.push({ accessRequestId, userId });
 		}
 	};
@@ -145,6 +149,18 @@ describe('Account Setup completion', () => {
 		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
 
 		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
+		expect(store.links[0].usedAt).toBeNull();
+	});
+
+	it('does not consume the setup link when completion tracking fails', async () => {
+		const store = makeStore(approvedRequest);
+		store.failCompletion = true;
+		await addSetupToken(store);
+		const service = createAccountSetupCompletionService(store, makeAuth());
+
+		await expect(service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' })).rejects.toThrow(
+			'completion write failed'
+		);
 		expect(store.links[0].usedAt).toBeNull();
 	});
 });

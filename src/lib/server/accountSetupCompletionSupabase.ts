@@ -3,11 +3,23 @@ import { createSupabaseAccountSetupLinkStore } from '$lib/server/accountSetupLin
 import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from '$lib/server/accountSetupCompletion';
 
 function isExistingUserError(error: unknown): boolean {
+	const code =
+		typeof error === 'object' && error && 'code' in error && typeof error.code === 'string'
+			? error.code.toLowerCase()
+			: '';
+	const status =
+		typeof error === 'object' && error && 'status' in error && typeof error.status === 'number' ? error.status : null;
 	const message =
 		typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
 			? error.message.toLowerCase()
 			: '';
-	return message.includes('already been registered') || message.includes('already exists');
+	return (
+		code === 'user_already_exists' ||
+		code === 'email_exists' ||
+		status === 422 ||
+		message.includes('already been registered') ||
+		message.includes('already exists')
+	);
 }
 
 function normalizeEmail(email: string): string {
@@ -48,7 +60,7 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 				.from('access_requests')
 				.update({
 					setup_completed_at: completedAt.toISOString(),
-					// Keep legacy invite audit compatibility while the old path is rolled off.
+					setup_user_id: userId,
 					invite_id: null
 				})
 				.eq('id', accessRequestId)
@@ -57,8 +69,6 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 			if (error) {
 				throw error;
 			}
-
-			await Promise.resolve(userId);
 		}
 	};
 }

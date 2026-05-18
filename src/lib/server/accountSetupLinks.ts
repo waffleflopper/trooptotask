@@ -177,13 +177,30 @@ function formatEmailDate(date: Date): string {
 	}).format(date);
 }
 
+function escapeHtmlAttribute(value: string): string {
+	return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+function assertSafeSetupUrl(setupUrl: string): void {
+	const url = new URL(setupUrl);
+	const isLocalHttp =
+		url.protocol === 'http:' &&
+		(url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1');
+
+	if (url.protocol !== 'https:' && !isLocalHttp) {
+		throw new Error('Account setup email URL must use HTTPS outside local development');
+	}
+}
+
 function buildAccountSetupEmail(input: SendAccountSetupLinkEmailInput): {
 	subject: string;
 	text: string;
 	html: string;
 } {
+	assertSafeSetupUrl(input.setupUrl);
 	const expiresAt = formatEmailDate(input.expiresAt);
 	const subject = 'Set up your TroopToTask account';
+	const setupUrlAttribute = escapeHtmlAttribute(input.setupUrl);
 	const text = [
 		'Your TroopToTask beta access request was approved.',
 		'',
@@ -193,7 +210,7 @@ function buildAccountSetupEmail(input: SendAccountSetupLinkEmailInput): {
 	].join('\n');
 	const html = `
 		<p>Your TroopToTask beta access request was approved.</p>
-		<p><a href="${input.setupUrl}">Set up your account</a></p>
+		<p><a href="${setupUrlAttribute}">Set up your account</a></p>
 		<p>This setup link expires ${expiresAt} UTC. If it expires, request a fresh setup link from TroopToTask.</p>
 	`;
 

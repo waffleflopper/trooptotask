@@ -3,8 +3,7 @@ import {
 	createAccountSetupLinkService,
 	createSupabaseAccountSetupLinkStore,
 	sendAccountSetupLinkEmail,
-	type AccountSetupLinkStore,
-	type CreateAccountSetupLinkResult
+	type AccountSetupLinkStore
 } from './accountSetupLinks';
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
@@ -98,16 +97,6 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 	return now < addDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
 }
 
-function assertCreated(
-	result: CreateAccountSetupLinkResult
-): Extract<CreateAccountSetupLinkResult, { status: 'created' }> {
-	if (result.status !== 'created') {
-		throw new Error(`Could not create account setup link: ${result.status}`);
-	}
-
-	return result;
-}
-
 export function createAccessRequestSetupDeliveryService(
 	store: AccessRequestSetupDeliveryStore,
 	sendSetupEmail: SetupEmailSender,
@@ -124,7 +113,11 @@ export function createAccessRequestSetupDeliveryService(
 			return { status: 'no-public-action' };
 		}
 
-		const setupResult = assertCreated(await setupLinks.createForAccessRequest(request.id));
+		const setupResult = await setupLinks.createForAccessRequest(request.id);
+		if (setupResult.status !== 'created') {
+			return { status: 'no-public-action' };
+		}
+
 		await sendSetupEmail({
 			email: normalizeEmail(request.email),
 			setupUrl: makeSetupUrl(origin, setupResult.setupPath),

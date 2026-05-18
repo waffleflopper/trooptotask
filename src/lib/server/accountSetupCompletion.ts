@@ -67,13 +67,13 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 				};
 			}
 
+			const completedAt = new Date();
+			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
+
 			const consumed = await setupLinks.consumeToken(input.rawToken);
 			if (consumed.status !== 'consumed') {
 				return consumed;
 			}
-
-			const completedAt = new Date();
-			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
 
 			try {
 				await auth.signInWithPassword({ email, password: input.password });

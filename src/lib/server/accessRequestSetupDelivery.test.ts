@@ -206,6 +206,26 @@ describe('access request setup delivery', () => {
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});
 
+	it('treats concurrent completion during renewal as a quiet no-op', async () => {
+		const store = makeStore([makeRequest()]);
+		store.getAccessRequest = vi.fn().mockResolvedValue({
+			id: 'request-1',
+			email: 'test@example.com',
+			status: 'approved',
+			setupCompletedAt: new Date('2026-05-18T12:01:00.000Z')
+		});
+		const { service, sendSetupEmail } = makeService(store);
+
+		const result = await service.requestFreshSetupLink({
+			email: 'test@example.com',
+			origin: 'https://trooptotask.test'
+		});
+
+		expect(result).toEqual({ status: 'no-public-action' });
+		expect(sendSetupEmail).not.toHaveBeenCalled();
+		expect(store.setupLinks).toEqual([]);
+	});
+
 	it('keeps missing, completed, rejected, pending, and no-longer-renewable renewal states quiet', async () => {
 		for (const requests of [
 			[],

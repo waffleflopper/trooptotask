@@ -1,11 +1,20 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
-import { sendAccessRequestSetupEmail } from '$lib/server/accessRequestAuth';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import {
+	createAccountSetupLinkService,
+	createSupabaseAccountSetupLinkStore,
+	sendAccountSetupLinkEmail,
+	type CreateAccountSetupLinkResult
+} from '$lib/server/accountSetupLinks';
 
-interface AccessRequestInvite {
+interface AccessRequestSetupLink {
+	id: string;
+	created_at: string;
+	expires_at: string;
 	used_at: string | null;
+	revoked_at: string | null;
 }
 
 interface AccessRequestRow {
@@ -16,7 +25,8 @@ interface AccessRequestRow {
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
-	registration_invites: AccessRequestInvite | AccessRequestInvite[] | null;
+	setup_completed_at: string | null;
+	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 }
 
 interface AccessRequestItem {
@@ -27,24 +37,127 @@ interface AccessRequestItem {
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
-	registration_invites: AccessRequestInvite | null;
+	setup_completed_at: string | null;
+	setup_state: AccessRequestSetupState;
+	setup_state_label: string;
+	setup_state_detail: string;
+	setup_completed_at_display: string | null;
+	setup_link_expires_at: string | null;
+	setup_link_replaced_at: string | null;
+	has_replaced_setup_link: boolean;
 }
 
-function normalizeInvite(invite: AccessRequestRow['registration_invites']): AccessRequestInvite | null {
-	if (Array.isArray(invite)) return invite[0] ?? null;
-	return invite ?? null;
+type AccessRequestSetupState = 'not_sent' | 'pending' | 'expired' | 'replaced' | 'completed';
+
+function normalizeSetupLinks(links: AccessRequestRow['account_setup_links']): AccessRequestSetupLink[] {
+	if (!links) return [];
+	const normalized = Array.isArray(links) ? links : [links];
+	return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+function resolveSetupState(
+	request: AccessRequestRow,
+	now: Date
+): Omit<
+	AccessRequestItem,
+	'id' | 'name' | 'email' | 'reason' | 'status' | 'created_at' | 'reviewed_at' | 'setup_completed_at'
+> {
+	const links = normalizeSetupLinks(request.account_setup_links);
+	const latestLink = links[0] ?? null;
+	const hasReplacedSetupLink = links.some((link) => link.revoked_at && !link.used_at);
+
+	if (request.setup_completed_at || latestLink?.used_at) {
+		const completedAt = request.setup_completed_at ?? latestLink?.used_at ?? null;
+		return {
+			setup_state: 'completed',
+			setup_state_label: 'Completed',
+			setup_state_detail: 'Account setup is complete. The user should sign in or reset their password if needed.',
+			setup_completed_at_display: completedAt,
+			setup_link_expires_at: latestLink?.expires_at ?? null,
+			setup_link_replaced_at: null,
+			has_replaced_setup_link: hasReplacedSetupLink
+		};
+	}
+
+	if (!latestLink) {
+		return {
+			setup_state: 'not_sent',
+			setup_state_label: 'Not sent',
+			setup_state_detail: 'No account setup link has been sent yet.',
+			setup_completed_at_display: null,
+			setup_link_expires_at: null,
+			setup_link_replaced_at: null,
+			has_replaced_setup_link: false
+		};
+	}
+
+	if (latestLink.revoked_at) {
+		return {
+			setup_state: 'replaced',
+			setup_state_label: 'Replaced',
+			setup_state_detail:
+				'The latest known setup link was revoked or replaced. Send a fresh setup link if setup is still needed.',
+			setup_completed_at_display: null,
+			setup_link_expires_at: latestLink.expires_at,
+			setup_link_replaced_at: latestLink.revoked_at,
+			has_replaced_setup_link: true
+		};
+	}
+
+	if (new Date(latestLink.expires_at) <= now) {
+		return {
+			setup_state: 'expired',
+			setup_state_label: 'Expired',
+			setup_state_detail: 'The current setup link has expired. Resend setup to deliver a fresh link.',
+			setup_completed_at_display: null,
+			setup_link_expires_at: latestLink.expires_at,
+			setup_link_replaced_at: null,
+			has_replaced_setup_link: hasReplacedSetupLink
+		};
+	}
+
+	return {
+		setup_state: 'pending',
+		setup_state_label: 'Pending',
+		setup_state_detail: 'A setup link is active and waiting for the recipient to finish account setup.',
+		setup_completed_at_display: null,
+		setup_link_expires_at: latestLink.expires_at,
+		setup_link_replaced_at: null,
+		has_replaced_setup_link: hasReplacedSetupLink
+	};
+}
+
+function makeSetupUrl(origin: string, setupPath: string): string {
+	return new URL(setupPath, origin).toString();
+}
+
+function mapSetupLinkResultToFailure(result: CreateAccountSetupLinkResult) {
+	switch (result.status) {
+		case 'access-request-missing':
+			return fail(404, { error: 'Access request not found' });
+		case 'access-request-not-approved':
+			return fail(400, { error: 'Access request must be approved before setup can be sent.' });
+		case 'access-request-completed':
+			return fail(400, {
+				error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
+			});
+		case 'created':
+			return null;
+	}
 }
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'access-requests',
-	fn: async (ctx, event) => {
-		const supabase = event.locals.supabase;
+	fn: async (ctx) => {
+		const supabase = ctx.adminClient;
 
 		const { data: requests, error: fetchError } = await selectAllSupabaseRows<AccessRequestRow>(
 			(from, to) =>
 				supabase
 					.from('access_requests')
-					.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
+					.select(
+						'id, name, email, reason, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, used_at, revoked_at)'
+					)
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
 					data: AccessRequestRow[] | null;
@@ -56,6 +169,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 			console.error('Failed to fetch access requests:', fetchError);
 		}
 
+		const now = new Date();
 		const allRequests: AccessRequestItem[] = (requests ?? []).map((request) => ({
 			id: request.id,
 			name: request.name,
@@ -64,7 +178,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 			status: request.status,
 			created_at: request.created_at,
 			reviewed_at: request.reviewed_at,
-			registration_invites: normalizeInvite(request.registration_invites)
+			setup_completed_at: request.setup_completed_at,
+			...resolveSetupState(request, now)
 		}));
 
 		return {
@@ -79,14 +194,13 @@ export const actions: Actions = {
 		page: 'access-requests',
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
-			const supabase = event.locals.supabase;
 
 			const formData = await event.request.formData();
 			const requestId = formData.get('requestId') as string;
 
 			if (!requestId) return fail(400, { error: 'Missing request ID' });
 
-			const { data: accessRequest, error: fetchErr } = await supabase
+			const { data: accessRequest, error: fetchErr } = await adminClient
 				.from('access_requests')
 				.select('*')
 				.eq('id', requestId)
@@ -97,37 +211,12 @@ export const actions: Actions = {
 				return fail(404, { error: 'Request not found or already reviewed' });
 			}
 
-			try {
-				await sendAccessRequestSetupEmail(adminClient, accessRequest.email, event.url.origin);
-			} catch (inviteError) {
-				console.error('Supabase invite error:', inviteError);
-				return fail(500, { error: 'Failed to send invite. Please try again.' });
-			}
-
-			const { data: invite, error: auditErr } = await supabase
-				.from('registration_invites')
-				.insert({
-					code: `supabase-invite-${Date.now()}`,
-					email: accessRequest.email,
-					created_by: ctx.adminUser.id,
-					used_by: null,
-					used_at: null,
-					expires_at: null
-				})
-				.select()
-				.single();
-
-			if (auditErr) {
-				console.error('Failed to create audit row:', auditErr);
-			}
-
-			const { error: updateErr } = await supabase
+			const { error: updateErr } = await adminClient
 				.from('access_requests')
 				.update({
 					status: 'approved',
 					reviewed_by: ctx.adminUser.id,
-					reviewed_at: new Date().toISOString(),
-					invite_id: invite?.id ?? null
+					reviewed_at: new Date().toISOString()
 				})
 				.eq('id', requestId);
 
@@ -136,11 +225,39 @@ export const actions: Actions = {
 				return fail(500, { error: 'Failed to approve request' });
 			}
 
+			const setupLinks = createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(adminClient));
+			const setupResult = await setupLinks.createForAccessRequest(requestId);
+			if (setupResult.status !== 'created') {
+				return mapSetupLinkResultToFailure(setupResult);
+			}
+
+			try {
+				await sendAccountSetupLinkEmail({
+					email: accessRequest.email,
+					setupUrl: makeSetupUrl(event.url.origin, setupResult.setupPath),
+					expiresAt: setupResult.expiresAt
+				});
+			} catch (setupEmailError) {
+				console.error('Account setup email error:', setupEmailError);
+				return fail(500, { error: 'Failed to send account setup email. Please try again.' });
+			}
+
 			ctx.audit({
 				action: 'access_request.approved',
 				resourceType: 'access_request',
 				resourceId: requestId,
 				details: { email: accessRequest.email }
+			});
+			ctx.audit({
+				action: 'access_request.account_setup_link_sent',
+				resourceType: 'access_request',
+				resourceId: requestId,
+				details: {
+					email: accessRequest.email,
+					setupLinkId: setupResult.link.id,
+					expiresAt: setupResult.expiresAt.toISOString()
+				},
+				severity: 'info'
 			});
 
 			return { success: true, action: 'approve' };
@@ -186,16 +303,15 @@ export const actions: Actions = {
 		page: 'access-requests',
 		fn: async (ctx, event) => {
 			const { adminClient } = ctx;
-			const supabase = event.locals.supabase;
 
 			const formData = await event.request.formData();
 			const requestId = formData.get('requestId') as string;
 
 			if (!requestId) return fail(400, { error: 'Missing request ID' });
 
-			const { data: accessRequest, error: fetchErr } = await supabase
+			const { data: accessRequest, error: fetchErr } = await adminClient
 				.from('access_requests')
-				.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
+				.select('id, email, status, setup_completed_at')
 				.eq('id', requestId)
 				.eq('status', 'approved')
 				.single();
@@ -204,17 +320,39 @@ export const actions: Actions = {
 				return fail(404, { error: 'Approved request not found' });
 			}
 
-			if (accessRequest.registration_invites?.used_at) {
+			if (accessRequest.setup_completed_at) {
 				return fail(400, {
 					error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
 				});
 			}
 
-			try {
-				await sendAccessRequestSetupEmail(adminClient, accessRequest.email, event.url.origin);
-			} catch {
-				return fail(500, { error: 'Failed to resend invite. Please try again.' });
+			const setupLinks = createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(adminClient));
+			const setupResult = await setupLinks.createForAccessRequest(requestId);
+			if (setupResult.status !== 'created') {
+				return mapSetupLinkResultToFailure(setupResult);
 			}
+
+			try {
+				await sendAccountSetupLinkEmail({
+					email: accessRequest.email,
+					setupUrl: makeSetupUrl(event.url.origin, setupResult.setupPath),
+					expiresAt: setupResult.expiresAt
+				});
+			} catch {
+				return fail(500, { error: 'Failed to resend account setup email. Please try again.' });
+			}
+
+			ctx.audit({
+				action: 'access_request.account_setup_link_resent',
+				resourceType: 'access_request',
+				resourceId: requestId,
+				details: {
+					email: accessRequest.email,
+					setupLinkId: setupResult.link.id,
+					expiresAt: setupResult.expiresAt.toISOString()
+				},
+				severity: 'info'
+			});
 
 			return { success: true, action: 'resend' };
 		}

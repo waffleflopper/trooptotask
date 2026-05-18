@@ -1,6 +1,6 @@
 # Local Auth Testing
 
-Use local Supabase plus Mailpit to test invite acceptance and password recovery without touching production auth limits or real email delivery.
+Use local Supabase plus Mailpit to test Account Setup Link delivery, legacy invite compatibility, and password recovery without touching production auth limits or real email delivery.
 
 ## One-time local setup
 
@@ -33,15 +33,16 @@ Use local Supabase plus Mailpit to test invite acceptance and password recovery 
 ## Local email inbox
 
 - Supabase local auth emails are captured by Mailpit at [http://127.0.0.1:54324](http://127.0.0.1:54324).
-- Invite and recovery templates now build app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
+- Beta approval emails are app-owned Account Setup Link emails. They point directly at `/auth/setup-account?token=...`, expire after 14 days, and should never expose raw token hashes in storage.
+- Supabase invite and recovery templates are legacy/provider emails. Recovery still builds app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
 - The visible email link should start with the active app origin, land on `/auth/confirm`, include `token_hash=`, and never expose `/auth/v1/verify`.
 - After opening the email link, the browser should stop on the confirmation page until you press the button to continue into invite setup or password reset.
 - The Playwright auth suites use their own isolated app server on `127.0.0.1:4173` so they do not inherit whatever state or rate-limiting conditions your normal dev server might already have.
 - If you change `supabase/config.toml` or `supabase/templates/*.html`, restart Supabase so GoTrue reloads the auth config.
 
-## Run the full auth smoke test
+## Run the auth smoke tests
 
-This project now includes a Playwright spec that:
+The legacy Supabase auth email spec still validates provider compatibility:
 
 - creates an invited user via the local admin API
 - reads the invite email from Mailpit
@@ -65,10 +66,34 @@ npm run test:e2e:access-requests
 
 These two focused suites are more reliable than a single giant auth run because local Supabase auth can get temperamental when many invite and recovery emails are created back to back in one process.
 
+## Manual Account Setup Link check
+
+Use this when validating the beta setup path from approval through first sign-in:
+
+1. Submit `/auth/request-access` with a new email.
+2. Approve the pending request from `/admin/access-requests`.
+3. Confirm the sent email contains an Account Setup Link for `/auth/setup-account?token=...`.
+4. Open the setup link, choose a password, and confirm the browser lands on `/dashboard`.
+5. Confirm `access_requests.setup_completed_at` is set and only a Supabase **User Account** was created. Beta setup must not create an **Organization Member**.
+6. Use the same email on `/auth/request-access` again. Completed setup should not create a new pending request or a fresh setup path.
+7. For an approved incomplete request, use `/auth/renew-invite` to request a fresh setup link. The newest link should work and older unused links should report replaced/invalid states.
+8. For an expired setup link, confirm `/auth/setup-account` points the user to fresh-link recovery.
+
+## Account Setup Link cleanup
+
+Account Setup Link cleanup uses the same bearer-secret pattern as the other cleanup endpoints:
+
+```bash
+curl -H "Authorization: Bearer $CLEANUP_SECRET" http://localhost:5173/api/cleanup-account-setup-links
+```
+
+The cleanup revokes expired unused setup-link records by setting `revoked_at`, reports already revoked stale links, and preserves used setup-link rows so completed setup history remains available for admin support and audit review. It intentionally does not delete **Access Requests** or Supabase **User Accounts** by default.
+
 ## What this does and does not validate
 
 - This validates your app logic, redirect handling, password policy, and Supabase local email links end to end.
-- This validates that invite and recovery emails now round-trip through the app-owned `/auth/confirm` page before the token is verified.
+- This validates that Account Setup Link setup creates a **User Account** only, not an **Organization Member**.
+- This validates that legacy invite and recovery emails round-trip through the app-owned `/auth/confirm` page before the token is verified.
 - This does not validate real-world deliverability to `@army.mil` or `@health.mil`.
 - Hosted Supabase's built-in email sender is still limited to 2 emails per hour project-wide. Local Mailpit avoids that limitation for development, but production will still need a delivery strategy that those domains actually accept.
 

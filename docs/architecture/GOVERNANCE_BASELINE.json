@@ -111,11 +111,6 @@
 			"reason": "Logout remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/auth/register/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Registration still combines provider auth and invite acceptance concerns."
-		},
-		{
 			"path": "src/routes/auth/reset-password/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Password reset exchange remains an auth-provider boundary."

@@ -1,127 +1,24 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
-import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
-import { parseUserProfileForm, upsertUserProfile } from '$lib/server/userProfile';
+import { sanitizeString } from '$lib/server/validation';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
-	// Get prefill values from URL params
-	const inviteCode = url.searchParams.get('code') ?? '';
-	const email = url.searchParams.get('email') ?? '';
-
-	return { inviteCode, email };
+	return {
+		email: sanitizeString(url.searchParams.get('email'), 254),
+		hadInviteCode: Boolean(url.searchParams.get('code'))
+	};
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
-		const formData = await request.formData();
-		const inviteCode = sanitizeString(formData.get('inviteCode') as string, 50);
-		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
-		const password = formData.get('password') as string;
-		const confirmPassword = formData.get('confirmPassword') as string;
-		const profile = parseUserProfileForm({
-			firstName: formData.get('firstName'),
-			lastName: formData.get('lastName'),
-			rank: formData.get('rank')
+	default: async () => {
+		return fail(410, {
+			error:
+				'Invite-code registration is no longer used for beta account setup. Use your Account Setup Link, request a fresh setup link, or request access.'
 		});
-
-		if (!inviteCode) {
-			return fail(400, { error: 'Invite code is required', email, inviteCode });
-		}
-
-		if (!validateEmail(email)) {
-			return fail(400, { error: 'Please enter a valid email address', email, inviteCode });
-		}
-
-		const passwordError = validatePassword(password);
-		if (passwordError) {
-			return fail(400, { error: passwordError, email, inviteCode });
-		}
-
-		if (password !== confirmPassword) {
-			return fail(400, { error: 'Passwords do not match', email, inviteCode });
-		}
-
-		if ('error' in profile) {
-			return fail(400, { error: profile.error, email, inviteCode });
-		}
-
-		// Validate invite code
-		const { data: invite, error: inviteError } = await locals.supabase
-			.from('registration_invites')
-			.select('*')
-			.eq('code', inviteCode)
-			.is('used_by', null)
-			.single();
-
-		if (inviteError || !invite) {
-			return fail(400, { error: 'Invalid or already used invite code', email, inviteCode });
-		}
-
-		// Check if invite is expired
-		if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-			return fail(400, { error: 'This invite code has expired', email, inviteCode });
-		}
-
-		// Check if invite is restricted to specific email
-		if (invite.email && invite.email.toLowerCase() !== email.toLowerCase()) {
-			return fail(400, { error: 'This invite code is for a different email address', email, inviteCode });
-		}
-
-		const { data: signUpData, error } = await locals.supabase.auth.signUp({
-			email,
-			password,
-			options: {
-				data: {
-					firstName: profile.firstName,
-					lastName: profile.lastName,
-					rank: profile.rank
-				}
-			}
-		});
-
-		if (error) {
-			return fail(400, { error: error.message, email, inviteCode });
-		}
-
-		// Mark invite as used - use the user from signup response
-		const newUser = signUpData.user;
-		if (newUser) {
-			await locals.supabase
-				.from('registration_invites')
-				.update({ used_by: newUser.id, used_at: new Date().toISOString() })
-				.eq('code', inviteCode);
-		}
-
-		// Profile writes and invite acceptance require a confirmed session so RLS runs as the new user.
-		if (newUser && signUpData.session) {
-			try {
-				await upsertUserProfile(locals.supabase, {
-					userId: newUser.id,
-					...profile
-				});
-			} catch (profileError) {
-				return fail(500, {
-					error: profileError instanceof Error ? profileError.message : 'Could not save profile details',
-					email,
-					inviteCode
-				});
-			}
-
-			await autoAcceptOrgInvites(locals.supabase, newUser.id, email);
-		}
-
-		// Check if email confirmation is required
-		// If there's a user but no session, email confirmation is pending
-		if (signUpData.user && !signUpData.session) {
-			return { success: true, confirmEmail: true, email };
-		}
-
-		redirect(303, '/dashboard');
 	}
 };

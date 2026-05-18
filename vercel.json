@@ -20,6 +20,10 @@
 		{
 			"path": "/api/cleanup-expired-onboardings",
 			"schedule": "0 6 * * *"
+		},
+		{
+			"path": "/api/cleanup-account-setup-links",
+			"schedule": "0 7 * * *"
 		}
 	]
 }

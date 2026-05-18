@@ -8,12 +8,18 @@ import {
 
 function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): AccountSetupLinkStore & {
 	links: AccountSetupLinkRecord[];
+	deletedAccessRequestIds: string[];
+	deletedUserAccountIds: string[];
 } {
 	const requests = new Map(accessRequests.map((request) => [request.id, request]));
 	const links: AccountSetupLinkRecord[] = [];
+	const deletedAccessRequestIds: string[] = [];
+	const deletedUserAccountIds: string[] = [];
 
 	return {
 		links,
+		deletedAccessRequestIds,
+		deletedUserAccountIds,
 		async getAccessRequest(id) {
 			return requests.get(id) ?? null;
 		},
@@ -54,6 +60,19 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 				if (link.revokedAt && link.revokedAt <= cutoff) return true;
 				return link.expiresAt <= cutoff;
 			});
+		},
+		async revokeExpiredUnusedLinks(cutoff, revokedAt) {
+			const revoked: AccountSetupLinkRecord[] = [];
+			for (const link of links) {
+				if (link.expiresAt <= cutoff && !link.usedAt && !link.revokedAt) {
+					link.revokedAt = revokedAt;
+					revoked.push(link);
+				}
+			}
+			return revoked;
+		},
+		async countActiveLinks(referenceTime) {
+			return links.filter((link) => link.expiresAt > referenceTime && !link.usedAt && !link.revokedAt).length;
 		}
 	};
 }
@@ -163,5 +182,84 @@ describe('Account Setup Links', () => {
 			revokedAt: new Date('2026-05-18T12:00:00.000Z')
 		});
 		expect(await service.validateToken('setup-token')).toEqual({ status: 'revoked' });
+	});
+
+	it('revokes expired unused links during cleanup without deleting Access Requests or User Accounts', async () => {
+		const completedRequest: AccountSetupLinkAccessRequest = {
+			id: 'request-completed',
+			status: 'approved',
+			setupCompletedAt: '2026-05-18T12:00:00.000Z'
+		};
+		const store = makeStore([approvedRequest, completedRequest]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-06-10T12:00:00.000Z')
+		});
+		store.links.push(
+			{
+				id: 'expired-unused',
+				accessRequestId: 'request-1',
+				tokenHash: 'expired-unused-hash',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+				createdAt: new Date('2026-05-18T12:00:00.000Z'),
+				usedAt: null,
+				revokedAt: null
+			},
+			{
+				id: 'already-revoked',
+				accessRequestId: 'request-1',
+				tokenHash: 'already-revoked-hash',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+				createdAt: new Date('2026-05-18T12:00:00.000Z'),
+				usedAt: null,
+				revokedAt: new Date('2026-06-02T12:00:00.000Z')
+			},
+			{
+				id: 'used-link',
+				accessRequestId: 'request-completed',
+				tokenHash: 'used-link-hash',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+				createdAt: new Date('2026-05-18T12:00:00.000Z'),
+				usedAt: new Date('2026-05-19T12:00:00.000Z'),
+				revokedAt: null
+			},
+			{
+				id: 'active-link',
+				accessRequestId: 'request-1',
+				tokenHash: 'active-link-hash',
+				expiresAt: new Date('2026-06-20T12:00:00.000Z'),
+				createdAt: new Date('2026-06-06T12:00:00.000Z'),
+				usedAt: null,
+				revokedAt: null
+			}
+		);
+
+		const result = await service.cleanupStaleLinks({
+			olderThan: new Date('2026-06-10T12:00:00.000Z')
+		});
+
+		expect(result).toEqual({
+			revokedExpiredUnusedCount: 1,
+			staleRevokedCount: 2,
+			completedSetupHistoryCount: 1,
+			activeLinkCount: 1,
+			deletedAccessRequestCount: 0,
+			deletedUserAccountCount: 0
+		});
+		expect(store.links.find((link) => link.id === 'expired-unused')?.revokedAt).toEqual(
+			new Date('2026-06-10T12:00:00.000Z')
+		);
+		expect(store.links.find((link) => link.id === 'already-revoked')?.revokedAt).toEqual(
+			new Date('2026-06-02T12:00:00.000Z')
+		);
+		expect(store.links.find((link) => link.id === 'used-link')?.usedAt).toEqual(new Date('2026-05-19T12:00:00.000Z'));
+		expect(store.links.find((link) => link.id === 'active-link')?.revokedAt).toBeNull();
+		expect(store.deletedAccessRequestIds).toEqual([]);
+		expect(store.deletedUserAccountIds).toEqual([]);
+		expect(store.links.map((link) => link.id)).toEqual([
+			'expired-unused',
+			'already-revoked',
+			'used-link',
+			'active-link'
+		]);
 	});
 });

@@ -1,12 +1,15 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { env } from '$env/dynamic/private';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
+const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 
 export type AccountSetupLinkValidationStatus = 'valid' | 'expired' | 'revoked' | 'used' | 'missing';
 
 export interface AccountSetupLinkAccessRequest {
 	id: string;
+	email?: string;
 	status: 'pending' | 'approved' | 'rejected';
 	setupCompletedAt: Date | string | null;
 }
@@ -35,6 +38,8 @@ export interface AccountSetupLinkStore {
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
 	markUsed(id: string, usedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	listCleanupEligible(cutoff: Date): Promise<AccountSetupLinkRecord[]>;
+	revokeExpiredUnusedLinks(cutoff: Date, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
+	countActiveLinks(referenceTime: Date): Promise<number>;
 }
 
 interface AccountSetupLinkRow {
@@ -49,6 +54,7 @@ interface AccountSetupLinkRow {
 
 interface AccessRequestRow {
 	id: string;
+	email?: string;
 	status: 'pending' | 'approved' | 'rejected';
 	setup_completed_at: string | null;
 }
@@ -74,10 +80,33 @@ export type ConsumeAccountSetupLinkResult =
 	| { status: 'consumed'; accessRequestId: string; link: AccountSetupLinkRecord }
 	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> };
 
+export interface AccountSetupLinkCleanupResult {
+	revokedExpiredUnusedCount: number;
+	staleRevokedCount: number;
+	completedSetupHistoryCount: number;
+	activeLinkCount: number;
+	deletedAccessRequestCount: 0;
+	deletedUserAccountCount: 0;
+}
+
 interface AccountSetupLinkServiceOptions {
 	now?: () => Date;
 	generateToken?: () => string;
 }
+
+interface SendAccountSetupLinkEmailInput {
+	email: string;
+	setupUrl: string;
+	expiresAt: Date;
+}
+
+interface ResendEmailResponse {
+	ok: boolean;
+	status: number;
+	text(): Promise<string>;
+}
+
+type ResendFetch = (input: string, init: RequestInit) => Promise<ResendEmailResponse>;
 
 function addDays(date: Date, days: number): Date {
 	const result = new Date(date);
@@ -108,6 +137,7 @@ function mapSetupLinkRow(row: AccountSetupLinkRow): AccountSetupLinkRecord {
 function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessRequest {
 	return {
 		id: row.id,
+		email: 'email' in row ? (row as AccessRequestRow & { email?: string }).email : undefined,
 		status: row.status,
 		setupCompletedAt: row.setup_completed_at
 	};
@@ -137,6 +167,70 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 	}
 
 	return { status: 'valid', accessRequestId: link.accessRequestId, link };
+}
+
+function formatEmailDate(date: Date): string {
+	return new Intl.DateTimeFormat('en-US', {
+		dateStyle: 'medium',
+		timeStyle: 'short',
+		timeZone: 'UTC'
+	}).format(date);
+}
+
+function buildAccountSetupEmail(input: SendAccountSetupLinkEmailInput): {
+	subject: string;
+	text: string;
+	html: string;
+} {
+	const expiresAt = formatEmailDate(input.expiresAt);
+	const subject = 'Set up your TroopToTask account';
+	const text = [
+		'Your TroopToTask beta access request was approved.',
+		'',
+		`Set up your account here: ${input.setupUrl}`,
+		'',
+		`This setup link expires ${expiresAt} UTC. If it expires, request a fresh setup link from TroopToTask.`
+	].join('\n');
+	const html = `
+		<p>Your TroopToTask beta access request was approved.</p>
+		<p><a href="${input.setupUrl}">Set up your account</a></p>
+		<p>This setup link expires ${expiresAt} UTC. If it expires, request a fresh setup link from TroopToTask.</p>
+	`;
+
+	return { subject, text, html };
+}
+
+export async function sendAccountSetupLinkEmail(
+	input: SendAccountSetupLinkEmailInput,
+	fetchImpl: ResendFetch = fetch
+): Promise<void> {
+	const apiKey = env.RESEND_API_KEY;
+	const from = env.RESEND_FROM_EMAIL;
+
+	if (!apiKey || !from) {
+		throw new Error('Account setup email delivery is not configured');
+	}
+
+	const email = buildAccountSetupEmail(input);
+	const response = await fetchImpl(RESEND_EMAILS_URL, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			from,
+			to: [input.email],
+			subject: email.subject,
+			text: email.text,
+			html: email.html
+		})
+	});
+
+	if (!response.ok) {
+		const body = await response.text().catch(() => '');
+		throw new Error(`Account setup email delivery failed with status ${response.status}${body ? `: ${body}` : ''}`);
+	}
 }
 
 export function createAccountSetupLinkService(
@@ -212,6 +306,23 @@ export function createAccountSetupLinkService(
 			return store.listCleanupEligible(input.olderThan);
 		},
 
+		async cleanupStaleLinks(input: { olderThan?: Date } = {}): Promise<AccountSetupLinkCleanupResult> {
+			const cleanupAt = now();
+			const cutoff = input.olderThan ?? cleanupAt;
+			const revokedExpiredUnusedLinks = await store.revokeExpiredUnusedLinks(cutoff, cleanupAt);
+			const cleanupEligibleLinks = await store.listCleanupEligible(cutoff);
+			const activeLinkCount = await store.countActiveLinks(cutoff);
+
+			return {
+				revokedExpiredUnusedCount: revokedExpiredUnusedLinks.length,
+				staleRevokedCount: cleanupEligibleLinks.filter((link) => link.revokedAt).length,
+				completedSetupHistoryCount: cleanupEligibleLinks.filter((link) => link.usedAt).length,
+				activeLinkCount,
+				deletedAccessRequestCount: 0,
+				deletedUserAccountCount: 0
+			};
+		},
+
 		async revokeUnusedForAccessRequest(accessRequestId: string): Promise<void> {
 			await store.revokeUnusedLinksForAccessRequest(accessRequestId, now());
 		}
@@ -223,7 +334,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async getAccessRequest(id) {
 			const { data, error } = await client
 				.from('access_requests')
-				.select('id, status, setup_completed_at')
+				.select('id, email, status, setup_completed_at')
 				.eq('id', id)
 				.maybeSingle();
 
@@ -294,6 +405,31 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 
 			throwSupabaseError(error);
 			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
+		},
+
+		async revokeExpiredUnusedLinks(cutoff, revokedAt) {
+			const { data, error } = await client
+				.from('account_setup_links')
+				.update({ revoked_at: revokedAt.toISOString() })
+				.lte('expires_at', cutoff.toISOString())
+				.is('used_at', null)
+				.is('revoked_at', null)
+				.select('id, access_request_id, token_hash, expires_at, created_at, used_at, revoked_at');
+
+			throwSupabaseError(error);
+			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
+		},
+
+		async countActiveLinks(referenceTime) {
+			const { count, error } = await client
+				.from('account_setup_links')
+				.select('id', { count: 'exact', head: true })
+				.gt('expires_at', referenceTime.toISOString())
+				.is('used_at', null)
+				.is('revoked_at', null);
+
+			throwSupabaseError(error);
+			return count ?? 0;
 		}
 	};
 }

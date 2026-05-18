@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	displayOwnerMembership,
 	fetchMembershipCountsByOrganization,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
@@ -87,9 +88,20 @@ describe('admin organization metrics batching', () => {
 
 		expect(memberCounts.get('org-1')).toBe(2);
 		expect(memberCounts.get('org-2')).toBe(1);
-		expect(ownerMemberships.get('org-1')).toMatchObject({ user_id: 'owner-1', email: 'owner-1@example.mil' });
-		expect(ownerMemberships.get('org-4')).toMatchObject({ user_id: 'owner-4', email: null });
-		expect(ownerMemberships.has('org-3')).toBe(false);
+		expect(ownerMemberships.get('org-1')).toMatchObject({
+			kind: 'single',
+			membership: { user_id: 'owner-1', email: 'owner-1@example.mil' }
+		});
+		expect(ownerMemberships.get('org-4')).toMatchObject({
+			kind: 'single',
+			membership: { user_id: 'owner-4', email: null }
+		});
+		expect(ownerMemberships.get('org-3')).toEqual({ kind: 'multiple', count: 2 });
+		expect(ownerMemberships.get('org-5')).toEqual({ kind: 'none' });
+		expect(displayOwnerMembership(ownerMemberships.get('org-1'))).toBe('owner-1@example.mil');
+		expect(displayOwnerMembership(ownerMemberships.get('org-4'))).toBe('');
+		expect(displayOwnerMembership(ownerMemberships.get('org-3'))).toBe('Multiple owners');
+		expect(displayOwnerMembership(ownerMemberships.get('org-5'))).toBe('No owner');
 		expect(consoleWarn).toHaveBeenCalledWith('[admin] Organization has unexpected owner membership count:', 'org-3', 2);
 		expect(consoleWarn).toHaveBeenCalledWith('[admin] Organization has unexpected owner membership count:', 'org-5', 0);
 		consoleWarn.mockRestore();

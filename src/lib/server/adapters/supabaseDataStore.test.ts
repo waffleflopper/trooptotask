@@ -489,7 +489,7 @@ describe('SupabaseDataStore', () => {
 		});
 	});
 
-	describe('findDistinctValues', () => {
+	describe('listDistinctAuditActions', () => {
 		it('uses the audit-log action distinct RPC with excluded actions', async () => {
 			const supabase = createMockSupabaseWithRpc([
 				{ action: 'training.update' },
@@ -498,9 +498,7 @@ describe('SupabaseDataStore', () => {
 			]);
 			const store = createSupabaseDataStore(supabase);
 
-			const result = await store.findDistinctValues('audit_logs', 'org-1', 'action', undefined, {
-				notInFilters: { action: ['auth.login_success'] }
-			});
+			const result = await store.listDistinctAuditActions('org-1', ['auth.login_success']);
 
 			expect(result).toEqual(['personnel.create', 'training.update']);
 			expect(supabase.rpc).toHaveBeenCalledWith('list_audit_log_actions', {
@@ -508,15 +506,6 @@ describe('SupabaseDataStore', () => {
 				p_excluded_actions: ['auth.login_success']
 			});
 			expect(supabase.from as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
-		});
-
-		it('throws for unsupported distinct lookups', async () => {
-			const supabase = createMockSupabaseWithRpc([]);
-			const store = createSupabaseDataStore(supabase);
-
-			await expect(store.findDistinctValues('personnel', 'org-1', 'rank')).rejects.toThrow(
-				'Distinct value lookup is not supported for personnel.rank'
-			);
 		});
 	});
 });

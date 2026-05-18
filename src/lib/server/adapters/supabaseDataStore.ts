@@ -249,20 +249,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			return { data: result.data ?? [], count: result.count ?? null };
 		},
 
-		async findDistinctValues(
-			table: string,
-			orgId: string,
-			column: string,
-			filters?: Record<string, unknown>,
-			options?: FindOptions
-		): Promise<string[]> {
-			if (table !== 'audit_logs' || column !== 'action' || filters || options?.filters) {
-				throw new Error(`Distinct value lookup is not supported for ${table}.${column}`);
-			}
-
-			const excludedActions = (options?.notInFilters?.action ?? []).filter(
-				(value): value is string => typeof value === 'string'
-			);
+		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
 			const { data, error } = await (supabase as unknown as DistinctAuditLogActionsRpcClient).rpc(
 				'list_audit_log_actions',
 				{

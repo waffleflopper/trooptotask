@@ -227,16 +227,12 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			return { data, count };
 		},
 
-		async findDistinctValues(
-			table: string,
-			orgId: string,
-			column: string,
-			filters?: Record<string, unknown>,
-			options?: FindOptions
-		): Promise<string[]> {
-			const filtered = applyFilters(table, getRows(table), orgId, filters, options);
+		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
+			const filtered = applyFilters('audit_logs', getRows('audit_logs'), orgId, undefined, {
+				notInFilters: { action: excludedActions }
+			});
 			return [
-				...new Set(filtered.map((row) => row[column]).filter((value): value is string => typeof value === 'string'))
+				...new Set(filtered.map((row) => row.action).filter((value): value is string => typeof value === 'string'))
 			].sort();
 		},
 

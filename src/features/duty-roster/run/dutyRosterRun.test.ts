@@ -392,6 +392,52 @@ describe('buildDutyRosterRunSnapshot', () => {
 		});
 	});
 
+	it('prioritizes active advanced duty over cooldown when cooldown appears first', () => {
+		const cooldown = advancedDuty({
+			id: 'cooldown',
+			coverageStart: '2026-04-30T08:00:00',
+			coverageEnd: '2026-04-30T20:00:00',
+			cooldownHours: 12,
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'cooldown-slot', assigneeId: 'alpha' }]
+		});
+		const duty = advancedDuty({
+			id: 'overlap',
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'overlap-slot', assigneeId: 'alpha' }]
+		});
+
+		const snapshot = buildDutyRosterRunSnapshot(baseInput({ advancedDutyEvents: [cooldown, duty] }));
+
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'advanced-duty-overlap',
+			da6Code: 'D',
+			chargeable: true
+		});
+	});
+
+	it('prioritizes active advanced duty over cooldown when duty appears first', () => {
+		const duty = advancedDuty({
+			id: 'overlap',
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'overlap-slot', assigneeId: 'alpha' }]
+		});
+		const cooldown = advancedDuty({
+			id: 'cooldown',
+			coverageStart: '2026-04-30T08:00:00',
+			coverageEnd: '2026-04-30T20:00:00',
+			cooldownHours: 12,
+			slotInstances: [{ ...advancedDuty({}).slotInstances[0], id: 'cooldown-slot', assigneeId: 'alpha' }]
+		});
+
+		const snapshot = buildDutyRosterRunSnapshot(baseInput({ advancedDutyEvents: [duty, cooldown] }));
+
+		expect(snapshot.da6.rows.find((row) => row.personnelId === 'alpha')?.cells[0]).toMatchObject({
+			code: 'blocked-by-duty',
+			reasonCode: 'advanced-duty-overlap',
+			da6Code: 'D',
+			chargeable: true
+		});
+	});
+
 	it('uses DA6 status treatments instead of treating every selected status as authorized absence', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({

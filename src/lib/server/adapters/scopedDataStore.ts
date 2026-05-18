@@ -176,25 +176,8 @@ export function createScopedDataStore(
 			return inner.findManyWithCount<T>(table, orgId, scoped.filters, scoped.options);
 		},
 
-		async findDistinctValues(
-			table: string,
-			orgId: string,
-			column: string,
-			filters?: Record<string, unknown>,
-			options?: FindOptions
-		): Promise<string[]> {
-			const scoped = addScopeFilters(table, orgId, filters, options);
-
-			if (scoped.needsPersonnelFilter) {
-				const unpaginated = stripPagination(scoped.options);
-				const results = await inner.findMany<Record<string, unknown>>(table, orgId, scoped.filters, unpaginated);
-				const filtered = await filterByPersonnel(results, orgId, scoped.needsPersonnelFilter);
-				return [
-					...new Set(filtered.map((row) => row[column]).filter((value): value is string => typeof value === 'string'))
-				].sort();
-			}
-
-			return inner.findDistinctValues(table, orgId, column, scoped.filters, scoped.options);
+		async listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]> {
+			return inner.listDistinctAuditActions(orgId, excludedActions);
 		},
 
 		// Write operations pass through unchanged

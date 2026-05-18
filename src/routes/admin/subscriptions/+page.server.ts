@@ -4,6 +4,7 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { TIER_CONFIG, type Tier } from '$lib/types/subscription';
 import {
 	type AdminMetricsClient,
+	displayOwnerMembership,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
 } from '../adminOrganizationMetrics.server';
@@ -61,8 +62,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		]);
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {
-			const ownerMembership = ownerMemberships.get(org.id);
-			const ownerEmail = ownerMembership?.email ?? '';
+			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
 
 			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 

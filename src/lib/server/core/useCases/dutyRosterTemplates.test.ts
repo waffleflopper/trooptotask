@@ -249,7 +249,7 @@ const store: DataStore = {
 		return inserted;
 	},
 	findManyWithCount: vi.fn(),
-	findDistinctValues: vi.fn()
+	listDistinctAuditActions: vi.fn()
 } as DataStore;
 
 const audit: AuditPort = {

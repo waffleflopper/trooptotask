@@ -3,6 +3,7 @@ import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
 	type AdminMetricsClient,
+	displayOwnerMembership,
 	fetchMembershipCountsByOrganization,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
@@ -54,8 +55,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		]);
 
 		const enrichedOrgs = (orgs ?? []).map((org) => {
-			const ownerMembership = ownerMemberships.get(org.id);
-			const ownerEmail = ownerMembership?.email ?? '';
+			const ownerEmail = displayOwnerMembership(ownerMemberships.get(org.id));
 
 			return {
 				...org,

@@ -20,6 +20,18 @@ export interface OwnerMembershipRow {
 	email: string | null;
 }
 
+export type OwnerMembershipStatus =
+	| { kind: 'single'; membership: OwnerMembershipRow }
+	| { kind: 'none' }
+	| { kind: 'multiple'; count: number };
+
+export function displayOwnerMembership(status: OwnerMembershipStatus | undefined): string {
+	if (!status) return 'No owner';
+	if (status.kind === 'single') return status.membership.email ?? '';
+	if (status.kind === 'multiple') return 'Multiple owners';
+	return 'No owner';
+}
+
 function countByOrganizationId(rows: Array<{ organization_id: string }>): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const row of rows) {
@@ -78,7 +90,7 @@ export async function fetchMembershipCountsByOrganization(
 export async function fetchOwnerMembershipsByOrganization(
 	adminClient: AdminMetricsClient,
 	orgIds: string[]
-): Promise<Map<string, OwnerMembershipRow>> {
+): Promise<Map<string, OwnerMembershipStatus>> {
 	if (orgIds.length === 0) return new Map();
 
 	const { data, error } = await selectAllSupabaseRows<OwnerMembershipRow>(
@@ -103,13 +115,14 @@ export async function fetchOwnerMembershipsByOrganization(
 		ownerRowsByOrg.set(membership.organization_id, rows);
 	}
 
-	const ownersByOrg = new Map<string, OwnerMembershipRow>();
+	const ownersByOrg = new Map<string, OwnerMembershipStatus>();
 	for (const orgId of orgIds) {
 		const rows = ownerRowsByOrg.get(orgId) ?? [];
 		if (rows.length === 1) {
-			ownersByOrg.set(orgId, rows[0]);
+			ownersByOrg.set(orgId, { kind: 'single', membership: rows[0] });
 		} else {
 			console.warn('[admin] Organization has unexpected owner membership count:', orgId, rows.length);
+			ownersByOrg.set(orgId, rows.length === 0 ? { kind: 'none' } : { kind: 'multiple', count: rows.length });
 		}
 	}
 	return ownersByOrg;

@@ -7,6 +7,7 @@ import { invalidateTierCache } from '$lib/server/subscription';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
 	type AdminMetricsClient,
+	displayOwnerMembership,
 	fetchOwnerMembershipsByOrganization,
 	fetchPersonnelCountsByOrganization
 } from '../adminOrganizationMetrics.server';
@@ -62,7 +63,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		let organizations = allOrgs.map((org) => ({
 			id: org.id,
 			name: org.name,
-			ownerEmail: ownerMemberships.get(org.id)?.email ?? 'Unknown',
+			ownerEmail: displayOwnerMembership(ownerMemberships.get(org.id)),
 			tier: org.tier as Tier,
 			giftTier: org.gift_tier as Tier | null,
 			giftExpiresAt: org.gift_expires_at,

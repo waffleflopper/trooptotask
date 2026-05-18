@@ -353,6 +353,14 @@ function getEventAdvancedDutyBlock(event: DutyEvent, date: string): 'duty' | 'co
 	return cooldownBlocks ? 'cooldown' : null;
 }
 
+function higherPriorityAdvancedDutyBlock(
+	current: 'duty' | 'cooldown' | null,
+	next: 'duty' | 'cooldown'
+): 'duty' | 'cooldown' {
+	if (next === 'duty' || current === 'duty') return 'duty';
+	return current ?? next;
+}
+
 function collectBlockingPersonnelIds(event: DutyEvent): string[] {
 	const ids = new Set<string>();
 	for (const slot of event.slotInstances) {
@@ -386,9 +394,7 @@ function buildAdvancedDutyBlockIndex(
 				if (!block) {
 					continue;
 				}
-				if (!dateBlocks.has(date)) {
-					dateBlocks.set(date, block);
-				}
+				dateBlocks.set(date, higherPriorityAdvancedDutyBlock(dateBlocks.get(date) ?? null, block));
 			}
 		}
 	}
@@ -479,17 +485,18 @@ function getAdvancedDutyBlock(
 	personnelId: string,
 	date: string
 ): 'duty' | 'cooldown' | null {
+	let selectedBlock: 'duty' | 'cooldown' | null = null;
 	for (const event of input.advancedDutyEvents) {
 		if (!isPersonInAdvancedDuty(event, personnelId)) {
 			continue;
 		}
 		const block = getEventAdvancedDutyBlock(event, date);
 		if (block) {
-			return block;
+			selectedBlock = higherPriorityAdvancedDutyBlock(selectedBlock, block);
 		}
 	}
 
-	return null;
+	return selectedBlock;
 }
 
 function classifyAvailability(

@@ -250,7 +250,7 @@ export async function fetchAuditLogs(
 			limit: 0,
 			count: 'exact'
 		}),
-		adminStore.findDistinctValues('audit_logs', orgId, 'action', undefined, baseOptions)
+		adminStore.listDistinctAuditActions(orgId, EXCLUDED_ACTIONS)
 	]);
 
 	const logs = await hydrateAuditLogRows(adminStore, orgId, pagedResult.data);

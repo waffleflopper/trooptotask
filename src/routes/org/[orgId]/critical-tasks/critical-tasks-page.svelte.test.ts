@@ -225,7 +225,7 @@ describe('critical tasks page', () => {
 		const libraryLink = screen.getByRole('link', { name: 'Task Library' });
 		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
 		const orderedActions = [
-			screen.getByRole('link', { name: 'Export CSV' }),
+			screen.getByRole('link', { name: 'Export Excel' }),
 			screen.getByRole('button', { name: 'Import Completions' }),
 			libraryLink,
 			reportsLink,
@@ -422,7 +422,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
 			'/org/org-1/critical-tasks/reports'
 		);
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Export Excel' })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Task Library' })).toBeNull();
 	});
 

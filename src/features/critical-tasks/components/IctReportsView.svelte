@@ -107,8 +107,8 @@
 		}
 
 		items.push({
-			id: 'export-csv',
-			label: 'Export CSV',
+			id: 'export-excel',
+			label: 'Export Excel',
 			href: exportHref,
 			icon: 'download',
 			priority: 'critical',

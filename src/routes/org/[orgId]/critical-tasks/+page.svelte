@@ -157,8 +157,8 @@
 	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
 		const items: WorkspaceToolbarAction[] = [
 			{
-				id: 'export-csv',
-				label: 'Export CSV',
+				id: 'export-excel',
+				label: 'Export Excel',
 				href: matrixExportHref,
 				icon: 'download',
 				priority: 'low',

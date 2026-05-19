@@ -13,7 +13,7 @@
 	import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { resolve as kitResolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -33,12 +33,13 @@
 	let { data }: Props = $props();
 
 	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const availabilityAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
+	const resolve = kitResolve as unknown as (path: string) => string;
+
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
 	const TABS: { label: string; value: Tab }[] = [
@@ -56,8 +57,7 @@
 	function switchTab(tab: Tab) {
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
-		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
-		goto(resolve(target), { replaceState: true, noScroll: true });
+		goto(resolve(`${url.pathname}${url.search}`), { replaceState: true, noScroll: true });
 	}
 
 	// ---- Personnel data ----
@@ -70,7 +70,7 @@
 	);
 	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const allPersonnelFlat = $derived(scopedPBG.flatMap((g) => g.personnel));
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
+	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }]);
 
 	// ---- Callbacks for child components ----
 	async function handleBulkApply(

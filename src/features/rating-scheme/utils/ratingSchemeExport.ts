@@ -1,5 +1,4 @@
 import type { PersonnelLookup } from '$lib/types';
-import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/export/workbook';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
@@ -52,26 +51,25 @@ function getStatusLabel(status: string): string {
 	return status;
 }
 
-export async function buildRatingSchemeWorkbook(
-	entries: RatingSchemeEntry[],
-	personnel: PersonnelLookup[]
-): Promise<Workbook> {
-	const rows = entries.map((entry) => buildRatingSchemeExportRow(entry, personnel));
-	const workbook = await createWorkbook();
-	addTableSheet(workbook, {
-		name: 'Rating Scheme',
-		columns: RATING_SCHEME_COLUMNS,
-		rows
-	});
-	return workbook;
-}
-
 export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: PersonnelLookup[]) {
+	const ExcelJS = await import('exceljs');
+	const rows = entries.map((entry) => buildRatingSchemeExportRow(entry, personnel));
+
+	const workbook = new ExcelJS.Workbook();
+	const sheet = workbook.addWorksheet('Rating Scheme');
+	sheet.columns = RATING_SCHEME_COLUMNS;
+	sheet.addRows(rows);
+	sheet.getRow(1).font = { bold: true };
+
 	const today = new Date().toISOString().slice(0, 10);
-	await downloadWorkbook(await buildRatingSchemeWorkbook(entries, personnel), `rating-scheme-${today}.xlsx`);
+	const buffer = await workbook.xlsx.writeBuffer();
+	downloadBlob(
+		new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+		`rating-scheme-${today}.xlsx`
+	);
 }
 
-function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: PersonnelLookup[]): WorkbookRow {
+function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: PersonnelLookup[]) {
 	const rated = personnel.find((p) => p.id === entry.ratedPersonId);
 	return {
 		'Eval Type': entry.evalType,
@@ -90,4 +88,15 @@ function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: Personn
 		'Workflow Status': getWorkflowLabel(entry.workflowStatus),
 		Notes: entry.notes ?? ''
 	};
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	URL.revokeObjectURL(url);
 }

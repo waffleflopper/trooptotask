@@ -12,15 +12,12 @@ import type { HydrationPlan } from '$lib/server/core/orgShell';
 
 export interface Loadable<T> {
 	readonly orgId: string;
-	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
 }
 
 export interface CalendarAssignmentsLoadable {
 	readonly orgId: string;
-	readonly types?: AssignmentType[];
-	readonly assignments?: DailyAssignment[];
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
 	startLoading?(): void;
 }

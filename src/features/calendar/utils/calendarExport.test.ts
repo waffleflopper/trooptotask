@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import ExcelJS from 'exceljs';
 
 const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
 	const mockSave = vi.fn();
@@ -29,10 +28,8 @@ vi.mock('jspdf-autotable', () => ({
 	default: mockAutoTable
 }));
 
-import { exportMonthToExcel, exportQuarterToExcel, printMonthCalendar, printQuarterCalendar } from './calendarExport';
+import { exportMonthToCSV, exportQuarterToCSV, printMonthCalendar, printQuarterCalendar } from './calendarExport';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
-
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 function makeExportOptions() {
 	return {
@@ -185,17 +182,7 @@ function makeIndexedExportOptions() {
 	};
 }
 
-function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
-	return buffer as WorkbookLoadBuffer;
-}
-
-async function loadWorkbookFromBlob(blob: Blob): Promise<ExcelJS.Workbook> {
-	const workbook = new ExcelJS.Workbook();
-	await workbook.xlsx.load(toWorkbookBuffer(await blob.arrayBuffer()));
-	return workbook;
-}
-
-async function captureDownload(callback: () => void | Promise<void>): Promise<{ blob: Blob; filename: string }> {
+async function captureDownload(callback: () => void): Promise<{ content: string; filename: string }> {
 	let blob: Blob | null = null;
 	let filename = '';
 	const originalDocument = globalThis.document;
@@ -220,9 +207,9 @@ async function captureDownload(callback: () => void | Promise<void>): Promise<{ 
 	const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
 	try {
-		await callback();
+		callback();
 		expect(blob).toBeTruthy();
-		return { blob: blob!, filename };
+		return { content: await blob!.text(), filename };
 	} finally {
 		Object.defineProperty(globalThis, 'document', { value: originalDocument, configurable: true });
 		createObjectURL.mockRestore();
@@ -230,42 +217,29 @@ async function captureDownload(callback: () => void | Promise<void>): Promise<{ 
 	}
 }
 
-describe('calendar Excel exports', () => {
+describe('calendar CSV exports', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it('renders month workbook cells from pre-indexed status, assignment, and special-day data', async () => {
-		const download = await captureDownload(() => exportMonthToExcel(2026, 2, makeIndexedExportOptions()));
-		const workbook = await loadWorkbookFromBlob(download.blob);
-		const sheet = workbook.getWorksheet('March 2026');
-		expect(sheet).toBeTruthy();
+	it('renders month cells from pre-indexed status, assignment, and special-day data', async () => {
+		const download = await captureDownload(() => exportMonthToCSV(2026, 2, makeIndexedExportOptions()));
 
-		expect(download.filename).toBe('calendar-March-2026.xlsx');
-		expect(download.blob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-		expect(sheet!.getCell('C4').value).toBe('Leave');
-		expect(sheet!.getCell('D4').value).toBe('Leave (SD, CQ)');
-		expect(sheet!.getCell('D4').fill).toMatchObject({ fgColor: { argb: 'FFFDE68A' } });
-		expect(sheet!.getCell('D4').font).toMatchObject({ color: { argb: 'FF111827' } });
-		expect(sheet!.getCell('B5').value).toBeNull();
-		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
+		expect(download.filename).toBe('calendar-March-2026.xls');
+		expect(download.content).toContain('Leave (SD, CQ)');
+		expect(download.content).not.toContain('School (SD, CQ)');
+		expect(download.content).toContain('background-color: #fde68a; color: #111827;');
+		expect(download.content).toContain('background-color: #fef3c7;');
 	});
 
-	it('renders quarter workbook cells from the same pre-indexed data path', async () => {
-		const download = await captureDownload(() =>
-			exportQuarterToExcel(new Date(2026, 2, 1), makeIndexedExportOptions())
-		);
-		const workbook = await loadWorkbookFromBlob(download.blob);
-		const sheet = workbook.getWorksheet('March to May');
-		expect(sheet).toBeTruthy();
+	it('renders quarter cells from the same pre-indexed data path', async () => {
+		const download = await captureDownload(() => exportQuarterToCSV(new Date(2026, 2, 1), makeIndexedExportOptions()));
 
-		expect(download.filename).toBe('calendar-March-2026-to-May-2026.xlsx');
-		expect(sheet!.getCell('B1').value).toBe('March 2026');
-		expect(sheet!.getCell('C4').value).toBe('Leave');
-		expect(sheet!.getCell('D4').value).toBe('Leave (SD, CQ)');
-		expect(sheet!.getCell('D4').fill).toMatchObject({ fgColor: { argb: 'FFFDE68A' } });
-		expect(sheet!.getCell('B5').value).toBeNull();
-		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
+		expect(download.filename).toBe('calendar-March-2026-to-May-2026.xls');
+		expect(download.content).toContain('Leave (SD, CQ)');
+		expect(download.content).toContain('SD');
+		expect(download.content).toContain('March 2026');
+		expect(download.content).toContain('background-color: #fef3c7;');
 	});
 });
 

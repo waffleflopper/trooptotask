@@ -26,7 +26,6 @@
 	let { data } = $props();
 
 	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 
 	$effect(() => {
 		templateStore.load(data.templates, data.orgId);
@@ -81,7 +80,7 @@
 		creatingTemplate || editingTemplate || addingStep || !!editingStepId || !!duplicatingTemplateId
 	);
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
-		{ label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
+		{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }
 	]);
 	const templateToolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
 		if (!canMutate) return [];

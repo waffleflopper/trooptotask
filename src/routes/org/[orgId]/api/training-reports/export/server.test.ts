@@ -1,19 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import ExcelJS from 'exceljs';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
-	return buffer;
-}
-
 describe('GET /api/training-reports/export', () => {
-	it('uses training read permission and returns workbook download output', async () => {
+	it('uses training read permission and returns CSV download output', async () => {
 		const ctx = createTestContext();
 
 		ctx.store.seed('personnel', [
@@ -63,14 +55,11 @@ describe('GET /api/training-reports/export', () => {
 			sortDirection: 'asc'
 		});
 		const response = _getConfig.formatOutput?.(result);
-		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(toWorkbookBuffer(result.buffer));
-		const sheet = workbook.getWorksheet('Training Report')!;
 
-		expect(sheet.getRow(1).values).toEqual([undefined, 'Name', 'Rank', 'MOS', 'Duty Role', 'Group', 'CPR']);
-		expect(sheet.getRow(2).values).toEqual([undefined, 'Smith, Jane', 'SGT', '68W', 'Medic', 'Alpha', 'Not Done']);
-		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
-		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-.*\.xlsx"/);
+		expect(result).toContain('Name,Rank,MOS,Duty Role,Group,CPR');
+		expect(result).toContain('"Smith, Jane"');
+		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
+		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-/);
 		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
 		expect(response?.headers.get('Vary')).toBe('Cookie');
 	});

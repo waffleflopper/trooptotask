@@ -3,7 +3,7 @@
 	import type { StatusType } from '$lib/types';
 	import type { StatusDaysResult, StatusDayRow } from '../../utils/statusDaysReport';
 	import { computeStatusDays } from '../../utils/statusDaysReport';
-	import { exportStatusDaysWorkbook } from './calendarReportWorkbookExport';
+	import { exportStatusDaysCsv } from './StatusDaysSummaryExport';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -159,9 +159,9 @@
 		}
 	}
 
-	function handleExportExcel() {
+	function handleExportCsv() {
 		if (!result) return;
-		return exportStatusDaysWorkbook(result, statusTypes, startDate, endDate);
+		exportStatusDaysCsv(result, statusTypes, startDate, endDate);
 	}
 
 	function toggleSet<T>(set: SvelteSet<T>, value: T): void {
@@ -372,7 +372,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0}

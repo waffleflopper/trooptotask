@@ -1,16 +1,13 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { Badge, badgeVariants } from '$lib/components/ui/badge';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input';
@@ -27,7 +24,6 @@
 	}
 
 	let { ctx, permissions }: Props = $props();
-	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
@@ -97,8 +93,6 @@
 	});
 
 	let rosterSearch = $state('');
-	let archiveTarget = $state<Personnel | null>(null);
-	let archiveSubmitting = $state(false);
 	const activeRosterFilterCount = $derived((ctx.viewMode !== 'alphabetical' ? 1 : 0) + (rosterSearch.trim() ? 1 : 0));
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
@@ -109,7 +103,7 @@
 	});
 
 	function openPersonnelDetail(person: Personnel): void {
-		void goto(resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`));
+		void goto(resolve(`/org/${ctx.orgId}/personnel/${person.slug ?? person.id}`));
 	}
 
 	function setRosterSearch(value: string): void {
@@ -124,25 +118,6 @@
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Open ${person.rank} ${person.lastName}, ${person.firstName}`;
-	}
-
-	function promptArchive(event: MouseEvent, person: Personnel): void {
-		event.stopPropagation();
-		archiveTarget = person;
-	}
-
-	async function confirmArchive(): Promise<void> {
-		if (!archiveTarget || archiveSubmitting) return;
-		archiveSubmitting = true;
-		try {
-			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget });
-			if (result === 'archived') {
-				await invalidateAll();
-			}
-			archiveTarget = null;
-		} finally {
-			archiveSubmitting = false;
-		}
 	}
 </script>
 
@@ -287,18 +262,6 @@
 											>Details</Button
 										>
 									{/if}
-									{#if ctx.canArchivePersonnelRecord(row)}
-										<Button
-											type="button"
-											variant="destructive"
-											size="icon-sm"
-											title="Archive {row.rank} {row.lastName}, {row.firstName}"
-											aria-label="Archive {row.rank} {row.lastName}, {row.firstName}"
-											onclick={(event) => promptArchive(event, row)}
-										>
-											<ArchiveIcon aria-hidden="true" />
-										</Button>
-									{/if}
 								</div>
 							{:else}
 								{String(col.value(row) ?? '')}
@@ -352,15 +315,3 @@
 		</main>
 	{/if}
 </div>
-
-{#if archiveTarget}
-	<ConfirmDialog
-		title="Archive Personnel"
-		message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
-		confirmLabel="Archive"
-		variant="warning"
-		loading={archiveSubmitting}
-		onConfirm={confirmArchive}
-		onCancel={() => (archiveTarget = null)}
-	/>
-{/if}

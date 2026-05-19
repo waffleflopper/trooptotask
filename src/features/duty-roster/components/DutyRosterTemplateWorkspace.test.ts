@@ -105,11 +105,9 @@ describe('DutyRosterTemplateWorkspace', () => {
 
 		expect(screen.getByRole('alertdialog')).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Archive template' })).toBeTruthy();
-		expect(screen.getByText('Also archive the Calendar assignment type')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
 		expect(document.querySelector('form[action="/org/org-1/duty-rosters?/archiveTemplate"]')).toBeTruthy();
 		expect(document.querySelector('input[name="templateId"][value="template-1"]')).toBeTruthy();
-		expect(document.querySelector('input[name="archiveAssignmentType"][value="false"]')).toBeTruthy();
 	});
 
 	it('shows New Template wizard validation errors without dropping entered values', () => {
@@ -311,8 +309,7 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(within(matrix).getByText('X')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print DA6 draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export DA6 draft' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Export Draft' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Accept + Apply to Calendar' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept Run' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept Run + Print' })).toBeTruthy();

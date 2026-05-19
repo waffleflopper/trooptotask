@@ -122,17 +122,6 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
-	personnelArchiveAffordance(person: Personnel): ClientAffordance {
-		return this.#org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.personnel.archiveRecords,
-			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
-		);
-	}
-
-	canArchivePersonnelRecord(person: Personnel): boolean {
-		return this.personnelArchiveAffordance(person).allowed;
-	}
-
 	// ---- Derived: filtered personnel ----
 
 	get filteredPersonnel(): Personnel[] {
@@ -203,10 +192,6 @@ export class PersonnelPageContext {
 
 	get orgId(): string {
 		return this.#data.orgId;
-	}
-
-	get orgUrlSegment(): string {
-		return this.#org.orgUrlSegment ?? this.#data.orgId;
 	}
 
 	get orgName(): string {

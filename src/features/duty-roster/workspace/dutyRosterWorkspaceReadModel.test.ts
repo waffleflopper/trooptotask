@@ -29,7 +29,6 @@ describe('dutyRosterWorkspaceReadModel', () => {
 		const model = buildDutyRosterWorkspaceReadModel(
 			{
 				orgId: 'org-1',
-				orgUrlSegment: '1-11-bde',
 				orgName: 'Able Company',
 				templates: [template],
 				selectedTemplate: template,
@@ -39,14 +38,14 @@ describe('dutyRosterWorkspaceReadModel', () => {
 			new Date(2026, 4, 4)
 		);
 
-		expect(model.basePath).toBe('/org/1-11-bde/duty-rosters');
-		expect(model.generateAction).toBe('/org/1-11-bde/duty-rosters/cq-nco/generate?/generatePreview');
-		expect(model.acceptPreviewAction).toBe('/org/1-11-bde/duty-rosters/cq-nco/generate?/acceptPreview');
-		expect(model.settingsWorkspace?.settingsAction).toBe('/org/1-11-bde/duty-rosters/cq-nco/settings?/updateSettings');
+		expect(model.basePath).toBe('/org/org-1/duty-rosters');
+		expect(model.generateAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/generatePreview');
+		expect(model.acceptPreviewAction).toBe('/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview');
+		expect(model.settingsWorkspace?.settingsAction).toBe('/org/org-1/duty-rosters/cq-nco/settings?/updateSettings');
 		expect(model.generateWorkspace).toMatchObject({
 			selectedTemplate: template,
-			generateAction: '/org/1-11-bde/duty-rosters/cq-nco/generate?/generatePreview',
-			acceptPreviewAction: '/org/1-11-bde/duty-rosters/cq-nco/generate?/acceptPreview',
+			generateAction: '/org/org-1/duty-rosters/cq-nco/generate?/generatePreview',
+			acceptPreviewAction: '/org/org-1/duty-rosters/cq-nco/generate?/acceptPreview',
 			generateStartDate: '2026-06-01',
 			generateEndDate: '2026-06-30',
 			canGenerate: true

@@ -38,7 +38,6 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
-import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, FeatureArea, AuthContext } from '$lib/server/core/ports';
 import type {
 	FeatureLanePolicyAction,
@@ -74,11 +73,13 @@ async function createRequestAuthContext(config: {
 }
 
 async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
-	const routeOrgSegment = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals, event.cookies, routeOrgSegment);
-	const orgId = validateUUID(routeOrgSegment)
-		? routeOrgSegment
-		: await resolveOrganizationIdForRequest(supabase, routeOrgSegment);
+	const orgId = event.params.orgId as string;
+
+	if (!validateUUID(orgId)) {
+		throw error(400, 'Invalid organization ID');
+	}
+
+	const { supabase, userId } = getApiContext(event.locals, event.cookies, orgId);
 	const requestInfo = getRequestInfo(event);
 
 	const store = createSupabaseDataStore(supabase);
@@ -139,21 +140,24 @@ export async function buildRouteContext(event: RequestEvent): Promise<UseCaseCon
  * Audit is a no-op since layout loads are read-only data fetches.
  */
 export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, orgId: string): Promise<UseCaseContext> {
+	if (!validateUUID(orgId)) {
+		throw error(400, 'Invalid organization ID');
+	}
+
 	const { supabase, userId } = getApiContext(locals, cookies, orgId);
-	const canonicalOrgId = validateUUID(orgId) ? orgId : await resolveOrganizationIdForRequest(supabase, orgId);
 
 	const store = createSupabaseDataStore(supabase);
-	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, canonicalOrgId);
+	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = { log() {} };
 
 	const auth = await createRequestAuthContext({
 		locals,
 		supabase,
 		userId,
-		orgId: canonicalOrgId
+		orgId
 	});
 
-	const subscription = createSupabaseSubscriptionAdapter(supabase, canonicalOrgId);
+	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
@@ -225,27 +229,10 @@ export async function buildLayoutContextFromMembership(
 	};
 }
 
-async function resolveOrganizationIdForRequest(
-	supabase: ReturnType<typeof getApiContext>['supabase'],
-	segment: string
-): Promise<string> {
-	if (validateUUID(segment)) {
-		return segment;
-	}
-
-	const identity = await resolveOrganizationRouteIdentity(supabase, segment);
-	if (!identity) {
-		throw error(404, 'Organization not found');
-	}
-
-	return identity.id;
-}
-
 function rethrowOrWrap(err: unknown): never {
 	if (err && typeof err === 'object' && 'status' in err) {
 		throw err; // Re-throw SvelteKit HttpError or use-case fail()
 	}
-	console.error('[http-adapter] Unhandled route error:', err);
 	throw error(500, 'Internal server error');
 }
 

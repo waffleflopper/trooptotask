@@ -9,7 +9,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
-	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
+	import { exportMonthToExcel, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -59,7 +59,7 @@
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
-			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
+			onExportExcel: () => exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
 					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());

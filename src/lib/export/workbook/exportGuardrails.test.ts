@@ -3,11 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const SRC_ROOT = join(process.cwd(), 'src');
-const KNOWN_FAKE_EXCEL_DRIFT = new Set([
-	'features/calendar/utils/calendarExport.ts',
-	'features/calendar/utils/calendarExport.test.ts',
-	'lib/export/workbook/exportGuardrails.test.ts'
-]);
+const KNOWN_FAKE_EXCEL_DRIFT = new Set(['lib/export/workbook/exportGuardrails.test.ts']);
 
 function sourceFiles(dir: string): string[] {
 	return readdirSync(dir).flatMap((entry) => {

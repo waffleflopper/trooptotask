@@ -17,7 +17,7 @@ export interface CalendarToolbarInput {
 	onTogglePersonnelRoles: () => void;
 	onToggleHighlightOnboarding: () => void;
 	onToggleDutyStartDayOnly: () => void;
-	onExportCSV: () => void;
+	onExportExcel: () => void;
 	onExportPDF: () => void;
 }
 
@@ -113,7 +113,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			{
 				id: 'export-excel',
 				label: 'Export to Excel',
-				onclick: input.onExportCSV,
+				onclick: input.onExportExcel,
 				priority: 'low',
 				overflow: 'always'
 			},

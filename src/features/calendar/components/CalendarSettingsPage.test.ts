@@ -2,9 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
-import type { SpecialDay, StatusType } from '$lib/types';
+import type { AssignmentType, SpecialDay, StatusType } from '$lib/types';
 
-const { orgContextMock, statusTypesStoreMock, specialDaysStoreMock } = vi.hoisted(() => ({
+const { orgContextMock, statusTypesStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } = vi.hoisted(() => ({
 	orgContextMock: {
 		orgId: 'org-1',
 		isPrivileged: true,
@@ -17,6 +17,12 @@ const { orgContextMock, statusTypesStoreMock, specialDaysStoreMock } = vi.hoiste
 		add: vi.fn(),
 		update: vi.fn(),
 		remove: vi.fn()
+	},
+	assignmentTypesStoreMock: {
+		types: [] as AssignmentType[],
+		addType: vi.fn(),
+		updateType: vi.fn(),
+		removeType: vi.fn()
 	},
 	specialDaysStoreMock: {
 		items: [] as SpecialDay[],
@@ -44,12 +50,7 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 }));
 
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
-	dailyAssignmentsStore: {
-		types: [],
-		addType: vi.fn(),
-		updateType: vi.fn(),
-		removeType: vi.fn()
-	}
+	dailyAssignmentsStore: assignmentTypesStoreMock
 }));
 
 describe('CalendarSettingsPage', () => {
@@ -63,6 +64,10 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.update.mockReset();
 		statusTypesStoreMock.remove.mockReset();
+		assignmentTypesStoreMock.types = [];
+		assignmentTypesStoreMock.addType.mockReset();
+		assignmentTypesStoreMock.updateType.mockReset();
+		assignmentTypesStoreMock.removeType.mockReset();
 		specialDaysStoreMock.items = [];
 		specialDaysStoreMock.add.mockReset();
 		specialDaysStoreMock.update.mockReset();
@@ -224,6 +229,40 @@ describe('CalendarSettingsPage', () => {
 			da6AvailabilityTreatment: null,
 			da6TreatmentReviewed: true
 		});
+	});
+
+	it('hides archived assignment types from Calendar settings management', async () => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'active-type',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo: 'personnel',
+				color: '#2563eb',
+				exemptPersonnelIds: [],
+				showInDateHeader: true
+			},
+			{
+				id: 'archived-type',
+				name: 'Archived Duty',
+				shortName: 'OLD',
+				assignTo: 'personnel',
+				color: '#6b7280',
+				exemptPersonnelIds: [],
+				showInDateHeader: false,
+				archivedAt: '2026-05-18T20:00:00.000Z'
+			}
+		];
+
+		render(CalendarSettingsPage);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+
+		expect(screen.getAllByText('Charge of Quarters').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Archived Duty')).toBeNull();
+		expect(screen.getByText(/Currently showing:/)).toBeTruthy();
+		const settingsNav = screen.getByRole('navigation', { name: 'Calendar settings controls' });
+		expect(within(settingsNav).getByRole('button', { name: /Assignment Types/ }).textContent).toContain('1');
 	});
 
 	it('keeps the closures year visible after changing the filter', async () => {

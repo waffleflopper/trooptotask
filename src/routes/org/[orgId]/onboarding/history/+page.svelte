@@ -25,7 +25,7 @@
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
-		{ label: 'Onboarding', href: `/org/${data.orgId}/onboarding` }
+		{ label: 'Onboarding', href: `/org/${data.orgUrlSegment ?? data.orgId}/onboarding` }
 	]);
 
 	const historyOnboardings = $derived(

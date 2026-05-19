@@ -14,6 +14,7 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { mergeById } from '$lib/utils/mergeById';
 import type {
 	CalendarAssignmentsHydrationItems,
 	CalendarAssignmentsHydrationTarget,
@@ -57,6 +58,39 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
 }
 
+function hasStringId(value: unknown): value is { id: string } {
+	return !!value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string';
+}
+
+function canMergeById<T>(items: readonly T[]): items is Array<T & { id: string }> {
+	return items.every(hasStringId);
+}
+
+function mergeLoadItems<T>(store: Loadable<T>, items: T[], orgId: string, mode: string): T[] {
+	const existingItems = store.items ?? [];
+	if (mode !== 'merge' || store.orgId !== orgId || !canMergeById(existingItems) || !canMergeById(items)) {
+		return items;
+	}
+
+	return mergeById(existingItems, items);
+}
+
+function mergeCalendarAssignments(
+	store: CalendarAssignmentsLoadable,
+	items: CalendarAssignmentsHydrationItems,
+	orgId: string,
+	mode: string
+): CalendarAssignmentsHydrationItems {
+	if (mode !== 'merge' || store.orgId !== orgId) {
+		return items;
+	}
+
+	return {
+		types: items.types,
+		assignments: mergeById(store.assignments ?? [], items.assignments)
+	};
+}
+
 export type OrgShellHydrationCoordinator = OrgShellHydrator;
 
 export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinator {
@@ -87,7 +121,7 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 				const items = await target.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
 				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
-				store.load(items, orgId);
+				store.load(mergeLoadItems(store, items, orgId, target.mode), orgId);
 				pendingSnapshotKeys.delete(targetName);
 				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 				return;
@@ -98,7 +132,7 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 			}
 		}
 
-		store.load(target.items as T[], orgId);
+		store.load(mergeLoadItems(store, target.items as T[], orgId, target.mode), orgId);
 		pendingSnapshotKeys.delete(targetName);
 		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 	}
@@ -127,7 +161,8 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 				const items = await target.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
 				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
-				store.load(items.types, items.assignments, orgId);
+				const mergedItems = mergeCalendarAssignments(store, items, orgId, target.mode);
+				store.load(mergedItems.types, mergedItems.assignments, orgId);
 				pendingSnapshotKeys.delete(targetName);
 				appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 				return;
@@ -138,7 +173,8 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 			}
 		}
 
-		store.load(target.items.types, target.items.assignments, orgId);
+		const mergedItems = mergeCalendarAssignments(store, target.items, orgId, target.mode);
+		store.load(mergedItems.types, mergedItems.assignments, orgId);
 		pendingSnapshotKeys.delete(targetName);
 		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 	}

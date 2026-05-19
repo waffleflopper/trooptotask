@@ -39,10 +39,12 @@
 		id: string;
 		name: string;
 		role: string;
+		urlSegment?: string;
 	}
 
 	interface Props {
 		orgId: string;
+		orgUrlSegment?: string;
 		orgName: string;
 		userRole: string;
 		membershipId?: string | null;
@@ -68,6 +70,7 @@
 
 	let {
 		orgId,
+		orgUrlSegment = orgId,
 		orgName,
 		userRole,
 		membershipId = null,
@@ -91,7 +94,7 @@
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $derived(unreadNotificationCount);
 	const pathname = $derived($page.url.pathname);
-	const dashboardPath = $derived(`/org/${orgId}`);
+	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
 	const routeLeafLabel = $derived(
 		isDashboardRoot
@@ -100,13 +103,16 @@
 				? $page.data.breadcrumbLabel
 				: undefined
 	);
-	const allNavItems = $derived(getOrgNavigation(orgId, capabilityMap ?? permissions));
+	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap ?? permissions));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
-	const activeOrg = $derived(allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole });
+	const activeOrg = $derived(
+		allOrgs.find((org) => org.id === orgId) ?? { id: orgId, name: orgName, role: userRole, urlSegment: orgUrlSegment }
+	);
 	const isMultiOrg = $derived(allOrgs.length > 1);
 	const normalizedUserRole = $derived(userRole.toLowerCase());
 	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
+	const canAccessOrganizationSettings = $derived(normalizedUserRole === 'owner' || normalizedUserRole === 'admin');
 	const canSubmitLeaveOrganization = $derived(
 		canLeaveOrganization && Boolean(membershipId) && leaveOrganizationConfirmText === 'YES'
 	);
@@ -137,12 +143,12 @@
 		showLeaveOrganizationDialog = false;
 	}
 
-	function switchOrg(targetOrgId: string) {
+	function switchOrg(targetOrgId: string, targetOrgUrlSegment: string = targetOrgId) {
 		if (targetOrgId === orgId) return;
 
-		const orgPrefix = `/org/${orgId}`;
+		const orgPrefix = `/org/${orgUrlSegment}`;
 		const suffix = pathname.startsWith(orgPrefix) ? pathname.slice(orgPrefix.length) : '';
-		void goto(resolve(`/org/${targetOrgId}${suffix}`));
+		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}`));
 	}
 
 	async function loadNotifications() {
@@ -233,7 +239,10 @@
 								<DropdownMenu.Label>Organizations</DropdownMenu.Label>
 								<DropdownMenu.Group>
 									{#each isMultiOrg ? allOrgs : [activeOrg] as org (org.id)}
-										<DropdownMenu.Item onclick={() => switchOrg(org.id)} disabled={org.id === orgId && !isMultiOrg}>
+										<DropdownMenu.Item
+											onclick={() => switchOrg(org.id, org.urlSegment)}
+											disabled={org.id === orgId && !isMultiOrg}
+										>
 											<span
 												class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-semibold"
 											>
@@ -249,12 +258,17 @@
 										</DropdownMenu.Item>
 									{/each}
 								</DropdownMenu.Group>
-								<DropdownMenu.Separator />
-								<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgId}/settings`))}>
-									<Settings />
-									Org Settings
-								</DropdownMenu.Item>
+								{#if canAccessOrganizationSettings}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
+										<Settings />
+										Organization Settings
+									</DropdownMenu.Item>
+								{/if}
 								{#if isMultiOrg}
+									{#if !canAccessOrganizationSettings}
+										<DropdownMenu.Separator />
+									{/if}
 									<DropdownMenu.Item onclick={() => goto(resolve('/dashboard?show=all'))}>
 										<Building2 />
 										Manage Organizations
@@ -297,6 +311,26 @@
 
 			<Sidebar.Footer>
 				<Sidebar.Menu>
+					{#if canAccessOrganizationSettings}
+						<Sidebar.MenuItem>
+							<Sidebar.MenuButton
+								isActive={pathname === `/org/${orgUrlSegment}/settings` ||
+									pathname.startsWith(`/org/${orgUrlSegment}/settings/`)}
+								tooltipContent="Organization Settings"
+							>
+								{#snippet child({ props })}
+									<a
+										{...props}
+										href={resolve(`/org/${orgUrlSegment}/settings`)}
+										aria-current={pathname === `/org/${orgUrlSegment}/settings` ? 'page' : undefined}
+									>
+										<Settings />
+										<span>Organization Settings</span>
+									</a>
+								{/snippet}
+							</Sidebar.MenuButton>
+						</Sidebar.MenuItem>
+					{/if}
 					<Sidebar.MenuItem>
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>
@@ -498,7 +532,7 @@
 					<form
 						id="leave-organization-form"
 						method="POST"
-						action={resolve(`/org/${orgId}?/leaveOrganization`)}
+						action={resolve(`/org/${orgUrlSegment}?/leaveOrganization`)}
 						class="grid gap-3"
 						onsubmit={(event) => {
 							if (!canSubmitLeaveOrganization) event.preventDefault();

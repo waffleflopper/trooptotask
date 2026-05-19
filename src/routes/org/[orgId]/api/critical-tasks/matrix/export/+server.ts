@@ -1,6 +1,10 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { generateCriticalTasksMatrixCsv } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import {
+	generateCriticalTasksMatrixWorkbookExport,
+	type CriticalTasksWorkbookExport
+} from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { workbookBufferResponse } from '$lib/export/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	criticalTasksMatrixExportInput,
@@ -9,21 +13,14 @@ import {
 	type CriticalTasksMatrixExportRouteInput
 } from '../../reportInput';
 
-export const _getConfig: RouteConfig<CriticalTasksMatrixExportRouteInput, string> = {
+export const _getConfig: RouteConfig<CriticalTasksMatrixExportRouteInput, CriticalTasksWorkbookExport> = {
 	permission: 'critical-tasks',
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksMatrixExportInput,
 	parseInput: (event) => parseCriticalTasksMatrixExportInput(event.url),
-	fn: async (ctx, input) => generateCriticalTasksMatrixCsv(ctx, toCriticalTasksMatrixExportInput(input)),
-	formatOutput: (csv) =>
-		new Response('\ufeff' + csv, {
-			headers: {
-				...PRIVATE_REPORT_HEADERS,
-				'Content-Type': 'text/csv;charset=utf-8',
-				'Content-Disposition': `attachment; filename="critical-task-matrix-${new Date().toISOString().split('T')[0]}.csv"`
-			}
-		})
+	fn: async (ctx, input) => generateCriticalTasksMatrixWorkbookExport(ctx, toCriticalTasksMatrixExportInput(input)),
+	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };
 
 export const GET = handle(_getConfig);

@@ -86,9 +86,9 @@ function createDashboardOrgAccessPort(
 }
 
 describe('loadDashboardOrgAccess', () => {
-	it('redirects to the only organization when there are no pending invitations', async () => {
+	it('redirects to the only organization preferred URL segment when there are no pending invitations', async () => {
 		const port = createDashboardOrgAccessPort({
-			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member' }]
+			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member', urlSegment: '1-11-bde' }]
 		});
 
 		const result = await loadDashboardOrgAccess(port, {
@@ -98,9 +98,9 @@ describe('loadDashboardOrgAccess', () => {
 		});
 
 		expect(result).toEqual({
-			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member' }],
+			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member', urlSegment: '1-11-bde' }],
 			pendingInvitations: [],
-			redirectTo: '/org/org-1'
+			redirectTo: '/org/1-11-bde'
 		});
 		expect(port.requestedInvitationEmails).toEqual(['user@example.com']);
 	});

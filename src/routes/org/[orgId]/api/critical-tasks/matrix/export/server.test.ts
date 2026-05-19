@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import ExcelJS from 'exceljs';
+import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
+type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
 describe('GET /api/critical-tasks/matrix/export', () => {
-	it('uses critical tasks read permission and returns a matrix CSV matching group and gap filters', async () => {
+	it('uses critical tasks read permission and returns a matrix workbook matching group and gap filters', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -116,12 +120,25 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 			search: undefined
 		});
 		const response = _getConfig.formatOutput?.(result);
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(result.buffer as WorkbookLoadBuffer);
+		const sheet = workbook.getWorksheet('Critical Task Matrix')!;
 
-		expect(result).toContain('Name,Rank,MOS,Duty Role,Group,081-833-0010 Open airway');
-		expect(result).toContain('"Smith, Jane",SGT,68W,Medic,Alpha,Not Recorded');
-		expect(result).not.toContain('Jones, Alex');
-		expect(result).not.toContain('181-105-1001 TCCC lane');
-		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
-		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="critical-task-matrix-/);
+		expect(sheet.getRow(1).values).toEqual([
+			undefined,
+			'Name',
+			'Rank',
+			'MOS',
+			'Duty Role',
+			'Group',
+			'081-833-0010 Open airway'
+		]);
+		expect(sheet.getRow(2).values).toEqual([undefined, 'Smith, Jane', 'SGT', '68W', 'Medic', 'Alpha', 'Not Recorded']);
+		expect(sheet.getColumn(1).values).not.toContain('Jones, Alex');
+		expect(sheet.getRow(1).values).not.toContain('181-105-1001 TCCC lane');
+		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+		expect(response?.headers.get('Content-Disposition')).toMatch(
+			/attachment; filename="critical-task-matrix-.*\.xlsx"/
+		);
 	});
 });

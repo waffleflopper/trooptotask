@@ -113,6 +113,7 @@ export interface AssignmentType {
 	color: string;
 	exemptPersonnelIds: string[];
 	showInDateHeader: boolean;
+	archivedAt?: string | null;
 }
 
 export interface DailyAssignment {

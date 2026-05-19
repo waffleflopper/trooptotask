@@ -32,12 +32,18 @@ export async function createWorkbook(): Promise<Workbook> {
 export function addTableSheet(workbook: Workbook, options: TableSheetOptions): Worksheet {
 	const sheet = workbook.addWorksheet(options.name);
 	sheet.columns = options.columns;
-	sheet.addRows(options.rows);
+	sheet.addRows(options.rows.map(normalizeWorkbookRow));
 	styleHeaderRow(sheet, options.headerFillArgb);
 	if (options.freezeHeader ?? true) {
 		sheet.views = [{ state: 'frozen', ySplit: 1 }];
 	}
 	return sheet;
+}
+
+function normalizeWorkbookRow(row: WorkbookRow): WorkbookRow {
+	return Object.fromEntries(
+		Object.entries(row).map(([key, value]) => [key, value === '' ? null : value])
+	) as WorkbookRow;
 }
 
 export function styleHeaderRow(sheet: Worksheet, fillArgb = 'FFE8E8E8'): void {
@@ -100,4 +106,13 @@ function toArrayBuffer(buffer: WorkbookBinary): ArrayBuffer {
 export function contentDispositionAttachment(filename: string): string {
 	const escaped = filename.replace(/["\\]/g, '_');
 	return `attachment; filename="${escaped}"`;
+}
+
+export function filenameFromContentDisposition(disposition: string | null, fallback: string): string {
+	const filenameStarMatch = disposition?.match(/filename\*=UTF-8''([^;]+)/i);
+	if (filenameStarMatch?.[1]) {
+		return decodeURIComponent(filenameStarMatch[1]);
+	}
+	const filenameMatch = disposition?.match(/filename="([^"]+)"/i) ?? disposition?.match(/filename=([^;]+)/i);
+	return filenameMatch?.[1]?.trim() || fallback;
 }

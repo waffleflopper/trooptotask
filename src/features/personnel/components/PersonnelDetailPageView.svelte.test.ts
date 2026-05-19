@@ -19,6 +19,7 @@ import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 	gotoMock.mockReset();
 	invalidateAllMock.mockReset();
 });
@@ -103,6 +104,38 @@ describe('PersonnelDetailPageView', () => {
 		expect(await screen.findByText('2 due')).toBeTruthy();
 		expect(screen.getByText('HIPAA expired 4d ago. Cyber Awareness 6d left.')).toBeTruthy();
 		expect(screen.queryByText('No active leave, pass, quarters, TDY, or other duty conflict today.')).toBeNull();
+	});
+
+	it('exports the current personnel record from the detail page', async () => {
+		const blob = new Blob(['personnel workbook'], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+		});
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			headers: new Headers({ 'Content-Disposition': 'attachment; filename="rivera-records.xlsx"' }),
+			blob: () => Promise.resolve(blob)
+		});
+		const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:personnel-export');
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				roster: [person],
+				orgName: 'Test Org',
+				detail: makeDetail()
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export records' }));
+
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/export');
+		await waitFor(() => expect(createObjectURL).toHaveBeenCalledWith(blob));
+		const link = document.querySelector('a[download="rivera-records.xlsx"]') as HTMLAnchorElement | null;
+		expect(link).toBeNull();
 	});
 
 	it('shows a per-lane skeleton while an individual readiness lane loads', () => {

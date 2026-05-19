@@ -23,9 +23,11 @@
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { cn } from '$lib/utils';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
@@ -99,6 +101,8 @@
 	let documentError = $state('');
 	let openingDocumentId = $state('');
 	let createdDocuments = $state<PersonnelDocument[]>([]);
+	let exportSubmitting = $state(false);
+	let exportError = $state('');
 
 	const currentPerson = $derived(updatedPerson ?? person);
 	const displayName = $derived(`${currentPerson.rank} ${currentPerson.lastName}, ${currentPerson.firstName}`);
@@ -449,6 +453,25 @@
 		}
 	}
 
+	async function exportPersonnelRecords(): Promise<void> {
+		if (exportSubmitting) return;
+		exportSubmitting = true;
+		exportError = '';
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/export`);
+			if (!response.ok) {
+				throw new Error('Unable to export personnel records.');
+			}
+			const blob = await response.blob();
+			const fallbackName = `${currentPerson.rank}-${currentPerson.lastName}-records.xlsx`;
+			downloadBlob(blob, filenameFromContentDisposition(response.headers.get('Content-Disposition'), fallbackName));
+		} catch (caught) {
+			exportError = caught instanceof Error ? caught.message : 'Unable to export personnel records.';
+		} finally {
+			exportSubmitting = false;
+		}
+	}
+
 	async function submitCounselingRecord() {
 		counselingError = '';
 		if (!counselingFile) {
@@ -494,6 +517,28 @@
 	<section class="flex min-h-full flex-col">
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
+				<section class="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-4">
+					<div>
+						<h1 class="text-lg font-semibold">{displayName}</h1>
+						<p class="text-sm text-muted-foreground">Personnel record</p>
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={exportSubmitting}
+						onclick={exportPersonnelRecords}
+					>
+						<DownloadIcon aria-hidden="true" size={16} />
+						{exportSubmitting ? 'Exporting...' : 'Export records'}
+					</Button>
+				</section>
+				{#if exportError}
+					<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+						{exportError}
+					</p>
+				{/if}
+
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
 					{#each readinessLaneEntries as lane (lane.key)}
 						{#await lane.promise}

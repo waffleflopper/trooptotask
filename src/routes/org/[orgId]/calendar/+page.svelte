@@ -18,6 +18,7 @@
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
+	let syncedPreferences = $state<typeof data.userPreferences | undefined>(undefined);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
 			throwRenderError(loadError, 'Failed to load calendar workspace');
@@ -117,7 +118,10 @@
 	});
 
 	$effect(() => {
-		ctx.syncUserPreferences(pageData.userPreferences);
+		const preferences = data.userPreferences;
+		if (preferences === syncedPreferences) return;
+		syncedPreferences = preferences;
+		ctx.syncUserPreferences(preferences);
 	});
 	$effect(() => {
 		ctx.markCalendarVisited();

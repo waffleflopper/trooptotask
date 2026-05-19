@@ -361,7 +361,17 @@ describe('TrainingReportsPage', () => {
 	});
 
 	it('uses the server export endpoint for server-backed reports', async () => {
-		const appendSpy = vi.spyOn(document.body, 'appendChild');
+		const exportBlob = new Blob(['training workbook'], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+		});
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			headers: new Headers({ 'Content-Disposition': 'attachment; filename="training-report.xlsx"' }),
+			blob: () => Promise.resolve(exportBlob)
+		});
+		const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:training-export');
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		vi.stubGlobal('fetch', fetchMock);
 		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
 		render(TrainingReportsPage, {
@@ -415,14 +425,12 @@ describe('TrainingReportsPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
-		const appendedLinks = appendSpy.mock.calls
-			.map(([node]) => node)
-			.filter((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement);
-		const exportLink = appendedLinks.at(-1);
-
-		expect(exportLink?.href).toContain('/org/org-1/api/training-reports/export?');
-		expect(exportLink?.href).toContain('sortColumn=name');
-		expect(exportLink?.href).toContain('sortDirection=asc');
-		expect(exportLink?.href).not.toContain('page=');
+		await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+		const exportUrl = fetchMock.mock.calls[0]?.[0] as string;
+		expect(exportUrl).toContain('/org/org-1/api/training-reports/export?');
+		expect(exportUrl).toContain('sortColumn=name');
+		expect(exportUrl).toContain('sortDirection=asc');
+		expect(exportUrl).not.toContain('page=');
+		expect(createObjectURL).toHaveBeenCalledWith(exportBlob);
 	});
 });

@@ -39,6 +39,23 @@ describe('workbook export helpers', () => {
 		expect(sheet?.getColumn(1).width).toBe(24);
 	});
 
+	it('writes empty strings as blank cells so styled sheets do not expose style ids', async () => {
+		const workbook = await createWorkbook();
+		addTableSheet(workbook, {
+			name: 'Blank Cells',
+			columns: [
+				{ header: 'Name', key: 'name' },
+				{ header: 'Optional', key: 'optional' }
+			],
+			rows: [{ name: 'Able, Avery', optional: '' }]
+		});
+
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(toWorkbookBuffer(await writeWorkbookBuffer(workbook)));
+
+		expect(parsed.getWorksheet('Blank Cells')?.getCell('B2').value).toBeNull();
+	});
+
 	it('downloads blobs through one anchor path and revokes after the click task', () => {
 		vi.useFakeTimers();
 		const click = vi.fn(() => {

@@ -91,6 +91,7 @@ describe('buildRatingSchemeWorkbook', () => {
 		expect(sheet.getCell('B2').value).toBe('annual');
 		expect(sheet.getCell('C2').value).toBe('CPT Smith, Jane');
 		expect(sheet.getCell('E2').value).toBe('CPT Jones');
+		expect(sheet.getCell('F2').value).toBeNull();
 	});
 });
 

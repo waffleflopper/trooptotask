@@ -40,7 +40,7 @@ interface CalendarExportIndex {
 }
 
 interface CalendarWorkbookCell {
-	value: string;
+	value: string | null;
 	status: StatusType | undefined;
 	assignments: string[];
 	meta: CalendarExportDateMeta;
@@ -284,7 +284,7 @@ function calendarWorkbookCell(
 	status: StatusType | undefined,
 	assignments: string[]
 ): CalendarWorkbookCell {
-	let value = status?.name ?? '';
+	let value: string | null = status?.name ?? null;
 	if (assignments.length > 0) {
 		const assignmentText = assignments.join(', ');
 		value = value ? `${value} (${assignmentText})` : assignmentText;

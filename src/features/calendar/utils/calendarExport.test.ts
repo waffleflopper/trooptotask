@@ -247,6 +247,7 @@ describe('calendar Excel exports', () => {
 		expect(sheet!.getCell('D4').value).toBe('Leave (SD, CQ)');
 		expect(sheet!.getCell('D4').fill).toMatchObject({ fgColor: { argb: 'FFFDE68A' } });
 		expect(sheet!.getCell('D4').font).toMatchObject({ color: { argb: 'FF111827' } });
+		expect(sheet!.getCell('B5').value).toBeNull();
 		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
 	});
 
@@ -263,6 +264,7 @@ describe('calendar Excel exports', () => {
 		expect(sheet!.getCell('C4').value).toBe('Leave');
 		expect(sheet!.getCell('D4').value).toBe('Leave (SD, CQ)');
 		expect(sheet!.getCell('D4').fill).toMatchObject({ fgColor: { argb: 'FFFDE68A' } });
+		expect(sheet!.getCell('B5').value).toBeNull();
 		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
 	});
 });

@@ -2,7 +2,6 @@
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
-import { useChartLayoutSize } from '$lib/test/chartLayout';
 import type { IctExpirationCliff } from '$features/critical-tasks/utils/ictReports';
 
 const expirationCliff: IctExpirationCliff = {
@@ -38,7 +37,6 @@ const expirationCliff: IctExpirationCliff = {
 };
 
 afterEach(() => cleanup());
-useChartLayoutSize();
 
 describe('IctExpirationCliffChart', () => {
 	it('renders a shared stacked report bar chart with projection and fallback data', () => {

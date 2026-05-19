@@ -1,41 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import ExcelJS from 'exceljs';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
-
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-async function loadReportSheet(buffer: ArrayBuffer): Promise<ExcelJS.Worksheet> {
-	const workbook = new ExcelJS.Workbook();
-	await workbook.xlsx.load(buffer as WorkbookLoadBuffer);
-	return workbook.getWorksheet('Critical Tasks Report')!;
-}
-
-function columnValues(sheet: ExcelJS.Worksheet, column: number): readonly unknown[] {
-	return sheet.getColumn(column).values;
-}
-
-function rowValuesForMetric(sheet: ExcelJS.Worksheet, metric: string): unknown[] | undefined {
-	for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
-		const values = sheet.getRow(rowNumber).values as unknown[];
-		if (values[2] === metric) {
-			return values;
-		}
-	}
-	return undefined;
-}
-
-function rowNumberForMetric(sheet: ExcelJS.Worksheet, metric: string): number {
-	for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
-		const values = sheet.getRow(rowNumber).values as unknown[];
-		if (values[2] === metric) {
-			return rowNumber;
-		}
-	}
-	return -1;
-}
 
 describe('GET /api/critical-tasks/reports/export', () => {
 	it('places filtered action rows before summary metadata', async () => {
@@ -98,29 +64,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			role: undefined,
 			rank: undefined
 		});
-		const sheet = await loadReportSheet(result.buffer);
+		const lines = result.split('\n');
 
-		expect(sheet.getRow(1).values).toEqual([undefined, 'Section', 'Metric', 'Value', 'Subtitle']);
-		expect(sheet.getRow(2).values).toEqual([
-			undefined,
-			'At-Risk Soldiers',
-			'NoUpdate, Nora',
-			'0%',
-			'SPC 11B; Alpha; 0 expiring <=60d; No ICT update'
-		]);
-		expect(sheet.getRow(3).values).toEqual([
-			undefined,
-			'Tasks Below Unit Threshold',
-			'071-000-0001 Maintain communications',
-			'0%',
-			'1 Soldiers need it'
-		]);
-		expect(sheet.getRow(4).values).toContain('Summary');
-		expect(columnValues(sheet, 2)).not.toContain('Outside, Olivia');
-		expect(columnValues(sheet, 5)).not.toContain('Bravo');
+		expect(lines[0]).toBe('Section,Metric,Value,Subtitle');
+		expect(lines[1]).toBe('At-Risk Soldiers,"NoUpdate, Nora",0%,SPC 11B; Alpha; 0 expiring <=60d; No ICT update');
+		expect(lines[2]).toBe('Tasks Below Unit Threshold,071-000-0001 Maintain communications,0%,1 Soldiers need it');
+		expect(lines[3]).toContain('Summary,Overall Readiness,0%');
+		expect(result).not.toContain('Outside, Olivia');
+		expect(result).not.toContain('Bravo');
 	});
 
-	it('uses critical tasks read permission and returns a report-context workbook download', async () => {
+	it('uses critical tasks read permission and returns a report-context CSV download', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
@@ -233,18 +187,14 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			rank: undefined
 		});
 		const response = _getConfig.formatOutput?.(result);
-		const sheet = await loadReportSheet(result.buffer);
 
-		expect(sheet.getRow(1).values).toEqual([undefined, 'Section', 'Metric', 'Value', 'Subtitle']);
-		expect(columnValues(sheet, 2)).toContain('Overall Readiness');
-		expect(columnValues(sheet, 3)).toContain('100%');
-		expect(columnValues(sheet, 2)).toContain('Soldiers Below 70%');
-		expect(columnValues(sheet, 4)).toContain('1 applicable Soldier');
-		expect(columnValues(sheet, 4)).not.toContain('11B');
-		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
-		expect(response?.headers.get('Content-Disposition')).toMatch(
-			/attachment; filename="critical-task-report-.*\.xlsx"/
-		);
+		expect(result).toContain('Section,Metric,Value,Subtitle');
+		expect(result).toContain('Summary,Overall Readiness,100%');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 applicable Soldier');
+		expect(result).toContain('Summary,Tasks Expiring <=60d,0,0 Soldiers affected');
+		expect(result).not.toContain('11B');
+		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
+		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="critical-task-report-/);
 		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
 		expect(response?.headers.get('Vary')).toBe('Cookie');
 	});
@@ -336,12 +286,9 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			rank: undefined
 		});
 
-		const sheet = await loadReportSheet(result.buffer);
-		expect(columnValues(sheet, 2)).toContain('Overall Readiness');
-		expect(columnValues(sheet, 3)).toContain('100%');
-		expect(columnValues(sheet, 2)).toContain('Soldiers Below 70%');
-		expect(columnValues(sheet, 4)).toContain('1 applicable Soldier');
-		expect(columnValues(sheet, 4)).not.toContain('11B');
+		expect(result).toContain('Summary,Overall Readiness,100%');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 applicable Soldier');
+		expect(result).not.toContain('11B');
 	});
 
 	it('includes filtered below-threshold task rows in worst-first order', async () => {
@@ -515,25 +462,14 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			rank: undefined
 		});
 
-		const sheet = await loadReportSheet(result.buffer);
-
-		expect(rowValuesForMetric(sheet, '071-000-0001 Maintain communications')).toEqual([
-			undefined,
-			'Tasks Below Unit Threshold',
-			'071-000-0001 Maintain communications',
-			'0%',
-			'3 Soldiers need it'
-		]);
-		expect(rowValuesForMetric(sheet, '081-000-0002 Move under direct fire')).toEqual([
-			undefined,
-			'Tasks Below Unit Threshold',
-			'081-000-0002 Move under direct fire',
-			'33%',
-			'2 Soldiers need it'
-		]);
-		expect(rowNumberForMetric(sheet, '081-000-0002 Move under direct fire')).toBeGreaterThan(
-			rowNumberForMetric(sheet, '071-000-0001 Maintain communications')
+		const worstTaskIndex = result.indexOf(
+			'Tasks Below Unit Threshold,071-000-0001 Maintain communications,0%,3 Soldiers need it'
 		);
-		expect(columnValues(sheet, 2)).not.toContain('081-000-0003 Conduct PCC and PCI');
+		const gapTaskIndex = result.indexOf(
+			'Tasks Below Unit Threshold,081-000-0002 Move under direct fire,33%,2 Soldiers need it'
+		);
+		expect(worstTaskIndex).toBeGreaterThan(-1);
+		expect(gapTaskIndex).toBeGreaterThan(worstTaskIndex);
+		expect(result).not.toContain('081-000-0003 Conduct PCC and PCI');
 	});
 });

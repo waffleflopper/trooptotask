@@ -21,8 +21,7 @@ export {
 	filterPersonnel,
 	computeReadinessDashboard,
 	buildPivotTable,
-	buildTrainingReportWorkbook,
-	exportTrainingReportWorkbook
+	generatePivotCSV
 } from './utils/reportCalculations';
 export type { ReportFilters, ReadinessDashboard, PivotRow, PivotCell } from './utils/reportCalculations';
 

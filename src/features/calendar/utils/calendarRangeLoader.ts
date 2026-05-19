@@ -3,7 +3,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
 import type { CalendarBufferedRange } from './calendarRange';
-import { mergeById } from '$lib/utils/mergeById';
+import { mergeById } from './mergeById';
 
 export async function loadCalendarRange(orgId: string, range: CalendarBufferedRange): Promise<CalendarRangeData> {
 	const params = new URLSearchParams({

@@ -3,7 +3,6 @@
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { AssignmentCoverageResult, CoverageRow } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
-	import { exportAssignmentCoverageWorkbook } from './calendarReportWorkbookExport';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -142,9 +141,44 @@
 		recompute();
 	}
 
-	function handleExportExcel() {
+	function handleExportCsv() {
 		if (!result) return;
-		return exportAssignmentCoverageWorkbook(result, displayTypes, startDate, endDate);
+
+		const headers = ['Rank', 'Last Name', 'First Name'];
+		for (const t of displayTypes) {
+			headers.push(t.name);
+		}
+		headers.push('Total', 'vs Avg');
+
+		const lines = [headers.join(',')];
+
+		for (const row of result.rows) {
+			const vsAvg = Math.round((row.totalAssignments - result.averageTotal) * 10) / 10;
+			const vsAvgStr = vsAvg > 0 ? `+${vsAvg}` : vsAvg === 0 ? '0' : `${vsAvg}`;
+			const cols = [`"${row.person.rank}"`, `"${row.person.lastName}"`, `"${row.person.firstName}"`];
+			for (const t of displayTypes) {
+				cols.push(`${row.assignmentCounts.get(t.id) ?? 0}`);
+			}
+			cols.push(`${row.totalAssignments}`, `${vsAvgStr}`);
+			lines.push(cols.join(','));
+		}
+
+		// Average row
+		const avgCols = ['', '', 'Average'];
+		for (const t of displayTypes) {
+			avgCols.push(`${averageByType.get(t.id) ?? 0}`);
+		}
+		avgCols.push(`${result.averageTotal}`, '');
+		lines.push(avgCols.join(','));
+
+		const csv = lines.join('\n');
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `assignment-coverage_${startDate}_${endDate}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
 	}
 
 	const tableColumns = $derived.by<ColumnDef<CoverageRow>[]>(() => [
@@ -265,7 +299,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0 || displayTypes.length === 0}

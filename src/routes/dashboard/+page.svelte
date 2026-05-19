@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import * as Alert from '$lib/components/ui/alert';
@@ -66,7 +65,7 @@
 			</p>
 
 			<div>
-				<a class="text-sm font-medium text-foreground underline-offset-4 hover:underline" href={resolve('/help')}>
+				<a class="text-sm font-medium text-foreground underline-offset-4 hover:underline" href="/help">
 					Need a quick refresher? Open the field guide.
 				</a>
 			</div>
@@ -175,7 +174,7 @@
 					<div class="flex flex-col gap-3">
 						{#each filteredOrgs as org (org.id)}
 							<a
-								href={resolve(`/org/${org.urlSegment ?? org.id}` as `/org/${string}`)}
+								href="/org/{org.id}"
 								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors hover:bg-muted max-sm:flex-col max-sm:items-start"
 							>
 								<div class="flex min-w-0 flex-col gap-1">

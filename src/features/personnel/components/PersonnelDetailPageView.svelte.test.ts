@@ -1,27 +1,13 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '$lib/types';
-
-const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
-	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn()
-}));
-
-vi.mock('$app/navigation', () => ({
-	goto: gotoMock,
-	invalidateAll: invalidateAllMock
-}));
-
-import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
-	vi.restoreAllMocks();
-	gotoMock.mockReset();
-	invalidateAllMock.mockReset();
 });
 
 const person: Personnel = {
@@ -104,38 +90,6 @@ describe('PersonnelDetailPageView', () => {
 		expect(await screen.findByText('2 due')).toBeTruthy();
 		expect(screen.getByText('HIPAA expired 4d ago. Cyber Awareness 6d left.')).toBeTruthy();
 		expect(screen.queryByText('No active leave, pass, quarters, TDY, or other duty conflict today.')).toBeNull();
-	});
-
-	it('exports the current personnel record from the detail page', async () => {
-		const blob = new Blob(['personnel workbook'], {
-			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-		});
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			headers: new Headers({ 'Content-Disposition': 'attachment; filename="rivera-records.xlsx"' }),
-			blob: () => Promise.resolve(blob)
-		});
-		const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:personnel-export');
-		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(PersonnelDetailPageView, {
-			props: {
-				orgId: 'org-1',
-				person,
-				roster: [person],
-				orgName: 'Test Org',
-				detail: makeDetail()
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Export records' }));
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/export');
-		await waitFor(() => expect(createObjectURL).toHaveBeenCalledWith(blob));
-		const link = document.querySelector('a[download="rivera-records.xlsx"]') as HTMLAnchorElement | null;
-		expect(link).toBeNull();
 	});
 
 	it('shows a per-lane skeleton while an individual readiness lane loads', () => {
@@ -408,36 +362,6 @@ describe('PersonnelDetailPageView', () => {
 			headers: { 'content-type': 'application/json' },
 			body: expect.stringContaining('"groupId":"group-empty"')
 		});
-	});
-
-	it('archives the personnel record from the detail page and returns to the roster', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(PersonnelDetailPageView, {
-			props: {
-				orgId: 'org-1',
-				person,
-				roster: [person],
-				orgName: 'Test Org',
-				detail: makeDetail(),
-				canArchivePersonnel: true
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Rivera, Monica' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id: 'person-1' })
-		});
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel');
 	});
 
 	it('shows inline errors when quick actions fail', async () => {

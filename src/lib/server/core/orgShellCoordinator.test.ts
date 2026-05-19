@@ -97,9 +97,9 @@ function createNoopCalendarAssignmentsStore() {
 	return {
 		orgId: '',
 		loading: false,
-		types: [] as AssignmentType[],
-		assignments: [] as DailyAssignment[],
-		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+		types: [] as unknown[],
+		assignments: [] as unknown[],
+		load(types: unknown[], assignments: unknown[], orgId: string) {
 			this.orgId = orgId;
 			this.loading = false;
 			this.types = types;
@@ -128,8 +128,6 @@ function createHydrationStores() {
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
 	const personnelIctCompletions = defineStore<PersonnelIctCompletion>({ table: 'personnel_ict_completions' });
 	const calendarAssignments = createNoopCalendarAssignmentsStore();
-	const availabilityEntriesStore = createInspectableLoadable<AvailabilityEntry>();
-	const specialDaysStore = createInspectableLoadable<SpecialDay>();
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
 	const ictTasks = createInspectableLoadable<IctTask>();
@@ -142,8 +140,8 @@ function createHydrationStores() {
 			personnelStore: personnel as unknown as HydrationStores['personnelStore'],
 			groupsStore: groups as unknown as HydrationStores['groupsStore'],
 			statusTypesStore: createInspectableLoadable<never>() as HydrationStores['statusTypesStore'],
-			availabilityEntriesStore,
-			specialDaysStore,
+			availabilityEntriesStore: createInspectableLoadable<never>() as HydrationStores['availabilityEntriesStore'],
+			specialDaysStore: createInspectableLoadable<never>() as HydrationStores['specialDaysStore'],
 			calendarAssignmentsStore: calendarAssignments as HydrationStores['calendarAssignmentsStore'],
 			trainingTypesStore: createInspectableLoadable<TrainingType>() as HydrationStores['trainingTypesStore'],
 			trainingViewsStore: createInspectableLoadable<TrainingView>() as HydrationStores['trainingViewsStore'],
@@ -163,8 +161,6 @@ function createHydrationStores() {
 		onboardings,
 		personnelTrainings,
 		personnelIctCompletions,
-		availabilityEntriesStore,
-		specialDaysStore,
 		calendarAssignments
 	};
 }
@@ -181,14 +177,12 @@ describe('OrgShellCoordinator', () => {
 
 		const result = await coordinator.loadRoot({
 			kind: 'shell',
-			orgUrlSegment: '1-11-bde',
 			access: createInMemoryOrgAccessPort({ membership, orgState }),
 			chrome: createInMemoryOrgChromePort({ chrome })
 		});
 
 		expect(result).toMatchObject({
 			orgId: 'org-1',
-			orgUrlSegment: '1-11-bde',
 			orgName: 'Test Unit',
 			userId: 'user-1',
 			userPreferences: chrome.userPreferences,
@@ -202,7 +196,6 @@ describe('OrgShellCoordinator', () => {
 			allOrgs: chrome.allOrgs,
 			shell: {
 				orgId: 'org-1',
-				orgUrlSegment: '1-11-bde',
 				orgName: 'Test Unit',
 				userId: 'user-1',
 				userPreferences: chrome.userPreferences,
@@ -224,15 +217,13 @@ describe('OrgShellCoordinator', () => {
 		const result = await coordinator.loadRoot({
 			kind: 'suspended',
 			orgId: 'org-1',
-			orgName: 'Test Unit',
-			orgUrlSegment: 'org-1'
+			orgName: 'Test Unit'
 		});
 
 		expect(result).toEqual({
 			orgSuspended: true,
 			orgId: 'org-1',
-			orgName: 'Test Unit',
-			orgUrlSegment: 'org-1'
+			orgName: 'Test Unit'
 		});
 	});
 
@@ -302,19 +293,19 @@ describe('OrgShellCoordinator', () => {
 				hydration: {
 					orgId: 'org-1',
 					availabilityEntries: expect.objectContaining({
-						mode: 'merge',
+						mode: 'replace',
 						items: calendarData.availabilityEntries,
 						deferred: false,
 						snapshotKey: expect.any(String)
 					}),
 					specialDays: expect.objectContaining({
-						mode: 'merge',
+						mode: 'replace',
 						items: calendarData.specialDays,
 						deferred: false,
 						snapshotKey: expect.any(String)
 					}),
 					calendarAssignments: expect.objectContaining({
-						mode: 'merge',
+						mode: 'replace',
 						deferred: true,
 						snapshotKey: expect.any(String)
 					}),
@@ -433,19 +424,19 @@ describe('OrgShellCoordinator', () => {
 			hydration: {
 				orgId: 'org-1',
 				availabilityEntries: expect.objectContaining({
-					mode: 'merge',
+					mode: 'replace',
 					items: calendarData.availabilityEntries,
 					deferred: false,
 					snapshotKey: expect.any(String)
 				}),
 				specialDays: expect.objectContaining({
-					mode: 'merge',
+					mode: 'replace',
 					items: calendarData.specialDays,
 					deferred: false,
 					snapshotKey: expect.any(String)
 				}),
 				calendarAssignments: expect.objectContaining({
-					mode: 'merge',
+					mode: 'replace',
 					deferred: true,
 					snapshotKey: expect.any(String)
 				})
@@ -1112,99 +1103,6 @@ describe('OrgShellCoordinator', () => {
 			{ id: 'da1', date: '2024-01-01', assignmentTypeId: 'at1', assigneeId: 'p1' }
 		]);
 		expect(calendarAssignments.loading).toBe(false);
-	});
-
-	it('merges same-org calendar range hydration so delayed bootstrap data does not clear loaded statuses', async () => {
-		const coordinator = createTestCoordinator();
-		const { stores, availabilityEntriesStore, specialDaysStore, calendarAssignments } = createHydrationStores();
-		const marchAvailability = {
-			id: 'avail-march',
-			personnelId: 'p1',
-			statusTypeId: 'st1',
-			startDate: '2026-03-01',
-			endDate: '2026-03-02',
-			note: null
-		} satisfies AvailabilityEntry;
-		const aprilAvailability = {
-			id: 'avail-april',
-			personnelId: 'p1',
-			statusTypeId: 'st2',
-			startDate: '2026-04-01',
-			endDate: '2026-04-02',
-			note: null
-		} satisfies AvailabilityEntry;
-		const marchAssignment = {
-			id: 'assignment-march',
-			date: '2026-03-01',
-			assignmentTypeId: 'at1',
-			assigneeId: 'p1'
-		} satisfies DailyAssignment;
-		const aprilAssignment = {
-			id: 'assignment-april',
-			date: '2026-04-01',
-			assignmentTypeId: 'at1',
-			assigneeId: 'p1'
-		} satisfies DailyAssignment;
-
-		availabilityEntriesStore.load([marchAvailability, aprilAvailability], 'org-1');
-		specialDaysStore.load([{ id: 'special-april', name: 'April', date: '2026-04-01', type: 'org-closure' }], 'org-1');
-		calendarAssignments.load(
-			[
-				{
-					id: 'at1',
-					name: 'Staff Duty',
-					shortName: 'SD',
-					assignTo: 'personnel',
-					color: '#111111',
-					exemptPersonnelIds: [],
-					showInDateHeader: false
-				}
-			],
-			[marchAssignment, aprilAssignment],
-			'org-1'
-		);
-
-		await coordinator.hydrate(
-			{
-				orgId: 'org-1',
-				availabilityEntries: {
-					mode: 'merge',
-					snapshotKey: 'calendar-availability:initial',
-					items: [marchAvailability]
-				},
-				specialDays: {
-					mode: 'merge',
-					snapshotKey: 'calendar-special-days:initial',
-					items: [{ id: 'special-march', name: 'March', date: '2026-03-01', type: 'org-closure' }]
-				},
-				calendarAssignments: {
-					mode: 'merge',
-					snapshotKey: 'calendar-assignments:initial',
-					items: {
-						types: [
-							{
-								id: 'at1',
-								name: 'Staff Duty',
-								shortName: 'SD',
-								assignTo: 'personnel',
-								color: '#111111',
-								exemptPersonnelIds: [],
-								showInDateHeader: false
-							}
-						],
-						assignments: [marchAssignment]
-					}
-				}
-			},
-			stores
-		);
-
-		expect(availabilityEntriesStore.items.map((entry) => entry.id)).toEqual(['avail-march', 'avail-april']);
-		expect(specialDaysStore.items.map((day) => day.id)).toEqual(['special-april', 'special-march']);
-		expect(calendarAssignments.assignments.map((assignment) => assignment.id)).toEqual([
-			'assignment-march',
-			'assignment-april'
-		]);
 	});
 
 	it('hydrates onboarding templates and onboardings through the coordinator boundary', async () => {

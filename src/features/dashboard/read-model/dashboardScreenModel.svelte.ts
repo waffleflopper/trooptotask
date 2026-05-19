@@ -7,7 +7,6 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveBadgeColor, deriveShortName } from '$features/calendar/utils/dutyEventBadges';
-import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -783,15 +782,13 @@ function createDefaultDashboardStoreSources(): DashboardStoreSources {
 }
 
 function createBrowserStoragePort(): DashboardStoragePort | null {
-	const storage = getBrowserLocalStorage();
-	if (!browser || !storage) return null;
-
+	if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
 	return {
 		getItem(key) {
-			return storage.getItem(key);
+			return globalThis.localStorage.getItem(key);
 		},
 		setItem(key, value) {
-			storage.setItem(key, value);
+			globalThis.localStorage.setItem(key, value);
 		}
 	};
 }

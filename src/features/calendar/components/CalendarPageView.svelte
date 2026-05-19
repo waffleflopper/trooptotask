@@ -9,7 +9,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
-	import { exportMonthToExcel, printMonthCalendar } from '$features/calendar/utils/calendarExport';
+	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -23,7 +23,6 @@
 		ctx: CalendarPageContext;
 		data: {
 			orgId: string;
-			orgUrlSegment?: string;
 			orgName: string;
 		};
 	}
@@ -44,7 +43,6 @@
 	const toolbarItems = $derived(
 		buildCalendarToolbarItems({
 			orgId: data.orgId,
-			orgUrlSegment: data.orgUrlSegment ?? data.orgId,
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
@@ -59,7 +57,7 @@
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
-			onExportExcel: () => exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData()),
+			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
 					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
@@ -178,7 +176,7 @@
 						showStatusText={ctx.showStatusText}
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
-						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
+						personnelHref={`/org/${data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}
 						onGoToToday={() => calendarStore.goToToday()}
@@ -207,7 +205,7 @@
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
+		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
 	/>
 {/if}
 
@@ -222,6 +220,6 @@
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
 		dutyEvents={ctx.advancedDutyEvents}
-		dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
+		dutyRosterHref={`/org/${data.orgId}/duty-rosters/`}
 	/>
 {/if}

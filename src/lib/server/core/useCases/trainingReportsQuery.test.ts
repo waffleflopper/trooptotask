@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import ExcelJS from 'exceljs';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import {
-	fetchTrainingReportPage,
-	fetchTrainingReportsData,
-	generateTrainingReportWorkbookExport
-} from './trainingReportsQuery';
-
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+import { fetchTrainingReportPage, fetchTrainingReportsData, generateTrainingReportCsv } from './trainingReportsQuery';
 
 const ORG = 'test-org';
 
@@ -269,7 +262,7 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.detail.rows[0].person.id).toBe('p-alpha');
 	});
 
-	it('generates an authorized full workbook export without applying detail pagination', async () => {
+	it('generates an authorized full CSV export without applying detail pagination', async () => {
 		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
@@ -335,19 +328,16 @@ describe('fetchTrainingReportsData', () => {
 			}
 		]);
 
-		const exportResult = await generateTrainingReportWorkbookExport(ctx, {
+		const csv = await generateTrainingReportCsv(ctx, {
 			sort: { column: 'name', direction: 'asc' },
 			pagination: { page: 1, pageSize: 1 }
 		});
-		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(exportResult.buffer as WorkbookLoadBuffer);
-		const sheet = workbook.getWorksheet('Training Report')!;
 
-		expect(exportResult.filename).toMatch(/^training-report-.*\.xlsx$/);
-		expect(sheet.rowCount).toBe(3);
-		expect(sheet.getCell('A2').value).toBe('Able, Amy');
-		expect(sheet.getCell('A3').value).toBe('Alpha, Ann');
-		expect(sheet.getColumn(1).values).not.toContain('Bravo, Ben');
+		const lines = csv.split('\n');
+		expect(lines).toHaveLength(3);
+		expect(csv).toContain('"Able, Amy"');
+		expect(csv).toContain('"Alpha, Ann"');
+		expect(csv).not.toContain('Bravo, Ben');
 	});
 
 	it('fetches training records from the store and returns them', async () => {
@@ -392,7 +382,7 @@ describe('fetchTrainingReportsData', () => {
 
 		await expect(fetchTrainingReportsData(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
-		await expect(generateTrainingReportWorkbookExport(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(generateTrainingReportCsv(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('returns empty array when no training records exist', async () => {

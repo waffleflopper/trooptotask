@@ -107,9 +107,9 @@ export function getOrgNavigation(orgId: string, access: OrganizationMemberPermis
 			id: 'duty-rosters',
 			href: `/org/${orgId}/duty-rosters`,
 			label: 'Duty Rosters',
-			badgeLabel: 'Beta',
+			compactLabel: 'Duty',
 			icon: 'duty-roster',
-			visible: canView('calendar'),
+			visible: false,
 			exactMatch: false
 		},
 		{
@@ -163,7 +163,7 @@ function isCapabilityMap(access: OrganizationMemberPermissions | CapabilityMap):
 	return 'calendar' in access;
 }
 
-export function isOrgNavItemActive(pathname: string, item: Pick<OrgNavItem, 'href' | 'exactMatch'>): boolean {
+export function isOrgNavItemActive(pathname: string, item: OrgNavItem): boolean {
 	const itemPath = item.href.split('?')[0];
 
 	if (item.exactMatch) {

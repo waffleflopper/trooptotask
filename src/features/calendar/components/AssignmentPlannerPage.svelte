@@ -27,7 +27,6 @@
 	let { data }: Props = $props();
 
 	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const assignmentAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments)
 	);
@@ -43,8 +42,8 @@
 	);
 	const scopedPBG = $derived(scopePersonnelByGroupScopeSet(personnelByGroup, org.scopeSet));
 	const relatedLinks = $derived([
-		{ label: 'Duty Rosters', href: `/org/${orgUrlSegment}/duty-rosters` },
-		{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
+		{ label: 'Duty Rosters', href: `/org/${org.orgId}/duty-rosters` },
+		{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }
 	]);
 </script>
 

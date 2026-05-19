@@ -1,11 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
-
-afterEach(() => {
-	vi.restoreAllMocks();
-});
 
 describe('POST /api/export', () => {
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {
@@ -124,7 +120,6 @@ describe('POST /api/export', () => {
 		]);
 
 		const originalUpdate = ctx.rawStore.update.bind(ctx.rawStore);
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		ctx.rawStore.update = async (...args) => {
 			const [table] = args;
 			if (table === 'data_exports') {
@@ -141,10 +136,6 @@ describe('POST /api/export', () => {
 			personnel: Array<Record<string, unknown>>;
 		};
 		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		expect(warnSpy).toHaveBeenCalledWith(
-			expect.stringContaining('[data-exports] Failed to mark export'),
-			expect.any(Error)
-		);
 
 		expect(payload.personnel).toEqual([
 			expect.objectContaining({

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { AlertTriangle, Calendar, CheckCircle2, Download, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
+	import { AlertTriangle, Calendar, CheckCircle2, Info, Pencil, Printer, Save, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
@@ -14,7 +14,6 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
-	import { exportDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterWorkbookExport';
 	import {
 		buildDutyRosterAcceptedRunReviewModel,
 		buildDutyRosterPreviewReviewModel,
@@ -248,10 +247,6 @@
 
 	function printDraftPreview(preview: DutyRosterTemplatePreview): void {
 		printDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
-	}
-
-	async function exportDraftPreview(preview: DutyRosterTemplatePreview): Promise<void> {
-		await exportDutyRosterForBrowser({ templatePreview: preview, statusLabel: 'Draft' });
 	}
 
 	function openManualChange(row: DutyRosterPreviewReviewModel['rows'][number]): void {
@@ -649,10 +644,6 @@
 						<Button variant="outline" size="sm" type="button" onclick={() => printDraftPreview(preview)}>
 							<Printer size={16} aria-hidden="true" />
 							Print Draft
-						</Button>
-						<Button variant="outline" size="sm" type="button" onclick={() => void exportDraftPreview(preview)}>
-							<Download size={16} aria-hidden="true" />
-							Export Draft
 						</Button>
 					</div>
 					<div class="flex items-center gap-2">
@@ -1139,10 +1130,6 @@
 							<Button variant="ghost" size="sm" type="button" onclick={() => printDraftPreview(preview)}>
 								<Printer size={16} aria-hidden="true" />
 								Print DA6 draft
-							</Button>
-							<Button variant="ghost" size="sm" type="button" onclick={() => void exportDraftPreview(preview)}>
-								<Download size={16} aria-hidden="true" />
-								Export DA6 draft
 							</Button>
 						</section>
 					</aside>

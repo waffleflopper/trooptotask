@@ -1,15 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-afterEach(() => {
-	vi.restoreAllMocks();
-});
 
 function rowValues(sheet: ExcelJS.Worksheet, rowNumber: number): string[] {
 	const values = sheet.getRow(rowNumber).values;
@@ -43,7 +38,6 @@ describe('POST /api/export-excel', () => {
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			email: 'leader@example.com'
 		});
-		const response = _postConfig.formatOutput?.(result);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(result._buffer as ArrayBuffer));
@@ -58,8 +52,6 @@ describe('POST /api/export-excel', () => {
 		expect(rowValues(personnelSheet, 1)).toContain('PCS / DEROS');
 		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');
 		expect(rowValues(personnelSheet, 2)).toContain('2026-11-30');
-		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
-		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="org-export-.*\.xlsx"/);
 		expect(exportRows).toEqual([
 			expect.objectContaining({
 				requested_by: ctx.auth.userId,
@@ -152,7 +144,6 @@ describe('POST /api/export-excel', () => {
 		]);
 
 		const originalUpdate = ctx.rawStore.update.bind(ctx.rawStore);
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		ctx.rawStore.update = async (...args) => {
 			const [table] = args;
 			if (table === 'data_exports') {
@@ -175,10 +166,6 @@ describe('POST /api/export-excel', () => {
 
 		expect(rowValues(personnelSheet, 2)).toContain('2027-05-01');
 		expect(rowValues(personnelSheet, 2)).toContain('2026-11-30');
-		expect(warnSpy).toHaveBeenCalledWith(
-			expect.stringContaining('[data-exports] Failed to mark export'),
-			expect.any(Error)
-		);
 		expect(exportRows).toEqual([
 			expect.objectContaining({
 				requested_by: ctx.auth.userId,

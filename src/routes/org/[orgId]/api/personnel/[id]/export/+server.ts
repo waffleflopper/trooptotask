@@ -3,15 +3,7 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
-import {
-	addTableSheet,
-	createWorkbook,
-	workbookBufferResponse,
-	writeWorkbookBuffer,
-	type Workbook,
-	type WorkbookColumn,
-	type WorkbookRow
-} from '$lib/export/workbook';
+import ExcelJS from 'exceljs';
 
 interface PersonnelExportOutput {
 	_buffer: ArrayBuffer;
@@ -73,8 +65,13 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 		const groupMap = new Map<string, string>();
 		for (const g of groups) groupMap.set(g.id as string, g.name as string);
 
-		const workbook = await createWorkbook();
+		const workbook = new ExcelJS.Workbook();
 
+		const infoSheet = workbook.addWorksheet('Personnel Info');
+		infoSheet.columns = [
+			{ header: 'Field', key: 'field', width: 25 },
+			{ header: 'Value', key: 'value', width: 40 }
+		];
 		const infoRows: { field: string; value: string }[] = [
 			{ field: 'Rank', value: (person.rank as string) ?? '' },
 			{ field: 'Last Name', value: (person.last_name as string) ?? '' },
@@ -105,14 +102,8 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 				{ field: 'Leader Notes', value: (ext.leader_notes as string) ?? '' }
 			);
 		}
-		addTableSheet(workbook, {
-			name: 'Personnel Info',
-			columns: [
-				{ header: 'Field', key: 'field', width: 25 },
-				{ header: 'Value', key: 'value', width: 40 }
-			],
-			rows: infoRows
-		});
+		for (const row of infoRows) infoSheet.addRow(row);
+		styleHeaderRow(infoSheet);
 
 		addMappedSheet(
 			workbook,
@@ -125,7 +116,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 				{ header: 'Notes', key: 'notes', width: 40 }
 			],
 			(t) => ({
-				training_type: lookup(trainingTypeMap, t.training_type_id),
+				training_type: trainingTypeMap.get(t.training_type_id as string) ?? t.training_type_id,
 				completion_date: t.completion_date,
 				expiration_date: t.expiration_date,
 				notes: t.notes ?? ''
@@ -166,13 +157,13 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 				{ header: 'End Date', key: 'end_date', width: 14 }
 			],
 			(a) => ({
-				status: lookup(statusTypeMap, a.status_type_id),
+				status: statusTypeMap.get(a.status_type_id as string) ?? a.status_type_id,
 				start_date: a.start_date,
 				end_date: a.end_date
 			})
 		);
 
-		const buffer = await writeWorkbookBuffer(workbook);
+		const buffer = await workbook.xlsx.writeBuffer();
 		const personName =
 			`${(person.rank as string) ?? ''} ${(person.last_name as string) ?? ''} ${(person.first_name as string) ?? ''}`
 				.trim()
@@ -191,41 +182,36 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 		return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };
 	},
 	formatOutput: (result) => {
-		return workbookBufferResponse(result._buffer, result._filename);
+		return new Response(result._buffer, {
+			headers: {
+				'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+				'Content-Disposition': `attachment; filename="${result._filename}"`
+			}
+		});
 	}
 };
 
 export const GET = handle(_getConfig);
 
+function styleHeaderRow(sheet: ExcelJS.Worksheet) {
+	const headerRow = sheet.getRow(1);
+	headerRow.font = { bold: true };
+	headerRow.eachCell((cell) => {
+		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } };
+	});
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function addMappedSheet(
-	workbook: Workbook,
+	workbook: ExcelJS.Workbook,
 	name: string,
-	data: Record<string, unknown>[],
-	columns: WorkbookColumn[],
-	mapper: (row: Record<string, unknown>) => Record<string, unknown>
+	data: any[],
+	columns: any[],
+	mapper: (row: any) => any
 ) {
-	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data.map(mapper)) });
-}
-
-function toWorkbookRows(rows: Record<string, unknown>[]): WorkbookRow[] {
-	return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, toWorkbookCell(value)])));
-}
-
-function lookup(labels: Map<string, string>, value: unknown): string {
-	const key = typeof value === 'string' ? value : String(value ?? '');
-	return labels.get(key) ?? key;
-}
-
-function toWorkbookCell(value: unknown): WorkbookRow[string] {
-	if (
-		value === null ||
-		value === undefined ||
-		typeof value === 'string' ||
-		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		value instanceof Date
-	) {
-		return value;
-	}
-	return String(value);
+	/* eslint-enable @typescript-eslint/no-explicit-any */
+	const sheet = workbook.addWorksheet(name);
+	sheet.columns = columns;
+	for (const row of data) sheet.addRow(mapper(row));
+	styleHeaderRow(sheet);
 }

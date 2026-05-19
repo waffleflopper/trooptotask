@@ -31,7 +31,6 @@ export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 			column: 'exempt_personnel_ids',
 			insertDefault: [],
 			nullDefault: []
-		}),
-		archivedAt: field(z.string().nullable().optional(), { column: 'archived_at', readOnly: true })
+		})
 	}
 });

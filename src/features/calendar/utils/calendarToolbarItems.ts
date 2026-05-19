@@ -2,7 +2,6 @@ import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolba
 
 export interface CalendarToolbarInput {
 	orgId: string;
-	orgUrlSegment?: string;
 	canManageAvailability: boolean;
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
@@ -17,7 +16,7 @@ export interface CalendarToolbarInput {
 	onTogglePersonnelRoles: () => void;
 	onToggleHighlightOnboarding: () => void;
 	onToggleDutyStartDayOnly: () => void;
-	onExportExcel: () => void;
+	onExportCSV: () => void;
 	onExportPDF: () => void;
 }
 
@@ -36,7 +35,6 @@ function overflowToggle(id: string, label: string, active: boolean, onclick: () 
 export function buildCalendarToolbarItems(input: CalendarToolbarInput): WorkspaceToolbarAction[] {
 	const items: WorkspaceToolbarAction[] = [];
 	const readOnlyReason = input.readOnly ? 'Read-only mode' : undefined;
-	const orgRouteSegment = input.orgUrlSegment ?? input.orgId;
 
 	if (input.canManageAvailability) {
 		items.push({
@@ -49,19 +47,19 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			menuItems: [
 				{
 					label: 'Add Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=add`,
+					href: `/org/${input.orgId}/calendar/bulk?tab=add`,
 					disabled: input.readOnly,
 					disabledReason: readOnlyReason
 				},
 				{
 					label: 'Remove Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=remove`,
+					href: `/org/${input.orgId}/calendar/bulk?tab=remove`,
 					disabled: input.readOnly,
 					disabledReason: readOnlyReason
 				},
 				{
 					label: 'Import CSV',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=import`,
+					href: `/org/${input.orgId}/calendar/bulk?tab=import`,
 					disabled: input.readOnly,
 					disabledReason: readOnlyReason
 				}
@@ -74,14 +72,14 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 		if (input.canManageConfig) {
 			planningItems.push({
 				label: 'Duty Rosters (alpha)',
-				href: `/org/${orgRouteSegment}/duty-rosters`,
+				href: `/org/${input.orgId}/duty-rosters`,
 				disabled: input.readOnly,
 				disabledReason: readOnlyReason
 			});
 		}
 		planningItems.push({
 			label: 'Assignment Planner',
-			href: `/org/${orgRouteSegment}/calendar/assignments`,
+			href: `/org/${input.orgId}/calendar/assignments`,
 			disabled: input.readOnly,
 			disabledReason: readOnlyReason
 		});
@@ -101,7 +99,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 		items.push({
 			id: 'calendar-settings',
 			label: 'Settings',
-			href: `/org/${orgRouteSegment}/calendar/settings`,
+			href: `/org/${input.orgId}/calendar/settings`,
 			icon: 'settings',
 			priority: 'low',
 			variant: 'secondary'
@@ -113,7 +111,7 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			{
 				id: 'export-excel',
 				label: 'Export to Excel',
-				onclick: input.onExportExcel,
+				onclick: input.onExportCSV,
 				priority: 'low',
 				overflow: 'always'
 			},

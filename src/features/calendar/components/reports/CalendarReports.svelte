@@ -10,13 +10,12 @@
 
 	interface Props {
 		orgId: string;
-		orgUrlSegment?: string;
 		personnel: Personnel[];
 		statusTypes: StatusType[];
 		groups: { id: string; name: string }[];
 	}
 
-	let { orgId, orgUrlSegment = orgId, personnel, statusTypes, groups }: Props = $props();
+	let { orgId, personnel, statusTypes, groups }: Props = $props();
 
 	type ReportType =
 		| 'status-days'
@@ -33,7 +32,7 @@
 		{ value: 'assignment-coverage', label: 'Assignment Coverage' },
 		{ value: 'group-readiness', label: 'Group/Section Readiness' }
 	];
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
+	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgId}/calendar` }]);
 </script>
 
 <div class="flex flex-col gap-4">

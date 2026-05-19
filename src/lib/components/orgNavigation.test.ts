@@ -19,16 +19,6 @@ const basePermissions: OrganizationMemberPermissions = {
 };
 
 describe('getOrgNavigation', () => {
-	it('builds generated organization links with the provided preferred URL segment', () => {
-		const nav = getOrgNavigation('1-11-bde', {
-			...basePermissions,
-			canViewCalendar: true
-		});
-
-		expect(nav.find((item) => item.id === 'dashboard')?.href).toBe('/org/1-11-bde');
-		expect(nav.find((item) => item.id === 'calendar')?.href).toBe('/org/1-11-bde/calendar');
-	});
-
 	it('uses Capability Map view levels for shell navigation visibility', () => {
 		const nav = getOrgNavigation('org-1', {
 			calendar: 'view',
@@ -40,7 +30,7 @@ describe('getOrgNavigation', () => {
 		});
 
 		expect(nav.find((item) => item.id === 'calendar')?.visible).toBe(true);
-		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(true);
+		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'training')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'critical-tasks')?.visible).toBe(true);
@@ -70,7 +60,7 @@ describe('getOrgNavigation', () => {
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
 	});
 
-	it('shows replacement Duty Rosters as a primary navigation item after Calendar', () => {
+	it('keeps replacement Duty Rosters out of primary navigation', () => {
 		const withCalendar = getOrgNavigation('org-1', {
 			...basePermissions,
 			canViewCalendar: true
@@ -83,12 +73,11 @@ describe('getOrgNavigation', () => {
 					id: 'duty-rosters',
 					href: '/org/org-1/duty-rosters',
 					label: 'Duty Rosters',
-					badgeLabel: 'Beta',
-					visible: true
+					compactLabel: 'Duty',
+					visible: false
 				})
 			])
 		);
-		expect(withCalendar.map((item) => item.id).slice(1, 4)).toEqual(['calendar', 'duty-rosters', 'personnel']);
 		expect(withoutCalendar.find((item) => item.id === 'duty-rosters')?.visible).toBe(false);
 	});
 

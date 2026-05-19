@@ -21,14 +21,13 @@ export interface SuspendedRootOrgShellRouteData {
 	orgSuspended: true;
 	orgId: string;
 	orgName: string;
-	orgUrlSegment: string;
 }
 
 export type RootOrgShellLoadResult = RootOrgShellRouteData | SuspendedRootOrgShellRouteData;
 
 export type RootOrgShellRequest =
-	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort; orgUrlSegment: string }
-	| { kind: 'suspended'; orgId: string; orgName: string; orgUrlSegment: string };
+	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort }
+	| { kind: 'suspended'; orgId: string; orgName: string };
 
 export interface RootOrgLoadPort {
 	resolveRequest(): Promise<RootOrgShellRequest>;
@@ -73,18 +72,14 @@ export function createOrgShellCoordinator(deps: OrgShellCoordinatorDeps = {}): O
 				return {
 					orgSuspended: true,
 					orgId: request.orgId,
-					orgName: request.orgName,
-					orgUrlSegment: request.orgUrlSegment
+					orgName: request.orgName
 				};
 			}
 
-			return loadOrgShell(request.access, request.chrome).then((shell) => {
-				const shellWithUrlSegment = { ...shell, orgUrlSegment: request.orgUrlSegment };
-				return {
-					...shellWithUrlSegment,
-					shell: shellWithUrlSegment
-				};
-			});
+			return loadOrgShell(request.access, request.chrome).then((shell) => ({
+				...shell,
+				shell
+			}));
 		},
 
 		async loadWorkspace<T, K extends WorkspaceKey>(

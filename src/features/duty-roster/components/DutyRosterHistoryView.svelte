@@ -6,7 +6,6 @@
 	import {
 		Calendar,
 		Database,
-		Download,
 		Eye,
 		List,
 		Printer,
@@ -37,7 +36,6 @@
 		type DutyRosterStatus
 	} from '$features/duty-roster/components/shared';
 	import { printDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterBrowserExport';
-	import { exportDutyRosterForBrowser } from '$features/duty-roster/export/dutyRosterWorkbookExport';
 	import type {
 		DutyRosterTemplate,
 		DutyRosterTemplateAcceptedRun
@@ -147,16 +145,6 @@
 
 	function printAcceptedRun(run: DutyRosterTemplateAcceptedRun): void {
 		printDutyRosterForBrowser({
-			acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
-				run,
-				todayDate
-			}).snapshot,
-			statusLabel: 'Official'
-		});
-	}
-
-	async function exportAcceptedRun(run: DutyRosterTemplateAcceptedRun): Promise<void> {
-		await exportDutyRosterForBrowser({
 			acceptedSnapshot: buildDutyRosterAcceptedRunReviewModel({
 				run,
 				todayDate
@@ -479,10 +467,6 @@
 						<Button variant="outline" size="sm" type="button" onclick={() => printAcceptedRun(historyDetailRun)}>
 							<Printer size={14} aria-hidden="true" />
 							Print
-						</Button>
-						<Button variant="outline" size="sm" type="button" onclick={() => void exportAcceptedRun(historyDetailRun)}>
-							<Download size={14} aria-hidden="true" />
-							Export
 						</Button>
 					</div>
 				</header>
@@ -940,10 +924,6 @@
 											<Button variant="outline" size="sm" type="button" onclick={() => printAcceptedRun(run)}>
 												<Printer size={14} aria-hidden="true" />
 												Print
-											</Button>
-											<Button variant="outline" size="sm" type="button" onclick={() => void exportAcceptedRun(run)}>
-												<Download size={14} aria-hidden="true" />
-												Export
 											</Button>
 										{/if}
 									</div>

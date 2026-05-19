@@ -35,10 +35,8 @@ describe('createRootOrgLayoutLoad', () => {
 			unreadNotificationCount: 0,
 			activeAnnouncements: [],
 			allOrgs: [],
-			orgUrlSegment: '1-11-bde',
 			shell: {
 				orgId: 'org-1',
-				orgUrlSegment: '1-11-bde',
 				orgName: 'Test Unit',
 				userId: 'user-1',
 				userRole: 'member',
@@ -64,11 +62,10 @@ describe('createRootOrgLayoutLoad', () => {
 
 		const query = {
 			eq: vi.fn(),
-			maybeSingle: vi.fn().mockResolvedValue({
+			single: vi.fn().mockResolvedValue({
 				data: {
 					id: 'org-1',
 					name: 'Test Unit',
-					url_slug: '1-11-bde',
 					suspended_at: null
 				}
 			})
@@ -106,7 +103,7 @@ describe('createRootOrgLayoutLoad', () => {
 
 		const depends = vi.fn();
 		const result = await load({
-			params: { orgId: '1-11-bde' },
+			params: { orgId: 'org-1' },
 			locals: {
 				user: { id: 'user-1' },
 				supabase: userSupabase
@@ -114,8 +111,7 @@ describe('createRootOrgLayoutLoad', () => {
 			cookies: {
 				get: vi.fn().mockReturnValue(undefined)
 			} as unknown as Parameters<typeof load>[0]['cookies'],
-			depends,
-			url: new URL('http://localhost/org/1-11-bde/calendar')
+			depends
 		});
 
 		expect(result).toEqual(routePayload);
@@ -129,7 +125,6 @@ describe('createRootOrgLayoutLoad', () => {
 		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
 		expect(request).toEqual({
 			kind: 'shell',
-			orgUrlSegment: '1-11-bde',
 			access: accessPort,
 			chrome: chromePort
 		});
@@ -148,17 +143,15 @@ describe('createRootOrgLayoutLoad', () => {
 		const suspendedPayload = {
 			orgSuspended: true as const,
 			orgId: 'org-1',
-			orgName: 'Suspended Unit',
-			orgUrlSegment: 'org-1'
+			orgName: 'Suspended Unit'
 		};
 
 		const query = {
 			eq: vi.fn(),
-			maybeSingle: vi.fn().mockResolvedValue({
+			single: vi.fn().mockResolvedValue({
 				data: {
 					id: 'org-1',
 					name: 'Suspended Unit',
-					url_slug: null,
 					suspended_at: '2026-04-01T00:00:00.000Z'
 				}
 			})
@@ -195,8 +188,7 @@ describe('createRootOrgLayoutLoad', () => {
 			cookies: {
 				get: vi.fn().mockReturnValue(undefined)
 			} as unknown as Parameters<typeof load>[0]['cookies'],
-			depends: vi.fn(),
-			url: new URL('http://localhost/org/org-1')
+			depends: vi.fn()
 		});
 
 		expect(result).toEqual(suspendedPayload);
@@ -210,8 +202,7 @@ describe('createRootOrgLayoutLoad', () => {
 		expect(request).toEqual({
 			kind: 'suspended',
 			orgId: 'org-1',
-			orgName: 'Suspended Unit',
-			orgUrlSegment: 'org-1'
+			orgName: 'Suspended Unit'
 		});
 		expect(createSubscriptionAdapter).not.toHaveBeenCalled();
 		expect(createOrgAccessPort).not.toHaveBeenCalled();

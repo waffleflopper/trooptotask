@@ -3,16 +3,8 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
+import ExcelJS from 'exceljs';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
-import {
-	addTableSheet,
-	createWorkbook,
-	workbookBufferResponse,
-	writeWorkbookBuffer,
-	type Workbook,
-	type WorkbookColumn,
-	type WorkbookRow
-} from '$lib/export/workbook';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -112,50 +104,47 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			})[])
 				extendedMap.set(e.personnel_id, e);
 
-			const workbook = await createWorkbook();
+			const workbook = new ExcelJS.Workbook();
 
-			addTableSheet(workbook, {
-				name: 'Personnel',
-				columns: [
-					{ header: 'Rank', key: 'rank', width: 10 },
-					{ header: 'Last Name', key: 'last_name', width: 18 },
-					{ header: 'First Name', key: 'first_name', width: 18 },
-					{ header: 'MOS', key: 'mos', width: 12 },
-					{ header: 'Duty Role', key: 'clinic_role', width: 12 },
-					{ header: 'Group', key: 'group', width: 20 },
-					{ header: 'ETS', key: 'ets', width: 14 },
-					{ header: 'PCS / DEROS', key: 'deros', width: 14 },
-					{ header: 'Emergency Contact', key: 'emergency_contact', width: 25 },
-					{ header: 'Emergency Phone', key: 'emergency_phone', width: 18 },
-					{ header: 'Phone', key: 'phone', width: 18 },
-					{ header: 'Email', key: 'email', width: 25 },
-					{ header: 'Address', key: 'address', width: 35 },
-					{ header: 'Leader Notes', key: 'leader_notes', width: 30 }
-				],
-				rows: toWorkbookRows(
-					personnelRows.map((p) => {
-						const ext = extendedMap.get(p.id) as Record<string, unknown> | undefined;
-						return {
-							rank: p.rank,
-							last_name: p.last_name,
-							first_name: p.first_name,
-							mos: p.mos,
-							clinic_role: p.clinic_role,
-							group: lookup(groupMap, p.group_id),
-							ets: p.ets ?? '',
-							deros: p.deros ?? '',
-							emergency_contact: ext?.emergency_contact_name ?? '',
-							emergency_phone: ext?.emergency_contact_phone ?? '',
-							phone: ext?.personal_phone ?? '',
-							email: ext?.personal_email ?? '',
-							address: ext
-								? [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
-								: '',
-							leader_notes: ext?.leader_notes ?? ''
-						};
-					})
-				)
-			});
+			const personnelSheet = workbook.addWorksheet('Personnel');
+			personnelSheet.columns = [
+				{ header: 'Rank', key: 'rank', width: 10 },
+				{ header: 'Last Name', key: 'last_name', width: 18 },
+				{ header: 'First Name', key: 'first_name', width: 18 },
+				{ header: 'MOS', key: 'mos', width: 12 },
+				{ header: 'Duty Role', key: 'clinic_role', width: 12 },
+				{ header: 'Group', key: 'group', width: 20 },
+				{ header: 'ETS', key: 'ets', width: 14 },
+				{ header: 'PCS / DEROS', key: 'deros', width: 14 },
+				{ header: 'Emergency Contact', key: 'emergency_contact', width: 25 },
+				{ header: 'Emergency Phone', key: 'emergency_phone', width: 18 },
+				{ header: 'Phone', key: 'phone', width: 18 },
+				{ header: 'Email', key: 'email', width: 25 },
+				{ header: 'Address', key: 'address', width: 35 },
+				{ header: 'Leader Notes', key: 'leader_notes', width: 30 }
+			];
+			for (const p of personnelRows) {
+				const ext = extendedMap.get(p.id) as Record<string, unknown> | undefined;
+				personnelSheet.addRow({
+					rank: p.rank,
+					last_name: p.last_name,
+					first_name: p.first_name,
+					mos: p.mos,
+					clinic_role: p.clinic_role,
+					group: groupMap.get(p.group_id) ?? '',
+					ets: p.ets ?? '',
+					deros: p.deros ?? '',
+					emergency_contact: ext?.emergency_contact_name ?? '',
+					emergency_phone: ext?.emergency_contact_phone ?? '',
+					phone: ext?.personal_phone ?? '',
+					email: ext?.personal_email ?? '',
+					address: ext
+						? [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
+						: '',
+					leader_notes: ext?.leader_notes ?? ''
+				});
+			}
+			styleHeaderRow(personnelSheet);
 
 			addSimpleSheet(
 				workbook,
@@ -177,8 +166,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'End Date', key: 'end_date', width: 14 }
 				],
 				(a) => ({
-					person: lookup(personnelMap, a.personnel_id),
-					status: lookup(statusTypeMap, a.status_type_id),
+					person: personnelMap.get(a.personnel_id) ?? a.personnel_id,
+					status: statusTypeMap.get(a.status_type_id) ?? a.status_type_id,
 					start_date: a.start_date,
 					end_date: a.end_date
 				})
@@ -205,8 +194,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Notes', key: 'notes', width: 30 }
 				],
 				(t) => ({
-					person: lookup(personnelMap, t.personnel_id),
-					training_type: lookup(trainingTypeMap, t.training_type_id),
+					person: personnelMap.get(t.personnel_id) ?? t.personnel_id,
+					training_type: trainingTypeMap.get(t.training_type_id) ?? t.training_type_id,
 					completion_date: t.completion_date,
 					expiration_date: t.expiration_date,
 					notes: t.notes
@@ -242,8 +231,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				],
 				(d) => ({
 					date: d.date,
-					person: lookup(personnelMap, d.assignee_id),
-					assignment_type: lookup(assignmentTypeMap, d.assignment_type_id)
+					person: personnelMap.get(d.assignee_id) ?? d.assignee_id,
+					assignment_type: assignmentTypeMap.get(d.assignment_type_id) ?? d.assignment_type_id
 				})
 			);
 			addMappedSheet(
@@ -260,7 +249,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Notes', key: 'notes', width: 30 }
 				],
 				(c) => ({
-					person: lookup(personnelMap, c.personnel_id),
+					person: personnelMap.get(c.personnel_id) ?? c.personnel_id,
 					date_conducted: c.date_conducted,
 					subject: c.subject,
 					key_points: c.key_points,
@@ -281,7 +270,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Archived At', key: 'archived_at', width: 20 }
 				],
 				(note) => ({
-					person: lookup(personnelMap, note.personnel_id),
+					person: personnelMap.get(note.personnel_id) ?? note.personnel_id,
 					author: note.author,
 					text: note.text,
 					created_at: note.created_at,
@@ -303,7 +292,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Archived At', key: 'archived_at', width: 20 }
 				],
 				(followUp) => ({
-					person: lookup(personnelMap, followUp.personnel_id),
+					person: personnelMap.get(followUp.personnel_id) ?? followUp.personnel_id,
 					title: followUp.title,
 					notes: followUp.notes,
 					due_date: followUp.due_date,
@@ -328,7 +317,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Archived At', key: 'archived_at', width: 20 }
 				],
 				(document) => ({
-					person: lookup(personnelMap, document.personnel_id),
+					person: personnelMap.get(document.personnel_id) ?? document.personnel_id,
 					title: document.title,
 					file_name:
 						String(document.file_path ?? '')
@@ -372,7 +361,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Completed', key: 'completed_at', width: 20 }
 				],
 				(o) => ({
-					person: lookup(personnelMap, o.personnel_id),
+					person: personnelMap.get(o.personnel_id) ?? o.personnel_id,
 					status: o.status,
 					started_at: o.started_at,
 					completed_at: o.completed_at
@@ -396,7 +385,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{ header: 'Notes', key: 'notes', width: 30 }
 				],
 				(r) => ({
-					person: lookup(personnelMap, r.rated_person_id),
+					person: personnelMap.get(r.rated_person_id) ?? r.rated_person_id,
 					eval_type: r.eval_type,
 					report_type: r.report_type,
 					rater_name: r.rater_name,
@@ -409,13 +398,13 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					notes: r.notes
 				})
 			);
-			const buffer = await writeWorkbookBuffer(workbook);
+			const buffer = await workbook.xlsx.writeBuffer();
 
 			await completeDataExport(
 				{ auth: ctx.auth, store: ctx.rawStore },
 				{
 					exportId: exportRecord.exportId,
-					fileSizeBytes: buffer.byteLength
+					fileSizeBytes: (buffer as ArrayBuffer).byteLength
 				}
 			);
 
@@ -428,7 +417,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			});
 
 			const dateStr = new Date().toISOString().split('T')[0];
-			return { _buffer: buffer, _filename: `org-export-${orgId}-${dateStr}.xlsx` };
+			return { _buffer: buffer as ArrayBuffer, _filename: `org-export-${orgId}-${dateStr}.xlsx` };
 		} catch (err) {
 			await failDataExport({ auth: ctx.auth, store: ctx.rawStore }, { exportId: exportRecord.exportId });
 			throw err;
@@ -441,45 +430,44 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
-		return workbookBufferResponse(result._buffer as ArrayBuffer, result._filename as string);
+		return new Response(result._buffer as ArrayBuffer, {
+			headers: {
+				'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+				'Content-Disposition': `attachment; filename="${result._filename}"`
+			}
+		});
 	}
 };
 
 export const POST = handle(_postConfig);
 
-function addSimpleSheet(workbook: Workbook, name: string, columns: WorkbookColumn[], data: Record<string, unknown>[]) {
-	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data) });
+function styleHeaderRow(sheet: ExcelJS.Worksheet) {
+	const headerRow = sheet.getRow(1);
+	headerRow.font = { bold: true };
+	headerRow.eachCell((cell) => {
+		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } };
+	});
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addSimpleSheet(workbook: ExcelJS.Workbook, name: string, columns: any[], data: any[]) {
+	const sheet = workbook.addWorksheet(name);
+	sheet.columns = columns;
+	for (const row of data) sheet.addRow(row);
+	styleHeaderRow(sheet);
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function addMappedSheet(
-	workbook: Workbook,
+	workbook: ExcelJS.Workbook,
 	name: string,
-	data: Record<string, unknown>[],
-	columns: WorkbookColumn[],
-	mapper: (row: Record<string, unknown>) => Record<string, unknown>
+	data: any[],
+	columns: any[],
+	mapper: (row: any) => any
 ) {
-	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data.map(mapper)) });
-}
-
-function toWorkbookRows(rows: Record<string, unknown>[]): WorkbookRow[] {
-	return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, toWorkbookCell(value)])));
-}
-
-function lookup(labels: Map<string, string>, value: unknown): string {
-	const key = typeof value === 'string' ? value : String(value ?? '');
-	return labels.get(key) ?? key;
-}
-
-function toWorkbookCell(value: unknown): WorkbookRow[string] {
-	if (
-		value === null ||
-		value === undefined ||
-		typeof value === 'string' ||
-		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		value instanceof Date
-	) {
-		return value;
-	}
-	return String(value);
+	/* eslint-enable @typescript-eslint/no-explicit-any */
+	const sheet = workbook.addWorksheet(name);
+	sheet.columns = columns;
+	for (const row of data) sheet.addRow(mapper(row));
+	styleHeaderRow(sheet);
 }

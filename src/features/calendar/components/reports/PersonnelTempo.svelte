@@ -3,7 +3,6 @@
 	import type { StatusType } from '$lib/types';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
-	import { exportPersonnelTempoWorkbook } from './calendarReportWorkbookExport';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -141,9 +140,39 @@
 		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
 	);
 
-	function handleExportExcel() {
+	// --- CSV Export ---
+	function handleExportCsv() {
 		if (!result) return;
-		return exportPersonnelTempoWorkbook(result, displayColumns, startDate, endDate);
+
+		const headers = ['Rank', 'Last Name', 'First Name', ...displayColumns.map((s) => s.name), 'Total Away', '% Away'];
+		const csvRows = [headers.join(',')];
+
+		for (const row of result.rows) {
+			const cells = [
+				escapeCsv(row.person.rank),
+				escapeCsv(row.person.lastName),
+				escapeCsv(row.person.firstName),
+				...displayColumns.map((st) => String(row.awayByStatus.get(st.id) ?? 0)),
+				String(row.totalAwayDays),
+				String(row.percentAway)
+			];
+			csvRows.push(cells.join(','));
+		}
+
+		const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `personnel-tempo_${startDate}_${endDate}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	function escapeCsv(value: string): string {
+		if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+			return `"${value.replace(/"/g, '""')}"`;
+		}
+		return value;
 	}
 
 	const tableColumns = $derived.by<ColumnDef<TempoRow>[]>(() => [
@@ -266,7 +295,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate} &middot; {result.totalDaysInPeriod} days in period
 			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.rows.length === 0}

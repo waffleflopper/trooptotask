@@ -12,10 +12,6 @@ import {
 	matchesCriticalTasksPersonnelSearch
 } from '$features/critical-tasks/utils/criticalTasksMatrix';
 import {
-	buildCriticalTasksMatrixWorkbook,
-	buildCriticalTasksReportWorkbook
-} from '$features/critical-tasks/utils/ictWorkbookExport';
-import {
 	buildIctReportDashboard,
 	buildIctReportSummary,
 	filterIctReportPersonnel,
@@ -29,7 +25,6 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
-import { writeWorkbookBuffer } from '$lib/export/workbook';
 
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
@@ -58,6 +53,43 @@ interface CriticalTasksReportSource {
 interface OrgSettingsRow {
 	critical_tasks_default_expiration_months?: number | null;
 	critical_tasks_expiring_soon_warning_days?: number | null;
+}
+
+function escapeCsv(value: string): string {
+	if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+		return `"${value.replace(/"/g, '""')}"`;
+	}
+
+	return value;
+}
+
+function renderCell(completion: PersonnelIctCompletion | undefined, status: string): string {
+	switch (status) {
+		case 'current':
+			return `Current${completion ? ` (${completion.completedAt})` : ''}`;
+		case 'expiring-soon':
+			return `Expiring Soon${completion ? ` (${completion.completedAt})` : ''}`;
+		case 'expired':
+			return `Expired${completion ? ` (${completion.completedAt})` : ''}`;
+		default:
+			return 'Not Recorded';
+	}
+}
+
+function formatDelta(delta: number): string {
+	if (delta > 0) return `+${delta} pts vs 30d`;
+	if (delta < 0) return `${delta} pts vs 30d`;
+	return '0 pts vs 30d';
+}
+
+function formatDaysSinceLastIctUpdate(days: number | null): string {
+	if (days === null) return 'No ICT update';
+	if (days === 1) return '1 day since update';
+	return `${days} days since update`;
+}
+
+function formatApplicableSoldiers(count: number): string {
+	return `${count} applicable ${count === 1 ? 'Soldier' : 'Soldiers'}`;
 }
 
 function uniqueSorted(values: Array<string | null | undefined>): string[] {
@@ -228,28 +260,85 @@ export async function fetchCriticalTasksReportSummary(
 	});
 }
 
-export interface CriticalTasksWorkbookExport {
-	buffer: ArrayBuffer;
-	filename: string;
+export function formatCriticalTasksReportCsv(dashboard: IctReportDashboard): string {
+	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
+	const expiringSoonWindowLabel = `<=${tasksExpiringSoon.windowDays}d`;
+	const lines = ['Section,Metric,Value,Subtitle'];
+	for (const row of dashboard.atRiskSoldiers.rows) {
+		lines.push(
+			[
+				'At-Risk Soldiers',
+				row.soldierName,
+				`${row.readinessPercent}%`,
+				`${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring ${expiringSoonWindowLabel}; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
+	for (const row of dashboard.tasksBelowThreshold.rows) {
+		lines.push(
+			[
+				'Tasks Below Unit Threshold',
+				`${row.taskCode} ${row.taskName}`,
+				`${row.percentComplete}%`,
+				`${row.soldierGapCount} Soldiers need it`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
+	lines.push(
+		['Summary', 'Overall Readiness', `${overallReadiness.percent}%`, formatDelta(overallReadiness.deltaPercent)]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			`Soldiers Below ${soldiersBelow70.thresholdPercent}%`,
+			String(soldiersBelow70.count),
+			formatApplicableSoldiers(soldiersBelow70.totalApplicable)
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			`Tasks Expiring ${expiringSoonWindowLabel}`,
+			String(tasksExpiringSoon.count),
+			`${tasksExpiringSoon.affectedSoldiers} Soldiers affected`
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+	lines.push(
+		[
+			'Summary',
+			'Tasks Below Threshold',
+			String(tasksBelowThreshold.count),
+			`Below ${tasksBelowThreshold.thresholdPercent}% unit completion`
+		]
+			.map(escapeCsv)
+			.join(',')
+	);
+
+	return lines.join('\n');
 }
 
-export async function generateCriticalTasksReportWorkbookExport(
+export async function generateCriticalTasksReportCsv(
 	ctx: QueryPorts,
 	input: CriticalTasksReportInput = {}
-): Promise<CriticalTasksWorkbookExport> {
+): Promise<string> {
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
-	const workbook = await buildCriticalTasksReportWorkbook(dashboard);
-	const date = new Date().toISOString().split('T')[0];
-	return {
-		buffer: await writeWorkbookBuffer(workbook),
-		filename: `critical-task-report-${date}.xlsx`
-	};
+	return formatCriticalTasksReportCsv(dashboard);
 }
 
-export async function generateCriticalTasksMatrixWorkbookExport(
+export async function generateCriticalTasksMatrixCsv(
 	ctx: QueryPorts,
 	input: CriticalTasksMatrixExportInput = {}
-): Promise<CriticalTasksWorkbookExport> {
+): Promise<string> {
 	const source = await loadCriticalTasksReportSource(ctx);
 	const search = input.search?.trim() ?? '';
 	const filteredPersonnel = search
@@ -271,10 +360,27 @@ export async function generateCriticalTasksMatrixWorkbookExport(
 		asOf: input.asOf,
 		orgName: 'Unassigned'
 	});
-	const workbook = await buildCriticalTasksMatrixWorkbook(matrix);
-	const date = new Date().toISOString().split('T')[0];
-	return {
-		buffer: await writeWorkbookBuffer(workbook),
-		filename: `critical-task-matrix-${date}.xlsx`
-	};
+
+	const headers = [
+		'Name',
+		'Rank',
+		'MOS',
+		'Duty Role',
+		'Group',
+		...matrix.tasks.map((task) => `${task.taskCode} ${task.title}`)
+	];
+	const lines = [headers.map(escapeCsv).join(',')];
+	for (const row of matrix.alphabeticalRows) {
+		const values = [
+			`${row.person.lastName}, ${row.person.firstName}`,
+			row.person.rank,
+			row.person.mos,
+			row.person.clinicRole,
+			row.person.groupName,
+			...row.cells.map((cell) => (cell.applicable ? renderCell(cell.completion, cell.statusInfo.status) : ''))
+		];
+		lines.push(values.map((value) => escapeCsv(value)).join(','));
+	}
+
+	return lines.join('\n');
 }

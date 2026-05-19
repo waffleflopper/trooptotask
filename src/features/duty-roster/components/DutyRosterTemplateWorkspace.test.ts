@@ -311,7 +311,8 @@ describe('DutyRosterTemplateWorkspace', () => {
 		expect(within(matrix).getByText('X')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print DA6 draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Print Draft' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Export Draft' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Export DA6 draft' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Draft' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept + Apply to Calendar' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept Run' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Accept Run + Print' })).toBeTruthy();

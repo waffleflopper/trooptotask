@@ -43,9 +43,10 @@
 	const month = $derived(viewDate.getMonth());
 	const monthName = $derived(getMonthName(month));
 	const dates = $derived(getMonthDates(year, month));
+	const activeAssignmentTypes = $derived(assignmentTypes.filter((type) => !type.archivedAt));
 
 	const assignmentTypeOptions = $derived(
-		assignmentTypes.map((type) => ({ value: type.id, label: `${type.shortName} - ${type.name}` }))
+		activeAssignmentTypes.map((type) => ({ value: type.id, label: `${type.shortName} - ${type.name}` }))
 	);
 	const personnelOptions = $derived(
 		personnelByGroup.flatMap((grp) =>
@@ -90,7 +91,7 @@
 	async function applyQuickFill() {
 		if (!quickFillType) return;
 
-		const type = assignmentTypes.find((t) => t.id === quickFillType);
+		const type = activeAssignmentTypes.find((t) => t.id === quickFillType);
 		if (!type) return;
 
 		const assigneeId = type.assignTo === 'personnel' ? quickFillPerson : quickFillGroup;
@@ -142,7 +143,7 @@
 		}
 	}
 
-	const selectedType = $derived(assignmentTypes.find((t) => t.id === quickFillType));
+	const selectedType = $derived(activeAssignmentTypes.find((t) => t.id === quickFillType));
 	const quickFillAssigneeSelected = $derived(
 		selectedType?.assignTo === 'personnel'
 			? !!quickFillPerson
@@ -242,7 +243,7 @@
 				<tr class="bg-muted/40 border-b">
 					<th class="w-14 px-3 py-2 text-left font-medium">Date</th>
 					<th class="w-14 px-3 py-2 text-left font-medium">Day</th>
-					{#each assignmentTypes as type (type.id)}
+					{#each activeAssignmentTypes as type (type.id)}
 						<th class="min-w-40 px-3 py-2 text-left font-medium">
 							<div class="flex items-center justify-between gap-2">
 								<span
@@ -276,7 +277,7 @@
 						<td class="px-3 py-2">
 							<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
 						</td>
-						{#each assignmentTypes as type (type.id)}
+						{#each activeAssignmentTypes as type (type.id)}
 							{@const assignment = getAssignment(date, type.id)}
 							<td class="px-2 py-1.5">
 								{#if type.assignTo === 'personnel'}

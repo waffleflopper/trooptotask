@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -18,6 +19,7 @@
 	import { rosterStore } from '$lib/stores/roster.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
+	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === ctx.orgId &&
@@ -70,7 +72,7 @@
 				{
 					id: 'manage-views',
 					label: 'Manage Views',
-					href: `/org/${ctx.orgId}/training/views`,
+					href: `/org/${orgUrlSegment}/training/views`,
 					icon: 'settings',
 					disabled: ctx.readOnly,
 					disabledReason: ctx.readOnly ? 'Upgrade to edit' : undefined,
@@ -90,7 +92,7 @@
 			{
 				id: 'reports',
 				label: 'Reports',
-				href: `/org/${ctx.orgId}/training/reports`,
+				href: `/org/${orgUrlSegment}/training/reports`,
 				icon: 'chart',
 				priority: 'normal'
 			}
@@ -100,7 +102,7 @@
 			actions.push({
 				id: 'manage-types',
 				label: 'Manage Types',
-				href: `/org/${ctx.orgId}/training/types`,
+				href: `/org/${orgUrlSegment}/training/types`,
 				icon: 'book-open',
 				priority: 'critical',
 				variant: 'primary'
@@ -190,7 +192,7 @@
 					</Empty.Header>
 					{#if ctx.canManageConfig}
 						<Empty.Content>
-							<Button onclick={() => goto(`/org/${ctx.orgId}/training/types`)}>Manage Types</Button>
+							<Button onclick={() => goto(resolve(`/org/${orgUrlSegment}/training/types`))}>Manage Types</Button>
 						</Empty.Content>
 					{/if}
 				</Empty.Root>

@@ -27,19 +27,19 @@ export function _createTrainingLayoutLoad(deps: TrainingLayoutLoadDeps = {}): La
 	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
 
 	return async ({
-		params,
 		locals,
 		cookies,
-		depends
+		depends,
+		parent
 	}: {
-		params: { orgId: string };
 		locals: App.Locals;
 		cookies: Cookies;
 		depends: (...deps: string[]) => void;
+		parent: () => Promise<{ orgId: string }>;
 	}) => {
 		depends('app:org-core', 'app:training-data');
 
-		const { orgId } = params;
+		const { orgId } = await parent();
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 

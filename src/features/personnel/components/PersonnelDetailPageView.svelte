@@ -6,7 +6,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
+	import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
 	import type {
 		PersonnelCounselingRecord,
 		PersonnelDetailStreams,
@@ -21,21 +23,26 @@
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { cn } from '$lib/utils';
+	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	interface Props {
 		orgId: string;
+		orgUrlSegment?: string;
 		person: Personnel;
 		roster: Personnel[];
 		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;
+		canArchivePersonnel?: boolean;
 	}
 
 	type Tone = PersonnelReadinessLaneTone;
@@ -46,9 +53,19 @@
 		promise: Promise<PersonnelReadinessLane>;
 	}
 
-	let { orgId, person, groups = [], orgName, detail }: Props = $props();
+	let {
+		orgId,
+		orgUrlSegment = orgId,
+		person,
+		groups = [],
+		orgName,
+		detail,
+		canArchivePersonnel = false
+	}: Props = $props();
 	let updatedPerson = $state<Personnel | null>(null);
 	let showDataSheet = $state(false);
+	let showArchiveConfirm = $state(false);
+	let archiveSubmitting = $state(false);
 	let editingBasicInfo = $state(false);
 	let basicInfoRank = $state('');
 	let basicInfoFirstName = $state('');
@@ -84,10 +101,12 @@
 	let documentError = $state('');
 	let openingDocumentId = $state('');
 	let createdDocuments = $state<PersonnelDocument[]>([]);
+	let exportSubmitting = $state(false);
+	let exportError = $state('');
 
 	const currentPerson = $derived(updatedPerson ?? person);
 	const displayName = $derived(`${currentPerson.rank} ${currentPerson.lastName}, ${currentPerson.firstName}`);
-	const detailBasePath = $derived(`/org/${orgId}/personnel/${currentPerson.slug}`);
+	const detailBasePath = $derived(`/org/${orgUrlSegment}/personnel/${currentPerson.slug}`);
 	const groupOptions = $derived([
 		{ value: '', label: 'No Group Assigned' },
 		...groups.map((group) => ({ value: group.id, label: group.name || 'Unnamed group' }))
@@ -243,7 +262,7 @@
 			const savedPerson = (await response.json()) as Personnel;
 			updatedPerson = savedPerson;
 			if (savedPerson.slug !== previousSlug) {
-				await goto(resolve(`/org/${orgId}/personnel/${savedPerson.slug}`), {
+				await goto(resolve(`/org/${orgUrlSegment}/personnel/${savedPerson.slug}`), {
 					replaceState: true,
 					invalidateAll: true
 				});
@@ -253,6 +272,26 @@
 			basicInfoError = caught instanceof Error ? caught.message : 'Unable to update basic info.';
 		} finally {
 			basicInfoSaving = false;
+		}
+	}
+
+	async function confirmArchive() {
+		if (archiveSubmitting) return;
+		archiveSubmitting = true;
+		try {
+			const result = await archivePersonnel({
+				orgId,
+				person: currentPerson,
+				resourceUrl: `/org/${orgId}/personnel/${currentPerson.slug ?? currentPerson.id}`
+			});
+			if (result === 'archived') {
+				await invalidateAll();
+				await goto(resolve(`/org/${orgUrlSegment}/personnel`));
+			} else {
+				showArchiveConfirm = false;
+			}
+		} finally {
+			archiveSubmitting = false;
 		}
 	}
 
@@ -414,6 +453,25 @@
 		}
 	}
 
+	async function exportPersonnelRecords(): Promise<void> {
+		if (exportSubmitting) return;
+		exportSubmitting = true;
+		exportError = '';
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/${currentPerson.id}/export`);
+			if (!response.ok) {
+				throw new Error('Unable to export personnel records.');
+			}
+			const blob = await response.blob();
+			const fallbackName = `${currentPerson.rank}-${currentPerson.lastName}-records.xlsx`;
+			downloadBlob(blob, filenameFromContentDisposition(response.headers.get('Content-Disposition'), fallbackName));
+		} catch (caught) {
+			exportError = caught instanceof Error ? caught.message : 'Unable to export personnel records.';
+		} finally {
+			exportSubmitting = false;
+		}
+	}
+
 	async function submitCounselingRecord() {
 		counselingError = '';
 		if (!counselingFile) {
@@ -459,6 +517,28 @@
 	<section class="flex min-h-full flex-col">
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
+				<section class="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-4">
+					<div>
+						<h1 class="text-lg font-semibold">{displayName}</h1>
+						<p class="text-sm text-muted-foreground">Personnel record</p>
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={exportSubmitting}
+						onclick={exportPersonnelRecords}
+					>
+						<DownloadIcon aria-hidden="true" size={16} />
+						{exportSubmitting ? 'Exporting...' : 'Export records'}
+					</Button>
+				</section>
+				{#if exportError}
+					<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+						{exportError}
+					</p>
+				{/if}
+
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
 					{#each readinessLaneEntries as lane (lane.key)}
 						{#await lane.promise}
@@ -686,7 +766,21 @@
 							<h2 class="font-semibold">Service details</h2>
 						</div>
 						{#if !editingBasicInfo}
-							<Button type="button" variant="outline" size="sm" onclick={startBasicInfoEdit}>Edit basic info</Button>
+							<div class="flex items-center gap-2">
+								{#if canArchivePersonnel}
+									<Button
+										type="button"
+										variant="destructive"
+										size="icon-sm"
+										title="Archive {currentPerson.rank} {currentPerson.lastName}, {currentPerson.firstName}"
+										aria-label="Archive {currentPerson.rank} {currentPerson.lastName}, {currentPerson.firstName}"
+										onclick={() => (showArchiveConfirm = true)}
+									>
+										<ArchiveIcon aria-hidden="true" />
+									</Button>
+								{/if}
+								<Button type="button" variant="outline" size="sm" onclick={startBasicInfoEdit}>Edit basic info</Button>
+							</div>
 						{/if}
 					</div>
 					{#if editingBasicInfo}
@@ -810,6 +904,18 @@
 		</div>
 	</section>
 </main>
+
+{#if showArchiveConfirm}
+	<ConfirmDialog
+		title="Archive Personnel"
+		message="Archive {currentPerson.rank} {currentPerson.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
+		confirmLabel="Archive"
+		variant="warning"
+		loading={archiveSubmitting}
+		onConfirm={confirmArchive}
+		onCancel={() => (showArchiveConfirm = false)}
+	/>
+{/if}
 
 {#snippet ToneBadge(tone: Tone, label: string)}
 	<span

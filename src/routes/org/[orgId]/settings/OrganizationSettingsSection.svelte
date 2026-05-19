@@ -23,12 +23,16 @@
 			members: unknown[];
 			pendingApprovalsCount: number;
 			archivedPersonnel: unknown[];
+			orgUrlSegment?: string | null;
+			orgUrlSlug?: string | null;
 			policies: { retentionMonths: number };
 		};
 		form: {
 			[key: string]: unknown;
 			nameSuccess?: boolean;
+			slugSuccess?: boolean;
 			error?: string;
+			slugError?: string;
 		} | null;
 		loading?: boolean;
 		planBadge: string;
@@ -49,7 +53,7 @@
 				<h3 id="organization-profile-heading" class="text-lg font-semibold tracking-tight">Organization Profile</h3>
 				<p class="text-sm text-muted-foreground">Displayed across briefs, exports, and printed rosters.</p>
 			</div>
-			{#if form?.nameSuccess}<Badge variant="secondary">Saved</Badge>{/if}
+			{#if form?.nameSuccess || form?.slugSuccess}<Badge variant="secondary">Saved</Badge>{/if}
 		</div>
 		<Separator />
 		<form
@@ -76,20 +80,53 @@
 				</div>
 			</div>
 		</form>
-		<div class="grid gap-4 rounded-md border bg-muted/30 p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+		<form
+			method="POST"
+			action="?/updateSlug"
+			class="grid gap-4 rounded-md border bg-muted/30 p-3"
+			use:enhance={() => {
+				loading = true;
+				return async ({ update }) => {
+					loading = false;
+					await update();
+				};
+			}}
+		>
 			<div class="grid gap-1">
-				<p id="short-code-label" class="text-sm font-medium">Short code</p>
-				<p class="text-sm text-muted-foreground">Used in URLs and DA-form headers. 3-6 chars.</p>
-			</div>
-			<div class="grid gap-1">
-				<Button type="button" variant="outline" disabled aria-labelledby="short-code-label short-code-value">
-					<span id="short-code-value">Coming soon</span>
-				</Button>
+				<p class="text-sm font-medium">Organization URL slug</p>
 				<p class="text-sm text-muted-foreground">
-					Coming soon: future organization slugs for URLs and printed headers.
+					Used in app links like /org/{data.orgUrlSlug ?? '1-11-bde'}/calendar. Letters, numbers, and hyphens only.
 				</p>
 			</div>
-		</div>
+			{#if form?.slugError}<p class="text-sm text-destructive">{form.slugError}</p>{/if}
+			<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+				<div class="grid gap-2">
+					<Label for="urlSlug">Slug</Label>
+					<Input
+						id="urlSlug"
+						name="urlSlug"
+						type="text"
+						value={data.orgUrlSlug ?? ''}
+						placeholder="1-11-bde"
+						autocomplete="off"
+						aria-describedby="url-slug-help"
+					/>
+					<p id="url-slug-help" class="text-sm text-muted-foreground">
+						Current app path: /org/{data.orgUrlSegment ?? data.orgId}
+					</p>
+				</div>
+				<div class="flex items-end">
+					<Button type="submit" disabled={loading}>
+						{loading ? 'Saving...' : data.orgUrlSlug ? 'Update Slug' : 'Set Slug'}
+					</Button>
+				</div>
+				{#if data.orgUrlSlug}
+					<div class="flex items-end">
+						<Button type="submit" variant="outline" formaction="?/clearSlug" disabled={loading}>Clear</Button>
+					</div>
+				{/if}
+			</div>
+		</form>
 	</section>
 
 	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="subscription-heading">
@@ -106,7 +143,7 @@
 				<p class="text-sm font-medium">Plan</p>
 				<p class="text-sm text-muted-foreground">{billingStatus}</p>
 				{#if isBillingEnabled}
-					<Button href={`/org/${data.orgId}/billing`} size="sm">Manage Billing</Button>
+					<Button href={`/org/${data.orgUrlSegment ?? data.orgId}/billing`} size="sm">Manage Billing</Button>
 				{/if}
 			</div>
 			<div>

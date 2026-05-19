@@ -20,16 +20,17 @@ export interface RootOrgLayoutLoadDeps {
 interface RootOrgLayoutRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
-	orgId: string;
+	orgSegment: string;
+	url: URL;
 }
 
 export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
 	const createRootPort =
 		deps.createRootPort ??
-		(({ locals, cookies, orgId }: RootOrgLayoutRequestContext) =>
+		(({ locals, cookies, orgSegment, url }: RootOrgLayoutRequestContext) =>
 			createSupabaseRootOrgLoadPort(
-				{ locals, cookies, orgId },
+				{ locals, cookies, orgSegment, url },
 				{
 					getLayoutClient: deps.getLayoutClient,
 					createSubscriptionAdapter: deps.createSubscriptionAdapter,
@@ -42,14 +43,16 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		params,
 		locals,
 		cookies,
-		depends
+		depends,
+		url
 	}: {
 		params: { orgId: string };
 		locals: App.Locals;
 		cookies: import('@sveltejs/kit').Cookies;
 		depends: (...deps: string[]) => void;
+		url: URL;
 	}) => {
 		depends('app:org-core', 'app:org-preferences');
-		return coordinator.loadRoot(createRootPort({ locals, cookies, orgId: params.orgId }));
+		return coordinator.loadRoot(createRootPort({ locals, cookies, orgSegment: params.orgId, url }));
 	};
 }

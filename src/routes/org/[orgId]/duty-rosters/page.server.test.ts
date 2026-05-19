@@ -91,7 +91,7 @@ describe('Duty Roster Templates route', () => {
 	it('archives a template from the register and redirects back to the register', async () => {
 		const request = new Request('http://localhost', {
 			method: 'POST',
-			body: new URLSearchParams({ templateId: 'template-1' })
+			body: new URLSearchParams({ templateId: 'template-1', archiveAssignmentType: 'true' })
 		});
 
 		await expect(
@@ -104,7 +104,10 @@ describe('Duty Roster Templates route', () => {
 			location: '/org/org-1/duty-rosters'
 		});
 
-		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, { templateId: 'template-1' });
+		expect(archiveDutyRosterTemplateMock).toHaveBeenCalledWith(mockCtx, {
+			templateId: 'template-1',
+			archiveAssignmentType: true
+		});
 	});
 });
 

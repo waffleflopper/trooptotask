@@ -6,6 +6,7 @@
 
 	interface LayoutData {
 		orgId: string;
+		orgUrlSegment?: string;
 		orgName: string;
 		personnelDetailHeader: PersonnelDetailHeader;
 	}
@@ -15,7 +16,8 @@
 	const person = $derived(data.personnelDetailHeader.person);
 	const displayName = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const initials = $derived(`${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase());
-	const detailBasePath = $derived(`/org/${data.orgId}/personnel/${person.slug}`);
+	const orgUrlSegment = $derived(data.orgUrlSegment ?? data.orgId);
+	const detailBasePath = $derived(`/org/${orgUrlSegment}/personnel/${person.slug}`);
 </script>
 
 <section class="flex min-h-full flex-col bg-background text-foreground">
@@ -37,7 +39,7 @@
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<Button href={`/org/${data.orgId}/personnel`} variant="outline" size="sm">
+				<Button href={`/org/${orgUrlSegment}/personnel`} variant="outline" size="sm">
 					<ArrowLeftIcon aria-hidden="true" size={15} />
 					Roster
 				</Button>

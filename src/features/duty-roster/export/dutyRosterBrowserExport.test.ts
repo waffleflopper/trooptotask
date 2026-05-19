@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
+import ExcelJS from 'exceljs';
 import { buildDutyRosterRunSnapshot } from '../run';
 import type { DutyRosterRunInput } from '../run';
 import type {
@@ -7,11 +8,14 @@ import type {
 	DutyRosterTemplatePreview
 } from '../templates/dutyRosterTemplatePreview';
 import type { AssignmentType, Personnel } from '$lib/types';
-import {
-	buildDutyRosterBrowserExportHtml,
-	exportDutyRosterForBrowser,
-	printDutyRosterForBrowser
-} from './dutyRosterBrowserExport';
+import { buildDutyRosterBrowserExportHtml, printDutyRosterForBrowser } from './dutyRosterBrowserExport';
+import { buildDutyRosterWorkbook, exportDutyRosterForBrowser } from './dutyRosterWorkbookExport';
+
+type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
+function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
+	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
+}
 
 const assignmentType: AssignmentType = {
 	id: 'staff-duty',
@@ -82,16 +86,18 @@ describe('exportDutyRosterForBrowser', () => {
 		URL.revokeObjectURL = vi.fn();
 
 		try {
-			exportDutyRosterForBrowser({ model: snapshot.exportModel, da6: snapshot.da6 });
+			await exportDutyRosterForBrowser({ model: snapshot.exportModel, da6: snapshot.da6 });
 
 			expect(click).toHaveBeenCalledOnce();
 			if (!exportedBlob) {
 				throw new Error('Expected browser export to create a roster blob.');
 			}
-			const html = await exportedBlob.text();
-			expect(html).toContain('Staff Duty Roster');
-			expect(html).toContain('Period: May 1, 2026 - May 1, 2026');
-			expect(html).toContain('Able, Avery');
+			expect(exportedBlob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+			const workbook = new ExcelJS.Workbook();
+			await workbook.xlsx.load(toWorkbookBuffer(await exportedBlob.arrayBuffer()));
+			expect(workbook.getWorksheet('Roster')?.getCell('A1').value).toBe('Date');
+			expect(workbook.getWorksheet('Roster')?.getCell('C2').value).toBe('Able, Avery');
+			expect(workbook.getWorksheet('DA6 Matrix')?.getCell('B2').value).toBe('Able, Avery');
 		} finally {
 			createElementSpy.mockRestore();
 			URL.createObjectURL = originalCreateObjectURL;
@@ -99,65 +105,60 @@ describe('exportDutyRosterForBrowser', () => {
 		}
 	});
 
-	it('renders assigned DA6 cells from explicit assigned markers instead of queue position 1', async () => {
-		let exportedBlob: Blob | undefined;
-		const click = vi.fn();
-		const originalCreateObjectURL = URL.createObjectURL;
-		const originalRevokeObjectURL = URL.revokeObjectURL;
-		const originalCreateElement = document.createElement.bind(document);
-		const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
-			const element = originalCreateElement(tagName);
-			if (tagName === 'a') {
-				element.click = click;
-			}
-			return element;
-		});
-
-		URL.createObjectURL = vi.fn((blob: Blob) => {
-			exportedBlob = blob;
-			return 'blob:roster-export';
-		}) as unknown as typeof URL.createObjectURL;
-		URL.revokeObjectURL = vi.fn();
-
-		try {
-			exportDutyRosterForBrowser({
-				history: {
-					typeName: 'Staff Duty',
-					startDate: '2026-05-01',
-					endDate: '2026-05-01',
-					roster: [],
-					da6: {
-						personnel: [
-							{ id: 'alpha', name: 'Alpha, Avery', rank: 'SGT', group: 'Alpha' },
-							{ id: 'bravo', name: 'Bravo, Blake', rank: 'SGT', group: 'Alpha' }
-						],
-						dates: [{ date: '2026-05-01', positions: [1, 2], assigned: [false, true] }]
-					}
+	it('renders legacy assigned DA6 cells from explicit assigned markers instead of queue position 1', async () => {
+		const workbook = await buildDutyRosterWorkbook({
+			history: {
+				typeName: 'Staff Duty',
+				startDate: '2026-05-01',
+				endDate: '2026-05-01',
+				roster: [],
+				da6: {
+					personnel: [
+						{ id: 'alpha', name: 'Alpha, Avery', rank: 'SGT', group: 'Alpha' },
+						{ id: 'bravo', name: 'Bravo, Blake', rank: 'SGT', group: 'Alpha' }
+					],
+					dates: [{ date: '2026-05-01', positions: [1, 2], assigned: [false, true] }]
 				}
-			});
-
-			if (!exportedBlob) {
-				throw new Error('Expected browser export to create a roster blob.');
 			}
-			const html = await exportedBlob.text();
-			expect(html).toContain('<td class="da6-position">1</td>');
-			expect(html).toContain('<td class="da6-assigned">X</td>');
-		} finally {
-			createElementSpy.mockRestore();
-			URL.createObjectURL = originalCreateObjectURL;
-			URL.revokeObjectURL = originalRevokeObjectURL;
-		}
+		});
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
+		const sheet = parsed.getWorksheet('DA Form 6 Reference');
+
+		expect(sheet?.getCell('C2').value).toBe(1);
+		expect(sheet?.getCell('C3').value).toBe('X');
 	});
 
-	it('attaches the download link before clicking and revokes the object URL after the click task', () => {
-		vi.useFakeTimers();
-		const snapshot = buildDutyRosterRunSnapshot(runInput());
-		const appendChild = vi.spyOn(document.body, 'appendChild');
-		const removeChild = vi.spyOn(document.body, 'removeChild');
-		const click = vi.fn(() => {
-			expect(document.body.querySelector('a[download]')).not.toBeNull();
-			expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+	it('keeps print HTML assigned DA6 cells from explicit assigned markers instead of queue position 1', async () => {
+		const html = buildDutyRosterBrowserExportHtml({
+			history: {
+				typeName: 'Staff Duty',
+				startDate: '2026-05-01',
+				endDate: '2026-05-01',
+				roster: [],
+				da6: {
+					personnel: [
+						{ id: 'alpha', name: 'Alpha, Avery', rank: 'SGT', group: 'Alpha' },
+						{ id: 'bravo', name: 'Bravo, Blake', rank: 'SGT', group: 'Alpha' }
+					],
+					dates: [{ date: '2026-05-01', positions: [1, 2], assigned: [false, true] }]
+				}
+			}
 		});
+
+		expect(html).toContain('<td class="da6-position">1</td>');
+		expect(html).toContain('<td class="da6-assigned">X</td>');
+	});
+
+	it('downloads a native xlsx filename through the shared browser path', async () => {
+		const snapshot = buildDutyRosterRunSnapshot(runInput());
+		const click = vi.fn(() => {
+			const anchor = document.body.querySelector('a[download]');
+			if (anchor instanceof HTMLAnchorElement) {
+				downloadName = anchor.download;
+			}
+		});
+		let downloadName = '';
 		const originalCreateObjectURL = URL.createObjectURL;
 		const originalRevokeObjectURL = URL.revokeObjectURL;
 		const originalCreateElement = document.createElement.bind(document);
@@ -173,22 +174,14 @@ describe('exportDutyRosterForBrowser', () => {
 		URL.revokeObjectURL = vi.fn();
 
 		try {
-			exportDutyRosterForBrowser({ model: snapshot.exportModel, da6: snapshot.da6 });
+			await exportDutyRosterForBrowser({ model: snapshot.exportModel, da6: snapshot.da6 });
 
-			expect(appendChild).toHaveBeenCalled();
 			expect(click).toHaveBeenCalledOnce();
-			expect(removeChild).toHaveBeenCalled();
-			expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-
-			vi.runOnlyPendingTimers();
-			expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:roster-export');
+			expect(downloadName).toBe('Staff_Duty_Roster_2026-05-01_to_2026-05-01.xlsx');
 		} finally {
 			createElementSpy.mockRestore();
-			appendChild.mockRestore();
-			removeChild.mockRestore();
 			URL.createObjectURL = originalCreateObjectURL;
 			URL.revokeObjectURL = originalRevokeObjectURL;
-			vi.useRealTimers();
 		}
 	});
 

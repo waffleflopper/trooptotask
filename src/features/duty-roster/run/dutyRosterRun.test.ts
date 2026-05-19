@@ -177,6 +177,36 @@ describe('buildDutyRosterRunSnapshot', () => {
 		expect(snapshot.da6.rows.map((row) => row.personnelId)).toEqual(['senior-a', 'senior-b', 'junior']);
 	});
 
+	it('starts a fresh zero-baseline DA6 run with every chargeable Soldier at one', () => {
+		const snapshot = buildDutyRosterRunSnapshot(
+			baseInput({
+				personnel: [
+					person({ id: 'junior', rank: 'SPC', lastName: 'Alpha' }),
+					person({ id: 'senior-b', rank: 'SSG', lastName: 'Bravo' }),
+					person({ id: 'senior-a', rank: 'SSG', lastName: 'Able' })
+				],
+				config: {
+					startDate: '2026-06-01',
+					endDate: '2026-06-01',
+					dutyDuration: 'daily',
+					excludedStatusIds: [],
+					excludeWeekends: false,
+					excludeHolidays: false,
+					excludeOrgClosures: false
+				}
+			})
+		);
+
+		expect(snapshot.rosterRows[0]).toMatchObject({ date: '2026-06-01', assigneeId: 'senior-a' });
+		expect(
+			snapshot.da6.rows.map((row) => [row.personnelId, row.cells[0].sequenceNumber, row.cells[0].assigned])
+		).toEqual([
+			['senior-a', 1, true],
+			['senior-b', 1, false],
+			['junior', 1, false]
+		]);
+	});
+
 	it('uses manual history imports as continuation history without assignment type counter state', () => {
 		const snapshot = buildDutyRosterRunSnapshot(
 			baseInput({
@@ -248,7 +278,7 @@ describe('buildDutyRosterRunSnapshot', () => {
 			code: 'available-not-selected',
 			chargeable: true,
 			queuePosition: 2,
-			sequenceNumber: 2
+			sequenceNumber: 1
 		});
 	});
 
@@ -383,12 +413,12 @@ describe('buildDutyRosterRunSnapshot', () => {
 			da6Code: 'D',
 			chargeable: true,
 			queuePosition: 2,
-			sequenceNumber: 2
+			sequenceNumber: 1
 		});
 		expect(cells[2]).toMatchObject({
 			code: 'assigned',
 			queuePosition: 3,
-			sequenceNumber: 3
+			sequenceNumber: 1
 		});
 	});
 
@@ -505,7 +535,7 @@ describe('buildDutyRosterRunSnapshot', () => {
 			da6Code: 'D',
 			chargeable: true,
 			queuePosition: 2,
-			sequenceNumber: 2
+			sequenceNumber: 1
 		});
 	});
 
@@ -738,8 +768,8 @@ describe('buildDutyRosterRunSnapshot', () => {
 				chargeableCount: 2
 			}
 		]);
-		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 2, 3, 1]);
-		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([2, 1, 1, 2]);
+		expect(snapshot.da6.rows[0].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 1, 2, 1]);
+		expect(snapshot.da6.rows[1].cells.map((cell) => cell.sequenceNumber)).toEqual([1, 1, 1, 2]);
 		expect(snapshot.exportModel.sequencePeriods).toEqual([
 			{
 				date: '2026-05-01',

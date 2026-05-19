@@ -34,6 +34,7 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	const org = getOrgContext();
+	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
 	);
@@ -43,6 +44,7 @@
 	type Section = 'status' | 'assignments' | 'closures';
 	let activeSection = $state<Section>('status');
 	let searchQuery = $state('');
+	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
 
 	const sectionDefs = [
 		{
@@ -57,7 +59,7 @@
 			label: 'Assignment Types',
 			description: 'Duty coverage assignments',
 			icon: Users,
-			getCount: () => dailyAssignmentsStore.types.length
+			getCount: () => activeAssignmentTypes.length
 		},
 		{
 			key: 'closures' as Section,
@@ -186,7 +188,7 @@
 
 	let confirmDeleteAssign = $state<AssignmentType | null>(null);
 
-	const headerTypeId = $derived(dailyAssignmentsStore.types.find((t) => t.showInDateHeader)?.id ?? null);
+	const headerTypeId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
 	const addAssignmentDirty = $derived(
 		newAssignName.trim() !== '' ||
 			newAssignShortName.trim() !== '' ||
@@ -263,7 +265,7 @@
 
 	async function setShowInDateHeader(id: string | null) {
 		if (!canMutate) return;
-		const prev = dailyAssignmentsStore.types.find((t) => t.showInDateHeader);
+		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader);
 		if (prev && prev.id !== id) {
 			await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false });
 		}
@@ -360,7 +362,7 @@
 	);
 
 	const filteredAssignments = $derived(
-		dailyAssignmentsStore.types.filter((t) => !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+		activeAssignmentTypes.filter((t) => !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
 	);
 
 	const filteredClosures = $derived(
@@ -400,7 +402,7 @@
 		<p class="mb-4 text-sm text-muted-foreground">
 			You can view the calendar, but only organization admins and full editors can manage calendar settings.
 		</p>
-		<Button href={`/org/${org.orgId}/calendar`} size="sm">View calendar</Button>
+		<Button href={`/org/${orgUrlSegment}/calendar`} size="sm">View calendar</Button>
 	</div>
 {:else}
 	<div class="flex min-h-[600px] overflow-hidden rounded-md border border-border bg-background">
@@ -442,7 +444,9 @@
 			</nav>
 
 			<div class="border-t border-border px-4 py-3">
-				<Button variant="outline" size="sm" class="w-full" href={`/org/${org.orgId}/calendar`}>Back to Calendar</Button>
+				<Button variant="outline" size="sm" class="w-full" href={`/org/${orgUrlSegment}/calendar`}>
+					Back to Calendar
+				</Button>
 			</div>
 		</aside>
 
@@ -577,7 +581,7 @@
 					<p class="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
 						Select which assignment type's assignee appears in each calendar date column.
 						{#if headerTypeId}
-							Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
+							Currently showing: <strong>{activeAssignmentTypes.find((t) => t.id === headerTypeId)?.name}</strong>
 						{:else}
 							None selected — no assignee shown in date columns.
 						{/if}

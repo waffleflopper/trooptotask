@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
+import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
@@ -70,13 +71,12 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	autoShowWhatsNew(hasShown: { value: boolean }) {
 		if (browser && !hasShown.value && changelog.length > 0 && this.data.userId) {
-			if (typeof globalThis.localStorage?.getItem !== 'function') {
-				return;
-			}
+			const storage = getBrowserLocalStorage();
+			if (!storage) return;
 
 			let lastSeen: string | null = null;
 			try {
-				lastSeen = globalThis.localStorage.getItem(`changelog-last-seen-${this.data.userId}`);
+				lastSeen = storage.getItem(`changelog-last-seen-${this.data.userId}`);
 			} catch {
 				return;
 			}

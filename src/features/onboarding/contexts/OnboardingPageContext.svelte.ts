@@ -216,11 +216,11 @@ export class OnboardingPageContext {
 	}
 
 	get historyUrl(): string {
-		return `/org/${this.#org.orgId}/onboarding/history`;
+		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/onboarding/history`;
 	}
 
 	get templatesUrl(): string {
-		return `/org/${this.#org.orgId}/onboarding/templates`;
+		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/onboarding/templates`;
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -262,7 +262,7 @@ export class OnboardingPageContext {
 	}
 
 	get trainingPageUrl(): string {
-		return `/org/${this.#org.orgId}/training`;
+		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/training`;
 	}
 
 	isTrainingStepComplete(step: OnboardingStepProgress): boolean {

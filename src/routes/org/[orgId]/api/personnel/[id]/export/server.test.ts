@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
+import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -84,6 +85,7 @@ describe('GET /api/personnel/[id]/export', () => {
 		]);
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'p-1' });
+		const response = _getConfig.formatOutput?.(result);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(result._buffer));
@@ -98,6 +100,10 @@ describe('GET /api/personnel/[id]/export', () => {
 				{ field: 'ETS', value: '2027-05-01' },
 				{ field: 'PCS / DEROS', value: '2026-11-30' }
 			])
+		);
+		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+		expect(response?.headers.get('Content-Disposition')).toMatch(
+			/attachment; filename="SGT_Smith_Jamie-export-.*\.xlsx"/
 		);
 	});
 });

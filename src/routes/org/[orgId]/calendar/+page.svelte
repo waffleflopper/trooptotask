@@ -11,6 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 
@@ -107,6 +108,7 @@
 	);
 	const viewData = $derived.by(() => ({
 		orgId: pageData.orgId,
+		orgUrlSegment: data.orgUrlSegment ?? pageData.orgId,
 		orgName: pageData.orgName ?? 'Troop to Task',
 		permissions: pageData.permissions
 	}));
@@ -117,7 +119,8 @@
 	});
 
 	$effect(() => {
-		ctx.syncUserPreferences(pageData.userPreferences);
+		const preferences = pageData.userPreferences;
+		untrack(() => ctx.syncUserPreferences(preferences));
 	});
 	$effect(() => {
 		ctx.markCalendarVisited();

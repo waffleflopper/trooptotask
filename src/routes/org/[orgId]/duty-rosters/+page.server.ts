@@ -57,10 +57,11 @@ export const actions: Actions = {
 	archiveTemplate: async (event) => {
 		const formData = await event.request.formData();
 		const templateId = String(formData.get('templateId') ?? '');
+		const archiveAssignmentType = formData.get('archiveAssignmentType') === 'true';
 
 		try {
 			const ctx = await buildRouteContext(event);
-			await archiveDutyRosterTemplate(ctx, { templateId });
+			await archiveDutyRosterTemplate(ctx, { templateId, archiveAssignmentType });
 		} catch (error) {
 			return dutyRosterActionError(error, {
 				key: 'error',

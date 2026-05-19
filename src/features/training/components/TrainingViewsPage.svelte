@@ -17,6 +17,7 @@
 	import type { TrainingView } from '$features/training/training.types';
 
 	const org = getOrgContext();
+	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
 	);
@@ -171,7 +172,7 @@
 <TypeWorkspace.Root aria-label="Training views workspace">
 	<WorkspaceToolbar.Root ariaLabel="Training view controls">
 		<WorkspaceToolbar.Group label="Training view actions" zone="actions">
-			<Button href={`/org/${org.orgId}/training`} variant="outline">Back to Matrix</Button>
+			<Button href={`/org/${orgUrlSegment}/training`} variant="outline">Back to Matrix</Button>
 			{#if canMutate}
 				<Button
 					type="button"

@@ -15,13 +15,13 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 
-const { exportMonthToCSVMock, printMonthCalendarMock } = vi.hoisted(() => ({
-	exportMonthToCSVMock: vi.fn(),
+const { exportMonthToExcelMock, printMonthCalendarMock } = vi.hoisted(() => ({
+	exportMonthToExcelMock: vi.fn(),
 	printMonthCalendarMock: vi.fn()
 }));
 
 vi.mock('$features/calendar/utils/calendarExport', () => ({
-	exportMonthToCSV: exportMonthToCSVMock,
+	exportMonthToExcel: exportMonthToExcelMock,
 	printMonthCalendar: printMonthCalendarMock
 }));
 

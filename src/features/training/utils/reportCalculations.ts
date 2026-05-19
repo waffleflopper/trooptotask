@@ -1,6 +1,7 @@
 import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
 import { getTrainingStatus, type TrainingStatusInfo } from './trainingStatus';
+import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/export/workbook';
 
 export interface ReportFilters {
 	groupId?: string;
@@ -287,33 +288,51 @@ function cellToStatusInfo(cell: TrainingReportMatrixCell): TrainingStatusInfo {
 	};
 }
 
-function escapeCSV(value: string): string {
-	if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-		return `"${value.replace(/"/g, '""')}"`;
-	}
-	return value;
+function trainingReportWorkbookColumns(types: TrainingType[]) {
+	return [
+		{ header: 'Name', key: 'name', width: 24 },
+		{ header: 'Rank', key: 'rank', width: 12 },
+		{ header: 'MOS', key: 'mos', width: 12 },
+		{ header: 'Duty Role', key: 'dutyRole', width: 20 },
+		{ header: 'Group', key: 'group', width: 18 },
+		...types.map((type) => ({ header: type.name, key: `training_${type.id}`, width: 20 }))
+	];
 }
 
-export function generatePivotCSV(rows: PivotRow[], types: TrainingType[]): string {
-	const headers = ['Name', 'Rank', 'MOS', 'Duty Role', 'Group', ...types.map((t) => t.name)];
-	const lines = [headers.map(escapeCSV).join(',')];
+function trainingReportWorkbookRows(rows: PivotRow[], types: TrainingType[]): WorkbookRow[] {
+	return rows.map((row) => {
+		const workbookRow: WorkbookRow = {
+			name: `${row.person.lastName}, ${row.person.firstName}`,
+			rank: row.person.rank,
+			mos: row.person.mos,
+			dutyRole: row.person.clinicRole,
+			group: row.person.groupName
+		};
 
-	for (const row of rows) {
-		const personCols = [
-			`${row.person.lastName}, ${row.person.firstName}`,
-			row.person.rank,
-			row.person.mos,
-			row.person.clinicRole,
-			row.person.groupName
-		];
-		const typeCols = types.map((type) => {
+		for (const type of types) {
 			const cell = row.cells.get(type.id);
-			if (!cell) return '';
-			const datePart = cell.date ? ` (${cell.date})` : '';
-			return `${cell.label}${datePart}`;
-		});
-		lines.push([...personCols, ...typeCols].map(escapeCSV).join(','));
-	}
+			const datePart = cell?.date ? ` (${cell.date})` : '';
+			workbookRow[`training_${type.id}`] = cell ? `${cell.label}${datePart}` : '';
+		}
 
-	return lines.join('\n');
+		return workbookRow;
+	});
+}
+
+export async function buildTrainingReportWorkbook(rows: PivotRow[], types: TrainingType[]): Promise<Workbook> {
+	const workbook = await createWorkbook();
+	addTableSheet(workbook, {
+		name: 'Training Report',
+		columns: trainingReportWorkbookColumns(types),
+		rows: trainingReportWorkbookRows(rows, types)
+	});
+	return workbook;
+}
+
+export async function exportTrainingReportWorkbook(
+	rows: PivotRow[],
+	types: TrainingType[],
+	filename = 'training-report.xlsx'
+): Promise<void> {
+	await downloadWorkbook(await buildTrainingReportWorkbook(rows, types), filename);
 }

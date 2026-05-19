@@ -72,6 +72,7 @@
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
+	const activeAssignmentTypes = $derived(assignmentTypes.filter((type) => !type.archivedAt));
 	const personnelOptions = $derived(
 		personnelByGroup.flatMap((grp) =>
 			grp.personnel.map((person) => ({
@@ -125,7 +126,7 @@
 			{/if}
 
 			<div class="flex flex-col gap-3">
-				{#each assignmentTypes as type (type.id)}
+				{#each activeAssignmentTypes as type (type.id)}
 					{@const options = type.assignTo === 'personnel' ? personnelOptions : groupOptions}
 					<div class="bg-muted/30 flex flex-col gap-2 rounded-lg border p-3">
 						<div class="flex flex-wrap items-center gap-2">

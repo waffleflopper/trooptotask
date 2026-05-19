@@ -208,9 +208,10 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
+		let orgUrlSlug: string;
 		try {
 			const ctx = await buildRouteContext(event);
-			return await updateOrganizationUrlSlug(
+			const result = await updateOrganizationUrlSlug(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -222,9 +223,12 @@ export const actions: Actions = {
 					urlSlug: (formData.get('urlSlug') as string) ?? ''
 				}
 			);
+			orgUrlSlug = result.orgUrlSlug;
 		} catch (error) {
 			return toActionFailure('slugError', error);
 		}
+
+		throw redirect(303, `/org/${orgUrlSlug}/settings`);
 	},
 
 	clearSlug: async (event) => {
@@ -232,18 +236,22 @@ export const actions: Actions = {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
+		let orgId: string;
 		try {
 			const ctx = await buildRouteContext(event);
-			return await clearOrganizationUrlSlug({
+			await clearOrganizationUrlSlug({
 				auth: ctx.auth,
 				audit: ctx.audit,
 				notifications: ctx.notifications,
 				readOnlyGuard: ctx.readOnlyGuard,
 				administration: createSupabaseOrgSettingsAdministrationPort(locals)
 			});
+			orgId = ctx.auth.orgId;
 		} catch (error) {
 			return toActionFailure('slugError', error);
 		}
+
+		throw redirect(303, `/org/${orgId}/settings`);
 	},
 
 	invite: async (event) => {

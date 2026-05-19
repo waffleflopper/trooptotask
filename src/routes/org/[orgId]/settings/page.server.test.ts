@@ -109,7 +109,7 @@ describe('org settings page server actions', () => {
 			auth: { requireManageMembers: vi.fn() }
 		});
 		buildRouteContextMock.mockResolvedValue({
-			auth: { kind: 'auth' },
+			auth: { kind: 'auth', orgId: 'org-1' },
 			audit: { kind: 'audit' },
 			notifications: { kind: 'notifications' }
 		});
@@ -375,7 +375,7 @@ describe('org settings page server actions', () => {
 		expect(result).toEqual({ nameSuccess: true });
 		expect(renameOrganizationMock).toHaveBeenCalledWith(
 			{
-				auth: { kind: 'auth' },
+				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				administration: { kind: 'admin-port' }
@@ -384,54 +384,64 @@ describe('org settings page server actions', () => {
 		);
 	});
 
-	it('delegates organization URL slug updates to the org administration use case', async () => {
-		const result = await actions.updateSlug({
-			request: new Request('http://localhost/org/1-11-bde/settings?/updateSlug', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ urlSlug: '1-11-bde' })
-			}),
-			locals: {
-				user: { id: 'user-1', email: 'user@example.com' },
-				supabase: {}
-			},
-			params: { orgId: '1-11-bde' },
-			cookies: {},
-			getClientAddress: () => '127.0.0.1'
-		} as never);
+	it('redirects to the new organization URL slug after updating the slug', async () => {
+		updateOrganizationUrlSlugMock.mockResolvedValueOnce({ slugSuccess: true, orgUrlSlug: 'new-bde' });
 
-		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: '1-11-bde' });
+		await expect(
+			actions.updateSlug({
+				request: new Request('http://localhost/org/1-11-bde/settings?/updateSlug', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ urlSlug: 'new-bde' })
+				}),
+				locals: {
+					user: { id: 'user-1', email: 'user@example.com' },
+					supabase: {}
+				},
+				params: { orgId: '1-11-bde' },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/new-bde/settings'
+		});
+
 		expect(updateOrganizationUrlSlugMock).toHaveBeenCalledWith(
 			{
-				auth: { kind: 'auth' },
+				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				readOnlyGuard: undefined,
 				administration: { kind: 'admin-port' }
 			},
-			{ urlSlug: '1-11-bde' }
+			{ urlSlug: 'new-bde' }
 		);
 	});
 
-	it('delegates organization URL slug clearing to the org administration use case', async () => {
-		const result = await actions.clearSlug({
-			request: new Request('http://localhost/org/1-11-bde/settings?/clearSlug', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams()
-			}),
-			locals: {
-				user: { id: 'user-1', email: 'user@example.com' },
-				supabase: {}
-			},
-			params: { orgId: '1-11-bde' },
-			cookies: {},
-			getClientAddress: () => '127.0.0.1'
-		} as never);
+	it('redirects to the organization ID URL after clearing the slug', async () => {
+		await expect(
+			actions.clearSlug({
+				request: new Request('http://localhost/org/1-11-bde/settings?/clearSlug', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams()
+				}),
+				locals: {
+					user: { id: 'user-1', email: 'user@example.com' },
+					supabase: {}
+				},
+				params: { orgId: '1-11-bde' },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/settings'
+		});
 
-		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: null });
 		expect(clearOrganizationUrlSlugMock).toHaveBeenCalledWith({
-			auth: { kind: 'auth' },
+			auth: { kind: 'auth', orgId: 'org-1' },
 			audit: { kind: 'audit' },
 			notifications: { kind: 'notifications' },
 			readOnlyGuard: undefined,
@@ -458,7 +468,7 @@ describe('org settings page server actions', () => {
 		expect(result).toEqual({ transferSuccess: true });
 		expect(transferOrganizationOwnershipMock).toHaveBeenCalledWith(
 			{
-				auth: { kind: 'auth' },
+				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				administration: { kind: 'admin-port' }
@@ -518,7 +528,7 @@ describe('org settings page server actions', () => {
 
 		expect(deleteOrganizationUseCaseMock).toHaveBeenCalledWith(
 			{
-				auth: { kind: 'auth' },
+				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				administration: { kind: 'admin-port' }
@@ -631,7 +641,7 @@ describe('org settings page server actions', () => {
 		expect(result).toEqual({ permissionSuccess: true });
 		expect(updateOrganizationMemberPermissionsMock).toHaveBeenCalledWith(
 			{
-				auth: { kind: 'auth' },
+				auth: { kind: 'auth', orgId: 'org-1' },
 				audit: { kind: 'audit' },
 				notifications: { kind: 'notifications' },
 				readOnlyGuard: undefined,

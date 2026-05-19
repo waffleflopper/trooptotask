@@ -126,7 +126,14 @@ function toArrayBuffer(buffer: WorkbookBinary): ArrayBuffer {
 }
 
 export function contentDispositionAttachment(filename: string): string {
-	const escaped = filename.replace(/["\\]/g, '_');
+	const escaped = [...filename]
+		.map((char) => {
+			const codePoint = char.codePointAt(0);
+			return codePoint === undefined || codePoint < 32 || codePoint === 127 || char === '"' || char === '\\'
+				? '_'
+				: char;
+		})
+		.join('');
 	return `attachment; filename="${escaped}"`;
 }
 

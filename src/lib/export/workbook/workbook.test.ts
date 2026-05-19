@@ -108,4 +108,8 @@ describe('workbook export helpers', () => {
 		await parsed.xlsx.load(toWorkbookBuffer(await response.arrayBuffer()));
 		expect(parsed.getWorksheet('Export')?.getCell('A2').value).toBe('one');
 	});
+
+	it('removes header control characters from attachment filenames', () => {
+		expect(contentDispositionAttachment('bad\r\n\u0000name.xlsx')).toBe('attachment; filename="bad___name.xlsx"');
+	});
 });

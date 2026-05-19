@@ -14,7 +14,7 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { mergeById } from '$features/calendar/utils/mergeById';
+import { mergeById } from '$lib/utils/mergeById';
 import type {
 	CalendarAssignmentsHydrationItems,
 	CalendarAssignmentsHydrationTarget,

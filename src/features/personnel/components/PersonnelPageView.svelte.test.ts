@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -9,14 +9,12 @@ import type { PersonnelPageContext } from '$features/personnel/contexts/Personne
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 
-const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
-	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn()
+const { gotoMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({
-	goto: gotoMock,
-	invalidateAll: invalidateAllMock
+	goto: gotoMock
 }));
 
 import PersonnelPageView from './PersonnelPageView.svelte';
@@ -87,9 +85,7 @@ function makeCtx(
 		canImportPersonnel: false,
 		canManageGroups: false,
 		canManagePersonnelRecord: () => false,
-		canArchivePersonnelRecord: () => false,
 		personnelRecordAffordance: () => deniedAffordance(),
-		personnelArchiveAffordance: () => deniedAffordance(),
 		viewMode: 'alphabetical',
 		totalPersonnel: personnel.length,
 		upcomingLossMap,
@@ -131,7 +127,6 @@ describe('PersonnelPageView', () => {
 		subscriptionStore.clear();
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
-		invalidateAllMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -426,36 +421,6 @@ describe('PersonnelPageView', () => {
 
 		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-	});
-
-	it('archives personnel from a roster icon action after confirmation', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-		const ctx = {
-			...makeCtx(),
-			canManagePersonnelRecord: () => true,
-			canArchivePersonnelRecord: () => true,
-			personnelRecordAffordance: () => allowedAffordance(),
-			personnelArchiveAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: { ctx, permissions: editablePermissions }
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id: 'person-1' })
-		});
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
-		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
 	it('keeps rating scheme controls out of the Personnel roster page', () => {

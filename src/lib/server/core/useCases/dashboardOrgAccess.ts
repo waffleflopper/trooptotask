@@ -10,7 +10,6 @@ export interface DashboardOrganizationSummary {
 	id: string;
 	name: string;
 	role: string;
-	urlSegment?: string;
 }
 
 export interface DashboardPendingInvitationSummary {
@@ -75,7 +74,7 @@ export async function loadDashboardOrgAccess(
 		return {
 			organizations,
 			pendingInvitations,
-			redirectTo: `/org/${organizations[0].urlSegment ?? organizations[0].id}`
+			redirectTo: `/org/${organizations[0].id}`
 		};
 	}
 

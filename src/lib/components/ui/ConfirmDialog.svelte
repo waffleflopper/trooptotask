@@ -2,7 +2,6 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
 		title: string;
@@ -14,7 +13,6 @@
 		loading?: boolean;
 		onConfirm: () => void | Promise<void>;
 		onCancel: () => void;
-		children?: Snippet;
 	}
 
 	let {
@@ -26,8 +24,7 @@
 		disabled = false,
 		loading = false,
 		onConfirm,
-		onCancel,
-		children
+		onCancel
 	}: Props = $props();
 
 	let confirming = $state(false);
@@ -64,9 +61,6 @@
 			<AlertDialog.Title>{title}</AlertDialog.Title>
 			<AlertDialog.Description>{message}</AlertDialog.Description>
 		</AlertDialog.Header>
-		{#if children}
-			{@render children()}
-		{/if}
 		<AlertDialog.Footer>
 			<Button variant="outline" onclick={onCancel} disabled={busy}>{cancelLabel}</Button>
 			<Button variant={confirmVariant} onclick={handleConfirm} disabled={confirmDisabled}>

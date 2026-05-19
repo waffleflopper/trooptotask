@@ -7,7 +7,6 @@
 	import * as Separator from '$lib/components/ui/separator';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
@@ -32,7 +31,6 @@
 	let fetchedDashboard = $state<IctReportDashboard | null>(null);
 	let dashboardLoading = $state(false);
 	let dashboardError = $state<string | null>(null);
-	let exportLoading = $state(false);
 	const dashboard = $derived(fetchedDashboard ?? initialDashboard);
 
 	const availableMosOptions = $derived(reportScope.filterOptions.mos.map((mos) => ({ value: mos, label: mos })));
@@ -109,14 +107,13 @@
 		}
 
 		items.push({
-			id: 'export-excel',
-			label: exportLoading ? 'Exporting...' : 'Export Excel',
-			onclick: exportExcel,
+			id: 'export-csv',
+			label: 'Export CSV',
+			href: exportHref,
 			icon: 'download',
 			priority: 'critical',
 			overflow: 'never',
-			variant: 'primary',
-			disabled: exportLoading
+			variant: 'primary'
 		});
 
 		return items;
@@ -133,27 +130,6 @@
 		if (delta > 0) return `+${delta}% over 30 days`;
 		if (delta < 0) return `${delta}% over 30 days`;
 		return 'Flat over 30 days';
-	}
-
-	async function exportExcel(): Promise<void> {
-		if (exportLoading) return;
-		exportLoading = true;
-		dashboardError = null;
-		try {
-			const response = await fetch(exportHref);
-			if (!response.ok) {
-				throw new Error('Failed to export critical task report');
-			}
-			const blob = await response.blob();
-			downloadBlob(
-				blob,
-				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'critical-task-report.xlsx')
-			);
-		} catch (error) {
-			dashboardError = error instanceof Error ? error.message : 'Failed to export critical task report';
-		} finally {
-			exportLoading = false;
-		}
 	}
 
 	function readinessBadgeVariant(percent: number | null): 'success' | 'warning' | 'destructive' | 'secondary' {

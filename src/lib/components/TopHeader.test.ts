@@ -119,22 +119,6 @@ describe('TopHeader', () => {
 		expect(screen.getByRole('button', { name: /Account menu/i })).toBeTruthy();
 	});
 
-	it('puts Organization Settings directly above the account item for admins', () => {
-		renderHeader({ userRole: 'admin' });
-
-		const settingsLink = screen.getByRole('link', { name: 'Organization Settings' });
-		const accountButton = screen.getByRole('button', { name: /Account menu/i });
-
-		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings');
-		expect(settingsLink.compareDocumentPosition(accountButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	});
-
-	it('does not expose Organization Settings in the sidebar footer for members', () => {
-		renderHeader({ userRole: 'member' });
-
-		expect(screen.queryByRole('link', { name: 'Organization Settings' })).toBeNull();
-	});
-
 	it('opens the User Account profile from the account menu', async () => {
 		renderHeader();
 
@@ -216,39 +200,13 @@ describe('TopHeader', () => {
 		expect(sidebarSource).toContain('height: calc(100svh - var(--banner-height, 0px))');
 	});
 
-	it('keeps organization settings in the org switcher menu for admins', async () => {
+	it('keeps organization settings in the org switcher menu', async () => {
 		renderHeader();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
 
-		expect(screen.getByRole('menuitem', { name: 'Organization Settings' })).toBeTruthy();
+		expect(screen.getByRole('menuitem', { name: 'Org Settings' })).toBeTruthy();
 		expect(screen.queryByRole('menuitem', { name: 'Manage Organizations' })).toBeNull();
-	});
-
-	it('does not show organization settings in the org switcher menu for members', async () => {
-		renderHeader({ userRole: 'member' });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
-
-		expect(screen.queryByRole('menuitem', { name: 'Organization Settings' })).toBeNull();
-	});
-
-	it('renders Duty Rosters as a primary item between Calendar and Personnel', () => {
-		renderHeader();
-
-		const calendarLink = screen.getByRole('link', { name: 'Calendar' });
-		const dutyRostersLink = screen.getByRole('link', { name: 'Duty Rosters Beta' });
-		const personnelLink = screen
-			.getAllByRole('link', { name: 'Personnel' })
-			.find((link) => link.getAttribute('href') === '/org/org-1/personnel');
-
-		expect(calendarLink.getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(dutyRostersLink.getAttribute('href')).toBe('/org/org-1/duty-rosters');
-		expect(personnelLink).toBeTruthy();
-		expect(within(dutyRostersLink).getByText('Duty Rosters')).toBeTruthy();
-		expect(screen.getByText('Beta')).toBeTruthy();
-		expect(calendarLink.compareDocumentPosition(dutyRostersLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(dutyRostersLink.compareDocumentPosition(personnelLink!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
 	it('shows manage organizations only for multi-org users', async () => {

@@ -53,10 +53,6 @@ import type { CriticalTasksBootstrap, TrainingBootstrap } from '../core/orgShell
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
-import {
-	getPreferredOrganizationUrlSegment,
-	resolveOrganizationRouteIdentity
-} from '$lib/server/core/useCases/organizationUrlSlug';
 
 export interface SupabaseRootOrgLoadPortDeps {
 	getLayoutClient?: typeof getLayoutClient;
@@ -69,8 +65,7 @@ export function createSupabaseRootOrgLoadPort(
 	config: {
 		locals: App.Locals;
 		cookies: Cookies;
-		orgSegment: string;
-		url?: URL;
+		orgId: string;
 	},
 	deps: SupabaseRootOrgLoadPortDeps = {}
 ): RootOrgLoadPort {
@@ -81,31 +76,23 @@ export function createSupabaseRootOrgLoadPort(
 
 	return {
 		async resolveRequest(): Promise<RootOrgShellRequest> {
-			const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
+			const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgId);
 
-			const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
+			const { data: org } = await supabase
+				.from('organizations')
+				.select('id, name, suspended_at')
+				.eq('id', config.orgId)
+				.single();
 
 			if (!org) {
 				throw error(404, 'Organization not found');
 			}
 
-			const orgUrlSegment = getPreferredOrganizationUrlSegment({ id: org.id, urlSlug: org.urlSlug });
-
-			if (config.url && org.urlSlug && config.orgSegment !== org.urlSlug) {
-				const currentBase = `/org/${config.orgSegment}`;
-				const canonicalBase = `/org/${org.urlSlug}`;
-				const pathname = config.url.pathname.startsWith(currentBase)
-					? `${canonicalBase}${config.url.pathname.slice(currentBase.length)}`
-					: canonicalBase;
-				throw redirect(308, `${pathname}${config.url.search}`);
-			}
-
-			if (org.suspendedAt) {
+			if (org.suspended_at) {
 				return {
 					kind: 'suspended',
-					orgId: org.id,
-					orgName: org.name ?? 'Organization',
-					orgUrlSegment
+					orgId: config.orgId,
+					orgName: org.name
 				};
 			}
 
@@ -113,23 +100,22 @@ export function createSupabaseRootOrgLoadPort(
 				throw redirect(303, '/auth/login');
 			}
 
-			const subscriptionAdapter = createSubscriptionAdapterFn(supabase, org.id);
+			const subscriptionAdapter = createSubscriptionAdapterFn(supabase, config.orgId);
 			const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
 			return {
 				kind: 'shell',
-				orgUrlSegment,
 				access: createOrgAccessPortFn({
-					orgId: org.id,
+					orgId: config.orgId,
 					userId: config.locals.user.id,
 					userSupabase: config.locals.supabase,
-					orgName: org.name ?? 'Organization',
+					orgName: org.name,
 					getEffectiveTier: () => effectiveTierPromise,
 					wrapMembershipLoad: (loadMembershipRow) =>
-						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, org.id, loadMembershipRow)
+						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, config.orgId, loadMembershipRow)
 				}),
 				chrome: createOrgChromePortFn({
-					orgId: org.id,
+					orgId: config.orgId,
 					userId: config.locals.user.id,
 					userSupabase: config.locals.supabase,
 					supabase
@@ -221,7 +207,7 @@ export function createSupabaseOrgChromePort(config: {
 					(from, to) =>
 						config.userSupabase
 							.from('organization_memberships')
-							.select('role, organizations(id, name, url_slug)')
+							.select('role, organizations(id, name)')
 							.eq('user_id', config.userId)
 							.range(from, to) as unknown as Promise<{
 							data: Record<string, unknown>[] | null;
@@ -300,15 +286,7 @@ export function createSupabaseOrgChromePort(config: {
 				.filter((m: Record<string, unknown>) => m.organizations)
 				.map((m: Record<string, unknown>) => {
 					const org = m.organizations as Record<string, unknown>;
-					return {
-						id: org.id as string,
-						name: org.name as string,
-						role: m.role as string,
-						urlSegment: getPreferredOrganizationUrlSegment({
-							id: org.id as string,
-							urlSlug: org.url_slug as string | null
-						})
-					};
+					return { id: org.id as string, name: org.name as string, role: m.role as string };
 				});
 
 			const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
@@ -397,7 +375,6 @@ export function createSupabaseTrainingWorkspacePort(
 	function getTrainingData(defer: true): Promise<DeferredData<TrainingBootstrap>>;
 	function getTrainingData(defer: boolean = false): Promise<TrainingBootstrap | DeferredData<TrainingBootstrap>> {
 		const fn = async (ctx: UseCaseContext) => {
-			const canonicalOrgId = ctx.auth.orgId;
 			const loadTrainingItems = <T>(
 				label: string,
 				load: Promise<Record<string, unknown>[]>,
@@ -413,7 +390,7 @@ export function createSupabaseTrainingWorkspacePort(
 
 			const personnel = loadTrainingItems(
 				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 					select: PersonnelEntity.select,
 					isNull: { archived_at: true },
 					orderBy: [{ column: 'last_name', ascending: true }]
@@ -422,21 +399,21 @@ export function createSupabaseTrainingWorkspacePort(
 			);
 			const groups = loadTrainingItems(
 				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => GroupEntity.fromDbArray(rows) as Group[]
 			);
 			const trainingTypes = loadTrainingItems(
 				'training types',
-				ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
 			);
 			const trainingViews = loadTrainingItems(
 				'training views',
-				ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
 					orderBy: [{ column: 'name', ascending: true }]
 				}),
 				(rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
@@ -446,7 +423,7 @@ export function createSupabaseTrainingWorkspacePort(
 						'pinned groups',
 						ctx.store.findMany<Record<string, unknown>>(
 							'user_pinned_groups',
-							canonicalOrgId,
+							orgId,
 							{ user_id: ctx.auth.userId },
 							{
 								orderBy: [{ column: 'sort_order', ascending: true }]
@@ -458,7 +435,7 @@ export function createSupabaseTrainingWorkspacePort(
 
 			const personnelTrainings = loadTrainingItems(
 				'personnel trainings',
-				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
+				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
 				(rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
 			);
 
@@ -521,7 +498,6 @@ export function createSupabaseCriticalTasksWorkspacePort(
 		defer: boolean = false
 	): Promise<CriticalTasksBootstrap> | Promise<DeferredData<CriticalTasksBootstrap>> {
 		const fn = async (ctx: UseCaseContext) => {
-			const canonicalOrgId = ctx.auth.orgId;
 			const loadCriticalTasksItems = <T>(
 				label: string,
 				load: Promise<Record<string, unknown>[]>,
@@ -537,7 +513,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 
 			const personnel = loadCriticalTasksItems(
 				'personnel',
-				ctx.store.findMany<Record<string, unknown>>('personnel', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 					select: PersonnelEntity.select,
 					isNull: { archived_at: true },
 					orderBy: [{ column: 'last_name', ascending: true }]
@@ -546,14 +522,14 @@ export function createSupabaseCriticalTasksWorkspacePort(
 			);
 			const groups = loadCriticalTasksItems(
 				'groups',
-				ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}),
 				(rows) => GroupEntity.fromDbArray(rows) as Group[]
 			);
 			const ictTasks = loadCriticalTasksItems(
 				'ICT tasks',
-				ctx.store.findMany<Record<string, unknown>>('ict_tasks', canonicalOrgId, undefined, {
+				ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
 					isNull: { archived_at: true },
 					orderBy: [
 						{ column: 'sort_order', ascending: true },
@@ -564,7 +540,7 @@ export function createSupabaseCriticalTasksWorkspacePort(
 			);
 			const personnelIctCompletions = Promise.all([personnel, ictTasks])
 				.then(([loadedPersonnel, loadedTasks]) =>
-					ctx.criticalTasksReadModel.findLatestCompletions(canonicalOrgId, {
+					ctx.criticalTasksReadModel.findLatestCompletions(orgId, {
 						personnelIds: loadedPersonnel.map((person) => person.id),
 						taskIds: loadedTasks.map((task) => task.id)
 					})

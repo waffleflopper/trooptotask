@@ -6,7 +6,6 @@ import type {
 	DashboardOrganizationSummary,
 	DashboardPendingInvitationSummary
 } from '$lib/server/core/useCases/dashboardOrgAccess';
-import { getPreferredOrganizationUrlSegment } from '$lib/server/core/useCases/organizationUrlSlug';
 
 interface OrganizationMembershipRow {
 	organization_id: string;
@@ -14,7 +13,6 @@ interface OrganizationMembershipRow {
 	organizations: {
 		id: string;
 		name: string;
-		url_slug: string | null;
 	} | null;
 }
 
@@ -60,7 +58,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				(from, to) =>
 					supabase
 						.from('organization_memberships')
-						.select('organization_id, role, organizations(id, name, url_slug)')
+						.select('organization_id, role, organizations(id, name)')
 						.eq('user_id', userId)
 						.range(from, to) as unknown as Promise<{
 						data: OrganizationMembershipRow[] | null;
@@ -77,11 +75,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 				.map((membership) => ({
 					id: membership.organizations!.id,
 					name: membership.organizations!.name,
-					role: membership.role,
-					urlSegment: getPreferredOrganizationUrlSegment({
-						id: membership.organizations!.id,
-						urlSlug: membership.organizations!.url_slug
-					})
+					role: membership.role
 				}));
 		},
 

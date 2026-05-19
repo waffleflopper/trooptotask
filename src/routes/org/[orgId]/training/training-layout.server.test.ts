@@ -50,14 +50,12 @@ describe('training layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
-		const parent = vi.fn().mockResolvedValue({ orgId: 'org-1' });
 
 		const result = await load({
-			params: { orgId: '1-11-bde' },
+			params: { orgId: 'org-1' },
 			locals,
 			cookies,
-			depends,
-			parent
+			depends
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
 			throw new Error('Expected training layout load to return data');
@@ -65,7 +63,6 @@ describe('training layout server load', () => {
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data');
-		expect(parent).toHaveBeenCalledTimes(1);
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
 		expect(result.training.data).toBeInstanceOf(Promise);

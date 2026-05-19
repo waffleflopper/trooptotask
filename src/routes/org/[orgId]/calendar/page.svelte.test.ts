@@ -6,16 +6,16 @@ import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorD
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
 
-const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
+const { exportMonthToCSVMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
 	vi.hoisted(() => ({
-		exportMonthToExcelMock: vi.fn(),
+		exportMonthToCSVMock: vi.fn(),
 		loadCalendarRangeMock: vi.fn(),
 		mergeCalendarRangeIntoStoresMock: vi.fn(),
 		printMonthCalendarMock: vi.fn()
 	}));
 
 vi.mock('$features/calendar/utils/calendarExport', () => ({
-	exportMonthToExcel: exportMonthToExcelMock,
+	exportMonthToCSV: exportMonthToCSVMock,
 	printMonthCalendar: printMonthCalendarMock
 }));
 

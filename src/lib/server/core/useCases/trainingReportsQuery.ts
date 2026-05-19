@@ -18,15 +18,14 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import {
 	buildPivotTableFromMatrix,
-	buildTrainingReportWorkbook,
 	buildTrainingReportMatrix,
 	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
+	generatePivotCSV,
 	type PivotRow,
 	type ReadinessDashboard,
 	type ReportFilters
 } from '$features/training/utils/reportCalculations';
-import { writeWorkbookBuffer } from '$lib/export/workbook';
 import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import { requireFeaturePolicy } from './featurePolicy';
 
@@ -255,20 +254,7 @@ export async function fetchTrainingReportPage(
 	};
 }
 
-export interface TrainingReportWorkbookExport {
-	buffer: ArrayBuffer;
-	filename: string;
-}
-
-export async function generateTrainingReportWorkbookExport(
-	ctx: QueryPorts,
-	input: TrainingReportInput = {}
-): Promise<TrainingReportWorkbookExport> {
+export async function generateTrainingReportCsv(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<string> {
 	const { pivotRows, trainingTypes } = await buildTrainingReport(ctx, input);
-	const workbook = await buildTrainingReportWorkbook(pivotRows, trainingTypes);
-	const date = new Date().toISOString().split('T')[0];
-	return {
-		buffer: await writeWorkbookBuffer(workbook),
-		filename: `training-report-${date}.xlsx`
-	};
+	return generatePivotCSV(pivotRows, trainingTypes);
 }

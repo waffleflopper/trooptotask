@@ -6,7 +6,6 @@
 	import { TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -26,7 +25,7 @@
 		type TrainingReportPivotRow,
 		type TrainingReportSortState
 	} from '$features/training/read-model/trainingReportScreenModel';
-	import { exportTrainingReportWorkbook } from '$features/training/utils/reportCalculations';
+	import { generatePivotCSV } from '$features/training/utils/reportCalculations';
 
 	interface Props {
 		data: {
@@ -184,27 +183,30 @@
 		await loadReportPage(1);
 	}
 
-	async function exportExcel() {
+	function exportCSV() {
 		if (activeReport) {
-			reportError = null;
-			try {
-				const response = await fetch(buildReportExportUrl());
-				if (!response.ok) {
-					throw new Error('Failed to export training report');
-				}
-				const blob = await response.blob();
-				downloadBlob(
-					blob,
-					filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'training-report.xlsx')
-				);
-			} catch (error) {
-				reportError = error instanceof Error ? error.message : 'Failed to export training report';
-			}
+			const link = document.createElement('a');
+			link.setAttribute('href', buildReportExportUrl());
+			link.setAttribute('download', 'training-report.csv');
+			link.style.visibility = 'hidden';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
 			return;
 		}
 
 		const rows = screen.pivotRows;
-		await exportTrainingReportWorkbook(rows, screen.filteredLocalTrainingTypes);
+		const csv = generatePivotCSV(rows, screen.filteredLocalTrainingTypes);
+		const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.setAttribute('href', url);
+		link.setAttribute('download', 'training-report.csv');
+		link.style.visibility = 'hidden';
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
 	}
 
 	function clearFilters() {
@@ -285,9 +287,9 @@
 			priority: 'normal'
 		},
 		{
-			id: 'export-excel',
+			id: 'export-csv',
 			label: 'Export',
-			onclick: exportExcel,
+			onclick: exportCSV,
 			disabled: screen.pivotRows.length === 0,
 			disabledReason: screen.pivotRows.length === 0 ? 'No report rows to export' : undefined,
 			icon: 'download',

@@ -6,7 +6,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 
-	let { orgId, orgUrlSegment = orgId }: { orgId: string; orgUrlSegment?: string } = $props();
+	let { orgId }: { orgId: string } = $props();
 
 	const daysRemaining = $derived(subscriptionStore.giftDaysRemaining);
 	const showGiftWarning = $derived(subscriptionStore.isGifted && daysRemaining !== null && daysRemaining <= 14);
@@ -35,9 +35,9 @@
 					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
 				</Alert.Description>
 				<div class="flex flex-wrap items-center gap-2">
-					<Button href="/org/{orgUrlSegment}/billing" variant="outline" size="xs">Subscribe</Button>
-					<Button href="/org/{orgUrlSegment}/personnel" variant="outline" size="xs">Manage Personnel</Button>
-					<Button href="/org/{orgUrlSegment}/settings" variant="outline" size="xs">Export Data</Button>
+					<Button href="/org/{orgId}/billing" variant="outline" size="xs">Subscribe</Button>
+					<Button href="/org/{orgId}/personnel" variant="outline" size="xs">Manage Personnel</Button>
+					<Button href="/org/{orgId}/settings" variant="outline" size="xs">Export Data</Button>
 				</div>
 			{:else if showGiftWarning}
 				{#if isUrgent}
@@ -57,7 +57,7 @@
 					{/if}
 				</Alert.Description>
 				<div class="flex flex-wrap items-center gap-2">
-					<Button href="/org/{orgUrlSegment}/billing" variant="outline" size="xs">Subscribe</Button>
+					<Button href="/org/{orgId}/billing" variant="outline" size="xs">Subscribe</Button>
 				</div>
 			{/if}
 		</div>

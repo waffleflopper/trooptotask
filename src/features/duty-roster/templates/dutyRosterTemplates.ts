@@ -100,7 +100,6 @@ export interface DutyRosterTemplateSettingsInput {
 
 export interface DutyRosterTemplateArchiveInput {
 	templateId: string;
-	archiveAssignmentType?: boolean;
 }
 
 export interface DutyRosterTemplateGenerateInput {

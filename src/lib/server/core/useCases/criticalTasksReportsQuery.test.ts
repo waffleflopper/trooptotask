@@ -1,19 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
-import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
 	fetchCriticalTasksReportDashboard,
 	fetchCriticalTasksReportsPageModel,
-	fetchCriticalTasksReportSummary
+	fetchCriticalTasksReportSummary,
+	formatCriticalTasksReportCsv
 } from './criticalTasksReportsQuery';
-
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
-	return buffer as WorkbookLoadBuffer;
-}
 
 describe('fetchCriticalTasksReportSummary', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
@@ -553,8 +546,8 @@ describe('fetchCriticalTasksReportSummary', () => {
 	});
 });
 
-describe('buildCriticalTasksReportWorkbook', () => {
-	it('orders action rows before summary metadata while preserving handoff context', async () => {
+describe('formatCriticalTasksReportCsv', () => {
+	it('orders action rows before summary metadata while preserving handoff context', () => {
 		const dashboard: IctReportDashboard = {
 			kpis: {
 				overallReadiness: {
@@ -636,29 +629,20 @@ describe('buildCriticalTasksReportWorkbook', () => {
 			}
 		};
 
-		const workbook = await buildCriticalTasksReportWorkbook(dashboard);
-		const parsed = new ExcelJS.Workbook();
-		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
-		const sheet = parsed.getWorksheet('Critical Tasks Report')!;
+		const csv = formatCriticalTasksReportCsv(dashboard);
+		const atRiskIndex = csv.indexOf(
+			'At-Risk Soldiers,"Rifle, Ryan",40%,SGT 11B; Alpha; 1 expiring <=45d; 12 days since update'
+		);
+		const belowThresholdIndex = csv.indexOf(
+			'Tasks Below Unit Threshold,071-000-0001 Maintain communications,33%,2 Soldiers need it'
+		);
+		const summaryIndex = csv.indexOf('Summary,Overall Readiness,68%,-3 pts vs 30d');
 
-		expect(sheet.getRow(1).values).toEqual([undefined, 'Section', 'Metric', 'Value', 'Subtitle']);
-		expect(sheet.getRow(2).values).toEqual([
-			undefined,
-			'At-Risk Soldiers',
-			'Rifle, Ryan',
-			'40%',
-			'SGT 11B; Alpha; 1 expiring <=45d; 12 days since update'
-		]);
-		expect(sheet.getRow(3).values).toEqual([
-			undefined,
-			'Tasks Below Unit Threshold',
-			'071-000-0001 Maintain communications',
-			'33%',
-			'2 Soldiers need it'
-		]);
-		expect(sheet.getRow(4).values).toEqual([undefined, 'Summary', 'Overall Readiness', '68%', '-3 pts vs 30d']);
-		expect(sheet.getRow(5).values).toEqual([undefined, 'Summary', 'Soldiers Below 65%', 2, '3 applicable Soldiers']);
-		expect(sheet.getColumn(2).values).not.toContain('Soldiers Below 70%');
-		expect(sheet.getColumn(4).values).not.toContain('assigned');
+		expect(atRiskIndex).toBeGreaterThan(-1);
+		expect(belowThresholdIndex).toBeGreaterThan(atRiskIndex);
+		expect(summaryIndex).toBeGreaterThan(belowThresholdIndex);
+		expect(csv).toContain('Summary,Soldiers Below 65%,2,3 applicable Soldiers');
+		expect(csv).not.toContain('Soldiers Below 70%');
+		expect(csv).not.toContain('assigned');
 	});
 });

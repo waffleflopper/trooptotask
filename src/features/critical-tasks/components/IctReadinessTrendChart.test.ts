@@ -2,7 +2,6 @@
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
-import { useChartLayoutSize } from '$lib/test/chartLayout';
 import type { IctReadinessTrend } from '$features/critical-tasks/utils/ictReports';
 
 const readinessTrend: IctReadinessTrend = {
@@ -34,7 +33,6 @@ const readinessTrend: IctReadinessTrend = {
 };
 
 afterEach(() => cleanup());
-useChartLayoutSize();
 
 describe('IctReadinessTrendChart', () => {
 	it('renders readiness trend through the shared report chart with fallback data', () => {

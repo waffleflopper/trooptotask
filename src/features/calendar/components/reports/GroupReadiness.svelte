@@ -3,7 +3,6 @@
 	import type { StatusType } from '$lib/types';
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
-	import { exportGroupReadinessWorkbook } from './calendarReportWorkbookExport';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
@@ -162,9 +161,31 @@
 		}
 	}
 
-	function handleExportExcel() {
+	// --- CSV Export ---
+
+	function handleExportCsv() {
 		if (!result) return;
-		return exportGroupReadinessWorkbook(result, startDate, endDate);
+
+		const headers = ['Group', ...result.dates.map(formatShortDate)];
+		const rows = result.groups.map((group) => {
+			const cells = group.cells.map((cell) => {
+				const pct = cell.totalPersonnel > 0 ? cell.availablePercent : 100;
+				return `${cell.availableCount}/${cell.totalPersonnel} (${pct}%)`;
+			});
+			return [group.groupName, ...cells];
+		});
+
+		const csvContent = [headers, ...rows]
+			.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+			.join('\n');
+
+		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `group-readiness_${startDate}_${endDate}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
 	}
 
 	// --- Cell color helper ---
@@ -251,7 +272,7 @@
 			<span class="report-summary">
 				{result.groups.length} groups &middot; {startDate} to {endDate}
 			</span>
-			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
+			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
 		</div>
 
 		{#if result.groups.length === 0}

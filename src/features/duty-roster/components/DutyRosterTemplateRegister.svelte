@@ -5,7 +5,6 @@
 	import { resolveDutyRosterPool } from '$features/duty-roster/templates/dutyRosterPool';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { DutyRosterStatusBadge } from '$features/duty-roster/components/shared';
 
@@ -21,7 +20,6 @@
 
 	let selectedTemplateId = $state<string | null>(null);
 	let archiveTemplate = $state<DutyRosterTemplate | null>(null);
-	let archiveAssignmentType = $state(false);
 	let archiveFormRef = $state<HTMLFormElement | null>(null);
 
 	const templateRows = $derived(
@@ -91,7 +89,6 @@
 
 	function requestArchive(template: DutyRosterTemplate): void {
 		archiveTemplate = template;
-		archiveAssignmentType = false;
 	}
 
 	function submitArchiveTemplate(): void {
@@ -284,7 +281,6 @@
 	{#if archiveTemplate}
 		<form bind:this={archiveFormRef} method="POST" action={`${basePath}?/archiveTemplate`} class="hidden">
 			<input type="hidden" name="templateId" value={archiveTemplate.id} />
-			<input type="hidden" name="archiveAssignmentType" value={archiveAssignmentType ? 'true' : 'false'} />
 		</form>
 		<ConfirmDialog
 			title="Archive template"
@@ -294,19 +290,6 @@
 			variant="destructive"
 			onConfirm={submitArchiveTemplate}
 			onCancel={() => (archiveTemplate = null)}
-		>
-			<div class="rounded-md border border-border bg-muted/30 p-3">
-				<label class="flex items-start gap-3 text-sm">
-					<Checkbox id="archive-assignment-type" bind:checked={archiveAssignmentType} class="mt-0.5" />
-					<span class="grid gap-1">
-						<span class="font-medium text-foreground">Also archive the Calendar assignment type</span>
-						<span class="text-muted-foreground">
-							Removes this duty from future Calendar assignment choices. Existing assignments and Duty Roster history
-							stay readable.
-						</span>
-					</span>
-				</label>
-			</div>
-		</ConfirmDialog>
+		/>
 	{/if}
 </section>

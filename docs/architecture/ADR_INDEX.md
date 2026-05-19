@@ -22,6 +22,7 @@ This index is the current map of architecture decisions. Use it before reading i
 | [0007: Advanced Duty Snapshot Custody](adrs/0007-advanced-duty-snapshot-custody.md) | Superseded | Old Advanced Duty Run snapshot custody | Historical only after removal of the old Advanced Duty Run server flow and `/api/duty-events/**` write/revision endpoints. |
 | [0008: Leaders Book Retirement And Personnel Absorption](adrs/0008-leaders-book-retirement-and-personnel-absorption.md) | Accepted | Personnel-owned per-Soldier workflows | Current decision for counseling, notes, follow-ups, documents, and retired Leaders Book surface. |
 | [0009: Beta Access Request Account Setup Links](adrs/0009-beta-access-request-account-setup-links.md) | Accepted | Beta access and account setup | Read before changing access requests, account setup links, Supabase invite replacement, invite-code registration, or setup-link cleanup. |
+| [0010: Native Workbook Export Boundary](adrs/0010-native-workbook-export-boundary.md) | Accepted | Excel export module boundary | Read before adding or changing Excel-labeled exports, workbook generation helpers, or export download/response behavior. |
 
 ## Reading Rules
 
@@ -31,3 +32,4 @@ This index is the current map of architecture decisions. Use it before reading i
 - For Personnel, Leaders Book, or Rating Scheme work, ADR 0002, 0003, and 0008 may be relevant, but ADR 0008 is the current product decision for Leaders Book retirement.
 - For old demo/sandbox residue, read ADR 0005 and `DRIFT_LEDGER.md` D-06.
 - For terminology work, read ADR 0006 and `UBIQUITOUS_LANGUAGE.md`.
+- For Excel-labeled exports, read ADR 0010.

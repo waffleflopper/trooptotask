@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { cloneDefaultSoftPreferences, type DutyTemplateWriteInput } from '$features/duty-roster/duty-roster.types';
 import { archiveDutyTemplate, createDutyTemplate, listDutyTemplates, updateDutyTemplate } from './dutyTemplateCrud';
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 function makeInput(overrides: Partial<DutyTemplateWriteInput> = {}): DutyTemplateWriteInput {
 	return {
@@ -84,6 +88,7 @@ describe('duty template CRUD use cases', () => {
 
 	it('fails create when policy fields cannot be written', async () => {
 		const ctx = createTestContext();
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const originalInsert = ctx.store.insert.bind(ctx.store);
 		let attemptedTemplateInsert = false;
 
@@ -99,10 +104,12 @@ describe('duty template CRUD use cases', () => {
 			status: 500,
 			message: expect.stringContaining('Duty template policy settings could not be saved')
 		});
+		expect(errorSpy).toHaveBeenCalledWith('Failed to save duty template policy settings', expect.any(Error));
 	});
 
 	it('returns a static create failure when template persistence throws an unexpected error', async () => {
 		const ctx = createTestContext();
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const originalInsert = ctx.store.insert.bind(ctx.store);
 		let attemptedTemplateInsert = false;
 
@@ -118,6 +125,7 @@ describe('duty template CRUD use cases', () => {
 			status: 500,
 			message: 'Failed to save duty template.'
 		});
+		expect(errorSpy).toHaveBeenCalledWith('Failed to save duty template', expect.any(Error));
 	});
 
 	it('creates templates when legacy schemas are missing exempt personnel policy column', async () => {
@@ -312,6 +320,7 @@ describe('duty template CRUD use cases', () => {
 	it('fails update when policy fields cannot be written', async () => {
 		const ctx = createTestContext();
 		const created = await createDutyTemplate(ctx, makeInput());
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const originalUpdate = ctx.store.update.bind(ctx.store);
 		let attemptedTemplateUpdate = false;
 
@@ -334,6 +343,7 @@ describe('duty template CRUD use cases', () => {
 			status: 500,
 			message: expect.stringContaining('Duty template policy settings could not be saved')
 		});
+		expect(errorSpy).toHaveBeenCalledWith('Failed to update duty template policy settings', expect.any(Error));
 	});
 
 	it('updates templates when legacy schemas are missing exempt personnel policy column', async () => {
@@ -364,6 +374,7 @@ describe('duty template CRUD use cases', () => {
 
 	it('preserves the existing template aggregate when replacement slot persistence fails', async () => {
 		const ctx = createTestContext();
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-alpha',
@@ -444,6 +455,7 @@ describe('duty template CRUD use cases', () => {
 			status: 500,
 			message: 'Failed to update duty template.'
 		});
+		expect(errorSpy).toHaveBeenCalledWith('Failed to update duty template', expect.any(Error));
 
 		const restoredTemplateRow = await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, {
 			id: created.id

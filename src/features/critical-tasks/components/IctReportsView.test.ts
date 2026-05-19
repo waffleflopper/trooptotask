@@ -448,8 +448,7 @@ describe('IctReportsView', () => {
 		expect(screen.queryByText('Baseline report stack')).toBeNull();
 		expect(screen.queryByText('Commander brief')).toBeNull();
 
-		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
-		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
+		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
 	});
 
 	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
@@ -461,7 +460,7 @@ describe('IctReportsView', () => {
 			}
 		});
 
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
 		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
 		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
@@ -480,7 +479,7 @@ describe('IctReportsView', () => {
 			}
 		});
 
-		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
 		expect(screen.queryByRole('region', { name: 'Critical task report metrics' })).toBeNull();
 		expect(screen.queryByRole('region', { name: 'Critical task analysis console' })).toBeNull();

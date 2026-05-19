@@ -6,6 +6,7 @@
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -30,6 +31,7 @@
 
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
+	const orgUrlSegment = $derived(org.orgUrlSegment ?? orgId);
 	const orgName = $derived(data.orgName ?? org.orgName);
 	let selectedGroupId = $state('');
 	let gapsOnly = $state(false);
@@ -37,8 +39,8 @@
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
 	let showCompletionImportModal = $state(false);
-	const reportsHref = $derived(`/org/${orgId}/critical-tasks/reports`);
-	const taskLibraryHref = $derived(`/org/${orgId}/critical-tasks/library`);
+	const reportsHref = $derived(`/org/${orgUrlSegment}/critical-tasks/reports`);
+	const taskLibraryHref = $derived(`/org/${orgUrlSegment}/critical-tasks/library`);
 
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === orgId &&
@@ -89,6 +91,8 @@
 	}
 
 	let activeCompletionCell = $state<ActiveCompletionCell | null>(null);
+	let matrixExportLoading = $state(false);
+	let matrixExportError = $state('');
 
 	$effect(() => {
 		if (selectedGroupId && !groupsStore.items.some((group) => group.id === selectedGroupId)) {
@@ -153,15 +157,37 @@
 		showCompletionImportModal = true;
 	}
 
+	async function exportMatrixExcel(): Promise<void> {
+		if (matrixExportLoading) return;
+		matrixExportLoading = true;
+		matrixExportError = '';
+		try {
+			const response = await fetch(matrixExportHref);
+			if (!response.ok) {
+				throw new Error('Failed to export critical task matrix');
+			}
+			const blob = await response.blob();
+			downloadBlob(
+				blob,
+				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'critical-task-matrix.xlsx')
+			);
+		} catch (error) {
+			matrixExportError = error instanceof Error ? error.message : 'Failed to export critical task matrix';
+		} finally {
+			matrixExportLoading = false;
+		}
+	}
+
 	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
 		const items: WorkspaceToolbarAction[] = [
 			{
-				id: 'export-csv',
-				label: 'Export CSV',
-				href: matrixExportHref,
+				id: 'export-excel',
+				label: matrixExportLoading ? 'Exporting...' : 'Export Excel',
+				onclick: exportMatrixExcel,
 				icon: 'download',
 				priority: 'low',
-				variant: 'default'
+				variant: 'default',
+				disabled: matrixExportLoading
 			}
 		];
 
@@ -298,6 +324,12 @@
 				</WorkspaceToolbar.Group>
 			</WorkspaceToolbar.Root>
 
+			{#if matrixExportError}
+				<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+					{matrixExportError}
+				</p>
+			{/if}
+
 			{#if loading}
 				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
 					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
@@ -319,7 +351,7 @@
 				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
 					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
 						<IctMatrix
-							{orgId}
+							orgId={orgUrlSegment}
 							personnel={filteredPersonnel}
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}

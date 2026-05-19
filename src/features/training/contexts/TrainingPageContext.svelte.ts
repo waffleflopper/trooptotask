@@ -99,6 +99,10 @@ export class TrainingPageContext {
 		return this.#data.orgId;
 	}
 
+	get orgUrlSegment(): string {
+		return this.#org.orgUrlSegment ?? this.#data.orgId;
+	}
+
 	get orgName(): string {
 		return this.#data.orgName;
 	}
@@ -157,7 +161,7 @@ export class TrainingPageContext {
 	get trainingOverflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({ label: 'Reports', onclick: () => goto(`/org/${this.orgId}/training/reports`) });
+		items.push({ label: 'Reports', onclick: () => goto(`/org/${this.orgUrlSegment}/training/reports`) });
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Bulk Import',
@@ -167,7 +171,7 @@ export class TrainingPageContext {
 			});
 			items.push({
 				label: 'Manage Types',
-				onclick: () => goto(`/org/${this.orgId}/training/types`)
+				onclick: () => goto(`/org/${this.orgUrlSegment}/training/types`)
 			});
 		}
 		return items;

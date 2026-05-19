@@ -778,7 +778,7 @@ export function buildDutyRosterRunSnapshot(input: DutyRosterRunInput): DutyRoste
 				sequenceNumber = manualBaselineCounts.get(person.id);
 			}
 			if (sequenceNumber === undefined && queuePosition !== null) {
-				sequenceNumber = queuePosition;
+				sequenceNumber = 1;
 			}
 			cellsByPersonnelId
 				.get(person.id)!

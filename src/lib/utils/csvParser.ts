@@ -1,4 +1,5 @@
 // src/lib/utils/csvParser.ts
+import type ExcelJS from 'exceljs';
 
 /**
  * Parse CSV text into a 2D array of strings.
@@ -49,7 +50,22 @@ function isCsvFile(file: File): boolean {
 
 async function parseXlsxBuffer(buffer: ArrayBuffer): Promise<string[][]> {
 	const ExcelJS = await import('exceljs');
-	const workbook = new ExcelJS.Workbook();
+	const WorkbookCtor =
+		(
+			ExcelJS as unknown as {
+				Workbook?: new () => ExcelJS.Workbook;
+				default?: { Workbook?: new () => ExcelJS.Workbook };
+			}
+		).Workbook ??
+		(
+			ExcelJS as unknown as {
+				default?: { Workbook?: new () => ExcelJS.Workbook };
+			}
+		).default?.Workbook;
+	if (!WorkbookCtor) {
+		throw new Error('ExcelJS Workbook constructor is unavailable');
+	}
+	const workbook = new WorkbookCtor();
 	await workbook.xlsx.load(buffer);
 	const sheet = workbook.worksheets[0];
 	if (!sheet) return [];

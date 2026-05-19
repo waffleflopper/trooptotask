@@ -13,7 +13,12 @@ export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 
 // Utils
 export { getDefaultFederalHolidays } from './utils/federalHolidays';
-export { exportMonthToCSV, printMonthCalendar, exportQuarterToCSV, printQuarterCalendar } from './utils/calendarExport';
+export {
+	exportMonthToExcel,
+	printMonthCalendar,
+	exportQuarterToExcel,
+	printQuarterCalendar
+} from './utils/calendarExport';
 
 // Context
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';

@@ -4,6 +4,10 @@ interface OrganizationRow {
 	name: string | null;
 }
 
+interface OrganizationSlugRow {
+	id: string;
+}
+
 export function createSupabaseOrgSettingsAdministrationPort(
 	locals: Pick<App.Locals, 'supabase'>
 ): OrganizationSettingsAdministrationPort {
@@ -14,6 +18,26 @@ export function createSupabaseOrgSettingsAdministrationPort(
 			const { error } = await supabase.from('organizations').update({ name }).eq('id', orgId);
 
 			return error?.message ?? null;
+		},
+
+		async updateOrganizationUrlSlug(orgId, urlSlug) {
+			const { error } = await supabase.from('organizations').update({ url_slug: urlSlug }).eq('id', orgId);
+
+			return error?.message ?? null;
+		},
+
+		async findOrganizationByUrlSlug(urlSlug) {
+			const { data, error } = await supabase
+				.from('organizations')
+				.select('id')
+				.eq('url_slug', urlSlug)
+				.maybeSingle<OrganizationSlugRow>();
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			return data ? { id: data.id } : null;
 		},
 
 		async transferOwnership(orgId, newOwnerId) {

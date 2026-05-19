@@ -65,12 +65,14 @@ describe('critical tasks layout server load', () => {
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
+		const parent = vi.fn().mockResolvedValue({ orgId: 'org-1' });
 
 		const result = await load({
-			params: { orgId: 'org-1' },
+			params: { orgId: '1-11-bde' },
 			locals,
 			cookies,
-			depends
+			depends,
+			parent
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
 			throw new Error('Expected critical tasks layout load to return data');
@@ -78,6 +80,7 @@ describe('critical tasks layout server load', () => {
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
+		expect(parent).toHaveBeenCalledTimes(1);
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
 		expect(loadCriticalTasksSettings).toHaveBeenCalledWith({ locals, orgId: 'org-1' });

@@ -5,6 +5,7 @@ import {
 	acceptAndApplyDutyRosterTemplatePreview,
 	applyAcceptedDutyRosterTemplateRun,
 	applyDutyRosterTemplatePreviewManualSelection,
+	archiveDutyRosterTemplate,
 	createConfiguredDutyRosterTemplate,
 	createDutyRosterTemplate,
 	findDutyRosterTemplateBySlug,
@@ -339,6 +340,47 @@ describe('Duty Roster Template use cases', () => {
 		const second = await createDutyRosterTemplate(createCtx(), { name: 'CQ NCO', shortCode: 'CQ' });
 
 		expect(second.slug).toBe('cq-nco-2');
+	});
+
+	it('archives only the Duty Roster Template by default', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		const archived = await archiveDutyRosterTemplate(ctx, { templateId: template.id });
+
+		expect(archived.status).toBe('archived');
+		expect(assignmentTypeRows.find((row) => row.id === template.assignmentTypeId)?.archived_at).toBeUndefined();
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template.archived',
+				resourceType: 'duty_roster_template',
+				resourceId: template.id,
+				details: {
+					archiveAssignmentType: false,
+					assignmentTypeId: template.assignmentTypeId
+				}
+			})
+		);
+	});
+
+	it('optionally archives the companion Calendar assignment type', async () => {
+		const ctx = createCtx();
+		const template = await createDutyRosterTemplate(ctx, { name: 'CQ NCO', shortCode: 'CQ' });
+
+		await archiveDutyRosterTemplate(ctx, { templateId: template.id, archiveAssignmentType: true });
+
+		expect(assignmentTypeRows.find((row) => row.id === template.assignmentTypeId)?.archived_at).toBe(
+			'2026-05-04T12:00:00.000Z'
+		);
+		expect(auditEvents).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_roster_template.archived',
+				details: {
+					archiveAssignmentType: true,
+					assignmentTypeId: template.assignmentTypeId
+				}
+			})
+		);
 	});
 
 	it('creates a configured Duty Roster Template in one use-case call', async () => {

@@ -8,6 +8,7 @@
 	<main class="p-3 sm:px-6 sm:pt-4 sm:pb-6">
 		<CalendarReports
 			orgId={data.orgId}
+			orgUrlSegment={data.orgUrlSegment ?? data.orgId}
 			personnel={data.allPersonnel ?? []}
 			statusTypes={data.statusTypes ?? []}
 			groups={data.groups ?? []}

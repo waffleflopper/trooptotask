@@ -3,6 +3,7 @@
 	import type { StatusType } from '$lib/types';
 	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
+	import { exportAvailabilityForecastWorkbook } from './calendarReportWorkbookExport';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -100,29 +101,9 @@
 		return `${weekday}, ${month}/${day}/${year}`;
 	}
 
-	function handleExportCsv() {
+	async function handleExportExcel() {
 		if (!result) return;
-
-		const headers = ['Date', 'Unavailable', 'Available', 'Available %', 'Unavailable Personnel'];
-		const rows = result.days.map((day) => {
-			const unavailableNames = day.unavailablePersonnel.map((u) => `${u.person.rank} ${u.person.lastName}`).join(', ');
-			return [
-				day.date,
-				String(day.unavailableCount),
-				String(day.availableCount),
-				`${day.availablePercent}%`,
-				`"${unavailableNames}"`
-			].join(',');
-		});
-
-		const csv = [headers.join(','), ...rows].join('\n');
-		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `availability-forecast_${startDate}_${endDate}.csv`;
-		link.click();
-		URL.revokeObjectURL(url);
+		await exportAvailabilityForecastWorkbook(result, startDate, endDate);
 	}
 
 	// --- useDataTable for sorting ---
@@ -213,7 +194,7 @@
 			<span class="text-muted-foreground text-sm">
 				{result.days.length} days &middot; {filteredPersonnel.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<Button variant="outline" size="sm" onclick={handleExportCsv}>Export CSV</Button>
+			<Button variant="outline" size="sm" onclick={handleExportExcel}>Export Excel</Button>
 		</div>
 
 		{#if result.days.length === 0}

@@ -22,7 +22,22 @@ export interface TableSheetOptions {
 
 export async function createWorkbook(): Promise<Workbook> {
 	const ExcelJS = await import('exceljs');
-	const workbook = new ExcelJS.Workbook();
+	const WorkbookCtor =
+		(
+			ExcelJS as unknown as {
+				Workbook?: new () => Workbook;
+				default?: { Workbook?: new () => Workbook };
+			}
+		).Workbook ??
+		(
+			ExcelJS as unknown as {
+				default?: { Workbook?: new () => Workbook };
+			}
+		).default?.Workbook;
+	if (!WorkbookCtor) {
+		throw new Error('ExcelJS Workbook constructor is unavailable');
+	}
+	const workbook = new WorkbookCtor();
 	workbook.creator = 'TroopToTask';
 	workbook.created = new Date();
 	workbook.modified = new Date();

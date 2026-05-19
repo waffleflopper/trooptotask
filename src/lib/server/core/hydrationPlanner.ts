@@ -76,12 +76,13 @@ function createCalendarAssignmentsItems(
 
 function createCalendarAssignmentsTarget(
 	assignmentTypes: AssignmentType[] | Promise<AssignmentType[]>,
-	assignmentEntries: DailyAssignment[] | Promise<DailyAssignment[]>
+	assignmentEntries: DailyAssignment[] | Promise<DailyAssignment[]>,
+	mode: 'replace' | 'merge' = 'replace'
 ) {
 	const items = createCalendarAssignmentsItems(assignmentTypes, assignmentEntries);
 
 	return {
-		mode: 'replace' as const,
+		mode,
 		deferred: isPromiseLike(items),
 		snapshotKey: createCompositeSnapshotKey({
 			assignmentTypes,
@@ -91,9 +92,9 @@ function createCalendarAssignmentsTarget(
 	};
 }
 
-function createHydrationTarget<T>(items: HydrationItems<T>) {
+function createHydrationTarget<T>(items: HydrationItems<T>, mode: 'replace' | 'merge' = 'replace') {
 	return {
-		mode: 'replace' as const,
+		mode,
 		deferred: isPromiseLike(items),
 		snapshotKey: createSnapshotKey(items),
 		items
@@ -138,6 +139,7 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			// shared onboarding store, which owns active + completed/cancelled records.
 			const onboardingEntries = isHydratableItems(d.onboardings) ? d.onboardings : undefined;
 			const hasOnboardings = isHydratableItems(onboardingEntries);
+			const dateRangeHydrationMode = workspace === 'calendar' ? 'merge' : 'replace';
 
 			if (
 				!hasPersonnel &&
@@ -183,17 +185,21 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			}
 
 			if (hasAvailabilityEntries) {
-				plan.availabilityEntries = createHydrationTarget(d.availabilityEntries as HydrationItems<AvailabilityEntry>);
+				plan.availabilityEntries = createHydrationTarget(
+					d.availabilityEntries as HydrationItems<AvailabilityEntry>,
+					dateRangeHydrationMode
+				);
 			}
 
 			if (hasSpecialDays) {
-				plan.specialDays = createHydrationTarget(d.specialDays as HydrationItems<SpecialDay>);
+				plan.specialDays = createHydrationTarget(d.specialDays as HydrationItems<SpecialDay>, dateRangeHydrationMode);
 			}
 
 			if (hasCalendarAssignments) {
 				plan.calendarAssignments = createCalendarAssignmentsTarget(
 					d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
-					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>
+					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>,
+					dateRangeHydrationMode
 				);
 			}
 

@@ -11,6 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 
@@ -18,7 +19,6 @@
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
-	let syncedPreferences: typeof data.userPreferences | undefined;
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
 			throwRenderError(loadError, 'Failed to load calendar workspace');
@@ -108,6 +108,7 @@
 	);
 	const viewData = $derived.by(() => ({
 		orgId: pageData.orgId,
+		orgUrlSegment: data.orgUrlSegment ?? pageData.orgId,
 		orgName: pageData.orgName ?? 'Troop to Task',
 		permissions: pageData.permissions
 	}));
@@ -118,10 +119,8 @@
 	});
 
 	$effect(() => {
-		const preferences = data.userPreferences;
-		if (preferences === syncedPreferences) return;
-		syncedPreferences = preferences;
-		ctx.syncUserPreferences(preferences);
+		const preferences = pageData.userPreferences;
+		untrack(() => ctx.syncUserPreferences(preferences));
 	});
 	$effect(() => {
 		ctx.markCalendarVisited();

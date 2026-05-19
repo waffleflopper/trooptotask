@@ -25,7 +25,7 @@
 		type TrainingReportPivotRow,
 		type TrainingReportSortState
 	} from '$features/training/read-model/trainingReportScreenModel';
-	import { generatePivotCSV } from '$features/training/utils/reportCalculations';
+	import { exportTrainingReportWorkbook } from '$features/training/utils/reportCalculations';
 
 	interface Props {
 		data: {
@@ -183,11 +183,11 @@
 		await loadReportPage(1);
 	}
 
-	function exportCSV() {
+	async function exportExcel() {
 		if (activeReport) {
 			const link = document.createElement('a');
 			link.setAttribute('href', buildReportExportUrl());
-			link.setAttribute('download', 'training-report.csv');
+			link.setAttribute('download', 'training-report.xlsx');
 			link.style.visibility = 'hidden';
 			document.body.appendChild(link);
 			link.click();
@@ -196,17 +196,7 @@
 		}
 
 		const rows = screen.pivotRows;
-		const csv = generatePivotCSV(rows, screen.filteredLocalTrainingTypes);
-		const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.setAttribute('href', url);
-		link.setAttribute('download', 'training-report.csv');
-		link.style.visibility = 'hidden';
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
-		URL.revokeObjectURL(url);
+		await exportTrainingReportWorkbook(rows, screen.filteredLocalTrainingTypes);
 	}
 
 	function clearFilters() {
@@ -287,9 +277,9 @@
 			priority: 'normal'
 		},
 		{
-			id: 'export-csv',
+			id: 'export-excel',
 			label: 'Export',
-			onclick: exportCSV,
+			onclick: exportExcel,
 			disabled: screen.pivotRows.length === 0,
 			disabledReason: screen.pivotRows.length === 0 ? 'No report rows to export' : undefined,
 			icon: 'download',

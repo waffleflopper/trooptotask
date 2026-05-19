@@ -112,6 +112,7 @@
 	const isMultiOrg = $derived(allOrgs.length > 1);
 	const normalizedUserRole = $derived(userRole.toLowerCase());
 	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
+	const canAccessOrganizationSettings = $derived(normalizedUserRole === 'owner' || normalizedUserRole === 'admin');
 	const canSubmitLeaveOrganization = $derived(
 		canLeaveOrganization && Boolean(membershipId) && leaveOrganizationConfirmText === 'YES'
 	);
@@ -257,12 +258,17 @@
 										</DropdownMenu.Item>
 									{/each}
 								</DropdownMenu.Group>
-								<DropdownMenu.Separator />
-								<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
-									<Settings />
-									Org Settings
-								</DropdownMenu.Item>
+								{#if canAccessOrganizationSettings}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
+										<Settings />
+										Organization Settings
+									</DropdownMenu.Item>
+								{/if}
 								{#if isMultiOrg}
+									{#if !canAccessOrganizationSettings}
+										<DropdownMenu.Separator />
+									{/if}
 									<DropdownMenu.Item onclick={() => goto(resolve('/dashboard?show=all'))}>
 										<Building2 />
 										Manage Organizations
@@ -305,6 +311,26 @@
 
 			<Sidebar.Footer>
 				<Sidebar.Menu>
+					{#if canAccessOrganizationSettings}
+						<Sidebar.MenuItem>
+							<Sidebar.MenuButton
+								isActive={pathname === `/org/${orgUrlSegment}/settings` ||
+									pathname.startsWith(`/org/${orgUrlSegment}/settings/`)}
+								tooltipContent="Organization Settings"
+							>
+								{#snippet child({ props })}
+									<a
+										{...props}
+										href={resolve(`/org/${orgUrlSegment}/settings`)}
+										aria-current={pathname === `/org/${orgUrlSegment}/settings` ? 'page' : undefined}
+									>
+										<Settings />
+										<span>Organization Settings</span>
+									</a>
+								{/snippet}
+							</Sidebar.MenuButton>
+						</Sidebar.MenuItem>
+					{/if}
 					<Sidebar.MenuItem>
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>

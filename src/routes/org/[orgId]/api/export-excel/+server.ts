@@ -6,9 +6,8 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 import { completeDataExport, failDataExport, startDataExport } from '$lib/server/core/useCases/dataExportLifecycle';
 import {
 	addTableSheet,
-	contentDispositionAttachment,
 	createWorkbook,
-	WORKBOOK_MIME_TYPE,
+	workbookBufferResponse,
 	writeWorkbookBuffer,
 	type Workbook,
 	type WorkbookColumn,
@@ -442,12 +441,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
-		return new Response(result._buffer as ArrayBuffer, {
-			headers: {
-				'Content-Type': WORKBOOK_MIME_TYPE,
-				'Content-Disposition': contentDispositionAttachment(result._filename as string)
-			}
-		});
+		return workbookBufferResponse(result._buffer as ArrayBuffer, result._filename as string);
 	}
 };
 

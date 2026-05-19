@@ -5,9 +5,8 @@ import { fail } from '$lib/server/core/errors';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import {
 	addTableSheet,
-	contentDispositionAttachment,
 	createWorkbook,
-	WORKBOOK_MIME_TYPE,
+	workbookBufferResponse,
 	writeWorkbookBuffer,
 	type Workbook,
 	type WorkbookColumn,
@@ -192,12 +191,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOut
 		return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };
 	},
 	formatOutput: (result) => {
-		return new Response(result._buffer, {
-			headers: {
-				'Content-Type': WORKBOOK_MIME_TYPE,
-				'Content-Disposition': contentDispositionAttachment(result._filename)
-			}
-		});
+		return workbookBufferResponse(result._buffer, result._filename);
 	}
 };
 

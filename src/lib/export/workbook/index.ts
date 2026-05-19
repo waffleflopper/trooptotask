@@ -81,13 +81,20 @@ export async function downloadWorkbook(workbook: Workbook, filename: string): Pr
 
 export async function workbookResponse(
 	workbookOrBuffer: Workbook | WorkbookBinary,
-	filename: string
+	filename: string,
+	headers: HeadersInit = {}
 ): Promise<Response> {
 	const buffer = isWorkbookBinary(workbookOrBuffer)
 		? toArrayBuffer(workbookOrBuffer)
 		: await writeWorkbookBuffer(workbookOrBuffer);
-	return new Response(buffer, {
+	return workbookBufferResponse(buffer, filename, headers);
+}
+
+export function workbookBufferResponse(buffer: WorkbookBinary, filename: string, headers: HeadersInit = {}): Response {
+	const arrayBuffer = toArrayBuffer(buffer);
+	return new Response(new Uint8Array(arrayBuffer), {
 		headers: {
+			...headers,
 			'Content-Type': WORKBOOK_MIME_TYPE,
 			'Content-Disposition': contentDispositionAttachment(filename)
 		}

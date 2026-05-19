@@ -18,7 +18,7 @@
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
-	let syncedPreferences = $state<typeof data.userPreferences | undefined>(undefined);
+	let syncedPreferences: typeof data.userPreferences | undefined;
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
 			throwRenderError(loadError, 'Failed to load calendar workspace');

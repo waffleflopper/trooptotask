@@ -4,7 +4,7 @@ import {
 	type CriticalTasksWorkbookExport
 } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { contentDispositionAttachment, WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/export/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	criticalTasksMatrixExportInput,
@@ -20,14 +20,7 @@ export const _getConfig: RouteConfig<CriticalTasksMatrixExportRouteInput, Critic
 	input: criticalTasksMatrixExportInput,
 	parseInput: (event) => parseCriticalTasksMatrixExportInput(event.url),
 	fn: async (ctx, input) => generateCriticalTasksMatrixWorkbookExport(ctx, toCriticalTasksMatrixExportInput(input)),
-	formatOutput: (result) =>
-		new Response(result.buffer, {
-			headers: {
-				...PRIVATE_REPORT_HEADERS,
-				'Content-Type': WORKBOOK_MIME_TYPE,
-				'Content-Disposition': contentDispositionAttachment(result.filename)
-			}
-		})
+	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };
 
 export const GET = handle(_getConfig);

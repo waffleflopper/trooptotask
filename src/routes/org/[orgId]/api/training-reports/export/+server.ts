@@ -4,7 +4,7 @@ import {
 	generateTrainingReportWorkbookExport,
 	type TrainingReportWorkbookExport
 } from '$lib/server/core/useCases/trainingReportsQuery';
-import { contentDispositionAttachment, WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/export/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	parseTrainingReportInput,
@@ -20,14 +20,7 @@ export const _getConfig: RouteConfig<TrainingReportRouteInput, TrainingReportWor
 	input: trainingReportInput,
 	parseInput: (event) => parseTrainingReportInput(event.url),
 	fn: async (ctx, input) => generateTrainingReportWorkbookExport(ctx, toTrainingReportInput(input)),
-	formatOutput: (result) =>
-		new Response(result.buffer, {
-			headers: {
-				...PRIVATE_REPORT_HEADERS,
-				'Content-Type': WORKBOOK_MIME_TYPE,
-				'Content-Disposition': contentDispositionAttachment(result.filename)
-			}
-		})
+	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };
 
 export const GET = handle(_getConfig);

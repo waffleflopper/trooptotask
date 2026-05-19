@@ -1,15 +1,22 @@
 import { describe, it, expect } from 'vitest';
+import ExcelJS from 'exceljs';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import {
+	buildTrainingReportWorkbook,
 	buildPivotTable,
 	buildPivotTableFromMatrix,
 	buildTrainingReportMatrix,
 	computeReadinessDashboard,
 	computeReadinessDashboardFromMatrix,
-	filterPersonnel,
-	generatePivotCSV
+	filterPersonnel
 } from './reportCalculations';
+
+type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
+function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
+	return buffer as WorkbookLoadBuffer;
+}
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
@@ -339,24 +346,31 @@ describe('buildTrainingReportMatrix', () => {
 	});
 });
 
-describe('generatePivotCSV', () => {
-	it('produces header row with person info and training type names', () => {
+describe('buildTrainingReportWorkbook', () => {
+	async function parseTrainingWorkbook(rows: ReturnType<typeof buildPivotTable>, types: TrainingType[]) {
+		const workbook = await buildTrainingReportWorkbook(rows, types);
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
+		return parsed.getWorksheet('Training Report')!;
+	}
+
+	it('produces header row with person info and training type names', async () => {
 		const types = [makeType({ id: 'type-1', name: 'CPR' }), makeType({ id: 'type-2', name: 'BLS' })];
 		const personnel = [makePerson({ id: 'p-1', rank: 'SGT', lastName: 'Smith', firstName: 'John' })];
 		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
 		const rows = buildPivotTable(personnel, types, trainings);
 
-		const csv = generatePivotCSV(rows, types);
-		const lines = csv.split('\n');
+		const sheet = await parseTrainingWorkbook(rows, types);
+		const headers = sheet.getRow(1).values as string[];
 
-		expect(lines[0]).toContain('Name');
-		expect(lines[0]).toContain('Rank');
-		expect(lines[0]).toContain('Duty Role');
-		expect(lines[0]).toContain('CPR');
-		expect(lines[0]).toContain('BLS');
+		expect(headers).toContain('Name');
+		expect(headers).toContain('Rank');
+		expect(headers).toContain('Duty Role');
+		expect(headers).toContain('CPR');
+		expect(headers).toContain('BLS');
 	});
 
-	it('produces data rows with status and date per training type', () => {
+	it('produces data rows with status and date per training type', async () => {
 		const types = [makeType({ id: 'type-1', name: 'CPR' })];
 		const personnel = [makePerson({ id: 'p-1', rank: 'SGT', lastName: 'Smith', firstName: 'John' })];
 		const trainings = [
@@ -368,36 +382,33 @@ describe('generatePivotCSV', () => {
 		];
 		const rows = buildPivotTable(personnel, types, trainings);
 
-		const csv = generatePivotCSV(rows, types);
-		const lines = csv.split('\n');
+		const sheet = await parseTrainingWorkbook(rows, types);
+		const dataRow = sheet.getRow(2).values as string[];
 
-		// Data row should contain person info and status
-		expect(lines[1]).toContain('Smith');
-		expect(lines[1]).toContain('Current');
+		expect(dataRow).toContain('Smith, John');
+		expect(dataRow).toContain('Current (2027-01-01)');
 	});
 
-	it('only includes filtered training types when trainingTypeIds filter is set', () => {
+	it('only includes filtered training types when trainingTypeIds filter is set', async () => {
 		const types = [makeType({ id: 'type-1', name: 'CPR' }), makeType({ id: 'type-2', name: 'BLS' })];
 		const filteredTypes = types.filter((t) => ['type-1'].includes(t.id));
 		const personnel = [makePerson({ id: 'p-1' })];
 		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
 		const rows = buildPivotTable(personnel, filteredTypes, trainings);
 
-		const csv = generatePivotCSV(rows, filteredTypes);
-		const header = csv.split('\n')[0];
-		expect(header).toContain('CPR');
-		expect(header).not.toContain('BLS');
+		const sheet = await parseTrainingWorkbook(rows, filteredTypes);
+		const headers = sheet.getRow(1).values as string[];
+		expect(headers).toContain('CPR');
+		expect(headers).not.toContain('BLS');
 	});
 
-	it('handles commas and quotes in names via CSV escaping', () => {
+	it('keeps names with punctuation as native cell values', async () => {
 		const types = [makeType({ id: 'type-1', name: 'CPR' })];
 		const personnel = [makePerson({ id: 'p-1', lastName: "O'Brien", firstName: 'John' })];
 		const rows = buildPivotTable(personnel, types, []);
 
-		const csv = generatePivotCSV(rows, types);
-		// Should not break CSV parsing
-		expect(csv).toBeDefined();
-		expect(csv.split('\n').length).toBe(2);
+		const sheet = await parseTrainingWorkbook(rows, types);
+		expect(sheet.getCell('A2').value).toBe("O'Brien, John");
 	});
 });
 

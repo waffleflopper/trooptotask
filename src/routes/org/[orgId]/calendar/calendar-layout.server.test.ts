@@ -78,11 +78,12 @@ describe('calendar layout server load', () => {
 		const cookies = {} as Cookies;
 
 		const result = await load({
-			params: { orgId: 'org-1' },
+			params: { orgId: '1-11-bde' },
 			locals,
 			cookies,
 			url: new URL('https://app.test/org/org-1/calendar'),
-			depends
+			depends,
+			parent: async () => ({ orgId: 'org-1' })
 		} as unknown as Parameters<typeof load>[0]);
 		if (!result) {
 			throw new Error('Expected calendar layout load to return data');
@@ -100,19 +101,19 @@ describe('calendar layout server load', () => {
 			hydration: expect.objectContaining({
 				orgId: 'org-1',
 				availabilityEntries: {
-					mode: 'replace',
+					mode: 'merge',
 					deferred: true,
 					items: availabilityEntries,
 					snapshotKey: expect.any(String)
 				},
 				specialDays: {
-					mode: 'replace',
+					mode: 'merge',
 					deferred: true,
 					items: specialDays,
 					snapshotKey: expect.any(String)
 				},
 				calendarAssignments: {
-					mode: 'replace',
+					mode: 'merge',
 					deferred: true,
 					items: expect.any(Promise),
 					snapshotKey: expect.any(String)
@@ -147,11 +148,12 @@ describe('calendar layout server load', () => {
 		});
 
 		await load({
-			params: { orgId: 'org-1' },
+			params: { orgId: '1-11-bde' },
 			locals: {} as App.Locals,
 			cookies: {} as Cookies,
 			url: new URL('https://app.test/org/org-1/calendar/settings'),
-			depends: vi.fn()
+			depends: vi.fn(),
+			parent: async () => ({ orgId: 'org-1' })
 		} as unknown as Parameters<typeof load>[0]);
 
 		expect(createWorkspacePort).toHaveBeenCalledWith({

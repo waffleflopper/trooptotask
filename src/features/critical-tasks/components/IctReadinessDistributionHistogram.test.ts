@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
+import { useChartLayoutSize } from '$lib/test/chartLayout';
 import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
 
 const bins = [
@@ -30,6 +31,7 @@ const readinessDistribution: IctReadinessDistribution = {
 };
 
 afterEach(() => cleanup());
+useChartLayoutSize();
 
 describe('IctReadinessDistributionHistogram', () => {
 	it('renders the default MOS and lets users switch histogram MOS', async () => {

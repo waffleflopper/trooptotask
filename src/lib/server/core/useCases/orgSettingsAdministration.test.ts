@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
+	clearOrganizationUrlSlug,
 	deleteOrganization,
 	renameOrganization,
 	transferOrganizationOwnership,
+	updateOrganizationUrlSlug,
 	type OrganizationSettingsAdministrationPort
 } from './orgSettingsAdministration';
 
@@ -12,28 +14,44 @@ function createOrganizationSettingsAdministrationPort(
 		organizationName?: string | null;
 		lookupOrganizationError?: string | null;
 		renameOrganizationError?: string | null;
+		updateOrganizationUrlSlugError?: string | null;
 		transferOwnershipError?: string | null;
 		deleteOrganizationError?: string | null;
+		existingSlugOrgId?: string | null;
 	} = {}
 ): OrganizationSettingsAdministrationPort & {
 	renameRequests: Array<{ orgId: string; name: string }>;
+	slugRequests: Array<{ orgId: string; urlSlug: string | null }>;
 	transferRequests: Array<{ orgId: string; newOwnerId: string }>;
+	slugLookups: string[];
 	organizationLookups: string[];
 	deletedOrganizations: string[];
 } {
 	const renameRequests: Array<{ orgId: string; name: string }> = [];
+	const slugRequests: Array<{ orgId: string; urlSlug: string | null }> = [];
 	const transferRequests: Array<{ orgId: string; newOwnerId: string }> = [];
+	const slugLookups: string[] = [];
 	const organizationLookups: string[] = [];
 	const deletedOrganizations: string[] = [];
 
 	return {
 		renameRequests,
+		slugRequests,
 		transferRequests,
+		slugLookups,
 		organizationLookups,
 		deletedOrganizations,
 		async renameOrganization(orgId, name) {
 			renameRequests.push({ orgId, name });
 			return options.renameOrganizationError ?? null;
+		},
+		async updateOrganizationUrlSlug(orgId, urlSlug) {
+			slugRequests.push({ orgId, urlSlug });
+			return options.updateOrganizationUrlSlugError ?? null;
+		},
+		async findOrganizationByUrlSlug(urlSlug) {
+			slugLookups.push(urlSlug);
+			return options.existingSlugOrgId ? { id: options.existingSlugOrgId } : null;
 		},
 		async transferOwnership(orgId, newOwnerId) {
 			transferRequests.push({ orgId, newOwnerId });
@@ -150,6 +168,80 @@ describe('renameOrganization', () => {
 		});
 
 		expect(ctx.auditPort.events).toEqual([]);
+	});
+});
+
+describe('updateOrganizationUrlSlug', () => {
+	it('normalizes, persists, and audits organization URL slugs', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		const result = await updateOrganizationUrlSlug(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{ urlSlug: '  1-11-BDE  ' }
+		);
+
+		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: '1-11-bde' });
+		expect(port.slugLookups).toEqual(['1-11-bde']);
+		expect(port.slugRequests).toEqual([{ orgId: 'org-1', urlSlug: '1-11-bde' }]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.url_slug_updated',
+				resourceType: 'organization',
+				details: { urlSlug: '1-11-bde' }
+			}
+		]);
+	});
+
+	it('rejects duplicate organization URL slugs before writing', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort({ existingSlugOrgId: 'org-2' });
+
+		await expect(
+			updateOrganizationUrlSlug(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+				{ urlSlug: '1-11-bde' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Organization URL slug is already in use'
+		});
+
+		expect(port.slugRequests).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('clears organization URL slugs through the same governance policy', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1'
+			}
+		});
+		const port = createOrganizationSettingsAdministrationPort();
+
+		const result = await clearOrganizationUrlSlug({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			notifications: ctx.notifications,
+			administration: port
+		});
+
+		expect(result).toEqual({ slugSuccess: true, orgUrlSlug: null });
+		expect(port.slugRequests).toEqual([{ orgId: 'org-1', urlSlug: null }]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'org.url_slug_cleared',
+				resourceType: 'organization'
+			}
+		]);
 	});
 });
 

@@ -41,6 +41,7 @@ const ORG_CONTEXT_KEY = Symbol('org-context');
 
 export interface OrgContext {
 	readonly orgId: string;
+	readonly orgUrlSegment: string;
 	readonly orgName: string;
 	readonly userId: string | null;
 	readonly role: 'owner' | 'admin' | 'member';
@@ -68,6 +69,7 @@ export interface OrgContext {
 
 export interface CreateOrgContextInput {
 	orgId: string;
+	orgUrlSegment?: string;
 	orgName: string;
 	userId: string | null;
 	userRole: 'owner' | 'admin' | 'member';
@@ -125,6 +127,9 @@ export function createOrgContext(input: CreateOrgContextInput | OrgContextInputA
 	return {
 		get orgId() {
 			return getInput().orgId;
+		},
+		get orgUrlSegment() {
+			return getInput().orgUrlSegment ?? getInput().orgId;
 		},
 		get orgName() {
 			return getInput().orgName;

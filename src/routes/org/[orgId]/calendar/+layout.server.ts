@@ -27,10 +27,22 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 			createSupabaseCalendarWorkspacePort(locals, cookies, orgId, { specialDaysRange }));
 	const createPlannerPort = deps.createPlannerPort ?? createDefaultHydrationPlanner;
 
-	return async ({ params, locals, cookies, url, depends }) => {
+	return async ({
+		locals,
+		cookies,
+		url,
+		depends,
+		parent
+	}: {
+		locals: App.Locals;
+		cookies: Cookies;
+		url: URL;
+		depends: (...deps: string[]) => void;
+		parent: () => Promise<{ orgId: string }>;
+	}) => {
 		depends('app:org-core', 'app:calendar-data');
 
-		const { orgId } = params;
+		const { orgId } = await parent();
 		const requestContext: CalendarLayoutRequestContext = { locals, cookies, orgId };
 		if (isCalendarSettingsPath(url.pathname)) {
 			requestContext.specialDaysRange = createCalendarSettingsSpecialDaysRange(new Date());

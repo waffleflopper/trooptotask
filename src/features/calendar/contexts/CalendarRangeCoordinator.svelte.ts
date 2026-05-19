@@ -8,7 +8,7 @@ import {
 	type CalendarViewMode
 } from '$features/calendar/utils/calendarRange';
 import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
-import { mergeById } from '$features/calendar/utils/mergeById';
+import { mergeById } from '$lib/utils/mergeById';
 
 type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd' | 'advancedDutyEvents'>;
 

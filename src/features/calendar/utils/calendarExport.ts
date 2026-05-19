@@ -1,5 +1,7 @@
 import type { Personnel, AvailabilityEntry, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
+import { createWorkbook, downloadWorkbook, type Workbook, type Worksheet } from '$lib/export/workbook';
 import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, parseDate } from '$lib/utils/dates';
+import type ExcelJS from 'exceljs';
 import type { RowInput } from 'jspdf-autotable';
 
 interface GroupData {
@@ -36,6 +38,15 @@ interface CalendarExportIndex {
 	getStatus: (personnelId: string, dateKey: string) => StatusType | undefined;
 	getAssignments: (personnelId: string, dateKey: string) => string[];
 }
+
+interface CalendarWorkbookCell {
+	value: string | null;
+	status: StatusType | undefined;
+	assignments: string[];
+	meta: CalendarExportDateMeta;
+}
+
+type WorkbookCell = ExcelJS.Cell;
 
 function cellKey(personnelId: string, dateKey: string): string {
 	return `${personnelId}:${dateKey}`;
@@ -117,99 +128,32 @@ function buildCalendarExportIndex(dates: Date[], options: ExportOptions): Calend
 	};
 }
 
-/**
- * Export single month calendar to Excel-compatible HTML with colors
- */
-export function exportMonthToCSV(year: number, month: number, options: ExportOptions): void {
+export async function buildMonthCalendarWorkbook(
+	year: number,
+	month: number,
+	options: ExportOptions
+): Promise<Workbook> {
 	const { personnelByGroup } = options;
 	const dates = getMonthDates(year, month);
 	const exportIndex = buildCalendarExportIndex(dates, options);
 	const monthName = getMonthName(month);
+	const workbook = await createWorkbook();
+	workbook.addWorksheet(`${monthName} ${year}`);
+	const sheet = workbook.getWorksheet(1);
+	if (!sheet) return workbook;
 
-	let html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head>
-<meta charset="UTF-8">
-<style>
-	table { border-collapse: collapse; }
-	th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-family: Arial, sans-serif; font-size: 10pt; }
-	th { background: #1e40af; color: white; font-weight: bold; }
-	.name-cell { text-align: left; min-width: 150px; }
-	.group-row { background: #1e40af; color: white; font-weight: bold; }
-	.weekend { background: #f3f4f6; }
-	.holiday { background: #fef3c7; }
-</style>
-</head>
-<body>
-<table>
-	<tr>
-		<th class="name-cell">Personnel</th>`;
-
-	// Header row with dates
-	for (const { date, isWeekend: isWknd, isHoliday } of exportIndex.dateMetas) {
-		const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-		const dayNum = date.getDate();
-		const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
-		html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
-	}
-	html += '</tr>';
-
-	// Personnel rows
-	for (const grp of personnelByGroup) {
-		if (grp.personnel.length > 0) {
-			// Group header row
-			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group}</td></tr>`;
-
-			for (const person of grp.personnel) {
-				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
-
-				for (const { dateKey, isWeekend: isWknd, isHoliday } of exportIndex.dateMetas) {
-					const status = exportIndex.getStatus(person.id, dateKey);
-					const personAssignments = exportIndex.getAssignments(person.id, dateKey);
-
-					let cellContent = '';
-					let bgColor = '';
-					let textColor = '';
-
-					if (status) {
-						cellContent = status.name;
-						bgColor = status.color;
-						textColor = status.textColor;
-					}
-					if (personAssignments.length > 0) {
-						const assignmentText = personAssignments.join(', ');
-						cellContent = cellContent ? `${cellContent} (${assignmentText})` : assignmentText;
-					}
-
-					let style = '';
-					if (bgColor) {
-						style = `background-color: ${bgColor}; color: ${textColor};`;
-					} else if (isHoliday) {
-						style = 'background-color: #fef3c7;';
-					} else if (isWknd) {
-						style = 'background-color: #f3f4f6;';
-					}
-
-					html += `<td style="${style}">${cellContent}</td>`;
-				}
-
-				html += '</tr>';
-			}
-		}
-	}
-
-	html += '</table></body></html>';
-
-	downloadFile(html, `calendar-${monthName}-${year}.xls`, 'application/vnd.ms-excel');
+	populateCalendarWorkbookSheet(sheet, personnelByGroup, exportIndex, [{ name: `${monthName} ${year}`, dates }]);
+	return workbook;
 }
 
-/**
- * Export 3-month view to Excel-compatible HTML with colors (same format as single month)
- */
-export function exportQuarterToCSV(startDate: Date, options: ExportOptions): void {
+export async function exportMonthToExcel(year: number, month: number, options: ExportOptions): Promise<void> {
+	const workbook = await buildMonthCalendarWorkbook(year, month, options);
+	await downloadWorkbook(workbook, `calendar-${getMonthName(month)}-${year}.xlsx`);
+}
+
+export async function buildQuarterCalendarWorkbook(startDate: Date, options: ExportOptions): Promise<Workbook> {
 	const { personnelByGroup } = options;
 
-	// Get 3 months of data
 	const months: MonthData[] = [];
 	for (let i = 0; i < 3; i++) {
 		const monthDate = addMonths(startDate, i);
@@ -223,105 +167,149 @@ export function exportQuarterToCSV(startDate: Date, options: ExportOptions): voi
 
 	const allDates = months.flatMap((m) => m.dates);
 	const exportIndex = buildCalendarExportIndex(allDates, options);
-	const totalDays = allDates.length;
 	const startMonth = months[0];
 	const endMonth = months[2];
+	const workbook = await createWorkbook();
+	workbook.addWorksheet(`${startMonth.name} to ${endMonth.name}`);
+	const sheet = workbook.getWorksheet(1);
+	if (!sheet) return workbook;
 
-	let html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head>
-<meta charset="UTF-8">
-<style>
-	table { border-collapse: collapse; }
-	th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-family: Arial, sans-serif; font-size: 10pt; }
-	th { background: #1e40af; color: white; font-weight: bold; }
-	.name-cell { text-align: left; min-width: 150px; }
-	.group-row { background: #1e40af; color: white; font-weight: bold; }
-	.weekend { background: #f3f4f6; }
-	.holiday { background: #fef3c7; }
-	.month-header { background: #1e40af; color: white; font-weight: bold; font-size: 11pt; }
-</style>
-</head>
-<body>
-<table>
-	<tr>
-		<th class="name-cell" rowspan="2">Personnel</th>`;
+	populateCalendarWorkbookSheet(
+		sheet,
+		personnelByGroup,
+		exportIndex,
+		months.map((month) => ({ name: `${month.name} ${month.year}`, dates: month.dates }))
+	);
+	return workbook;
+}
 
-	// Month header row
-	for (const month of months) {
-		html += `<th class="month-header" colspan="${month.dates.length}">${month.name} ${month.year}</th>`;
-	}
-	html += '</tr><tr>';
+export async function exportQuarterToExcel(startDate: Date, options: ExportOptions): Promise<void> {
+	const workbook = await buildQuarterCalendarWorkbook(startDate, options);
+	const startMonth = getMonthName(startDate.getMonth());
+	const endDate = addMonths(startDate, 2);
+	const endMonth = getMonthName(endDate.getMonth());
+	await downloadWorkbook(
+		workbook,
+		`calendar-${startMonth}-${startDate.getFullYear()}-to-${endMonth}-${endDate.getFullYear()}.xlsx`
+	);
+}
 
-	// Day header row with day names and numbers
-	let dateMetaIndex = 0;
-	for (const month of months) {
-		for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
-			const meta = exportIndex.dateMetas[dateMetaIndex++];
-			const dayName = meta.date.toLocaleDateString('en-US', { weekday: 'short' });
-			const dayNum = meta.date.getDate();
-			const isWknd = meta.isWeekend;
-			const isHoliday = meta.isHoliday;
-			const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
-			html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
+function populateCalendarWorkbookSheet(
+	sheet: Worksheet,
+	personnelByGroup: GroupData[],
+	exportIndex: CalendarExportIndex,
+	monthGroups: Array<{ name: string; dates: Date[] }>
+): void {
+	const allDates = monthGroups.flatMap((month) => month.dates);
+	sheet.columns = [{ key: 'personnel', width: 24 }, ...allDates.map((date) => ({ key: formatDate(date), width: 12 }))];
+	sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: 2 }];
+
+	const monthHeader = sheet.getRow(1);
+	monthHeader.getCell(1).value = 'Personnel';
+	monthHeader.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+	monthHeader.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+	monthHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+	let monthStartColumn = 2;
+	for (const group of monthGroups) {
+		const monthEndColumn = monthStartColumn + group.dates.length - 1;
+		monthHeader.getCell(monthStartColumn).value = group.name;
+		if (monthEndColumn > monthStartColumn) {
+			sheet.mergeCells(1, monthStartColumn, 1, monthEndColumn);
 		}
+		for (let column = monthStartColumn; column <= monthEndColumn; column += 1) {
+			const cell = monthHeader.getCell(column);
+			cell.alignment = { vertical: 'middle', horizontal: 'center' };
+			cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+			cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+		}
+		monthStartColumn = monthEndColumn + 1;
 	}
-	html += '</tr>';
 
-	// Personnel rows
-	for (const grp of personnelByGroup) {
-		if (grp.personnel.length > 0) {
-			// Group header row
-			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group}</td></tr>`;
+	const dateHeader = sheet.getRow(2);
+	dateHeader.getCell(1).value = 'Personnel';
+	dateHeader.font = { bold: true };
+	exportIndex.dateMetas.forEach((meta, index) => {
+		const cell = dateHeader.getCell(index + 2);
+		cell.value = `${meta.date.toLocaleDateString('en-US', { weekday: 'short' })}\n${meta.date.getDate()}`;
+		cell.font = { bold: true };
+		cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+		applyCalendarMetaFill(cell, meta);
+	});
 
-			for (const person of grp.personnel) {
-				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
+	for (const group of personnelByGroup) {
+		if (group.personnel.length === 0) continue;
+		const groupRow = sheet.addRow([group.group]);
+		sheet.mergeCells(groupRow.number, 1, groupRow.number, allDates.length + 1);
+		groupRow.eachCell((cell) => {
+			cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+			cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+			cell.alignment = { horizontal: 'left' };
+		});
 
-				let personDateMetaIndex = 0;
-				for (const month of months) {
-					for (let dayIndex = 0; dayIndex < month.dates.length; dayIndex += 1) {
-						const meta = exportIndex.dateMetas[personDateMetaIndex++];
-						const status = exportIndex.getStatus(person.id, meta.dateKey);
-						const personAssignments = exportIndex.getAssignments(person.id, meta.dateKey);
-						const isWknd = meta.isWeekend;
-						const isHoliday = meta.isHoliday;
-
-						let cellContent = '';
-						let bgColor = '';
-						let textColor = '';
-
-						if (status) {
-							cellContent = status.name;
-							bgColor = status.color;
-							textColor = status.textColor;
-						}
-						if (personAssignments.length > 0) {
-							const assignmentText = personAssignments.join(', ');
-							cellContent = cellContent ? `${cellContent} (${assignmentText})` : assignmentText;
-						}
-
-						let style = '';
-						if (bgColor) {
-							style = `background-color: ${bgColor}; color: ${textColor};`;
-						} else if (isHoliday) {
-							style = 'background-color: #fef3c7;';
-						} else if (isWknd) {
-							style = 'background-color: #f3f4f6;';
-						}
-
-						html += `<td style="${style}">${cellContent}</td>`;
-					}
+		for (const person of group.personnel) {
+			const cells = exportIndex.dateMetas.map((meta) =>
+				calendarWorkbookCell(
+					person.id,
+					meta,
+					exportIndex.getStatus(person.id, meta.dateKey),
+					exportIndex.getAssignments(person.id, meta.dateKey)
+				)
+			);
+			const row = sheet.addRow([
+				`${person.rank} ${person.lastName}, ${person.firstName}`,
+				...cells.map((cell) => cell.value)
+			]);
+			row.getCell(1).font = { bold: true, color: { argb: 'FF666666' } };
+			cells.forEach((workbookCell, index) => {
+				const cell = row.getCell(index + 2);
+				cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+				if (workbookCell.status) {
+					cell.fill = {
+						type: 'pattern',
+						pattern: 'solid',
+						fgColor: { argb: hexToArgb(workbookCell.status.color) }
+					};
+					cell.font = { color: { argb: hexToArgb(workbookCell.status.textColor) } };
+				} else {
+					applyCalendarMetaFill(cell, workbookCell.meta);
 				}
-
-				html += '</tr>';
-			}
+			});
 		}
 	}
+}
 
-	html += '</table></body></html>';
+function calendarWorkbookCell(
+	personnelId: string,
+	meta: CalendarExportDateMeta,
+	status: StatusType | undefined,
+	assignments: string[]
+): CalendarWorkbookCell {
+	let value: string | null = status?.name ?? null;
+	if (assignments.length > 0) {
+		const assignmentText = assignments.join(', ');
+		value = value ? `${value} (${assignmentText})` : assignmentText;
+	}
+	return { value, status, assignments, meta };
+}
 
-	const filename = `calendar-${startMonth.name}-${startMonth.year}-to-${endMonth.name}-${endMonth.year}.xls`;
-	downloadFile(html, filename, 'application/vnd.ms-excel');
+function applyCalendarMetaFill(cell: WorkbookCell, meta: CalendarExportDateMeta): void {
+	if (meta.isHoliday) {
+		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+	} else if (meta.isWeekend) {
+		cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+	}
+}
+
+function hexToArgb(hex: string): string {
+	const value = hex.replace('#', '').trim();
+	return `FF${
+		value.length === 3
+			? value
+					.split('')
+					.map((part) => part + part)
+					.join('')
+			: value
+	}`.toUpperCase();
 }
 
 /**
@@ -615,16 +603,4 @@ export async function printQuarterCalendar(startDate: Date, options: ExportOptio
 	});
 
 	doc.save(`calendar-${months[0].name}-${months[0].year}-to-${months[2].name}-${months[2].year}.pdf`);
-}
-
-function downloadFile(content: string, filename: string, mimeType: string): void {
-	const blob = new Blob([content], { type: mimeType });
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement('a');
-	link.href = url;
-	link.download = filename;
-	document.body.appendChild(link);
-	link.click();
-	document.body.removeChild(link);
-	URL.revokeObjectURL(url);
 }

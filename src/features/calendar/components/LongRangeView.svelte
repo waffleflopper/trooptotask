@@ -8,7 +8,7 @@
 		DailyAssignment
 	} from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
-	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
+	import { exportQuarterToExcel, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { buildDutyEventBadgesByPerson } from '$features/calendar/utils/dutyEventBadges';
@@ -205,8 +205,8 @@
 		viewStartDate = new Date(year, month, 1);
 	}
 
-	function handleExportCSV() {
-		exportQuarterToCSV(viewStartDate, {
+	function handleExportExcel() {
+		exportQuarterToExcel(viewStartDate, {
 			personnelByGroup,
 			availabilityEntries,
 			statusTypes,
@@ -400,7 +400,7 @@
 			{/each}
 		</div>
 		<div class="ml-auto flex shrink-0 items-center gap-2">
-			<Button variant="outline" size="sm" onclick={handleExportCSV} title="Export to Excel">
+			<Button variant="outline" size="sm" onclick={handleExportExcel} title="Export to Excel">
 				<FileSpreadsheetIcon aria-hidden="true" />
 				Excel
 			</Button>

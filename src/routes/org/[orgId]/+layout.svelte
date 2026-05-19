@@ -35,6 +35,7 @@
 	setOrgContext(
 		createOrgContext(() => ({
 			orgId: data.orgId ?? '',
+			orgUrlSegment: data.orgUrlSegment ?? data.orgId ?? '',
 			orgName: data.orgName ?? '',
 			userId: data.userId ?? null,
 			userRole: data.userRole ?? 'member',
@@ -122,7 +123,7 @@
 	</div>
 {:else}
 	<BannerStack>
-		<SubscriptionBanner orgId={data.orgId} />
+		<SubscriptionBanner orgId={data.orgId} orgUrlSegment={data.orgUrlSegment ?? data.orgId} />
 		{#if data.activeAnnouncements?.length}
 			<AnnouncementBanner announcements={data.activeAnnouncements} />
 		{/if}
@@ -130,6 +131,7 @@
 
 	<TopHeader
 		orgId={data.orgId}
+		orgUrlSegment={data.orgUrlSegment ?? data.orgId}
 		orgName={data.orgName}
 		userRole={data.userRole ?? 'member'}
 		membershipId={data.membershipId ?? null}

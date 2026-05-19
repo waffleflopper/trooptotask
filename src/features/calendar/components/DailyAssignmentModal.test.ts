@@ -168,4 +168,34 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 
 		expect(onSetAssignment).toHaveBeenCalledWith('2026-04-06', 'type-1', 'person-2');
 	});
+
+	it('does not offer archived assignment types as editable daily choices', () => {
+		render(DailyAssignmentModal, {
+			props: {
+				date: new Date(2026, 3, 6),
+				assignmentTypes: [
+					...assignmentTypes,
+					{
+						id: 'type-archived',
+						name: 'Archived Duty',
+						shortName: 'OLD',
+						assignTo: 'personnel',
+						color: '#6b7280',
+						exemptPersonnelIds: [],
+						showInDateHeader: false,
+						archivedAt: '2026-05-04T12:00:00.000Z'
+					}
+				],
+				assignments: [],
+				personnelByGroup: [{ group: 'Alpha', personnel }],
+				groups: [],
+				onSetAssignment: vi.fn(),
+				onRemoveAssignment: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Set Charge of Quarters assignee' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Set Archived Duty assignee' })).toBeNull();
+	});
 });

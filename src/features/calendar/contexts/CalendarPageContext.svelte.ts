@@ -9,6 +9,7 @@ import { groupsStore } from '$lib/stores/groups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$lib/domain/rosterGrouping';
 import { scopePersonnelByGroupScopeSet } from '$lib/utils/scopePersonnel';
+import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import {
@@ -253,12 +254,13 @@ export class CalendarPageContext {
 
 	/** Mark calendar as explored for Getting Started checklist. */
 	markCalendarVisited(): void {
-		if (browser && typeof globalThis.localStorage?.setItem === 'function') {
-			try {
-				globalThis.localStorage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
-			} catch {
-				// Non-critical getting-started persistence should not block the calendar.
-			}
+		const storage = getBrowserLocalStorage();
+		if (!browser || !storage) return;
+
+		try {
+			storage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
+		} catch {
+			// Non-critical getting-started persistence should not block the calendar.
 		}
 	}
 

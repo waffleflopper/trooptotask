@@ -116,6 +116,10 @@ const manualSelectionSchema = z.object({
 	assigneeId: z.string().trim().min(1, 'Selected Soldier is required'),
 	reason: z.string().trim().nullable().optional()
 });
+const archiveTemplateSchema = z.object({
+	templateId: z.string().trim().min(1, 'Duty Roster Template is required'),
+	archiveAssignmentType: z.boolean().optional().default(false)
+});
 const acceptPreviewSchema = z.object({
 	preview: z
 		.string()
@@ -304,6 +308,15 @@ function parseManualSelectionInput(
 	const parsed = manualSelectionSchema.safeParse(input);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues[0]?.message ?? 'Manual selection input is invalid');
+	}
+
+	return parsed.data;
+}
+
+function parseArchiveInput(input: DutyRosterTemplateArchiveInput): Required<DutyRosterTemplateArchiveInput> {
+	const parsed = archiveTemplateSchema.safeParse(input);
+	if (!parsed.success) {
+		fail(400, parsed.error.issues[0]?.message ?? 'Duty Roster Template archive input is invalid');
 	}
 
 	return parsed.data;
@@ -695,8 +708,9 @@ export async function archiveDutyRosterTemplateLifecycle(
 	ctx: WritePorts,
 	input: DutyRosterTemplateArchiveInput
 ): Promise<DutyRosterTemplate> {
+	const parsed = parseArchiveInput(input);
 	const existing = await ctx.store.findOne<DutyRosterTemplateRow>(DUTY_ROSTER_TEMPLATE_TABLE, ctx.auth.orgId, {
-		id: input.templateId,
+		id: parsed.templateId,
 		status: 'active'
 	});
 	if (!existing) {
@@ -706,17 +720,32 @@ export async function archiveDutyRosterTemplateLifecycle(
 	const row = await ctx.store.update<DutyRosterTemplateRow>(
 		DUTY_ROSTER_TEMPLATE_TABLE,
 		ctx.auth.orgId,
-		input.templateId,
+		parsed.templateId,
 		{
 			status: 'archived',
 			updated_at: new Date().toISOString()
 		}
 	);
 
+	if (parsed.archiveAssignmentType) {
+		await ctx.store.update<Record<string, unknown>>(
+			ASSIGNMENT_TYPE_TABLE,
+			ctx.auth.orgId,
+			existing.assignment_type_id,
+			{
+				archived_at: new Date().toISOString()
+			}
+		);
+	}
+
 	ctx.audit.log({
 		action: 'duty_roster_template.archived',
 		resourceType: 'duty_roster_template',
-		resourceId: row.id
+		resourceId: row.id,
+		details: {
+			archiveAssignmentType: parsed.archiveAssignmentType,
+			assignmentTypeId: existing.assignment_type_id
+		}
 	});
 
 	return toTemplate(row);

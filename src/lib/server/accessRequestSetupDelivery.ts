@@ -20,8 +20,11 @@ export interface AccessRequestSetupRequest {
 
 export interface CreatePendingAccessRequestInput {
 	email: string;
-	name: string;
+	firstName: string;
+	lastName: string;
 	reason: string | null;
+	heardAbout: string;
+	heardAboutDetails: string | null;
 }
 
 export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore {
@@ -128,8 +131,11 @@ export function createAccessRequestSetupDeliveryService(
 	return {
 		async submitAccessRequest(input: {
 			email: string;
-			name: string;
+			firstName: string;
+			lastName: string;
 			reason: string | null;
+			heardAbout: string;
+			heardAboutDetails: string | null;
 			origin: string;
 		}): Promise<AccessRequestSubmissionResult> {
 			const email = normalizeEmail(input.email);
@@ -153,8 +159,11 @@ export function createAccessRequestSetupDeliveryService(
 
 			await store.insertPendingAccessRequest({
 				email,
-				name: input.name,
-				reason: input.reason
+				firstName: input.firstName,
+				lastName: input.lastName,
+				reason: input.reason,
+				heardAbout: input.heardAbout,
+				heardAboutDetails: input.heardAboutDetails
 			});
 
 			return { status: 'pending-created' };
@@ -196,8 +205,12 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 		async insertPendingAccessRequest(input) {
 			const { error } = await client.from('access_requests').insert({
 				email: normalizeEmail(input.email),
-				name: input.name,
-				reason: input.reason
+				name: `${input.firstName} ${input.lastName}`,
+				first_name: input.firstName,
+				last_name: input.lastName,
+				reason: input.reason,
+				heard_about: input.heardAbout,
+				heard_about_details: input.heardAboutDetails
 			});
 
 			if (error) {

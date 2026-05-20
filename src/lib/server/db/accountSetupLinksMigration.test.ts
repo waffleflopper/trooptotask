@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPaths = [
 	join(process.cwd(), 'supabase/migrations/20260518000100_account_setup_links.sql'),
-	join(process.cwd(), 'supabase/migrations/20260518000200_access_request_setup_user_id.sql')
+	join(process.cwd(), 'supabase/migrations/20260518000200_access_request_setup_user_id.sql'),
+	join(process.cwd(), 'supabase/migrations/20260519000200_access_request_profile_and_source.sql')
 ];
 const sql = migrationPaths.map((migrationPath) => readFileSync(migrationPath, 'utf8')).join('\n');
 
@@ -25,6 +26,17 @@ describe('Account Setup Links migration', () => {
 		expect(normalized).toContain(
 			'create index if not exists "access_requests_setup_user_id_idx" on "public"."access_requests" using "btree" ("setup_user_id") where ("setup_user_id" is not null)'
 		);
+	});
+
+	it('adds structured profile names and source tracking to Access Requests', () => {
+		const normalized = normalizedSql();
+
+		expect(normalized).toContain('add column if not exists "first_name" "text"');
+		expect(normalized).toContain('add column if not exists "last_name" "text"');
+		expect(normalized).toContain('add column if not exists "heard_about" "text"');
+		expect(normalized).toContain('add column if not exists "heard_about_details" "text"');
+		expect(normalized).toContain("'search_engine'::text");
+		expect(normalized).not.toContain("'github'::text");
 	});
 
 	it('creates hashed-token setup-link storage with one active unused link per Access Request', () => {

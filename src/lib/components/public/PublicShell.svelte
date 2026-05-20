@@ -8,7 +8,7 @@
 
 	interface Props {
 		user?: unknown;
-		active?: 'security';
+		active?: 'about' | 'security';
 		bodyClass?: string;
 		roadmapHref?: PublicAnchorHref;
 		faqHref?: PublicAnchorHref;

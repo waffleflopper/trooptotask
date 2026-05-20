@@ -72,6 +72,20 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 			if (error) {
 				throw error;
 			}
+		},
+		async upsertUserProfile(input) {
+			const { error } = await client.from('user_profiles').upsert(
+				{
+					user_id: input.userId,
+					first_name: input.firstName,
+					last_name: input.lastName
+				},
+				{ onConflict: 'user_id', ignoreDuplicates: true }
+			);
+
+			if (error) {
+				throw error;
+			}
 		}
 	};
 }

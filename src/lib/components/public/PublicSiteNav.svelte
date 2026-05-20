@@ -7,7 +7,7 @@
 
 	interface Props {
 		user?: unknown;
-		active?: 'security';
+		active?: 'about' | 'security';
 		roadmapHref?: PublicAnchorHref;
 		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
@@ -33,6 +33,7 @@
 		</a>
 
 		<div class="nav-links">
+			<a href={resolve('/about')} class="nav-link" class:active={active === 'about'}>About</a>
 			<a href={resolve('/#pricing')} class="nav-link">Pricing</a>
 			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}

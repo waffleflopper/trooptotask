@@ -11,6 +11,9 @@ export type AccountSetupLinkValidationStatus = 'valid' | 'expired' | 'revoked' |
 export interface AccountSetupLinkAccessRequest {
 	id: string;
 	email?: string;
+	name?: string | null;
+	firstName?: string | null;
+	lastName?: string | null;
 	status: 'pending' | 'approved' | 'rejected';
 	setupCompletedAt: Date | string | null;
 }
@@ -56,6 +59,9 @@ interface AccountSetupLinkRow {
 interface AccessRequestRow {
 	id: string;
 	email?: string;
+	name?: string | null;
+	first_name?: string | null;
+	last_name?: string | null;
 	status: 'pending' | 'approved' | 'rejected';
 	setup_completed_at: string | null;
 }
@@ -133,6 +139,9 @@ function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessReque
 	return {
 		id: row.id,
 		email: row.email,
+		name: row.name,
+		firstName: row.first_name,
+		lastName: row.last_name,
 		status: row.status,
 		setupCompletedAt: row.setup_completed_at
 	};
@@ -346,7 +355,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async getAccessRequest(id) {
 			const { data, error } = await client
 				.from('access_requests')
-				.select('id, email, status, setup_completed_at')
+				.select('id, email, name, first_name, last_name, status, setup_completed_at')
 				.eq('id', id)
 				.maybeSingle();
 

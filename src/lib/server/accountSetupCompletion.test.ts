@@ -10,15 +10,18 @@ import { createAccountSetupLinkService } from './accountSetupLinks';
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];
 	completions: Array<{ accessRequestId: string; userId: string }>;
+	profiles: Array<{ userId: string; firstName: string; lastName: string }>;
 	failCompletion?: boolean;
 	revokeBeforeMarkUsed?: boolean;
 } {
 	const links: AccountSetupLinkRecord[] = [];
 	const completions: Array<{ accessRequestId: string; userId: string }> = [];
+	const profiles: Array<{ userId: string; firstName: string; lastName: string }> = [];
 
 	return {
 		links,
 		completions,
+		profiles,
 		async getAccessRequest(id) {
 			return id === accessRequest.id ? accessRequest : null;
 		},
@@ -68,6 +71,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 				throw new Error('completion write failed');
 			}
 			completions.push({ accessRequestId, userId });
+		},
+		async upsertUserProfile(input) {
+			profiles.push(input);
 		}
 	};
 }
@@ -91,6 +97,9 @@ async function addSetupToken(store: AccountSetupCompletionStore, rawToken = 'set
 const approvedRequest: AccountSetupLinkAccessRequest = {
 	id: 'request-1',
 	email: 'Person@Example.com',
+	name: 'Person Example',
+	firstName: 'Person',
+	lastName: 'Example',
 	status: 'approved',
 	setupCompletedAt: null
 };
@@ -113,8 +122,24 @@ describe('Account Setup completion', () => {
 			email: 'person@example.com',
 			password: 'ValidPassword123!'
 		});
+		expect(store.profiles).toEqual([{ userId: 'user-123', firstName: 'Person', lastName: 'Example' }]);
 		expect(store.links[0].usedAt).toBeInstanceOf(Date);
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+	});
+
+	it('falls back to a legacy full-name split for older Access Requests without structured names', async () => {
+		const store = makeStore({
+			...approvedRequest,
+			name: 'Legacy Requester',
+			firstName: null,
+			lastName: null
+		});
+		await addSetupToken(store);
+		const service = createAccountSetupCompletionService(store, makeAuth());
+
+		await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+
+		expect(store.profiles).toEqual([{ userId: 'user-123', firstName: 'Legacy', lastName: 'Requester' }]);
 	});
 
 	it('still signs in when a setup link is revoked after completion is recorded', async () => {

@@ -1,3 +1,5 @@
+DROP POLICY IF EXISTS "Org managers can update export lifecycle" ON "public"."data_exports";
+
 CREATE POLICY "Org managers can update export lifecycle"
 ON "public"."data_exports"
 FOR UPDATE

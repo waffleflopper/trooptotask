@@ -80,6 +80,11 @@
 									<p class="truncate text-sm text-muted-foreground">{req.email}</p>
 								</div>
 								{#if req.reason}<p class="text-sm leading-6">{req.reason}</p>{/if}
+								{#if req.heard_about_label}
+									<p class="text-xs text-muted-foreground">
+										Source: {req.heard_about_label}{req.heard_about_details ? ` - ${req.heard_about_details}` : ''}
+									</p>
+								{/if}
 								<p class="text-xs text-muted-foreground">Submitted {formatDisplayDateTime(req.created_at)}</p>
 							</div>
 							<div class="flex flex-wrap gap-2 md:justify-end">
@@ -149,6 +154,11 @@
 								</div>
 								<p class="truncate text-sm text-muted-foreground">{req.email}</p>
 								{#if req.reason}<p class="text-sm leading-6">{req.reason}</p>{/if}
+								{#if req.heard_about_label}
+									<p class="text-xs text-muted-foreground">
+										Source: {req.heard_about_label}{req.heard_about_details ? ` - ${req.heard_about_details}` : ''}
+									</p>
+								{/if}
 								<p class="text-xs text-muted-foreground">
 									Submitted {formatDisplayDateTime(req.created_at)}
 									{#if req.reviewed_at}

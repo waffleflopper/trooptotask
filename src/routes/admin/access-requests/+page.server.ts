@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
@@ -22,6 +23,8 @@ interface AccessRequestRow {
 	name: string;
 	email: string;
 	reason: string | null;
+	heard_about: string | null;
+	heard_about_details: string | null;
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
@@ -34,6 +37,9 @@ interface AccessRequestItem {
 	name: string;
 	email: string;
 	reason: string | null;
+	heard_about: string | null;
+	heard_about_label: string | null;
+	heard_about_details: string | null;
 	status: 'pending' | 'approved' | 'rejected';
 	created_at: string;
 	reviewed_at: string | null;
@@ -60,7 +66,17 @@ function resolveSetupState(
 	now: Date
 ): Omit<
 	AccessRequestItem,
-	'id' | 'name' | 'email' | 'reason' | 'status' | 'created_at' | 'reviewed_at' | 'setup_completed_at'
+	| 'id'
+	| 'name'
+	| 'email'
+	| 'reason'
+	| 'heard_about'
+	| 'heard_about_label'
+	| 'heard_about_details'
+	| 'status'
+	| 'created_at'
+	| 'reviewed_at'
+	| 'setup_completed_at'
 > {
 	const links = normalizeSetupLinks(request.account_setup_links);
 	const latestLink = links[0] ?? null;
@@ -164,7 +180,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 				supabase
 					.from('access_requests')
 					.select(
-						'id, name, email, reason, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, used_at, revoked_at)'
+						'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, setup_completed_at, account_setup_links(id, created_at, expires_at, used_at, revoked_at)'
 					)
 					.order('created_at', { ascending: false })
 					.range(from, to) as unknown as Promise<{
@@ -183,6 +199,9 @@ export const load: PageServerLoad = loadWithAdminContext({
 			name: request.name,
 			email: request.email,
 			reason: request.reason,
+			heard_about: request.heard_about,
+			heard_about_label: getAccessRequestHeardAboutLabel(request.heard_about),
+			heard_about_details: request.heard_about_details,
 			status: request.status,
 			created_at: request.created_at,
 			reviewed_at: request.reviewed_at,

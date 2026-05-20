@@ -4,6 +4,7 @@ export type AccountSetupCompletionInvalidStatus = 'missing' | 'expired' | 'revok
 
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
 	markAccessRequestSetupCompleted(accessRequestId: string, userId: string, completedAt: Date): Promise<void>;
+	upsertUserProfile(input: { userId: string; firstName: string; lastName: string }): Promise<void>;
 }
 
 export interface AccountSetupAuthAdapter {
@@ -31,6 +32,32 @@ function errorMessage(error: unknown, fallback: string): string {
 		return error.message;
 	}
 	return fallback;
+}
+
+function splitLegacyFullName(name: string | null | undefined): { firstName: string; lastName: string } | null {
+	const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+	if (parts.length < 2) {
+		return null;
+	}
+
+	return {
+		firstName: parts[0],
+		lastName: parts.slice(1).join(' ')
+	};
+}
+
+function resolveProfileName(accessRequest: {
+	firstName?: string | null;
+	lastName?: string | null;
+	name?: string | null;
+}): { firstName: string; lastName: string } | null {
+	const firstName = accessRequest.firstName?.trim();
+	const lastName = accessRequest.lastName?.trim();
+	if (firstName && lastName) {
+		return { firstName, lastName };
+	}
+
+	return splitLegacyFullName(accessRequest.name);
 }
 
 export function createAccountSetupCompletionService(store: AccountSetupCompletionStore, auth: AccountSetupAuthAdapter) {
@@ -68,6 +95,10 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			}
 
 			const completedAt = new Date();
+			const profileName = resolveProfileName(accessRequest);
+			if (profileName) {
+				await store.upsertUserProfile({ userId, ...profileName });
+			}
 			await store.markAccessRequestSetupCompleted(validation.accessRequestId, userId, completedAt);
 
 			// After account creation and completion are recorded, token races should not block sign-in.

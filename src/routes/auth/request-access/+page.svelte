@@ -3,15 +3,25 @@
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
+	import { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from '$lib/accessRequests';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
+	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let email = $state('');
-	let name = $state('');
+	let firstName = $state('');
+	let lastName = $state('');
 	let reason = $state('');
+	let heardAbout = $state('');
+	let heardAboutDetails = $state('');
 	let loading = $state(false);
 	let submitted = $state(false);
 	let errorMsg = $state('');
+
+	const heardAboutLabel = $derived(
+		ACCESS_REQUEST_HEARD_ABOUT_OPTIONS.find((option) => option.value === heardAbout)?.label ?? 'Select a source'
+	);
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -24,7 +34,14 @@
 			const res = await fetch('/api/access-requests', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, name, reason: reason || undefined })
+				body: JSON.stringify({
+					email,
+					firstName,
+					lastName,
+					heardAbout,
+					heardAboutDetails: heardAboutDetails || undefined,
+					reason: reason || undefined
+				})
 			});
 
 			if (!res.ok) {
@@ -85,7 +102,24 @@
 			</AuthNotice>
 
 			<form onsubmit={handleSubmit} class="flex flex-col gap-5">
-				<AuthField label="Full Name" id="name" bind:value={name} required placeholder="Your full name" />
+				<div class="grid gap-4 sm:grid-cols-2">
+					<AuthField
+						label="First Name"
+						id="firstName"
+						bind:value={firstName}
+						required
+						autocomplete="given-name"
+						placeholder="First name"
+					/>
+					<AuthField
+						label="Last Name"
+						id="lastName"
+						bind:value={lastName}
+						required
+						autocomplete="family-name"
+						placeholder="Last name"
+					/>
+				</div>
 
 				<AuthField
 					label="Email Address"
@@ -95,6 +129,32 @@
 					required
 					placeholder="you@example.com"
 				/>
+
+				<Field.Root>
+					<Field.Label for="heardAbout" class="text-sm font-medium">
+						How did you hear about TroopToTask?<span class="text-destructive" aria-hidden="true">*</span>
+					</Field.Label>
+					<Select.Root type="single" bind:value={heardAbout}>
+						<Select.Trigger id="heardAbout" class="w-full">{heardAboutLabel}</Select.Trigger>
+						<Select.Content>
+							{#each ACCESS_REQUEST_HEARD_ABOUT_OPTIONS as option (option.value)}
+								<Select.Item value={option.value} label={option.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</Field.Root>
+
+				{#if heardAbout === 'other'}
+					<AuthField
+						label="Where did you hear about it?"
+						id="heardAboutDetails"
+						inputElement="textarea"
+						bind:value={heardAboutDetails}
+						rows={3}
+						placeholder="A short note helps us understand where requests are coming from"
+						hint="Optional."
+					/>
+				{/if}
 
 				<AuthField
 					label="Unit or Reason"
